@@ -44,6 +44,8 @@ const nav: NavGroup[] = [
     items: [
       { href: '/painel/estoque', label: 'Movimentações' },
       { href: '/painel/depositos', label: 'Depósitos' },
+      { href: '/painel/tabelas-preco', label: 'Tabelas de Preço' },
+      { href: '/painel/catalogo', label: 'Catálogo' },
       { href: '/painel/categorias', label: 'Categorias' },
     ],
   },
