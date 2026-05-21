@@ -58,6 +58,13 @@ const nav: NavGroup[] = [
     ],
   },
   {
+    group: 'SIGE Loja',
+    items: [
+      { href: '/painel/loja', label: 'Gestão da Loja' },
+      { href: '/loja', label: 'Ver Loja Online' },
+    ],
+  },
+  {
     group: 'Ferramentas',
     items: [
       { href: '/painel/chat', label: 'Chat IA' },
