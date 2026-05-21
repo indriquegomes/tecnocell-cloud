@@ -38,8 +38,7 @@ export function PortalLoginForm({ buttonColor = '#4A7BA7' }: Props) {
       localStorage.removeItem('tc_no_persist')
     }
 
-    router.push('/painel')
-    router.refresh()
+    window.location.href = '/painel'
   }
 
   return (
