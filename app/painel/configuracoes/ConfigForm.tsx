@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 
 export function ConfigForm({ dados }: { dados: Record<string, string> }) {
   const [status, setStatus] = useState<'idle' | 'saving' | 'ok' | 'erro'>('idle')
@@ -25,13 +24,15 @@ export function ConfigForm({ dados }: { dados: Record<string, string> }) {
       timezone: (form.elements.namedItem('timezone') as HTMLSelectElement).value,
     }
 
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('configuracoes')
-      .upsert({ chave: 'empresa', valor }, { onConflict: 'chave' })
+    const res = await fetch('/api/configuracoes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(valor),
+    })
+    const json = await res.json()
 
-    if (error) {
-      setErro(error.message)
+    if (json.error) {
+      setErro(json.error)
       setStatus('erro')
     } else {
       setStatus('ok')
