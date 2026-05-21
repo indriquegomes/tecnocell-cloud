@@ -11,7 +11,7 @@ export default async function ConfiguracoesPage({ searchParams }: { searchParams
     .eq('chave', 'empresa')
     .single()
 
-  const dados = config?.valor ?? {}
+  const dados = (config?.valor ?? {}) as Record<string, string>
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
