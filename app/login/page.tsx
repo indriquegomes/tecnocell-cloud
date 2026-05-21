@@ -1,55 +1,28 @@
-'use client'
+import { loginAction } from './actions'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-
-export default function LoginPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [senha, setSenha] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [erro, setErro] = useState<string | null>(null)
-
-  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setLoading(true)
-    setErro(null)
-
-    const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password: senha })
-
-    if (error) {
-      setErro('E-mail ou senha incorretos.')
-      setLoading(false)
-      return
-    }
-
-    router.push('/painel')
-    router.refresh()
-  }
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ erro?: string }>
+}) {
+  const { erro } = await searchParams
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md">
         <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-          {/* Logo */}
           <div className="mb-8 text-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo-transparent.png" alt="TecnoCell Cloud" className="mx-auto mb-2 h-14 w-auto object-contain" />
             <p className="mt-1 text-sm text-gray-500">Área de funcionários</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form action={loginAction} className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                E-mail
-              </label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">E-mail</label>
               <input
+                name="email"
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
                 className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -57,13 +30,10 @@ export default function LoginPage() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                Senha
-              </label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Senha</label>
               <input
+                name="password"
                 type="password"
-                value={senha}
-                onChange={(e) => setSenha(e.target.value)}
                 required
                 autoComplete="current-password"
                 className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -77,9 +47,12 @@ export default function LoginPage() {
               </div>
             )}
 
-            <Button type="submit" loading={loading} className="w-full" size="lg">
+            <button
+              type="submit"
+              className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition"
+            >
               Entrar no Painel
-            </Button>
+            </button>
           </form>
 
           <p className="mt-6 text-center text-xs text-gray-400">
