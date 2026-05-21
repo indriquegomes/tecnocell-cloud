@@ -1,10 +1,10 @@
 'use server'
 
 import { createServiceClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 
-export async function salvarConfiguracoes(formData: FormData) {
+type State = { ok: boolean; erro: string | null }
+
+export async function salvarConfiguracoes(_prev: State, formData: FormData): Promise<State> {
   const supabase = await createServiceClient()
 
   const valor = {
@@ -23,7 +23,6 @@ export async function salvarConfiguracoes(formData: FormData) {
     .from('configuracoes')
     .upsert({ chave: 'empresa', valor }, { onConflict: 'chave' })
 
-  if (error) redirect(`/painel/configuracoes?erro=${encodeURIComponent(error.message)}`)
-  revalidatePath('/painel/configuracoes')
-  redirect('/painel/configuracoes?ok=1')
+  if (error) return { ok: false, erro: error.message }
+  return { ok: true, erro: null }
 }

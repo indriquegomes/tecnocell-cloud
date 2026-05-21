@@ -1,53 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useActionState } from 'react'
+import { salvarConfiguracoes } from './actions'
 
 export function ConfigForm({ dados }: { dados: Record<string, string> }) {
-  const [status, setStatus] = useState<'idle' | 'saving' | 'ok' | 'erro'>('idle')
-  const [erro, setErro] = useState('')
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setStatus('saving')
-    setErro('')
-
-    const form = e.currentTarget
-    const valor = {
-      nome_empresa: (form.elements.namedItem('nome_empresa') as HTMLInputElement).value,
-      cnpj: (form.elements.namedItem('cnpj') as HTMLInputElement).value,
-      telefone: (form.elements.namedItem('telefone') as HTMLInputElement).value,
-      endereco: (form.elements.namedItem('endereco') as HTMLInputElement).value,
-      cidade: (form.elements.namedItem('cidade') as HTMLInputElement).value,
-      estado: (form.elements.namedItem('estado') as HTMLInputElement).value,
-      site: (form.elements.namedItem('site') as HTMLInputElement).value,
-      moeda: (form.elements.namedItem('moeda') as HTMLSelectElement).value,
-      timezone: (form.elements.namedItem('timezone') as HTMLSelectElement).value,
-    }
-
-    const res = await fetch('/api/configuracoes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(valor),
-    })
-    const json = await res.json()
-
-    if (json.error) {
-      setErro(json.error)
-      setStatus('erro')
-    } else {
-      setStatus('ok')
-    }
-  }
+  const [state, formAction, pending] = useActionState(salvarConfiguracoes, { ok: false, erro: null })
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-5">
-      {status === 'ok' && (
+    <form action={formAction} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-5">
+      {state.ok && (
         <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
           Configurações salvas com sucesso!
         </div>
       )}
-      {status === 'erro' && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>
+      {state.erro && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{state.erro}</div>
       )}
 
       <h3 className="text-sm font-semibold text-gray-700 border-b border-gray-100 pb-3">Dados da Empresa</h3>
@@ -102,9 +69,9 @@ export function ConfigForm({ dados }: { dados: Record<string, string> }) {
       </div>
 
       <div className="pt-2">
-        <button type="submit" disabled={status === 'saving'}
+        <button type="submit" disabled={pending}
           className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-60">
-          {status === 'saving' ? 'Salvando...' : 'Salvar Configurações'}
+          {pending ? 'Salvando...' : 'Salvar Configurações'}
         </button>
       </div>
     </form>
