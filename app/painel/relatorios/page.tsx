@@ -47,10 +47,10 @@ export default async function RelatoriosPage({
       .order('quantidade', { ascending: false })
       .limit(200)
     estoque = (data ?? []).map((e) => ({
-      nome: (e.produtos as { nome: string; preco: number } | null)?.nome ?? '—',
-      preco: (e.produtos as { nome: string; preco: number } | null)?.preco ?? 0,
+      nome: (e.produtos as unknown as { nome: string; preco: number } | null)?.nome ?? '—',
+      preco: (e.produtos as unknown as { nome: string; preco: number } | null)?.preco ?? 0,
       quantidade: e.quantidade,
-      deposito: (e.depositos as { nome: string } | null)?.nome ?? '—',
+      deposito: (e.depositos as unknown as { nome: string } | null)?.nome ?? '—',
     }))
   }
 
