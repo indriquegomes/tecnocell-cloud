@@ -20,15 +20,15 @@ export async function proxy(request: NextRequest) {
   )
 
   // Atualiza sessão (necessário para SSR do Supabase)
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { session } } = await supabase.auth.getSession()
 
   // Protege /painel — redireciona para login se não autenticado
-  if (request.nextUrl.pathname.startsWith('/painel') && !user) {
+  if (request.nextUrl.pathname.startsWith('/painel') && !session) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
   // Se já logado e tenta acessar /login, vai para o painel
-  if (request.nextUrl.pathname === '/login' && user) {
+  if (request.nextUrl.pathname === '/login' && session) {
     return NextResponse.redirect(new URL('/painel', request.url))
   }
 
