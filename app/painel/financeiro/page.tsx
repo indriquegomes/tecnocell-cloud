@@ -1,0 +1,167 @@
+import { createClient } from '@/lib/supabase/server'
+import { formatBRL, formatDate } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
+import { marcarPago, deletarLancamento } from './actions'
+import { BotaoExcluir } from '@/components/ui/botao-excluir'
+import Link from 'next/link'
+
+export default async function FinanceiroPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tipo?: string; busca?: string }>
+}) {
+  const params = await searchParams
+  const supabase = await createClient()
+
+  let query = supabase
+    .from('lancamentos')
+    .select('id, codigo, descricao, valor, tipo, status, data_vencimento, data_pagamento, forma_pagamento, pessoa_nome')
+    .order('data_vencimento', { ascending: false })
+    .limit(200)
+
+  if (params.tipo && (params.tipo === 'pagar' || params.tipo === 'receber')) {
+    query = query.eq('tipo', params.tipo)
+  }
+  if (params.busca) {
+    query = query.ilike('descricao', `%${params.busca}%`)
+  }
+
+  const { data: lancamentos } = await query
+
+  const todos = lancamentos ?? []
+  const totalReceber = todos.filter((l) => l.tipo === 'receber' && l.status !== 'pago').reduce((s, l) => s + (l.valor ?? 0), 0)
+  const totalPagar = todos.filter((l) => l.tipo === 'pagar' && l.status !== 'pago').reduce((s, l) => s + (l.valor ?? 0), 0)
+  const pendentes = todos.filter((l) => (l.status ?? '').toLowerCase() !== 'pago').length
+
+  function statusVariant(status: string | null): 'success' | 'warning' | 'danger' | 'outline' {
+    const s = (status ?? '').toLowerCase()
+    if (s.includes('pago') || s.includes('recebido')) return 'success'
+    if (s.includes('vencido') || s.includes('atrasado')) return 'danger'
+    if (s.includes('parcial')) return 'warning'
+    return 'outline'
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-900">Financeiro</h2>
+        <div className="flex gap-2">
+          <Link href="/painel/financeiro/novo?tipo=receber"
+            className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
+            + A Receber
+          </Link>
+          <Link href="/painel/financeiro/novo?tipo=pagar"
+            className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition">
+            + A Pagar
+          </Link>
+        </div>
+      </div>
+
+      {/* Resumo */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-xl border border-green-200 bg-green-50 p-5 shadow-sm">
+          <p className="text-sm font-medium text-green-700">A Receber (pendente)</p>
+          <p className="mt-1 text-3xl font-bold text-green-700">{formatBRL(totalReceber)}</p>
+        </div>
+        <div className="rounded-xl border border-red-200 bg-red-50 p-5 shadow-sm">
+          <p className="text-sm font-medium text-red-700">A Pagar (pendente)</p>
+          <p className="mt-1 text-3xl font-bold text-red-700">{formatBRL(totalPagar)}</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <p className="text-sm font-medium text-gray-600">Pendentes</p>
+          <p className="mt-1 text-3xl font-bold text-gray-900">{pendentes}</p>
+        </div>
+      </div>
+
+      {/* Filtros */}
+      <form method="GET" className="flex flex-wrap gap-3">
+        <input
+          name="busca"
+          defaultValue={params.busca}
+          placeholder="Buscar descrição..."
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+          <Link href="/painel/financeiro"
+            className={`px-4 py-2 transition ${!params.tipo ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
+            Todos
+          </Link>
+          <Link href="/painel/financeiro?tipo=receber"
+            className={`px-4 py-2 border-l border-gray-200 transition ${params.tipo === 'receber' ? 'bg-green-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
+            A Receber
+          </Link>
+          <Link href="/painel/financeiro?tipo=pagar"
+            className={`px-4 py-2 border-l border-gray-200 transition ${params.tipo === 'pagar' ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
+            A Pagar
+          </Link>
+        </div>
+      </form>
+
+      {/* Tabela */}
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <table className="min-w-full divide-y divide-gray-100">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Descrição</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Pessoa</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Vencimento</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Valor</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Tipo</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Ações</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {todos.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-12 text-center text-sm text-gray-400">
+                  Nenhum lançamento encontrado.
+                </td>
+              </tr>
+            ) : (
+              todos.map((l) => {
+                const pago = (l.status ?? '').toLowerCase().includes('pago')
+                return (
+                  <tr key={l.id} className="hover:bg-gray-50 transition">
+                    <td className="px-4 py-3 text-sm text-gray-800">{l.descricao || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{l.pessoa_nome || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {l.data_vencimento ? formatDate(l.data_vencimento) : '—'}
+                    </td>
+                    <td className={`px-4 py-3 text-right text-sm font-bold ${l.tipo === 'receber' ? 'text-green-600' : 'text-red-600'}`}>
+                      {l.tipo === 'receber' ? '+' : '-'}{formatBRL(l.valor ?? 0)}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <Badge variant={l.tipo === 'receber' ? 'success' : 'danger'}>
+                        {l.tipo === 'receber' ? 'Receber' : 'Pagar'}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <Badge variant={statusVariant(l.status)}>{l.status || 'Pendente'}</Badge>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        {!pago && (
+                          <form action={marcarPago.bind(null, l.id)}>
+                            <button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-medium text-green-600 hover:bg-green-50 transition">
+                              Pago
+                            </button>
+                          </form>
+                        )}
+                        <Link href={`/painel/financeiro/${l.id}/editar`}
+                          className="rounded-lg px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 transition">
+                          Editar
+                        </Link>
+                        <BotaoExcluir action={deletarLancamento.bind(null, l.id)} mensagem="Excluir este lançamento?" />
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
