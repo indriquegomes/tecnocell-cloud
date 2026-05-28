@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createServiceClient } from '@/lib/supabase/server'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { criarFormaPagamento, editarFormaPagamento, deletarFormaPagamento } from './actions'
 import Link from 'next/link'
@@ -9,7 +9,7 @@ export default async function FormasPagamentoPage({
   searchParams: Promise<{ erro?: string; editar?: string }>
 }) {
   const { erro, editar } = await searchParams
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
   const { data: formas } = await supabase
     .from('formas_pagamento')
     .select('id, nome, ativo')
@@ -27,7 +27,7 @@ export default async function FormasPagamentoPage({
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>
       )}
 
-      {/* Formulário nova / editar */}
+      {/* FormulÃ¡rio nova / editar */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <h3 className="mb-4 text-sm font-semibold text-gray-700">
           {editando ? `Editando: ${editando.nome}` : 'Nova Forma de Pagamento'}
@@ -67,7 +67,7 @@ export default async function FormasPagamentoPage({
             <tr>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Nome</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Ações</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">AÃ§Ãµes</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -98,3 +98,4 @@ export default async function FormasPagamentoPage({
     </div>
   )
 }
+

@@ -11,7 +11,7 @@ export default async function LojaPage({
   const { q, categoria } = await searchParams
   const supabase = await createClient()
 
-  const [{ data: config }, { data: produtos }, { data: categorias }] = await Promise.all([
+  const [{ data: config }, { data: produtos }, { data: categoriasDb }] = await Promise.all([
     supabase.from('configuracoes').select('valor').eq('chave', 'empresa').single(),
     supabase
       .from('produtos')
@@ -19,18 +19,17 @@ export default async function LojaPage({
       .eq('ativo', true)
       .eq('visivel_catalogo', true)
       .order('nome'),
-    supabase
-      .from('produtos')
-      .select('categoria')
-      .eq('ativo', true)
-      .eq('visivel_catalogo', true)
-      .not('categoria', 'is', null),
+    supabase.from('categorias').select('hierarquia, nome'),
   ])
 
   const empresa = (config?.valor ?? {}) as Record<string, string>
   const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-  const categoriasUnicas = [...new Set((categorias ?? []).map((p) => p.categoria).filter(Boolean))] as string[]
+  // Map hierarquia code → display name
+  const catNomeMap = Object.fromEntries((categoriasDb ?? []).map((c) => [c.hierarquia, c.nome]))
+
+  const codesUsados = [...new Set((produtos ?? []).map((p) => p.categoria).filter(Boolean))] as string[]
+  const categoriasUnicas = codesUsados.map((code) => ({ code, nome: catNomeMap[code] ?? code }))
 
   const produtosFiltrados = (produtos ?? []).filter((p) => {
     const matchQ = !q || p.nome.toLowerCase().includes(q.toLowerCase()) || (p.descricao ?? '').toLowerCase().includes(q.toLowerCase())
@@ -87,10 +86,10 @@ export default async function LojaPage({
               className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${!categoria ? 'bg-blue-600 text-white' : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}>
               Todos
             </Link>
-            {categoriasUnicas.map((cat) => (
-              <Link key={cat} href={q ? `/loja?q=${q}&categoria=${encodeURIComponent(cat)}` : `/loja?categoria=${encodeURIComponent(cat)}`}
-                className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${categoria === cat ? 'bg-blue-600 text-white' : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}>
-                {cat}
+            {categoriasUnicas.map(({ code, nome }) => (
+              <Link key={code} href={q ? `/loja?q=${q}&categoria=${encodeURIComponent(code)}` : `/loja?categoria=${encodeURIComponent(code)}`}
+                className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${categoria === code ? 'bg-blue-600 text-white' : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}>
+                {nome}
               </Link>
             ))}
           </div>
@@ -99,7 +98,7 @@ export default async function LojaPage({
         {/* Resultados */}
         {q || categoria ? (
           <p className="text-sm text-gray-500">
-            {produtosFiltrados.length} resultado{produtosFiltrados.length !== 1 ? 's' : ''}{q ? ` para "${q}"` : ''}{categoria ? ` em ${categoria}` : ''}
+            {produtosFiltrados.length} resultado{produtosFiltrados.length !== 1 ? 's' : ''}{q ? ` para "${q}"` : ''}{categoria ? ` em ${catNomeMap[categoria] ?? categoria}` : ''}
           </p>
         ) : null}
 
@@ -122,7 +121,7 @@ export default async function LojaPage({
                   </div>
                 )}
                 <div className="p-4 space-y-2">
-                  <p className="text-xs text-gray-400">{p.categoria}{p.marca ? ` · ${p.marca}` : ''}</p>
+                  <p className="text-xs text-gray-400">{catNomeMap[p.categoria ?? ''] ?? p.categoria}{p.marca ? ` · ${p.marca}` : ''}</p>
                   <p className="font-semibold text-gray-900 text-sm leading-snug">{p.nome}</p>
                   {p.descricao && <p className="text-xs text-gray-500 line-clamp-2">{p.descricao}</p>}
                   <p className="text-xl font-bold text-blue-600">{fmt(p.preco ?? 0)}</p>

@@ -1,11 +1,11 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createServiceClient } from '@/lib/supabase/server'
 import { editarProduto } from '../../actions'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
 export default async function EditarProdutoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
 
   const [{ data: produto }, { data: categorias }, { data: marcas }] = await Promise.all([
     supabase.from('produtos').select('*').eq('id', id).single(),

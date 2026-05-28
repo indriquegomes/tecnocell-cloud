@@ -1,5 +1,6 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createServiceClient } from '@/lib/supabase/server'
 import { criarVale, cancelarVale } from './actions'
+import { ConfirmButton } from '@/components/ConfirmButton'
 
 export default async function ValesCreditoPage({
   searchParams,
@@ -7,7 +8,7 @@ export default async function ValesCreditoPage({
   searchParams: Promise<{ erro?: string; ok?: string }>
 }) {
   const { erro, ok } = await searchParams
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
 
   const [{ data: vales }, { data: pessoas }] = await Promise.all([
     supabase
@@ -31,7 +32,7 @@ export default async function ValesCreditoPage({
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Vales de Crédito</h2>
+      <h2 className="text-2xl font-bold text-gray-900">Vales de CrÃ©dito</h2>
 
       {erro && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
       {ok && <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">Vale criado com sucesso!</div>}
@@ -57,7 +58,7 @@ export default async function ValesCreditoPage({
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Cliente</label>
             <select name="pessoa_id" className="field">
-              <option value="">Sem vínculo</option>
+              <option value="">Sem vÃ­nculo</option>
               {(pessoas ?? []).map((p) => (
                 <option key={p.id} value={p.id}>{p.nome}</option>
               ))}
@@ -69,7 +70,7 @@ export default async function ValesCreditoPage({
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Motivo</label>
-            <input name="motivo" className="field" placeholder="Ex: Devolução, troca..." />
+            <input name="motivo" className="field" placeholder="Ex: DevoluÃ§Ã£o, troca..." />
           </div>
           <div className="sm:col-span-3 flex justify-end">
             <button type="submit"
@@ -99,8 +100,8 @@ export default async function ValesCreditoPage({
               <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-gray-400">Nenhum vale emitido.</td></tr>
             ) : (vales ?? []).map((v) => (
               <tr key={v.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 text-sm text-gray-800">{v.pessoa_id ? (pessoaMap[v.pessoa_id] ?? '—') : '—'}</td>
-                <td className="px-4 py-3 text-sm text-gray-500">{v.motivo || '—'}</td>
+                <td className="px-4 py-3 text-sm text-gray-800">{v.pessoa_id ? (pessoaMap[v.pessoa_id] ?? 'â€”') : 'â€”'}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{v.motivo || 'â€”'}</td>
                 <td className="px-4 py-3 text-sm text-right text-gray-700">{fmt(v.valor ?? 0)}</td>
                 <td className="px-4 py-3 text-sm text-right font-semibold text-blue-600">{fmt(v.saldo ?? 0)}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">{fmtDate(v.created_at)}</td>
@@ -112,11 +113,9 @@ export default async function ValesCreditoPage({
                 <td className="px-4 py-3 text-right">
                   {v.status === 'ativo' && (
                     <form action={cancelarVale.bind(null, v.id)}>
-                      <button type="submit"
-                        className="text-xs text-red-500 hover:text-red-700 font-medium"
-                        onClick={(e) => { if (!confirm('Cancelar este vale?')) e.preventDefault() }}>
+                      <ConfirmButton message="Cancelar este vale?" className="text-xs text-red-500 hover:text-red-700 font-medium">
                         Cancelar
-                      </button>
+                      </ConfirmButton>
                     </form>
                   )}
                 </td>
@@ -128,3 +127,4 @@ export default async function ValesCreditoPage({
     </div>
   )
 }
+

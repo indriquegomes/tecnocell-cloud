@@ -1,9 +1,9 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createServiceClient } from '@/lib/supabase/server'
 import { criarProduto } from '../actions'
 import Link from 'next/link'
 
 export default async function NovoProdutoPage() {
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
   const [{ data: categorias }, { data: marcas }] = await Promise.all([
     supabase.from('categorias').select('hierarquia, nome').order('nome'),
     supabase.from('marcas').select('nome').order('nome'),

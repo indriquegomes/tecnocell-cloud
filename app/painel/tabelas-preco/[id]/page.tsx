@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createServiceClient } from '@/lib/supabase/server'
 import { adicionarItemTabela, removerItemTabela } from '../actions'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -12,7 +12,7 @@ export default async function TabelaPrecoDetalhe({
 }) {
   const { id } = await params
   const { erro } = await searchParams
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
 
   const [{ data: tabela }, { data: itens }, { data: produtos }] = await Promise.all([
     supabase.from('tabelas_preco').select('*').eq('id', id).single(),

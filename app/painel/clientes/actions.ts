@@ -23,6 +23,7 @@ export async function criarPessoa(formData: FormData) {
   }
 
   const { error } = await supabase.from('pessoas').insert({
+    id: crypto.randomUUID(),
     nome: formData.get('nome') as string,
     tipo: formData.get('tipo') as string,
     pessoa_fisica: formData.get('pessoa_fisica') === 'true',

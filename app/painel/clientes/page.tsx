@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { Badge } from '@/components/ui/badge'
 import { deletarPessoa } from './actions'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
@@ -10,7 +10,7 @@ export default async function ClientesPage({
   searchParams: Promise<{ busca?: string; tipo?: string }>
 }) {
   const params = await searchParams
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
 
   let query = supabase
     .from('pessoas')

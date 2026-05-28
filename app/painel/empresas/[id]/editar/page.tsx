@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createServiceClient } from '@/lib/supabase/server'
 import { editarEmpresa } from '../../actions'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -13,7 +13,7 @@ export default async function EditarEmpresaPage({
 }) {
   const { id } = await params
   const { erro } = await searchParams
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
   const { data: empresa } = await supabase.from('empresas').select('*').eq('id', id).single()
   if (!empresa) notFound()
 

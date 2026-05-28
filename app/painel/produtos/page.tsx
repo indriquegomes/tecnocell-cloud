@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createServiceClient } from '@/lib/supabase/server'
 import { formatBRL } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { deletarProduto } from './actions'
@@ -11,7 +11,7 @@ export default async function ProdutosPage({
   searchParams: Promise<{ busca?: string; categoria?: string; marca?: string }>
 }) {
   const params = await searchParams
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
 
   let query = supabase
     .from('produtos')
@@ -88,11 +88,11 @@ export default async function ProdutosPage({
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Produto</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Marca</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Categoria</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Preço</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">PreÃ§o</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Custo</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Estoque</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Ações</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">AÃ§Ãµes</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -112,15 +112,15 @@ export default async function ProdutosPage({
                       <p className="text-sm font-medium text-gray-800">{p.nome as string}</p>
                       {p.codigo != null && <p className="text-xs text-gray-400">#{String(p.codigo)}</p>}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{(p.marca as string) || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{(p.marca as string) || 'â€”'}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {(p.cat as { nome: string } | null)?.nome || '—'}
+                      {(p.cat as { nome: string } | null)?.nome || 'â€”'}
                     </td>
                     <td className="px-4 py-3 text-right text-sm font-medium text-gray-900">
                       {formatBRL(p.preco as number)}
                     </td>
                     <td className="px-4 py-3 text-right text-sm text-gray-500">
-                      {(p.preco_custo as number) > 0 ? formatBRL(p.preco_custo as number) : '—'}
+                      {(p.preco_custo as number) > 0 ? formatBRL(p.preco_custo as number) : 'â€”'}
                     </td>
                     <td className="px-4 py-3 text-center text-sm font-medium text-gray-700">
                       {estoqueTotal}
@@ -151,3 +151,4 @@ export default async function ProdutosPage({
     </div>
   )
 }
+

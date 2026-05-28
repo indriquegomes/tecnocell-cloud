@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 
 export default async function RelatoriosPage({
@@ -7,7 +7,7 @@ export default async function RelatoriosPage({
   searchParams: Promise<{ aba?: string; de?: string; ate?: string }>
 }) {
   const { aba = 'financeiro', de, ate } = await searchParams
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
 
   const hoje = new Date().toISOString().split('T')[0]
   const inicioMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
@@ -47,10 +47,10 @@ export default async function RelatoriosPage({
       .order('quantidade', { ascending: false })
       .limit(200)
     estoque = (data ?? []).map((e) => ({
-      nome: (e.produtos as unknown as { nome: string; preco: number } | null)?.nome ?? '—',
+      nome: (e.produtos as unknown as { nome: string; preco: number } | null)?.nome ?? 'â€”',
       preco: (e.produtos as unknown as { nome: string; preco: number } | null)?.preco ?? 0,
       quantidade: e.quantidade,
-      deposito: (e.depositos as unknown as { nome: string } | null)?.nome ?? '—',
+      deposito: (e.depositos as unknown as { nome: string } | null)?.nome ?? 'â€”',
     }))
   }
 
@@ -67,7 +67,7 @@ export default async function RelatoriosPage({
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Relatórios</h2>
+      <h2 className="text-2xl font-bold text-gray-900">RelatÃ³rios</h2>
 
       {/* Abas */}
       <div className="flex gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1 w-fit">
@@ -79,7 +79,7 @@ export default async function RelatoriosPage({
         ))}
       </div>
 
-      {/* Filtro de período */}
+      {/* Filtro de perÃ­odo */}
       <form method="GET" className="flex flex-wrap gap-3 items-end">
         <input type="hidden" name="aba" value={aba} />
         <div>
@@ -88,7 +88,7 @@ export default async function RelatoriosPage({
             className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">Até</label>
+          <label className="mb-1 block text-xs font-medium text-gray-600">AtÃ©</label>
           <input name="ate" type="date" defaultValue={dataFim}
             className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
@@ -121,7 +121,7 @@ export default async function RelatoriosPage({
             <table className="min-w-full divide-y divide-gray-100">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Descrição</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">DescriÃ§Ã£o</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Pessoa</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Vencimento</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Valor</th>
@@ -131,13 +131,13 @@ export default async function RelatoriosPage({
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {lancamentos.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-400">Nenhum lançamento no período.</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-400">Nenhum lanÃ§amento no perÃ­odo.</td></tr>
                 ) : lancamentos.map((l, i) => (
                   <tr key={i} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-800">{l.descricao || '—'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{l.pessoa_nome || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-800">{l.descricao || 'â€”'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{l.pessoa_nome || 'â€”'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">
-                      {l.data_vencimento ? new Date(l.data_vencimento).toLocaleDateString('pt-BR') : '—'}
+                      {l.data_vencimento ? new Date(l.data_vencimento).toLocaleDateString('pt-BR') : 'â€”'}
                     </td>
                     <td className="px-4 py-3 text-sm text-right font-medium text-gray-800">{fmt(l.valor)}</td>
                     <td className="px-4 py-3 text-center">
@@ -167,11 +167,11 @@ export default async function RelatoriosPage({
               <p className="text-xl font-bold text-blue-600">{fmt(totalVendas)}</p>
             </div>
             <div className="rounded-xl border border-gray-200 bg-white p-4">
-              <p className="text-xs text-gray-500">Nº de Vendas</p>
+              <p className="text-xs text-gray-500">NÂº de Vendas</p>
               <p className="text-xl font-bold text-gray-800">{vendas.length}</p>
             </div>
             <div className="rounded-xl border border-gray-200 bg-white p-4">
-              <p className="text-xs text-gray-500">Ticket Médio</p>
+              <p className="text-xs text-gray-500">Ticket MÃ©dio</p>
               <p className="text-xl font-bold text-gray-800">{vendas.length > 0 ? fmt(totalVendas / vendas.length) : 'R$ 0,00'}</p>
             </div>
           </div>
@@ -187,7 +187,7 @@ export default async function RelatoriosPage({
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {vendas.length === 0 ? (
-                  <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">Nenhuma venda no período.</td></tr>
+                  <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">Nenhuma venda no perÃ­odo.</td></tr>
                 ) : vendas.map((v) => (
                   <tr key={v.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm text-gray-600">{new Date(v.created_at).toLocaleString('pt-BR')}</td>
@@ -211,9 +211,9 @@ export default async function RelatoriosPage({
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Produto</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Depósito</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">DepÃ³sito</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Quantidade</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Preço Unit.</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">PreÃ§o Unit.</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Valor Total</th>
               </tr>
             </thead>
@@ -236,3 +236,4 @@ export default async function RelatoriosPage({
     </div>
   )
 }
+

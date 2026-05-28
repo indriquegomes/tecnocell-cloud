@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createServiceClient } from '@/lib/supabase/server'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { criarDeposito, editarDeposito, deletarDeposito } from './actions'
 import Link from 'next/link'
@@ -9,7 +9,7 @@ export default async function DepositosPage({
   searchParams: Promise<{ erro?: string; editar?: string }>
 }) {
   const { erro, editar } = await searchParams
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
 
   const [{ data: depositos }, { data: estoque }] = await Promise.all([
     supabase.from('depositos').select('id, nome, descricao').order('nome'),
@@ -28,7 +28,7 @@ export default async function DepositosPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Depósitos</h2>
+        <h2 className="text-2xl font-bold text-gray-900">DepÃ³sitos</h2>
       </div>
 
       {erro && (
@@ -37,7 +37,7 @@ export default async function DepositosPage({
 
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <h3 className="mb-4 text-sm font-semibold text-gray-700">
-          {editando ? `Editando: ${editando.nome}` : 'Novo Depósito'}
+          {editando ? `Editando: ${editando.nome}` : 'Novo DepÃ³sito'}
         </h3>
         <form action={editando ? editarDeposito.bind(null, editando.id) : criarDeposito}
           className="flex flex-wrap gap-3 items-end">
@@ -46,7 +46,7 @@ export default async function DepositosPage({
             <input name="nome" required defaultValue={editando?.nome ?? ''} className="field" placeholder="Ex: Loja Principal" />
           </div>
           <div className="flex-1 min-w-48">
-            <label className="mb-1.5 block text-xs font-medium text-gray-600">Descrição</label>
+            <label className="mb-1.5 block text-xs font-medium text-gray-600">DescriÃ§Ã£o</label>
             <input name="descricao" defaultValue={editando?.descricao ?? ''} className="field" placeholder="Opcional" />
           </div>
           <button type="submit"
@@ -66,19 +66,19 @@ export default async function DepositosPage({
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Depósito</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Descrição</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">DepÃ³sito</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">DescriÃ§Ã£o</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Itens em Estoque</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Ações</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">AÃ§Ãµes</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {totalPorDeposito.length === 0 ? (
-              <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">Nenhum depósito cadastrado.</td></tr>
+              <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">Nenhum depÃ³sito cadastrado.</td></tr>
             ) : totalPorDeposito.map((d) => (
               <tr key={d.id} className="hover:bg-gray-50 transition">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{d.nome}</td>
-                <td className="px-4 py-3 text-sm text-gray-500">{d.descricao || '—'}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{d.descricao || 'â€”'}</td>
                 <td className="px-4 py-3 text-center text-sm font-semibold text-gray-700">{d.total}</td>
                 <td className="px-4 py-3 text-center">
                   <div className="flex items-center justify-center gap-2">
@@ -86,7 +86,7 @@ export default async function DepositosPage({
                       className="rounded-lg px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 transition">
                       Editar
                     </Link>
-                    <BotaoExcluir action={deletarDeposito.bind(null, d.id)} mensagem="Excluir este depósito?" />
+                    <BotaoExcluir action={deletarDeposito.bind(null, d.id)} mensagem="Excluir este depÃ³sito?" />
                   </div>
                 </td>
               </tr>
@@ -97,3 +97,4 @@ export default async function DepositosPage({
     </div>
   )
 }
+

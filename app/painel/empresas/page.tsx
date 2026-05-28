@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createServiceClient } from '@/lib/supabase/server'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { deletarEmpresa } from './actions'
 import Link from 'next/link'
@@ -9,7 +9,7 @@ export default async function EmpresasPage({
   searchParams: Promise<{ erro?: string; busca?: string }>
 }) {
   const { erro, busca } = await searchParams
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
 
   let query = supabase.from('empresas').select('id, nome, cnpj, telefone, email, cidade, estado, ativa').order('nome')
   if (busca) query = query.ilike('nome', `%${busca}%`)
@@ -44,7 +44,7 @@ export default async function EmpresasPage({
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Contato</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Cidade</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Ações</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">AÃ§Ãµes</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -55,14 +55,14 @@ export default async function EmpresasPage({
             ) : (empresas ?? []).map((e) => (
               <tr key={e.id} className="hover:bg-gray-50 transition">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{e.nome}</td>
-                <td className="px-4 py-3 text-sm text-gray-500">{e.cnpj || '—'}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{e.cnpj || 'â€”'}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">
                   {e.email && <p>{e.email}</p>}
                   {e.telefone && <p>{e.telefone}</p>}
-                  {!e.email && !e.telefone && '—'}
+                  {!e.email && !e.telefone && 'â€”'}
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-500">
-                  {e.cidade ? `${e.cidade}${e.estado ? `/${e.estado}` : ''}` : '—'}
+                  {e.cidade ? `${e.cidade}${e.estado ? `/${e.estado}` : ''}` : 'â€”'}
                 </td>
                 <td className="px-4 py-3 text-center">
                   <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${e.ativa ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
@@ -86,3 +86,4 @@ export default async function EmpresasPage({
     </div>
   )
 }
+

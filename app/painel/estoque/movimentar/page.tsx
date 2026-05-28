@@ -1,9 +1,9 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createServiceClient } from '@/lib/supabase/server'
 import { registrarMovimento } from '../actions'
 import Link from 'next/link'
 
 export default async function MovimentarEstoquePage() {
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
   const [{ data: produtos }, { data: depositos }] = await Promise.all([
     supabase.from('produtos').select('id, nome, codigo').eq('ativo', true).order('nome'),
     supabase.from('depositos').select('id, nome').order('nome'),
@@ -34,9 +34,9 @@ export default async function MovimentarEstoquePage() {
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">Depósito *</label>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">DepÃ³sito *</label>
           <select name="deposito_id" required className="field">
-            <option value="">Selecionar depósito...</option>
+            <option value="">Selecionar depÃ³sito...</option>
             {(depositos ?? []).map((d) => (
               <option key={d.id} value={d.id}>{d.nome}</option>
             ))}
@@ -44,10 +44,10 @@ export default async function MovimentarEstoquePage() {
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">Operação *</label>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">OperaÃ§Ã£o *</label>
           <select name="operacao" required className="field">
             <option value="entrada">Entrada (adicionar ao estoque)</option>
-            <option value="saida">Saída (retirar do estoque)</option>
+            <option value="saida">SaÃ­da (retirar do estoque)</option>
             <option value="ajuste">Ajuste (definir quantidade exata)</option>
           </select>
         </div>
@@ -69,3 +69,4 @@ export default async function MovimentarEstoquePage() {
     </div>
   )
 }
+

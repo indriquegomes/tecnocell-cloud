@@ -1,11 +1,11 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createServiceClient } from '@/lib/supabase/server'
 import { editarLancamento } from '../../actions'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
 export default async function EditarLancamentoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
 
   const [{ data: lancamento }, { data: formas }] = await Promise.all([
     supabase.from('lancamentos').select('*').eq('id', id).single(),

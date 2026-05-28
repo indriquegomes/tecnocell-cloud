@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createServiceClient } from '@/lib/supabase/server'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { criarCategoria, editarCategoria, deletarCategoria } from './actions'
 import Link from 'next/link'
@@ -9,7 +9,7 @@ export default async function CategoriasPage({
   searchParams: Promise<{ erro?: string; editar?: string }>
 }) {
   const { erro, editar } = await searchParams
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
 
   const [{ data: categorias }, { data: produtos }] = await Promise.all([
     supabase.from('categorias').select('id, nome, descricao').order('nome'),
@@ -44,7 +44,7 @@ export default async function CategoriasPage({
             <input name="nome" required defaultValue={editando?.nome ?? ''} className="field" placeholder="Ex: Smartphones" />
           </div>
           <div className="flex-1 min-w-48">
-            <label className="mb-1.5 block text-xs font-medium text-gray-600">Descrição</label>
+            <label className="mb-1.5 block text-xs font-medium text-gray-600">DescriÃ§Ã£o</label>
             <input name="descricao" defaultValue={editando?.descricao ?? ''} className="field" placeholder="Opcional" />
           </div>
           <button type="submit"
@@ -65,9 +65,9 @@ export default async function CategoriasPage({
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Categoria</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Descrição</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">DescriÃ§Ã£o</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Produtos</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Ações</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">AÃ§Ãµes</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -76,7 +76,7 @@ export default async function CategoriasPage({
             ) : comContagem.map((c) => (
               <tr key={c.id} className="hover:bg-gray-50 transition">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.nome}</td>
-                <td className="px-4 py-3 text-sm text-gray-500">{c.descricao || '—'}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{c.descricao || 'â€”'}</td>
                 <td className="px-4 py-3 text-center text-sm text-gray-600">{c.total}</td>
                 <td className="px-4 py-3 text-center">
                   <div className="flex items-center justify-center gap-2">
@@ -95,3 +95,4 @@ export default async function CategoriasPage({
     </div>
   )
 }
+

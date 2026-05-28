@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createServiceClient } from '@/lib/supabase/server'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { deletarPedido } from './actions'
 import Link from 'next/link'
@@ -21,7 +21,7 @@ export default async function PedidosPage({
   searchParams: Promise<{ tipo?: string; status?: string }>
 }) {
   const { tipo, status } = await searchParams
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
 
   let query = supabase
     .from('pedidos')
@@ -37,7 +37,7 @@ export default async function PedidosPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Pedidos e Orçamentos</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Pedidos e OrÃ§amentos</h2>
         <Link href="/painel/pedidos/novo"
           className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
           + Novo
@@ -46,7 +46,7 @@ export default async function PedidosPage({
 
       {/* Filtros */}
       <div className="flex flex-wrap gap-2">
-        {[['', 'Todos'], ['orcamento', 'Orçamentos'], ['pedido', 'Pedidos']].map(([v, l]) => (
+        {[['', 'Todos'], ['orcamento', 'OrÃ§amentos'], ['pedido', 'Pedidos']].map(([v, l]) => (
           <Link key={v} href={`/painel/pedidos${v ? `?tipo=${v}` : ''}`}
             className={`rounded-lg px-3 py-1.5 text-sm font-medium border transition ${tipo === v || (!tipo && !v) ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
             {l}
@@ -64,7 +64,7 @@ export default async function PedidosPage({
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Cliente</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Total</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Ações</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">AÃ§Ãµes</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -77,7 +77,7 @@ export default async function PedidosPage({
                 <td className="px-4 py-3 text-sm font-mono text-gray-500">#{p.numero}</td>
                 <td className="px-4 py-3 text-sm text-gray-600 capitalize">{p.tipo}</td>
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">
-                  {(p.pessoas as unknown as { nome: string } | null)?.nome ?? '—'}
+                  {(p.pessoas as unknown as { nome: string } | null)?.nome ?? 'â€”'}
                 </td>
                 <td className="px-4 py-3 text-sm font-semibold text-gray-800">
                   {Number(p.total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
@@ -93,7 +93,7 @@ export default async function PedidosPage({
                       className="rounded-lg px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 transition">
                       Abrir
                     </Link>
-                    <BotaoExcluir action={deletarPedido.bind(null, p.id)} mensagem="Excluir este pedido/orçamento?" />
+                    <BotaoExcluir action={deletarPedido.bind(null, p.id)} mensagem="Excluir este pedido/orÃ§amento?" />
                   </div>
                 </td>
               </tr>
@@ -104,3 +104,4 @@ export default async function PedidosPage({
     </div>
   )
 }
+

@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createServiceClient } from '@/lib/supabase/server'
 import { adicionarItemNota, receberNota } from '../actions'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -12,7 +12,7 @@ export default async function NotaEntradaDetalhe({
 }) {
   const { id } = await params
   const { erro } = await searchParams
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
 
   const [{ data: nota }, { data: itens }, { data: produtos }, { data: depositos }] = await Promise.all([
     supabase
