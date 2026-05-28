@@ -6,6 +6,11 @@ import { salvarConfiguracoes } from './actions'
 export function ConfigForm({ dados }: { dados: Record<string, string> }) {
   const [state, formAction, pending] = useActionState(salvarConfiguracoes, { ok: false, erro: null })
 
+  // Scroll to top so success/error message is visible
+  if (state.ok || state.erro) {
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   return (
     <form action={formAction} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-5">
       {state.ok && (
