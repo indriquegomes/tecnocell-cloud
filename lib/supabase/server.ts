@@ -24,7 +24,7 @@ export async function createClient() {
 export async function createServiceClient() {
   const cookieStore = await cookies()
 
-  // getUser() faz chamada de rede, valida e renova o token se expirado
+  // Refresh de sessão: só atualiza cookies sem bloquear em caso de falha
   const userClient = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -41,7 +41,7 @@ export async function createServiceClient() {
       },
     }
   )
-  await userClient.auth.getUser()
+  await userClient.auth.getSession()
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

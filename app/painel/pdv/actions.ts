@@ -78,7 +78,6 @@ export async function finalizarVenda(
     updated_at: new Date().toISOString(),
   })
 
-  revalidatePath('/painel/pdv')
   revalidatePath('/painel/estoque')
   revalidatePath('/painel/financeiro')
   return { vendaId: venda.id, total }
