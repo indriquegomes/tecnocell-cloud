@@ -1,4 +1,4 @@
-﻿import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { criarPromocao, togglePromocao, deletarPromocao } from './actions'
 import { ConfirmButton } from '@/components/ConfirmButton'
 
@@ -16,35 +16,35 @@ export default async function PromocoesPage({
     .order('created_at', { ascending: false })
 
   const hoje = new Date().toISOString().split('T')[0]
-  const fmtDate = (d: string | null) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : 'â€”'
+  const fmtDate = (d: string | null) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '�'
 
   const tipoLabel: Record<string, string> = {
     percentual: 'Desconto %',
     fixo: 'Desconto R$',
-    frete: 'Frete GrÃ¡tis',
+    frete: 'Frete Grátis',
   }
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">PromoÃ§Ãµes</h2>
+      <h2 className="text-2xl font-bold text-gray-900">Promoções</h2>
 
       {erro && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
-      {ok && <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">PromoÃ§Ã£o criada com sucesso!</div>}
+      {ok && <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">Promoção criada com sucesso!</div>}
 
-      {/* FormulÃ¡rio nova promoÃ§Ã£o */}
+      {/* Formulário nova promoção */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
-        <h3 className="font-semibold text-gray-800">Nova PromoÃ§Ã£o</h3>
+        <h3 className="font-semibold text-gray-800">Nova Promoção</h3>
         <form action={criarPromocao} className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Nome da PromoÃ§Ã£o</label>
-            <input name="nome" required className="field" placeholder="Ex: Desconto de VerÃ£o" />
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Nome da Promoção</label>
+            <input name="nome" required className="field" placeholder="Ex: Desconto de Verão" />
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Tipo</label>
             <select name="tipo" className="field">
               <option value="percentual">Desconto Percentual (%)</option>
               <option value="fixo">Desconto Fixo (R$)</option>
-              <option value="frete">Frete GrÃ¡tis</option>
+              <option value="frete">Frete Grátis</option>
             </select>
           </div>
           <div>
@@ -52,7 +52,7 @@ export default async function PromocoesPage({
             <input name="valor" type="number" step="0.01" min="0" defaultValue="0" className="field" placeholder="10" />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Data InÃ­cio</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Data Início</label>
             <input name="data_inicio" type="date" defaultValue={hoje} className="field" />
           </div>
           <div>
@@ -60,13 +60,13 @@ export default async function PromocoesPage({
             <input name="data_fim" type="date" className="field" />
           </div>
           <div className="sm:col-span-2">
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">DescriÃ§Ã£o</label>
-            <input name="descricao" className="field" placeholder="DescriÃ§Ã£o opcional..." />
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Descrição</label>
+            <input name="descricao" className="field" placeholder="Descrição opcional..." />
           </div>
           <div className="sm:col-span-2 flex justify-end">
             <button type="submit"
               className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
-              Criar PromoÃ§Ã£o
+              Criar Promoção
             </button>
           </div>
         </form>
@@ -76,7 +76,7 @@ export default async function PromocoesPage({
       <div className="space-y-3">
         {(promocoes ?? []).length === 0 ? (
           <div className="rounded-xl border border-gray-200 bg-white px-4 py-10 text-center text-sm text-gray-400">
-            Nenhuma promoÃ§Ã£o cadastrada.
+            Nenhuma promoção cadastrada.
           </div>
         ) : (promocoes ?? []).map((p) => {
           const vencida = p.data_fim && p.data_fim < hoje
@@ -88,7 +88,7 @@ export default async function PromocoesPage({
                   {vencida && <span className="text-xs text-red-500 font-medium">Vencida</span>}
                 </div>
                 <p className="text-sm text-gray-500 mt-0.5">
-                  {tipoLabel[p.tipo] ?? p.tipo} Â· {p.tipo !== 'frete' ? (p.tipo === 'percentual' ? `${p.valor}%` : `R$ ${p.valor}`) : ''} Â· {fmtDate(p.data_inicio)} atÃ© {fmtDate(p.data_fim)}
+                  {tipoLabel[p.tipo] ?? p.tipo} · {p.tipo !== 'frete' ? (p.tipo === 'percentual' ? `${p.valor}%` : `R$ ${p.valor}`) : ''} · {fmtDate(p.data_inicio)} até {fmtDate(p.data_fim)}
                 </p>
                 {p.descricao && <p className="text-xs text-gray-400 mt-0.5">{p.descricao}</p>}
               </div>
@@ -102,7 +102,7 @@ export default async function PromocoesPage({
                   </button>
                 </form>
                 <form action={deletarPromocao.bind(null, p.id)}>
-                  <ConfirmButton message="Excluir promoÃ§Ã£o?" className="text-xs font-medium text-red-500 hover:text-red-700">
+                  <ConfirmButton message="Excluir promoção?" className="text-xs font-medium text-red-500 hover:text-red-700">
                     Excluir
                   </ConfirmButton>
                 </form>

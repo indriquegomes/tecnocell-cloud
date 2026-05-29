@@ -1,4 +1,4 @@
-﻿import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { abrirCaixa, fecharCaixa } from './actions'
 import Link from 'next/link'
 
@@ -31,7 +31,7 @@ export default async function OperacaoPDVPage({ searchParams }: { searchParams: 
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </Link>
-        <h2 className="text-2xl font-bold text-gray-900">OperaÃ§Ã£o do PDV</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Operação do PDV</h2>
       </div>
 
       {erro && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
@@ -46,7 +46,7 @@ export default async function OperacaoPDVPage({ searchParams }: { searchParams: 
             </p>
             {caixaAberto && (
               <p className="text-sm text-gray-500 mt-1">
-                Aberto em {fmtDate(caixaAberto.aberto_em)} Â· Saldo inicial: {fmt(caixaAberto.valor_abertura)}
+                Aberto em {fmtDate(caixaAberto.aberto_em)} · Saldo inicial: {fmt(caixaAberto.valor_abertura)}
               </p>
             )}
           </div>
@@ -54,7 +54,7 @@ export default async function OperacaoPDVPage({ searchParams }: { searchParams: 
         </div>
       </div>
 
-      {/* AÃ§Ã£o */}
+      {/* Ação */}
       {!caixaAberto ? (
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
           <h3 className="font-semibold text-gray-800">Abrir Caixa</h3>
@@ -64,7 +64,7 @@ export default async function OperacaoPDVPage({ searchParams }: { searchParams: 
               <input name="valor_abertura" type="number" step="0.01" min="0" defaultValue="0" className="field" />
             </div>
             <div className="flex-1 min-w-48">
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">ObservaÃ§Ãµes</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Observações</label>
               <input name="obs_abertura" className="field" placeholder="Opcional" />
             </div>
             <button type="submit"
@@ -82,7 +82,7 @@ export default async function OperacaoPDVPage({ searchParams }: { searchParams: 
               <input name="valor_fechamento" type="number" step="0.01" min="0" defaultValue="0" className="field" />
             </div>
             <div className="flex-1 min-w-48">
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">ObservaÃ§Ãµes</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Observações</label>
               <input name="obs_fechamento" className="field" placeholder="Opcional" />
             </div>
             <button type="submit"
@@ -93,10 +93,10 @@ export default async function OperacaoPDVPage({ searchParams }: { searchParams: 
         </div>
       )}
 
-      {/* HistÃ³rico */}
+      {/* Histórico */}
       <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-800">HistÃ³rico de Caixas</h3>
+          <h3 className="font-semibold text-gray-800">Histórico de Caixas</h3>
         </div>
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
@@ -112,9 +112,9 @@ export default async function OperacaoPDVPage({ searchParams }: { searchParams: 
             {(historico ?? []).map((c) => (
               <tr key={c.id} className="hover:bg-gray-50 transition">
                 <td className="px-4 py-3 text-sm text-gray-600">{fmtDate(c.aberto_em)}</td>
-                <td className="px-4 py-3 text-sm text-gray-500">{c.fechado_em ? fmtDate(c.fechado_em) : 'â€”'}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{c.fechado_em ? fmtDate(c.fechado_em) : '�'}</td>
                 <td className="px-4 py-3 text-sm text-right text-gray-700">{fmt(c.valor_abertura ?? 0)}</td>
-                <td className="px-4 py-3 text-sm text-right text-gray-700">{c.valor_fechamento != null ? fmt(c.valor_fechamento) : 'â€”'}</td>
+                <td className="px-4 py-3 text-sm text-right text-gray-700">{c.valor_fechamento != null ? fmt(c.valor_fechamento) : '�'}</td>
                 <td className="px-4 py-3 text-center">
                   <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${c.status === 'aberto' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                     {c.status}

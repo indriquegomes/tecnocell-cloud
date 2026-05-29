@@ -1,4 +1,4 @@
-﻿import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { criarNotaEntrada } from '../actions'
 import Link from 'next/link'
 
@@ -22,7 +22,7 @@ export default async function NovaNotaPage({ searchParams }: { searchParams: Pro
       <form action={criarNotaEntrada} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-5">
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">NÃºmero da NF</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Número da NF</label>
             <input name="numero" className="field" placeholder="Ex: 001234" />
           </div>
           <div>
@@ -31,18 +31,18 @@ export default async function NovaNotaPage({ searchParams }: { searchParams: Pro
               defaultValue={new Date().toISOString().split('T')[0]} />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Data de EmissÃ£o</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Data de Emissão</label>
             <input name="data_emissao" type="date" className="field" />
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Fornecedor</label>
             <select name="fornecedor_id" className="field">
-              <option value="">â€” Selecione â€”</option>
+              <option value="">� Selecione �</option>
               {fornecedores.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
             </select>
           </div>
           <div className="sm:col-span-2">
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">ObservaÃ§Ãµes</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Observações</label>
             <textarea name="observacoes" rows={2} className="field" placeholder="Opcional..." />
           </div>
         </div>

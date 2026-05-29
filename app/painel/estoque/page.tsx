@@ -1,4 +1,4 @@
-﻿import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 
@@ -42,7 +42,7 @@ export default async function EstoquePage({
         <h2 className="text-2xl font-bold text-gray-900">Estoque</h2>
         <Link href="/painel/estoque/movimentar"
           className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
-          + Entrada / SaÃ­da
+          + Entrada / Saída
         </Link>
       </div>
 
@@ -53,7 +53,7 @@ export default async function EstoquePage({
           <p className="text-3xl font-bold text-green-600">{emEstoque}</p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm text-center">
-          <p className="text-sm text-gray-500">Estoque Baixo (â‰¤3)</p>
+          <p className="text-sm text-gray-500">Estoque Baixo (�0�3)</p>
           <p className="text-3xl font-bold text-yellow-600">{estoqueBaixo}</p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm text-center">
@@ -75,7 +75,7 @@ export default async function EstoquePage({
           defaultValue={params.deposito ?? ''}
           className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="">Todos os depÃ³sitos</option>
+          <option value="">Todos os depósitos</option>
           {(depositos ?? []).map((d) => (
             <option key={d.id} value={d.id}>{d.nome}</option>
           ))}
@@ -92,10 +92,10 @@ export default async function EstoquePage({
             <tr>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Produto</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Marca</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">DepÃ³sito</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Depósito</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Quantidade</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">AÃ§Ãµes</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -113,13 +113,13 @@ export default async function EstoquePage({
                 return (
                   <tr key={e.id as string} className="hover:bg-gray-50 transition">
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">
-                      {(e.produto as { nome: string } | null)?.nome ?? 'â€”'}
+                      {(e.produto as { nome: string } | null)?.nome ?? '�'}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
-                      {(e.produto as { marca: string } | null)?.marca ?? 'â€”'}
+                      {(e.produto as { marca: string } | null)?.marca ?? '�'}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
-                      {(e.deposito as { nome: string } | null)?.nome ?? 'â€”'}
+                      {(e.deposito as { nome: string } | null)?.nome ?? '�'}
                     </td>
                     <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">{qtd}</td>
                     <td className="px-4 py-3 text-center">

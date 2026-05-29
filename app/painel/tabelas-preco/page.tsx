@@ -1,4 +1,4 @@
-﻿import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { criarTabela, deletarTabela } from './actions'
 import Link from 'next/link'
 import { ConfirmButton } from '@/components/ConfirmButton'
@@ -18,21 +18,21 @@ export default async function TabelasPrecoPage({
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Tabelas de PreÃ§o</h2>
+      <h2 className="text-2xl font-bold text-gray-900">Tabelas de Preço</h2>
 
       {erro && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
       {ok && <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">Tabela criada com sucesso!</div>}
 
       {/* Nova tabela */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
-        <h3 className="font-semibold text-gray-800">Nova Tabela de PreÃ§o</h3>
+        <h3 className="font-semibold text-gray-800">Nova Tabela de Preço</h3>
         <form action={criarTabela} className="flex flex-wrap gap-4 items-end">
           <div className="flex-1 min-w-48">
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Nome</label>
-            <input name="nome" required className="field" placeholder="Ex: Tabela PadrÃ£o, Atacado..." />
+            <input name="nome" required className="field" placeholder="Ex: Tabela Padrão, Atacado..." />
           </div>
           <div className="flex-1 min-w-48">
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">DescriÃ§Ã£o</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Descrição</label>
             <input name="descricao" className="field" placeholder="Opcional" />
           </div>
           <button type="submit"
@@ -46,7 +46,7 @@ export default async function TabelasPrecoPage({
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {(tabelas ?? []).length === 0 ? (
           <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-gray-200 bg-white px-4 py-10 text-center text-sm text-gray-400">
-            Nenhuma tabela de preÃ§o cadastrada.
+            Nenhuma tabela de preço cadastrada.
           </div>
         ) : (tabelas ?? []).map((t) => (
           <div key={t.id} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-3">

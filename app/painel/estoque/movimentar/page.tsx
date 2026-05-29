@@ -1,4 +1,4 @@
-﻿import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { registrarMovimento } from '../actions'
 import Link from 'next/link'
 
@@ -34,9 +34,9 @@ export default async function MovimentarEstoquePage() {
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">DepÃ³sito *</label>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Depósito *</label>
           <select name="deposito_id" required className="field">
-            <option value="">Selecionar depÃ³sito...</option>
+            <option value="">Selecionar depósito...</option>
             {(depositos ?? []).map((d) => (
               <option key={d.id} value={d.id}>{d.nome}</option>
             ))}
@@ -44,10 +44,10 @@ export default async function MovimentarEstoquePage() {
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">OperaÃ§Ã£o *</label>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Operação *</label>
           <select name="operacao" required className="field">
             <option value="entrada">Entrada (adicionar ao estoque)</option>
-            <option value="saida">SaÃ­da (retirar do estoque)</option>
+            <option value="saida">Saída (retirar do estoque)</option>
             <option value="ajuste">Ajuste (definir quantidade exata)</option>
           </select>
         </div>

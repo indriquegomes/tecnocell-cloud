@@ -1,4 +1,4 @@
-﻿import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { formatBRL, formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { marcarPago, deletarLancamento } from './actions'
@@ -78,7 +78,7 @@ export default async function FinanceiroPage({
         <input
           name="busca"
           defaultValue={params.busca}
-          placeholder="Buscar descriÃ§Ã£o..."
+          placeholder="Buscar descrição..."
           className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
@@ -102,20 +102,20 @@ export default async function FinanceiroPage({
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">DescriÃ§Ã£o</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Descrição</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Pessoa</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Vencimento</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Valor</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Tipo</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">AÃ§Ãµes</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {todos.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-12 text-center text-sm text-gray-400">
-                  Nenhum lanÃ§amento encontrado.
+                  Nenhum lançamento encontrado.
                 </td>
               </tr>
             ) : (
@@ -123,10 +123,10 @@ export default async function FinanceiroPage({
                 const pago = (l.status ?? '').toLowerCase().includes('pago')
                 return (
                   <tr key={l.id} className="hover:bg-gray-50 transition">
-                    <td className="px-4 py-3 text-sm text-gray-800">{l.descricao || 'â€”'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{l.pessoa_nome || 'â€”'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-800">{l.descricao || '�'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{l.pessoa_nome || '�'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">
-                      {l.data_vencimento ? formatDate(l.data_vencimento) : 'â€”'}
+                      {l.data_vencimento ? formatDate(l.data_vencimento) : '�'}
                     </td>
                     <td className={`px-4 py-3 text-right text-sm font-bold ${l.tipo === 'receber' ? 'text-green-600' : 'text-red-600'}`}>
                       {l.tipo === 'receber' ? '+' : '-'}{formatBRL(l.valor ?? 0)}
@@ -152,7 +152,7 @@ export default async function FinanceiroPage({
                           className="rounded-lg px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 transition">
                           Editar
                         </Link>
-                        <BotaoExcluir action={deletarLancamento.bind(null, l.id)} mensagem="Excluir este lanÃ§amento?" />
+                        <BotaoExcluir action={deletarLancamento.bind(null, l.id)} mensagem="Excluir este lançamento?" />
                       </div>
                     </td>
                   </tr>

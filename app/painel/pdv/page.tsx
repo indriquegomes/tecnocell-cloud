@@ -1,4 +1,4 @@
-﻿import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { PDVClient } from './PDVClient'
 
 export default async function PDVPage() {
@@ -14,8 +14,8 @@ export default async function PDVPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">PDV â€” Frente de Caixa</h2>
-          <p className="text-sm text-gray-400 mt-0.5">{produtos?.length ?? 0} produtos disponÃ­veis</p>
+          <h2 className="text-2xl font-bold text-gray-900">PDV � Frente de Caixa</h2>
+          <p className="text-sm text-gray-400 mt-0.5">{produtos?.length ?? 0} produtos disponíveis</p>
         </div>
       </div>
 

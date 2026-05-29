@@ -1,4 +1,4 @@
-﻿import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { formatBRL, formatDate } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -43,28 +43,28 @@ export default async function DashboardPage() {
     {
       label: 'Produtos Ativos',
       value: totalProdutos ?? 0,
-      icon: 'ðŸ“¦',
+      icon: '�x�',
       href: '/painel/produtos',
       color: 'bg-blue-50 text-blue-700',
     },
     {
       label: 'Vendas Hoje',
       value: formatBRL(totalVendasHoje),
-      icon: 'ðŸ›’',
+      icon: '�x:',
       href: '/painel/pdv',
       color: 'bg-green-50 text-green-700',
     },
     {
       label: 'Estoque Baixo',
       value: estoqueBaixo,
-      icon: 'âš ï¸',
+      icon: '�a�️',
       href: '/painel/estoque',
       color: estoqueBaixo > 0 ? 'bg-yellow-50 text-yellow-700' : 'bg-gray-50 text-gray-600',
     },
     {
       label: 'Clientes',
       value: totalClientes ?? 0,
-      icon: 'ðŸ‘¥',
+      icon: '�x�',
       href: '/painel/clientes',
       color: 'bg-purple-50 text-purple-700',
     },
@@ -102,30 +102,30 @@ export default async function DashboardPage() {
           <h3 className="mb-3 text-sm font-semibold text-gray-500 uppercase tracking-wide">A Receber</h3>
           <p className="text-3xl font-bold text-green-600">{formatBRL(aReceber)}</p>
           <Link href="/painel/financeiro?tipo=receber" className="mt-2 text-xs text-blue-500 hover:underline">
-            Ver lanÃ§amentos â†’
+            Ver lançamentos � 
           </Link>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <h3 className="mb-3 text-sm font-semibold text-gray-500 uppercase tracking-wide">A Pagar</h3>
           <p className="text-3xl font-bold text-red-600">{formatBRL(aPagar)}</p>
           <Link href="/painel/financeiro?tipo=pagar" className="mt-2 text-xs text-blue-500 hover:underline">
-            Ver lanÃ§amentos â†’
+            Ver lançamentos � 
           </Link>
         </div>
       </div>
 
-      {/* LanÃ§amentos recentes */}
+      {/* Lançamentos recentes */}
       {(lancamentosRecentes ?? []).length > 0 && (
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-            <h3 className="font-semibold text-gray-800">Ãšltimos LanÃ§amentos</h3>
+            <h3 className="font-semibold text-gray-800">�altimos Lançamentos</h3>
             <Link href="/painel/financeiro" className="text-xs text-blue-500 hover:underline">Ver todos</Link>
           </div>
           <div className="divide-y divide-gray-50">
             {lancamentosRecentes!.map((l) => (
               <div key={l.id} className="flex items-center justify-between px-5 py-3">
                 <div>
-                  <p className="text-sm font-medium text-gray-800">{l.descricao || 'Sem descriÃ§Ã£o'}</p>
+                  <p className="text-sm font-medium text-gray-800">{l.descricao || 'Sem descrição'}</p>
                   {l.pessoa_nome && <p className="text-xs text-gray-400">{l.pessoa_nome}</p>}
                 </div>
                 <div className="text-right">
@@ -144,15 +144,15 @@ export default async function DashboardPage() {
       <div className="grid gap-3 sm:grid-cols-3">
         <Link href="/painel/pdv"
           className="flex items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-white p-4 text-sm font-medium text-gray-600 transition hover:border-green-400 hover:text-green-600">
-          <span className="text-xl">ðŸ›’</span> Abrir PDV
+          <span className="text-xl">�x:</span> Abrir PDV
         </Link>
         <Link href="/painel/financeiro/novo"
           className="flex items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-white p-4 text-sm font-medium text-gray-600 transition hover:border-blue-400 hover:text-blue-600">
-          <span className="text-xl">ðŸ’°</span> Novo LanÃ§amento
+          <span className="text-xl">�x�</span> Novo Lançamento
         </Link>
         <Link href="/painel/chat"
           className="flex items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-white p-4 text-sm font-medium text-gray-600 transition hover:border-blue-400 hover:text-blue-600">
-          <span className="text-xl">ðŸ¤–</span> Chat com IA
+          <span className="text-xl">�x�</span> Chat com IA
         </Link>
       </div>
     </div>

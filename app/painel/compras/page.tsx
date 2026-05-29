@@ -1,4 +1,4 @@
-﻿import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { deletarNota } from './actions'
 import Link from 'next/link'
@@ -31,12 +31,12 @@ export default async function ComprasPage() {
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">NÃºmero</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Número</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Fornecedor</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Entrada</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Total</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">AÃ§Ãµes</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -46,12 +46,12 @@ export default async function ComprasPage() {
               </td></tr>
             ) : (notas ?? []).map((n) => (
               <tr key={n.id} className="hover:bg-gray-50 transition">
-                <td className="px-4 py-3 text-sm font-mono text-gray-600">{n.numero || 'â€”'}</td>
+                <td className="px-4 py-3 text-sm font-mono text-gray-600">{n.numero || '�'}</td>
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">
-                  {(n.pessoas as unknown as { nome: string } | null)?.nome ?? 'â€”'}
+                  {(n.pessoas as unknown as { nome: string } | null)?.nome ?? '�'}
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-500">
-                  {n.data_entrada ? new Date(n.data_entrada + 'T00:00:00').toLocaleDateString('pt-BR') : 'â€”'}
+                  {n.data_entrada ? new Date(n.data_entrada + 'T00:00:00').toLocaleDateString('pt-BR') : '�'}
                 </td>
                 <td className="px-4 py-3 text-sm font-semibold text-gray-800">
                   {Number(n.valor_total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
