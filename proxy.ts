@@ -19,8 +19,8 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  // Apenas atualiza os cookies de sessão, sem redirecionar
-  await supabase.auth.getSession()
+  // getUser() faz chamada de rede, valida e renova o token se expirado
+  await supabase.auth.getUser()
 
   return response
 }

@@ -5,8 +5,7 @@ import { SessionGuard } from '@/components/SessionGuard'
 
 export default async function PainelLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  const user = session?.user
+  const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) redirect('/login')
 
