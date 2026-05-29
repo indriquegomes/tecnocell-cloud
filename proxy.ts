@@ -19,7 +19,6 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  // getUser() faz chamada de rede, valida e renova o token se expirado
   await supabase.auth.getUser()
 
   return response
