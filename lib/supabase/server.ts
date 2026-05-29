@@ -24,7 +24,7 @@ export async function createClient() {
 export async function createServiceClient() {
   const cookieStore = await cookies()
 
-  // Refresh the user session so cookies stay valid after redirect inside Server Actions
+  // getUser() faz chamada de rede, valida e renova o token se expirado
   const userClient = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -41,7 +41,7 @@ export async function createServiceClient() {
       },
     }
   )
-  await userClient.auth.getSession()
+  await userClient.auth.getUser()
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
