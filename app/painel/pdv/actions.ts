@@ -44,11 +44,12 @@ export async function finalizarVenda(
   const { error: errItens } = await supabase.from('itens_venda').insert(itensInsert)
   if (errItens) throw new Error(errItens.message)
 
-  // Baixar estoque — usa o primeiro depósito com saldo suficiente
+  // Baixar estoque e coletar novas quantidades
+  const estoqueAtualizado: Record<string, number> = {}
   for (const item of itens) {
     const { data: estoqueItems } = await supabase
       .from('estoque')
-      .select('id, deposito_id, quantidade')
+      .select('id, quantidade')
       .eq('produto_id', item.produto_id)
       .gt('quantidade', 0)
       .order('quantidade', { ascending: false })
@@ -63,9 +64,17 @@ export async function finalizarVenda(
         .eq('id', estItem.id)
       restante -= debitar
     }
+
+    // Buscar total de estoque restante para este produto
+    const { data: estoqueRestante } = await supabase
+      .from('estoque')
+      .select('quantidade')
+      .eq('produto_id', item.produto_id)
+    const totalRestante = (estoqueRestante ?? []).reduce((s, e) => s + (e.quantidade ?? 0), 0)
+    estoqueAtualizado[item.produto_id] = totalRestante
   }
 
-  // Criar lançamento financeiro (a receber = venda concluída)
+  // Criar lançamento financeiro
   await supabase.from('lancamentos').insert({
     descricao: `Venda #${venda.id.slice(0, 8)}`,
     valor: total,
@@ -77,5 +86,5 @@ export async function finalizarVenda(
     updated_at: new Date().toISOString(),
   })
 
-  return { vendaId: venda.id, total }
+  return { vendaId: venda.id, total, estoqueAtualizado }
 }

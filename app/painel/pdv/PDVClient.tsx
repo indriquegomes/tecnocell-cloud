@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import { formatBRL } from '@/lib/utils'
 import { finalizarVenda } from './actions'
 
@@ -33,13 +32,13 @@ interface ItemCarrinho {
 }
 
 interface Props {
-  produtos: Produto[]
+  produtos: Produto[]   // dados iniciais do servidor
   formas: FormaPagamento[]
   pessoas: Pessoa[]
 }
 
-export function PDVClient({ produtos, formas, pessoas }: Props) {
-  const router = useRouter()
+export function PDVClient({ produtos: produtosIniciais, formas, pessoas }: Props) {
+  const [produtos, setProdutos] = useState(produtosIniciais)
   const [busca, setBusca] = useState('')
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([])
   const [formaPagamento, setFormaPagamento] = useState('')
@@ -128,7 +127,13 @@ export function PDVClient({ produtos, formas, pessoas }: Props) {
       setPessoaId('')
       setDesconto('')
       setObservacoes('')
-      router.refresh() // atualiza estoque e dados da página
+      // Atualiza estoque localmente sem router.refresh() (que dispara check de sessão)
+      if (result.estoqueAtualizado) {
+        setProdutos(prev => prev.map(p => {
+          const novoTotal = result.estoqueAtualizado[p.id]
+          return novoTotal !== undefined ? { ...p, estoque_total: novoTotal } : p
+        }))
+      }
     } catch (e) {
       setErro('Erro ao finalizar venda: ' + String(e))
     } finally {
