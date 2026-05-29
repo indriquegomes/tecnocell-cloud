@@ -47,10 +47,10 @@ export default async function RelatoriosPage({
       .order('quantidade', { ascending: false })
       .limit(200)
     estoque = (data ?? []).map((e) => ({
-      nome: (e.produtos as unknown as { nome: string; preco: number } | null)?.nome ?? '�',
+      nome: (e.produtos as unknown as { nome: string; preco: number } | null)?.nome ?? '—',
       preco: (e.produtos as unknown as { nome: string; preco: number } | null)?.preco ?? 0,
       quantidade: e.quantidade,
-      deposito: (e.depositos as unknown as { nome: string } | null)?.nome ?? '�',
+      deposito: (e.depositos as unknown as { nome: string } | null)?.nome ?? '—',
     }))
   }
 
@@ -134,10 +134,10 @@ export default async function RelatoriosPage({
                   <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-400">Nenhum lançamento no período.</td></tr>
                 ) : lancamentos.map((l, i) => (
                   <tr key={i} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-800">{l.descricao || '�'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{l.pessoa_nome || '�'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-800">{l.descricao || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{l.pessoa_nome || '—'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">
-                      {l.data_vencimento ? new Date(l.data_vencimento).toLocaleDateString('pt-BR') : '�'}
+                      {l.data_vencimento ? new Date(l.data_vencimento).toLocaleDateString('pt-BR') : '—'}
                     </td>
                     <td className="px-4 py-3 text-sm text-right font-medium text-gray-800">{fmt(l.valor)}</td>
                     <td className="px-4 py-3 text-center">
@@ -236,4 +236,3 @@ export default async function RelatoriosPage({
     </div>
   )
 }
-

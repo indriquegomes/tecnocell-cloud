@@ -53,7 +53,7 @@ export default async function EstoquePage({
           <p className="text-3xl font-bold text-green-600">{emEstoque}</p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm text-center">
-          <p className="text-sm text-gray-500">Estoque Baixo (�0�3)</p>
+          <p className="text-sm text-gray-500">Estoque Baixo (≤3)</p>
           <p className="text-3xl font-bold text-yellow-600">{estoqueBaixo}</p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm text-center">
@@ -113,13 +113,13 @@ export default async function EstoquePage({
                 return (
                   <tr key={e.id as string} className="hover:bg-gray-50 transition">
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">
-                      {(e.produto as { nome: string } | null)?.nome ?? '�'}
+                      {(e.produto as { nome: string } | null)?.nome ?? '—'}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
-                      {(e.produto as { marca: string } | null)?.marca ?? '�'}
+                      {(e.produto as { marca: string } | null)?.marca ?? '—'}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
-                      {(e.deposito as { nome: string } | null)?.nome ?? '�'}
+                      {(e.deposito as { nome: string } | null)?.nome ?? '—'}
                     </td>
                     <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">{qtd}</td>
                     <td className="px-4 py-3 text-center">
@@ -151,4 +151,3 @@ export default async function EstoquePage({
     </div>
   )
 }
-

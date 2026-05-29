@@ -7,7 +7,6 @@ import { redirect } from 'next/navigation'
 export async function criarProduto(formData: FormData) {
   const supabase = await createServiceClient()
   const { error } = await supabase.from('produtos').insert({
-    id: crypto.randomUUID(),
     nome: formData.get('nome') as string,
     descricao: (formData.get('descricao') as string) || null,
     preco: parseFloat((formData.get('preco') as string) || '0'),

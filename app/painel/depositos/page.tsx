@@ -78,7 +78,7 @@ export default async function DepositosPage({
             ) : totalPorDeposito.map((d) => (
               <tr key={d.id} className="hover:bg-gray-50 transition">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{d.nome}</td>
-                <td className="px-4 py-3 text-sm text-gray-500">{d.descricao || '�'}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{d.descricao || '—'}</td>
                 <td className="px-4 py-3 text-center text-sm font-semibold text-gray-700">{d.total}</td>
                 <td className="px-4 py-3 text-center">
                   <div className="flex items-center justify-center gap-2">
@@ -97,4 +97,3 @@ export default async function DepositosPage({
     </div>
   )
 }
-

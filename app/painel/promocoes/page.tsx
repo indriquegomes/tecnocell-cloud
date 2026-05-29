@@ -16,7 +16,7 @@ export default async function PromocoesPage({
     .order('created_at', { ascending: false })
 
   const hoje = new Date().toISOString().split('T')[0]
-  const fmtDate = (d: string | null) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '�'
+  const fmtDate = (d: string | null) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '—'
 
   const tipoLabel: Record<string, string> = {
     percentual: 'Desconto %',
@@ -114,4 +114,3 @@ export default async function PromocoesPage({
     </div>
   )
 }
-

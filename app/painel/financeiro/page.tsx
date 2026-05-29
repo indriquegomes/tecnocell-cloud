@@ -123,10 +123,10 @@ export default async function FinanceiroPage({
                 const pago = (l.status ?? '').toLowerCase().includes('pago')
                 return (
                   <tr key={l.id} className="hover:bg-gray-50 transition">
-                    <td className="px-4 py-3 text-sm text-gray-800">{l.descricao || '�'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{l.pessoa_nome || '�'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-800">{l.descricao || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{l.pessoa_nome || '—'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">
-                      {l.data_vencimento ? formatDate(l.data_vencimento) : '�'}
+                      {l.data_vencimento ? formatDate(l.data_vencimento) : '—'}
                     </td>
                     <td className={`px-4 py-3 text-right text-sm font-bold ${l.tipo === 'receber' ? 'text-green-600' : 'text-red-600'}`}>
                       {l.tipo === 'receber' ? '+' : '-'}{formatBRL(l.valor ?? 0)}
@@ -165,4 +165,3 @@ export default async function FinanceiroPage({
     </div>
   )
 }
-

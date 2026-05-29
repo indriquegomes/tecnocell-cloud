@@ -46,12 +46,12 @@ export default async function ComprasPage() {
               </td></tr>
             ) : (notas ?? []).map((n) => (
               <tr key={n.id} className="hover:bg-gray-50 transition">
-                <td className="px-4 py-3 text-sm font-mono text-gray-600">{n.numero || '�'}</td>
+                <td className="px-4 py-3 text-sm font-mono text-gray-600">{n.numero || '—'}</td>
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">
-                  {(n.pessoas as unknown as { nome: string } | null)?.nome ?? '�'}
+                  {(n.pessoas as unknown as { nome: string } | null)?.nome ?? '—'}
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-500">
-                  {n.data_entrada ? new Date(n.data_entrada + 'T00:00:00').toLocaleDateString('pt-BR') : '�'}
+                  {n.data_entrada ? new Date(n.data_entrada + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}
                 </td>
                 <td className="px-4 py-3 text-sm font-semibold text-gray-800">
                   {Number(n.valor_total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
@@ -78,4 +78,3 @@ export default async function ComprasPage() {
     </div>
   )
 }
-

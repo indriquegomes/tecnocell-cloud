@@ -100,8 +100,8 @@ export default async function ValesCreditoPage({
               <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-gray-400">Nenhum vale emitido.</td></tr>
             ) : (vales ?? []).map((v) => (
               <tr key={v.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 text-sm text-gray-800">{v.pessoa_id ? (pessoaMap[v.pessoa_id] ?? '�') : '�'}</td>
-                <td className="px-4 py-3 text-sm text-gray-500">{v.motivo || '�'}</td>
+                <td className="px-4 py-3 text-sm text-gray-800">{v.pessoa_id ? (pessoaMap[v.pessoa_id] ?? '—') : '—'}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{v.motivo || '—'}</td>
                 <td className="px-4 py-3 text-sm text-right text-gray-700">{fmt(v.valor ?? 0)}</td>
                 <td className="px-4 py-3 text-sm text-right font-semibold text-blue-600">{fmt(v.saldo ?? 0)}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">{fmtDate(v.created_at)}</td>
@@ -127,4 +127,3 @@ export default async function ValesCreditoPage({
     </div>
   )
 }
-

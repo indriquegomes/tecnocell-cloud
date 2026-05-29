@@ -30,7 +30,7 @@ export default async function NovoPedidoPage({ searchParams }: { searchParams: P
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Cliente</label>
           <select name="pessoa_id" className="field">
-            <option value="">� Selecione �</option>
+            <option value="">— Selecione —</option>
             {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
           </select>
         </div>
@@ -54,4 +54,3 @@ export default async function NovoPedidoPage({ searchParams }: { searchParams: P
     </div>
   )
 }
-

@@ -112,15 +112,15 @@ export default async function ProdutosPage({
                       <p className="text-sm font-medium text-gray-800">{p.nome as string}</p>
                       {p.codigo != null && <p className="text-xs text-gray-400">#{String(p.codigo)}</p>}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{(p.marca as string) || '�'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{(p.marca as string) || '—'}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {(p.cat as { nome: string } | null)?.nome || '�'}
+                      {(p.cat as { nome: string } | null)?.nome || '—'}
                     </td>
                     <td className="px-4 py-3 text-right text-sm font-medium text-gray-900">
                       {formatBRL(p.preco as number)}
                     </td>
                     <td className="px-4 py-3 text-right text-sm text-gray-500">
-                      {(p.preco_custo as number) > 0 ? formatBRL(p.preco_custo as number) : '�'}
+                      {(p.preco_custo as number) > 0 ? formatBRL(p.preco_custo as number) : '—'}
                     </td>
                     <td className="px-4 py-3 text-center text-sm font-medium text-gray-700">
                       {estoqueTotal}
@@ -151,4 +151,3 @@ export default async function ProdutosPage({
     </div>
   )
 }
-

@@ -1,7 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { criarTabela, deletarTabela } from './actions'
-import Link from 'next/link'
 import { ConfirmButton } from '@/components/ConfirmButton'
+import Link from 'next/link'
 
 export default async function TabelasPrecoPage({
   searchParams,
@@ -79,4 +79,3 @@ export default async function TabelasPrecoPage({
     </div>
   )
 }
-

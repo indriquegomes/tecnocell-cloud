@@ -1,4 +1,4 @@
-﻿import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { adicionarItemTabela, removerItemTabela } from '../actions'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'

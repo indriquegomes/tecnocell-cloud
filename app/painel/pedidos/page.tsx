@@ -77,7 +77,7 @@ export default async function PedidosPage({
                 <td className="px-4 py-3 text-sm font-mono text-gray-500">#{p.numero}</td>
                 <td className="px-4 py-3 text-sm text-gray-600 capitalize">{p.tipo}</td>
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">
-                  {(p.pessoas as unknown as { nome: string } | null)?.nome ?? '�'}
+                  {(p.pessoas as unknown as { nome: string } | null)?.nome ?? '—'}
                 </td>
                 <td className="px-4 py-3 text-sm font-semibold text-gray-800">
                   {Number(p.total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
@@ -104,4 +104,3 @@ export default async function PedidosPage({
     </div>
   )
 }
-

@@ -37,7 +37,7 @@ export default async function NovaNotaPage({ searchParams }: { searchParams: Pro
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Fornecedor</label>
             <select name="fornecedor_id" className="field">
-              <option value="">� Selecione �</option>
+              <option value="">— Selecione —</option>
               {fornecedores.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
             </select>
           </div>
@@ -58,4 +58,3 @@ export default async function NovaNotaPage({ searchParams }: { searchParams: Pro
     </div>
   )
 }
-

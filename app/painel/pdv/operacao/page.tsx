@@ -112,9 +112,9 @@ export default async function OperacaoPDVPage({ searchParams }: { searchParams: 
             {(historico ?? []).map((c) => (
               <tr key={c.id} className="hover:bg-gray-50 transition">
                 <td className="px-4 py-3 text-sm text-gray-600">{fmtDate(c.aberto_em)}</td>
-                <td className="px-4 py-3 text-sm text-gray-500">{c.fechado_em ? fmtDate(c.fechado_em) : '�'}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{c.fechado_em ? fmtDate(c.fechado_em) : '—'}</td>
                 <td className="px-4 py-3 text-sm text-right text-gray-700">{fmt(c.valor_abertura ?? 0)}</td>
-                <td className="px-4 py-3 text-sm text-right text-gray-700">{c.valor_fechamento != null ? fmt(c.valor_fechamento) : '�'}</td>
+                <td className="px-4 py-3 text-sm text-right text-gray-700">{c.valor_fechamento != null ? fmt(c.valor_fechamento) : '—'}</td>
                 <td className="px-4 py-3 text-center">
                   <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${c.status === 'aberto' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                     {c.status}
@@ -128,4 +128,3 @@ export default async function OperacaoPDVPage({ searchParams }: { searchParams: 
     </div>
   )
 }
-

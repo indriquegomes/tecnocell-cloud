@@ -14,7 +14,7 @@ export default async function PDVPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">PDV � Frente de Caixa</h2>
+          <h2 className="text-2xl font-bold text-gray-900">PDV — Frente de Caixa</h2>
           <p className="text-sm text-gray-400 mt-0.5">{produtos?.length ?? 0} produtos disponíveis</p>
         </div>
       </div>
@@ -30,4 +30,3 @@ export default async function PDVPage() {
     </div>
   )
 }
-

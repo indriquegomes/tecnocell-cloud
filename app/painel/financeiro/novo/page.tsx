@@ -51,7 +51,7 @@ export default async function NovoLancamentoPage({
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Forma de Pagamento</label>
             <select name="forma_pagamento" className="field">
-              <option value="">�</option>
+              <option value="">—</option>
               {(formas ?? []).map((f) => (
                 <option key={f.id} value={f.nome}>{f.nome}</option>
               ))}
@@ -75,4 +75,3 @@ export default async function NovoLancamentoPage({
     </div>
   )
 }
-

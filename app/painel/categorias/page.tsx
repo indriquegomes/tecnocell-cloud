@@ -76,7 +76,7 @@ export default async function CategoriasPage({
             ) : comContagem.map((c) => (
               <tr key={c.id} className="hover:bg-gray-50 transition">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.nome}</td>
-                <td className="px-4 py-3 text-sm text-gray-500">{c.descricao || '�'}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{c.descricao || '—'}</td>
                 <td className="px-4 py-3 text-center text-sm text-gray-600">{c.total}</td>
                 <td className="px-4 py-3 text-center">
                   <div className="flex items-center justify-center gap-2">
@@ -95,4 +95,3 @@ export default async function CategoriasPage({
     </div>
   )
 }
-

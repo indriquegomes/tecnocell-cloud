@@ -55,14 +55,14 @@ export default async function EmpresasPage({
             ) : (empresas ?? []).map((e) => (
               <tr key={e.id} className="hover:bg-gray-50 transition">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{e.nome}</td>
-                <td className="px-4 py-3 text-sm text-gray-500">{e.cnpj || '�'}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{e.cnpj || '—'}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">
                   {e.email && <p>{e.email}</p>}
                   {e.telefone && <p>{e.telefone}</p>}
-                  {!e.email && !e.telefone && '�'}
+                  {!e.email && !e.telefone && '—'}
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-500">
-                  {e.cidade ? `${e.cidade}${e.estado ? `/${e.estado}` : ''}` : '�'}
+                  {e.cidade ? `${e.cidade}${e.estado ? `/${e.estado}` : ''}` : '—'}
                 </td>
                 <td className="px-4 py-3 text-center">
                   <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${e.ativa ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
@@ -86,4 +86,3 @@ export default async function EmpresasPage({
     </div>
   )
 }
-
