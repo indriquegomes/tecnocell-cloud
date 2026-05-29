@@ -20,8 +20,52 @@ export default async function OperacaoPDVPage({ searchParams }: { searchParams: 
     .order('aberto_em', { ascending: false })
     .limit(20)
 
+  // Vendas desde a abertura do caixa atual
+  let vendasDia: { id: string; total: number; forma_pagamento_id: string | null; created_at: string }[] = []
+  let itensDia: { produto_id: string; quantidade: number; preco_unitario: number; total_item: number; nome?: string }[] = []
+
+  if (caixaAberto) {
+    const { data: vendas } = await supabase
+      .from('vendas')
+      .select('id, total, forma_pagamento_id, created_at')
+      .eq('status', 'concluida')
+      .gte('created_at', caixaAberto.aberto_em)
+      .order('created_at', { ascending: false })
+
+    vendasDia = vendas ?? []
+
+    if (vendasDia.length > 0) {
+      const vendaIds = vendasDia.map(v => v.id)
+      const { data: itens } = await supabase
+        .from('itens_venda')
+        .select('produto_id, quantidade, preco_unitario, total_item, produtos(nome)')
+        .in('venda_id', vendaIds)
+      itensDia = (itens ?? []).map((i: Record<string, unknown>) => ({
+        produto_id: i.produto_id as string,
+        quantidade: i.quantidade as number,
+        preco_unitario: i.preco_unitario as number,
+        total_item: i.total_item as number,
+        nome: (i.produtos as { nome: string } | null)?.nome,
+      }))
+    }
+  }
+
+  // Agrupamentos para o resumo
+  const totalVendas = vendasDia.reduce((s, v) => s + (v.total ?? 0), 0)
+  const qtdVendas = vendasDia.length
+
+  // Total por produto
+  const porProduto = itensDia.reduce<Record<string, { nome: string; qtd: number; total: number }>>((acc, i) => {
+    const key = i.produto_id
+    if (!acc[key]) acc[key] = { nome: i.nome ?? i.produto_id, qtd: 0, total: 0 }
+    acc[key].qtd += i.quantidade
+    acc[key].total += i.total_item
+    return acc
+  }, {})
+
   const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
   const fmtDate = (d: string) => new Date(d).toLocaleString('pt-BR')
+  const fmtHora = (d: string) => new Date(d).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 
   return (
     <div className="space-y-6">
@@ -36,7 +80,7 @@ export default async function OperacaoPDVPage({ searchParams }: { searchParams: 
 
       {erro && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
 
-      {/* Status atual */}
+      {/* Status do caixa */}
       <div className={`rounded-2xl border p-6 ${caixaAberto ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-white'}`}>
         <div className="flex items-center justify-between">
           <div>
@@ -46,7 +90,7 @@ export default async function OperacaoPDVPage({ searchParams }: { searchParams: 
             </p>
             {caixaAberto && (
               <p className="text-sm text-gray-500 mt-1">
-                Aberto em {fmtDate(caixaAberto.aberto_em)} · Saldo inicial: {fmt(caixaAberto.valor_abertura)}
+                Aberto em {fmtDate(caixaAberto.aberto_em)} · Saldo inicial: {fmt(caixaAberto.valor_abertura ?? 0)}
               </p>
             )}
           </div>
@@ -54,7 +98,86 @@ export default async function OperacaoPDVPage({ searchParams }: { searchParams: 
         </div>
       </div>
 
-      {/* Ação */}
+      {/* Resumo de vendas do caixa atual */}
+      {caixaAberto && (
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 className="font-semibold text-gray-800">Vendas do Caixa Atual</h3>
+            <span className="text-xs text-gray-400">desde {fmtDate(caixaAberto.aberto_em)}</span>
+          </div>
+
+          {/* Totalizadores */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-px bg-gray-100">
+            <div className="bg-white px-6 py-4">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total em Vendas</p>
+              <p className="mt-1 text-2xl font-bold text-green-600">{fmt(totalVendas)}</p>
+            </div>
+            <div className="bg-white px-6 py-4">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Nº de Vendas</p>
+              <p className="mt-1 text-2xl font-bold text-gray-900">{qtdVendas}</p>
+            </div>
+            <div className="bg-white px-6 py-4">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Ticket Médio</p>
+              <p className="mt-1 text-2xl font-bold text-gray-900">
+                {qtdVendas > 0 ? fmt(totalVendas / qtdVendas) : '—'}
+              </p>
+            </div>
+          </div>
+
+          {/* Itens vendidos */}
+          {Object.keys(porProduto).length > 0 && (
+            <div className="px-6 py-4 border-t border-gray-100">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Itens Vendidos</p>
+              <div className="space-y-2">
+                {Object.values(porProduto).sort((a, b) => b.total - a.total).map((p, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-700">{p.nome}</span>
+                    <div className="flex items-center gap-4">
+                      <span className="text-gray-400">{p.qtd} un.</span>
+                      <span className="font-semibold text-gray-900 w-24 text-right">{fmt(p.total)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Lista de vendas recentes */}
+          {vendasDia.length > 0 && (
+            <div className="border-t border-gray-100">
+              <div className="px-6 py-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Transações</p>
+              </div>
+              <table className="min-w-full divide-y divide-gray-50">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-2 text-left text-xs font-medium text-gray-400">Hora</th>
+                    <th className="px-6 py-2 text-left text-xs font-medium text-gray-400">ID</th>
+                    <th className="px-6 py-2 text-right text-xs font-medium text-gray-400">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {vendasDia.map(v => (
+                    <tr key={v.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-2 text-sm text-gray-500">{fmtHora(v.created_at)}</td>
+                      <td className="px-6 py-2 text-sm font-mono text-gray-400">{v.id.slice(0, 8).toUpperCase()}</td>
+                      <td className="px-6 py-2 text-sm font-semibold text-right text-green-600">{fmt(v.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {qtdVendas === 0 && (
+            <div className="px-6 py-8 text-center text-sm text-gray-400">
+              Nenhuma venda registrada desde a abertura do caixa.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Ação: Abrir ou Fechar caixa */}
       {!caixaAberto ? (
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
           <h3 className="font-semibold text-gray-800">Abrir Caixa</h3>
@@ -67,26 +190,29 @@ export default async function OperacaoPDVPage({ searchParams }: { searchParams: 
               <label className="mb-1.5 block text-sm font-medium text-gray-700">Observações</label>
               <input name="obs_abertura" className="field" placeholder="Opcional" />
             </div>
-            <button type="submit"
-              className="rounded-xl bg-green-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-green-700 transition">
+            <button type="submit" className="rounded-xl bg-green-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-green-700 transition">
               Abrir Caixa
             </button>
           </form>
         </div>
       ) : (
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
-          <h3 className="font-semibold text-gray-800">Fechar Caixa</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-gray-800">Fechar Caixa</h3>
+            <p className="text-sm text-gray-500">
+              Total em vendas: <strong className="text-green-600">{fmt(totalVendas)}</strong>
+            </p>
+          </div>
           <form action={fecharCaixa.bind(null, caixaAberto.id)} className="flex flex-wrap gap-4 items-end">
             <div className="flex-1 min-w-48">
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">Valor de Fechamento (R$)</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Valor no Caixa (R$)</label>
               <input name="valor_fechamento" type="number" step="0.01" min="0" defaultValue="0" className="field" />
             </div>
             <div className="flex-1 min-w-48">
               <label className="mb-1.5 block text-sm font-medium text-gray-700">Observações</label>
               <input name="obs_fechamento" className="field" placeholder="Opcional" />
             </div>
-            <button type="submit"
-              className="rounded-xl bg-red-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-red-700 transition">
+            <button type="submit" className="rounded-xl bg-red-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-red-700 transition">
               Fechar Caixa
             </button>
           </form>
