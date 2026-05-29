@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { formatBRL } from '@/lib/utils'
 import { finalizarVenda } from './actions'
 
@@ -38,6 +39,7 @@ interface Props {
 }
 
 export function PDVClient({ produtos, formas, pessoas }: Props) {
+  const router = useRouter()
   const [busca, setBusca] = useState('')
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([])
   const [formaPagamento, setFormaPagamento] = useState('')
@@ -126,6 +128,7 @@ export function PDVClient({ produtos, formas, pessoas }: Props) {
       setPessoaId('')
       setDesconto('')
       setObservacoes('')
+      router.refresh() // atualiza estoque e dados da página
     } catch (e) {
       setErro('Erro ao finalizar venda: ' + String(e))
     } finally {
