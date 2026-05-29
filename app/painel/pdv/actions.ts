@@ -1,7 +1,6 @@
 'use server'
 
 import { createServiceClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
 
 interface ItemCarrinho {
   produto_id: string
@@ -78,7 +77,5 @@ export async function finalizarVenda(
     updated_at: new Date().toISOString(),
   })
 
-  revalidatePath('/painel/estoque')
-  revalidatePath('/painel/financeiro')
   return { vendaId: venda.id, total }
 }
