@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { criarProduto } from '../actions'
+import { ImageUpload } from '@/components/ImageUpload'
 import Link from 'next/link'
 
 export default async function NovoProdutoPage() {
@@ -20,8 +21,9 @@ export default async function NovoProdutoPage() {
         <h2 className="text-2xl font-bold text-gray-900">Novo Produto</h2>
       </div>
 
-      <form action={criarProduto} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-5">
+      <form action={criarProduto} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-5" encType="multipart/form-data">
         <div className="grid gap-5 sm:grid-cols-2">
+          <ImageUpload />
           <div className="sm:col-span-2">
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Nome *</label>
             <input name="nome" required className="field" placeholder="Nome do produto" />

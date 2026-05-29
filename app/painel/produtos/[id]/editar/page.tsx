@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { editarProduto } from '../../actions'
+import { ImageUpload } from '@/components/ImageUpload'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -28,8 +29,9 @@ export default async function EditarProdutoPage({ params }: { params: Promise<{ 
         <h2 className="text-2xl font-bold text-gray-900">Editar Produto</h2>
       </div>
 
-      <form action={action} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-5">
+      <form action={action} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-5" encType="multipart/form-data">
         <div className="grid gap-5 sm:grid-cols-2">
+          <ImageUpload currentUrl={produto.imagem_url} />
           <div className="sm:col-span-2">
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Nome *</label>
             <input name="nome" required defaultValue={produto.nome} className="field" />

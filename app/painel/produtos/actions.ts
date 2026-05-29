@@ -4,9 +4,28 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
+async function uploadImagem(supabase: Awaited<ReturnType<typeof createServiceClient>>, file: File, id: string): Promise<string | null> {
+  if (!file || file.size === 0) return null
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+  const path = `${id}.${ext}`
+  const buffer = Buffer.from(await file.arrayBuffer())
+  const { error } = await supabase.storage.from('produtos').upload(path, buffer, {
+    contentType: file.type,
+    upsert: true,
+  })
+  if (error) return null
+  const { data } = supabase.storage.from('produtos').getPublicUrl(path)
+  return data.publicUrl
+}
+
 export async function criarProduto(formData: FormData) {
   const supabase = await createServiceClient()
+  const id = crypto.randomUUID()
+  const imagemFile = formData.get('imagem') as File | null
+  const imagem_url = imagemFile ? await uploadImagem(supabase, imagemFile, id) : null
+
   const { error } = await supabase.from('produtos').insert({
+    id,
     nome: formData.get('nome') as string,
     descricao: (formData.get('descricao') as string) || null,
     preco: parseFloat((formData.get('preco') as string) || '0'),
@@ -16,6 +35,7 @@ export async function criarProduto(formData: FormData) {
     codigo: (formData.get('codigo') as string) || null,
     ativo: formData.get('ativo') === 'true',
     visivel_catalogo: true,
+    imagem_url,
     updated_at: new Date().toISOString(),
   })
   if (error) throw new Error(error.message)
@@ -25,7 +45,10 @@ export async function criarProduto(formData: FormData) {
 
 export async function editarProduto(id: string, formData: FormData) {
   const supabase = await createServiceClient()
-  const { error } = await supabase.from('produtos').update({
+  const imagemFile = formData.get('imagem') as File | null
+  const novaImagem = imagemFile ? await uploadImagem(supabase, imagemFile, id) : undefined
+
+  const updates: Record<string, unknown> = {
     nome: formData.get('nome') as string,
     descricao: (formData.get('descricao') as string) || null,
     preco: parseFloat((formData.get('preco') as string) || '0'),
@@ -35,7 +58,10 @@ export async function editarProduto(id: string, formData: FormData) {
     codigo: (formData.get('codigo') as string) || null,
     ativo: formData.get('ativo') === 'true',
     updated_at: new Date().toISOString(),
-  }).eq('id', id)
+  }
+  if (novaImagem) updates.imagem_url = novaImagem
+
+  const { error } = await supabase.from('produtos').update(updates).eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/painel/produtos')
   redirect('/painel/produtos')
