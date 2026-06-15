@@ -1,3 +1,5 @@
+import { loginAction } from './actions'
+
 export default async function LoginPage({
   searchParams,
 }: {
@@ -15,7 +17,7 @@ export default async function LoginPage({
             <p className="mt-1 text-sm text-gray-500">Área de funcionários</p>
           </div>
 
-          <form action="/api/auth/login" method="post" className="space-y-4">
+          <form action={loginAction} className="space-y-4">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700">E-mail</label>
               <input
