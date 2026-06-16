@@ -15,7 +15,6 @@ export function PortalLoginForm({ buttonColor = '#4A7BA7' }: Props) {
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [mostrarSenha, setMostrarSenha] = useState(false)
-  const [lembrar, setLembrar] = useState(true)
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -31,13 +30,8 @@ export function PortalLoginForm({ buttonColor = '#4A7BA7' }: Props) {
       return
     }
 
-    if (!lembrar) {
-      localStorage.setItem('tc_no_persist', '1')
-      sessionStorage.setItem('tc_alive', '1')
-    } else {
-      localStorage.removeItem('tc_no_persist')
-    }
-
+    // Clear any stale flag left by old code versions
+    localStorage.removeItem('tc_no_persist')
     window.location.href = '/painel'
   }
 
@@ -94,16 +88,6 @@ export function PortalLoginForm({ buttonColor = '#4A7BA7' }: Props) {
           </button>
         </div>
       </div>
-
-      <label className="flex items-center gap-2.5 cursor-pointer select-none">
-        <input
-          type="checkbox"
-          checked={lembrar}
-          onChange={(e) => setLembrar(e.target.checked)}
-          className="h-4 w-4 rounded border-gray-300 accent-[#4A7BA7]"
-        />
-        <span className="text-sm text-gray-600">Lembrar de mim</span>
-      </label>
 
       {erro && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

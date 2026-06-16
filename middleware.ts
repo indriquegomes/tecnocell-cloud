@@ -23,10 +23,18 @@ export async function middleware(request: NextRequest) {
 
   // getUser() validates the JWT against the Supabase server and triggers
   // a token refresh (via setAll) when the access token is near expiry.
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user }, error } = await supabase.auth.getUser()
 
   if (!user && request.nextUrl.pathname.startsWith('/painel')) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    // Transient network error reaching Supabase — don't redirect to avoid false logouts
+    if (error) return response
+    // Confirmed no session: redirect to login, carrying any Set-Cookie headers
+    // that setAll may have written (e.g. from a partial token refresh attempt)
+    const redirectResponse = NextResponse.redirect(new URL('/login', request.url))
+    response.cookies.getAll().forEach(({ name, value, ...opts }) =>
+      redirectResponse.cookies.set(name, value, opts)
+    )
+    return redirectResponse
   }
 
   if (user?.email) {
