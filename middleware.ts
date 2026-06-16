@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -10,26 +10,19 @@ export async function proxy(request: NextRequest) {
     {
       cookies: {
         getAll() { return request.cookies.getAll() },
-        setAll(toSet, headers) {
-          toSet.forEach(({ name, value }) => request.cookies.set(name, value))
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           response = NextResponse.next({ request })
-          toSet.forEach(({ name, value, options }) =>
+          cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
           )
-          if (headers) {
-            Object.entries(headers).forEach(([key, value]) =>
-              response.headers.set(key, value)
-            )
-          }
         },
       },
     }
   )
 
-  // getSession() renova o token via cookies — sem chamada de rede quando válido
   const { data: { session } } = await supabase.auth.getSession()
 
-  // Rota protegida sem sessão → login
   if (!session && request.nextUrl.pathname.startsWith('/painel')) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
