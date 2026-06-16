@@ -13,40 +13,14 @@ Branch: `trabalho-noturno` | Regras: sem push para main, sem tocar em auth
 
 ---
 
-## [19:46] Leitura completa dos módulos
-
-Iniciando leitura paralela de todos os arquivos de página e actions do /painel para documentar funcionalidades.
-
-**Módulos auditados:**
-- [x] Dashboard (`app/painel/page.tsx`)
-- [x] PDV — seleção (`app/painel/pdv/page.tsx`, `PDVClient.tsx`, `actions.ts`)
-- [x] PDV — operação (`app/painel/pdv/operacao/page.tsx`)
-- [x] Pedidos (`app/painel/pedidos/`)
-- [x] Clientes (`app/painel/clientes/`)
-- [x] Produtos (`app/painel/produtos/`)
-- [x] Estoque (`app/painel/estoque/`)
-- [x] Financeiro (`app/painel/financeiro/`)
-- [x] Compras (`app/painel/compras/`)
-- [x] Empresas (`app/painel/empresas/`)
-- [x] Formas de Pagamento (`app/painel/formas-pagamento/`)
-- [x] Depósitos (`app/painel/depositos/`)
-- [x] Tabelas de Preço (`app/painel/tabelas-preco/`)
-- [x] Promoções (`app/painel/promocoes/`)
-- [x] Vales de Crédito (`app/painel/vales-credito/`)
-- [x] Catálogo (`app/painel/catalogo/`)
-- [x] Categorias (`app/painel/categorias/`)
-- [x] Configurações (`app/painel/configuracoes/`)
-
----
-
 ## [CONCLUÍDO] Tarefa 1: TESTES_FUNCIONALIDADES.md
 
-Arquivo criado com auditoria completa de 18 módulos.
+Arquivo criado com auditoria completa de 18 módulos do /painel.
 
 **Bugs críticos encontrados:**
 1. Dashboard: "A Receber" e "A Pagar" calculados sobre apenas 5 lançamentos → valores errados
 2. Produtos: `imagem_url` ausente do SELECT mas verificado no JSX → thumbnails nunca aparecem
-3. PDV N+1: loop de UPDATE no estoque ao finalizar venda
+3. PDV N+1: loop de UPDATE no estoque ao finalizar venda (queries sequenciais por produto)
 
 **Lacunas funcionais (features ausentes):**
 - Vales de crédito não integrados ao PDV
@@ -58,19 +32,39 @@ Arquivo criado com auditoria completa de 18 módulos.
 
 ---
 
-## [EM ANDAMENTO] Tarefa 2: RELATORIO_FINANCEIRO_ESTOQUE.md
+## [CONCLUÍDO] Tarefa 2: RELATORIO_FINANCEIRO_ESTOQUE.md
 
-Comparando o que existe com o que um sistema completo de gestão deveria ter.
-
----
-
-## [PENDENTE] Tarefa 3: Correções de bugs seguros
-
-Bugs para corrigir (sem tocar em auth):
-1. `app/painel/page.tsx` — Dashboard A Receber/A Pagar (query separada para todos os pendentes)
-2. `app/painel/produtos/page.tsx` — adicionar `imagem_url` ao select
-3. `app/painel/pdv/actions.ts` — substituir loop N+1 por upsert em lote
+Criado com análise completa comparando estado atual vs sistema completo.
+Roadmap de 5 sprints sugerido com estimativas.
 
 ---
 
-_Atualizado automaticamente durante a noite. Verifique os arquivos TESTES_FUNCIONALIDADES.md e RELATORIO_FINANCEIRO_ESTOQUE.md para detalhes._
+## [CONCLUÍDO] Tarefa 3: Correções de bugs seguros
+
+### Bug 1: Dashboard A Receber/A Pagar — CORRIGIDO
+**Arquivo:** `app/painel/page.tsx`
+**Problema:** `aReceber` e `aPagar` calculados sobre `lancamentosRecentes` limitado a 5 registros.
+**Fix:** Adicionadas 2 queries paralelas no `Promise.all`:
+- `supabase.from('lancamentos').select('valor').eq('tipo', 'receber').neq('status', 'pago')`
+- `supabase.from('lancamentos').select('valor').eq('tipo', 'pagar').neq('status', 'pago')`
+Agora somam todos os lançamentos pendentes, sem limite.
+
+### Bug 2: Produtos sem thumbnail — CORRIGIDO
+**Arquivo:** `app/painel/produtos/page.tsx`
+**Problema:** `imagem_url` não estava no SELECT mas era verificado no JSX.
+**Fix:** Adicionado `imagem_url` ao select query. Thumbnails agora aparecem corretamente.
+
+### Bug 3: PDV N+1 no estoque — CORRIGIDO
+**Arquivo:** `app/painel/pdv/actions.ts`
+**Problema:** Loop `for...of` executava múltiplas queries sequenciais de SELECT + UPDATE por produto.
+Para carrinho de 5 itens: ~15 queries sequenciais.
+**Fix:**
+- 1 SELECT com `.in('produto_id', produtoIds)` busca estoque de todos os produtos de uma vez
+- Lógica de débito calculada em memória (mesma regra de multi-depósito)
+- UPDATEs executados em paralelo com `Promise.all`
+- `estoqueAtualizado` calculado a partir dos dados já em memória (sem query extra)
+Para carrinho de 5 itens: 2 queries + 5 updates paralelos.
+
+---
+
+_Última atualização: trabalho noturno concluído — todas as 3 tarefas finalizadas._

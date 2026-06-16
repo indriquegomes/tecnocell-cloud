@@ -44,34 +44,48 @@ export async function finalizarVenda(
   const { error: errItens } = await supabase.from('itens_venda').insert(itensInsert)
   if (errItens) throw new Error(errItens.message)
 
-  // Baixar estoque e coletar novas quantidades
-  const estoqueAtualizado: Record<string, number> = {}
-  for (const item of itens) {
-    const { data: estoqueItems } = await supabase
-      .from('estoque')
-      .select('id, quantidade')
-      .eq('produto_id', item.produto_id)
-      .gt('quantidade', 0)
-      .order('quantidade', { ascending: false })
+  // Buscar estoque de todos os produtos do carrinho em uma única query
+  const produtoIds = itens.map((i) => i.produto_id)
+  const { data: todosEstoque } = await supabase
+    .from('estoque')
+    .select('id, produto_id, quantidade')
+    .in('produto_id', produtoIds)
+    .gt('quantidade', 0)
+    .order('quantidade', { ascending: false })
 
+  // Agrupar por produto (em memória) e calcular quais linhas precisam de update
+  const estoqueByProduto: Record<string, { id: string; quantidade: number }[]> = {}
+  for (const row of todosEstoque ?? []) {
+    if (!estoqueByProduto[row.produto_id]) estoqueByProduto[row.produto_id] = []
+    estoqueByProduto[row.produto_id].push({ id: row.id, quantidade: row.quantidade })
+  }
+
+  const updates: { id: string; novaQtd: number }[] = []
+  for (const item of itens) {
     let restante = item.quantidade
-    for (const estItem of estoqueItems ?? []) {
+    for (const estRow of estoqueByProduto[item.produto_id] ?? []) {
       if (restante <= 0) break
-      const debitar = Math.min(restante, estItem.quantidade)
-      await supabase
-        .from('estoque')
-        .update({ quantidade: estItem.quantidade - debitar, updated_at: new Date().toISOString() })
-        .eq('id', estItem.id)
+      const debitar = Math.min(restante, estRow.quantidade)
+      updates.push({ id: estRow.id, novaQtd: estRow.quantidade - debitar })
       restante -= debitar
     }
+  }
 
-    // Buscar total de estoque restante para este produto
-    const { data: estoqueRestante } = await supabase
-      .from('estoque')
-      .select('quantidade')
-      .eq('produto_id', item.produto_id)
-    const totalRestante = (estoqueRestante ?? []).reduce((s, e) => s + (e.quantidade ?? 0), 0)
-    estoqueAtualizado[item.produto_id] = totalRestante
+  // Executar updates em paralelo (um por linha de estoque afetada)
+  const now = new Date().toISOString()
+  await Promise.all(
+    updates.map(({ id, novaQtd }) =>
+      supabase.from('estoque').update({ quantidade: novaQtd, updated_at: now }).eq('id', id)
+    )
+  )
+
+  // Calcular quantidades restantes a partir dos dados já carregados, aplicando os débitos
+  const estoqueAtualizado: Record<string, number> = {}
+  const debitosById = Object.fromEntries(updates.map(({ id, novaQtd }) => [id, novaQtd]))
+  for (const id of produtoIds) {
+    estoqueAtualizado[id] = (todosEstoque ?? [])
+      .filter((e) => e.produto_id === id)
+      .reduce((s, e) => s + (debitosById[e.id] ?? e.quantidade), 0)
   }
 
   // Criar lançamento financeiro

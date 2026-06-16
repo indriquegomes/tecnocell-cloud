@@ -16,7 +16,7 @@ export default async function ProdutosPage({
   let query = supabase
     .from('produtos')
     .select(`
-      id, nome, descricao, preco, preco_custo, marca, categoria, ativo, codigo,
+      id, nome, descricao, preco, preco_custo, marca, categoria, ativo, codigo, imagem_url,
       cat:categorias!categoria ( nome ),
       estoque ( quantidade )
     `)

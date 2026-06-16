@@ -11,6 +11,8 @@ export default async function DashboardPage() {
     { data: estoqueItems },
     { data: lancamentosRecentes },
     { data: vendasHoje },
+    { data: pendentesReceber },
+    { data: pendentesPagar },
   ] = await Promise.all([
     supabase.from('produtos').select('*', { count: 'exact', head: true }).eq('ativo', true),
     supabase.from('pessoas').select('*', { count: 'exact', head: true }).eq('tipo', 'cliente'),
@@ -24,18 +26,15 @@ export default async function DashboardPage() {
       .from('vendas')
       .select('total')
       .gte('created_at', new Date().toISOString().split('T')[0]),
+    supabase.from('lancamentos').select('valor').eq('tipo', 'receber').neq('status', 'pago'),
+    supabase.from('lancamentos').select('valor').eq('tipo', 'pagar').neq('status', 'pago'),
   ])
 
   const itensEmEstoque = (estoqueItems ?? []).length
   const estoqueBaixo = (estoqueItems ?? []).filter((e) => e.quantidade <= 3).length
 
-  const aReceber = (lancamentosRecentes ?? [])
-    .filter((l) => l.tipo === 'receber' && l.status !== 'pago')
-    .reduce((s, l) => s + (l.valor ?? 0), 0)
-
-  const aPagar = (lancamentosRecentes ?? [])
-    .filter((l) => l.tipo === 'pagar' && l.status !== 'pago')
-    .reduce((s, l) => s + (l.valor ?? 0), 0)
+  const aReceber = (pendentesReceber ?? []).reduce((s, l) => s + (l.valor ?? 0), 0)
+  const aPagar = (pendentesPagar ?? []).reduce((s, l) => s + (l.valor ?? 0), 0)
 
   const totalVendasHoje = (vendasHoje ?? []).reduce((s, v) => s + (v.total ?? 0), 0)
 
