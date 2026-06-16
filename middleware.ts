@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request })
@@ -21,19 +21,23 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const { data: { session } } = await supabase.auth.getSession()
+  // getUser() validates the JWT against the Supabase server and triggers
+  // a token refresh (via setAll) when the access token is near expiry.
+  const { data: { user } } = await supabase.auth.getUser()
 
-  if (!session && request.nextUrl.pathname.startsWith('/painel')) {
+  if (!user && request.nextUrl.pathname.startsWith('/painel')) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  if (session?.user?.email) {
-    response.headers.set('x-user-email', session.user.email)
+  if (user?.email) {
+    response.headers.set('x-user-email', user.email)
   }
 
   return response
 }
 
 export const config = {
-  matcher: ['/painel/:path*', '/login'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 }
