@@ -299,3 +299,52 @@ Data: 2026-06-16 | Branch: `trabalho-noturno`
 | 13 | Configurações | Campos moeda e timezone salvos mas não lidos/aplicados em nenhum módulo |
 | 14 | Catálogo | Usa `createClient()` com RLS em vez de `createServiceClient()` como os demais |
 | 15 | Dashboard | Atalho "Chat com IA" leva para `/painel/chat` — verificar se página existe |
+
+---
+
+## 19. Relatórios (`/painel/relatorios`)
+
+| Elemento | O que deveria fazer | O que faz | Status |
+|----------|--------------------|-----------| -------|
+| Aba "Financeiro" | Lançamentos do período com totais A Receber / A Pagar / Saldo | Filtra `lancamentos` por `data_vencimento` no intervalo, calcula totais | ✅ |
+| Aba "Vendas" | Vendas do período com total, qtd e ticket médio | Filtra `vendas` por `created_at`, mostra tabela com status | ✅ |
+| Aba "Estoque" | Inventário atual com valor total (qtd × preço) | Join `estoque` + `produtos` + `depositos`, calcula valor em estoque | ✅ |
+| Campo "De" (data início) | Filtrar por data de início | Input date, default = 1º do mês | ✅ |
+| Campo "Até" (data fim) | Filtrar por data de fim | Input date, default = hoje | ✅ |
+| Botão "Filtrar" | Aplicar filtro de período | Reload com `?aba=&de=&ate=` | ✅ |
+| Exportar CSV/PDF | Gerar arquivo para download | Não implementado | ❌ |
+| Gráficos / visualizações | Evolução financeira, vendas por período | Não implementado — apenas tabelas | ❌ |
+| Relatório por categoria | Vendas agrupadas por categoria | Não implementado | ❌ |
+| Relatório por forma de pagamento | Receita por forma de pagamento | Não implementado | ❌ |
+| CMV / margem bruta | Custo da mercadoria vendida e margem | Não implementado — `preco_custo` existe mas não cruza com vendas | ❌ |
+| Comparativo mês a mês | Evolução entre períodos | Não implementado | ❌ |
+
+**Limitações:** Aba Estoque não respeita filtro de datas (snapshot atual). Aba Financeiro filtra por `data_vencimento`, não por `data_pagamento`. Sem paginação na aba estoque (limite implícito 200).
+
+---
+
+## 20. Chat com IA (`/painel/chat`)
+
+| Elemento | O que deveria fazer | O que faz | Status |
+|----------|--------------------|-----------| -------|
+| Interface de chat | Enviar mensagens para IA, receber respostas | Página existe; usa `@anthropic-ai/sdk` (presente em node_modules) | ⚠️ |
+
+---
+
+## Resumo Executivo
+
+### Bugs Críticos (corrigir primeiro)
+1. **Dashboard A Receber/A Pagar incorretos** — calculados sobre `limit(5)` lançamentos → `app/painel/page.tsx:29-31`
+2. **Produtos sem imagem na listagem** — `imagem_url` ausente do SELECT → `app/painel/produtos/page.tsx:18`
+
+### Integrações Faltando (maior impacto comercial)
+1. Vales de crédito como forma de pagamento no PDV
+2. Tabelas de preço aplicadas por cliente no PDV
+3. Promoções com efeito real no checkout
+4. Nota de entrada dando entrada automática no estoque
+5. Aprovação de pedido gerando lançamento financeiro
+
+### Módulos Funcionalmente Completos
+Operação PDV/Caixa · Clientes · Empresas · Formas de Pagamento · Depósitos · Categorias · Movimentação de Estoque · Pedidos (CRUD) · Promoções (CRUD)
+
+*Atualizado em 2026-06-17 | Branch: trabalho-noturno | Método: análise estática do código-fonte (TSX + actions.ts)*

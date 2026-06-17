@@ -204,3 +204,138 @@ Visibilidade gerencial:
 | Sprint 5 (relatórios) | ~2 dias | Médio — visibilidade |
 
 **Total estimado:** ~10 dias de desenvolvimento para sistema financeiro/estoque completo.
+
+---
+
+## Comparação Explícita com os 7 Módulos do SIGE Cloud
+
+> Mapeamento dos 7 módulos de referência do SIGE Cloud contra o estado atual do TecnoCell Cloud.
+
+### Módulo 1 — Produtos / Estoque
+
+| Funcionalidade SIGE | TecnoCell | Observação |
+|---------------------|-----------|------------|
+| Cadastro de produtos com imagem | ⚠️ | Bug: `imagem_url` ausente do SELECT na listagem |
+| Múltiplos depósitos | ✅ | Tabela `(produto_id, deposito_id)` |
+| Movimentação manual | ✅ | Entrada / Saída / Ajuste |
+| Histórico de movimentações | ❌ | Não existe tabela de log |
+| Custo médio ponderado | ❌ | `preco_custo` existe mas não é usado no CMV |
+| Estoque mínimo configurável | ❌ | Limite fixo em 3 para todos |
+| Lote e validade | ❌ | Não existe |
+| EAN / código de barras | ❌ | Campo `codigo` existe, sem scanner |
+| Inventário / balanço | ⚠️ | Só snapshot via relatório |
+| Curva ABC de estoque | ❌ | Não existe |
+| Reserva de estoque para pedidos | ❌ | Não existe |
+| **Cobertura** | **4/11 (36%)** | |
+
+### Módulo 2 — PDV / Vendas
+
+| Funcionalidade SIGE | TecnoCell | Observação |
+|---------------------|-----------|------------|
+| Frente de caixa funcional | ✅ | PDVClient implementado |
+| Busca por nome/código | ✅ | Filtra com 1+ char |
+| Controle de estoque em tempo real | ✅ | Bloqueia ao adicionar sem estoque |
+| Desconto por item | ❌ | Apenas desconto total da venda |
+| Múltiplas formas de pagamento | ❌ | Apenas 1 por venda |
+| Vales de crédito no PDV | ❌ | Cadastro existe, não integrado ao PDV |
+| Tabelas de preço por cliente | ❌ | Tabelas existem, PDV usa preço padrão |
+| Promoções automáticas | ❌ | Promoções cadastradas sem efeito |
+| Impressão de cupom | ❌ | Não existe |
+| Sangria / suprimento de caixa | ❌ | Não existe |
+| Nota fiscal (NFC-e / NF-e) | ❌ | Não existe |
+| **Cobertura** | **3/11 (27%)** | |
+
+### Módulo 3 — Movimentações Financeiras
+
+| Funcionalidade SIGE | TecnoCell | Observação |
+|---------------------|-----------|------------|
+| Contas a Receber | ✅ | Implementado |
+| Contas a Pagar | ✅ | Implementado |
+| Marcar como pago | ✅ | `marcarPago` action |
+| Parcelamento | ❌ | Sem geração de parcelas |
+| Categorias / centro de custo | ❌ | Não existe |
+| Conciliação bancária | ❌ | Não existe |
+| Fluxo de caixa projetado | ❌ | Não existe |
+| Recorrência | ❌ | Não existe |
+| Baixa parcial | ❌ | Sempre 100% do valor |
+| Filtro por período | ❌ | Sem filtro de data na listagem |
+| Alertas de vencimento | ❌ | Não existe |
+| Lançamento vinculado a pessoa (FK) | ❌ | `pessoa_nome` é texto livre |
+| **Cobertura** | **3/12 (25%)** | |
+
+### Módulo 4 — Dashboard BI
+
+| Funcionalidade SIGE | TecnoCell | Observação |
+|---------------------|-----------|------------|
+| KPIs em cards | ✅ | Produtos, Vendas, Estoque, Clientes |
+| A Receber / A Pagar em destaque | ❌ | **Bug: calculados sobre limit(5)** |
+| Gráfico de vendas por período | ❌ | Não existe |
+| Top produtos mais vendidos | ❌ | Não existe |
+| Comparativo mês a mês | ❌ | Não existe |
+| Alerta de estoque baixo com lista | ⚠️ | Só count, sem lista de quais produtos |
+| Inadimplência em destaque | ❌ | Não existe |
+| Ticket médio visível | ⚠️ | Só na página de Operação do PDV |
+| **Cobertura** | **2/8 (25%)** | |
+
+### Módulo 5 — Vendas (Pedidos e Orçamentos)
+
+| Funcionalidade SIGE | TecnoCell | Observação |
+|---------------------|-----------|------------|
+| Orçamentos com validade | ✅ | Implementado |
+| Pedidos de venda | ✅ | Implementado |
+| Fluxo rascunho → aprovado → faturado | ✅ | Implementado |
+| Faturamento gera venda / lançamento | ❌ | Mudança de status sem efeitos colaterais |
+| Reserva de estoque ao aprovar | ❌ | Não existe |
+| E-mail de orçamento | ❌ | Não existe |
+| Conversão orçamento → pedido | ❌ | São entidades separadas |
+| Histórico de versões | ❌ | Não existe |
+| **Cobertura** | **3/8 (38%)** | |
+
+### Módulo 6 — Relatórios
+
+| Funcionalidade SIGE | TecnoCell | Observação |
+|---------------------|-----------|------------|
+| Relatório financeiro por período | ✅ | Aba Financeiro em /relatorios |
+| Relatório de vendas por período | ✅ | Aba Vendas em /relatorios |
+| Inventário de estoque | ✅ | Aba Estoque em /relatorios |
+| Exportação CSV / PDF | ❌ | Não existe |
+| Gráficos | ❌ | Apenas tabelas |
+| CMV e margem bruta | ❌ | Não existe |
+| Relatório por categoria | ❌ | Não existe |
+| Relatório de inadimplência | ❌ | Não existe |
+| Relatório por forma de pagamento | ❌ | Não existe |
+| DRE simplificado | ❌ | Não existe |
+| Comparativo de períodos | ❌ | Não existe |
+| **Cobertura** | **3/11 (27%)** | |
+
+### Módulo 7 — Atendimento / CRM
+
+| Funcionalidade SIGE | TecnoCell | Observação |
+|---------------------|-----------|------------|
+| Cadastro de clientes e fornecedores | ✅ | Tabela `pessoas` |
+| Histórico de compras por cliente | ❌ | Não existe |
+| Anotações e contatos | ❌ | Não existe |
+| Categorização de clientes | ❌ | Não existe |
+| Chat / IA integrada | ⚠️ | `/painel/chat` existe com SDK Anthropic |
+| Envio de orçamento por e-mail/WhatsApp | ❌ | Não existe |
+| Programa de fidelidade | ❌ | Não existe |
+| **Cobertura** | **2/7 (29%)** | |
+
+---
+
+### Cobertura Geral vs SIGE Cloud
+
+| Módulo | SIGE (funcs) | TecnoCell | Cobertura |
+|--------|-------------|-----------|-----------|
+| Produtos / Estoque | 11 | 4 | 36% |
+| PDV / Vendas | 11 | 3 | 27% |
+| Movimentações Financeiras | 12 | 3 | 25% |
+| Dashboard BI | 8 | 2 | 25% |
+| Vendas (Pedidos) | 8 | 3 | 38% |
+| Relatórios | 11 | 3 | 27% |
+| Atendimento / CRM | 7 | 2 | 29% |
+| **TOTAL** | **68** | **20** | **~29%** |
+
+> O sistema atual cobre aproximadamente **29% do escopo funcional do SIGE Cloud**. As principais lacunas estão em Relatórios avançados, integração entre módulos (PDV ↔ Financeiro ↔ Estoque) e CRM básico.
+
+*Atualizado em 2026-06-17 | Branch: trabalho-noturno*
