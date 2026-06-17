@@ -1,0 +1,513 @@
+[
+  {
+    "pagina": "Dashboard",
+    "botao": "Carregamento",
+    "esperado": "Página visível",
+    "real": "Título: \"Dashboard\"",
+    "status": "OK"
+  },
+  {
+    "pagina": "Dashboard",
+    "botao": "Cards de resumo",
+    "esperado": "4 cards clicáveis",
+    "real": "7 cards encontrados",
+    "status": "OK"
+  },
+  {
+    "pagina": "Dashboard",
+    "botao": "A Receber visível",
+    "esperado": "Bloco A Receber presente",
+    "real": "Visível",
+    "status": "OK"
+  },
+  {
+    "pagina": "Dashboard",
+    "botao": "A Pagar visível",
+    "esperado": "Bloco A Pagar presente",
+    "real": "Visível",
+    "status": "OK"
+  },
+  {
+    "pagina": "Dashboard",
+    "botao": "Valores dos cards",
+    "esperado": "Números visíveis",
+    "real": "7 | R$ 1.599,90 | 0 | 72 | R$ 0,00 | R$ 9.600,00",
+    "status": "OK"
+  },
+  {
+    "pagina": "Dashboard",
+    "botao": "Atalhos",
+    "esperado": "3 atalhos visíveis",
+    "real": "4 atalhos encontrados",
+    "status": "PARCIAL"
+  },
+  {
+    "pagina": "Dashboard",
+    "botao": "Card Produtos Ativos → clique",
+    "esperado": "Navega para /painel/produtos",
+    "real": "http://localhost:3000/painel/produtos",
+    "status": "OK"
+  },
+  {
+    "pagina": "Produtos",
+    "botao": "Carregamento",
+    "esperado": "Página Produtos",
+    "real": "Título: \"Produtos\"",
+    "status": "OK"
+  },
+  {
+    "pagina": "Produtos",
+    "botao": "Tabela de produtos",
+    "esperado": "Linhas de produtos visíveis",
+    "real": "7 linhas",
+    "status": "OK"
+  },
+  {
+    "pagina": "Produtos",
+    "botao": "Thumbnails de imagem",
+    "esperado": "Imagens dos produtos visíveis",
+    "real": "0 imagens reais — 7 placeholders SVG (bug: imagem_url ausente do SELECT)",
+    "status": "ERRO"
+  },
+  {
+    "pagina": "Produtos",
+    "botao": "+ Novo Produto",
+    "esperado": "Botão visível",
+    "real": "Visível",
+    "status": "OK"
+  },
+  {
+    "pagina": "Produtos",
+    "botao": "Campo busca + Filtrar",
+    "esperado": "Filtra lista de produtos",
+    "real": "URL: http://localhost:3000/painel/produtos?busca=a&categoria=&marca=",
+    "status": "OK"
+  },
+  {
+    "pagina": "Produtos",
+    "botao": "Botão Editar",
+    "esperado": "Link para edição",
+    "real": "href: /painel/produtos/PRD002/editar",
+    "status": "OK"
+  },
+  {
+    "pagina": "PDV",
+    "botao": "Carregamento",
+    "esperado": "Frente de Caixa visível",
+    "real": "Título: \"PDV — Frente de Caixa\"",
+    "status": "OK"
+  },
+  {
+    "pagina": "PDV",
+    "botao": "Campo busca",
+    "esperado": "Input visível",
+    "real": "Visível",
+    "status": "OK"
+  },
+  {
+    "pagina": "PDV",
+    "botao": "Dropdown de busca",
+    "esperado": "Aparece com produtos",
+    "real": "Dropdown visível",
+    "status": "OK"
+  },
+  {
+    "pagina": "PDV",
+    "botao": "Adicionar produto ao carrinho",
+    "esperado": "Produto vai para o carrinho",
+    "real": "Produto: \"Capinha Protetora Samsung A54G\"",
+    "status": "OK"
+  },
+  {
+    "pagina": "PDV",
+    "botao": "Carrinho com produto",
+    "esperado": "1+ linha no carrinho",
+    "real": "Ainda mostra \"Nenhum item\" — produto pode não ter estoque",
+    "status": "PARCIAL"
+  },
+  {
+    "pagina": "PDV",
+    "botao": "Finalizar Venda (carrinho vazio)",
+    "esperado": "Botão desabilitado",
+    "real": "Corretamente desabilitado",
+    "status": "OK"
+  },
+  {
+    "pagina": "Op. PDV",
+    "botao": "Carregamento",
+    "esperado": "Página Operação do PDV",
+    "real": "Título: \"Operação do PDV\"",
+    "status": "OK"
+  },
+  {
+    "pagina": "Op. PDV",
+    "botao": "Status do Caixa",
+    "esperado": "Bloco status visível",
+    "real": "Visível",
+    "status": "OK"
+  },
+  {
+    "pagina": "Op. PDV",
+    "botao": "Botão Abrir/Fechar Caixa",
+    "esperado": "Botão correto visível",
+    "real": "Abrir Caixa visível",
+    "status": "OK"
+  },
+  {
+    "pagina": "Pedidos",
+    "botao": "Carregamento",
+    "esperado": "Página Pedidos e Orçamentos",
+    "real": "Título: \"Pedidos e Orçamentos\"",
+    "status": "OK"
+  },
+  {
+    "pagina": "Pedidos",
+    "botao": "Lista de pedidos",
+    "esperado": "Tabela carregada",
+    "real": "6 linhas",
+    "status": "OK"
+  },
+  {
+    "pagina": "Pedidos",
+    "botao": "+ Novo pedido",
+    "esperado": "Link visível",
+    "real": "Visível",
+    "status": "OK"
+  },
+  {
+    "pagina": "Pedidos",
+    "botao": "Filtros tipo (Todos/Orçamentos/Pedidos)",
+    "esperado": "3 filtros visíveis",
+    "real": "Todos:true Orc:true Ped:true",
+    "status": "OK"
+  },
+  {
+    "pagina": "Pedidos",
+    "botao": "Botão Abrir",
+    "esperado": "Link para detalhe",
+    "real": "href: /painel/pedidos/0bf93b86-91a1-49d6-a621-36a34c5ce1c9",
+    "status": "OK"
+  },
+  {
+    "pagina": "Vales",
+    "botao": "Carregamento",
+    "esperado": "Página Vales de Crédito",
+    "real": "Título: \"Vales de Crédito\"",
+    "status": "OK"
+  },
+  {
+    "pagina": "Vales",
+    "botao": "Botão Emitir Vale",
+    "esperado": "Visível",
+    "real": "Visível",
+    "status": "OK"
+  },
+  {
+    "pagina": "Promoções",
+    "botao": "Carregamento",
+    "esperado": "Página Promoções",
+    "real": "Título: \"Promoções\"",
+    "status": "OK"
+  },
+  {
+    "pagina": "Promoções",
+    "botao": "Botão Criar Promoção",
+    "esperado": "Visível",
+    "real": "Visível",
+    "status": "OK"
+  },
+  {
+    "pagina": "Compras",
+    "botao": "Carregamento",
+    "esperado": "Notas de Entrada",
+    "real": "Título: \"Notas de Entrada\"",
+    "status": "OK"
+  },
+  {
+    "pagina": "Compras",
+    "botao": "+ Nova Nota",
+    "esperado": "Link visível",
+    "real": "Visível",
+    "status": "OK"
+  },
+  {
+    "pagina": "Clientes",
+    "botao": "Carregamento",
+    "esperado": "Clientes e Fornecedores",
+    "real": "Título: \"Clientes e Fornecedores\"",
+    "status": "OK"
+  },
+  {
+    "pagina": "Clientes",
+    "botao": "Lista de clientes",
+    "esperado": "Tabela carregada",
+    "real": "78 registros",
+    "status": "OK"
+  },
+  {
+    "pagina": "Clientes",
+    "botao": "Busca por nome",
+    "esperado": "Filtra por ?busca=",
+    "real": "URL com ?busca= ✓",
+    "status": "OK"
+  },
+  {
+    "pagina": "Financeiro",
+    "botao": "Carregamento",
+    "esperado": "Página Financeiro",
+    "real": "Título: \"Financeiro\"",
+    "status": "OK"
+  },
+  {
+    "pagina": "Financeiro",
+    "botao": "Lista de lançamentos",
+    "esperado": "Tabela carregada",
+    "real": "200 registros",
+    "status": "OK"
+  },
+  {
+    "pagina": "Financeiro",
+    "botao": "Card A Receber",
+    "esperado": "Valor visível",
+    "real": "R$ 21.636,22",
+    "status": "OK"
+  },
+  {
+    "pagina": "Financeiro",
+    "botao": "Card A Pagar",
+    "esperado": "Valor visível",
+    "real": "R$ 9.600,00",
+    "status": "OK"
+  },
+  {
+    "pagina": "Financeiro",
+    "botao": "Botão + A Receber",
+    "esperado": "Link visível",
+    "real": "Visível",
+    "status": "OK"
+  },
+  {
+    "pagina": "Financeiro",
+    "botao": "Botão + A Pagar",
+    "esperado": "Link visível",
+    "real": "Visível",
+    "status": "OK"
+  },
+  {
+    "pagina": "Financeiro",
+    "botao": "Filtro A Receber",
+    "esperado": "Link visível",
+    "real": "Visível",
+    "status": "OK"
+  },
+  {
+    "pagina": "Financeiro",
+    "botao": "Filtro A Pagar",
+    "esperado": "Link visível",
+    "real": "Visível",
+    "status": "OK"
+  },
+  {
+    "pagina": "Financeiro",
+    "botao": "Botão Pago",
+    "esperado": "Visível em lançamentos pendentes",
+    "real": "Visível",
+    "status": "OK"
+  },
+  {
+    "pagina": "Estoque",
+    "botao": "Carregamento",
+    "esperado": "Página Estoque",
+    "real": "Título: \"Estoque\"",
+    "status": "OK"
+  },
+  {
+    "pagina": "Estoque",
+    "botao": "Lista de estoque",
+    "esperado": "Tabela carregada",
+    "real": "3 registros",
+    "status": "OK"
+  },
+  {
+    "pagina": "Estoque",
+    "botao": "Cards resumo",
+    "esperado": "3 cards visíveis",
+    "real": "EmEstoque:true Baixo:true Zerado:true",
+    "status": "OK"
+  },
+  {
+    "pagina": "Estoque",
+    "botao": "+ Entrada / Saída",
+    "esperado": "Link visível",
+    "real": "Visível",
+    "status": "OK"
+  },
+  {
+    "pagina": "Estoque",
+    "botao": "Botão Ajustar",
+    "esperado": "Link para movimentar com produto_id",
+    "real": "href: /painel/estoque/movimentar?produto_id=PRD002",
+    "status": "OK"
+  },
+  {
+    "pagina": "Estoque",
+    "botao": "Histórico de movimentações",
+    "esperado": "Link para histórico",
+    "real": "AUSENTE — funcionalidade não implementada",
+    "status": "ERRO"
+  },
+  {
+    "pagina": "Mov. Estoque",
+    "botao": "Carregamento",
+    "esperado": "Página Movimentar Estoque",
+    "real": "Título: \"Movimentar Estoque\"",
+    "status": "OK"
+  },
+  {
+    "pagina": "Mov. Estoque",
+    "botao": "Select Produto",
+    "esperado": "Visível e populado",
+    "real": "8 opções",
+    "status": "OK"
+  },
+  {
+    "pagina": "Mov. Estoque",
+    "botao": "Select Depósito",
+    "esperado": "Visível e populado",
+    "real": "9 opções",
+    "status": "OK"
+  },
+  {
+    "pagina": "Mov. Estoque",
+    "botao": "Select Operação",
+    "esperado": "Entrada/Saída/Ajuste",
+    "real": "Visível",
+    "status": "OK"
+  },
+  {
+    "pagina": "Mov. Estoque",
+    "botao": "Campo Quantidade",
+    "esperado": "Input numérico",
+    "real": "Visível",
+    "status": "OK"
+  },
+  {
+    "pagina": "Mov. Estoque",
+    "botao": "Botão Registrar",
+    "esperado": "Botão de submit",
+    "real": "Visível",
+    "status": "OK"
+  },
+  {
+    "pagina": "Depósitos",
+    "botao": "Carregamento",
+    "esperado": "Página Depósitos",
+    "real": "Título: \"Depósitos\"",
+    "status": "OK"
+  },
+  {
+    "pagina": "Depósitos",
+    "botao": "Botão Adicionar",
+    "esperado": "Formulário + submit",
+    "real": "Visível",
+    "status": "OK"
+  },
+  {
+    "pagina": "Formas Pgto",
+    "botao": "Carregamento",
+    "esperado": "Página Formas de Pagamento",
+    "real": "Título: \"Formas de Pagamento\"",
+    "status": "OK"
+  },
+  {
+    "pagina": "Formas Pgto",
+    "botao": "Lista de formas",
+    "esperado": "32 formas cadastradas",
+    "real": "32 linhas",
+    "status": "OK"
+  },
+  {
+    "pagina": "Tabelas Preço",
+    "botao": "Carregamento",
+    "esperado": "Página Tabelas de Preço",
+    "real": "Título: \"Tabelas de Preço\"",
+    "status": "OK"
+  },
+  {
+    "pagina": "Tabelas Preço",
+    "botao": "Botão Criar Tabela",
+    "esperado": "Visível",
+    "real": "Visível",
+    "status": "OK"
+  },
+  {
+    "pagina": "Empresas",
+    "botao": "Carregamento",
+    "esperado": "Página Empresas",
+    "real": "Título: \"Empresas\"",
+    "status": "OK"
+  },
+  {
+    "pagina": "Empresas",
+    "botao": "Lista de empresas",
+    "esperado": "Tabela carregada",
+    "real": "7 registros",
+    "status": "OK"
+  },
+  {
+    "pagina": "Relatórios",
+    "botao": "Carregamento",
+    "esperado": "Página Relatórios",
+    "real": "Título: \"Relatórios\"",
+    "status": "OK"
+  },
+  {
+    "pagina": "Relatórios",
+    "botao": "Abas (Financeiro/Vendas/Estoque)",
+    "esperado": "3 abas visíveis",
+    "real": "Fin:true Vnd:true Est:true",
+    "status": "OK"
+  },
+  {
+    "pagina": "Relatórios",
+    "botao": "Aba Financeiro → tabela",
+    "esperado": "Dados carregados",
+    "real": "0 tabela(s) visível(is)",
+    "status": "PARCIAL"
+  },
+  {
+    "pagina": "Relatórios",
+    "botao": "Filtro de período (De/Até)",
+    "esperado": "Inputs visíveis",
+    "real": "De:false Ate:false",
+    "status": "ERRO"
+  },
+  {
+    "pagina": "Relatórios",
+    "botao": "Botão Filtrar",
+    "esperado": "Submit do período",
+    "real": "Ausente",
+    "status": "ERRO"
+  },
+  {
+    "pagina": "Relatórios",
+    "botao": "Exportação CSV/PDF",
+    "esperado": "Botão de exportação",
+    "real": "AUSENTE — não implementado",
+    "status": "ERRO"
+  },
+  {
+    "pagina": "Chat",
+    "botao": "Carregamento",
+    "esperado": "Página /painel/chat acessível",
+    "real": "Página carregada",
+    "status": "OK"
+  },
+  {
+    "pagina": "Chat",
+    "botao": "Conteúdo",
+    "esperado": "Interface de chat",
+    "real": "Painel Interno",
+    "status": "OK"
+  }
+]

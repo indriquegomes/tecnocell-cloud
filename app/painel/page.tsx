@@ -26,8 +26,8 @@ export default async function DashboardPage() {
       .from('vendas')
       .select('total')
       .gte('created_at', new Date().toISOString().split('T')[0]),
-    supabase.from('lancamentos').select('valor').eq('tipo', 'receber').neq('status', 'pago'),
-    supabase.from('lancamentos').select('valor').eq('tipo', 'pagar').neq('status', 'pago'),
+    supabase.from('lancamentos').select('valor').eq('tipo', 'receber').or('status.neq.pago,status.is.null'),
+    supabase.from('lancamentos').select('valor').eq('tipo', 'pagar').or('status.neq.pago,status.is.null'),
   ])
 
   const itensEmEstoque = (estoqueItems ?? []).length

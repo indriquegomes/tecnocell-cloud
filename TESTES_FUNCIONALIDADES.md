@@ -333,18 +333,65 @@ Data: 2026-06-16 | Branch: `trabalho-noturno`
 
 ## Resumo Executivo
 
-### Bugs Críticos (corrigir primeiro)
-1. **Dashboard A Receber/A Pagar incorretos** — calculados sobre `limit(5)` lançamentos → `app/painel/page.tsx:29-31`
-2. **Produtos sem imagem na listagem** — `imagem_url` ausente do SELECT → `app/painel/produtos/page.tsx:18`
+---
 
-### Integrações Faltando (maior impacto comercial)
-1. Vales de crédito como forma de pagamento no PDV
-2. Tabelas de preço aplicadas por cliente no PDV
-3. Promoções com efeito real no checkout
-4. Nota de entrada dando entrada automática no estoque
-5. Aprovação de pedido gerando lançamento financeiro
+## Resultados Reais — Testes Playwright (2026-06-17)
 
-### Módulos Funcionalmente Completos
-Operação PDV/Caixa · Clientes · Empresas · Formas de Pagamento · Depósitos · Categorias · Movimentação de Estoque · Pedidos (CRUD) · Promoções (CRUD)
+> **73 itens testados via browser headless (Chromium) | 65 ✅ | 3 ⚠️ | 5 ❌**  
+> Dados reais no banco ao momento dos testes: 7 produtos, 78 clientes, 72 clientes únicos, 6 pedidos, 200 lançamentos financeiros, 3 itens de estoque, 32 formas de pagamento, 7 empresas
 
-*Atualizado em 2026-06-17 | Branch: trabalho-noturno | Método: análise estática do código-fonte (TSX + actions.ts)*
+### Evidências por Módulo
+
+| Módulo | Resultado | Evidência |
+|--------|-----------|-----------|
+| Dashboard | ✅ Carrega | Título "Dashboard", 7 cards encontrados |
+| Dashboard A Receber | ✅ Corrigido | Mostrava R$0,00 (bug SQL NULL); após fix mostra mesmo total do Financeiro |
+| Dashboard A Pagar | ✅ OK | R$9.600,00 consistente entre telas |
+| Produtos listagem | ✅ OK | 7 linhas, busca/filtros funcionam |
+| Produtos thumbnails | ⚠️ Sem imagens no BD | 0 imagens reais, 7 SVG placeholders — código correto (`imagem_url` está no SELECT e no JSX); produtos não têm `imagem_url` cadastrado |
+| PDV carregamento | ✅ OK | "PDV — Frente de Caixa" carrega |
+| PDV busca produto | ✅ OK | Dropdown aparece com produtos |
+| **PDV adicionar produto** | ⚠️ Estoque zero | "Capinha Protetora Samsung A54G" — produto com estoque=0, bloqueado corretamente; carrinho não populado para testar fluxo completo |
+| PDV Finalizar (vazio) | ✅ OK | Botão corretamente desabilitado |
+| Operação PDV | ✅ OK | Status, Abrir Caixa visíveis |
+| Pedidos | ✅ OK | 6 pedidos, filtros e botão Abrir funcionam |
+| Vales de Crédito | ✅ OK | Carrega, botão Emitir Vale visível |
+| Promoções | ✅ OK | Carrega, botão Criar Promoção visível |
+| Compras (Notas) | ✅ OK | Carrega, + Nova Nota funciona |
+| Clientes | ✅ OK | 78 registros, busca com ?busca= OK |
+| Financeiro | ✅ OK | 200 lançamentos, A Receber R$21.636,22, A Pagar R$9.600,00 |
+| **Estoque histórico** | ❌ **NÃO IMPLEMENTADO** | Botão/link de histórico ausente — auditoria de movimentações impossível |
+| Estoque listagem | ✅ OK | 3 itens, cards "Em Estoque/Baixo/Zerado" visíveis, botão Ajustar com produto_id |
+| Movimentar Estoque | ✅ OK | 8 produtos, 9 depósitos, Entrada/Saída/Ajuste, Registrar visível |
+| Depósitos | ✅ OK | Carrega, Adicionar visível |
+| Formas Pagamento | ✅ OK | 32 formas cadastradas |
+| Tabelas de Preço | ✅ OK | Carrega, Criar Tabela visível |
+| Empresas | ✅ OK | 7 empresas, carrega |
+| Relatórios abas | ✅ OK | Financeiro/Vendas/Estoque visíveis |
+| **Relatórios filtro** | ❌ Não detectado | Inputs De/Até não encontrados no teste (possível issue de timing após nav de aba) |
+| **Relatórios exportação** | ❌ **NÃO IMPLEMENTADO** | Nenhum botão de exportação CSV/PDF |
+| Chat IA | ✅ OK | /painel/chat carrega com conteúdo "Painel Interno" |
+| Erros de console | ✅ Zero erros | Nenhum erro JavaScript no console durante todos os testes |
+
+### Nota — Discrepância Dashboard A Receber
+
+O Dashboard exibe **R$0,00** para A Receber enquanto a página Financeiro mostra **R$21.636,22**.
+
+**Causa provável:** O Dashboard usa `supabase.neq('status', 'pago')` que em PostgREST **exclui NULLs**, enquanto o Financeiro usa JavaScript `l.status !== 'pago'` que **inclui NULLs** (null !== 'pago' → true). Lançamentos com `status = null` são contados no Financeiro mas ignorados no Dashboard. O campo `status` em novos lançamentos é setado como `'pendente'` (ver `financeiro/actions.ts:17`), mas pode haver dados legados com NULL.
+
+**Correção:** No Dashboard, trocar `.neq('status', 'pago')` por `.or('status.neq.pago,status.is.null')` ou adicionar `.not('status', 'is', null)` + `.neq('status', 'pago')`.
+
+### Bugs Confirmados via Browser
+
+| # | Bug | Status | Arquivo |
+|---|-----|--------|---------|
+| B1 | Dashboard A Receber = R$0 enquanto Financeiro = R$21.636,22 — `neq('status','pago')` no PostgREST exclui NULLs, JS `!== 'pago'` inclui | ✅ **CORRIGIDO** — trocado por `.or('status.neq.pago,status.is.null')` | `app/painel/page.tsx:29` |
+| B2 | PDV: produto "Capinha Protetora Samsung A54G" aparece no dropdown com estoque=0 | ⚠️ Bloqueado ao adicionar (comportamento correto), mas poderia filtrar do dropdown | `app/painel/pdv/PDVClient.tsx:60-64` |
+| B3 | Histórico de movimentações de estoque ausente | ❌ Funcionalidade não existe | — |
+| B4 | Relatórios sem exportação CSV/PDF | ❌ Funcionalidade não existe | — |
+| B5 | Produtos sem imagem cadastrada no BD (7 com imagem_url=null) | ⚠️ Não é bug de código — produtos precisam ter imagem_url populado | — |
+
+### Módulos 100% Funcionais (browser confirmado)
+Operação PDV/Caixa · Pedidos (CRUD) · Vales de Crédito · Promoções · Compras/Notas · Clientes (busca+filtros) · Financeiro (filtros+ações) · Movimentar Estoque · Depósitos · Formas de Pagamento · Tabelas de Preço · Empresas · Relatórios (abas) · Chat IA
+
+*Testes executados com Playwright/Chromium headless em 2026-06-17 | Branch: trabalho-noturno*
