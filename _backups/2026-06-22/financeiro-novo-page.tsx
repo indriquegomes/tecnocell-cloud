@@ -9,13 +9,7 @@ export default async function NovoLancamentoPage({
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
-  const { data: formasRaw } = await supabase.from('formas_pagamento').select('id, nome').eq('ativo', true)
-  const ORDEM_FORMAS = ['PIX', 'Dinheiro', 'Crédito Loja (Fiado)', 'Cartão de Débito', 'Cartão de Crédito']
-  const formas = (formasRaw ?? []).slice().sort((a, b) => {
-    const ia = ORDEM_FORMAS.indexOf(a.nome)
-    const ib = ORDEM_FORMAS.indexOf(b.nome)
-    return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib) || a.nome.localeCompare(b.nome)
-  })
+  const { data: formas } = await supabase.from('formas_pagamento').select('id, nome').order('nome')
   const hoje = new Date().toISOString().split('T')[0]
 
   return (

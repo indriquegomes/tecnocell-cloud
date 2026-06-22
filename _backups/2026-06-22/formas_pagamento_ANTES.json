@@ -1,0 +1,162 @@
+[
+  {
+    "id": "FP001",
+    "nome": "Dinheiro",
+    "ativo": true
+  },
+  {
+    "id": "FP003",
+    "nome": "PIX",
+    "ativo": true
+  },
+  {
+    "id": "FP002",
+    "nome": "Cartão de Crédito",
+    "ativo": true
+  },
+  {
+    "id": "FP004",
+    "nome": "Cartão de Débito",
+    "ativo": true
+  },
+  {
+    "id": "51fbeed380187e1e80829503",
+    "nome": "Cartão de Crédito",
+    "ativo": true
+  },
+  {
+    "id": "51fbeed380187e1e80829507",
+    "nome": "À vista - Dinheiro",
+    "ativo": true
+  },
+  {
+    "id": "520b9e84e955150ba472b3fd",
+    "nome": "07  Dias - Depósito",
+    "ativo": true
+  },
+  {
+    "id": "522a052de9551543748d2ae0",
+    "nome": "À vista - Cheque",
+    "ativo": true
+  },
+  {
+    "id": "522dfe68e95515105c811927",
+    "nome": "Boleto Bancário",
+    "ativo": true
+  },
+  {
+    "id": "63de417be94e938cc171c865",
+    "nome": "Crédito Loja",
+    "ativo": true
+  },
+  {
+    "id": "63de4649624b06de676d8636",
+    "nome": "PIX",
+    "ativo": true
+  },
+  {
+    "id": "63de8c0abd74b996aa86b982",
+    "nome": "Dinheiro",
+    "ativo": true
+  },
+  {
+    "id": "63e236c50057b90ed8c2b4ca",
+    "nome": "Vale Crédito",
+    "ativo": true
+  },
+  {
+    "id": "63e27d4ddc708e05ec9c32ae",
+    "nome": "Duplicata",
+    "ativo": true
+  },
+  {
+    "id": "63e503e75a52619797a1996c",
+    "nome": "Outros",
+    "ativo": true
+  },
+  {
+    "id": "642312b29a36b738f22d524a",
+    "nome": "Pix",
+    "ativo": true
+  },
+  {
+    "id": "642312d89a36b738f22d5263",
+    "nome": "Dinheiro na minha conta do MercadoPago",
+    "ativo": true
+  },
+  {
+    "id": "642312e09a36b738f22d526f",
+    "nome": "Carteira Digital",
+    "ativo": true
+  },
+  {
+    "id": "642312e19a36b738f22d5272",
+    "nome": "Mercado Crédito",
+    "ativo": true
+  },
+  {
+    "id": "642312f49a36b738f22d528b",
+    "nome": "Visa",
+    "ativo": true
+  },
+  {
+    "id": "6423136c9a36b738f22d5313",
+    "nome": "Mastercard",
+    "ativo": true
+  },
+  {
+    "id": "6425e9621513674279bad021",
+    "nome": "Cartão de Débito",
+    "ativo": true
+  },
+  {
+    "id": "645189fbd64992cc38afdde4",
+    "nome": "Vale Presente",
+    "ativo": true
+  },
+  {
+    "id": "645923b6101c806126598f9b",
+    "nome": "Elo",
+    "ativo": true
+  },
+  {
+    "id": "6464bab28e161a2c37fc939a",
+    "nome": "Boleto",
+    "ativo": true
+  },
+  {
+    "id": "64a3027e552f9c035f7e1188",
+    "nome": "Credit/Debit Card",
+    "ativo": true
+  },
+  {
+    "id": "64a32a1ceb7560271012b6d4",
+    "nome": "Online Payment",
+    "ativo": true
+  },
+  {
+    "id": "64b8b9dda41811112f86e450",
+    "nome": "Credit Card / Credit Card Installment",
+    "ativo": true
+  },
+  {
+    "id": "64c99410291ce4fc67d272ba",
+    "nome": "ShopeePay",
+    "ativo": true
+  },
+  {
+    "id": "64d9ad3b2761f329da2c248e",
+    "nome": "Credit Card Installment",
+    "ativo": true
+  },
+  {
+    "id": "65369a4a335922339a303a98",
+    "nome": "CashBack",
+    "ativo": true
+  },
+  {
+    "id": "66c3986275031a6fcb4c5e20",
+    "nome": "Vale Alimentação",
+    "ativo": true
+  }
+]

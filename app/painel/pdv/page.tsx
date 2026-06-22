@@ -4,11 +4,29 @@ import { PDVClient } from './PDVClient'
 export default async function PDVPage() {
   const supabase = await createServiceClient()
 
-  const [{ data: produtos }, { data: formas }, { data: pessoas }] = await Promise.all([
-    supabase.from('produtos').select('id, nome, preco, codigo, marca, estoque(quantidade)').eq('ativo', true).order('nome'),
-    supabase.from('formas_pagamento').select('id, nome').order('nome'),
-    supabase.from('pessoas').select('id, nome').in('tipo', ['cliente', 'ambos']).order('nome'),
+  const [{ data: produtos }, { data: formas }, { data: pessoas }, { data: depositos }, { data: tabelas }, { data: itensTabela }] = await Promise.all([
+    supabase.from('produtos').select('id, nome, preco, codigo, marca, descricao, imagem_url, estoque(deposito_id, quantidade)').eq('ativo', true).order('nome'),
+    supabase.from('formas_pagamento').select('id, nome').eq('ativo', true),
+    supabase.from('pessoas').select('id, nome, cpf_cnpj').in('tipo', ['cliente', 'ambos']).order('nome'),
+    supabase.from('depositos').select('id, nome').order('nome'),
+    supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).order('nome'),
+    supabase.from('itens_tabela_preco').select('tabela_id, produto_id, preco'),
   ])
+
+  // Mapa de preços por tabela: { tabela_id: { produto_id: preco } }
+  const precosPorTabela: Record<string, Record<string, number>> = {}
+  for (const it of (itensTabela ?? []) as { tabela_id: string; produto_id: string; preco: number }[]) {
+    if (!precosPorTabela[it.tabela_id]) precosPorTabela[it.tabela_id] = {}
+    precosPorTabela[it.tabela_id][it.produto_id] = it.preco
+  }
+
+  // Ordem fixa das formas de pagamento no PDV (as não listadas caem no fim, alfabético)
+  const ORDEM_FORMAS = ['PIX', 'Dinheiro', 'Crédito Loja (Fiado)', 'Cartão de Débito', 'Cartão de Crédito']
+  const formasOrdenadas = (formas ?? []).slice().sort((a, b) => {
+    const ia = ORDEM_FORMAS.indexOf(a.nome)
+    const ib = ORDEM_FORMAS.indexOf(b.nome)
+    return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib) || a.nome.localeCompare(b.nome)
+  })
 
   return (
     <div className="space-y-6">
@@ -20,12 +38,19 @@ export default async function PDVPage() {
       </div>
 
       <PDVClient
-        produtos={(produtos ?? []).map((p) => ({
-          ...p,
-          estoque_total: ((p.estoque as { quantidade: number }[] | null) ?? []).reduce((s, e) => s + e.quantidade, 0),
-        }))}
-        formas={formas ?? []}
+        produtos={(produtos ?? []).map((p) => {
+          const linhas = (p.estoque as { deposito_id: string; quantidade: number }[] | null) ?? []
+          const estoquePorDeposito: Record<string, number> = {}
+          for (const e of linhas) {
+            estoquePorDeposito[e.deposito_id] = (estoquePorDeposito[e.deposito_id] ?? 0) + e.quantidade
+          }
+          return { id: p.id, nome: p.nome, preco: p.preco, codigo: p.codigo, marca: p.marca, descricao: (p as Record<string, unknown>).descricao as string | null ?? null, imagem_url: (p as Record<string, unknown>).imagem_url as string | null ?? null, estoquePorDeposito }
+        })}
+        formas={formasOrdenadas}
         pessoas={pessoas ?? []}
+        depositos={depositos ?? []}
+        tabelas={tabelas ?? []}
+        precosPorTabela={precosPorTabela}
       />
     </div>
   )
