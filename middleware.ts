@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -21,25 +21,18 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  const { data: { user }, error } = await supabase.auth.getUser()
+  // getSession() usa apenas o JWT local — sem chamada de rede ao Supabase.
+  // Evita timeouts e falsos redirecionamentos pro login.
+  const { data: { session } } = await supabase.auth.getSession()
 
-  if (!user && request.nextUrl.pathname.startsWith('/painel')) {
-    // Erro de rede com cookie de sessão presente → não desloga (falha transitória)
-    const temSessao = request.cookies.getAll().some(c => c.name.startsWith('sb-'))
-    if (error && temSessao) return response
-
-    // Sem sessão confirmada → redireciona pro login, voltando pra página original
+  if (!session && request.nextUrl.pathname.startsWith('/painel')) {
     const redirectUrl = new URL('/login', request.url)
     redirectUrl.searchParams.set('next', request.nextUrl.pathname)
-    const redirectResponse = NextResponse.redirect(redirectUrl)
-    response.cookies.getAll().forEach(({ name, value, ...opts }) =>
-      redirectResponse.cookies.set(name, value, opts)
-    )
-    return redirectResponse
+    return NextResponse.redirect(redirectUrl)
   }
 
-  if (user?.email) {
-    response.headers.set('x-user-email', user.email)
+  if (session?.user?.email) {
+    response.headers.set('x-user-email', session.user.email)
   }
 
   return response
