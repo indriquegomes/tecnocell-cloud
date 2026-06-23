@@ -9,35 +9,36 @@ export default async function OperacaoPDVPage({
   const { erro } = await searchParams
   const supabase = await createServiceClient()
 
-  // Caixa atual
-  const { data: caixaAberto } = await supabase
-    .from('caixas')
-    .select('id, aberto_em, valor_abertura, status')
-    .eq('status', 'aberto')
-    .order('aberto_em', { ascending: false })
-    .limit(1)
-    .single()
+  // Caixa atual + histórico + formas em paralelo
+  const [caixaResult, historicoResult, formasResult] = await Promise.all([
+    supabase
+      .from('caixas')
+      .select('id, aberto_em, valor_abertura, status')
+      .eq('status', 'aberto')
+      .order('aberto_em', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('caixas')
+      .select('id, aberto_em, fechado_em, valor_abertura, valor_fechamento, status')
+      .order('aberto_em', { ascending: false })
+      .limit(20),
+    supabase
+      .from('formas_pagamento')
+      .select('nome')
+      .eq('ativo', true)
+      .order('nome'),
+  ])
 
-  // Histórico de caixas
-  const { data: historico } = await supabase
-    .from('caixas')
-    .select('id, aberto_em, fechado_em, valor_abertura, valor_fechamento, status')
-    .order('aberto_em', { ascending: false })
-    .limit(20)
-
-  // Formas de pagamento para os formulários
-  const { data: formasDb } = await supabase
-    .from('formas_pagamento')
-    .select('nome')
-    .eq('ativo', true)
-    .order('nome')
-  const formas = (formasDb ?? []).map((f) => f.nome as string)
+  const caixaAberto = caixaResult.data ?? null
+  const historico = historicoResult.data ?? []
+  const formas = (formasResult.data ?? []).map((f) => f.nome as string)
 
   let totalVendas = 0
   let totalCrediario = 0
   let totalReforcos = 0
   let totalRetiradas = 0
-  const totalDevolucoes = 0 // reservado para módulo futuro
+  const totalDevolucoes = 0
   let qtdVendas = 0
   let movimentos: {
     id: string
@@ -51,51 +52,46 @@ export default async function OperacaoPDVPage({
   let porProduto: Record<string, { nome: string; qtd: number; total: number }> = {}
 
   if (caixaAberto) {
-    // Vendas desde abertura
-    const { data: vendas } = await supabase
-      .from('vendas')
-      .select('id, total, created_at')
-      .eq('status', 'concluida')
-      .gte('created_at', caixaAberto.aberto_em)
-      .order('created_at', { ascending: false })
+    // Vendas, crediário e movimentos em paralelo
+    const [vendasResult, lancCrediarioResult, movResult] = await Promise.all([
+      supabase
+        .from('vendas')
+        .select('id, total, created_at')
+        .eq('status', 'concluida')
+        .gte('created_at', caixaAberto.aberto_em)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('lancamentos')
+        .select('valor')
+        .eq('tipo', 'receber')
+        .eq('status', 'pendente')
+        .gte('created_at', caixaAberto.aberto_em),
+      supabase
+        .from('movimentos_caixa')
+        .select('id, tipo, motivo, forma_pagamento, valor, created_at')
+        .eq('caixa_id', caixaAberto.id)
+        .order('created_at', { ascending: false }),
+    ])
 
-    vendasDia = vendas ?? []
+    vendasDia = vendasResult.data ?? []
     qtdVendas = vendasDia.length
     totalVendas = vendasDia.reduce((s, v) => s + (v.total ?? 0), 0)
+    totalCrediario = (lancCrediarioResult.data ?? []).reduce((s, l) => s + (l.valor ?? 0), 0)
 
-    // Crediário: lançamentos a receber pendentes criados desde abertura
-    const { data: lancCrediario } = await supabase
-      .from('lancamentos')
-      .select('valor')
-      .eq('tipo', 'receber')
-      .eq('status', 'pendente')
-      .gte('created_at', caixaAberto.aberto_em)
-
-    totalCrediario = (lancCrediario ?? []).reduce((s, l) => s + (l.valor ?? 0), 0)
-
-    // Movimentos (reforços e retiradas) do caixa atual
-    const { data: movDb } = await supabase
-      .from('movimentos_caixa')
-      .select('id, tipo, motivo, forma_pagamento, valor, created_at')
-      .eq('caixa_id', caixaAberto.id)
-      .order('created_at', { ascending: false })
-
-    movimentos = movDb ?? []
+    movimentos = movResult.data ?? []
     totalReforcos = movimentos.filter((m) => m.tipo === 'reforco').reduce((s, m) => s + m.valor, 0)
     totalRetiradas = movimentos.filter((m) => m.tipo === 'retirada').reduce((s, m) => s + m.valor, 0)
 
-    // Itens vendidos para resumo por produto
+    // Itens vendidos depende de vendasDia, roda separado
     if (vendasDia.length > 0) {
-      const vendaIds = vendasDia.map((v) => v.id)
       const { data: itens } = await supabase
         .from('itens_venda')
-        .select('produto_id, quantidade, preco_unitario, total_item, produtos(nome)')
-        .in('venda_id', vendaIds)
+        .select('produto_id, quantidade, total_item, produtos(nome)')
+        .in('venda_id', vendasDia.map((v) => v.id))
 
       for (const i of (itens ?? []) as {
         produto_id: string
         quantidade: number
-        preco_unitario: number
         total_item: number
         produtos: { nome: string } | null
       }[]) {
@@ -109,7 +105,12 @@ export default async function OperacaoPDVPage({
 
   return (
     <OperacaoClient
-      caixaAberto={caixaAberto ?? null}
+      caixaAberto={caixaAberto as {
+        id: string
+        aberto_em: string
+        valor_abertura: number
+        status: string
+      } | null}
       totalVendas={totalVendas}
       totalCrediario={totalCrediario}
       totalReforcos={totalReforcos}
@@ -117,7 +118,7 @@ export default async function OperacaoPDVPage({
       totalDevolucoes={totalDevolucoes}
       qtdVendas={qtdVendas}
       movimentos={movimentos}
-      historico={(historico ?? []) as {
+      historico={historico as {
         id: string
         aberto_em: string
         fechado_em: string | null
