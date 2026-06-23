@@ -46,6 +46,7 @@ export async function finalizarVenda(
 
   return {
     vendaId: data.venda_id as string,
+    vendaNumero: data.venda_numero as number | null,
     total: data.total as number,
     estoqueAtualizado: data.estoque_atualizado as Record<string, number>,
   }

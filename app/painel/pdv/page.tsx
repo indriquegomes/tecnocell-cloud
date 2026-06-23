@@ -7,7 +7,7 @@ export default async function PDVPage() {
   const [{ data: produtos }, { data: formas }, { data: pessoas }, { data: depositos }, { data: tabelas }, { data: itensTabela }] = await Promise.all([
     supabase.from('produtos').select('id, nome, preco, codigo, marca, categoria, descricao, imagem_url, estoque(deposito_id, quantidade)').eq('ativo', true).order('nome'),
     supabase.from('formas_pagamento').select('id, nome').eq('ativo', true),
-    supabase.from('pessoas').select('id, nome, cpf_cnpj').in('tipo', ['cliente', 'ambos']).order('nome'),
+    supabase.from('pessoas').select('id, nome, cpf_cnpj, telefone, endereco, bairro, cidade, estado, cep').in('tipo', ['cliente', 'ambos']).order('nome'),
     supabase.from('depositos').select('id, nome').order('nome'),
     supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).order('nome'),
     supabase.from('itens_tabela_preco').select('tabela_id, produto_id, preco'),
