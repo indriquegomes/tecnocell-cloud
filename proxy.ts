@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -21,16 +21,14 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // getUser() validates the JWT against the Supabase server and triggers
-  // a token refresh (via setAll) when the access token is near expiry.
   const { data: { user }, error } = await supabase.auth.getUser()
 
   if (!user && request.nextUrl.pathname.startsWith('/painel')) {
-    // Se deu erro E existe cookie de sessão Supabase → erro de rede transitório, não desloga
+    // Erro de rede com cookie de sessão presente → não desloga (falha transitória)
     const temSessao = request.cookies.getAll().some(c => c.name.startsWith('sb-'))
     if (error && temSessao) return response
 
-    // Sem sessão confirmada (ou erro sem cookie) → redireciona pro login
+    // Sem sessão confirmada → redireciona pro login, voltando pra página original
     const redirectUrl = new URL('/login', request.url)
     redirectUrl.searchParams.set('next', request.nextUrl.pathname)
     const redirectResponse = NextResponse.redirect(redirectUrl)
