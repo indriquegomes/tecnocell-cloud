@@ -5,7 +5,7 @@ export default async function PDVPage() {
   const supabase = await createServiceClient()
 
   const [{ data: produtos }, { data: formas }, { data: pessoas }, { data: depositos }, { data: tabelas }, { data: itensTabela }] = await Promise.all([
-    supabase.from('produtos').select('id, nome, preco, codigo, marca, descricao, imagem_url, estoque(deposito_id, quantidade)').eq('ativo', true).order('nome'),
+    supabase.from('produtos').select('id, nome, preco, codigo, marca, categoria, descricao, imagem_url, estoque(deposito_id, quantidade)').eq('ativo', true).order('nome'),
     supabase.from('formas_pagamento').select('id, nome').eq('ativo', true),
     supabase.from('pessoas').select('id, nome, cpf_cnpj').in('tipo', ['cliente', 'ambos']).order('nome'),
     supabase.from('depositos').select('id, nome').order('nome'),
@@ -44,7 +44,7 @@ export default async function PDVPage() {
           for (const e of linhas) {
             estoquePorDeposito[e.deposito_id] = (estoquePorDeposito[e.deposito_id] ?? 0) + e.quantidade
           }
-          return { id: p.id, nome: p.nome, preco: p.preco, codigo: p.codigo, marca: p.marca, descricao: (p as Record<string, unknown>).descricao as string | null ?? null, imagem_url: (p as Record<string, unknown>).imagem_url as string | null ?? null, estoquePorDeposito }
+          return { id: p.id, nome: p.nome, preco: p.preco, codigo: p.codigo, marca: p.marca, categoria: (p as Record<string, unknown>).categoria as string | null ?? null, descricao: (p as Record<string, unknown>).descricao as string | null ?? null, imagem_url: (p as Record<string, unknown>).imagem_url as string | null ?? null, estoquePorDeposito }
         })}
         formas={formasOrdenadas}
         pessoas={pessoas ?? []}

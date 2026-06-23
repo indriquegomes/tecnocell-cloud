@@ -30,6 +30,7 @@ interface Produto {
   preco: number
   codigo: string | null
   marca: string | null
+  categoria: string | null
   descricao: string | null
   imagem_url: string | null
   estoquePorDeposito: Record<string, number>
@@ -109,8 +110,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const [buscaCrediario, setBuscaCrediario] = useState('')
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
   const [pagandoCrediario, setPagandoCrediario] = useState(false)
-  // F1 — Ficha do produto
-  const [fichaF1, setFichaF1] = useState<Produto | null>(null)
+  // F1 — Consultar Produtos (modal com busca própria + ficha rica)
+  const [fichaAberta, setFichaAberta] = useState(false)
+  const [fichaSel, setFichaSel] = useState<Produto | null>(null)
+  const [buscaFicha, setBuscaFicha] = useState('')
 
   // Toast de aviso some sozinho após 4s
   useEffect(() => {
@@ -121,6 +124,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
 
   // Atalhos de teclado (F8 finalizar, F2 busca, Esc fecha) — refs evitam closure stale
   const buscaRef = useRef<HTMLInputElement>(null)
+  const buscaFichaRef = useRef<HTMLInputElement>(null)
   const acaoF1Ref = useRef<() => void>(() => {})
   const acaoF8Ref = useRef<() => void>(() => {})
   const acaoF9Ref = useRef<() => void>(() => {})
@@ -168,6 +172,16 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
         (p.codigo ?? '').toLowerCase().includes(busca.toLowerCase())
       ).slice(0, 8)
     : []
+
+  // Busca interna do modal Consultar Produtos (F1)
+  const fichaFiltrados = buscaFicha.length >= 1
+    ? produtos.filter((p) =>
+        p.nome.toLowerCase().includes(buscaFicha.toLowerCase()) ||
+        (p.codigo ?? '').toLowerCase().includes(buscaFicha.toLowerCase())
+      ).slice(0, 20)
+    : []
+
+  const fecharFicha = () => { setFichaAberta(false); setFichaSel(null); setBuscaFicha('') }
 
   const adicionarAoCarrinho = useCallback((p: Produto) => {
     const disp = p.estoquePorDeposito[depositoId] ?? 0
@@ -473,27 +487,25 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
 
   // Mantém as ações dos atalhos sempre atualizadas (sem closure stale)
   acaoF1Ref.current = () => {
-    if (mostrarConfirmacao || mostrarVendas || mostrarCrediario || fichaF1) return
+    if (mostrarConfirmacao || mostrarVendas || mostrarCrediario || fichaAberta) return
+    setFichaAberta(true)
+    // Se já há busca ativa no PDV, pré-seleciona o 1º resultado na ficha
     if (produtosFiltrados.length > 0) {
-      setFichaF1(produtosFiltrados[0])
-    } else if (carrinho.length > 0) {
-      const ultimo = carrinho[carrinho.length - 1]
-      const prod = produtos.find((p) => p.id === ultimo.produto_id)
-      if (prod) setFichaF1(prod)
-    } else if (produtos.length > 0) {
-      setFichaF1(produtos[0])
+      setFichaSel(produtosFiltrados[0])
+      setBuscaFicha(busca)
     }
+    setTimeout(() => buscaFichaRef.current?.focus(), 50)
   }
   acaoF8Ref.current = () => {
-    if (fichaF1) return
+    if (fichaAberta) return
     if (mostrarConfirmacao) { if (!loading) handleFinalizar() }
     else if (!mostrarVendas && !mostrarCrediario) abrirConfirmacao()
   }
   acaoF9Ref.current = () => {
-    if (!mostrarConfirmacao && !mostrarVendas && !mostrarCrediario && !fichaF1) abrirCrediario()
+    if (!mostrarConfirmacao && !mostrarVendas && !mostrarCrediario && !fichaAberta) abrirCrediario()
   }
   acaoEscRef.current = () => {
-    if (fichaF1) { setFichaF1(null); return }
+    if (fichaAberta) { fecharFicha(); return }
     if (mostrarConfirmacao) setMostrarConfirmacao(false)
     else if (mostrarVendas) setMostrarVendas(false)
     else if (mostrarCrediario) setMostrarCrediario(false)
@@ -628,7 +640,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                   </button>
                   <button
                     type="button"
-                    onClick={() => setFichaF1(p)}
+                    onClick={() => { setFichaAberta(true); setFichaSel(p); setBuscaFicha(p.nome) }}
                     title="Ver ficha do produto (F1)"
                     className="shrink-0 px-3 py-3 text-gray-300 hover:text-blue-500 transition text-base leading-none"
                   >
@@ -1221,62 +1233,116 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
         </div>
       )}
 
-      {/* Modal Ficha do Produto (F1 / botão ℹ) */}
-      {fichaF1 && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl overflow-hidden">
-            {fichaF1.imagem_url ? (
-              <div className="h-48 w-full overflow-hidden bg-gray-100">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={fichaF1.imagem_url} alt={fichaF1.nome} className="h-full w-full object-contain" />
-              </div>
-            ) : (
-              <div className="flex h-32 items-center justify-center bg-gray-50 text-5xl text-gray-200">📦</div>
-            )}
+      {/* Modal Consultar Produtos (F1 / botão ℹ) — busca própria + ficha rica */}
+      {fichaAberta && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-16">
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
+              <h3 className="text-base font-bold text-gray-900">Consultar Produtos</h3>
+              <button type="button" onClick={fecharFicha}
+                className="text-lg leading-none text-gray-400 hover:text-gray-600">✕</button>
+            </div>
 
-            <div className="px-5 py-4 space-y-3">
-              <div>
-                <h3 className="text-base font-bold text-gray-900 leading-snug">{fichaF1.nome}</h3>
-                {(fichaF1.codigo || fichaF1.marca) && (
-                  <p className="mt-0.5 text-xs text-gray-400">
-                    {[fichaF1.codigo, fichaF1.marca].filter(Boolean).join(' · ')}
-                  </p>
+            <div className="px-5 py-4 space-y-4">
+              {/* Busca própria do modal */}
+              <div className="relative">
+                <label className="mb-1 block text-xs font-medium text-gray-500">Selecione o produto</label>
+                <input
+                  ref={buscaFichaRef}
+                  value={buscaFicha}
+                  onChange={(e) => { setBuscaFicha(e.target.value); setFichaSel(null) }}
+                  placeholder="Buscar por nome ou código..."
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {!fichaSel && buscaFicha.length >= 1 && fichaFiltrados.length > 0 && (
+                  <div className="absolute left-0 right-0 z-10 mt-1 max-h-60 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+                    {fichaFiltrados.map((p) => (
+                      <button key={p.id} type="button"
+                        onClick={() => { setFichaSel(p); setBuscaFicha(p.nome) }}
+                        className="block w-full border-b border-gray-50 px-3 py-2 text-left text-sm last:border-0 hover:bg-blue-50">
+                        <span className="font-medium text-gray-800">{p.nome}</span>
+                        {p.codigo && <span className="text-gray-400"> · {p.codigo}</span>}
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
 
-              <div className="flex items-center justify-between rounded-xl bg-green-50 px-4 py-2.5">
-                <span className="text-sm font-medium text-gray-600">Preço de venda</span>
-                <span className="text-lg font-bold text-green-600">{formatBRL(precoDoProduto(fichaF1))}</span>
-              </div>
-
-              <div className="rounded-xl border border-gray-100 divide-y divide-gray-100">
-                {depositos.map((d) => {
-                  const qtd = fichaF1.estoquePorDeposito[d.id] ?? 0
-                  return (
-                    <div key={d.id} className="flex items-center justify-between px-4 py-2 text-sm">
-                      <span className="text-gray-600">{d.nome}</span>
-                      <span className={`font-semibold ${qtd > 0 ? 'text-gray-800' : 'text-red-400'}`}>
-                        {qtd > 0 ? `${qtd} un.` : 'Sem estoque'}
-                      </span>
+              {/* Ficha rica do produto selecionado */}
+              {fichaSel && (
+                <div className="space-y-3">
+                  <div className="flex gap-4">
+                    <div className="shrink-0">
+                      {fichaSel.imagem_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={fichaSel.imagem_url} alt={fichaSel.nome}
+                          className="h-28 w-28 rounded-lg border border-gray-100 bg-gray-50 object-contain" />
+                      ) : (
+                        <div className="flex h-28 w-28 items-center justify-center rounded-lg border border-gray-100 bg-gray-50 text-4xl text-gray-200">📦</div>
+                      )}
                     </div>
-                  )
-                })}
-              </div>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-bold leading-snug text-gray-900">{fichaSel.nome}</h4>
+                      <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                        <div>
+                          <span className="text-gray-400">Código</span>
+                          <p className="font-medium text-gray-700">{fichaSel.codigo || '—'}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Marca</span>
+                          <p className="font-medium text-gray-700">{fichaSel.marca || '—'}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Categoria</span>
+                          <p className="font-medium text-gray-700">{fichaSel.categoria || '—'}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Preço de venda</span>
+                          <p className="font-bold text-green-600">{formatBRL(precoDoProduto(fichaSel))}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
-              {fichaF1.descricao && (
-                <p className="text-xs text-gray-500 leading-relaxed line-clamp-3">{fichaF1.descricao}</p>
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-gray-500">Saldo por depósito</p>
+                    <div className="divide-y divide-gray-50 rounded-lg border border-gray-100">
+                      {depositos.map((d) => {
+                        const qtd = fichaSel.estoquePorDeposito[d.id] ?? 0
+                        const atual = d.id === depositoId
+                        return (
+                          <div key={d.id} className={`flex justify-between px-3 py-1.5 text-sm ${atual ? 'bg-blue-50/60' : ''}`}>
+                            <span className="text-gray-600">{d.nome}{atual && ' (atual)'}</span>
+                            <span className={qtd > 0 ? 'font-semibold text-gray-800' : 'text-gray-300'}>
+                              {qtd > 0 ? `${qtd} un.` : '—'}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {fichaSel.descricao && (
+                    <p className="text-xs leading-relaxed text-gray-500">{fichaSel.descricao}</p>
+                  )}
+                </div>
               )}
             </div>
 
-            <div className="flex gap-3 border-t border-gray-100 px-5 py-4">
-              <button type="button" onClick={() => setFichaF1(null)}
+            <div className="flex gap-3 border-t border-gray-100 px-5 py-3">
+              <button type="button"
+                onClick={() => { setFichaSel(null); setBuscaFicha(''); buscaFichaRef.current?.focus() }}
+                className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+                Limpar
+              </button>
+              <button type="button" onClick={fecharFicha}
                 className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
                 Fechar
               </button>
               <button
                 type="button"
-                onClick={() => { adicionarAoCarrinho(fichaF1); setFichaF1(null) }}
-                disabled={(fichaF1.estoquePorDeposito[depositoId] ?? 0) <= 0}
+                onClick={() => { if (fichaSel) { adicionarAoCarrinho(fichaSel); fecharFicha() } }}
+                disabled={!fichaSel || (fichaSel.estoquePorDeposito[depositoId] ?? 0) <= 0}
                 className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-bold text-white hover:bg-blue-700 transition disabled:opacity-40"
               >
                 + Adicionar
