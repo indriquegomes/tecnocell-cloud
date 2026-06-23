@@ -97,11 +97,10 @@ test.describe('PDV', () => {
 })
 
 test.describe('Auth — middleware', () => {
-  // KNOWN ISSUE: middleware deixa passar requisição sem sessão por causa do
-  // `if (error) return response` (anti-falso-logout). Reabrir quando corrigido.
-  test.fixme('sem sessão não acessa dados do painel', async ({ page }) => {
+  test('sem sessão redireciona pro login', async ({ page }) => {
+    // Sem chamar login() — nenhum cookie de sessão
     await page.goto('/painel/pdv')
-    await page.waitForTimeout(3000)
+    await page.waitForURL('**/login**', { timeout: 8000 })
     expect(page.url()).toContain('/login')
   })
 })
