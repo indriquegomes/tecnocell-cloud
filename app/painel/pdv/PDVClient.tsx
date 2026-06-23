@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { formatBRL } from '@/lib/utils'
-import { finalizarVenda, buscarVendas, buscarCrediario, pagarLancamentos, type VendaResumo, type PagamentoInput, type CrediarioItem } from './actions'
+import { finalizarVenda, buscarVendas, buscarCrediario, pagarLancamentos, buscarPedidosAbertos, registrarConsignado, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo } from './actions'
 
 const TAXAS = {
   ton: {
@@ -110,10 +110,24 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const [buscaCrediario, setBuscaCrediario] = useState('')
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
   const [pagandoCrediario, setPagandoCrediario] = useState(false)
+  // F12 — Saída Consignada
+  const [mostrarConsignado, setMostrarConsignado] = useState(false)
+  const [obsConsignado, setObsConsignado] = useState('')
+  const [salvandoConsignado, setSalvandoConsignado] = useState(false)
+  const [consignadoId, setConsignadoId] = useState<string | null>(null)
+
+  // F3 — Busca Orçamento/Pedido
+  const [mostrarOrcamentos, setMostrarOrcamentos] = useState(false)
+  const [orcamentos, setOrcamentos] = useState<PedidoResumo[]>([])
+  const [carregandoOrcamentos, setCarregandoOrcamentos] = useState(false)
+  const [buscaOrcamento, setBuscaOrcamento] = useState('')
+
   // F1 — Consultar Produtos (modal com busca própria + ficha rica)
   const [fichaAberta, setFichaAberta] = useState(false)
   const [fichaSel, setFichaSel] = useState<Produto | null>(null)
   const [buscaFicha, setBuscaFicha] = useState('')
+
+  const qtdRefs = useRef<Map<string, HTMLInputElement>>(new Map())
 
   // Toast de aviso some sozinho após 4s
   useEffect(() => {
@@ -126,13 +140,19 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const buscaRef = useRef<HTMLInputElement>(null)
   const buscaFichaRef = useRef<HTMLInputElement>(null)
   const acaoF1Ref = useRef<() => void>(() => {})
+  const acaoF3Ref = useRef<() => void>(() => {})
+  const acaoF4Ref = useRef<() => void>(() => {})
   const acaoF8Ref = useRef<() => void>(() => {})
   const acaoF9Ref = useRef<() => void>(() => {})
+  const acaoF12Ref = useRef<() => void>(() => {})
   const acaoEscRef = useRef<() => void>(() => {})
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'F1') { e.preventDefault(); acaoF1Ref.current() }
+      else if (e.key === 'F3') { e.preventDefault(); acaoF3Ref.current() }
+      else if (e.key === 'F4') { e.preventDefault(); acaoF4Ref.current() }
       else if (e.key === 'F8') { e.preventDefault(); acaoF8Ref.current() }
+      else if (e.key === 'F12') { e.preventDefault(); acaoF12Ref.current() }
       else if (e.key === 'F9') { e.preventDefault(); acaoF9Ref.current() }
       else if (e.key === 'F2') { e.preventDefault(); buscaRef.current?.focus() }
       else if (e.key === 'Escape') { acaoEscRef.current() }
@@ -406,6 +426,72 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     }
   }
 
+  // F12 — Saída Consignada
+  const handleConsignado = async () => {
+    if (carrinho.length === 0) { setErro('Adicione produtos ao carrinho antes de registrar saída consignada.'); return }
+    setSalvandoConsignado(true)
+    try {
+      const id = await registrarConsignado(
+        carrinho.map((i) => ({ produto_id: i.produto_id, nome: i.nome, codigo: i.codigo, quantidade: i.quantidade, preco_unitario: i.preco_unitario })),
+        pessoaId || null,
+        clienteSelecionado?.nome ?? null,
+        depositoId,
+        obsConsignado,
+      )
+      setConsignadoId(id)
+      setCarrinho([])
+      setObsConsignado('')
+      setMostrarConsignado(false)
+    } catch (e) {
+      setErro('Erro ao registrar consignado: ' + String(e))
+    } finally {
+      setSalvandoConsignado(false)
+    }
+  }
+
+  // F3 — Busca Orçamento/Pedido
+  const abrirOrcamentos = async () => {
+    setMostrarOrcamentos(true)
+    setBuscaOrcamento('')
+    setCarregandoOrcamentos(true)
+    try {
+      setOrcamentos(await buscarPedidosAbertos())
+    } catch {
+      setErro('Não consegui carregar os orçamentos/pedidos.')
+      setMostrarOrcamentos(false)
+    } finally {
+      setCarregandoOrcamentos(false)
+    }
+  }
+
+  const carregarOrcamento = (pedido: PedidoResumo) => {
+    const novosItens: ItemCarrinho[] = []
+    const avisos: string[] = []
+    for (const item of pedido.itens) {
+      const prod = produtos.find((p) => p.id === item.produto_id)
+      const disp = prod?.estoquePorDeposito[depositoId] ?? 0
+      if (disp <= 0) { avisos.push(item.nome); continue }
+      novosItens.push({
+        produto_id: item.produto_id,
+        nome: item.nome,
+        codigo: item.codigo,
+        quantidade: Math.min(item.quantidade, disp),
+        preco_unitario: item.preco_unitario,
+        estoque_disponivel: disp,
+      })
+    }
+    setCarrinho(novosItens)
+    setMostrarOrcamentos(false)
+    if (avisos.length > 0) setErro(`Sem estoque: ${avisos.join(', ')}`)
+  }
+
+  const orcamentosFiltrados = buscaOrcamento.trim()
+    ? orcamentos.filter((o) =>
+        o.id.slice(0, 8).toLowerCase().includes(buscaOrcamento.toLowerCase()) ||
+        (o.pessoa_nome ?? '').toLowerCase().includes(buscaOrcamento.toLowerCase())
+      )
+    : orcamentos
+
   // F9 — Crediário
   const abrirCrediario = async () => {
     setMostrarCrediario(true)
@@ -486,8 +572,18 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     : vendas
 
   // Mantém as ações dos atalhos sempre atualizadas (sem closure stale)
+  acaoF3Ref.current = () => {
+    if (!mostrarConfirmacao && !mostrarVendas && !mostrarCrediario && !fichaAberta && !mostrarOrcamentos) abrirOrcamentos()
+  }
+  acaoF4Ref.current = () => {
+    if (mostrarConfirmacao || mostrarVendas || mostrarCrediario || fichaAberta || mostrarOrcamentos) return
+    if (carrinho.length === 0) return
+    const ultimo = carrinho[carrinho.length - 1]
+    const input = qtdRefs.current.get(ultimo.produto_id)
+    if (input) { input.focus(); input.select() }
+  }
   acaoF1Ref.current = () => {
-    if (mostrarConfirmacao || mostrarVendas || mostrarCrediario || fichaAberta) return
+    if (mostrarConfirmacao || mostrarVendas || mostrarCrediario || fichaAberta || mostrarOrcamentos) return
     setFichaAberta(true)
     // Se já há busca ativa no PDV, pré-seleciona o 1º resultado na ficha
     if (produtosFiltrados.length > 0) {
@@ -497,18 +593,41 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     setTimeout(() => buscaFichaRef.current?.focus(), 50)
   }
   acaoF8Ref.current = () => {
-    if (fichaAberta) return
+    if (fichaAberta || mostrarOrcamentos) return
     if (mostrarConfirmacao) { if (!loading) handleFinalizar() }
     else if (!mostrarVendas && !mostrarCrediario) abrirConfirmacao()
   }
   acaoF9Ref.current = () => {
-    if (!mostrarConfirmacao && !mostrarVendas && !mostrarCrediario && !fichaAberta) abrirCrediario()
+    if (!mostrarConfirmacao && !mostrarVendas && !mostrarCrediario && !fichaAberta && !mostrarOrcamentos && !mostrarConsignado) abrirCrediario()
+  }
+  acaoF12Ref.current = () => {
+    if (!mostrarConfirmacao && !mostrarVendas && !mostrarCrediario && !fichaAberta && !mostrarOrcamentos && !mostrarConsignado) {
+      if (carrinho.length === 0) { setErro('Adicione produtos ao carrinho antes de registrar saída consignada.'); return }
+      setMostrarConsignado(true)
+    }
   }
   acaoEscRef.current = () => {
     if (fichaAberta) { fecharFicha(); return }
+    if (mostrarOrcamentos) { setMostrarOrcamentos(false); return }
+    if (mostrarConsignado) { setMostrarConsignado(false); return }
     if (mostrarConfirmacao) setMostrarConfirmacao(false)
     else if (mostrarVendas) setMostrarVendas(false)
     else if (mostrarCrediario) setMostrarCrediario(false)
+  }
+
+  if (consignadoId) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="rounded-full bg-blue-100 p-6 text-5xl mb-4">📦</div>
+        <h3 className="text-2xl font-bold text-gray-900 mb-1">Saída Consignada Registrada!</h3>
+        <p className="text-xs text-gray-400 mb-2">ID: {consignadoId.slice(0, 8).toUpperCase()}</p>
+        <p className="text-sm text-gray-500 mb-6">Acompanhe o acerto em <strong>Vendas → Consignado</strong>.</p>
+        <button onClick={() => setConsignadoId(null)}
+          className="rounded-xl bg-blue-600 px-8 py-3 font-semibold text-white hover:bg-blue-700 transition">
+          Nova Venda
+        </button>
+      </div>
+    )
   }
 
   if (vendaConcluidaId) {
@@ -683,6 +802,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                         <button type="button" onClick={() => alterarQtd(item.produto_id, -1)}
                           className="flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100 text-xs font-bold">−</button>
                         <input
+                          ref={(el) => { if (el) qtdRefs.current.set(item.produto_id, el); else qtdRefs.current.delete(item.produto_id) }}
                           type="number"
                           min="1"
                           max={item.estoque_disponivel}
@@ -929,8 +1049,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
           <span className="font-semibold uppercase tracking-wide text-gray-400">⌨ Atalhos</span>
           <span><kbd className="rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 font-mono text-[11px] text-gray-600">F1</kbd> Ficha do produto</span>
           <span><kbd className="rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 font-mono text-[11px] text-gray-600">F2</kbd> Buscar produto</span>
+          <span><kbd className="rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 font-mono text-[11px] text-gray-600">F3</kbd> Orçamento/Pedido</span>
+          <span><kbd className="rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 font-mono text-[11px] text-gray-600">F4</kbd> Mudar quantidade</span>
           <span><kbd className="rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 font-mono text-[11px] text-gray-600">F8</kbd> Finalizar venda</span>
           <span><kbd className="rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 font-mono text-[11px] text-gray-600">F9</kbd> Crediário</span>
+          <span><kbd className="rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 font-mono text-[11px] text-gray-600">F12</kbd> Consignado</span>
           <span><kbd className="rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 font-mono text-[11px] text-gray-600">Esc</kbd> Fechar</span>
         </div>
       </div>
@@ -1346,6 +1469,138 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                 className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-bold text-white hover:bg-blue-700 transition disabled:opacity-40"
               >
                 + Adicionar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal F12 — Saída Consignada */}
+      {mostrarConsignado && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+              <h3 className="text-lg font-bold text-gray-900">Saída Consignada</h3>
+              <button type="button" onClick={() => setMostrarConsignado(false)}
+                className="text-gray-400 hover:text-gray-600 text-sm">✕</button>
+            </div>
+
+            <div className="px-6 py-4 space-y-4 text-sm">
+              <div className="rounded-xl border border-gray-100 bg-gray-50 divide-y divide-gray-100">
+                {carrinho.map((item) => (
+                  <div key={item.produto_id} className="flex justify-between px-4 py-2.5">
+                    <span className="text-gray-700">{item.quantidade}× {item.nome}</span>
+                    <span className="font-medium text-gray-800">{formatBRL(item.quantidade * item.preco_unitario)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between px-4 py-2.5 font-bold text-gray-900">
+                  <span>Total</span>
+                  <span>{formatBRL(subtotal)}</span>
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-1 text-xs font-medium text-gray-600">Cliente</p>
+                <p className="font-medium text-gray-800">{clienteSelecionado?.nome ?? <span className="italic text-gray-400">Não informado</span>}</p>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">Observações</label>
+                <textarea
+                  value={obsConsignado}
+                  onChange={(e) => setObsConsignado(e.target.value)}
+                  rows={2}
+                  placeholder="Prazo de devolução, condições..."
+                  className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
+                ⚠ O estoque <strong>não</strong> será baixado automaticamente. O acerto acontece em Vendas → Consignado.
+              </p>
+            </div>
+
+            <div className="flex gap-3 border-t border-gray-100 px-6 py-4">
+              <button type="button" onClick={() => setMostrarConsignado(false)} disabled={salvandoConsignado}
+                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition disabled:opacity-50">
+                Cancelar
+              </button>
+              <button type="button" onClick={handleConsignado} disabled={salvandoConsignado}
+                className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-bold text-white hover:bg-blue-700 transition disabled:opacity-50">
+                {salvandoConsignado ? 'Registrando...' : 'Registrar Saída'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal F3 — Buscar Orçamentos e Pedidos */}
+      {mostrarOrcamentos && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+              <h3 className="text-lg font-bold text-gray-900">Buscar Orçamentos e Pedidos</h3>
+              <button type="button" onClick={() => setMostrarOrcamentos(false)}
+                className="text-gray-400 hover:text-gray-600 text-sm">✕</button>
+            </div>
+
+            <div className="border-b border-gray-100 px-6 py-3">
+              <input
+                value={buscaOrcamento}
+                onChange={(e) => setBuscaOrcamento(e.target.value)}
+                placeholder="Filtrar por código ou cliente..."
+                autoFocus
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              {carregandoOrcamentos ? (
+                <p className="py-10 text-center text-sm text-gray-400">Carregando...</p>
+              ) : orcamentosFiltrados.length === 0 ? (
+                <p className="py-10 text-center text-sm text-gray-400">
+                  {orcamentos.length === 0 ? 'Nenhum orçamento ou pedido em aberto.' : 'Nenhum resultado.'}
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {orcamentosFiltrados.map((o) => (
+                    <button
+                      key={o.id}
+                      type="button"
+                      onClick={() => carregarOrcamento(o)}
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-left hover:border-blue-300 hover:bg-blue-50 transition"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-semibold text-gray-500">{o.id.slice(0, 8).toUpperCase()}</span>
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            o.tipo === 'orcamento' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            {o.tipo === 'orcamento' ? 'Orçamento' : 'Pedido'}
+                          </span>
+                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">{o.status}</span>
+                        </div>
+                        <span className="font-bold text-green-600 text-sm">{formatBRL(o.total)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>👤 {o.pessoa_nome ?? 'Cliente Final'}</span>
+                        <span>{new Date(o.created_at).toLocaleDateString('pt-BR')}</span>
+                      </div>
+                      {o.itens.length > 0 && (
+                        <p className="mt-1.5 text-xs text-gray-400 truncate">
+                          {o.itens.map((i) => `${i.quantidade}x ${i.nome}`).join(' · ')}
+                        </p>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-gray-100 px-6 py-3 text-right">
+              <button type="button" onClick={() => setMostrarOrcamentos(false)}
+                className="rounded-xl border border-gray-200 px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+                Fechar
               </button>
             </div>
           </div>

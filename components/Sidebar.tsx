@@ -19,6 +19,9 @@ const nav: NavGroup[] = [
     items: [
       { href: '/painel/pdv', label: 'PDV / Caixa' },
       { href: '/painel/pedidos', label: 'Pedidos e Orçamentos' },
+      { href: '/painel/vendas', label: 'Painel de Vendas' },
+      { href: '/painel/os', label: 'Ordens de Serviço' },
+      { href: '/painel/consignado', label: 'Consignado' },
       { href: '/painel/pdv/operacao', label: 'Operação do PDV' },
       { href: '/painel/vales-credito', label: 'Vales de Crédito' },
       { href: '/painel/promocoes', label: 'Promoções' },

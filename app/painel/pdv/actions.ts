@@ -87,6 +87,94 @@ export async function pagarLancamentos(ids: string[]): Promise<void> {
   if (!data || data.length === 0) throw new Error('Pagamento não registrado — sem permissão ou lançamento não encontrado.')
 }
 
+export interface ItemPedido {
+  produto_id: string
+  nome: string
+  quantidade: number
+  preco_unitario: number
+  codigo: string | null
+}
+
+export interface PedidoResumo {
+  id: string
+  tipo: string
+  status: string
+  total: number
+  created_at: string
+  pessoa_nome: string | null
+  itens: ItemPedido[]
+}
+
+export async function buscarPedidosAbertos(): Promise<PedidoResumo[]> {
+  await requireAuth()
+  const supabase = await createServiceClient()
+  const { data, error } = await supabase
+    .from('pedidos')
+    .select(`
+      id, tipo, status, total, created_at,
+      pessoa:pessoas(nome),
+      itens:itens_pedido(produto_id, quantidade, preco_unitario, produto:produtos(nome, codigo))
+    `)
+    .in('status', ['rascunho', 'pendente', 'aprovado'])
+    .order('created_at', { ascending: false })
+    .limit(50)
+  if (error) throw new Error(error.message)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data ?? []).map((p: any) => ({
+    id: p.id,
+    tipo: p.tipo ?? 'orcamento',
+    status: p.status,
+    total: p.total ?? 0,
+    created_at: p.created_at,
+    pessoa_nome: p.pessoa?.nome ?? null,
+    itens: (p.itens ?? []).map((i: any) => ({
+      produto_id: i.produto_id,
+      nome: i.produto?.nome ?? 'Produto',
+      quantidade: i.quantidade,
+      preco_unitario: i.preco_unitario,
+      codigo: i.produto?.codigo ?? null,
+    })),
+  }))
+}
+
+export interface ItemConsignado {
+  produto_id: string
+  nome: string
+  codigo: string | null
+  quantidade: number
+  preco_unitario: number
+}
+
+export async function registrarConsignado(
+  itens: ItemConsignado[],
+  pessoa_id: string | null,
+  pessoa_nome: string | null,
+  deposito_id: string,
+  observacoes: string,
+): Promise<string> {
+  if (itens.length === 0) throw new Error('Adicione itens ao consignado.')
+  await requireAuth()
+  const supabase = await createServiceClient()
+  const total = itens.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0)
+  const id = crypto.randomUUID()
+  const { error: eC } = await supabase.from('consignados').insert({
+    id, pessoa_id, pessoa_nome, deposito_id, observacoes: observacoes || null, total, status: 'aberto',
+  })
+  if (eC) throw new Error(eC.message)
+  const { error: eI } = await supabase.from('itens_consignado').insert(
+    itens.map((i) => ({
+      consignado_id: id,
+      produto_id: i.produto_id,
+      nome: i.nome,
+      codigo: i.codigo,
+      quantidade: i.quantidade,
+      preco_unitario: i.preco_unitario,
+    }))
+  )
+  if (eI) throw new Error(eI.message)
+  return id
+}
+
 export interface VendaResumo {
   id: string
   total: number
