@@ -24,18 +24,26 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  // getSession() lê o JWT local — sem chamada de rede. É o "optimistic check"
-  // recomendado pelo Next p/ proxy. Evita timeouts e falsos redirects pro login.
-  const { data: { session } } = await supabase.auth.getSession()
+  // getUser() contacta o Supabase Auth para validar + renovar o token se expirado.
+  // Sem isso, getSession() retorna null após 1h (JWT expira) e desloga o usuário.
+  // try/catch: se der timeout de rede no proxy, deixa passar — a page/action
+  // vai lidar com auth via requireAuth() e não vai expor dados.
+  let user: { email?: string } | null = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch {
+    return response
+  }
 
-  if (!session && request.nextUrl.pathname.startsWith('/painel')) {
+  if (!user && request.nextUrl.pathname.startsWith('/painel')) {
     const redirectUrl = new URL('/login', request.url)
     redirectUrl.searchParams.set('next', request.nextUrl.pathname)
     return NextResponse.redirect(redirectUrl)
   }
 
-  if (session?.user?.email) {
-    response.headers.set('x-user-email', session.user.email)
+  if (user?.email) {
+    response.headers.set('x-user-email', user.email)
   }
 
   return response
