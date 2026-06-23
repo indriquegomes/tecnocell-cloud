@@ -1,10 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { uploadFotoReport } from './actions'
 
 const EMAIL_DESTINO = 'tecnocellcorporation@gmail.com'
-const BUCKET = 'reports'
 const MAX_MB = 5
 
 export function BotaoReport() {
@@ -39,12 +38,9 @@ export function BotaoReport() {
     let linkFoto = ''
     try {
       if (arquivo) {
-        const sb = createClient()
-        const ext = arquivo.name.split('.').pop() ?? 'png'
-        const nome = `report-${Date.now()}.${ext}`
-        const { error } = await sb.storage.from(BUCKET).upload(nome, arquivo, { upsert: false })
-        if (error) throw error
-        linkFoto = sb.storage.from(BUCKET).getPublicUrl(nome).data.publicUrl
+        const fd = new FormData()
+        fd.append('file', arquivo)
+        linkFoto = (await uploadFotoReport(fd)) ?? ''
       }
 
       const rotulo = tipo === 'erro' ? 'Erro' : 'Melhoria'
@@ -55,7 +51,7 @@ export function BotaoReport() {
       window.location.href = `mailto:${EMAIL_DESTINO}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`
       fechar()
     } catch {
-      setErroMsg('Não consegui enviar a foto. Você pode enviar sem ela ou tentar de novo.')
+      setErroMsg('Erro ao enviar. Tente de novo.')
     } finally {
       setEnviando(false)
     }
