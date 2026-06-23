@@ -75,11 +75,13 @@ export async function pagarLancamentos(ids: string[]): Promise<void> {
   if (ids.length === 0) return
   const supabase = await createServiceClient()
   const today = new Date().toISOString().split('T')[0]
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('lancamentos')
     .update({ status: 'pago', data_pagamento: today, updated_at: new Date().toISOString() })
     .in('id', ids)
+    .select('id')
   if (error) throw new Error(error.message)
+  if (!data || data.length === 0) throw new Error('Pagamento não registrado — sem permissão ou lançamento não encontrado.')
 }
 
 export interface VendaResumo {
