@@ -480,6 +480,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
       const ultimo = carrinho[carrinho.length - 1]
       const prod = produtos.find((p) => p.id === ultimo.produto_id)
       if (prod) setFichaF1(prod)
+    } else if (produtos.length > 0) {
+      setFichaF1(produtos[0])
     }
   }
   acaoF8Ref.current = () => {
