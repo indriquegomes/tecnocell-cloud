@@ -24,19 +24,14 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  // getUser() contacta o Supabase Auth para validar + renovar o token se expirado.
-  // Sem isso, getSession() retorna null após 1h (JWT expira) e desloga o usuário.
-  // try/catch: se der timeout de rede no proxy, deixa passar — a page/action
-  // vai lidar com auth via requireAuth() e não vai expor dados.
-  let user: { email?: string } | null = null
-  try {
-    const { data } = await supabase.auth.getUser()
-    user = data.user
-  } catch {
-    return response
-  }
+  // getUser() renova o token se expirado (necessário para não deslogar após 1h).
+  // Verificamos o 'error' antes de redirecionar: se getUser() falhou por problema
+  // de rede/timeout, ele retorna { user: null, error: AuthApiError } SEM lançar —
+  // o try/catch não pega isso. Só redirecionamos pro login quando !error && !user
+  // (i.e., temos certeza que não há sessão, não apenas falha de rede).
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
 
-  if (!user && request.nextUrl.pathname.startsWith('/painel')) {
+  if (!authError && !user && request.nextUrl.pathname.startsWith('/painel')) {
     const redirectUrl = new URL('/login', request.url)
     redirectUrl.searchParams.set('next', request.nextUrl.pathname)
     return NextResponse.redirect(redirectUrl)
