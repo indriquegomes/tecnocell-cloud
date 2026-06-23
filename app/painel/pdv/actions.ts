@@ -1,6 +1,6 @@
 'use server'
 
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, requireAuth } from '@/lib/supabase/server'
 
 interface ItemCarrinho {
   produto_id: string
@@ -30,6 +30,7 @@ export async function finalizarVenda(
   if (!deposito_id) throw new Error('Depósito não selecionado')
   if (pagamentos.length === 0) throw new Error('Selecione a forma de pagamento')
 
+  await requireAuth()
   const supabase = await createServiceClient()
 
   const { data, error } = await supabase.rpc('finalizar_venda', {
@@ -60,6 +61,7 @@ export interface CrediarioItem {
 }
 
 export async function buscarCrediario(): Promise<CrediarioItem[]> {
+  await requireAuth()
   const supabase = await createServiceClient()
   const { data, error } = await supabase
     .from('lancamentos')
@@ -73,6 +75,7 @@ export async function buscarCrediario(): Promise<CrediarioItem[]> {
 
 export async function pagarLancamentos(ids: string[]): Promise<void> {
   if (ids.length === 0) return
+  await requireAuth()
   const supabase = await createServiceClient()
   const today = new Date().toISOString().split('T')[0]
   const { data, error } = await supabase
@@ -95,6 +98,7 @@ export interface VendaResumo {
 
 // Buscar as últimas vendas concluídas para consulta no PDV (#9 Buscar Vendas)
 export async function buscarVendas(limite: number = 30): Promise<VendaResumo[]> {
+  await requireAuth()
   const supabase = await createServiceClient()
   const { data, error } = await supabase
     .from('vendas')

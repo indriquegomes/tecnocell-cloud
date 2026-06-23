@@ -1,10 +1,11 @@
 'use server'
 
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, requireAuth } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 export async function criarEmpresa(formData: FormData) {
+  await requireAuth()
   const supabase = await createServiceClient()
   const { error } = await supabase.from('empresas').insert({
     nome: formData.get('nome') as string,
@@ -22,6 +23,7 @@ export async function criarEmpresa(formData: FormData) {
 }
 
 export async function editarEmpresa(id: string, formData: FormData) {
+  await requireAuth()
   const supabase = await createServiceClient()
   const { error } = await supabase.from('empresas').update({
     nome: formData.get('nome') as string,
@@ -39,6 +41,7 @@ export async function editarEmpresa(id: string, formData: FormData) {
 }
 
 export async function deletarEmpresa(id: string) {
+  await requireAuth()
   const supabase = await createServiceClient()
   const { error } = await supabase.from('empresas').delete().eq('id', id)
   if (error) throw new Error(error.message)

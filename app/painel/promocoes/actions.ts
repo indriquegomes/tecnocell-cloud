@@ -1,10 +1,11 @@
 'use server'
 
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, requireAuth } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 export async function criarPromocao(formData: FormData) {
+  await requireAuth()
   const supabase = await createServiceClient()
 
   const { error } = await supabase.from('promocoes').insert({
@@ -23,6 +24,7 @@ export async function criarPromocao(formData: FormData) {
 }
 
 export async function togglePromocao(id: string, ativa: boolean) {
+  await requireAuth()
   const supabase = await createServiceClient()
   await supabase.from('promocoes').update({ ativa: !ativa }).eq('id', id)
   revalidatePath('/painel/promocoes')
@@ -30,6 +32,7 @@ export async function togglePromocao(id: string, ativa: boolean) {
 }
 
 export async function deletarPromocao(id: string) {
+  await requireAuth()
   const supabase = await createServiceClient()
   await supabase.from('promocoes').delete().eq('id', id)
   revalidatePath('/painel/promocoes')

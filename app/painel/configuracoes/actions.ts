@@ -1,10 +1,11 @@
 'use server'
 
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, requireAuth } from '@/lib/supabase/server'
 
 type State = { ok: boolean; erro: string | null }
 
 export async function salvarConfiguracoes(_prev: State, formData: FormData): Promise<State> {
+  await requireAuth()
   const supabase = await createServiceClient()
 
   const valor = {

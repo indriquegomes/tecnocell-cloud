@@ -1,10 +1,11 @@
 'use server'
 
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, requireAuth } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 export async function criarTabela(formData: FormData) {
+  await requireAuth()
   const supabase = await createServiceClient()
 
   const { error } = await supabase.from('tabelas_preco').insert({
@@ -19,6 +20,7 @@ export async function criarTabela(formData: FormData) {
 }
 
 export async function deletarTabela(id: string) {
+  await requireAuth()
   const supabase = await createServiceClient()
   await supabase.from('tabelas_preco').delete().eq('id', id)
   revalidatePath('/painel/tabelas-preco')
@@ -26,6 +28,7 @@ export async function deletarTabela(id: string) {
 }
 
 export async function adicionarItemTabela(tabelaId: string, formData: FormData) {
+  await requireAuth()
   const supabase = await createServiceClient()
 
   const { error } = await supabase.from('itens_tabela_preco').insert({
@@ -40,6 +43,7 @@ export async function adicionarItemTabela(tabelaId: string, formData: FormData) 
 }
 
 export async function removerItemTabela(id: string, tabelaId: string) {
+  await requireAuth()
   const supabase = await createServiceClient()
   await supabase.from('itens_tabela_preco').delete().eq('id', id)
   revalidatePath(`/painel/tabelas-preco/${tabelaId}`)

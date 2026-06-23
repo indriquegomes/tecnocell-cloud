@@ -1,10 +1,11 @@
 'use server'
 
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, requireAuth } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 export async function criarNotaEntrada(formData: FormData) {
+  await requireAuth()
   const supabase = await createServiceClient()
   const { data: nota, error } = await supabase.from('notas_entrada').insert({
     numero: (formData.get('numero') as string) || null,
@@ -21,6 +22,7 @@ export async function criarNotaEntrada(formData: FormData) {
 }
 
 export async function receberNota(id: string) {
+  await requireAuth()
   const supabase = await createServiceClient()
   // Busca itens da nota e dá entrada no estoque
   const { data: itens } = await supabase
@@ -56,6 +58,7 @@ export async function receberNota(id: string) {
 }
 
 export async function deletarNota(id: string) {
+  await requireAuth()
   const supabase = await createServiceClient()
   const { error } = await supabase.from('notas_entrada').delete().eq('id', id)
   if (error) throw new Error(error.message)
@@ -63,6 +66,7 @@ export async function deletarNota(id: string) {
 }
 
 export async function adicionarItemNota(notaId: string, formData: FormData) {
+  await requireAuth()
   const supabase = await createServiceClient()
   const quantidade = parseFloat(formData.get('quantidade') as string) || 1
   const preco = parseFloat(formData.get('preco_unitario') as string) || 0

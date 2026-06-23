@@ -1,8 +1,9 @@
 'use server'
 
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, requireAuth } from '@/lib/supabase/server'
 
 export async function uploadFotoReport(formData: FormData): Promise<string | null> {
+  await requireAuth()
   try {
     const file = formData.get('file') as File | null
     if (!file || file.size === 0) return null

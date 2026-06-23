@@ -1,10 +1,11 @@
 'use server'
 
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, requireAuth } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 export async function registrarMovimento(formData: FormData) {
+  await requireAuth()
   const supabase = await createServiceClient()
   const produto_id = formData.get('produto_id') as string
   const deposito_id = formData.get('deposito_id') as string

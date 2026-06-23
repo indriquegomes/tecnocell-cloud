@@ -1,10 +1,11 @@
 'use server'
 
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, requireAuth } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 export async function criarVale(formData: FormData) {
+  await requireAuth()
   const supabase = await createServiceClient()
 
   const valor = parseFloat(formData.get('valor') as string) || 0
@@ -23,6 +24,7 @@ export async function criarVale(formData: FormData) {
 }
 
 export async function cancelarVale(id: string) {
+  await requireAuth()
   const supabase = await createServiceClient()
   const { error } = await supabase
     .from('vales_credito')

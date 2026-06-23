@@ -1,10 +1,11 @@
 'use server'
 
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, requireAuth } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 export async function criarCategoria(formData: FormData) {
+  await requireAuth()
   const supabase = await createServiceClient()
   const { error } = await supabase.from('categorias').insert({
     nome: formData.get('nome') as string,
@@ -16,6 +17,7 @@ export async function criarCategoria(formData: FormData) {
 }
 
 export async function editarCategoria(id: string, formData: FormData) {
+  await requireAuth()
   const supabase = await createServiceClient()
   const { error } = await supabase.from('categorias').update({
     nome: formData.get('nome') as string,
@@ -27,6 +29,7 @@ export async function editarCategoria(id: string, formData: FormData) {
 }
 
 export async function deletarCategoria(id: string) {
+  await requireAuth()
   const supabase = await createServiceClient()
   const { error } = await supabase.from('categorias').delete().eq('id', id)
   if (error) throw new Error(error.message)

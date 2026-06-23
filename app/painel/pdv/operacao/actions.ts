@@ -1,9 +1,10 @@
 'use server'
 
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, requireAuth } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
 export async function abrirCaixa(formData: FormData) {
+  await requireAuth()
   const supabase = await createServiceClient()
   await supabase.from('caixas').insert({
     valor_abertura: parseFloat(formData.get('valor_abertura') as string) || 0,
@@ -14,6 +15,7 @@ export async function abrirCaixa(formData: FormData) {
 }
 
 export async function fecharCaixa(id: string, formData: FormData) {
+  await requireAuth()
   const supabase = await createServiceClient()
   await supabase.from('caixas').update({
     status: 'fechado',
