@@ -162,6 +162,14 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   }, [])
   const [vendaConcluidaId, setVendaConcluidaId] = useState<string | null>(null)
   const [vendaTotal, setVendaTotal] = useState(0)
+  const [vendaSnapshot, setVendaSnapshot] = useState<{
+    itens: { nome: string; quantidade: number; preco_unitario: number }[]
+    pagamentos: { forma_nome: string; valor: number; taxa: number; parcelas: number; status: string }[]
+    cliente: string | null
+    deposito: string
+    desconto: number
+    horario: string
+  } | null>(null)
   const [mostrarConfirmacao, setMostrarConfirmacao] = useState(false)
   // Loja padrão ao abrir o PDV (temporário — quando houver login por loja, virá do usuário)
   const LOJA_PADRAO = 'PETRÓPOLIS'
@@ -401,6 +409,20 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
       )
       setVendaConcluidaId(result.vendaId)
       setVendaTotal(result.total)
+      setVendaSnapshot({
+        itens: carrinho.map(({ nome, quantidade, preco_unitario }) => ({ nome, quantidade, preco_unitario })),
+        pagamentos: pagamentos.map((p) => ({
+          forma_nome: formas.find((f) => f.id === p.forma_id)?.nome ?? p.forma_id,
+          valor: parseFloat(p.valor) || 0,
+          taxa: taxaDoItem(p),
+          parcelas: p.parcelas,
+          status: isFiadoForma(p.forma_id) ? 'pendente' : 'pago',
+        })),
+        cliente: clienteSelecionado?.nome ?? null,
+        deposito: nomeDeposito,
+        desconto: descontoNum,
+        horario: new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }),
+      })
       setMostrarConfirmacao(false)
       setCarrinho([])
       setPagamentos([{ uid: '1', forma_id: formas[0]?.id ?? '', valor: '', maquina: '', parcelas: 1 }])
@@ -630,19 +652,138 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     )
   }
 
+  function imprimirCupom() {
+    if (!vendaSnapshot || !vendaConcluidaId) return
+    const snap = vendaSnapshot
+    const id = vendaConcluidaId.slice(0, 8).toUpperCase()
+    const win = window.open('', '_blank', 'width=380,height=620')
+    if (!win) return
+    const linhaItem = (i: typeof snap.itens[0]) =>
+      `<div style="display:flex;justify-content:space-between"><span>${i.quantidade}x ${i.nome}</span><span>R$ ${(i.quantidade * i.preco_unitario).toFixed(2).replace('.', ',')}</span></div>`
+    const linhaPag = (p: typeof snap.pagamentos[0]) =>
+      `<div style="display:flex;justify-content:space-between"><span>${p.forma_nome}${p.parcelas > 1 ? ` ${p.parcelas}x` : ''}${p.status === 'pendente' ? ' (FIADO)' : ''}</span><span>R$ ${(p.valor + p.taxa).toFixed(2).replace('.', ',')}</span></div>${p.taxa > 0 ? `<div style="display:flex;justify-content:space-between;font-size:10px;color:#666"><span>  Taxa:</span><span>R$ ${p.taxa.toFixed(2).replace('.', ',')}</span></div>` : ''}`
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Cupom #${id}</title>
+    <style>body{font-family:monospace;font-size:12px;margin:16px;max-width:320px}h2{text-align:center;margin:0 0 2px;font-size:15px}p{margin:2px 0;text-align:center}.sep{border:none;border-top:1px dashed #000;margin:8px 0}.total{display:flex;justify-content:space-between;font-weight:bold;font-size:14px;margin:4px 0}</style>
+    </head><body>
+    <h2>TecnoCell</h2><p>${snap.deposito}</p><p>${snap.horario}</p>
+    <hr class="sep">${snap.cliente ? `<p style="text-align:left">Cliente: <strong>${snap.cliente}</strong></p>` : ''}
+    <p style="text-align:left">Cupom #${id}</p><hr class="sep">
+    <strong>ITENS</strong>${snap.itens.map(linhaItem).join('')}
+    <hr class="sep">
+    ${snap.desconto > 0 ? `<div style="display:flex;justify-content:space-between"><span>Desconto:</span><span>-R$ ${snap.desconto.toFixed(2).replace('.', ',')}</span></div>` : ''}
+    <div class="total"><span>TOTAL</span><span>R$ ${snap.itens.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0) > 0 ? (snap.itens.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0) - snap.desconto + snap.pagamentos.reduce((s, p) => s + p.taxa, 0)).toFixed(2).replace('.', ',') : vendaTotal.toFixed(2).replace('.', ',')}</span></div>
+    <hr class="sep"><strong>PAGAMENTOS</strong>${snap.pagamentos.map(linhaPag).join('')}
+    <hr class="sep"><p>Obrigado pela preferência!</p>
+    </body></html>`)
+    win.document.close()
+    setTimeout(() => win.print(), 300)
+  }
+
+  function textoWhatsApp() {
+    if (!vendaSnapshot || !vendaConcluidaId) return ''
+    const snap = vendaSnapshot
+    const id = vendaConcluidaId.slice(0, 8).toUpperCase()
+    const linhas = [
+      `*TecnoCell — ${snap.deposito}*`,
+      `Cupom #${id} | ${snap.horario}`,
+      snap.cliente ? `Cliente: ${snap.cliente}` : '',
+      '',
+      '*Itens:*',
+      ...snap.itens.map((i) => `• ${i.nome} ${i.quantidade}x = R$ ${(i.quantidade * i.preco_unitario).toFixed(2).replace('.', ',')}`),
+      '',
+      snap.desconto > 0 ? `Desconto: -R$ ${snap.desconto.toFixed(2).replace('.', ',')}` : '',
+      `*Total: R$ ${vendaTotal.toFixed(2).replace('.', ',')}*`,
+      '',
+      '*Pagamentos:*',
+      ...snap.pagamentos.map((p) => `• ${p.forma_nome}${p.parcelas > 1 ? ` ${p.parcelas}x` : ''}${p.status === 'pendente' ? ' (FIADO)' : ''}: R$ ${(p.valor + p.taxa).toFixed(2).replace('.', ',')}`),
+      '',
+      '_Obrigado pela preferência!_',
+    ].filter(Boolean).join('\n')
+    return linhas
+  }
+
   if (vendaConcluidaId) {
+    const snap = vendaSnapshot
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <div className="rounded-full bg-green-100 p-6 text-5xl mb-4">✓</div>
-        <h3 className="text-2xl font-bold text-gray-900 mb-1">Venda Concluída!</h3>
-        <p className="text-gray-500 mb-2">Total cobrado: <strong className="text-green-600">{formatBRL(vendaTotal)}</strong></p>
-        <p className="text-xs text-gray-400 mb-6">ID: {vendaConcluidaId.slice(0, 8).toUpperCase()}</p>
-        <button
-          onClick={() => setVendaConcluidaId(null)}
-          className="rounded-xl bg-blue-600 px-8 py-3 font-semibold text-white hover:bg-blue-700 transition"
-        >
-          Nova Venda
-        </button>
+      <div className="flex flex-col items-center justify-center py-10">
+        <div className="w-full max-w-sm bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          {/* Cabeçalho */}
+          <div className="bg-green-50 border-b border-green-100 px-6 py-5 text-center">
+            <div className="text-4xl mb-2">✓</div>
+            <h3 className="text-xl font-bold text-gray-900">Venda Concluída!</h3>
+            <p className="text-sm text-gray-500 mt-1">#{vendaConcluidaId.slice(0, 8).toUpperCase()}</p>
+          </div>
+          {/* Corpo do cupom */}
+          {snap && (
+            <div className="px-6 py-4 font-mono text-sm space-y-1">
+              <div className="flex justify-between text-xs text-gray-400 mb-2">
+                <span>{snap.deposito}</span>
+                <span>{snap.horario}</span>
+              </div>
+              {snap.cliente && (
+                <p className="text-xs text-gray-600 mb-2">Cliente: <strong>{snap.cliente}</strong></p>
+              )}
+              <div className="border-t border-dashed border-gray-300 pt-2 space-y-1">
+                {snap.itens.map((item, idx) => (
+                  <div key={idx} className="flex justify-between text-xs">
+                    <span className="truncate max-w-[180px]">{item.quantidade}x {item.nome}</span>
+                    <span className="ml-2 shrink-0">{formatBRL(item.quantidade * item.preco_unitario)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-dashed border-gray-300 pt-2 space-y-1">
+                {snap.desconto > 0 && (
+                  <div className="flex justify-between text-xs text-red-500">
+                    <span>Desconto</span>
+                    <span>-{formatBRL(snap.desconto)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-base">
+                  <span>TOTAL</span>
+                  <span className="text-green-600">{formatBRL(vendaTotal)}</span>
+                </div>
+              </div>
+              <div className="border-t border-dashed border-gray-300 pt-2 space-y-1">
+                {snap.pagamentos.map((p, idx) => (
+                  <div key={idx}>
+                    <div className="flex justify-between text-xs">
+                      <span>{p.forma_nome}{p.parcelas > 1 ? ` ${p.parcelas}x` : ''}{p.status === 'pendente' ? ' (FIADO)' : ''}</span>
+                      <span>{formatBRL(p.valor + p.taxa)}</span>
+                    </div>
+                    {p.taxa > 0 && (
+                      <div className="flex justify-between text-[10px] text-gray-400 pl-2">
+                        <span>taxa</span><span>{formatBRL(p.taxa)}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Ações */}
+          <div className="px-6 pb-6 flex flex-col gap-2">
+            <div className="flex gap-2">
+              <button
+                onClick={imprimirCupom}
+                className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+              >
+                🖨️ Imprimir
+              </button>
+              <button
+                onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(textoWhatsApp())}`, '_blank')}
+                className="flex-1 rounded-xl border border-green-300 bg-green-50 px-4 py-2.5 text-sm font-medium text-green-700 hover:bg-green-100 transition"
+              >
+                💬 WhatsApp
+              </button>
+            </div>
+            <button
+              onClick={() => { setVendaConcluidaId(null); setVendaSnapshot(null) }}
+              className="w-full rounded-xl bg-blue-600 px-8 py-3 font-semibold text-white hover:bg-blue-700 transition"
+            >
+              Nova Venda
+            </button>
+          </div>
+        </div>
       </div>
     )
   }
