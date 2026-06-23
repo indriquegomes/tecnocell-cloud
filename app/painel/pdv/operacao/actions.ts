@@ -25,3 +25,33 @@ export async function fecharCaixa(id: string, formData: FormData) {
   }).eq('id', id)
   revalidatePath('/painel/pdv/operacao')
 }
+
+export async function registrarReforco(caixaId: string, formData: FormData) {
+  await requireAuth()
+  const valor = parseFloat(formData.get('valor') as string) || 0
+  if (valor <= 0) return
+  const supabase = await createServiceClient()
+  await supabase.from('movimentos_caixa').insert({
+    caixa_id: caixaId,
+    tipo: 'reforco',
+    motivo: (formData.get('motivo') as string) || null,
+    forma_pagamento: (formData.get('forma_pagamento') as string) || 'Dinheiro',
+    valor,
+  })
+  revalidatePath('/painel/pdv/operacao')
+}
+
+export async function registrarRetirada(caixaId: string, formData: FormData) {
+  await requireAuth()
+  const valor = parseFloat(formData.get('valor') as string) || 0
+  if (valor <= 0) return
+  const supabase = await createServiceClient()
+  await supabase.from('movimentos_caixa').insert({
+    caixa_id: caixaId,
+    tipo: 'retirada',
+    motivo: (formData.get('motivo') as string) || null,
+    forma_pagamento: (formData.get('forma_pagamento') as string) || 'Dinheiro',
+    valor,
+  })
+  revalidatePath('/painel/pdv/operacao')
+}
