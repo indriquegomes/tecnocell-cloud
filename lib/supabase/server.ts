@@ -22,16 +22,30 @@ export async function createClient() {
 }
 
 // Service client usa service role key — bypassa RLS completamente.
-// Não toca na sessão do usuário para não corromper cookies.
+// Valida sessão antes de retornar: rejeita chamadas não autenticadas.
 export async function createServiceClient() {
   const cookieStore = await cookies()
+
+  const authClient = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll() {},
+      },
+    }
+  )
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) throw new Error('Não autorizado')
+
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     {
       cookies: {
         getAll() { return cookieStore.getAll() },
-        setAll() {}, // service client nunca escreve cookies de sessão
+        setAll() {},
       },
     }
   )

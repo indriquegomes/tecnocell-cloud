@@ -473,8 +473,14 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
 
   // Mantém as ações dos atalhos sempre atualizadas (sem closure stale)
   acaoF1Ref.current = () => {
-    if (!mostrarConfirmacao && !mostrarVendas && !mostrarCrediario && !fichaF1 && produtosFiltrados.length > 0)
+    if (mostrarConfirmacao || mostrarVendas || mostrarCrediario || fichaF1) return
+    if (produtosFiltrados.length > 0) {
       setFichaF1(produtosFiltrados[0])
+    } else if (carrinho.length > 0) {
+      const ultimo = carrinho[carrinho.length - 1]
+      const prod = produtos.find((p) => p.id === ultimo.produto_id)
+      if (prod) setFichaF1(prod)
+    }
   }
   acaoF8Ref.current = () => {
     if (fichaF1) return
