@@ -163,7 +163,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const [vendaConcluidaId, setVendaConcluidaId] = useState<string | null>(null)
   const [vendaTotal, setVendaTotal] = useState(0)
   const [vendaSnapshot, setVendaSnapshot] = useState<{
-    itens: { nome: string; quantidade: number; preco_unitario: number }[]
+    itens: { codigo: string | null; nome: string; quantidade: number; preco_unitario: number }[]
     pagamentos: { forma_nome: string; valor: number; taxa: number; parcelas: number; status: string }[]
     cliente: string | null
     deposito: string
@@ -410,7 +410,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
       setVendaConcluidaId(result.vendaId)
       setVendaTotal(result.total)
       setVendaSnapshot({
-        itens: carrinho.map(({ nome, quantidade, preco_unitario }) => ({ nome, quantidade, preco_unitario })),
+        itens: carrinho.map(({ codigo, nome, quantidade, preco_unitario }) => ({ codigo, nome, quantidade, preco_unitario })),
         pagamentos: pagamentos.map((p) => ({
           forma_nome: formas.find((f) => f.id === p.forma_id)?.nome ?? p.forma_id,
           valor: parseFloat(p.valor) || 0,
@@ -421,7 +421,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
         cliente: clienteSelecionado?.nome ?? null,
         deposito: nomeDeposito,
         desconto: descontoNum,
-        horario: new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }),
+        horario: new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       })
       setMostrarConfirmacao(false)
       setCarrinho([])
@@ -655,28 +655,120 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   function imprimirCupom() {
     if (!vendaSnapshot || !vendaConcluidaId) return
     const snap = vendaSnapshot
-    const id = vendaConcluidaId.slice(0, 8).toUpperCase()
-    const win = window.open('', '_blank', 'width=380,height=620')
+    const idCurto = vendaConcluidaId.replace(/-/g, '').slice(0, 8).toUpperCase()
+    const win = window.open('', '_blank', 'width=420,height=700')
     if (!win) return
-    const linhaItem = (i: typeof snap.itens[0]) =>
-      `<div style="display:flex;justify-content:space-between"><span>${i.quantidade}x ${i.nome}</span><span>R$ ${(i.quantidade * i.preco_unitario).toFixed(2).replace('.', ',')}</span></div>`
-    const linhaPag = (p: typeof snap.pagamentos[0]) =>
-      `<div style="display:flex;justify-content:space-between"><span>${p.forma_nome}${p.parcelas > 1 ? ` ${p.parcelas}x` : ''}${p.status === 'pendente' ? ' (FIADO)' : ''}</span><span>R$ ${(p.valor + p.taxa).toFixed(2).replace('.', ',')}</span></div>${p.taxa > 0 ? `<div style="display:flex;justify-content:space-between;font-size:10px;color:#666"><span>  Taxa:</span><span>R$ ${p.taxa.toFixed(2).replace('.', ',')}</span></div>` : ''}`
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Cupom #${id}</title>
-    <style>body{font-family:monospace;font-size:12px;margin:16px;max-width:320px}h2{text-align:center;margin:0 0 2px;font-size:15px}p{margin:2px 0;text-align:center}.sep{border:none;border-top:1px dashed #000;margin:8px 0}.total{display:flex;justify-content:space-between;font-weight:bold;font-size:14px;margin:4px 0}</style>
-    </head><body>
-    <h2>TecnoCell</h2><p>${snap.deposito}</p><p>${snap.horario}</p>
-    <hr class="sep">${snap.cliente ? `<p style="text-align:left">Cliente: <strong>${snap.cliente}</strong></p>` : ''}
-    <p style="text-align:left">Cupom #${id}</p><hr class="sep">
-    <strong>ITENS</strong>${snap.itens.map(linhaItem).join('')}
+
+    const brl = (v: number) => 'R$ ' + v.toFixed(2).replace('.', ',')
+    const totalItens = snap.itens.reduce((s, i) => s + i.quantidade, 0)
+    const subtotal   = snap.itens.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0)
+    const totalTaxas = snap.pagamentos.reduce((s, p) => s + p.taxa, 0)
+    const valorTotal = subtotal - snap.desconto + totalTaxas
+    // troco só faz sentido em dinheiro; sem campo "valor entregue" mostramos 0
+    const valorTroco = 0
+
+    const rowItem = (i: typeof snap.itens[0]) => {
+      const desc = i.codigo ? `${i.codigo} - ${i.nome}` : i.nome
+      return `<tr>
+        <td style="word-break:break-word;max-width:130px">${desc}</td>
+        <td style="text-align:right">${brl(i.preco_unitario)}</td>
+        <td style="text-align:center">UN</td>
+        <td style="text-align:center">${i.quantidade}</td>
+        <td style="text-align:right">${brl(i.quantidade * i.preco_unitario)}</td>
+      </tr>`
+    }
+
+    const rowPag = (p: typeof snap.pagamentos[0]) => {
+      const label = `${p.forma_nome}${p.parcelas > 1 ? ` ${p.parcelas}x` : ''}${p.status === 'pendente' ? ' (FIADO)' : ''}`
+      return `<tr><td>${label}</td><td></td><td style="text-align:right">${brl(p.valor + p.taxa)}</td></tr>`
+    }
+
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+    <title>Comprovante #${idCurto}</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { font-family: monospace; font-size: 11px; margin: 0; padding: 12px; max-width: 320px; }
+      .center { text-align: center; }
+      .bold { font-weight: bold; }
+      .sep { border: none; border-top: 1px dashed #000; margin: 6px 0; }
+      .row { display: flex; justify-content: space-between; margin: 2px 0; }
+      table { width: 100%; border-collapse: collapse; font-size: 10px; }
+      th { border-bottom: 1px dashed #000; padding: 2px 0; text-align: left; }
+      td { padding: 2px 0; vertical-align: top; }
+      h1 { font-size: 16px; margin: 0 0 2px; text-align: center; }
+      p { margin: 1px 0; text-align: center; }
+      @media print {
+        body { padding: 0; }
+        button { display: none; }
+      }
+    </style></head><body>
+
+    <h1>TecnoCell</h1>
+    <p>IGTFRANCA COMERCIO E SERVICO LTDA</p>
+    <p>CNPJ: 39.682.023/0001-69</p>
+    <p>IE: 11951408</p>
+    <p>Rua Dezesseis de Março, 336 - Centro</p>
+    <p>Petrópolis, RJ - CEP: 25620040</p>
+
     <hr class="sep">
-    ${snap.desconto > 0 ? `<div style="display:flex;justify-content:space-between"><span>Desconto:</span><span>-R$ ${snap.desconto.toFixed(2).replace('.', ',')}</span></div>` : ''}
-    <div class="total"><span>TOTAL</span><span>R$ ${snap.itens.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0) > 0 ? (snap.itens.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0) - snap.desconto + snap.pagamentos.reduce((s, p) => s + p.taxa, 0)).toFixed(2).replace('.', ',') : vendaTotal.toFixed(2).replace('.', ',')}</span></div>
-    <hr class="sep"><strong>PAGAMENTOS</strong>${snap.pagamentos.map(linhaPag).join('')}
-    <hr class="sep"><p>Obrigado pela preferência!</p>
+    <p class="bold" style="font-size:13px">COMPROVANTE DE VENDA</p>
+    <p>&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; SEM VALOR FISCAL &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;</p>
+
+    <hr class="sep">
+    <p class="bold">Itens da Venda</p>
+    <hr class="sep">
+    <table>
+      <thead>
+        <tr>
+          <th>Descrição</th>
+          <th style="text-align:right">Vlr. Unit.</th>
+          <th style="text-align:center">Un.</th>
+          <th style="text-align:center">Qtd.</th>
+          <th style="text-align:right">Vlr. Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${snap.itens.map(rowItem).join('')}
+      </tbody>
+    </table>
+
+    <hr class="sep">
+    <div class="row"><span>QTD. TOTAL DE ITENS</span><span>${totalItens}</span></div>
+    ${snap.desconto > 0 ? `<div class="row"><span>DESCONTO</span><span>-${brl(snap.desconto)}</span></div>` : ''}
+    <div class="row bold"><span>VALOR TOTAL</span><span>${brl(valorTotal)}</span></div>
+    <div class="row"><span>VALOR A PAGAR</span><span>${brl(valorTotal)}</span></div>
+    <div class="row"><span>VALOR TROCO</span><span>${brl(valorTroco)}</span></div>
+
+    <hr class="sep">
+    <table>
+      <thead>
+        <tr>
+          <th>FORMA DE PAGAMENTO</th>
+          <th></th>
+          <th style="text-align:right">Valor Pago (R$)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${snap.pagamentos.map(rowPag).join('')}
+        ${snap.pagamentos.some(p => p.taxa > 0)
+          ? `<tr><td colspan="2" style="font-size:9px;color:#555">incl. taxas de cartão</td></tr>`
+          : ''}
+      </tbody>
+    </table>
+
+    <hr class="sep">
+    <p class="bold" style="font-size:13px">VENDA NÚMERO ${idCurto}</p>
+    <p>EMISSÃO EM ${snap.horario}</p>
+    <p>${snap.deposito}</p>
+    ${snap.cliente ? `<p class="bold">CONSUMIDOR</p><p>${snap.cliente}</p>` : '<p>CONSUMIDOR FINAL</p>'}
+
+    <hr class="sep">
+    <p>Obrigado pela preferência!</p>
+    <p style="margin-top:4px">www.tecnocell.com.br</p>
+
     </body></html>`)
     win.document.close()
-    setTimeout(() => win.print(), 300)
+    setTimeout(() => win.print(), 400)
   }
 
   function textoWhatsApp() {
