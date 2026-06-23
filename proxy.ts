@@ -1,7 +1,10 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
+// Next.js 16: o antigo "middleware" agora chama-se "proxy" (mesma função).
+// Doc: deve fazer apenas "optimistic checks" — nada de auth pesada aqui.
+// A autorização real fica no requireAuth() das server actions + RLS.
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -21,8 +24,8 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // getSession() usa apenas o JWT local — sem chamada de rede ao Supabase.
-  // Evita timeouts e falsos redirecionamentos pro login.
+  // getSession() lê o JWT local — sem chamada de rede. É o "optimistic check"
+  // recomendado pelo Next p/ proxy. Evita timeouts e falsos redirects pro login.
   const { data: { session } } = await supabase.auth.getSession()
 
   if (!session && request.nextUrl.pathname.startsWith('/painel')) {

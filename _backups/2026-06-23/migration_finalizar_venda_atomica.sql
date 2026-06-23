@@ -1,8 +1,14 @@
 -- ============================================================
 -- P5: Função atômica finalizar_venda — TecnoCell
--- Gerado em 2026-06-23
+-- Gerado em 2026-06-23 | CORRIGIDO 2026-06-23
+--
+-- FIX (confirmado em runtime — erro "operator does not exist: text = uuid"):
+-- removidos os 4 casts ::uuid. As colunas produto_id/deposito_id/pessoa_id
+-- são TEXT (IDs do SIGE não-UUID). Comparar text com ::uuid quebrava a função
+-- em tempo de plano → toda venda falhava.
 --
 -- RODAR NO: Supabase Dashboard > SQL Editor > New query > Run
+-- (re-rodar para SUBSTITUIR a função quebrada que está deployada agora)
 -- PREREQUISITO: tabela pagamentos_venda já criada
 -- ============================================================
 
@@ -64,8 +70,8 @@ begin
     select id, quantidade
     into   v_estoque_id, v_qtd_disponivel
     from   estoque
-    where  deposito_id = p_deposito_id::uuid
-      and  produto_id  = (v_item->>'produto_id')::uuid
+    where  deposito_id = p_deposito_id
+      and  produto_id  = (v_item->>'produto_id')
     for update;
 
     if not found then
@@ -94,7 +100,7 @@ begin
     v_total,
     p_desconto,
     v_forma_pag_id,
-    case when p_pessoa_id is not null then p_pessoa_id::uuid end,
+    p_pessoa_id,
     nullif(p_observacoes, ''),
     'concluida'
   )
@@ -104,7 +110,7 @@ begin
   insert into itens_venda (venda_id, produto_id, quantidade, preco_unitario, desconto_item, total_item)
   select
     v_venda_id,
-    (item->>'produto_id')::uuid,
+    (item->>'produto_id'),
     (item->>'quantidade')::numeric,
     (item->>'preco_unitario')::numeric,
     0,
@@ -146,7 +152,7 @@ begin
   -- Lançamento fiado
   if v_fiado_total > 0 then
     if p_pessoa_id is not null then
-      select nome into v_pessoa_nome from pessoas where id = p_pessoa_id::uuid;
+      select nome into v_pessoa_nome from pessoas where id = p_pessoa_id;
     end if;
     insert into lancamentos
       (descricao, valor, tipo, data_competencia, data_vencimento, status, pessoa_nome, updated_at)
