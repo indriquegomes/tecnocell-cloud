@@ -48,7 +48,14 @@ export async function requireAuth() {
     {
       cookies: {
         getAll() { return cookieStore.getAll() },
-        setAll() {},
+        setAll(toSet) {
+          // Em Server Actions os cookies são mutáveis — renova o token se expirado
+          try {
+            toSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            )
+          } catch {}
+        },
       },
     }
   )
