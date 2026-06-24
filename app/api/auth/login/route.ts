@@ -5,11 +5,13 @@ export async function POST(request: NextRequest) {
   const formData = await request.formData()
   const email = formData.get('email') as string
   const password = formData.get('password') as string
+  const next = (formData.get('next') as string | null) ?? ''
+  const destino = next.startsWith('/painel') ? next : '/painel'
 
   // Pré-cria a response 303 para que setAll grave os cookies diretamente nela.
   // Não usamos cookies() de next/headers porque o Next.js não mescla cookies
   // de next/headers em respostas customizadas (NextResponse.redirect) em produção.
-  let response = NextResponse.redirect(new URL('/painel', request.url), 303)
+  let response = NextResponse.redirect(new URL(destino, request.url), 303)
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

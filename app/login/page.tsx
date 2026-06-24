@@ -1,5 +1,3 @@
-import { loginAction } from './actions'
-
 export default async function LoginPage({
   searchParams,
 }: {
@@ -17,7 +15,11 @@ export default async function LoginPage({
             <p className="mt-1 text-sm text-gray-500">Área de funcionários</p>
           </div>
 
-          <form action={loginAction} className="space-y-4">
+          {/* POST nativo pro route handler — ele grava os cookies de sessão direto
+              na resposta de redirect. O server action (loginAction) NÃO persiste
+              cookies em produção (Vercel/Next 16) — por isso o login "logava" mas
+              o navegador ficava sem sessão. */}
+          <form action="/api/auth/login" method="POST" className="space-y-4">
             {next && <input type="hidden" name="next" value={next} />}
 
             <div>
