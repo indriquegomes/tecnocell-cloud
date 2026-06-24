@@ -411,8 +411,14 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     setErro(null)
     setLoading(true)
     try {
+      const token = await authToken()
+      if (!token) {
+        setErro('DEBUG: navegador sem sessão (getSession vazio). O cookie de auth não está acessível ao JS. F5 + login.')
+        setLoading(false)
+        return
+      }
       const result = await finalizarVenda(
-        await authToken(),
+        token,
         carrinho.map(({ produto_id, nome, quantidade, preco_unitario }) => ({ produto_id, nome, quantidade, preco_unitario })),
         pagamentos.map((p): PagamentoInput => ({
           forma_pagamento_id: p.forma_id,
