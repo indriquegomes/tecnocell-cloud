@@ -44,34 +44,6 @@ export default async function LoginPage({
               />
             </div>
 
-            <div>
-              <p className="mb-2 text-sm font-medium text-gray-700">Manter login</p>
-              <div className="space-y-2">
-                {[
-                  { value: 'sessao',     label: 'Esta sessão',       desc: 'Sair ao fechar o navegador' },
-                  { value: 'chrome',     label: 'Usuário do Chrome', desc: 'Permanecer por 7 dias'      },
-                  { value: 'computador', label: 'Neste computador',  desc: 'Permanecer por 30 dias'     },
-                ].map(({ value, label, desc }) => (
-                  <label
-                    key={value}
-                    className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 px-3 py-2.5 hover:bg-gray-50 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50"
-                  >
-                    <input
-                      type="radio"
-                      name="sessao_tipo"
-                      value={value}
-                      defaultChecked={value === 'sessao'}
-                      className="mt-0.5 accent-blue-600"
-                    />
-                    <span>
-                      <span className="block text-sm font-medium text-gray-800">{label}</span>
-                      <span className="block text-xs text-gray-500">{desc}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
             {erro && (
               <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
                 {erro}
