@@ -37,9 +37,11 @@ export async function finalizarVenda(
   try {
     await requireAuth()
   } catch (e) {
+    const h = await headers()
+    const raw = h.get('cookie') ?? ''
     const nomes = (await cookies()).getAll().map((c) => c.name).join(', ')
-    const hid = (await headers()).get('x-user-id')
-    return { erro: `Auth: ${e instanceof Error ? e.message : String(e)} | x-user-id: ${hid ?? 'AUSENTE'} | cookies: [${nomes || 'NENHUM'}]` }
+    const temSb = raw.includes('sb-')
+    return { erro: `Auth: ${e instanceof Error ? e.message : String(e)} | x-user-id:${h.get('x-user-id') ?? 'AUSENTE'} | header cookie len:${raw.length} sb?:${temSb} | parsed:[${nomes || 'NENHUM'}]` }
   }
 
   let supabase: Awaited<ReturnType<typeof createServiceClient>>
