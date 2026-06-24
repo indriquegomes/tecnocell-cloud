@@ -51,7 +51,7 @@ export default async function OperacaoPDVPage({
     valor: number
     created_at: string
   }[] = []
-  let vendasDia: { id: string; total: number; created_at: string; forma_pagamento_id: string | null }[] = []
+  let vendasDia: { id: string; total: number; created_at: string; forma_pagamento_id: string | null; forma_pagamento: string }[] = []
   let porProduto: Record<string, { nome: string; qtd: number; total: number }> = {}
   let porForma: Record<string, number> = {}
 
@@ -77,16 +77,19 @@ export default async function OperacaoPDVPage({
         .order('created_at', { ascending: false }),
     ])
 
-    vendasDia = vendasResult.data ?? []
+    const vendasRaw = vendasResult.data ?? []
+    vendasDia = vendasRaw.map((v) => {
+      const raw = formasPorId[v.forma_pagamento_id ?? ''] ?? 'Outras'
+      const forma = raw.toLowerCase().includes('cart') ? 'Cartão' : raw
+      return { ...v, forma_pagamento: forma }
+    })
     qtdVendas = vendasDia.length
     totalVendas = vendasDia.reduce((s, v) => s + (v.total ?? 0), 0)
     totalCrediario = (lancCrediarioResult.data ?? []).reduce((s, l) => s + (l.valor ?? 0), 0)
 
     // Vendas por forma de pagamento — cartões unificados
     for (const v of vendasDia) {
-      const raw = formasPorId[v.forma_pagamento_id ?? ''] ?? v.forma_pagamento_id ?? 'Outras'
-      const forma = raw.toLowerCase().includes('cartão') || raw.toLowerCase().includes('cartao') ? 'Cartão' : raw
-      porForma[forma] = (porForma[forma] ?? 0) + (v.total ?? 0)
+      porForma[v.forma_pagamento] = (porForma[v.forma_pagamento] ?? 0) + (v.total ?? 0)
     }
 
     movimentos = movResult.data ?? []

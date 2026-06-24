@@ -65,6 +65,7 @@ interface VendaDia {
   id: string
   total: number
   created_at: string
+  forma_pagamento?: string
 }
 
 interface ProdutoResumo {
@@ -441,6 +442,7 @@ function XReportPanel({
   qtdVendas,
   movimentos,
   porForma,
+  vendasDia,
 }: {
   caixaAberto: CaixaAberto
   totalVendas: number
@@ -453,6 +455,7 @@ function XReportPanel({
   qtdVendas: number
   movimentos: Movimento[]
   porForma: Record<string, number>
+  vendasDia: VendaDia[]
 }) {
   const agora = new Date().toLocaleString('pt-BR')
   const reforcos = movimentos.filter((m) => m.tipo === 'reforco')
@@ -556,6 +559,46 @@ function XReportPanel({
             </div>
           </div>
         </div>
+
+        {/* Vendas do Dia */}
+        {vendasDia.length > 0 && (
+          <div className="px-6 py-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              Vendas do Dia ({vendasDia.length})
+            </p>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="pb-2 text-left text-xs font-semibold text-gray-400 uppercase">Código</th>
+                    <th className="pb-2 text-left text-xs font-semibold text-gray-400 uppercase">Hora</th>
+                    <th className="pb-2 text-left text-xs font-semibold text-gray-400 uppercase">Forma</th>
+                    <th className="pb-2 text-right text-xs font-semibold text-gray-400 uppercase">Valor</th>
+                    <th className="pb-2 text-right text-xs font-semibold text-gray-400 uppercase">Saldo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {(() => {
+                    let saldo = caixaAberto.valor_abertura
+                    return [...vendasDia].reverse().map((v) => {
+                      const ehCrediario = (v.forma_pagamento ?? '').toLowerCase().includes('credi') || (v.forma_pagamento ?? '').toLowerCase().includes('fiado')
+                      if (!ehCrediario) saldo += v.total
+                      return (
+                        <tr key={v.id} className="hover:bg-gray-50">
+                          <td className="py-1.5 pr-3 font-mono text-gray-500 text-xs">{v.id.slice(-6).toUpperCase()}</td>
+                          <td className="py-1.5 pr-3 text-gray-500">{fmtHora(v.created_at)}</td>
+                          <td className="py-1.5 pr-3 text-gray-700">{v.forma_pagamento ?? '—'}</td>
+                          <td className="py-1.5 pr-3 text-right font-semibold text-gray-900">{fmt(v.total)}</td>
+                          <td className={`py-1.5 text-right font-semibold ${ehCrediario ? 'text-orange-500' : 'text-green-600'}`}>{fmt(saldo)}</td>
+                        </tr>
+                      )
+                    })
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Movimentos — quebra de página na impressão */}
         {(reforcos.length > 0 || retiradas.length > 0) && (
@@ -1070,6 +1113,7 @@ export function OperacaoClient({
               qtdVendas={qtdVendas}
               movimentos={movimentos}
               porForma={porForma}
+              vendasDia={vendasDia}
             />
           )}
           {panel === 'saldo' && (
