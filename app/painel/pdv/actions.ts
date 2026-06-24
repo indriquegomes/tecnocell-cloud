@@ -1,7 +1,6 @@
 'use server'
 
 import { createServiceClient, requireAuth } from '@/lib/supabase/server'
-import { cookies, headers } from 'next/headers'
 
 interface ItemCarrinho {
   produto_id: string
@@ -20,6 +19,7 @@ export interface PagamentoInput {
 }
 
 export async function finalizarVenda(
+  accessToken: string,
   itens: ItemCarrinho[],
   pagamentos: PagamentoInput[],
   pessoa_id: string | null,
@@ -35,13 +35,9 @@ export async function finalizarVenda(
   if (pagamentos.length === 0) return { erro: 'Selecione a forma de pagamento' }
 
   try {
-    await requireAuth()
+    await requireAuth(accessToken)
   } catch (e) {
-    const h = await headers()
-    const raw = h.get('cookie') ?? ''
-    const nomes = (await cookies()).getAll().map((c) => c.name).join(', ')
-    const temSb = raw.includes('sb-')
-    return { erro: `Auth: ${e instanceof Error ? e.message : String(e)} | x-user-id:${h.get('x-user-id') ?? 'AUSENTE'} | header cookie len:${raw.length} sb?:${temSb} | parsed:[${nomes || 'NENHUM'}]` }
+    return { erro: 'Sessão expirada. Recarregue a página (F5) e entre novamente. ' + (e instanceof Error ? e.message : '') }
   }
 
   let supabase: Awaited<ReturnType<typeof createServiceClient>>
@@ -80,8 +76,8 @@ export interface CrediarioItem {
   created_at: string
 }
 
-export async function buscarCrediario(): Promise<CrediarioItem[]> {
-  await requireAuth()
+export async function buscarCrediario(accessToken: string): Promise<CrediarioItem[]> {
+  await requireAuth(accessToken)
   const supabase = await createServiceClient()
   const { data, error } = await supabase
     .from('lancamentos')
@@ -93,9 +89,9 @@ export async function buscarCrediario(): Promise<CrediarioItem[]> {
   return (data ?? []) as CrediarioItem[]
 }
 
-export async function pagarLancamentos(ids: string[]): Promise<void> {
+export async function pagarLancamentos(accessToken: string, ids: string[]): Promise<void> {
   if (ids.length === 0) return
-  await requireAuth()
+  await requireAuth(accessToken)
   const supabase = await createServiceClient()
   const today = new Date().toISOString().split('T')[0]
   const { data, error } = await supabase
@@ -125,8 +121,8 @@ export interface PedidoResumo {
   itens: ItemPedido[]
 }
 
-export async function buscarPedidosAbertos(): Promise<PedidoResumo[]> {
-  await requireAuth()
+export async function buscarPedidosAbertos(accessToken: string): Promise<PedidoResumo[]> {
+  await requireAuth(accessToken)
   const supabase = await createServiceClient()
   const { data, error } = await supabase
     .from('pedidos')
@@ -166,6 +162,7 @@ export interface ItemConsignado {
 }
 
 export async function registrarConsignado(
+  accessToken: string,
   itens: ItemConsignado[],
   pessoa_id: string | null,
   pessoa_nome: string | null,
@@ -173,7 +170,7 @@ export async function registrarConsignado(
   observacoes: string,
 ): Promise<string> {
   if (itens.length === 0) throw new Error('Adicione itens ao consignado.')
-  await requireAuth()
+  await requireAuth(accessToken)
   const supabase = await createServiceClient()
   const total = itens.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0)
   const id = crypto.randomUUID()
@@ -205,8 +202,8 @@ export interface VendaResumo {
 }
 
 // Buscar as últimas vendas concluídas para consulta no PDV (#9 Buscar Vendas)
-export async function buscarVendas(limite: number = 30): Promise<VendaResumo[]> {
-  await requireAuth()
+export async function buscarVendas(accessToken: string, limite: number = 30): Promise<VendaResumo[]> {
+  await requireAuth(accessToken)
   const supabase = await createServiceClient()
   const { data, error } = await supabase
     .from('vendas')

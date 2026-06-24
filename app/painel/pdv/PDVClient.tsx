@@ -2,7 +2,16 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { formatBRL } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 import { finalizarVenda, buscarVendas, buscarCrediario, pagarLancamentos, buscarPedidosAbertos, registrarConsignado, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo } from './actions'
+
+// Lê o access token do navegador (cookie httpOnly:false). Fonte confiável de auth
+// para server actions — cookies() vem vazio em server actions na Vercel.
+const supabaseBrowser = createClient()
+async function authToken(): Promise<string> {
+  const { data } = await supabaseBrowser.auth.getSession()
+  return data.session?.access_token ?? ''
+}
 
 const TAXAS = {
   ton: {
@@ -403,6 +412,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     setLoading(true)
     try {
       const result = await finalizarVenda(
+        await authToken(),
         carrinho.map(({ produto_id, nome, quantidade, preco_unitario }) => ({ produto_id, nome, quantidade, preco_unitario })),
         pagamentos.map((p): PagamentoInput => ({
           forma_pagamento_id: p.forma_id,
@@ -475,6 +485,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     setSalvandoConsignado(true)
     try {
       const id = await registrarConsignado(
+        await authToken(),
         carrinho.map((i) => ({ produto_id: i.produto_id, nome: i.nome, codigo: i.codigo, quantidade: i.quantidade, preco_unitario: i.preco_unitario })),
         pessoaId || null,
         clienteSelecionado?.nome ?? null,
@@ -498,7 +509,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     setBuscaOrcamento('')
     setCarregandoOrcamentos(true)
     try {
-      setOrcamentos(await buscarPedidosAbertos())
+      setOrcamentos(await buscarPedidosAbertos(await authToken()))
     } catch {
       setErro('Não consegui carregar os orçamentos/pedidos.')
       setMostrarOrcamentos(false)
@@ -543,7 +554,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     setSelecionados(new Set())
     setCarregandoCrediario(true)
     try {
-      setCrediarioItens(await buscarCrediario())
+      setCrediarioItens(await buscarCrediario(await authToken()))
     } catch {
       setErro('Não consegui carregar o crediário.')
       setMostrarCrediario(false)
@@ -557,7 +568,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     setPagandoCrediario(true)
     setPagoCrediarioOk(false)
     try {
-      await pagarLancamentos(ids)
+      await pagarLancamentos(await authToken(), ids)
       setCrediarioItens((prev) => prev.filter((i) => !ids.includes(i.id)))
       setSelecionados(new Set())
       setPagoCrediarioOk(true)
@@ -599,7 +610,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     setMostrarVendas(true)
     setCarregandoVendas(true)
     try {
-      setVendas(await buscarVendas(30))
+      setVendas(await buscarVendas(await authToken(), 30))
     } catch {
       setErro('Não consegui carregar as vendas.')
       setMostrarVendas(false)
