@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from 'react'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import {
   abrirCaixa,
   fecharCaixa,
@@ -9,6 +10,20 @@ import {
   registrarRetirada,
   type ActionState,
 } from './actions'
+
+// Token de auth lido do navegador e injetado no submit dos forms — cookies()
+// vem vazio em server actions na Vercel, então o servidor valida este token.
+const supabaseBrowser = createClient()
+async function authToken(): Promise<string> {
+  const { data } = await supabaseBrowser.auth.getSession()
+  return data.session?.access_token ?? ''
+}
+function withToken(action: (fd: FormData) => void) {
+  return async (fd: FormData) => {
+    fd.set('access_token', await authToken())
+    action(fd)
+  }
+}
 
 // ─── Utilitários (módulo-level, não recriados a cada render) ────────────────
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -112,7 +127,7 @@ function AbrirCaixaPanel() {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
       <h3 className="font-semibold text-gray-800">Abrir Caixa</h3>
-      <form action={action} className="flex flex-wrap gap-4 items-end">
+      <form action={withToken(action)} className="flex flex-wrap gap-4 items-end">
         <div className="flex-1 min-w-48">
           <label className="mb-1.5 block text-sm font-medium text-gray-700">
             Valor de Abertura (R$)
@@ -241,7 +256,7 @@ function FecharCaixaPanel({
         <p className="text-sm text-blue-700 mt-0.5">Conte o dinheiro fisicamente e informe o total abaixo</p>
       </div>
 
-      <form action={action} className="px-6 py-5 space-y-4">
+      <form action={withToken(action)} className="px-6 py-5 space-y-4">
         <input type="hidden" name="caixa_id" value={caixaId} />
         <input type="hidden" name="valor_esperado" value={saldoCaixa} />
 
@@ -305,7 +320,7 @@ function ReforcoPanel({
     <div className="rounded-2xl border border-green-200 bg-white p-6 shadow-sm space-y-4">
       <h3 className="font-semibold text-gray-800 text-lg">Reforçar Caixa</h3>
       <p className="text-sm text-gray-500">Entrada de dinheiro no caixa (não é venda).</p>
-      <form action={action} className="flex flex-wrap gap-4 items-end">
+      <form action={withToken(action)} className="flex flex-wrap gap-4 items-end">
         <input type="hidden" name="caixa_id" value={caixaId} />
         <div className="flex-1 min-w-40">
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Forma</label>
@@ -367,7 +382,7 @@ function RetiradaPanel({
     <div className="rounded-2xl border border-red-200 bg-white p-6 shadow-sm space-y-4">
       <h3 className="font-semibold text-gray-800 text-lg">Retirada (Sangria)</h3>
       <p className="text-sm text-gray-500">Saída de dinheiro do caixa sem ser compra.</p>
-      <form action={action} className="flex flex-wrap gap-4 items-end">
+      <form action={withToken(action)} className="flex flex-wrap gap-4 items-end">
         <input type="hidden" name="caixa_id" value={caixaId} />
         <div className="flex-1 min-w-40">
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Forma</label>
