@@ -1,6 +1,12 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
+function resolveMaxAge(sessaoTipo: string | undefined): number | undefined {
+  if (sessaoTipo === 'computador') return 30 * 24 * 60 * 60  // 30 dias
+  if (sessaoTipo === 'chrome')     return  7 * 24 * 60 * 60  //  7 dias
+  return undefined  // session cookie — expira ao fechar o navegador
+}
+
 export async function createClient() {
   const cookieStore = await cookies()
   return createServerClient(
@@ -11,8 +17,13 @@ export async function createClient() {
         getAll() { return cookieStore.getAll() },
         setAll(toSet) {
           try {
+            const sessaoTipo = cookieStore.get('sessao_tipo')?.value
+            const maxAge = resolveMaxAge(sessaoTipo)
             toSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
+              cookieStore.set(name, value, maxAge !== undefined
+                ? { ...options, maxAge }
+                : { ...options, maxAge: undefined, expires: undefined }
+              )
             )
           } catch {}
         },

@@ -19,6 +19,7 @@ export default async function LoginPage({
 
           <form action={loginAction} className="space-y-4">
             {next && <input type="hidden" name="next" value={next} />}
+
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700">E-mail</label>
               <input
@@ -30,6 +31,7 @@ export default async function LoginPage({
                 placeholder="funcionario@tecnocell.com.br"
               />
             </div>
+
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700">Senha</label>
               <input
@@ -40,6 +42,34 @@ export default async function LoginPage({
                 className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="••••••••"
               />
+            </div>
+
+            <div>
+              <p className="mb-2 text-sm font-medium text-gray-700">Manter login</p>
+              <div className="space-y-2">
+                {[
+                  { value: 'sessao',     label: 'Esta sessão',       desc: 'Sair ao fechar o navegador' },
+                  { value: 'chrome',     label: 'Usuário do Chrome', desc: 'Permanecer por 7 dias'      },
+                  { value: 'computador', label: 'Neste computador',  desc: 'Permanecer por 30 dias'     },
+                ].map(({ value, label, desc }) => (
+                  <label
+                    key={value}
+                    className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 px-3 py-2.5 hover:bg-gray-50 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50"
+                  >
+                    <input
+                      type="radio"
+                      name="sessao_tipo"
+                      value={value}
+                      defaultChecked={value === 'sessao'}
+                      className="mt-0.5 accent-blue-600"
+                    />
+                    <span>
+                      <span className="block text-sm font-medium text-gray-800">{label}</span>
+                      <span className="block text-xs text-gray-500">{desc}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
             </div>
 
             {erro && (
