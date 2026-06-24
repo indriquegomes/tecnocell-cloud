@@ -1,6 +1,7 @@
 'use server'
 
 import { createServiceClient, requireAuth } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
 
 interface ItemCarrinho {
   produto_id: string
@@ -36,7 +37,8 @@ export async function finalizarVenda(
   try {
     await requireAuth()
   } catch (e) {
-    return { erro: 'Auth: ' + (e instanceof Error ? e.message : String(e)) }
+    const nomes = (await cookies()).getAll().map((c) => c.name).join(', ')
+    return { erro: `Auth: ${e instanceof Error ? e.message : String(e)} | cookies: [${nomes || 'NENHUM'}]` }
   }
 
   let supabase: Awaited<ReturnType<typeof createServiceClient>>
