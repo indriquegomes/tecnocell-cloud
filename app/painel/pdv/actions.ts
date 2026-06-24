@@ -35,8 +35,8 @@ export async function finalizarVenda(
 
   try {
     await requireAuth()
-  } catch {
-    return { erro: 'Sessão expirada. Faça login novamente.' }
+  } catch (e) {
+    return { erro: 'Auth: ' + (e instanceof Error ? e.message : String(e)) }
   }
 
   let supabase: Awaited<ReturnType<typeof createServiceClient>>

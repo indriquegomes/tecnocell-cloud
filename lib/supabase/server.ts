@@ -70,7 +70,7 @@ export async function requireAuth() {
       },
     }
   )
-  const { data: { user }, error } = await authClient.auth.getUser()
-  if (error || !user) throw new Error('Não autorizado')
-  return user
+  const { data: { session }, error } = await authClient.auth.getSession()
+  if (error || !session?.user) throw new Error(error?.message ?? 'Sessão não encontrada')
+  return session.user
 }
