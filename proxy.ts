@@ -37,8 +37,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
-  if (user?.email) {
-    response.headers.set('x-user-email', user.email)
+  // Passa a identidade já validada pelo proxy para os server components/actions.
+  // Necessário porque, nesta versão do Next, cookies() vem VAZIO dentro de
+  // server actions — então requireAuth() não consegue reler a sessão lá.
+  if (user) {
+    if (user.email) response.headers.set('x-user-email', user.email)
+    response.headers.set('x-user-id', user.id)
   }
 
   return response

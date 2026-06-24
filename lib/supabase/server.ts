@@ -1,5 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 
 export async function createClient() {
   const cookieStore = await cookies()
@@ -37,10 +37,17 @@ export async function createServiceClient() {
   )
 }
 
-// Valida que há sessão ativa. Chamar no INÍCIO de cada server action
-// de escrita (mutação). Lança se não houver usuário autenticado.
-// NÃO usar em Server Components de página (use o middleware p/ isso).
-export async function requireAuth() {
+// Valida que há sessão ativa. Chamar no INÍCIO de cada server action de escrita.
+// O proxy (proxy.ts) já validou a sessão e injetou x-user-id no header — lemos
+// dali porque cookies() vem VAZIO dentro de server actions nesta versão do Next.
+// Mantemos um fallback por cookie para o caso (raro) do header não chegar.
+export async function requireAuth(): Promise<{ id: string; email: string | null }> {
+  const h = await headers()
+  const userId = h.get('x-user-id')
+  if (userId) {
+    return { id: userId, email: h.get('x-user-email') }
+  }
+
   const cookieStore = await cookies()
   const authClient = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -49,7 +56,6 @@ export async function requireAuth() {
       cookies: {
         getAll() { return cookieStore.getAll() },
         setAll(toSet) {
-          // Em Server Actions os cookies são mutáveis — renova o token se expirado
           try {
             toSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
@@ -61,5 +67,5 @@ export async function requireAuth() {
   )
   const { data: { user }, error } = await authClient.auth.getUser()
   if (error || !user) throw new Error(error?.message ?? 'Não autorizado')
-  return user
+  return { id: user.id, email: user.email ?? null }
 }
