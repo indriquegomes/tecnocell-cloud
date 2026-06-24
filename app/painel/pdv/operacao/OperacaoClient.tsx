@@ -19,7 +19,7 @@ const fmtHora = (d: string) =>
 const FORMAS_INVALIDAS = ['Crédito Loja (Fiado)', 'Crediário', 'Crédito Loja']
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────
-type Panel = 'fechar' | 'reforco' | 'retirada' | 'saldo' | null
+type Panel = 'fechar' | 'reforco' | 'retirada' | 'saldo' | 'xreport' | null
 
 interface Movimento {
   id: string
@@ -71,7 +71,26 @@ interface Props {
   vendasDia: VendaDia[]
   porProduto: Record<string, ProdutoResumo>
   formas: string[]
+  porForma: Record<string, number>
   erro?: string
+  fechado?: boolean
+  aberto?: boolean
+  zReport?: {
+    aberto_em: string
+    fechado_em: string
+    valor_abertura: number
+    obs_fechamento: string | null
+    totalVendas: number
+    qtdVendas: number
+    totalReforcos: number
+    totalRetiradas: number
+    totalCrediario: number
+    porForma: Record<string, number>
+    movimentos: { tipo: string; motivo: string | null; forma_pagamento: string; valor: number; created_at: string }[]
+    valorEsperado: number
+    valorContado: number
+    operador: string
+  } | null
 }
 
 // ─── FeedbackMsg ─────────────────────────────────────────────────────────────
@@ -133,6 +152,7 @@ function FecharCaixaPanel({
   totalRetiradas,
   totalDevolucoes,
   saldoCaixa,
+  porForma,
 }: {
   caixaId: string
   valorAbertura: number
@@ -142,61 +162,130 @@ function FecharCaixaPanel({
   totalRetiradas: number
   totalDevolucoes: number
   saldoCaixa: number
+  porForma: Record<string, number>
 }) {
+  const [etapa, setEtapa] = useState<'resumo' | 'cego'>('resumo')
   const [state, action, pending] = useActionState<ActionState, FormData>(fecharCaixa, null)
-  return (
-    <div className="rounded-2xl border border-blue-200 bg-white p-6 shadow-sm space-y-5">
-      <h3 className="font-semibold text-gray-800 text-lg">Fechamento de Caixa</h3>
-      <div className="rounded-xl bg-gray-50 border border-gray-200 overflow-hidden">
+
+  const formasEntries = Object.entries(porForma).sort(([, a], [, b]) => b - a)
+
+  // Etapa 1 — resumo do dia (operador vê tudo antes de contar)
+  if (etapa === 'resumo') {
+    return (
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Fechamento de Caixa</p>
+          <p className="text-sm text-gray-500 mt-0.5">Confira o resumo do dia antes de contar o caixa</p>
+        </div>
+
         <div className="divide-y divide-gray-100">
-          {[
-            { label: 'Saldo na Abertura', valor: valorAbertura, color: 'text-gray-700' },
-            { label: 'Saldo em Vendas (excl. crediário)', valor: totalVendasReais, color: 'text-green-600' },
-            { label: 'Saldo Crediário (a receber)', valor: totalCrediario, color: 'text-orange-500' },
-            { label: 'Total Reforçado', valor: totalReforcos, color: 'text-green-600' },
-            { label: 'Total Sangrado', valor: totalRetiradas, color: 'text-red-500' },
-            { label: 'Total de Devoluções', valor: totalDevolucoes, color: 'text-red-500' },
-          ].map(({ label, valor, color }) => (
-            <div key={label} className="flex justify-between px-4 py-2.5 text-sm">
-              <span className="text-gray-600">{label}</span>
-              <span className={`font-semibold ${color}`}>{fmt(valor)}</span>
+          <div className="px-6 py-4">
+            <div className="space-y-1.5 text-sm">
+              {[
+                { label: 'Abertura', valor: valorAbertura, color: 'text-gray-700' },
+                { label: '+ Vendas (excl. crediário)', valor: totalVendasReais, color: 'text-green-600' },
+                { label: '+ Total Reforçado', valor: totalReforcos, color: 'text-green-600' },
+                { label: '− Total Sangrado', valor: totalRetiradas, color: 'text-red-500' },
+                { label: '− Devoluções', valor: totalDevolucoes, color: 'text-red-500' },
+              ].map(({ label, valor, color }) => (
+                <div key={label} className="flex justify-between">
+                  <span className="text-gray-500">{label}</span>
+                  <span className={`font-medium ${color}`}>{fmt(valor)}</span>
+                </div>
+              ))}
             </div>
-          ))}
-          <div className="flex justify-between px-4 py-3 bg-blue-50 font-bold text-sm">
-            <span className="text-blue-900">Saldo Físico em Caixa</span>
-            <span className="text-blue-700">{fmt(saldoCaixa)}</span>
           </div>
+
+          {formasEntries.length > 0 && (
+            <div className="px-6 py-4">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Vendas por Forma</p>
+              <div className="space-y-1.5">
+                {formasEntries.map(([forma, valor]) => (
+                  <div key={forma} className="flex justify-between text-sm">
+                    <span className="text-gray-500">{forma}</span>
+                    <span className="font-medium text-green-600">{fmt(valor)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {totalCrediario > 0 && (
+            <div className="px-6 py-3 bg-orange-50 flex justify-between text-sm">
+              <span className="text-orange-700">Crediário (a receber, não entra no caixa)</span>
+              <span className="font-semibold text-orange-600">{fmt(totalCrediario)}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between gap-4">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-700 flex-1">
+            ⚠ Ao prosseguir, você contará o caixa sem ver o saldo esperado.
+          </div>
+          <button
+            onClick={() => setEtapa('cego')}
+            className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition shrink-0"
+          >
+            Contar Caixa →
+          </button>
         </div>
       </div>
-      <form action={action} className="flex flex-wrap gap-4 items-end">
+    )
+  }
+
+  // Etapa 2 — fechamento cego (operador NÃO vê o saldo esperado)
+  return (
+    <div className="rounded-2xl border border-blue-200 bg-white shadow-sm overflow-hidden">
+      <div className="px-6 py-4 bg-blue-50 border-b border-blue-100">
+        <p className="text-xs font-semibold text-blue-400 uppercase tracking-wider">Contagem de Caixa</p>
+        <p className="text-sm text-blue-700 mt-0.5">Conte o dinheiro fisicamente e informe o total abaixo</p>
+      </div>
+
+      <form action={action} className="px-6 py-5 space-y-4">
         <input type="hidden" name="caixa_id" value={caixaId} />
-        <div className="flex-1 min-w-48">
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">
-            Valor Contado no Caixa (R$)
+        <input type="hidden" name="valor_esperado" value={saldoCaixa} />
+
+        <div>
+          <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+            Valor Total Contado no Caixa (R$)
           </label>
           <input
             name="valor_fechamento"
             type="number"
             step="0.01"
             min="0"
-            defaultValue={saldoCaixa.toFixed(2)}
-            className="field"
+            placeholder="0,00"
+            autoFocus
+            className="field text-xl font-bold"
             required
           />
+          <p className="text-xs text-gray-400 mt-1">Some todas as cédulas, moedas e pagamentos recebidos</p>
         </div>
-        <div className="flex-1 min-w-48">
+
+        <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Observações</label>
           <input name="obs_fechamento" className="field" placeholder="Opcional" />
         </div>
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50"
-        >
-          {pending ? 'Fechando...' : 'Fechar Caixa'}
-        </button>
+
+        <div className="flex gap-2 pt-1">
+          <button
+            type="button"
+            onClick={() => setEtapa('resumo')}
+            disabled={pending}
+            className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition disabled:opacity-50"
+          >
+            ← Voltar
+          </button>
+          <button
+            type="submit"
+            disabled={pending}
+            className="flex-1 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50"
+          >
+            {pending ? 'Fechando...' : 'Confirmar Fechamento'}
+          </button>
+        </div>
+        <FeedbackMsg state={state} />
       </form>
-      <FeedbackMsg state={state} />
     </div>
   )
 }
@@ -225,8 +314,8 @@ function ReforcoPanel({
           </select>
         </div>
         <div className="flex-1 min-w-40">
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">Motivo</label>
-          <input name="motivo" className="field" placeholder="Ex: Troco, reposição..." />
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Motivo <span className="text-red-500">*</span></label>
+          <input name="motivo" className="field" placeholder="Ex: Troco, reposição..." required />
         </div>
         <div className="w-40">
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Valor (R$)</label>
@@ -287,8 +376,8 @@ function RetiradaPanel({
           </select>
         </div>
         <div className="flex-1 min-w-40">
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">Motivo</label>
-          <input name="motivo" className="field" placeholder="Ex: pagamento fornecedor..." />
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Motivo <span className="text-red-500">*</span></label>
+          <input name="motivo" className="field" placeholder="Ex: pagamento fornecedor..." required />
         </div>
         <div className="w-40">
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Valor (R$)</label>
@@ -325,6 +414,166 @@ function RetiradaPanel({
   )
 }
 
+function XReportPanel({
+  caixaAberto,
+  totalVendas,
+  totalVendasReais,
+  totalCrediario,
+  totalReforcos,
+  totalRetiradas,
+  totalDevolucoes,
+  saldoCaixa,
+  qtdVendas,
+  movimentos,
+  porForma,
+}: {
+  caixaAberto: CaixaAberto
+  totalVendas: number
+  totalVendasReais: number
+  totalCrediario: number
+  totalReforcos: number
+  totalRetiradas: number
+  totalDevolucoes: number
+  saldoCaixa: number
+  qtdVendas: number
+  movimentos: Movimento[]
+  porForma: Record<string, number>
+}) {
+  const agora = new Date().toLocaleString('pt-BR')
+  const reforcos = movimentos.filter((m) => m.tipo === 'reforco')
+  const retiradas = movimentos.filter((m) => m.tipo === 'retirada')
+
+  const formasOrdenadas = Object.entries(porForma).sort(([, a], [, b]) => b - a)
+
+  return (
+    <>
+    <style dangerouslySetInnerHTML={{ __html: `@media print { body * { visibility: hidden !important; } #x-report, #x-report * { visibility: visible !important; } #x-report { position: absolute; top: 0; left: 0; width: 100%; } }` }} />
+    <div id="x-report" className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+      {/* Cabeçalho */}
+      <div className="flex items-center justify-between px-6 py-4 bg-gray-50 border-b border-gray-100">
+        <div>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Relatório X — Parcial</p>
+          <p className="text-sm text-gray-500 mt-0.5">Aberto {fmtDate(caixaAberto.aberto_em)} · Emitido {agora}</p>
+        </div>
+        <button
+          onClick={() => window.print()}
+          className="flex items-center gap-1.5 rounded-xl border border-indigo-200 px-4 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 transition print:hidden"
+        >
+          🖨 Imprimir
+        </button>
+      </div>
+
+      {/* Resumo top */}
+      <div className="grid grid-cols-3 divide-x divide-gray-100 border-b border-gray-100">
+        <div className="px-5 py-4 text-center">
+          <p className="text-xs text-gray-400 uppercase tracking-wide">Vendas</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{qtdVendas}</p>
+        </div>
+        <div className="px-5 py-4 text-center">
+          <p className="text-xs text-gray-400 uppercase tracking-wide">Total Vendido</p>
+          <p className="text-2xl font-bold text-green-600 mt-1">{fmt(totalVendas)}</p>
+        </div>
+        <div className="px-5 py-4 text-center">
+          <p className="text-xs text-gray-400 uppercase tracking-wide">Saldo Esperado</p>
+          <p className="text-2xl font-bold text-indigo-600 mt-1">{fmt(saldoCaixa)}</p>
+        </div>
+      </div>
+
+      <div className="divide-y divide-gray-100">
+        {/* Recebimentos por forma */}
+        <div className="px-6 py-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Recebimentos por Forma</p>
+          {formasOrdenadas.length === 0 ? (
+            <p className="text-sm text-gray-400 italic">Nenhuma venda registrada</p>
+          ) : (
+            <div className="space-y-3">
+              {formasOrdenadas.map(([forma, valor]) => {
+                const pct = totalVendas > 0 ? (valor / totalVendas) * 100 : 0
+                const icon = forma === 'PIX' ? '💠' : forma === 'Dinheiro' ? '💵' : forma === 'Cartão' ? '💳' : forma === 'Crediário' ? '📋' : '💰'
+                return (
+                  <div key={forma} className="flex items-center gap-3">
+                    <span className="text-base w-6 text-center shrink-0">{icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="font-medium text-gray-700">{forma}</span>
+                        <span className="font-bold text-gray-900">{fmt(valor)}</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                        <div className="h-full rounded-full bg-indigo-400" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                    <span className="text-xs text-gray-400 w-8 text-right shrink-0">{pct.toFixed(0)}%</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Crediário destacado */}
+        {totalCrediario > 0 && (
+          <div className="px-6 py-4 bg-orange-50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-base">📋</span>
+                <div>
+                  <p className="text-sm font-semibold text-orange-800">Crediário (a receber)</p>
+                  <p className="text-xs text-orange-500">Não entra no saldo físico</p>
+                </div>
+              </div>
+              <p className="text-lg font-bold text-orange-600">{fmt(totalCrediario)}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Composição do saldo */}
+        <div className="px-6 py-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Composição do Saldo</p>
+          <div className="space-y-1.5 text-sm">
+            <div className="flex justify-between"><span className="text-gray-500">Abertura</span><span className="font-medium text-gray-700">{fmt(caixaAberto.valor_abertura)}</span></div>
+            <div className="flex justify-between"><span className="text-gray-500">+ Vendas (excl. crediário)</span><span className="font-medium text-gray-700">{fmt(totalVendasReais)}</span></div>
+            {totalReforcos > 0 && <div className="flex justify-between"><span className="text-gray-500">+ Reforços ({reforcos.length})</span><span className="font-medium text-gray-700">{fmt(totalReforcos)}</span></div>}
+            {totalRetiradas > 0 && <div className="flex justify-between"><span className="text-gray-500">− Retiradas ({retiradas.length})</span><span className="font-medium text-gray-700">{fmt(totalRetiradas)}</span></div>}
+            {totalDevolucoes > 0 && <div className="flex justify-between"><span className="text-gray-500">− Devoluções</span><span className="font-medium text-gray-700">{fmt(totalDevolucoes)}</span></div>}
+            <div className="flex justify-between pt-2 border-t border-gray-200 font-bold">
+              <span className="text-indigo-800">= Saldo físico estimado</span>
+              <span className="text-indigo-600">{fmt(saldoCaixa)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Movimentos — quebra de página na impressão */}
+        {(reforcos.length > 0 || retiradas.length > 0) && (
+          <div className="px-6 py-4" style={{ breakBefore: 'page', pageBreakBefore: 'always' }}>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Movimentos do Caixa</p>
+            <div className="space-y-1">
+              {[...reforcos.map(m => ({ ...m, _r: 'reforco' as const })), ...retiradas.map(m => ({ ...m, _r: 'retirada' as const }))]
+                .sort((a, b) => a.created_at.localeCompare(b.created_at))
+                .map((m) => (
+                  <div key={m.id} className="flex justify-between items-baseline text-sm py-1">
+                    <span className="text-gray-500">
+                      {m._r === 'reforco' ? '↑' : '↓'} {fmtHora(m.created_at)}
+                      {m.motivo ? ` · ${m.motivo}` : ''}
+                      <span className="text-gray-400 text-xs ml-1">({m.forma_pagamento})</span>
+                    </span>
+                    <span className={`font-semibold ml-4 ${m._r === 'reforco' ? 'text-green-600' : 'text-red-500'}`}>
+                      {m._r === 'reforco' ? '+' : '−'}{fmt(m.valor)}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
+        <p className="text-xs text-gray-400 text-center">Este relatório não encerra o caixa · {agora}</p>
+      </div>
+    </div>
+    </>
+  )
+}
+
 function SaldoPanel({
   caixaAberto,
   totalVendasReais,
@@ -336,6 +585,7 @@ function SaldoPanel({
   saldoTotal,
   vendasDia,
   qtdVendas,
+  porForma,
 }: {
   caixaAberto: CaixaAberto
   totalVendasReais: number
@@ -347,6 +597,7 @@ function SaldoPanel({
   saldoTotal: number
   vendasDia: VendaDia[]
   qtdVendas: number
+  porForma: Record<string, number>
 }) {
   return (
     <div className="rounded-2xl border border-cyan-200 bg-white p-6 shadow-sm space-y-4">
@@ -372,6 +623,20 @@ function SaldoPanel({
           </div>
         </div>
       </div>
+      {Object.keys(porForma).length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Por Forma de Pagamento</p>
+          <div className="space-y-1">
+            {Object.entries(porForma).sort(([,a],[,b]) => b-a).map(([forma, valor]) => (
+              <div key={forma} className="flex justify-between text-sm py-1.5 border-b border-gray-50">
+                <span className="text-gray-600">{forma}</span>
+                <span className="font-semibold text-green-600">{fmt(valor)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {vendasDia.length > 0 && (
         <div>
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
@@ -391,6 +656,186 @@ function SaldoPanel({
   )
 }
 
+// ─── Z Report (relatório formal de fechamento) ───────────────────────────────
+function ZReportPanel({ z }: {
+  z: {
+    aberto_em: string
+    fechado_em: string
+    valor_abertura: number
+    obs_fechamento: string | null
+    totalVendas: number
+    qtdVendas: number
+    totalReforcos: number
+    totalRetiradas: number
+    totalCrediario: number
+    porForma: Record<string, number>
+    movimentos: { tipo: string; motivo: string | null; forma_pagamento: string; valor: number; created_at: string }[]
+    valorEsperado: number
+    valorContado: number
+    operador: string
+  }
+}) {
+  const divergencia = z.valorContado - z.valorEsperado
+  const divergenciaGrave = divergencia < -50 || (z.valorEsperado > 0 && Math.abs(divergencia) / z.valorEsperado > 0.05)
+  const divergenciaPositiva = divergencia > 0.01
+  const zerado = Math.abs(divergencia) <= 0.01
+
+  const fmtDt = (iso: string) =>
+    new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+  const formasEntries = Object.entries(z.porForma).sort(([, a], [, b]) => b - a)
+  const reforcos = z.movimentos.filter((m) => m.tipo === 'reforco')
+  const retiradas = z.movimentos.filter((m) => m.tipo === 'retirada')
+
+  return (
+    <>
+      <style dangerouslySetInnerHTML={{ __html: `@media print { body * { visibility: hidden !important; } #z-report, #z-report * { visibility: visible !important; } #z-report { position: absolute; top: 0; left: 0; width: 100%; } }` }} />
+
+      <div id="z-report" className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        {/* Cabeçalho */}
+        <div className="px-6 py-5 bg-gray-900 text-white">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Relatório Z — Fechamento de Caixa</p>
+              <p className="text-lg font-bold mt-1">TecnoCell</p>
+              <p className="text-xs text-gray-400 mt-0.5">CNPJ 39.682.023/0001-69</p>
+            </div>
+            <button
+              onClick={() => window.print()}
+              className="rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 px-4 py-2 text-sm font-medium text-white transition print:hidden"
+            >
+              🖨️ Imprimir
+            </button>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="text-gray-400 text-xs">Abertura</p>
+              <p className="font-medium">{fmtDt(z.aberto_em)}</p>
+            </div>
+            <div>
+              <p className="text-gray-400 text-xs">Fechamento</p>
+              <p className="font-medium">{fmtDt(z.fechado_em)}</p>
+            </div>
+            <div className="col-span-2">
+              <p className="text-gray-400 text-xs">Operador</p>
+              <p className="font-medium">{z.operador}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Resumo financeiro */}
+        <div className="divide-y divide-gray-100">
+          <div className="px-6 py-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Movimento do Dia</p>
+            <div className="space-y-2 text-sm">
+              {[
+                { label: 'Abertura do Caixa', valor: z.valor_abertura, color: 'text-gray-700' },
+                { label: `Vendas (${z.qtdVendas} transações)`, valor: z.totalVendas, color: 'text-green-700' },
+                { label: 'Reforços recebidos', valor: z.totalReforcos, color: 'text-green-700' },
+                { label: 'Sangrias realizadas', valor: -z.totalRetiradas, color: 'text-red-600' },
+              ].map(({ label, valor, color }) => (
+                <div key={label} className="flex justify-between">
+                  <span className="text-gray-500">{label}</span>
+                  <span className={`font-semibold ${color}`}>{valor < 0 ? `−${fmt(Math.abs(valor))}` : fmt(valor)}</span>
+                </div>
+              ))}
+              {z.totalCrediario > 0 && (
+                <div className="flex justify-between text-gray-400">
+                  <span>Crediário (não entra no caixa)</span>
+                  <span>{fmt(z.totalCrediario)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Breakdown por forma */}
+          {formasEntries.length > 0 && (
+            <div className="px-6 py-4">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Vendas por Forma de Pagamento</p>
+              <div className="space-y-2">
+                {formasEntries.map(([forma, valor]) => (
+                  <div key={forma} className="flex justify-between text-sm">
+                    <span className="text-gray-500">{forma}</span>
+                    <span className="font-semibold text-green-700">{fmt(valor)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Movimentos (reforços e retiradas) */}
+          {(reforcos.length > 0 || retiradas.length > 0) && (
+            <div className="px-6 py-4">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Movimentos de Caixa</p>
+              <div className="space-y-1.5 text-sm">
+                {[...reforcos, ...retiradas]
+                  .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+                  .map((m, i) => (
+                    <div key={i} className="flex justify-between items-center">
+                      <div>
+                        <span className={`text-xs font-semibold uppercase ${m.tipo === 'reforco' ? 'text-green-600' : 'text-red-500'}`}>
+                          {m.tipo === 'reforco' ? '↑ Reforço' : '↓ Sangria'}
+                        </span>
+                        {m.motivo && <span className="text-gray-400 ml-2 text-xs">— {m.motivo}</span>}
+                      </div>
+                      <span className={`font-semibold ${m.tipo === 'reforco' ? 'text-green-700' : 'text-red-600'}`}>
+                        {m.tipo === 'retirada' ? '−' : '+'}{fmt(m.valor)}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* Conferência */}
+          <div className={`px-6 py-4 ${divergenciaGrave ? 'bg-red-50' : divergenciaPositiva ? 'bg-blue-50' : 'bg-green-50'}`}>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Conferência de Fechamento</p>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Saldo esperado pelo sistema</span>
+                <span className="font-semibold text-gray-700">{fmt(z.valorEsperado)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Valor contado pelo operador</span>
+                <span className="font-semibold text-gray-700">{fmt(z.valorContado)}</span>
+              </div>
+              <div className={`flex justify-between pt-2 border-t font-bold text-base ${divergenciaGrave ? 'border-red-200 text-red-700' : divergenciaPositiva ? 'border-blue-200 text-blue-700' : 'border-green-200 text-green-700'}`}>
+                <span>Divergência</span>
+                <span>{divergencia > 0 ? '+' : ''}{fmt(divergencia)}</span>
+              </div>
+            </div>
+            <p className={`text-xs mt-3 font-medium ${divergenciaGrave ? 'text-red-600' : divergenciaPositiva ? 'text-blue-600' : 'text-green-600'}`}>
+              {divergenciaGrave ? '⚠ Divergência significativa — registre com o supervisor.' : divergenciaPositiva ? 'Sobra de caixa. Verifique se há troco pendente.' : zerado ? '✓ Caixa conferido sem divergências.' : ''}
+            </p>
+          </div>
+
+          {/* Observações */}
+          {z.obs_fechamento && (
+            <div className="px-6 py-3 bg-gray-50">
+              <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold mb-1">Observações</p>
+              <p className="text-sm text-gray-600">{z.obs_fechamento}</p>
+            </div>
+          )}
+
+          {/* Assinatura */}
+          <div className="px-6 py-6 grid grid-cols-2 gap-8 print:block">
+            <div className="text-center">
+              <div className="border-t border-gray-400 pt-2 mt-8">
+                <p className="text-xs text-gray-400">Operador / Assinatura</p>
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="border-t border-gray-400 pt-2 mt-8">
+                <p className="text-xs text-gray-400">Supervisor / Visto</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
 // ─── Componente principal ────────────────────────────────────────────────────
 export function OperacaoClient({
   caixaAberto,
@@ -405,13 +850,17 @@ export function OperacaoClient({
   vendasDia,
   porProduto,
   formas,
+  porForma,
   erro,
+  fechado,
+  aberto,
+  zReport,
 }: Props) {
   const [panel, setPanel] = useState<Panel>(null)
   const toggle = (p: Panel) => setPanel((prev) => (prev === p ? null : p))
 
   const formasFisicas = formas.filter((f) => !FORMAS_INVALIDAS.some((inv) => f.includes(inv)))
-  const totalVendasReais = totalVendas - totalCrediario
+  const totalVendasReais = Math.max(0, totalVendas - totalCrediario)
   const saldoCaixa =
     (caixaAberto?.valor_abertura ?? 0) +
     totalVendasReais +
@@ -431,6 +880,31 @@ export function OperacaoClient({
         </Link>
         <h2 className="text-2xl font-bold text-gray-900">Operação do PDV</h2>
       </div>
+
+      {fechado && !caixaAberto && (
+        <div className="space-y-3">
+          <div className="rounded-2xl border border-green-200 bg-green-50 px-6 py-5 flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-green-100 text-2xl">🔒</div>
+            <div>
+              <p className="font-bold text-green-800 text-lg">Caixa fechado com sucesso!</p>
+              <p className="text-sm text-green-600 mt-0.5">O caixa do dia foi encerrado. Abra um novo caixa quando retomar as vendas.</p>
+            </div>
+          </div>
+          {zReport && <ZReportPanel z={zReport} />}
+        </div>
+      )}
+
+      {aberto && caixaAberto && (
+        <div className="rounded-2xl border border-green-300 bg-green-600 px-6 py-5 flex items-center gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-green-500 text-2xl">✓</div>
+          <div>
+            <p className="font-bold text-white text-lg">Caixa aberto com sucesso!</p>
+            <p className="text-sm text-green-100 mt-0.5">
+              Saldo inicial: {fmt(caixaAberto.valor_abertura)} · Aberto às {fmtHora(caixaAberto.aberto_em)}
+            </p>
+          </div>
+        </div>
+      )}
 
       {erro && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -477,28 +951,35 @@ export function OperacaoClient({
             </div>
           </div>
 
-          {/* 5 cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            {(
-              [
-                { key: 'fechar', icon: '🔒', label: 'Fechar Caixa', border: 'blue' },
-                { key: 'reforco', icon: '💰', label: 'Reforçar Caixa', border: 'green' },
-                { key: 'retirada', icon: '💸', label: 'Retirada', border: 'red' },
-              ] as const
-            ).map(({ key, icon, label, border }) => (
-              <button
-                key={key}
-                onClick={() => toggle(key)}
-                className={`rounded-2xl border p-4 text-left transition hover:shadow-md ${
-                  panel === key
-                    ? `border-${border}-400 bg-${border}-50`
-                    : `border-${border}-200 bg-white hover:border-${border}-300`
-                }`}
-              >
-                <div className="mb-2 text-2xl">{icon}</div>
-                <p className={`text-sm font-semibold text-${border}-800`}>{label}</p>
-              </button>
-            ))}
+          {/* 6 cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <button
+              onClick={() => toggle('fechar')}
+              className={`rounded-2xl border p-4 text-left transition hover:shadow-md ${
+                panel === 'fechar' ? 'border-blue-400 bg-blue-50' : 'border-blue-200 bg-white hover:border-blue-300'
+              }`}
+            >
+              <div className="mb-2 text-2xl">🔒</div>
+              <p className="text-sm font-semibold text-blue-800">Fechar Caixa</p>
+            </button>
+            <button
+              onClick={() => toggle('reforco')}
+              className={`rounded-2xl border p-4 text-left transition hover:shadow-md ${
+                panel === 'reforco' ? 'border-green-400 bg-green-50' : 'border-green-200 bg-white hover:border-green-300'
+              }`}
+            >
+              <div className="mb-2 text-2xl">💰</div>
+              <p className="text-sm font-semibold text-green-800">Reforçar Caixa</p>
+            </button>
+            <button
+              onClick={() => toggle('retirada')}
+              className={`rounded-2xl border p-4 text-left transition hover:shadow-md ${
+                panel === 'retirada' ? 'border-red-400 bg-red-50' : 'border-red-200 bg-white hover:border-red-300'
+              }`}
+            >
+              <div className="mb-2 text-2xl">💸</div>
+              <p className="text-sm font-semibold text-red-800">Retirada</p>
+            </button>
 
             <div className="rounded-2xl border border-amber-100 bg-gray-50 p-4 opacity-50 select-none">
               <div className="mb-2 text-2xl">↩️</div>
@@ -518,6 +999,19 @@ export function OperacaoClient({
               <p className="text-sm font-semibold text-cyan-800">Saldo em Caixa</p>
               <p className="text-xs font-bold text-cyan-600 mt-1">{fmt(saldoCaixa)}</p>
             </button>
+
+            <button
+              onClick={() => toggle('xreport')}
+              className={`rounded-2xl border p-4 text-left transition hover:shadow-md ${
+                panel === 'xreport'
+                  ? 'border-indigo-400 bg-indigo-50'
+                  : 'border-indigo-200 bg-white hover:border-indigo-300'
+              }`}
+            >
+              <div className="mb-2 text-2xl">📋</div>
+              <p className="text-sm font-semibold text-indigo-800">Relatório X</p>
+              <p className="text-xs text-indigo-500 mt-0.5">Parcial</p>
+            </button>
           </div>
 
           {/* Painéis — montam/desmontam para resetar useActionState */}
@@ -531,6 +1025,7 @@ export function OperacaoClient({
               totalRetiradas={totalRetiradas}
               totalDevolucoes={totalDevolucoes}
               saldoCaixa={saldoCaixa}
+              porForma={porForma}
             />
           )}
           {panel === 'reforco' && (
@@ -547,6 +1042,21 @@ export function OperacaoClient({
               movimentos={movimentos}
             />
           )}
+          {panel === 'xreport' && (
+            <XReportPanel
+              caixaAberto={caixaAberto}
+              totalVendas={totalVendas}
+              totalVendasReais={totalVendasReais}
+              totalCrediario={totalCrediario}
+              totalReforcos={totalReforcos}
+              totalRetiradas={totalRetiradas}
+              totalDevolucoes={totalDevolucoes}
+              saldoCaixa={saldoCaixa}
+              qtdVendas={qtdVendas}
+              movimentos={movimentos}
+              porForma={porForma}
+            />
+          )}
           {panel === 'saldo' && (
             <SaldoPanel
               caixaAberto={caixaAberto}
@@ -559,6 +1069,7 @@ export function OperacaoClient({
               saldoTotal={saldoTotal}
               vendasDia={vendasDia}
               qtdVendas={qtdVendas}
+              porForma={porForma}
             />
           )}
 

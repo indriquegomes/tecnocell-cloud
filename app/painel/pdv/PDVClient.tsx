@@ -116,6 +116,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const [buscaCrediario, setBuscaCrediario] = useState('')
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
   const [pagandoCrediario, setPagandoCrediario] = useState(false)
+  const [pagoCrediarioOk, setPagoCrediarioOk] = useState(false)
   // F12 — Saída Consignada
   const [mostrarConsignado, setMostrarConsignado] = useState(false)
   const [obsConsignado, setObsConsignado] = useState('')
@@ -173,6 +174,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     itens: { codigo: string | null; nome: string; quantidade: number; preco_unitario: number }[]
     pagamentos: { forma_nome: string; valor: number; taxa: number; parcelas: number; status: string }[]
     cliente: string | null
+    clienteTelefone: string | null
     clienteEndereco: string | null
     deposito: string
     desconto: number
@@ -415,9 +417,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
         observacoes,
         depositoId,
       )
-      setVendaConcluidaId(result.vendaId)
-      setVendaTotal(result.total)
-      setVendaSnapshot({
+      const snap = {
         numero: result.vendaNumero ?? null,
         itens: carrinho.map(({ codigo, nome, quantidade, preco_unitario }) => ({ codigo, nome, quantidade, preco_unitario })),
         pagamentos: pagamentos.map((p) => ({
@@ -428,6 +428,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
           status: isFiadoForma(p.forma_id) ? 'pendente' : 'pago',
         })),
         cliente: clienteSelecionado?.nome ?? null,
+        clienteTelefone: clienteSelecionado?.telefone ?? null,
         clienteEndereco: (() => {
           const p = clienteSelecionado
           if (!p) return null
@@ -437,7 +438,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
         deposito: nomeDeposito,
         desconto: descontoNum,
         horario: new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-      })
+      }
+      abrirCupom(snap, result.vendaId)
+      setVendaConcluidaId(result.vendaId)
+      setVendaTotal(result.total)
+      setVendaSnapshot(snap)
       setMostrarConfirmacao(false)
       setCarrinho([])
       setPagamentos([{ uid: '1', forma_id: formas[0]?.id ?? '', valor: '', maquina: '', parcelas: 1 }])
@@ -502,6 +507,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   }
 
   const carregarOrcamento = (pedido: PedidoResumo) => {
+    if (carrinho.length > 0 && !window.confirm('Substituir o carrinho atual pelos itens deste orçamento?')) return
     const novosItens: ItemCarrinho[] = []
     const avisos: string[] = []
     for (const item of pedido.itens) {
@@ -548,10 +554,13 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const handlePagarCrediario = async (ids: string[]) => {
     if (ids.length === 0) return
     setPagandoCrediario(true)
+    setPagoCrediarioOk(false)
     try {
       await pagarLancamentos(ids)
       setCrediarioItens((prev) => prev.filter((i) => !ids.includes(i.id)))
       setSelecionados(new Set())
+      setPagoCrediarioOk(true)
+      setTimeout(() => setPagoCrediarioOk(false), 3000)
     } catch {
       setErro('Erro ao registrar pagamento do fiado.')
     } finally {
@@ -667,10 +676,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     )
   }
 
-  function imprimirCupom() {
-    if (!vendaSnapshot || !vendaConcluidaId) return
-    const snap = vendaSnapshot
-    const idCurto = vendaConcluidaId.replace(/-/g, '').slice(0, 8).toUpperCase()
+  function abrirCupom(snap: NonNullable<typeof vendaSnapshot>, vendaId: string) {
+    const idCurto = vendaId.replace(/-/g, '').slice(0, 8).toUpperCase()
     const win = window.open('', '_blank', 'width=420,height=700')
     if (!win) return
 
@@ -702,6 +709,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
       </tr>`
     }
 
+    const logoUrl = window.location.origin + '/logo-transparent.png'
     win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
     <title>Comprovante #${numeroLabel}</title>
     <style>
@@ -713,12 +721,13 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
       table { width: 100%; border-collapse: collapse; font-size: 10px; }
       th { border-bottom: 1px dashed #000; padding: 2px 0; text-align: left; }
       td { padding: 2px 0; vertical-align: top; }
-      h1 { font-size: 16px; margin: 0 0 2px; text-align: center; }
       p { margin: 1px 0; text-align: center; }
       @media print { body { padding: 0; } }
     </style></head><body>
 
-    <h1>TecnoCell</h1>
+    <div style="text-align:center;margin-bottom:4px">
+      <img src="${logoUrl}" style="max-width:160px;max-height:60px;object-fit:contain" />
+    </div>
     <p>IGTFRANCA COMERCIO E SERVICO LTDA</p>
     <p>CNPJ: 39.682.023/0001-69 &nbsp; IE: 11951408</p>
     <p>Rua Dezesseis de Março, 336 - Centro</p>
@@ -779,6 +788,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     setTimeout(() => win.print(), 400)
   }
 
+  function imprimirCupom() {
+    if (!vendaSnapshot || !vendaConcluidaId) return
+    abrirCupom(vendaSnapshot, vendaConcluidaId)
+  }
+
   function textoWhatsApp() {
     if (!vendaSnapshot || !vendaConcluidaId) return ''
     const snap = vendaSnapshot
@@ -802,6 +816,22 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
       '_Obrigado pela preferência!_',
     ].filter(Boolean).join('\n')
     return linhas
+  }
+
+  function CopiarWhatsAppBtn({ texto }: { texto: string }) {
+    const [copiado, setCopiado] = useState(false)
+    return (
+      <button
+        onClick={async () => {
+          await navigator.clipboard.writeText(texto)
+          setCopiado(true)
+          setTimeout(() => setCopiado(false), 2500)
+        }}
+        className="flex-1 rounded-xl border border-green-300 bg-green-50 px-4 py-2.5 text-sm font-medium text-green-700 hover:bg-green-100 transition"
+      >
+        {copiado ? '✅ Copiado!' : '💬 Copiar p/ WhatsApp'}
+      </button>
+    )
   }
 
   if (vendaConcluidaId) {
@@ -873,12 +903,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
               >
                 🖨️ Imprimir
               </button>
-              <button
-                onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(textoWhatsApp())}`, '_blank')}
-                className="flex-1 rounded-xl border border-green-300 bg-green-50 px-4 py-2.5 text-sm font-medium text-green-700 hover:bg-green-100 transition"
-              >
-                💬 WhatsApp
-              </button>
+              <CopiarWhatsAppBtn texto={textoWhatsApp()} />
             </div>
             <button
               onClick={() => { setVendaConcluidaId(null); setVendaSnapshot(null) }}
@@ -1419,7 +1444,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                   { label: 'Total em dívidas', valor: totalDividas, cor: 'text-gray-900' },
                   { label: 'Total em atraso', valor: totalAtraso, cor: 'text-red-600' },
                   { label: 'A vencer', valor: totalAVencer, cor: 'text-green-600' },
-                  { label: 'Total a cobrar', valor: totalDividas, cor: 'text-blue-700' },
+                  { label: 'Selecionado p/ cobrar', valor: subtotalSelecionado, cor: 'text-blue-700' },
                 ].map(({ label, valor, cor }) => (
                   <div key={label} className="px-5 py-3 text-center">
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{label}</p>
@@ -1533,6 +1558,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
               >
                 {pagandoCrediario ? 'Registrando...' : `Pagar${selecionados.size > 0 ? ` (${selecionados.size} selecionado${selecionados.size > 1 ? 's' : ''})` : ''} — ${formatBRL(subtotalSelecionado)}`}
               </button>
+              {pagoCrediarioOk && (
+                <p className="text-center text-sm font-medium text-green-600">✓ Pagamento registrado com sucesso.</p>
+              )}
             </div>
           </div>
         </div>

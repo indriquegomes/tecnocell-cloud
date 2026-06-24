@@ -8,7 +8,7 @@ export async function salvarConfiguracoes(_prev: State, formData: FormData): Pro
   await requireAuth()
   const supabase = await createServiceClient()
 
-  const valor = {
+  const valorEmpresa = {
     nome_empresa: formData.get('nome_empresa') as string,
     cnpj: formData.get('cnpj') as string,
     telefone: formData.get('telefone') as string,
@@ -20,10 +20,17 @@ export async function salvarConfiguracoes(_prev: State, formData: FormData): Pro
     timezone: formData.get('timezone') as string,
   }
 
-  const { error } = await supabase
-    .from('configuracoes')
-    .upsert({ chave: 'empresa', valor }, { onConflict: 'chave' })
+  const limiteDivergenciaRaw = parseFloat(formData.get('limite_divergencia') as string)
+  const valorPdv = {
+    limite_divergencia: isNaN(limiteDivergenciaRaw) ? 0 : limiteDivergenciaRaw,
+  }
 
-  if (error) return { ok: false, erro: error.message }
+  const [r1, r2] = await Promise.all([
+    supabase.from('configuracoes').upsert({ chave: 'empresa', valor: valorEmpresa }, { onConflict: 'chave' }),
+    supabase.from('configuracoes').upsert({ chave: 'pdv', valor: valorPdv }, { onConflict: 'chave' }),
+  ])
+
+  if (r1.error) return { ok: false, erro: r1.error.message }
+  if (r2.error) return { ok: false, erro: r2.error.message }
   return { ok: true, erro: null }
 }

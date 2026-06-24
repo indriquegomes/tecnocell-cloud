@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 
 export async function createClient() {
@@ -21,19 +22,13 @@ export async function createClient() {
   )
 }
 
-// Service client usa service role key — bypassa RLS completamente.
-// Não toca na sessão do usuário para não corromper cookies.
+// Service client usa supabase-js nativo (não SSR) — bypassa RLS de verdade.
+// @supabase/ssr sobrescreve Authorization com o cookie da sessão, anulando o service role.
 export async function createServiceClient() {
-  const cookieStore = await cookies()
-  return createServerClient(
+  return createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll() {}, // service client nunca escreve cookies de sessão
-      },
-    }
+    { auth: { autoRefreshToken: false, persistSession: false } }
   )
 }
 

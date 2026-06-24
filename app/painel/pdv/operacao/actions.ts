@@ -2,6 +2,7 @@
 
 import { createServiceClient, requireAuth } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 
 export type ActionState = { ok: boolean; message: string } | null
 
@@ -29,9 +30,9 @@ export async function abrirCaixa(
     })
     if (error) return { ok: false, message: error.message }
 
-    revalidatePath('/painel/pdv/operacao')
-    return { ok: true, message: 'Caixa aberto com sucesso.' }
-  } catch (e) {
+    redirect('/painel/pdv/operacao?aberto=1')
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e
     return { ok: false, message: 'Erro ao abrir caixa.' }
   }
 }
@@ -52,6 +53,42 @@ export async function fecharCaixa(
     }
 
     const supabase = await createServiceClient()
+
+    // Busca caixa p/ obter aberto_em
+    const { data: caixa } = await supabase
+      .from('caixas')
+      .select('aberto_em')
+      .eq('id', id)
+      .eq('status', 'aberto')
+      .maybeSingle()
+    if (!caixa) return { ok: false, message: 'Caixa não encontrado ou já fechado.' }
+
+    // Bloqueia se há consignados abertos nesta sessão
+    const { count: qtdConsignados } = await supabase
+      .from('consignados')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'aberto')
+      .gte('created_at', caixa.aberto_em)
+    if ((qtdConsignados ?? 0) > 0) {
+      return { ok: false, message: `Há ${qtdConsignados} consignado(s) em aberto nesta sessão. Acerte ou devolva antes de fechar o caixa.` }
+    }
+
+    // Verifica limite de divergência configurado
+    const valorEsperado = parseFloat(formData.get('valor_esperado') as string) || 0
+    const divergencia = valorFechamento - valorEsperado
+    const { data: cfgPdv } = await supabase
+      .from('configuracoes')
+      .select('valor')
+      .eq('chave', 'pdv')
+      .maybeSingle()
+    const limiteDivergencia: number = (cfgPdv?.valor as Record<string, number> | null)?.limite_divergencia ?? 0
+    if (limiteDivergencia > 0 && Math.abs(divergencia) > limiteDivergencia) {
+      return {
+        ok: false,
+        message: `Divergência de R$ ${Math.abs(divergencia).toFixed(2)} ultrapassa o limite configurado de R$ ${limiteDivergencia.toFixed(2)}. Corrija a contagem ou contate o supervisor.`,
+      }
+    }
+
     const { error } = await supabase
       .from('caixas')
       .update({
@@ -61,12 +98,12 @@ export async function fecharCaixa(
         fechado_em: new Date().toISOString(),
       })
       .eq('id', id)
-      .eq('status', 'aberto') // só fecha se ainda estiver aberto
+      .eq('status', 'aberto')
     if (error) return { ok: false, message: error.message }
 
-    revalidatePath('/painel/pdv/operacao')
-    return { ok: true, message: 'Caixa fechado com sucesso.' }
-  } catch (e) {
+    redirect(`/painel/pdv/operacao?fechado=1&esperado=${valorEsperado}&contado=${valorFechamento}`)
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e
     return { ok: false, message: 'Erro ao fechar caixa.' }
   }
 }
