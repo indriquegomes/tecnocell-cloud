@@ -25,13 +25,26 @@ export async function finalizarVenda(
   desconto: number,
   observacoes: string,
   deposito_id: string = '',
-) {
-  if (itens.length === 0) throw new Error('Carrinho vazio')
-  if (!deposito_id) throw new Error('Depósito não selecionado')
-  if (pagamentos.length === 0) throw new Error('Selecione a forma de pagamento')
+): Promise<
+  | { erro: string }
+  | { vendaId: string; vendaNumero: number | null; total: number; estoqueAtualizado: Record<string, number> }
+> {
+  if (itens.length === 0) return { erro: 'Carrinho vazio' }
+  if (!deposito_id) return { erro: 'Depósito não selecionado' }
+  if (pagamentos.length === 0) return { erro: 'Selecione a forma de pagamento' }
 
-  await requireAuth()
-  const supabase = await createServiceClient()
+  try {
+    await requireAuth()
+  } catch {
+    return { erro: 'Sessão expirada. Faça login novamente.' }
+  }
+
+  let supabase: Awaited<ReturnType<typeof createServiceClient>>
+  try {
+    supabase = await createServiceClient()
+  } catch (e) {
+    return { erro: 'Erro ao conectar ao banco: ' + String(e) }
+  }
 
   const { data, error } = await supabase.rpc('finalizar_venda', {
     p_itens: itens,
@@ -42,7 +55,8 @@ export async function finalizarVenda(
     p_deposito_id: deposito_id,
   })
 
-  if (error) throw new Error(error.message)
+  if (error) return { erro: error.message }
+  if (!data) return { erro: 'RPC retornou vazio. Verifique o banco.' }
 
   return {
     vendaId: data.venda_id as string,

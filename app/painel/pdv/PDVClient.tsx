@@ -417,6 +417,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
         observacoes,
         depositoId,
       )
+      if ('erro' in result) { setErro(result.erro); return }
       const snap = {
         numero: result.vendaNumero ?? null,
         itens: carrinho.map(({ codigo, nome, quantidade, preco_unitario }) => ({ codigo, nome, quantidade, preco_unitario })),
