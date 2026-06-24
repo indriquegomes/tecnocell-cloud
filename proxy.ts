@@ -1,58 +1,67 @@
-import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-// Next.js 16: o antigo "middleware" agora chama-se "proxy" (mesma função).
-// Doc: deve fazer apenas "optimistic checks" — nada de auth pesada aqui.
-// A autorização real fica no requireAuth() das server actions + RLS.
-export async function proxy(request: NextRequest) {
-  // Headers de REQUEST repassados ao downstream (server components / actions).
-  // É por AQUI que x-user-id chega no requireAuth() — header de RESPONSE não chega
-  // em server actions nesta versão do Next.
+// Next.js 16: "middleware" agora se chama "proxy". Doc: aqui só "optimistic checks".
+//
+// CRÍTICO: NÃO chamar supabase.auth.getUser() aqui. Em produção, quando o servidor
+// responde AuthSessionMissing (sessão rotacionada), o supabase-js chama _removeSession()
+// e APAGA o cookie — derrubando o login depois de 1-2 navegações. Isso quebrou todas
+// as vendas em 2026-06-24. A autorização real fica no requireAuth(accessToken) das
+// server actions, que valida o token sem depender de cookie.
+//
+// Aqui só decodificamos o JWT do cookie LOCALMENTE (sem rede, sem limpar nada) para o
+// check otimista de redirect e para repassar x-user-id aos server components.
+
+interface Claims { sub: string; email?: string }
+
+function b64urlToString(b64url: string): string {
+  const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(b64url.length / 4) * 4, '=')
+  return atob(b64)
+}
+
+function lerSessao(request: NextRequest): Claims | null {
+  // Junta os chunks do cookie de sessão (sb-<ref>-auth-token[.N])
+  const partes = request.cookies
+    .getAll()
+    .filter((c) => /-auth-token(\.\d+)?$/.test(c.name))
+    .sort((a, b) => a.name.localeCompare(b.name))
+  if (partes.length === 0) return null
+
+  try {
+    let raw = partes.map((c) => c.value).join('')
+    if (raw.startsWith('base64-')) raw = atob(raw.slice(7))
+    const sessao = JSON.parse(raw)
+    const token: string | undefined = sessao.access_token
+    if (!token) return null
+    const payload = JSON.parse(b64urlToString(token.split('.')[1]))
+    if (!payload.sub) return null
+    return { sub: payload.sub, email: payload.email }
+  } catch {
+    return null
+  }
+}
+
+export function proxy(request: NextRequest) {
+  const sessao = lerSessao(request)
+  const noPainel = request.nextUrl.pathname.startsWith('/painel')
+
+  if (!sessao && noPainel) {
+    const url = new URL('/login', request.url)
+    url.searchParams.set('next', request.nextUrl.pathname)
+    return NextResponse.redirect(url)
+  }
+
+  // Repassa identidade aos server components/actions via REQUEST header.
   const requestHeaders = new Headers(request.headers)
-  const cookiesParaResposta: { name: string; value: string; options?: Record<string, unknown> }[] = []
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return request.cookies.getAll() },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          cookiesToSet.forEach((c) => cookiesParaResposta.push(c))
-        },
-      },
-    }
-  )
-
-  // getUser() renova o token se expirado. Verificamos o 'error' antes de redirecionar:
-  // se falhar por rede/timeout retorna { user: null, error } SEM lançar. Só mandamos
-  // pro login quando !error && !user (certeza de que não há sessão).
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-  if (!authError && !user && request.nextUrl.pathname.startsWith('/painel')) {
-    const redirectUrl = new URL('/login', request.url)
-    redirectUrl.searchParams.set('next', request.nextUrl.pathname)
-    return NextResponse.redirect(redirectUrl)
+  if (sessao) {
+    requestHeaders.set('x-user-id', sessao.sub)
+    if (sessao.email) requestHeaders.set('x-user-email', sessao.email)
   }
 
-  // Injeta a identidade validada nos headers de request (downstream lê via headers()).
-  if (user) {
-    requestHeaders.set('x-user-id', user.id)
-    if (user.email) requestHeaders.set('x-user-email', user.email)
-  }
-
-  // Constrói a response UMA vez, já com os headers de request atualizados e os
-  // cookies renovados pelo setAll (sem perder nenhum dos dois).
   const response = NextResponse.next({ request: { headers: requestHeaders } })
-  cookiesParaResposta.forEach(({ name, value, options }) =>
-    response.cookies.set(name, value, options)
-  )
-  if (user) {
-    response.headers.set('x-user-id', user.id)
-    if (user.email) response.headers.set('x-user-email', user.email)
+  if (sessao) {
+    response.headers.set('x-user-id', sessao.sub)
+    if (sessao.email) response.headers.set('x-user-email', sessao.email)
   }
-
   return response
 }
 
