@@ -413,7 +413,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     try {
       const token = await authToken()
       if (!token) {
-        setErro('DEBUG: navegador sem sessão (getSession vazio). O cookie de auth não está acessível ao JS. F5 + login.')
+        setErro('Sessão não encontrada. Recarregue a página (F5) e entre novamente.')
         setLoading(false)
         return
       }

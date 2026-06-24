@@ -49,8 +49,7 @@ export async function requireAuth(accessToken?: string): Promise<{ id: string; e
     )
     const { data: { user }, error } = await client.auth.getUser(accessToken)
     if (user) return { id: user.id, email: user.email ?? null }
-    // Token foi enviado mas o servidor rejeitou — erro específico (não mascara com fallback).
-    throw new Error(`token rejeitado (len ${accessToken.length}): ${error?.message ?? 'sem usuário'}`)
+    throw new Error(`Sessão inválida ou expirada. Recarregue a página (F5). [${error?.message ?? 'sem usuário'}]`)
   }
 
   const h = await headers()
