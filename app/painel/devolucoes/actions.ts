@@ -44,7 +44,7 @@ export async function buscarVendaParaDevolucao(
   const [vendaRes, itensRes, lancRes] = await Promise.all([
     supabase
       .from('vendas')
-      .select('id, total, created_at, pessoa_nome, vendedor_nome, deposito_id, forma_pagamento_id')
+      .select('id, total, created_at, vendedor_nome, deposito_id, forma_pagamento_id, pessoa_id, pessoas!pessoa_id(nome)')
       .eq('id', vendaId)
       .maybeSingle(),
     supabase
@@ -61,7 +61,10 @@ export async function buscarVendaParaDevolucao(
   ])
 
   if (!vendaRes.data) return null
-  const v = vendaRes.data as {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const vRaw = vendaRes.data as any
+  const pessoaNome = (vRaw.pessoas?.nome ?? vRaw.vendedor_nome ?? null) as string | null
+  const v = { ...vRaw, pessoa_nome: pessoaNome } as {
     id: string; total: number; created_at: string
     pessoa_nome: string | null; vendedor_nome: string | null
     deposito_id: string | null; forma_pagamento_id: string | null
@@ -106,19 +109,30 @@ export async function buscarVendasRecentes(
   await requireAuth(accessToken)
   const supabase = await createServiceClient()
 
-  let query = supabase
+  const { data, error } = await supabase
     .from('vendas')
-    .select('id, pessoa_nome, total, created_at')
+    .select('id, total, created_at, vendedor_nome, pessoa_id, pessoas!pessoa_id(nome)')
     .eq('status', 'concluida')
     .order('created_at', { ascending: false })
     .limit(30)
 
+  if (error) throw new Error(error.message)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows = (data ?? []) as any[]
+  let result = rows.map((v) => ({
+    id: v.id as string,
+    pessoa_nome: (v.pessoas?.nome ?? v.vendedor_nome ?? null) as string | null,
+    total: v.total as number,
+    created_at: v.created_at as string,
+  }))
+
   if (busca.trim()) {
-    query = query.ilike('pessoa_nome', `%${busca}%`)
+    const b = busca.toLowerCase()
+    result = result.filter(v => v.pessoa_nome?.toLowerCase().includes(b))
   }
 
-  const { data } = await query
-  return (data ?? []) as { id: string; pessoa_nome: string | null; total: number; created_at: string }[]
+  return result
 }
 
 export interface RegistrarDevolucaoInput {

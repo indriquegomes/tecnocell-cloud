@@ -18,7 +18,8 @@ export default async function PainelVendasPage({
     .from('vendas')
     .select(`
       id, total, desconto, created_at, status,
-      vendedor_nome, pessoa_nome,
+      vendedor_nome, pessoa_id,
+      pessoas!pessoa_id(nome),
       deposito:depositos(id, nome),
       forma_pagamento:formas_pagamento(id, nome)
     `)
@@ -34,15 +35,19 @@ export default async function PainelVendasPage({
   const { data: vendasRaw } = await query
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const vendasFiltered = (vendasRaw ?? []).filter((v: any) => {
+  const vendasNormalized = (vendasRaw ?? []).map((v: any) => ({
+    ...v,
+    pessoa_nome: (v.pessoas?.nome ?? v.vendedor_nome ?? null) as string | null,
+  }))
+
+  const vendasFiltered = vendasNormalized.filter((v) => {
     if (!busca) return true
     const b = busca.toLowerCase()
     return (
       v.pessoa_nome?.toLowerCase().includes(b) ||
       v.vendedor_nome?.toLowerCase().includes(b)
     )
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  }) as any[]
+  })
 
   const vendas = vendasFiltered as {
     id: string
