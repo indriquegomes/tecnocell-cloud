@@ -126,6 +126,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
   const [pagandoCrediario, setPagandoCrediario] = useState(false)
   const [pagoCrediarioOk, setPagoCrediarioOk] = useState(false)
+  const [formaCrediario, setFormaCrediario] = useState<string>('dinheiro')
   // F12 — Saída Consignada
   const [mostrarConsignado, setMostrarConsignado] = useState(false)
   const [obsConsignado, setObsConsignado] = useState('')
@@ -574,7 +575,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     setPagandoCrediario(true)
     setPagoCrediarioOk(false)
     try {
-      await pagarLancamentos(await authToken(), ids)
+      await pagarLancamentos(await authToken(), ids, formaCrediario)
       setCrediarioItens((prev) => prev.filter((i) => !ids.includes(i.id)))
       setSelecionados(new Set())
       setPagoCrediarioOk(true)
@@ -1568,6 +1569,29 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                   </div>
                 ))}
               </div>
+
+              {/* Forma de recebimento */}
+              <div className="mb-3">
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">Recebido em</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { valor: 'dinheiro', label: '💵 Dinheiro' },
+                    { valor: 'pix', label: '💠 PIX' },
+                    { valor: 'debito', label: '💳 Débito' },
+                    { valor: 'credito', label: '💳 Crédito' },
+                  ].map((op) => (
+                    <button
+                      key={op.valor}
+                      type="button"
+                      onClick={() => setFormaCrediario(op.valor)}
+                      className={`rounded-lg border py-2 text-xs font-semibold transition ${formaCrediario === op.valor ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+                    >
+                      {op.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <button
                 type="button"
                 onClick={() => handlePagarCrediario(Array.from(selecionados))}

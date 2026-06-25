@@ -104,14 +104,14 @@ export async function buscarCrediario(accessToken: string): Promise<CrediarioIte
   return (data ?? []) as CrediarioItem[]
 }
 
-export async function pagarLancamentos(accessToken: string, ids: string[]): Promise<void> {
+export async function pagarLancamentos(accessToken: string, ids: string[], formaPagamento = 'dinheiro'): Promise<void> {
   if (ids.length === 0) return
   await requireAuth(accessToken)
   const supabase = await createServiceClient()
   const today = new Date().toISOString().split('T')[0]
   const { data, error } = await supabase
     .from('lancamentos')
-    .update({ status: 'pago', data_pagamento: today, updated_at: new Date().toISOString() })
+    .update({ status: 'pago', data_pagamento: today, forma_pagamento: formaPagamento, updated_at: new Date().toISOString() })
     .in('id', ids)
     .select('id')
   if (error) throw new Error(error.message)
