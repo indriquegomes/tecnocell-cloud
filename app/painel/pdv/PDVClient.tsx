@@ -605,6 +605,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const hoje = new Date().toISOString().split('T')[0]
   const codCrediario = (item: CrediarioItem) => {
     if (item.codigo) return `#${item.codigo}`
+    if (item.venda_id) return `#${item.venda_id.slice(-6).toUpperCase()}`
     const m = item.descricao?.match(/#([a-f0-9]{8})/i)
     return m ? `#${m[1].toUpperCase()}` : '—'
   }
