@@ -1543,7 +1543,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                           <td className="px-4 py-3 text-right font-semibold text-gray-900">{formatBRL(item.valor)}</td>
                           <td className="px-4 py-3 text-gray-500">
                             {item.data_vencimento
-                              ? new Date(item.data_vencimento + 'T12:00:00').toLocaleDateString('pt-BR')
+                              ? (() => { const s = item.data_vencimento; const d = new Date(s.length === 10 ? s + 'T12:00:00' : s); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR') })()
                               : '—'}
                           </td>
                         </tr>
