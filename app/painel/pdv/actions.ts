@@ -92,6 +92,12 @@ export async function finalizarVenda(
   }
 }
 
+export interface PagamentoHistorico {
+  valor: number
+  forma: string
+  data: string
+}
+
 export interface CrediarioItem {
   id: string
   descricao: string
@@ -102,6 +108,7 @@ export interface CrediarioItem {
   created_at: string
   codigo: number | null
   venda_id: string | null
+  historico_pagamentos: PagamentoHistorico[] | null
 }
 
 export interface DetalheVenda {
@@ -122,7 +129,7 @@ export async function buscarCrediario(accessToken: string): Promise<CrediarioIte
   const supabase = await createServiceClient()
   const { data, error } = await supabase
     .from('lancamentos')
-    .select('id, descricao, valor, valor_pago, pessoa_nome, data_vencimento, created_at, codigo, venda_id')
+    .select('id, descricao, valor, valor_pago, pessoa_nome, data_vencimento, created_at, codigo, venda_id, historico_pagamentos')
     .eq('tipo', 'receber')
     .eq('status', 'pendente')
     .order('data_vencimento', { ascending: true })
@@ -201,10 +208,9 @@ export async function registrarPagamentoParcial(
   await requireAuth(accessToken)
   const supabase = await createServiceClient()
 
-  // Busca o lancamento atual
   const { data: lanc, error: errBusca } = await supabase
     .from('lancamentos')
-    .select('valor, valor_pago')
+    .select('valor, valor_pago, historico_pagamentos')
     .eq('id', id)
     .single()
   if (errBusca || !lanc) throw new Error('Lançamento não encontrado.')
@@ -213,9 +219,17 @@ export async function registrarPagamentoParcial(
   const quitado = totalPagoAtualizado >= lanc.valor
   const today = new Date().toISOString().split('T')[0]
 
+  const novoRegistro: PagamentoHistorico = {
+    valor: valorPago,
+    forma: formaPagamento,
+    data: new Date().toISOString(),
+  }
+  const historicoAtualizado = [...((lanc.historico_pagamentos as PagamentoHistorico[] | null) ?? []), novoRegistro]
+
   const update: Record<string, unknown> = {
     valor_pago: totalPagoAtualizado,
     forma_pagamento: formaPagamento,
+    historico_pagamentos: historicoAtualizado,
     updated_at: new Date().toISOString(),
   }
   if (quitado) {

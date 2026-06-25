@@ -660,10 +660,12 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
       )
     : crediarioItens
 
-  const totalDividas = crediarioItens.reduce((s, i) => s + i.valor, 0)
-  const totalAtraso = crediarioItens.filter((i) => i.data_vencimento && i.data_vencimento < hoje).reduce((s, i) => s + i.valor, 0)
-  const totalAVencer = crediarioItens.filter((i) => !i.data_vencimento || i.data_vencimento >= hoje).reduce((s, i) => s + i.valor, 0)
-  const subtotalSelecionado = crediarioItens.filter((i) => selecionados.has(i.id)).reduce((s, i) => s + i.valor, 0)
+  const restante = (i: CrediarioItem) => i.valor - (i.valor_pago ?? 0)
+  const totalDividas = crediarioItens.reduce((s, i) => s + restante(i), 0)
+  const totalPagoCrediario = crediarioItens.reduce((s, i) => s + (i.valor_pago ?? 0), 0)
+  const totalAtraso = crediarioItens.filter((i) => i.data_vencimento && i.data_vencimento < hoje).reduce((s, i) => s + restante(i), 0)
+  const totalAVencer = crediarioItens.filter((i) => !i.data_vencimento || i.data_vencimento >= hoje).reduce((s, i) => s + restante(i), 0)
+  const subtotalSelecionado = crediarioItens.filter((i) => selecionados.has(i.id)).reduce((s, i) => s + restante(i), 0)
   const todosVisivelSelecionados = crediarioFiltrado.length > 0 && crediarioFiltrado.every((i) => selecionados.has(i.id))
 
   // #9 — abrir o modal e carregar as últimas vendas
@@ -1512,11 +1514,12 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
 
             {/* Cards de resumo */}
             {crediarioItens.length > 0 && (
-              <div className="grid grid-cols-4 divide-x divide-gray-100 border-b border-gray-100">
+              <div className="grid grid-cols-5 divide-x divide-gray-100 border-b border-gray-100">
                 {[
-                  { label: 'Total em dívidas', valor: totalDividas, cor: 'text-gray-900' },
-                  { label: 'Total em atraso', valor: totalAtraso, cor: 'text-red-600' },
-                  { label: 'A vencer', valor: totalAVencer, cor: 'text-green-600' },
+                  { label: 'Saldo devedor', valor: totalDividas, cor: 'text-gray-900' },
+                  { label: 'Já pago (parcial)', valor: totalPagoCrediario, cor: 'text-green-600' },
+                  { label: 'Em atraso', valor: totalAtraso, cor: 'text-red-600' },
+                  { label: 'A vencer', valor: totalAVencer, cor: 'text-gray-700' },
                   { label: 'Selecionado p/ cobrar', valor: subtotalSelecionado, cor: 'text-blue-700' },
                 ].map(({ label, valor, cor }) => (
                   <div key={label} className="px-5 py-3 text-center">
@@ -1704,6 +1707,32 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                   ? 'Registrando...'
                   : `Confirmar — ${valorRecebido ? `R$ ${valorRecebido}` : formatBRL(recebendoItem.valor)}`}
               </button>
+
+              {/* Histórico de pagamentos */}
+              {(recebendoItem.historico_pagamentos ?? []).length > 0 && (
+                <div className="mt-1">
+                  <p className="text-xs font-semibold uppercase text-gray-400 tracking-wide mb-2">Histórico de pagamentos</p>
+                  <div className="divide-y divide-gray-100 rounded-xl border border-gray-100 overflow-hidden">
+                    {(recebendoItem.historico_pagamentos ?? []).map((h, idx) => {
+                      const d = new Date(h.data)
+                      const formaLabel: Record<string, string> = { dinheiro: '💵 Dinheiro', pix: '💠 PIX', debito: '💳 Débito', credito: '💳 Crédito' }
+                      return (
+                        <div key={idx} className="flex items-center justify-between px-3 py-2 bg-white">
+                          <div>
+                            <span className="text-xs text-gray-500">{formaLabel[h.forma] ?? h.forma}</span>
+                            <span className="ml-2 text-xs text-gray-400">
+                              {isNaN(d.getTime()) ? h.data : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                              {' '}
+                              {isNaN(d.getTime()) ? '' : d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <span className="text-sm font-semibold text-green-600">{formatBRL(h.valor)}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
