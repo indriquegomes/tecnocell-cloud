@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { formatBRL } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
-import { finalizarVenda, buscarVendas, buscarCrediario, pagarLancamentos, buscarPedidosAbertos, registrarConsignado, buscarDetalheVenda, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
+import { finalizarVenda, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, buscarPedidosAbertos, registrarConsignado, buscarDetalheVenda, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
 
 // Lê o access token do navegador (cookie httpOnly:false). Fonte confiável de auth
 // para server actions — cookies() vem vazio em server actions na Vercel.
@@ -596,7 +596,32 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const handleAbrirRecebimento = (item: CrediarioItem) => {
     setRecebendoItem(item)
     setFormaRecebimento('dinheiro')
-    setValorRecebido(item.valor.toFixed(2).replace('.', ','))
+    const restante = item.valor - (item.valor_pago ?? 0)
+    setValorRecebido(restante.toFixed(2).replace('.', ','))
+  }
+
+  const handleConfirmarRecebimento = async () => {
+    if (!recebendoItem) return
+    setPagandoCrediario(true)
+    try {
+      const valorNum = parseFloat(valorRecebido.replace(',', '.'))
+      if (isNaN(valorNum) || valorNum <= 0) { setErro('Valor inválido.'); return }
+      const { quitado } = await registrarPagamentoParcial(await authToken(), recebendoItem.id, valorNum, formaRecebimento)
+      if (quitado) {
+        setCrediarioItens((prev) => prev.filter((i) => i.id !== recebendoItem.id))
+      } else {
+        setCrediarioItens((prev) => prev.map((i) =>
+          i.id === recebendoItem.id ? { ...i, valor_pago: (i.valor_pago ?? 0) + valorNum } : i
+        ))
+      }
+      setRecebendoItem(null)
+      setPagoCrediarioOk(true)
+      setTimeout(() => setPagoCrediarioOk(false), 3000)
+    } catch {
+      setErro('Erro ao registrar pagamento.')
+    } finally {
+      setPagandoCrediario(false)
+    }
   }
 
   const handleVerVenda = async (vendaId: string) => {
@@ -1529,7 +1554,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                       <th className="px-4 py-3">Cód Venda</th>
                       <th className="px-4 py-3">Cliente</th>
                       <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3 text-right">Valor</th>
+                      <th className="px-4 py-3 text-right">Total</th>
+                      <th className="px-4 py-3 text-right">Pago</th>
+                      <th className="px-4 py-3 text-right">Restante</th>
                       <th className="px-4 py-3">Vencimento</th>
                     </tr>
                   </thead>
@@ -1574,7 +1601,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                           </td>
                           <td className="px-4 py-3 text-gray-800">{item.pessoa_nome ?? <span className="text-gray-400 italic">—</span>}</td>
                           <td className={`px-4 py-3 font-semibold ${st.cor}`}>{st.label}</td>
-                          <td className="px-4 py-3 text-right font-semibold text-gray-900">{formatBRL(item.valor)}</td>
+                          <td className="px-4 py-3 text-right text-gray-500">{formatBRL(item.valor)}</td>
+                          <td className="px-4 py-3 text-right text-green-600 font-medium">{item.valor_pago > 0 ? formatBRL(item.valor_pago) : '—'}</td>
+                          <td className="px-4 py-3 text-right font-bold text-gray-900">{formatBRL(item.valor - (item.valor_pago ?? 0))}</td>
                           <td className="px-4 py-3 text-gray-500">
                             {item.data_vencimento
                               ? (() => { const s = item.data_vencimento; const d = new Date(s.length === 10 ? s + 'T12:00:00' : s); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR') })()
@@ -1666,7 +1695,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
               <button
                 type="button"
                 disabled={pagandoCrediario}
-                onClick={() => handlePagarCrediario([recebendoItem.id], formaRecebimento)}
+                onClick={handleConfirmarRecebimento}
                 className="w-full rounded-xl bg-green-600 py-3 text-sm font-bold text-white hover:bg-green-700 transition disabled:opacity-50"
               >
                 {pagandoCrediario

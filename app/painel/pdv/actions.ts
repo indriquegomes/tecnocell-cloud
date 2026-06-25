@@ -96,6 +96,7 @@ export interface CrediarioItem {
   id: string
   descricao: string
   valor: number
+  valor_pago: number
   pessoa_nome: string | null
   data_vencimento: string | null
   created_at: string
@@ -121,7 +122,7 @@ export async function buscarCrediario(accessToken: string): Promise<CrediarioIte
   const supabase = await createServiceClient()
   const { data, error } = await supabase
     .from('lancamentos')
-    .select('id, descricao, valor, pessoa_nome, data_vencimento, created_at, codigo, venda_id')
+    .select('id, descricao, valor, valor_pago, pessoa_nome, data_vencimento, created_at, codigo, venda_id')
     .eq('tipo', 'receber')
     .eq('status', 'pendente')
     .order('data_vencimento', { ascending: true })
@@ -189,6 +190,42 @@ export async function pagarLancamentos(accessToken: string, ids: string[], forma
     .select('id')
   if (error) throw new Error(error.message)
   if (!data || data.length === 0) throw new Error('Pagamento não registrado — sem permissão ou lançamento não encontrado.')
+}
+
+export async function registrarPagamentoParcial(
+  accessToken: string,
+  id: string,
+  valorPago: number,
+  formaPagamento: string,
+): Promise<{ quitado: boolean }> {
+  await requireAuth(accessToken)
+  const supabase = await createServiceClient()
+
+  // Busca o lancamento atual
+  const { data: lanc, error: errBusca } = await supabase
+    .from('lancamentos')
+    .select('valor, valor_pago')
+    .eq('id', id)
+    .single()
+  if (errBusca || !lanc) throw new Error('Lançamento não encontrado.')
+
+  const totalPagoAtualizado = (lanc.valor_pago ?? 0) + valorPago
+  const quitado = totalPagoAtualizado >= lanc.valor
+  const today = new Date().toISOString().split('T')[0]
+
+  const update: Record<string, unknown> = {
+    valor_pago: totalPagoAtualizado,
+    forma_pagamento: formaPagamento,
+    updated_at: new Date().toISOString(),
+  }
+  if (quitado) {
+    update.status = 'pago'
+    update.data_pagamento = today
+  }
+
+  const { error } = await supabase.from('lancamentos').update(update).eq('id', id)
+  if (error) throw new Error(error.message)
+  return { quitado }
 }
 
 export interface ItemPedido {
