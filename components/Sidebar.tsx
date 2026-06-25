@@ -22,6 +22,7 @@ const nav: NavGroup[] = [
       { href: '/painel/vendas', label: 'Painel de Vendas' },
       { href: '/painel/os', label: 'Ordens de Serviço' },
       { href: '/painel/consignado', label: 'Consignado' },
+      { href: '/painel/devolucoes', label: 'Devoluções' },
       { href: '/painel/pdv/operacao', label: 'Operação do PDV' },
       { href: '/painel/vales-credito', label: 'Vales de Crédito' },
       { href: '/painel/promocoes', label: 'Promoções' },
