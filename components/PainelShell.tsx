@@ -9,7 +9,7 @@ import { BotaoReport } from '@/components/BotaoReport'
 
 const PDV_PATHS = ['/painel/pdv', '/painel/pdv/operacao']
 
-export function PainelShell({ children, email }: { children: React.ReactNode; email: string }) {
+export function PainelShell({ children, email, nome, cargo }: { children: React.ReactNode; email: string; nome?: string; cargo?: string }) {
   const pathname = usePathname()
   const [aberta, setAberta] = useState(true)
 
@@ -38,7 +38,7 @@ export function PainelShell({ children, email }: { children: React.ReactNode; em
           <div className="flex items-center gap-3">
             <span className="text-xs font-bold tracking-widest text-gray-400 uppercase">PDV</span>
             <span className="text-gray-200">|</span>
-            <span className="text-xs text-gray-500">{email}</span>
+            <span className="text-xs text-gray-500">{nome ?? email}</span>
           </div>
           <Link
             href="/painel"
@@ -76,7 +76,10 @@ export function PainelShell({ children, email }: { children: React.ReactNode; em
           </div>
           <div className="flex items-center gap-4">
             <BotaoReport />
-            <span className="text-sm text-gray-500">{email}</span>
+            <div className="text-right">
+              <p className="text-sm font-medium text-gray-700">{nome ?? email}</p>
+              {cargo && <p className="text-xs text-gray-400 capitalize">{cargo}</p>}
+            </div>
           </div>
         </header>
         <main className="flex-1 overflow-y-auto p-6">

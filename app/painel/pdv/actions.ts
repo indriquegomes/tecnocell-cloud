@@ -34,8 +34,9 @@ export async function finalizarVenda(
   if (!deposito_id) return { erro: 'Depósito não selecionado' }
   if (pagamentos.length === 0) return { erro: 'Selecione a forma de pagamento' }
 
+  let usuario: { id: string; email: string | null }
   try {
-    await requireAuth(accessToken)
+    usuario = await requireAuth(accessToken)
   } catch (e) {
     return { erro: 'Sessão expirada. Recarregue a página (F5) e entre novamente. ' + (e instanceof Error ? e.message : '') }
   }
@@ -46,6 +47,14 @@ export async function finalizarVenda(
   } catch (e) {
     return { erro: 'Erro ao conectar ao banco: ' + String(e) }
   }
+
+  // Busca nome do vendedor no perfil
+  const { data: perfil } = await supabase
+    .from('perfis')
+    .select('nome')
+    .eq('id', usuario.id)
+    .maybeSingle()
+  const vendedorNome = perfil?.nome ?? usuario.email ?? ''
 
   const { data, error } = await supabase.rpc('finalizar_venda', {
     p_itens: itens,
@@ -58,6 +67,12 @@ export async function finalizarVenda(
 
   if (error) return { erro: error.message }
   if (!data) return { erro: 'RPC retornou vazio. Verifique o banco.' }
+
+  // Registra vendedor na venda (não-crítico, não bloqueia o retorno)
+  supabase.from('vendas').update({
+    vendedor_id: usuario.id,
+    vendedor_nome: vendedorNome,
+  }).eq('id', data.venda_id as string).then(() => {})
 
   return {
     vendaId: data.venda_id as string,
