@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { formatBRL } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { finalizarVenda, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, buscarPedidosAbertos, registrarConsignado, buscarDetalheVenda, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
+import { buscarSaldoCredito, usarCreditoVenda } from '@/app/painel/creditos/actions'
 
 // Lê o access token do navegador (cookie httpOnly:false). Fonte confiável de auth
 // para server actions — cookies() vem vazio em server actions na Vercel.
@@ -149,7 +150,21 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const [fichaSel, setFichaSel] = useState<Produto | null>(null)
   const [buscaFicha, setBuscaFicha] = useState('')
 
+  // Crédito do cliente
+  const [saldoCredito, setSaldoCredito] = useState(0)
+  const [creditoAplicado, setCreditoAplicado] = useState(0)
+
   const qtdRefs = useRef<Map<string, HTMLInputElement>>(new Map())
+
+  // Busca saldo de crédito ao selecionar cliente
+  useEffect(() => {
+    if (!pessoaId) { setSaldoCredito(0); setCreditoAplicado(0); return }
+    authToken().then((t) => {
+      if (!t) return
+      buscarSaldoCredito(t, pessoaId).then(({ saldo }) => setSaldoCredito(saldo)).catch(() => {})
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pessoaId])
 
   // Toast de aviso some sozinho após 4s
   useEffect(() => {
@@ -390,7 +405,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     parcelas: 1,
   })
 
-  const totalPagoDistribuido = pagamentos.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0)
+  const totalPagoDistribuido = pagamentos.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0) + creditoAplicado
   const totalTaxasPg = pagamentos.reduce((s, p) => s + taxaDoItem(p), 0)
   const totalCobrado = total + totalTaxasPg
   const faltamPg = Math.max(0, total - totalPagoDistribuido)
@@ -440,6 +455,17 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
         depositoId,
       )
       if ('erro' in result) { setErro(result.erro); return }
+
+      // Débita crédito do cliente se foi aplicado
+      if (creditoAplicado > 0 && pessoaId && clienteSelecionado) {
+        usarCreditoVenda(token, {
+          pessoa_id: pessoaId,
+          pessoa_nome: clienteSelecionado.nome,
+          valor: creditoAplicado,
+          venda_id: result.vendaId,
+        }).catch(() => {})
+      }
+
       const snap = {
         numero: result.vendaNumero ?? null,
         itens: carrinho.map(({ codigo, nome, quantidade, preco_unitario }) => ({ codigo, nome, quantidade, preco_unitario })),
@@ -474,6 +500,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
       setObservacoes('')
       setBuscaCliente('')
       setDescontoTipo('valor')
+      setCreditoAplicado(0)
+      setSaldoCredito(0)
       // Atualiza o saldo local do depósito vendido sem router.refresh() (que dispara check de sessão)
       if (result.estoqueAtualizado) {
         const vendidoEm = depositoId
@@ -1036,12 +1064,32 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
         {/* Cliente — compacto, no topo */}
         <div className="relative rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm">
           {clienteSelecionado ? (
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400 shrink-0">Cliente</span>
-              <span className="font-medium text-gray-800">👤 {clienteSelecionado.nome}</span>
-              {clienteSelecionado.cpf_cnpj && <span className="text-xs text-gray-400">{clienteSelecionado.cpf_cnpj}</span>}
-              <button type="button" onClick={() => { setPessoaId(''); setBuscaCliente('') }}
-                className="ml-auto text-xs font-medium text-red-400 hover:text-red-600">✕</button>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400 shrink-0">Cliente</span>
+                <span className="font-medium text-gray-800">👤 {clienteSelecionado.nome}</span>
+                {clienteSelecionado.cpf_cnpj && <span className="text-xs text-gray-400">{clienteSelecionado.cpf_cnpj}</span>}
+                <button type="button" onClick={() => { setPessoaId(''); setBuscaCliente(''); setCreditoAplicado(0) }}
+                  className="ml-auto text-xs font-medium text-red-400 hover:text-red-600">✕</button>
+              </div>
+              {saldoCredito > 0.01 && (
+                <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 px-2.5 py-1.5">
+                  <span className="text-xs text-green-700 font-medium">🏦 Saldo em conta: {formatBRL(saldoCredito)}</span>
+                  {creditoAplicado === 0 ? (
+                    <button type="button"
+                      onClick={() => setCreditoAplicado(Math.min(saldoCredito, total > 0 ? total : saldoCredito))}
+                      className="ml-auto rounded-md bg-green-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-green-700 transition">
+                      Usar →
+                    </button>
+                  ) : (
+                    <span className="ml-auto text-xs font-bold text-green-700">-{formatBRL(creditoAplicado)} aplicado</span>
+                  )}
+                  {creditoAplicado > 0 && (
+                    <button type="button" onClick={() => setCreditoAplicado(0)}
+                      className="text-xs text-red-400 hover:text-red-600">✕</button>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex items-center gap-2">
