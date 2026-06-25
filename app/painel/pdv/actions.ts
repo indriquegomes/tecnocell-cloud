@@ -68,11 +68,21 @@ export async function finalizarVenda(
   if (error) return { erro: error.message }
   if (!data) return { erro: 'RPC retornou vazio. Verifique o banco.' }
 
-  // Registra vendedor na venda (não-crítico, não bloqueia o retorno)
+  // Registra vendedor + linka lancamento de fiado ao venda_id (não-crítico)
+  const vendaId = data.venda_id as string
   supabase.from('vendas').update({
     vendedor_id: usuario.id,
     vendedor_nome: vendedorNome,
-  }).eq('id', data.venda_id as string).then(() => {})
+  }).eq('id', vendaId).then(() => {})
+
+  // Linka qualquer lancamento fiado criado agora com o venda_id
+  supabase.from('lancamentos')
+    .update({ venda_id: vendaId })
+    .eq('tipo', 'receber')
+    .eq('status', 'pendente')
+    .is('venda_id', null)
+    .gte('created_at', new Date(Date.now() - 15000).toISOString())
+    .then(() => {})
 
   return {
     vendaId: data.venda_id as string,
@@ -89,6 +99,21 @@ export interface CrediarioItem {
   pessoa_nome: string | null
   data_vencimento: string | null
   created_at: string
+  codigo: number | null
+  venda_id: string | null
+}
+
+export interface DetalheVenda {
+  id: string
+  numero: number | null
+  total: number
+  desconto: number
+  created_at: string
+  vendedor_nome: string | null
+  deposito_nome: string | null
+  observacoes: string | null
+  forma_pagamento_nome: string | null
+  itens: { nome: string; quantidade: number; preco_unitario: number; total_item: number }[]
 }
 
 export async function buscarCrediario(accessToken: string): Promise<CrediarioItem[]> {
@@ -96,12 +121,60 @@ export async function buscarCrediario(accessToken: string): Promise<CrediarioIte
   const supabase = await createServiceClient()
   const { data, error } = await supabase
     .from('lancamentos')
-    .select('id, descricao, valor, pessoa_nome, data_vencimento, created_at')
+    .select('id, descricao, valor, pessoa_nome, data_vencimento, created_at, codigo, venda_id')
     .eq('tipo', 'receber')
     .eq('status', 'pendente')
     .order('data_vencimento', { ascending: true })
   if (error) throw new Error(error.message)
   return (data ?? []) as CrediarioItem[]
+}
+
+export async function buscarDetalheVenda(accessToken: string, vendaId: string): Promise<DetalheVenda | null> {
+  await requireAuth(accessToken)
+  const supabase = await createServiceClient()
+
+  const [vendaRes, itensRes] = await Promise.all([
+    supabase
+      .from('vendas')
+      .select('id, numero, total, desconto, created_at, vendedor_nome, observacoes, forma_pagamento_id, deposito_id')
+      .eq('id', vendaId)
+      .maybeSingle(),
+    supabase
+      .from('itens_venda')
+      .select('quantidade, preco_unitario, total_item, produtos(nome)')
+      .eq('venda_id', vendaId),
+  ])
+
+  if (!vendaRes.data) return null
+  const v = vendaRes.data
+
+  // Busca nomes de forma e depósito
+  const [formaRes, depositoRes] = await Promise.all([
+    v.forma_pagamento_id
+      ? supabase.from('formas_pagamento').select('nome').eq('id', v.forma_pagamento_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    v.deposito_id
+      ? supabase.from('depositos').select('nome').eq('id', v.deposito_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
+
+  return {
+    id: v.id,
+    numero: v.numero ?? null,
+    total: v.total,
+    desconto: v.desconto ?? 0,
+    created_at: v.created_at,
+    vendedor_nome: v.vendedor_nome ?? null,
+    deposito_nome: depositoRes.data?.nome ?? null,
+    observacoes: v.observacoes ?? null,
+    forma_pagamento_nome: formaRes.data?.nome ?? null,
+    itens: ((itensRes.data ?? []) as unknown as { quantidade: number; preco_unitario: number; total_item: number; produtos: { nome: string } | null }[]).map((i) => ({
+      nome: i.produtos?.nome ?? '—',
+      quantidade: i.quantidade,
+      preco_unitario: i.preco_unitario,
+      total_item: i.total_item,
+    })),
+  }
 }
 
 export async function pagarLancamentos(accessToken: string, ids: string[], formaPagamento = 'dinheiro'): Promise<void> {

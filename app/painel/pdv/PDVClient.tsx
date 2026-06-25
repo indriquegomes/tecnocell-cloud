@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { formatBRL } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
-import { finalizarVenda, buscarVendas, buscarCrediario, pagarLancamentos, buscarPedidosAbertos, registrarConsignado, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo } from './actions'
+import { finalizarVenda, buscarVendas, buscarCrediario, pagarLancamentos, buscarPedidosAbertos, registrarConsignado, buscarDetalheVenda, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
 
 // Lê o access token do navegador (cookie httpOnly:false). Fonte confiável de auth
 // para server actions — cookies() vem vazio em server actions na Vercel.
@@ -127,6 +127,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const [pagandoCrediario, setPagandoCrediario] = useState(false)
   const [pagoCrediarioOk, setPagoCrediarioOk] = useState(false)
   const [formaCrediario, setFormaCrediario] = useState<string>('dinheiro')
+  const [detalheVenda, setDetalheVenda] = useState<DetalheVenda | null>(null)
+  const [carregandoDetalhe, setCarregandoDetalhe] = useState(false)
   // F12 — Saída Consignada
   const [mostrarConsignado, setMostrarConsignado] = useState(false)
   const [obsConsignado, setObsConsignado] = useState('')
@@ -587,10 +589,24 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     }
   }
 
+  const handleVerVenda = async (vendaId: string) => {
+    setCarregandoDetalhe(true)
+    setDetalheVenda(null)
+    try {
+      const d = await buscarDetalheVenda(await authToken(), vendaId)
+      setDetalheVenda(d)
+    } catch {
+      setErro('Não foi possível carregar os detalhes da venda.')
+    } finally {
+      setCarregandoDetalhe(false)
+    }
+  }
+
   const hoje = new Date().toISOString().split('T')[0]
-  const codCrediario = (descricao: string) => {
-    const m = descricao.match(/#([a-f0-9]{8})/i)
-    return m ? m[1].toUpperCase() : '—'
+  const codCrediario = (item: CrediarioItem) => {
+    if (item.codigo) return `#${item.codigo}`
+    const m = item.descricao?.match(/#([a-f0-9]{8})/i)
+    return m ? `#${m[1].toUpperCase()}` : '—'
   }
   const statusCrediario = (dataVenc: string | null) => {
     if (!dataVenc) return { label: 'Pendente', cor: 'text-gray-500' }
@@ -602,7 +618,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const crediarioFiltrado = buscaCrediario.trim()
     ? crediarioItens.filter((i) =>
         (i.pessoa_nome ?? '').toLowerCase().includes(buscaCrediario.toLowerCase()) ||
-        codCrediario(i.descricao).toLowerCase().includes(buscaCrediario.toLowerCase())
+        codCrediario(i).toLowerCase().includes(buscaCrediario.toLowerCase())
       )
     : crediarioItens
 
@@ -1538,7 +1554,20 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                               </button>
                             </div>
                           </td>
-                          <td className="px-4 py-3 font-mono text-xs text-gray-600">{codCrediario(item.descricao)}</td>
+                          <td className="px-4 py-3 font-mono text-xs">
+                            {item.venda_id ? (
+                              <button
+                                type="button"
+                                onClick={() => handleVerVenda(item.venda_id!)}
+                                className="text-blue-600 hover:text-blue-800 hover:underline font-semibold transition"
+                                title="Ver detalhes da venda"
+                              >
+                                {codCrediario(item)}
+                              </button>
+                            ) : (
+                              <span className="text-gray-500">{codCrediario(item)}</span>
+                            )}
+                          </td>
                           <td className="px-4 py-3 text-gray-800">{item.pessoa_nome ?? <span className="text-gray-400 italic">—</span>}</td>
                           <td className={`px-4 py-3 font-semibold ${st.cor}`}>{st.label}</td>
                           <td className="px-4 py-3 text-right font-semibold text-gray-900">{formatBRL(item.valor)}</td>
@@ -1604,6 +1633,87 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                 <p className="text-center text-sm font-medium text-green-600">✓ Pagamento registrado com sucesso.</p>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Detalhe da Venda */}
+      {(detalheVenda || carregandoDetalhe) && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+              <h3 className="text-lg font-bold text-gray-900">
+                {detalheVenda ? `Venda ${detalheVenda.numero ? `#${detalheVenda.numero}` : ''}` : 'Carregando...'}
+              </h3>
+              <button type="button" onClick={() => setDetalheVenda(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+
+            {carregandoDetalhe && <p className="py-16 text-center text-sm text-gray-400">Carregando...</p>}
+
+            {detalheVenda && (
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+                {/* Cabeçalho */}
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">Data / Hora</p>
+                    <p className="font-semibold text-gray-900">
+                      {new Date(detalheVenda.created_at).toLocaleString('pt-BR')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">Vendedor</p>
+                    <p className="font-semibold text-gray-900">{detalheVenda.vendedor_nome ?? '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">Depósito</p>
+                    <p className="font-semibold text-gray-900">{detalheVenda.deposito_nome ?? '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">Forma de Pagamento</p>
+                    <p className="font-semibold text-gray-900">{detalheVenda.forma_pagamento_nome ?? '—'}</p>
+                  </div>
+                </div>
+
+                {/* Produtos */}
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Itens</p>
+                  <div className="divide-y divide-gray-100 rounded-xl border border-gray-200">
+                    {detalheVenda.itens.length === 0 ? (
+                      <p className="py-4 text-center text-sm text-gray-400">Sem itens</p>
+                    ) : detalheVenda.itens.map((it, i) => (
+                      <div key={i} className="flex items-center justify-between px-4 py-3">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{it.nome}</p>
+                          <p className="text-xs text-gray-500">{it.quantidade}x · {formatBRL(it.preco_unitario)} cada</p>
+                        </div>
+                        <p className="text-sm font-bold text-gray-900">{formatBRL(it.total_item)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Totais */}
+                <div className="rounded-xl border border-gray-200 divide-y divide-gray-100">
+                  {detalheVenda.desconto > 0 && (
+                    <div className="flex justify-between px-4 py-2 text-sm">
+                      <span className="text-gray-500">Desconto</span>
+                      <span className="text-red-600">- {formatBRL(detalheVenda.desconto)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between px-4 py-3 text-sm font-bold">
+                    <span>Total</span>
+                    <span className="text-green-700">{formatBRL(detalheVenda.total)}</span>
+                  </div>
+                </div>
+
+                {detalheVenda.observacoes && (
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Observações</p>
+                    <p className="text-sm text-gray-700 italic">{detalheVenda.observacoes}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
