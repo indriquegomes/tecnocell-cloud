@@ -59,10 +59,14 @@ export function DevolucoesClient({ devolucoes }: { devolucoes: DevolucaoResumo[]
 
   const buscarVendas = useCallback(async (q: string) => {
     setCarregandoBusca(true)
+    setErro('')
     try {
       const t = await authToken()
+      if (!t) { setErro('Sessão expirada. Recarregue a página.'); return }
       const r = await buscarVendasRecentes(t, q)
       setVendasRecentes(r)
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Erro ao buscar vendas.')
     } finally {
       setCarregandoBusca(false)
     }
@@ -225,9 +229,10 @@ export function DevolucoesClient({ devolucoes }: { devolucoes: DevolucaoResumo[]
                     placeholder="Buscar por nome do cliente..."
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                  {erro && <p className="py-2 text-center text-sm text-red-500">{erro}</p>}
                   {carregandoBusca ? (
                     <p className="py-4 text-center text-sm text-gray-400">Buscando...</p>
-                  ) : vendasRecentes.length === 0 ? (
+                  ) : vendasRecentes.length === 0 && !erro ? (
                     <p className="py-4 text-center text-sm text-gray-400">Nenhuma venda encontrada.</p>
                   ) : (
                     <div className="divide-y divide-gray-100 rounded-xl border border-gray-100 overflow-hidden">
