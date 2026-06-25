@@ -604,8 +604,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     if (!recebendoItem) return
     setPagandoCrediario(true)
     try {
-      const valorNum = parseFloat(valorRecebido.replace(',', '.'))
+      const restante = recebendoItem.valor - (recebendoItem.valor_pago ?? 0)
+      let valorNum = parseFloat(valorRecebido.replace(',', '.'))
       if (isNaN(valorNum) || valorNum <= 0) { setErro('Valor inválido.'); return }
+      if (valorNum > restante) valorNum = restante
       const { quitado } = await registrarPagamentoParcial(await authToken(), recebendoItem.id, valorNum, formaRecebimento)
       if (quitado) {
         setCrediarioItens((prev) => prev.filter((i) => i.id !== recebendoItem.id))
