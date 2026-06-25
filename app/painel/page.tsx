@@ -25,9 +25,10 @@ export default async function DashboardPage() {
     supabase
       .from('vendas')
       .select('total')
+      .eq('status', 'concluida')
       .gte('created_at', new Date().toISOString().split('T')[0]),
-    supabase.from('lancamentos').select('valor').eq('tipo', 'receber').or('status.neq.pago,status.is.null'),
-    supabase.from('lancamentos').select('valor').eq('tipo', 'pagar').or('status.neq.pago,status.is.null'),
+    supabase.from('lancamentos').select('valor').eq('tipo', 'receber').eq('status', 'pendente'),
+    supabase.from('lancamentos').select('valor').eq('tipo', 'pagar').eq('status', 'pendente'),
   ])
 
   const itensEmEstoque = (estoqueItems ?? []).length
