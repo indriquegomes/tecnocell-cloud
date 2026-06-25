@@ -2,10 +2,13 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import {
   buscarVendasRecentes, buscarVendaParaDevolucao, registrarDevolucao, buscarItensDevolucao,
-  type DevolucaoResumo, type VendaParaDevolucao, type ItemVendaParaDevolucao,
+  type DevolucaoResumo, type VendaParaDevolucao,
 } from './actions'
+
+const supabaseBrowser = createClient()
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtData = (s: string) => new Date(s).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
@@ -50,9 +53,8 @@ export function DevolucoesClient({ devolucoes }: { devolucoes: DevolucaoResumo[]
   const [carregandoDetalhe, setCarregandoDetalhe] = useState(false)
 
   const authToken = async () => {
-    const r = await fetch('/api/auth/token')
-    const j = await r.json()
-    return j.access_token as string
+    const { data } = await supabaseBrowser.auth.getSession()
+    return data.session?.access_token ?? ''
   }
 
   const buscarVendas = useCallback(async (q: string) => {
