@@ -44,7 +44,7 @@ export async function buscarVendaParaDevolucao(
   const [vendaRes, itensRes, lancRes] = await Promise.all([
     supabase
       .from('vendas')
-      .select('id, total, created_at, vendedor_nome, deposito_id, forma_pagamento_id, pessoa_id, pessoas!pessoa_id(nome)')
+      .select('id, total, created_at, vendedor_nome, forma_pagamento_id, pessoa_id, pessoas!pessoa_id(nome)')
       .eq('id', vendaId)
       .maybeSingle(),
     supabase
@@ -64,7 +64,7 @@ export async function buscarVendaParaDevolucao(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const vRaw = vendaRes.data as any
   const pessoaNome = (vRaw.pessoas?.nome ?? vRaw.vendedor_nome ?? null) as string | null
-  const v = { ...vRaw, pessoa_nome: pessoaNome } as {
+  const v = { ...vRaw, pessoa_nome: pessoaNome, deposito_id: null } as {
     id: string; total: number; created_at: string
     pessoa_nome: string | null; vendedor_nome: string | null
     deposito_id: string | null; forma_pagamento_id: string | null

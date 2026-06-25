@@ -75,6 +75,7 @@ export function DevolucoesClient({ devolucoes }: { devolucoes: DevolucaoResumo[]
   const selecionarVenda = async (id: string) => {
     setVendaId(id)
     setCarregandoVenda(true)
+    setErro('')
     try {
       const t = await authToken()
       const v = await buscarVendaParaDevolucao(t, id)
@@ -83,10 +84,13 @@ export function DevolucoesClient({ devolucoes }: { devolucoes: DevolucaoResumo[]
         const map = new Map<string, number>()
         v.itens.forEach((i) => map.set(i.produto_id, i.quantidade))
         setItensSelecionados(map)
-        // Define tipo crédito inicial baseado no pagamento
         setTipoCredito(v.lancamento_pendente ? 'cancelamento_fiado' : 'dinheiro')
         setStep('itens')
+      } else {
+        setErro('Venda não encontrada.')
       }
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Erro ao carregar venda.')
     } finally {
       setCarregandoVenda(false)
     }
