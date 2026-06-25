@@ -126,9 +126,12 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
   const [pagandoCrediario, setPagandoCrediario] = useState(false)
   const [pagoCrediarioOk, setPagoCrediarioOk] = useState(false)
-  const [formaCrediario, setFormaCrediario] = useState<string>('dinheiro')
   const [detalheVenda, setDetalheVenda] = useState<DetalheVenda | null>(null)
   const [carregandoDetalhe, setCarregandoDetalhe] = useState(false)
+  // Modal de recebimento por linha
+  const [recebendoItem, setRecebendoItem] = useState<CrediarioItem | null>(null)
+  const [formaRecebimento, setFormaRecebimento] = useState<string>('dinheiro')
+  const [valorRecebido, setValorRecebido] = useState<string>('')
   // F12 — Saída Consignada
   const [mostrarConsignado, setMostrarConsignado] = useState(false)
   const [obsConsignado, setObsConsignado] = useState('')
@@ -572,14 +575,15 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     }
   }
 
-  const handlePagarCrediario = async (ids: string[]) => {
+  const handlePagarCrediario = async (ids: string[], forma: string) => {
     if (ids.length === 0) return
     setPagandoCrediario(true)
     setPagoCrediarioOk(false)
     try {
-      await pagarLancamentos(await authToken(), ids, formaCrediario)
+      await pagarLancamentos(await authToken(), ids, forma)
       setCrediarioItens((prev) => prev.filter((i) => !ids.includes(i.id)))
       setSelecionados(new Set())
+      setRecebendoItem(null)
       setPagoCrediarioOk(true)
       setTimeout(() => setPagoCrediarioOk(false), 3000)
     } catch {
@@ -587,6 +591,12 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     } finally {
       setPagandoCrediario(false)
     }
+  }
+
+  const handleAbrirRecebimento = (item: CrediarioItem) => {
+    setRecebendoItem(item)
+    setFormaRecebimento('dinheiro')
+    setValorRecebido(item.valor.toFixed(2).replace('.', ','))
   }
 
   const handleVerVenda = async (vendaId: string) => {
@@ -1540,20 +1550,13 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                             />
                           </td>
                           <td className="px-2 py-3">
-                            <div className="flex items-center gap-2">
-                              <button type="button"
-                                title={item.pessoa_nome ?? 'Cliente não identificado'}
-                                className="text-blue-400 hover:text-blue-600 transition text-base leading-none">
-                                👤
-                              </button>
-                              <button type="button"
-                                onClick={() => handlePagarCrediario([item.id])}
-                                disabled={pagandoCrediario}
-                                title="Pagar este lançamento"
-                                className="flex h-7 w-7 items-center justify-center rounded-full border border-green-200 bg-green-50 text-green-600 hover:bg-green-100 transition text-sm disabled:opacity-50">
-                                $
-                              </button>
-                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleAbrirRecebimento(item)}
+                              title="Registrar recebimento"
+                              className="flex h-7 w-7 items-center justify-center rounded-full border border-green-300 bg-green-50 text-green-700 hover:bg-green-100 transition text-sm font-bold">
+                              $
+                            </button>
                           </td>
                           <td className="px-4 py-3 font-mono text-xs">
                             {item.venda_id ? (
@@ -1585,54 +1588,91 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
               )}
             </div>
 
-            {/* Rodapé — subtotal da seleção + botão pagar */}
-            <div className="border-t border-gray-100 px-6 py-4">
-              <div className="mb-3 grid grid-cols-3 divide-x divide-gray-100 rounded-xl border border-gray-200 bg-gray-50">
-                {[
-                  { label: 'Subtotal selecionado', valor: subtotalSelecionado },
-                  { label: 'Juros a cobrar', valor: 0 },
-                  { label: 'Total a cobrar', valor: subtotalSelecionado },
-                ].map(({ label, valor }) => (
-                  <div key={label} className="px-4 py-2 text-center">
-                    <p className="text-xs text-gray-500">{label}</p>
-                    <p className="font-bold text-gray-900">{formatBRL(valor)}</p>
-                  </div>
-                ))}
+            {/* Rodapé simples — só totais + feedback */}
+            <div className="border-t border-gray-100 px-6 py-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Total em aberto</span>
+                <span className="font-bold text-gray-900">{formatBRL(totalDividas)}</span>
+              </div>
+              {pagoCrediarioOk && (
+                <p className="mt-2 text-center text-sm font-medium text-green-600">✓ Pagamento registrado com sucesso.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Receber Pagamento (por linha) */}
+      {recebendoItem && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Registrar Recebimento</h3>
+                <p className="text-xs text-gray-500 mt-0.5">{recebendoItem.pessoa_nome ?? 'Cliente não identificado'}</p>
+              </div>
+              <button type="button" onClick={() => setRecebendoItem(null)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+            </div>
+
+            <div className="px-6 py-5 space-y-4">
+              {/* Valor em aberto */}
+              <div className="rounded-xl bg-gray-50 px-4 py-3 flex justify-between items-center">
+                <span className="text-sm text-gray-500">Valor em aberto</span>
+                <span className="font-bold text-gray-900">{formatBRL(recebendoItem.valor)}</span>
               </div>
 
-              {/* Forma de recebimento */}
-              <div className="mb-3">
-                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">Recebido em</p>
-                <div className="grid grid-cols-4 gap-2">
+              {/* Valor a receber (editável) */}
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Valor recebido
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">R$</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={valorRecebido}
+                    onChange={(e) => setValorRecebido(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 py-3 pl-9 pr-4 text-right text-lg font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Forma de pagamento */}
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Forma de recebimento
+                </label>
+                <div className="grid grid-cols-2 gap-2">
                   {[
-                    { valor: 'dinheiro', label: '💵 Dinheiro' },
-                    { valor: 'pix', label: '💠 PIX' },
-                    { valor: 'debito', label: '💳 Débito' },
-                    { valor: 'credito', label: '💳 Crédito' },
+                    { v: 'dinheiro', l: '💵 Dinheiro' },
+                    { v: 'pix',      l: '💠 PIX' },
+                    { v: 'debito',   l: '💳 Débito' },
+                    { v: 'credito',  l: '💳 Crédito' },
                   ].map((op) => (
                     <button
-                      key={op.valor}
+                      key={op.v}
                       type="button"
-                      onClick={() => setFormaCrediario(op.valor)}
-                      className={`rounded-lg border py-2 text-xs font-semibold transition ${formaCrediario === op.valor ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+                      onClick={() => setFormaRecebimento(op.v)}
+                      className={`rounded-xl border py-2.5 text-sm font-semibold transition ${formaRecebimento === op.v ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
                     >
-                      {op.label}
+                      {op.l}
                     </button>
                   ))}
                 </div>
               </div>
 
+              {/* Botão confirmar */}
               <button
                 type="button"
-                onClick={() => handlePagarCrediario(Array.from(selecionados))}
-                disabled={selecionados.size === 0 || pagandoCrediario}
+                disabled={pagandoCrediario}
+                onClick={() => handlePagarCrediario([recebendoItem.id], formaRecebimento)}
                 className="w-full rounded-xl bg-green-600 py-3 text-sm font-bold text-white hover:bg-green-700 transition disabled:opacity-50"
               >
-                {pagandoCrediario ? 'Registrando...' : `Pagar${selecionados.size > 0 ? ` (${selecionados.size} selecionado${selecionados.size > 1 ? 's' : ''})` : ''} — ${formatBRL(subtotalSelecionado)}`}
+                {pagandoCrediario
+                  ? 'Registrando...'
+                  : `Confirmar — ${valorRecebido ? `R$ ${valorRecebido}` : formatBRL(recebendoItem.valor)}`}
               </button>
-              {pagoCrediarioOk && (
-                <p className="text-center text-sm font-medium text-green-600">✓ Pagamento registrado com sucesso.</p>
-              )}
             </div>
           </div>
         </div>
