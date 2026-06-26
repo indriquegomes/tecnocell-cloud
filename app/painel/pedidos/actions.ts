@@ -5,13 +5,28 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 export async function criarPedido(formData: FormData) {
-  await requireAuth()
+  const usuario = await requireAuth()
   const supabase = await createServiceClient()
+
+  // Captura nome do vendedor
+  const { data: perfil } = await supabase
+    .from('perfis')
+    .select('nome')
+    .eq('id', usuario.id)
+    .maybeSingle()
+  const vendedorNome = (perfil as { nome?: string } | null)?.nome ?? usuario.email ?? ''
+
   const { data: pedido, error } = await supabase.from('pedidos').insert({
-    tipo: formData.get('tipo') as string,
-    pessoa_id: (formData.get('pessoa_id') as string) || null,
-    observacoes: (formData.get('observacoes') as string) || null,
-    data_validade: (formData.get('data_validade') as string) || null,
+    tipo:               formData.get('tipo') as string,
+    pessoa_id:          (formData.get('pessoa_id') as string) || null,
+    observacoes:        (formData.get('observacoes') as string) || null,
+    data_validade:      (formData.get('data_validade') as string) || null,
+    deposito_id:        (formData.get('deposito_id') as string) || null,
+    tabela_preco_id:    (formData.get('tabela_preco_id') as string) || null,
+    forma_pagamento_id: (formData.get('forma_pagamento_id') as string) || null,
+    origem:             (formData.get('origem') as string) || 'balcao',
+    vendedor_id:        usuario.id,
+    vendedor_nome:      vendedorNome,
     status: 'rascunho',
     total: 0,
   }).select('id').single()

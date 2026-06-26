@@ -7,13 +7,21 @@ import { adicionarItemPedido, removerItemPedido, atualizarStatusPedido } from '.
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtDate = (d: string) => new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
 
+const ORIGEM_LABEL: Record<string, string> = {
+  balcao:    'Balcão',
+  whatsapp:  'WhatsApp',
+  telefone:  'Telefone',
+  instagram: 'Instagram',
+  outro:     'Outro',
+}
+
 const STATUS_LABEL: Record<string, string> = {
   rascunho: 'Rascunho', aprovado: 'Aprovado', faturado: 'Faturado', cancelado: 'Cancelado',
 }
 const STATUS_COLOR: Record<string, string> = {
-  rascunho: 'bg-gray-100 text-gray-500',
-  aprovado: 'bg-blue-100 text-blue-700',
-  faturado: 'bg-green-100 text-green-700',
+  rascunho:  'bg-gray-100 text-gray-500',
+  aprovado:  'bg-blue-100 text-blue-700',
+  faturado:  'bg-green-100 text-green-700',
   cancelado: 'bg-red-100 text-red-600',
 }
 
@@ -32,6 +40,7 @@ export function PedidoDetalheClient({
   pedido,
   itensIniciais,
   produtos,
+  precoTabela,
 }: {
   pedido: {
     id: string
@@ -42,16 +51,22 @@ export function PedidoDetalheClient({
     data_validade: string | null
     observacoes: string | null
     created_at: string
-    pessoas: { nome: string } | null
+    pessoa_nome: string | null
+    deposito_nome: string | null
+    forma_pagamento_nome: string | null
+    vendedor_nome: string | null
+    origem: string | null
   }
   itensIniciais: Item[]
   produtos: Produto[]
+  precoTabela: Record<string, number>
+  depositos: { id: string; nome: string }[]
+  formas: { id: string; nome: string }[]
 }) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [itens, setItens] = useState(itensIniciais)
 
-  // Adicionar produto
   const [busca, setBusca] = useState('')
   const [produtoSel, setProdutoSel] = useState<Produto | null>(null)
   const [quantidade, setQuantidade] = useState('1')
@@ -59,18 +74,18 @@ export function PedidoDetalheClient({
   const [adicionando, setAdicionando] = useState(false)
   const [erroAdd, setErroAdd] = useState('')
 
-  const idsNaLista = useMemo(() => new Set(itens.map((i) => i.produto_id)), [itens])
-
   const sugestoes = useMemo(() => {
     const q = busca.toLowerCase().trim()
     if (!q || produtoSel) return []
-    return produtos.filter((p) => p.nome.toLowerCase().includes(q)).slice(0, 8)
+    return produtos.filter(p => p.nome.toLowerCase().includes(q)).slice(0, 8)
   }, [busca, produtos, produtoSel])
 
   const selecionarProduto = (p: Produto) => {
     setProdutoSel(p)
     setBusca(p.nome)
-    setPrecoUnit(p.preco?.toString() ?? '')
+    // Usa preço da tabela se disponível, senão preço padrão
+    const preco = precoTabela[p.id] ?? p.preco
+    setPrecoUnit(preco?.toString() ?? '')
   }
 
   const handleAdicionar = async () => {
@@ -85,17 +100,14 @@ export function PedidoDetalheClient({
     if (res?.error) {
       setErroAdd(res.error)
     } else {
-      setBusca('')
-      setProdutoSel(null)
-      setQuantidade('1')
-      setPrecoUnit('')
+      setBusca(''); setProdutoSel(null); setQuantidade('1'); setPrecoUnit('')
       router.refresh()
     }
     setAdicionando(false)
   }
 
   const handleRemover = (itemId: string) => {
-    setItens((prev) => prev.filter((i) => i.id !== itemId))
+    setItens(prev => prev.filter(i => i.id !== itemId))
     startTransition(async () => {
       await removerItemPedido(itemId, pedido.id)
       router.refresh()
@@ -111,6 +123,7 @@ export function PedidoDetalheClient({
 
   const podeEditar = pedido.status === 'rascunho'
   const totalAtual = itens.reduce((s, i) => s + (i.total_item ?? 0), 0)
+  const temTabela = Object.keys(precoTabela).length > 0
 
   return (
     <div className="space-y-6">
@@ -126,27 +139,24 @@ export function PedidoDetalheClient({
             </span>
           </div>
           <p className="text-sm text-gray-400 mt-0.5">
-            {pedido.pessoas?.nome ?? 'Sem cliente'} · {fmtDate(pedido.created_at)}
+            {pedido.pessoa_nome ?? 'Sem cliente'} · {fmtDate(pedido.created_at)}
             {pedido.data_validade && ` · Válido até ${new Date(pedido.data_validade).toLocaleDateString('pt-BR')}`}
           </p>
         </div>
 
         <div className="flex gap-2 flex-shrink-0">
-          {/* Aprovar */}
           {pedido.status === 'rascunho' && (
             <button onClick={() => handleStatus('aprovado')}
               className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
               Aprovar
             </button>
           )}
-          {/* Abrir no PDV */}
           {(pedido.status === 'rascunho' || pedido.status === 'aprovado') && itens.length > 0 && (
             <a href={`/painel/pdv?pedido=${pedido.id}`}
               className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
               Abrir no PDV
             </a>
           )}
-          {/* Cancelar */}
           {pedido.status !== 'cancelado' && pedido.status !== 'faturado' && (
             <button
               onClick={() => { if (confirm('Cancelar este pedido/orçamento?')) handleStatus('cancelado') }}
@@ -157,10 +167,32 @@ export function PedidoDetalheClient({
         </div>
       </div>
 
-      {/* Adicionar produto — só em rascunho */}
+      {/* Info cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Vendedor',    valor: pedido.vendedor_nome },
+          { label: 'Depósito',   valor: pedido.deposito_nome },
+          { label: 'Pagamento',  valor: pedido.forma_pagamento_nome },
+          { label: 'Origem',     valor: ORIGEM_LABEL[pedido.origem ?? ''] ?? pedido.origem },
+        ].map(({ label, valor }) => (
+          <div key={label} className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+            <p className="text-xs font-semibold uppercase text-gray-400">{label}</p>
+            <p className="text-sm font-medium text-gray-700 mt-0.5">{valor ?? <span className="text-gray-300">—</span>}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Adicionar produto */}
       {podeEditar && (
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
-          <h3 className="font-semibold text-gray-800">Adicionar Produto</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-gray-800">Adicionar Produto</h3>
+            {temTabela && (
+              <span className="text-xs text-blue-600 bg-blue-50 rounded-full px-2.5 py-1 font-medium">
+                Preços da tabela selecionada
+              </span>
+            )}
+          </div>
           <div className="flex flex-wrap gap-4 items-end">
             <div className="relative flex-1 min-w-56">
               <label className="mb-1.5 block text-sm font-medium text-gray-700">Produto</label>
@@ -172,13 +204,22 @@ export function PedidoDetalheClient({
               />
               {sugestoes.length > 0 && (
                 <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
-                  {sugestoes.map((p) => (
-                    <button key={p.id} type="button" onClick={() => selecionarProduto(p)}
-                      className="flex w-full items-center justify-between px-4 py-2.5 hover:bg-blue-50 text-left text-sm">
-                      <span className="font-medium text-gray-800">{p.nome}</span>
-                      <span className="text-gray-400 text-xs ml-2">{fmt(p.preco ?? 0)}</span>
-                    </button>
-                  ))}
+                  {sugestoes.map(p => {
+                    const precoTb = precoTabela[p.id]
+                    return (
+                      <button key={p.id} type="button" onClick={() => selecionarProduto(p)}
+                        className="flex w-full items-center justify-between px-4 py-2.5 hover:bg-blue-50 text-left text-sm">
+                        <span className="font-medium text-gray-800">{p.nome}</span>
+                        <span className="text-xs ml-2 text-right">
+                          {precoTb != null ? (
+                            <span className="text-blue-600 font-semibold">{fmt(precoTb)}</span>
+                          ) : (
+                            <span className="text-gray-400">{fmt(p.preco ?? 0)}</span>
+                          )}
+                        </span>
+                      </button>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -218,7 +259,7 @@ export function PedidoDetalheClient({
               <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">
                 Nenhum item adicionado.
               </td></tr>
-            ) : itens.map((item) => (
+            ) : itens.map(item => (
               <tr key={item.id} className="hover:bg-gray-50 group">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{item.produtos?.nome ?? '—'}</td>
                 <td className="px-4 py-3 text-sm text-right text-gray-600">{item.quantidade}</td>
@@ -238,7 +279,7 @@ export function PedidoDetalheClient({
           {itens.length > 0 && (
             <tfoot className="bg-gray-50">
               <tr>
-                <td colSpan={podeEditar ? 3 : 3} className="px-4 py-3 text-sm font-semibold text-gray-700 text-right">Total</td>
+                <td colSpan={3} className="px-4 py-3 text-sm font-semibold text-gray-700 text-right">Total</td>
                 <td className="px-4 py-3 text-base font-bold text-gray-900 text-right">{fmt(totalAtual)}</td>
                 {podeEditar && <td />}
               </tr>
