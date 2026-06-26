@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { adicionarItemPedido, removerItemPedido, atualizarStatusPedido, atualizarInfoPedido } from '../actions'
+import { adicionarItemPedido, removerItemPedido, atualizarStatusPedido, atualizarInfoPedido, atualizarDescontoFrete } from '../actions'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtDate = (d: string) => new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
@@ -60,6 +60,8 @@ export function PedidoDetalheClient({
     forma_pagamento_nome: string | null
     vendedor_nome: string | null
     origem: string | null
+    desconto: number
+    frete: number
   }
   itensIniciais: Item[]
   produtos: Produto[]
@@ -78,6 +80,20 @@ export function PedidoDetalheClient({
   const [infoFormaId, setInfoFormaId] = useState<string>(pedido.forma_pagamento_id ?? '')
   const [infoOrigem, setInfoOrigem] = useState(pedido.origem ?? 'balcao')
   const [salvandoInfo, setSalvandoInfo] = useState(false)
+
+  // Desconto e frete
+  const [desconto, setDesconto] = useState(pedido.desconto)
+  const [frete, setFrete] = useState(pedido.frete)
+  const [editandoTotal, setEditandoTotal] = useState(false)
+  const [salvandoTotal, setSalvandoTotal] = useState(false)
+
+  const handleSalvarTotal = async () => {
+    setSalvandoTotal(true)
+    await atualizarDescontoFrete(pedido.id, desconto, frete)
+    setEditandoTotal(false)
+    setSalvandoTotal(false)
+    router.refresh()
+  }
 
   const cancelarInfo = () => {
     setInfoDepositoId(pedido.deposito_id ?? '')
@@ -155,7 +171,8 @@ export function PedidoDetalheClient({
   }
 
   const podeEditar = pedido.status === 'rascunho'
-  const totalAtual = itens.reduce((s, i) => s + (i.total_item ?? 0), 0)
+  const subtotal = itens.reduce((s, i) => s + (i.total_item ?? 0), 0)
+  const totalAtual = Math.max(0, subtotal - desconto + frete)
   const temTabela = Object.keys(precoTabela).length > 0
 
   return (
@@ -369,15 +386,76 @@ export function PedidoDetalheClient({
             ))}
           </tbody>
           {itens.length > 0 && (
-            <tfoot className="bg-gray-50">
+            <tfoot className="bg-gray-50 border-t border-gray-100">
               <tr>
-                <td colSpan={3} className="px-4 py-3 text-sm font-semibold text-gray-700 text-right">Total</td>
-                <td className="px-4 py-3 text-base font-bold text-gray-900 text-right">{fmt(totalAtual)}</td>
+                <td colSpan={3} className="px-4 py-2 text-sm text-gray-500 text-right">Subtotal</td>
+                <td className="px-4 py-2 text-sm text-gray-700 text-right">{fmt(subtotal)}</td>
                 {podeEditar && <td />}
               </tr>
             </tfoot>
           )}
         </table>
+      </div>
+
+      {/* Totais — desconto e frete */}
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <p className="text-sm font-semibold text-gray-700">Resumo</p>
+          {podeEditar && !editandoTotal && (
+            <button onClick={() => setEditandoTotal(true)}
+              className="rounded-lg border border-gray-200 px-3 py-1 text-xs font-medium text-gray-500 hover:bg-gray-50 transition">
+              Editar
+            </button>
+          )}
+        </div>
+        <div className="px-4 py-3 space-y-2">
+          <div className="flex justify-between text-sm text-gray-500">
+            <span>Subtotal</span><span>{fmt(subtotal)}</span>
+          </div>
+          {editandoTotal ? (
+            <div className="space-y-3 pt-1">
+              <div className="flex items-center gap-3">
+                <label className="text-sm text-gray-500 w-24 shrink-0">Desconto (R$)</label>
+                <input type="number" step="0.01" min="0" value={desconto}
+                  onChange={e => setDesconto(parseFloat(e.target.value) || 0)}
+                  className="field flex-1 text-right" />
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-sm text-gray-500 w-24 shrink-0">Frete (R$)</label>
+                <input type="number" step="0.01" min="0" value={frete}
+                  onChange={e => setFrete(parseFloat(e.target.value) || 0)}
+                  className="field flex-1 text-right" />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button onClick={handleSalvarTotal} disabled={salvandoTotal}
+                  className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
+                  {salvandoTotal ? 'Salvando...' : 'Salvar'}
+                </button>
+                <button onClick={() => { setDesconto(pedido.desconto); setFrete(pedido.frete); setEditandoTotal(false) }}
+                  className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {desconto > 0 && (
+                <div className="flex justify-between text-sm text-red-500">
+                  <span>Desconto</span><span>- {fmt(desconto)}</span>
+                </div>
+              )}
+              {frete > 0 && (
+                <div className="flex justify-between text-sm text-gray-500">
+                  <span>Frete</span><span>+ {fmt(frete)}</span>
+                </div>
+              )}
+            </>
+          )}
+          <div className="flex justify-between pt-2 border-t border-gray-100">
+            <span className="text-sm font-bold text-gray-900">Total</span>
+            <span className="text-base font-bold text-gray-900">{fmt(totalAtual)}</span>
+          </div>
+        </div>
       </div>
 
       {pedido.observacoes && (

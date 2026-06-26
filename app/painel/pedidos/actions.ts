@@ -68,11 +68,26 @@ export async function adicionarItemPedido(pedidoId: string, formData: FormData) 
   })
   if (error) return { error: error.message }
 
+  const { data: ped } = await supabase.from('pedidos').select('desconto, frete').eq('id', pedidoId).single()
   const { data: itens } = await supabase.from('itens_pedido').select('total_item').eq('pedido_id', pedidoId)
-  const novoTotal = itens?.reduce((s, i) => s + (i.total_item ?? 0), 0) ?? 0
+  const subtotal = itens?.reduce((s, i) => s + (i.total_item ?? 0), 0) ?? 0
+  const novoTotal = Math.max(0, subtotal - (ped?.desconto ?? 0) + (ped?.frete ?? 0))
   await supabase.from('pedidos').update({ total: novoTotal }).eq('id', pedidoId)
 
   revalidatePath(`/painel/pedidos/${pedidoId}`)
+  return { ok: true }
+}
+
+export async function atualizarDescontoFrete(id: string, desconto: number, frete: number) {
+  await requireAuth()
+  const supabase = await createServiceClient()
+  // recalcula total com os itens existentes
+  const { data: itens } = await supabase.from('itens_pedido').select('total_item').eq('pedido_id', id)
+  const subtotal = itens?.reduce((s, i) => s + (i.total_item ?? 0), 0) ?? 0
+  const total = Math.max(0, subtotal - desconto + frete)
+  const { error } = await supabase.from('pedidos').update({ desconto, frete, total }).eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath(`/painel/pedidos/${id}`)
   return { ok: true }
 }
 
@@ -92,8 +107,10 @@ export async function removerItemPedido(itemId: string, pedidoId: string) {
   await requireAuth()
   const supabase = await createServiceClient()
   await supabase.from('itens_pedido').delete().eq('id', itemId)
+  const { data: ped } = await supabase.from('pedidos').select('desconto, frete').eq('id', pedidoId).single()
   const { data: itens } = await supabase.from('itens_pedido').select('total_item').eq('pedido_id', pedidoId)
-  const novoTotal = itens?.reduce((s, i) => s + (i.total_item ?? 0), 0) ?? 0
+  const subtotal = itens?.reduce((s, i) => s + (i.total_item ?? 0), 0) ?? 0
+  const novoTotal = Math.max(0, subtotal - (ped?.desconto ?? 0) + (ped?.frete ?? 0))
   await supabase.from('pedidos').update({ total: novoTotal }).eq('id', pedidoId)
   revalidatePath(`/painel/pedidos/${pedidoId}`)
 }
