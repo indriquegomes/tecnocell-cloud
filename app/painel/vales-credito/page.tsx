@@ -17,6 +17,41 @@ export default async function CreditosClientePage({
     supabase.from('pessoas').select('id, nome').in('tipo', ['cliente', 'ambos']).order('nome'),
   ])
 
+  // Busca detalhes das devoluções referenciadas
+  const devolucaoIds = [...new Set(
+    (movimentos ?? []).map((m) => m.devolucao_id).filter(Boolean) as string[]
+  )]
+
+  const detalhesDevolucao: Record<string, {
+    vendaNumero: number | null
+    motivo: string | null
+    itens: { nome: string; quantidade: number; preco_unitario: number }[]
+  }> = {}
+
+  if (devolucaoIds.length > 0) {
+    const [{ data: devs }, { data: itens }] = await Promise.all([
+      supabase.from('devolucoes').select('id, venda_id, motivo').in('id', devolucaoIds),
+      supabase.from('itens_devolucao').select('devolucao_id, nome, quantidade, preco_unitario').in('devolucao_id', devolucaoIds),
+    ])
+
+    const vendaIds = (devs ?? []).map((d) => d.venda_id).filter(Boolean) as string[]
+    const { data: vendas } = vendaIds.length > 0
+      ? await supabase.from('vendas').select('id, numero').in('id', vendaIds)
+      : { data: [] }
+
+    const vendaNumeroMap = Object.fromEntries((vendas ?? []).map((v) => [v.id, v.numero]))
+
+    for (const d of devs ?? []) {
+      detalhesDevolucao[d.id] = {
+        vendaNumero: d.venda_id ? (vendaNumeroMap[d.venda_id] ?? null) : null,
+        motivo: d.motivo ?? null,
+        itens: (itens ?? [])
+          .filter((i) => i.devolucao_id === d.id)
+          .map((i) => ({ nome: i.nome, quantidade: i.quantidade, preco_unitario: i.preco_unitario })),
+      }
+    }
+  }
+
   // Agrupa por pessoa e calcula saldo
   type Mov = NonNullable<typeof movimentos>[number]
   const mapaPessoa: Record<string, {
@@ -48,6 +83,7 @@ export default async function CreditosClientePage({
       pessoas={pessoas ?? []}
       totalEmCirculacao={totalEmCirculacao}
       clienteFiltroInicial={clienteFiltro ?? ''}
+      detalhesDevolucao={detalhesDevolucao}
       erro={erro}
       ok={ok}
     />

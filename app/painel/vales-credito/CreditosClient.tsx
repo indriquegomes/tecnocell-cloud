@@ -25,11 +25,18 @@ type ClienteComSaldo = {
   movimentos: Movimento[]
 }
 
+type DetalheDevolucao = {
+  vendaNumero: number | null
+  motivo: string | null
+  itens: { nome: string; quantidade: number; preco_unitario: number }[]
+}
+
 export function CreditosClient({
   clientes,
   pessoas,
   totalEmCirculacao,
   clienteFiltroInicial,
+  detalhesDevolucao,
   erro,
   ok,
 }: {
@@ -37,6 +44,7 @@ export function CreditosClient({
   pessoas: { id: string; nome: string }[]
   totalEmCirculacao: number
   clienteFiltroInicial: string
+  detalhesDevolucao: Record<string, DetalheDevolucao>
   erro?: string
   ok?: string
 }) {
@@ -136,10 +144,29 @@ export function CreditosClient({
                         <tr key={m.id} className="hover:bg-gray-50">
                           <td className="px-5 py-2.5 text-xs text-gray-400 whitespace-nowrap">{fmtData(m.created_at)}</td>
                           <td className="px-5 py-2.5 text-gray-600">
-                            {m.descricao ?? '—'}
-                            {m.devolucao_id && (
-                              <span className="ml-2 text-xs text-blue-500">↩ devolução</span>
-                            )}
+                            <div>
+                              <span>{m.descricao ?? '—'}</span>
+                              {m.devolucao_id && detalhesDevolucao[m.devolucao_id] && (() => {
+                                const dev = detalhesDevolucao[m.devolucao_id!]
+                                return (
+                                  <div className="mt-1 space-y-0.5">
+                                    {dev.vendaNumero && (
+                                      <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-1.5 py-0.5 text-xs text-blue-600 font-medium">
+                                        ↩ Venda #{dev.vendaNumero}
+                                      </span>
+                                    )}
+                                    {dev.itens.map((i, idx) => (
+                                      <div key={idx} className="text-xs text-gray-400">
+                                        {i.quantidade}x {i.nome} · {fmt(i.preco_unitario)}
+                                      </div>
+                                    ))}
+                                    {dev.motivo && (
+                                      <div className="text-xs text-gray-400 italic">"{dev.motivo}"</div>
+                                    )}
+                                  </div>
+                                )
+                              })()}
+                            </div>
                           </td>
                           <td className="px-5 py-2.5 text-center">
                             <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
