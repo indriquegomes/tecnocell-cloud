@@ -37,7 +37,7 @@ export async function receberNota(id: string) {
       .select('quantidade')
       .eq('produto_id', item.produto_id)
       .eq('deposito_id', item.deposito_id)
-      .single()
+      .maybeSingle()
 
     if (est) {
       await supabase.from('estoque').update({

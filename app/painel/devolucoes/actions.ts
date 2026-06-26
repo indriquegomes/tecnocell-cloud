@@ -66,7 +66,7 @@ export async function buscarVendaParaDevolucao(
       .select('id, status')
       .eq('tipo', 'receber')
       .eq('status', 'pendente')
-      .or(`venda_id.eq.${vendaId}`),
+      .eq('venda_id', vendaId),
   ])
 
   if (!vendaRes.data) return null
@@ -191,36 +191,34 @@ export async function registrarDevolucao(
   // Retorno ao estoque — tenta DEP001 como fallback se deposito_id for null
   const depositoEstoque = input.deposito_id ?? 'DEP001'
   for (const item of input.itens) {
-    supabase.rpc('incrementar_estoque', {
+    await supabase.rpc('incrementar_estoque', {
       p_produto_id: item.produto_id,
       p_deposito_id: depositoEstoque,
       p_quantidade: item.quantidade,
-    }).then(() => {})
+    })
   }
 
   // Tratamento financeiro
   if (input.lancamento_pendente) {
-    supabase
+    await supabase
       .from('lancamentos')
-      .update({ status: 'cancelado', updated_at: new Date().toISOString() })
+      .update({ status: 'cancelado' })
       .eq('venda_id', input.venda_id)
       .eq('status', 'pendente')
-      .then(() => {})
   } else if (input.tipo_credito === 'credito_conta') {
-    // Crédito na conta do cliente — registra saldo
     if (input.pessoa_id) {
-      supabase.from('creditos_clientes').insert({
+      await supabase.from('creditos_clientes').insert({
         pessoa_id: input.pessoa_id,
         pessoa_nome: input.pessoa_nome ?? 'Cliente',
         valor: valorTotal,
         tipo: 'credito',
         descricao: `Devolução de compra`,
         devolucao_id: devolucaoId,
-      }).then(() => {})
+      })
     }
   } else if (input.tipo_credito !== 'sem_reembolso') {
     const today = new Date().toISOString().split('T')[0]
-    supabase.from('lancamentos').insert({
+    await supabase.from('lancamentos').insert({
       tipo: 'pagar',
       descricao: `Devolução — ${input.pessoa_nome ?? 'Cliente'}`,
       valor: valorTotal,
@@ -229,7 +227,7 @@ export async function registrarDevolucao(
       data_pagamento: today,
       forma_pagamento: input.tipo_credito,
       pessoa_nome: input.pessoa_nome,
-    }).then(() => {})
+    })
   }
 
   return { id: devolucaoId }

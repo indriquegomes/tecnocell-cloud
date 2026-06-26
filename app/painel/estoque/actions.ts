@@ -17,7 +17,7 @@ export async function registrarMovimento(formData: FormData) {
     .select('quantidade')
     .eq('produto_id', produto_id)
     .eq('deposito_id', deposito_id)
-    .single()
+    .maybeSingle()
 
   let novaQtd: number
   if (operacao === 'ajuste') {
