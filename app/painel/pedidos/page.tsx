@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { deletarPedido } from './actions'
 import { ConfirmButton } from '@/components/ConfirmButton'
 import Link from 'next/link'
+import { PedidosFiltros } from './PedidosFiltros'
 
 const STATUS_SISTEMA: Record<string, string> = {
   rascunho:  'Rascunho',
@@ -59,47 +60,12 @@ export default async function PedidosPage({
       </div>
 
       {/* Filtros + busca */}
-      <div className="flex flex-wrap gap-2 items-center">
-        {/* Tipo */}
-        {([['', 'Todos'], ['orcamento', 'Orçamentos'], ['pedido', 'Pedidos']] as [string, string][]).map(([v, l]) => (
-          <Link key={v}
-            href={`/painel/pedidos?${new URLSearchParams({ ...(v ? { tipo: v } : {}), ...(status ? { status } : {}), ...(q ? { q } : {}) }).toString()}`}
-            className={`rounded-lg px-3 py-1.5 text-sm font-medium border transition ${(tipo ?? '') === v ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-            {l}
-          </Link>
-        ))}
-
-        {/* Status */}
-        <select
-          defaultValue={status ?? ''}
-          onChange={(e) => {
-            const url = new URL(window.location.href)
-            if (e.target.value) url.searchParams.set('status', e.target.value)
-            else url.searchParams.delete('status')
-            window.location.href = url.toString()
-          }}
-          className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400">
-          <option value="">Todos os status</option>
-          <option value="rascunho">Rascunho</option>
-          <option value="aprovado">Aprovado</option>
-          <option value="faturado">Faturado</option>
-          <option value="cancelado">Cancelado</option>
-        </select>
-
-        {/* Busca */}
-        <form className="ml-auto flex gap-2">
-          {tipo && <input type="hidden" name="tipo" value={tipo} />}
-          {status && <input type="hidden" name="status" value={status} />}
-          <input name="q" defaultValue={q ?? ''} placeholder="Buscar por cliente ou nº..."
-            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 w-56" />
-          <button type="submit"
-            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-50 transition">
-            Buscar
-          </button>
-        </form>
-
-        <span className="text-xs text-gray-400">{lista.length} registros</span>
-      </div>
+      <PedidosFiltros
+        tipo={tipo ?? ''}
+        status={status ?? ''}
+        q={q ?? ''}
+        total={lista.length}
+      />
 
       {/* Tabela */}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
