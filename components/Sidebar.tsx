@@ -18,9 +18,10 @@ const navCompleto: NavGroup[] = [
   {
     group: 'Vendas',
     items: [
-      { href: '/painel/pdv',          label: 'PDV / Caixa',      permissao: 'pdv' },
-      { href: '/painel/pdv/operacao', label: 'Operação do PDV',  permissao: 'pdv' },
-      { href: '/painel/vendas',       label: 'Painel de Vendas', permissao: 'vendas' },
+      { href: '/painel/pdv',          label: 'PDV / Caixa',         permissao: 'pdv' },
+      { href: '/painel/pdv/operacao', label: 'Operação do PDV',     permissao: 'pdv' },
+      { href: '/painel/vendas',       label: 'Painel de Vendas',    permissao: 'vendas' },
+      { href: '/painel/vales-credito', label: 'Créditos de Clientes', permissao: 'financeiro' },
     ],
   },
 ]
@@ -33,7 +34,7 @@ const navEmConstrucao: NavGroup[] = [
       { href: '/painel/os',               label: 'Ordens de Serviço',    permissao: 'os' },
       { href: '/painel/consignado',       label: 'Consignado',           permissao: 'pdv' },
       { href: '/painel/devolucoes',       label: 'Devoluções',           permissao: 'devolucoes' },
-      { href: '/painel/vales-credito',    label: 'Créditos de Clientes', permissao: 'financeiro' },
+
       { href: '/painel/clientes',         label: 'Pessoas',              permissao: 'clientes' },
       { href: '/painel/produtos',         label: 'Produtos',             permissao: 'produtos' },
       { href: '/painel/empresas',         label: 'Empresas',             permissao: 'usuarios' },
