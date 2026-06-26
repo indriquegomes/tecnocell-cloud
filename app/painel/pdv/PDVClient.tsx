@@ -1958,7 +1958,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                   <div className="absolute left-0 right-0 z-10 mt-1 max-h-60 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
                     {fichaFiltrados.map((p) => (
                       <button key={p.id} type="button"
-                        onClick={() => { setFichaSel(p); setBuscaFicha(p.nome) }}
+                        onMouseDown={(e) => { e.preventDefault(); setFichaSel(p); setBuscaFicha(p.nome) }}
                         className="block w-full border-b border-gray-50 px-3 py-2 text-left text-sm last:border-0 hover:bg-blue-50">
                         <span className="font-medium text-gray-800">{p.nome}</span>
                         {p.codigo && <span className="text-gray-400"> · {p.codigo}</span>}

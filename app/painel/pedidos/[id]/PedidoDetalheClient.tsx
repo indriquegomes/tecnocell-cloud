@@ -207,7 +207,7 @@ export function PedidoDetalheClient({
                   {sugestoes.map(p => {
                     const precoTb = precoTabela[p.id]
                     return (
-                      <button key={p.id} type="button" onClick={() => selecionarProduto(p)}
+                      <button key={p.id} type="button" onMouseDown={(e) => { e.preventDefault(); selecionarProduto(p) }}
                         className="flex w-full items-center justify-between px-4 py-2.5 hover:bg-blue-50 text-left text-sm">
                         <span className="font-medium text-gray-800">{p.nome}</span>
                         <span className="text-xs ml-2 text-right">

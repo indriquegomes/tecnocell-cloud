@@ -186,7 +186,7 @@ export function TabelaDetalheClient({
                   <button
                     key={p.id}
                     type="button"
-                    onClick={() => selecionarProduto(p)}
+                    onMouseDown={(e) => { e.preventDefault(); selecionarProduto(p) }}
                     className="flex w-full items-center justify-between px-4 py-2.5 hover:bg-blue-50 text-left text-sm">
                     <span className="font-medium text-gray-800">{p.nome}</span>
                     <span className="text-gray-400 text-xs ml-2">{fmt(p.preco ?? 0)}</span>

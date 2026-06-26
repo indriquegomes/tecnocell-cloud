@@ -96,7 +96,7 @@ export function NovoPedidoForm({
             <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
               {sugestoes.map(p => (
                 <button key={p.id} type="button"
-                  onClick={() => { setClienteSel(p); setBuscaCliente(p.nome) }}
+                  onMouseDown={(e) => { e.preventDefault(); setClienteSel(p); setBuscaCliente(p.nome) }}
                   className="flex w-full px-4 py-2.5 hover:bg-blue-50 text-left text-sm font-medium text-gray-800">
                   {p.nome}
                 </button>
