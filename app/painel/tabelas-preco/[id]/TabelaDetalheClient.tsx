@@ -77,18 +77,24 @@ export function TabelaDetalheClient({
   }
 
   // Adicionar produto
+  const [erroAdicionar, setErroAdicionar] = useState('')
   const handleAdicionar = async () => {
     if (!produtoSelecionado || !novoPreco) return
     setAdicionando(true)
+    setErroAdicionar('')
     const fd = new FormData()
     fd.set('produto_id', produtoSelecionado.id)
     fd.set('preco', novoPreco)
-    await adicionarItemTabela(tabela.id, fd)
-    setBuscaProd('')
-    setProdutoSelecionado(null)
-    setNovoPreco('')
+    const res = await adicionarItemTabela(tabela.id, fd)
+    if (res?.error) {
+      setErroAdicionar(res.error)
+    } else {
+      setBuscaProd('')
+      setProdutoSelecionado(null)
+      setNovoPreco('')
+      router.refresh()
+    }
     setAdicionando(false)
-    router.refresh()
   }
 
   // Remover item
@@ -208,6 +214,7 @@ export function TabelaDetalheClient({
             {adicionando ? 'Adicionando...' : 'Adicionar'}
           </button>
         </div>
+        {erroAdicionar && <p className="text-sm text-red-600">{erroAdicionar}</p>}
       </div>
 
       {/* Itens */}

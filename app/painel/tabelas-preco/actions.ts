@@ -37,9 +37,9 @@ export async function adicionarItemTabela(tabelaId: string, formData: FormData) 
     preco: parseFloat(formData.get('preco') as string) || 0,
   })
 
-  if (error) redirect(`/painel/tabelas-preco/${tabelaId}?erro=${encodeURIComponent(error.message)}`)
+  if (error) return { error: error.message }
   revalidatePath(`/painel/tabelas-preco/${tabelaId}`)
-  redirect(`/painel/tabelas-preco/${tabelaId}`)
+  return { ok: true }
 }
 
 export async function removerItemTabela(id: string, tabelaId: string) {
