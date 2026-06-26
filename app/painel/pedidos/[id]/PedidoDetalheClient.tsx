@@ -6,7 +6,7 @@ import { adicionarItemPedido, removerItemPedido, atualizarStatusPedido, atualiza
 import { gerarOSDePedido } from '@/app/painel/os/actions'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const fmtDate = (d: string) => new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+const fmtDate = (d: string) => new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
 
 const ORIGEM_LABEL: Record<string, string> = {
   balcao:    'Balcão',

@@ -19,7 +19,7 @@ const STATUS_COLOR: Record<string, string> = {
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtDt = (d: string) =>
-  new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+  new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
 
 export default async function PedidosPage({
   searchParams,

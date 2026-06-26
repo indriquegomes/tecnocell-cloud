@@ -5,7 +5,7 @@ import { emitirCredito, estornarCredito } from './actions'
 import { ConfirmButton } from '@/components/ConfirmButton'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const fmtData = (d: string) => new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+const fmtData = (d: string) => new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
 
 type Movimento = {
   id: string

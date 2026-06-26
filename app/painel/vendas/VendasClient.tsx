@@ -17,7 +17,7 @@ type Venda = {
 }
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const fmtData = (s: string) => new Date(s).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+const fmtData = (s: string) => new Date(s).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
 
 const STATUS: Record<string, { label: string; cor: string }> = {
   concluida: { label: 'Concluída',   cor: 'bg-green-50 text-green-700 border-green-200' },

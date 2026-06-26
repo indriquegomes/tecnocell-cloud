@@ -27,9 +27,9 @@ function withToken(action: (fd: FormData) => void) {
 
 // ─── Utilitários (módulo-level, não recriados a cada render) ────────────────
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const fmtDate = (d: string) => new Date(d).toLocaleString('pt-BR')
+const fmtDate = (d: string) => new Date(d).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 const fmtHora = (d: string) =>
-  new Date(d).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  new Date(d).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
 
 const FORMAS_INVALIDAS = ['Crédito Loja (Fiado)', 'Crediário', 'Crédito Loja']
 
@@ -457,7 +457,7 @@ function XReportPanel({
   porForma: Record<string, number>
   vendasDia: VendaDia[]
 }) {
-  const agora = new Date().toLocaleString('pt-BR')
+  const agora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
   const reforcos = movimentos.filter((m) => m.tipo === 'reforco')
   const retiradas = movimentos.filter((m) => m.tipo === 'retirada')
 
@@ -739,7 +739,7 @@ function ZReportPanel({ z }: {
   const zerado = Math.abs(divergencia) <= 0.01
 
   const fmtDt = (iso: string) =>
-    new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
 
   const formasEntries = Object.entries(z.porForma).sort(([, a], [, b]) => b - a)
   const reforcos = z.movimentos.filter((m) => m.tipo === 'reforco')
