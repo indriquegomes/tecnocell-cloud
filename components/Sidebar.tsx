@@ -8,7 +8,7 @@ import { temPermissao } from '@/lib/permissoes'
 type NavItem = { href: string; label: string; permissao?: string }
 type NavGroup = { group: string; items: NavItem[] }
 
-const nav: NavGroup[] = [
+const navCompleto: NavGroup[] = [
   {
     group: 'Geral',
     items: [
@@ -18,47 +18,50 @@ const nav: NavGroup[] = [
   {
     group: 'Vendas',
     items: [
-      { href: '/painel/pdv',           label: 'PDV / Caixa',          permissao: 'pdv' },
-      { href: '/painel/pdv/operacao',   label: 'Operação do PDV',      permissao: 'pdv' },
-      { href: '/painel/pedidos',        label: 'Pedidos e Orçamentos', permissao: 'pedidos' },
-      { href: '/painel/vendas',         label: 'Painel de Vendas',     permissao: 'vendas' },
-      { href: '/painel/os',             label: 'Ordens de Serviço',    permissao: 'os' },
-      { href: '/painel/consignado',     label: 'Consignado',           permissao: 'pdv' },
-      { href: '/painel/devolucoes',     label: 'Devoluções',           permissao: 'devolucoes' },
-      { href: '/painel/vales-credito',  label: 'Vales de Crédito',     permissao: 'financeiro' },
-    ],
-  },
-  {
-    group: 'Compras',
-    items: [
-      { href: '/painel/compras', label: 'Notas de Entrada', permissao: 'compras' },
+      { href: '/painel/pdv',          label: 'PDV / Caixa',      permissao: 'pdv' },
+      { href: '/painel/pdv/operacao', label: 'Operação do PDV',  permissao: 'pdv' },
+      { href: '/painel/vendas',       label: 'Painel de Vendas', permissao: 'vendas' },
+      { href: '/painel/os',           label: 'Ordens de Serviço',permissao: 'os' },
+      { href: '/painel/consignado',   label: 'Consignado',       permissao: 'pdv' },
+      { href: '/painel/devolucoes',   label: 'Devoluções',       permissao: 'devolucoes' },
+      { href: '/painel/vales-credito',label: 'Vales de Crédito', permissao: 'financeiro' },
     ],
   },
   {
     group: 'Cadastros',
     items: [
-      { href: '/painel/clientes',          label: 'Pessoas',               permissao: 'clientes' },
-      { href: '/painel/produtos',          label: 'Produtos',              permissao: 'produtos' },
-      { href: '/painel/empresas',          label: 'Empresas',              permissao: 'usuarios' },
-      { href: '/painel/formas-pagamento',  label: 'Formas de Pagamento',   permissao: 'usuarios' },
+      { href: '/painel/clientes',         label: 'Pessoas',             permissao: 'clientes' },
+      { href: '/painel/produtos',         label: 'Produtos',            permissao: 'produtos' },
+      { href: '/painel/empresas',         label: 'Empresas',            permissao: 'usuarios' },
+      { href: '/painel/formas-pagamento', label: 'Formas de Pagamento', permissao: 'usuarios' },
     ],
   },
   {
     group: 'Estoque',
     items: [
-      { href: '/painel/estoque',        label: 'Movimentações',     permissao: 'estoque' },
-      { href: '/painel/depositos',      label: 'Depósitos',         permissao: 'estoque' },
-      { href: '/painel/tabelas-preco',  label: 'Tabelas de Preço',  permissao: 'produtos' },
-      { href: '/painel/categorias',     label: 'Categorias',        permissao: 'produtos' },
+      { href: '/painel/estoque',       label: 'Movimentações',    permissao: 'estoque' },
+      { href: '/painel/depositos',     label: 'Depósitos',        permissao: 'estoque' },
+      { href: '/painel/categorias',    label: 'Categorias',       permissao: 'produtos' },
+      { href: '/painel/tabelas-preco', label: 'Tabelas de Preço', permissao: 'produtos' },
     ],
   },
   {
     group: 'Gestão',
     items: [
-      { href: '/painel/financeiro',     label: 'Financeiro',    permissao: 'financeiro' },
-      { href: '/painel/relatorios',     label: 'Relatórios',    permissao: 'relatorios' },
-      { href: '/painel/usuarios',       label: 'Usuários',      permissao: 'usuarios' },
-      { href: '/painel/configuracoes',  label: 'Configurações', permissao: 'usuarios' },
+      { href: '/painel/financeiro',    label: 'Financeiro',    permissao: 'financeiro' },
+      { href: '/painel/relatorios',    label: 'Relatórios',    permissao: 'relatorios' },
+      { href: '/painel/usuarios',      label: 'Usuários',      permissao: 'usuarios' },
+      { href: '/painel/configuracoes', label: 'Configurações', permissao: 'usuarios' },
+    ],
+  },
+]
+
+const navEmConstrucao: NavGroup[] = [
+  {
+    group: 'Em construção',
+    items: [
+      { href: '/painel/pedidos', label: 'Pedidos e Orçamentos', permissao: 'pedidos' },
+      { href: '/painel/compras', label: 'Notas de Entrada',     permissao: 'compras' },
     ],
   },
 ]
@@ -84,7 +87,8 @@ export function Sidebar({ permissoes, isMaster }: { permissoes: string[]; isMast
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3">
-        {nav.map((section) => {
+        {/* Módulos completos */}
+        {navCompleto.map((section) => {
           const itensVisiveis = section.items.filter(podeVer)
           if (!itensVisiveis.length) return null
           return (
@@ -101,6 +105,34 @@ export function Sidebar({ permissoes, isMaster }: { permissoes: string[]; isMast
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   )}>
                   <span className={cn('h-1.5 w-1.5 rounded-full', isActive(item.href) ? 'bg-blue-500' : 'bg-gray-300')} />
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          )
+        })}
+
+        {/* Divisor */}
+        <div className="mx-4 my-3 border-t border-dashed border-gray-200" />
+
+        {/* Módulos em construção */}
+        {navEmConstrucao.map((section) => {
+          const itensVisiveis = section.items.filter(podeVer)
+          if (!itensVisiveis.length) return null
+          return (
+            <div key={section.group} className="mb-1">
+              <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-amber-400">
+                🚧 {section.group}
+              </p>
+              {itensVisiveis.map((item) => (
+                <Link key={item.href} href={item.href}
+                  className={cn(
+                    'flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors',
+                    isActive(item.href)
+                      ? 'bg-amber-50 text-amber-700'
+                      : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'
+                  )}>
+                  <span className={cn('h-1.5 w-1.5 rounded-full', isActive(item.href) ? 'bg-amber-400' : 'bg-gray-200')} />
                   {item.label}
                 </Link>
               ))}
