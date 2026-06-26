@@ -5,6 +5,31 @@ import { formatBRL } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { finalizarVenda, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, buscarPedidosAbertos, registrarConsignado, buscarDetalheVenda, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
 import { buscarSaldoCredito, usarCreditoVenda } from '@/app/painel/creditos/actions'
+import type { PromoInfo } from './page'
+
+// Desconto que uma promoção dá para uma linha (preço base + quantidade)
+function descontoDaPromo(promo: PromoInfo, base: number, qtd: number): number {
+  if (promo.tipo === 'valor_direto' && promo.preco_promocional != null && base > promo.preco_promocional) {
+    return qtd * (base - promo.preco_promocional)
+  }
+  if (promo.tipo === 'leve_x_pague_y' && promo.x && promo.y) {
+    const grupos = Math.floor(qtd / promo.x)
+    return grupos * (promo.x - promo.y) * base
+  }
+  if (promo.tipo === 'acima_x_pague_y' && promo.x && promo.valor != null && qtd >= promo.x && base > promo.valor) {
+    return qtd * (base - promo.valor)
+  }
+  return 0
+}
+
+// Rótulo curto da promoção para o seletor do carrinho
+function labelPromo(p: PromoInfo): string {
+  const brl = (v: number) => formatBRL(v)
+  if (p.tipo === 'valor_direto' && p.preco_promocional != null) return `${p.nome} · ${brl(p.preco_promocional)}`
+  if (p.tipo === 'leve_x_pague_y') return `${p.nome} · Leve ${p.x} Pague ${p.y}`
+  if (p.tipo === 'acima_x_pague_y') return `${p.nome} · ${p.x}+ a ${brl(p.valor ?? 0)}`
+  return p.nome
+}
 
 // Lê o access token do navegador (cookie httpOnly:false). Fonte confiável de auth
 // para server actions — cookies() vem vazio em server actions na Vercel.
@@ -78,8 +103,9 @@ interface ItemCarrinho {
   nome: string
   codigo: string | null
   quantidade: number
-  preco_unitario: number
+  preco_unitario: number   // preço base (tabela/padrão) — promoção entra como desconto
   estoque_disponivel: number
+  promoSel: string         // 'auto' = melhor desconto | '' = sem promoção | <id> = promoção fixa
 }
 
 interface PagamentoItem {
@@ -97,12 +123,10 @@ interface Props {
   depositos: Deposito[]
   tabelas: TabelaPreco[]
   precosPorTabela: Record<string, Record<string, number>>
-  precosPromo: Record<string, number>
-  promosLeveXY: Record<string, { x: number; y: number; nome: string }>
-  promosAcimaXY: Record<string, { x: number; valor: number; nome: string }>
+  promosPorProduto: Record<string, PromoInfo[]>
 }
 
-export function PDVClient({ produtos: produtosIniciais, formas, pessoas, depositos, tabelas, precosPorTabela, precosPromo, promosLeveXY, promosAcimaXY }: Props) {
+export function PDVClient({ produtos: produtosIniciais, formas, pessoas, depositos, tabelas, precosPorTabela, promosPorProduto }: Props) {
   const [produtos, setProdutos] = useState(produtosIniciais)
   const [busca, setBusca] = useState('')
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([])
@@ -276,12 +300,32 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
         nome: p.nome,
         codigo: p.codigo,
         quantidade: 1,
-        preco_unitario: precosPromo[p.id] ?? precosPorTabela[tabelaId]?.[p.id] ?? p.preco,
+        preco_unitario: precosPorTabela[tabelaId]?.[p.id] ?? p.preco,
         estoque_disponivel: disp,
+        promoSel: 'auto',
       }]
     })
     setBusca('')
   }, [depositoId, nomeDeposito, tabelaId, precosPorTabela])
+
+  // Troca a promoção aplicada a uma linha do carrinho
+  const trocarPromo = (produto_id: string, valor: string) => {
+    setCarrinho((prev) => prev.map((i) => i.produto_id === produto_id ? { ...i, promoSel: valor } : i))
+  }
+
+  // Promoção efetiva de uma linha (resolve 'auto' = melhor desconto na quantidade atual)
+  const promoEfetiva = (item: ItemCarrinho): PromoInfo | null => {
+    const lista = promosPorProduto[item.produto_id] ?? []
+    if (lista.length === 0 || item.promoSel === '') return null
+    if (item.promoSel !== 'auto') return lista.find((p) => p.id === item.promoSel) ?? null
+    let melhor: PromoInfo | null = null
+    let maior = 0
+    for (const p of lista) {
+      const d = descontoDaPromo(p, item.preco_unitario, item.quantidade)
+      if (d > maior) { maior = d; melhor = p }
+    }
+    return melhor
+  }
 
   // Definir a quantidade digitando direto (respeita o estoque disponível)
   const definirQtd = (produto_id: string, valor: string) => {
@@ -366,20 +410,13 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const subtotal = carrinho.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0)
   const totalItens = carrinho.reduce((s, i) => s + i.quantidade, 0)
 
-  // Desconto automático por promoções de quantidade
+  // Desconto por promoção aplicada em cada linha (resolve 'auto' = melhor desconto)
   const descontoPromoDetalhes = carrinho.flatMap((item) => {
-    const leve = promosLeveXY[item.produto_id]
-    if (leve) {
-      const grupos = Math.floor(item.quantidade / leve.x)
-      const valor = grupos * (leve.x - leve.y) * item.preco_unitario
-      if (valor > 0) return [{ label: `${leve.nome} (${item.nome})`, valor }]
-    }
-    const acima = promosAcimaXY[item.produto_id]
-    if (acima && item.quantidade >= acima.x) {
-      const valor = item.quantidade * (item.preco_unitario - acima.valor)
-      if (valor > 0) return [{ label: `${acima.nome} (${item.nome})`, valor }]
-    }
-    return []
+    const promo = promoEfetiva(item)
+    if (!promo) return []
+    const valor = descontoDaPromo(promo, item.preco_unitario, item.quantidade)
+    if (valor <= 0) return []
+    return [{ label: `${promo.nome} (${item.nome})`, valor }]
   })
   const descontoPromo = descontoPromoDetalhes.reduce((s, d) => s + d.valor, 0)
 
@@ -508,7 +545,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
           return partes.length > 0 ? partes.join(', ') : null
         })(),
         deposito: nomeDeposito,
-        desconto: descontoNum,
+        desconto: descontoNum + descontoPromo,
         horario: new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       }
       abrirCupom(snap, result.vendaId)
@@ -596,6 +633,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
         quantidade: Math.min(item.quantidade, disp),
         preco_unitario: item.preco_unitario,
         estoque_disponivel: disp,
+        promoSel: '',
       })
     }
     setCarrinho(novosItens)
@@ -1212,6 +1250,24 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                         {item.codigo && <span className="text-gray-400 font-normal">{item.codigo} · </span>}{item.nome}
                       </p>
                       <p className="text-xs text-gray-400">Disponível: {item.estoque_disponivel}</p>
+                      {(promosPorProduto[item.produto_id]?.length ?? 0) > 0 && (() => {
+                        const promoAtual = promoEfetiva(item)
+                        return (
+                          <select
+                            value={item.promoSel}
+                            onChange={(e) => trocarPromo(item.produto_id, e.target.value)}
+                            className={`mt-1.5 rounded-md border px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-orange-400 ${
+                              promoAtual ? 'border-orange-200 bg-orange-50 text-orange-700' : 'border-gray-200 bg-white text-gray-500'
+                            }`}
+                          >
+                            <option value="auto">🏷️ Melhor desconto</option>
+                            {promosPorProduto[item.produto_id].map((p) => (
+                              <option key={p.id} value={p.id}>{labelPromo(p)}</option>
+                            ))}
+                            <option value="">Sem promoção</option>
+                          </select>
+                        )
+                      })()}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1.5">

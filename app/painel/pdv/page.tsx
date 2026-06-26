@@ -1,21 +1,28 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { PDVClient } from './PDVClient'
 
+export type PromoInfo = {
+  id: string
+  nome: string
+  tipo: 'valor_direto' | 'leve_x_pague_y' | 'acima_x_pague_y'
+  preco_promocional: number | null
+  x: number | null
+  y: number | null
+  valor: number | null
+}
+
 export default async function PDVPage() {
   const supabase = await createServiceClient()
 
   const hoje = new Date().toISOString().split('T')[0]
 
-  const [{ data: produtos }, { data: formas }, { data: pessoas }, { data: depositos }, { data: tabelas }, { data: itensTabela }, { data: itensPromo }] = await Promise.all([
+  const [{ data: produtos }, { data: formas }, { data: pessoas }, { data: depositos }, { data: tabelas }, { data: itensTabela }] = await Promise.all([
     supabase.from('produtos').select('id, nome, preco, codigo, marca, categoria, descricao, imagem_url, estoque(deposito_id, quantidade)').eq('ativo', true).order('nome'),
     supabase.from('formas_pagamento').select('id, nome').eq('ativo', true),
     supabase.from('pessoas').select('id, nome, cpf_cnpj, telefone, endereco, bairro, cidade, estado, cep').in('tipo', ['cliente', 'ambos']).order('nome'),
     supabase.from('depositos').select('id, nome').order('nome'),
     supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).order('nome'),
     supabase.from('itens_tabela_preco').select('tabela_id, produto_id, preco'),
-    supabase.from('itens_promocao')
-      .select('produto_id, preco_promocional, quantidade_x, quantidade_y, promocao_id')
-      .not('preco_promocional', 'is', null),
   ])
 
   // Mapa de preços por tabela: { tabela_id: { produto_id: preco } }
@@ -34,38 +41,29 @@ export default async function PDVPage() {
     .gte('data_fim', hoje)
 
   const promosAtivas = promocoesAtivas ?? []
-  const idsValorDireto = new Set(promosAtivas.filter(p => p.tipo === 'valor_direto').map(p => p.id))
+  const promoById = new Map(promosAtivas.map(p => [p.id, p]))
 
-  // Mapa produto_id → preco_promocional (só valor_direto com promoção ativa hoje)
-  const precosPromo: Record<string, number> = {}
-  for (const it of (itensPromo ?? []) as { produto_id: string; preco_promocional: number | null; promocao_id: string }[]) {
-    if (it.preco_promocional != null && idsValorDireto.has(it.promocao_id)) {
-      precosPromo[it.produto_id] = it.preco_promocional
-    }
-  }
-
-  // Busca itens das promos de quantidade (leve_x_pague_y e acima_x_pague_y)
-  const idsQtd = promosAtivas
-    .filter(p => p.tipo === 'leve_x_pague_y' || p.tipo === 'acima_x_pague_y')
-    .map(p => p.id)
-
-  const promosLeveXY: Record<string, { x: number; y: number; nome: string }> = {}
-  const promosAcimaXY: Record<string, { x: number; valor: number; nome: string }> = {}
-
-  if (idsQtd.length > 0) {
-    const { data: itensQtd } = await supabase
+  // Mapa unificado: produto_id → todas as promoções ativas que o incluem
+  const promosPorProduto: Record<string, PromoInfo[]> = {}
+  if (promosAtivas.length > 0) {
+    const { data: itensAtivos } = await supabase
       .from('itens_promocao')
-      .select('produto_id, promocao_id')
-      .in('promocao_id', idsQtd)
+      .select('produto_id, preco_promocional, promocao_id')
+      .in('promocao_id', promosAtivas.map(p => p.id))
 
-    for (const it of (itensQtd ?? []) as { produto_id: string; promocao_id: string }[]) {
-      const promo = promosAtivas.find(p => p.id === it.promocao_id)
+    for (const it of (itensAtivos ?? []) as { produto_id: string; preco_promocional: number | null; promocao_id: string }[]) {
+      const promo = promoById.get(it.promocao_id)
       if (!promo) continue
-      if (promo.tipo === 'leve_x_pague_y' && promo.quantidade_x && promo.quantidade_y) {
-        promosLeveXY[it.produto_id] = { x: promo.quantidade_x, y: promo.quantidade_y, nome: promo.nome }
-      } else if (promo.tipo === 'acima_x_pague_y' && promo.quantidade_x && promo.valor) {
-        promosAcimaXY[it.produto_id] = { x: promo.quantidade_x, valor: promo.valor, nome: promo.nome }
-      }
+      if (!promosPorProduto[it.produto_id]) promosPorProduto[it.produto_id] = []
+      promosPorProduto[it.produto_id].push({
+        id: promo.id,
+        nome: promo.nome,
+        tipo: promo.tipo as PromoInfo['tipo'],
+        preco_promocional: it.preco_promocional,
+        x: promo.quantidade_x,
+        y: promo.quantidade_y,
+        valor: promo.valor,
+      })
     }
   }
 
@@ -100,9 +98,7 @@ export default async function PDVPage() {
         depositos={depositos ?? []}
         tabelas={tabelas ?? []}
         precosPorTabela={precosPorTabela}
-        precosPromo={precosPromo}
-        promosLeveXY={promosLeveXY}
-        promosAcimaXY={promosAcimaXY}
+        promosPorProduto={promosPorProduto}
       />
     </div>
   )
