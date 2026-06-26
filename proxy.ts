@@ -50,14 +50,16 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Repassa identidade aos server components/actions via REQUEST header.
+  // Repassa identidade e pathname aos server components via REQUEST header.
   const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-pathname', request.nextUrl.pathname)
   if (sessao) {
     requestHeaders.set('x-user-id', sessao.sub)
     if (sessao.email) requestHeaders.set('x-user-email', sessao.email)
   }
 
   const response = NextResponse.next({ request: { headers: requestHeaders } })
+  response.headers.set('x-pathname', request.nextUrl.pathname)
   if (sessao) {
     response.headers.set('x-user-id', sessao.sub)
     if (sessao.email) response.headers.set('x-user-email', sessao.email)
