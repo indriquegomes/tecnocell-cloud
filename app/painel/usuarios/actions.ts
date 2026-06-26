@@ -1,16 +1,12 @@
 'use server'
 
 import { createServiceClient, requireAuth } from '@/lib/supabase/server'
+import { TODAS_PERMISSOES } from '@/lib/permissoes'
 import { revalidatePath } from 'next/cache'
 
 export type ActionResult = { ok: true; message: string } | { ok: false; message: string }
 
-const MODULOS = [
-  'pdv', 'estoque', 'pessoas', 'financeiro',
-  'relatorios', 'promocoes', 'vales', 'pedidos', 'configuracoes',
-]
-
-export { MODULOS }
+const TODAS_KEYS = TODAS_PERMISSOES.map((p) => p.key)
 
 export async function criarUsuario(_: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const token = fd.get('access_token') as string
@@ -19,7 +15,7 @@ export async function criarUsuario(_: ActionResult | null, fd: FormData): Promis
   const email    = (fd.get('email') as string ?? '').trim()
   const senha    = (fd.get('senha') as string ?? '').trim()
   const nome     = (fd.get('nome') as string ?? '').trim()
-  const cargo    = (fd.get('cargo') as string ?? 'vendedor') as 'dono' | 'gerente' | 'vendedor'
+  const isMaster = fd.get('is_master') === '1'
   const perms    = fd.getAll('permissoes') as string[]
 
   if (!email || !senha || !nome) return { ok: false, message: 'Preencha todos os campos obrigatórios' }
@@ -40,8 +36,9 @@ export async function criarUsuario(_: ActionResult | null, fd: FormData): Promis
   const { error: perfErr } = await supabase.from('perfis').insert({
     id: authData.user.id,
     nome,
-    cargo,
-    permissoes: cargo === 'dono' ? MODULOS : perms,
+    permissoes: isMaster ? TODAS_KEYS : perms,
+    is_master: isMaster,
+    ativo: true,
   })
 
   if (perfErr) {
@@ -57,21 +54,20 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
   const token = fd.get('access_token') as string
   try { await requireAuth(token) } catch { return { ok: false, message: 'Não autorizado' } }
 
-  const userId = fd.get('user_id') as string
-  const nome   = (fd.get('nome') as string ?? '').trim()
-  const cargo  = (fd.get('cargo') as string ?? 'vendedor') as 'dono' | 'gerente' | 'vendedor'
-  const perms  = fd.getAll('permissoes') as string[]
-  const ativo  = fd.get('ativo') === '1'
+  const userId   = fd.get('user_id') as string
+  const nome     = (fd.get('nome') as string ?? '').trim()
+  const isMaster = fd.get('is_master') === '1'
+  const ativo    = fd.get('ativo') === '1'
+  const perms    = fd.getAll('permissoes') as string[]
 
   if (!userId || !nome) return { ok: false, message: 'Dados inválidos' }
 
   const supabase = await createServiceClient()
   const { error } = await supabase.from('perfis').update({
     nome,
-    cargo,
-    permissoes: cargo === 'dono' ? MODULOS : perms,
+    permissoes: isMaster ? TODAS_KEYS : perms,
+    is_master: isMaster,
     ativo,
-    updated_at: new Date().toISOString(),
   }).eq('id', userId)
 
   if (error) return { ok: false, message: error.message }

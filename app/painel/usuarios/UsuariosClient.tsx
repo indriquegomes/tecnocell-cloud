@@ -2,7 +2,8 @@
 
 import { useState, useActionState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { criarUsuario, atualizarPerfil, alterarSenha, MODULOS, type ActionResult } from './actions'
+import { TODAS_PERMISSOES } from '@/lib/permissoes'
+import { criarUsuario, atualizarPerfil, alterarSenha, type ActionResult } from './actions'
 
 const supabaseBrowser = createClient()
 async function authToken() {
@@ -16,24 +17,12 @@ function withToken(action: (fd: FormData) => void) {
   }
 }
 
-const CARGO_LABEL: Record<string, string> = { dono: 'Dono', gerente: 'Gerente', vendedor: 'Vendedor' }
-const CARGO_COR: Record<string, string> = {
-  dono: 'bg-purple-100 text-purple-700',
-  gerente: 'bg-blue-100 text-blue-700',
-  vendedor: 'bg-gray-100 text-gray-600',
-}
-const MODULO_LABEL: Record<string, string> = {
-  pdv: 'PDV', estoque: 'Estoque', pessoas: 'Pessoas', financeiro: 'Financeiro',
-  relatorios: 'Relatórios', promocoes: 'Promoções', vales: 'Vales', pedidos: 'Pedidos',
-  configuracoes: 'Configurações',
-}
-
-interface Usuario {
+export interface Usuario {
   id: string
   email: string
   nome: string
-  cargo: 'dono' | 'gerente' | 'vendedor'
   permissoes: string[]
+  isMaster: boolean
   ativo: boolean
   created_at: string
 }
@@ -47,95 +36,142 @@ function Feedback({ state }: { state: ActionResult | null }) {
   )
 }
 
-function PermissoesCheckbox({ cargo, permissoes }: { cargo: string; permissoes: string[] }) {
-  if (cargo === 'dono') {
-    return <p className="text-xs text-gray-400 italic">Dono tem acesso total automático</p>
-  }
+function PermissoesGrid({
+  permissoes,
+  isMaster: defaultMaster,
+}: {
+  permissoes: string[]
+  isMaster: boolean
+}) {
+  const [master, setMaster] = useState(defaultMaster)
+  const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set(permissoes))
+
+  const toggle = (key: string) =>
+    setSelecionadas((prev) => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+
   return (
-    <div className="grid grid-cols-3 gap-2">
-      {MODULOS.map((m) => (
-        <label key={m} className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+    <div className="space-y-3">
+      <label className="flex cursor-pointer items-center justify-between rounded-xl border border-purple-200 bg-purple-50 px-4 py-3">
+        <div>
+          <p className="text-sm font-semibold text-purple-800">Acesso total (Master)</p>
+          <p className="text-xs text-purple-500">Ignora todas as restrições</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <input type="hidden" name="is_master" value="0" />
           <input
             type="checkbox"
-            name="permissoes"
-            value={m}
-            defaultChecked={permissoes.includes(m)}
-            className="rounded"
+            name="is_master"
+            value="1"
+            checked={master}
+            onChange={(e) => setMaster(e.target.checked)}
+            className="h-4 w-4 rounded accent-purple-600"
           />
-          {MODULO_LABEL[m] ?? m}
-        </label>
-      ))}
+          <span className={`text-xs font-bold ${master ? 'text-purple-600' : 'text-gray-400'}`}>
+            {master ? 'ON' : 'OFF'}
+          </span>
+        </div>
+      </label>
+
+      {!master && (
+        <div className="grid grid-cols-2 gap-2">
+          {TODAS_PERMISSOES.map((p) => {
+            const ativo = selecionadas.has(p.key)
+            return (
+              <label
+                key={p.key}
+                className={`flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2.5 transition-colors ${
+                  ativo ? 'border-blue-200 bg-blue-50' : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                }`}
+              >
+                <div className="min-w-0 pr-2">
+                  <p className={`truncate text-xs font-semibold ${ativo ? 'text-blue-700' : 'text-gray-600'}`}>
+                    {p.label}
+                  </p>
+                  <p className="truncate text-[10px] text-gray-400">{p.desc}</p>
+                </div>
+                <input
+                  type="checkbox"
+                  name="permissoes"
+                  value={p.key}
+                  checked={ativo}
+                  onChange={() => toggle(p.key)}
+                  className="h-4 w-4 shrink-0 rounded accent-blue-600"
+                />
+              </label>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
 
-function NovoUsuarioForm() {
+function NovoUsuarioModal({ onClose }: { onClose: () => void }) {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(criarUsuario, null)
-  const [cargo, setCargo] = useState<string>('vendedor')
-
-  return (
-    <div className="rounded-2xl border border-blue-200 bg-white p-6 shadow-sm space-y-5">
-      <h3 className="font-semibold text-gray-800 text-lg">Novo Usuário</h3>
-      <form action={withToken(action)} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Nome *</label>
-            <input name="nome" className="field" placeholder="Ex: Mariana" required />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">E-mail *</label>
-            <input name="email" type="email" className="field" placeholder="mariana@tecnocell.com" required />
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Senha *</label>
-            <input name="senha" type="text" className="field" placeholder="Mínimo 4 caracteres" required />
-            <p className="text-xs text-gray-400 mt-1">Pode ser simples: nome + número</p>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Cargo *</label>
-            <select name="cargo" className="field" value={cargo} onChange={(e) => setCargo(e.target.value)}>
-              <option value="vendedor">Vendedor</option>
-              <option value="gerente">Gerente</option>
-              <option value="dono">Dono</option>
-            </select>
-          </div>
-        </div>
-        <div>
-          <label className="mb-2 block text-sm font-medium text-gray-700">Módulos com acesso</label>
-          <PermissoesCheckbox cargo={cargo} permissoes={[]} />
-        </div>
-        <div className="flex items-center justify-between pt-2">
-          <Feedback state={state} />
-          <button
-            type="submit"
-            disabled={pending}
-            className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50"
-          >
-            {pending ? 'Criando...' : 'Criar Usuário'}
-          </button>
-        </div>
-      </form>
-    </div>
-  )
-}
-
-function EditarUsuarioModal({ usuario, onClose }: { usuario: Usuario; onClose: () => void }) {
-  const [state, action, pending] = useActionState<ActionResult | null, FormData>(atualizarPerfil, null)
-  const [senhaState, senhaAction, senhaPending] = useActionState<ActionResult | null, FormData>(alterarSenha, null)
-  const [cargo, setCargo] = useState(usuario.cargo)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-800">Editar — {usuario.nome}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+      <div className="w-full max-w-xl rounded-2xl bg-white shadow-xl overflow-hidden">
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+          <h3 className="text-base font-semibold text-gray-800">Novo Usuário</h3>
+          <button onClick={onClose} className="text-xl leading-none text-gray-400 hover:text-gray-600">×</button>
+        </div>
+        <form action={withToken(action)} className="space-y-5 px-6 py-5">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Nome *</label>
+              <input name="nome" className="field" placeholder="Ex: Mariana" required />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">E-mail *</label>
+              <input name="email" type="email" className="field" placeholder="mariana@tecnocell.com" required />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Senha *</label>
+            <input name="senha" type="text" className="field" placeholder="Mínimo 4 caracteres" required />
+            <p className="mt-1 text-xs text-gray-400">Pode ser simples: nome + número</p>
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">Permissões</label>
+            <PermissoesGrid permissoes={[]} isMaster={false} />
+          </div>
+          <div className="flex items-center justify-between border-t border-gray-100 pt-4">
+            <Feedback state={state} />
+            <button
+              type="submit"
+              disabled={pending}
+              className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50"
+            >
+              {pending ? 'Criando...' : 'Criar Usuário'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function EditarModal({ usuario, onClose }: { usuario: Usuario; onClose: () => void }) {
+  const [state, action, pending] = useActionState<ActionResult | null, FormData>(atualizarPerfil, null)
+  const [senhaState, senhaAction, senhaPending] = useActionState<ActionResult | null, FormData>(alterarSenha, null)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-xl rounded-2xl bg-white shadow-xl overflow-hidden" style={{ maxHeight: '90vh' }}>
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+          <div>
+            <h3 className="text-base font-semibold text-gray-800">{usuario.nome}</h3>
+            <p className="text-xs text-gray-400">{usuario.email}</p>
+          </div>
+          <button onClick={onClose} className="text-xl leading-none text-gray-400 hover:text-gray-600">×</button>
         </div>
 
-        <div className="px-6 py-5 space-y-5">
-          {/* Dados do perfil */}
+        <div className="overflow-y-auto px-6 py-5 space-y-5" style={{ maxHeight: 'calc(90vh - 72px)' }}>
           <form action={withToken(action)} className="space-y-4">
             <input type="hidden" name="user_id" value={usuario.id} />
             <div className="grid grid-cols-2 gap-4">
@@ -143,33 +179,25 @@ function EditarUsuarioModal({ usuario, onClose }: { usuario: Usuario; onClose: (
                 <label className="mb-1 block text-sm font-medium text-gray-700">Nome</label>
                 <input name="nome" className="field" defaultValue={usuario.nome} required />
               </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Cargo</label>
-                <select name="cargo" className="field" value={cargo} onChange={(e) => setCargo(e.target.value as typeof cargo)}>
-                  <option value="vendedor">Vendedor</option>
-                  <option value="gerente">Gerente</option>
-                  <option value="dono">Dono</option>
-                </select>
+              <div className="flex items-end pb-0.5">
+                <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-700">
+                  <input type="hidden" name="ativo" value="0" />
+                  <input
+                    type="checkbox"
+                    name="ativo"
+                    value="1"
+                    defaultChecked={usuario.ativo}
+                    className="h-4 w-4 rounded"
+                  />
+                  Conta ativa
+                </label>
               </div>
             </div>
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                <input type="hidden" name="ativo" value="0" />
-                <input
-                  type="checkbox"
-                  name="ativo"
-                  value="1"
-                  defaultChecked={usuario.ativo}
-                  className="rounded"
-                />
-                Usuário ativo
-              </label>
+              <label className="mb-2 block text-sm font-medium text-gray-700">Permissões</label>
+              <PermissoesGrid permissoes={usuario.permissoes} isMaster={usuario.isMaster} />
             </div>
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">Módulos com acesso</label>
-              <PermissoesCheckbox cargo={cargo} permissoes={usuario.permissoes} />
-            </div>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between pt-2">
               <Feedback state={state} />
               <button
                 type="submit"
@@ -181,16 +209,15 @@ function EditarUsuarioModal({ usuario, onClose }: { usuario: Usuario; onClose: (
             </div>
           </form>
 
-          {/* Alterar senha */}
           <div className="border-t border-gray-100 pt-4">
-            <p className="text-sm font-medium text-gray-700 mb-2">Alterar Senha</p>
+            <p className="mb-2 text-sm font-medium text-gray-700">Alterar Senha</p>
             <form action={withToken(senhaAction)} className="flex gap-3">
               <input type="hidden" name="user_id" value={usuario.id} />
               <input name="senha" type="text" className="field flex-1" placeholder="Nova senha" />
               <button
                 type="submit"
                 disabled={senhaPending}
-                className="rounded-xl bg-gray-700 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800 transition disabled:opacity-50 shrink-0"
+                className="shrink-0 rounded-xl bg-gray-700 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800 transition disabled:opacity-50"
               >
                 {senhaPending ? '...' : 'Alterar'}
               </button>
@@ -207,56 +234,68 @@ export function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
   const [criando, setCriando] = useState(false)
   const [editando, setEditando] = useState<Usuario | null>(null)
 
+  const resumoPermissoes = (u: Usuario) => {
+    if (u.isMaster) return 'Acesso total'
+    if (!u.permissoes.length) return 'Sem permissões'
+    const labels = u.permissoes
+      .slice(0, 3)
+      .map((k) => TODAS_PERMISSOES.find((p) => p.key === k)?.label ?? k)
+    return labels.join(', ') + (u.permissoes.length > 3 ? ` +${u.permissoes.length - 3}` : '')
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Usuários</h2>
-          <p className="text-sm text-gray-500 mt-0.5">Gerencie os acessos da equipe</p>
+          <p className="mt-0.5 text-sm text-gray-500">Gerencie os acessos da equipe</p>
         </div>
         <button
-          onClick={() => setCriando((v) => !v)}
+          onClick={() => setCriando(true)}
           className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition"
         >
           + Novo Usuário
         </button>
       </div>
 
-      {criando && <NovoUsuarioForm />}
-
       <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Nome</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">E-mail</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Cargo</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Acesso</th>
-              <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Nome</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">E-mail</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Permissões</th>
+              <th className="px-6 py-3 text-center text-xs font-semibold uppercase text-gray-500">Status</th>
               <th className="px-6 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {usuarios.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-400">
-                  Nenhum usuário cadastrado ainda.
+                <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-400">
+                  Nenhum usuário cadastrado.
                 </td>
               </tr>
             )}
             {usuarios.map((u) => (
               <tr key={u.id} className="hover:bg-gray-50 transition">
-                <td className="px-6 py-3 text-sm font-medium text-gray-900">{u.nome}</td>
+                <td className="px-6 py-3">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
+                      {u.nome[0]?.toUpperCase()}
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">{u.nome}</span>
+                  </div>
+                </td>
                 <td className="px-6 py-3 text-sm text-gray-500">{u.email}</td>
                 <td className="px-6 py-3">
-                  <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${CARGO_COR[u.cargo] ?? ''}`}>
-                    {CARGO_LABEL[u.cargo] ?? u.cargo}
-                  </span>
-                </td>
-                <td className="px-6 py-3 text-xs text-gray-500">
-                  {u.cargo === 'dono'
-                    ? 'Tudo'
-                    : u.permissoes.map((p) => MODULO_LABEL[p] ?? p).join(', ') || '—'}
+                  {u.isMaster ? (
+                    <span className="inline-flex rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-semibold text-purple-700">
+                      Master
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-500">{resumoPermissoes(u)}</span>
+                  )}
                 </td>
                 <td className="px-6 py-3 text-center">
                   <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${u.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
@@ -264,10 +303,7 @@ export function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
                   </span>
                 </td>
                 <td className="px-6 py-3 text-right">
-                  <button
-                    onClick={() => setEditando(u)}
-                    className="text-sm text-blue-600 hover:underline"
-                  >
+                  <button onClick={() => setEditando(u)} className="text-sm text-blue-600 hover:underline">
                     Editar
                   </button>
                 </td>
@@ -277,9 +313,8 @@ export function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
         </table>
       </div>
 
-      {editando && (
-        <EditarUsuarioModal usuario={editando} onClose={() => setEditando(null)} />
-      )}
+      {criando && <NovoUsuarioModal onClose={() => setCriando(false)} />}
+      {editando && <EditarModal usuario={editando} onClose={() => setEditando(null)} />}
     </div>
   )
 }

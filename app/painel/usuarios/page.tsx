@@ -7,7 +7,7 @@ export default async function UsuariosPage() {
   // Lista usuários do Auth + perfis
   const [authResult, perfisResult] = await Promise.all([
     supabase.auth.admin.listUsers(),
-    supabase.from('perfis').select('id, nome, cargo, permissoes, ativo, created_at'),
+    supabase.from('perfis').select('id, nome, permissoes, is_master, ativo, created_at'),
   ])
 
   const authUsers = authResult.data?.users ?? []
@@ -16,13 +16,13 @@ export default async function UsuariosPage() {
   )
 
   const usuarios = authUsers
-    .filter((u) => perfisMap[u.id]) // só exibe quem tem perfil cadastrado
+    .filter((u) => perfisMap[u.id])
     .map((u) => ({
       id: u.id,
       email: u.email ?? '',
       nome: perfisMap[u.id]?.nome ?? u.email ?? '',
-      cargo: (perfisMap[u.id]?.cargo ?? 'vendedor') as 'dono' | 'gerente' | 'vendedor',
-      permissoes: perfisMap[u.id]?.permissoes ?? [],
+      permissoes: (perfisMap[u.id]?.permissoes ?? []) as string[],
+      isMaster: perfisMap[u.id]?.is_master ?? false,
       ativo: perfisMap[u.id]?.ativo ?? true,
       created_at: u.created_at,
     }))
