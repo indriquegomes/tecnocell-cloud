@@ -19,9 +19,8 @@ export default async function PedidoDetalhePage({
       .single(),
     supabase
       .from('itens_pedido')
-      .select('id, produto_id, quantidade, preco_unitario, total_item, produtos(id, nome, preco)')
-      .eq('pedido_id', id)
-      .order('created_at'),
+      .select('id, produto_id, quantidade, preco_unitario, total_item')
+      .eq('pedido_id', id),
     supabase.from('produtos').select('id, nome, preco').eq('ativo', true).order('nome'),
     supabase.from('depositos').select('id, nome').order('nome'),
     supabase.from('formas_pagamento').select('id, nome').eq('ativo', true).order('nome'),
@@ -66,7 +65,10 @@ export default async function PedidoDetalhePage({
           deposito_nome: pedido.deposito_id ? (depositoMap[pedido.deposito_id] ?? null) : null,
           forma_pagamento_nome: pedido.forma_pagamento_id ? (formaMap[pedido.forma_pagamento_id] ?? null) : null,
         }}
-        itensIniciais={(itens ?? []) as unknown as {
+        itensIniciais={(itens ?? []).map(i => {
+          const prod = (produtos ?? []).find(p => p.id === i.produto_id) ?? null
+          return { ...i, produtos: prod }
+        }) as {
           id: string; produto_id: string; quantidade: number
           preco_unitario: number; total_item: number
           produtos: { id: string; nome: string; preco: number } | null

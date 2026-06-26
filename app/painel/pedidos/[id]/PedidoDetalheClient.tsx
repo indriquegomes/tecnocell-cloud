@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useTransition } from 'react'
+import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { adicionarItemPedido, removerItemPedido, atualizarStatusPedido } from '../actions'
 
@@ -66,6 +66,7 @@ export function PedidoDetalheClient({
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [itens, setItens] = useState(itensIniciais)
+  useEffect(() => { setItens(itensIniciais) }, [itensIniciais])
 
   const [busca, setBusca] = useState('')
   const [produtoSel, setProdutoSel] = useState<Produto | null>(null)
