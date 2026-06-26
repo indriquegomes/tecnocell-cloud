@@ -4,6 +4,11 @@ import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { criarPedido } from '../actions'
 
+const hoje = new Date()
+const daqui30 = new Date(hoje)
+daqui30.setDate(hoje.getDate() + 30)
+const DEFAULT_VALIDADE = daqui30.toISOString().split('T')[0]
+
 const ORIGENS = [
   { value: 'balcao',    label: 'Balcão' },
   { value: 'whatsapp',  label: 'WhatsApp' },
@@ -133,7 +138,7 @@ export function NovoPedidoForm({
         </div>
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Validade</label>
-          <input name="data_validade" type="date" className="field" />
+          <input name="data_validade" type="date" className="field" defaultValue={DEFAULT_VALIDADE} />
         </div>
       </div>
 
