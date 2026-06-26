@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { adicionarItemPedido, removerItemPedido, atualizarStatusPedido, atualizarInfoPedido, atualizarDescontoFrete } from '../actions'
+import { adicionarItemPedido, removerItemPedido, atualizarStatusPedido, atualizarInfoPedido, atualizarDescontoFrete, atualizarObservacoesTermos, cancelarComMotivo } from '../actions'
 import { gerarOSDePedido } from '@/app/painel/os/actions'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -64,6 +64,8 @@ export function PedidoDetalheClient({
     desconto: number
     frete: number
     referencia_cliente: string | null
+    termos_condicoes: string | null
+    motivo_cancelamento: string | null
   }
   itensIniciais: Item[]
   produtos: Produto[]
@@ -172,6 +174,37 @@ export function PedidoDetalheClient({
     })
   }
 
+  // Observações / Termos
+  const [obsAberto, setObsAberto] = useState(!!(pedido.observacoes || pedido.termos_condicoes || pedido.motivo_cancelamento))
+  const [editandoObs, setEditandoObs] = useState(false)
+  const [obsTexto, setObsTexto] = useState(pedido.observacoes ?? '')
+  const [termosTexto, setTermosTexto] = useState(pedido.termos_condicoes ?? '')
+  const [salvandoObs, setSalvandoObs] = useState(false)
+
+  const handleSalvarObs = async () => {
+    setSalvandoObs(true)
+    await atualizarObservacoesTermos(pedido.id, {
+      observacoes: obsTexto || null,
+      termos_condicoes: termosTexto || null,
+    })
+    setEditandoObs(false)
+    setSalvandoObs(false)
+    router.refresh()
+  }
+
+  // Cancelar com motivo
+  const [modalCancelar, setModalCancelar] = useState(false)
+  const [motivoCancelar, setMotivoCancelar] = useState('')
+  const [cancelando, setCancelando] = useState(false)
+
+  const handleCancelarComMotivo = async () => {
+    setCancelando(true)
+    await cancelarComMotivo(pedido.id, motivoCancelar)
+    setModalCancelar(false)
+    setCancelando(false)
+    router.refresh()
+  }
+
   const [gerandoOS, setGerandoOS] = useState(false)
   const [erroOS, setErroOS] = useState('')
 
@@ -226,8 +259,7 @@ export function PedidoDetalheClient({
             {gerandoOS ? 'Gerando...' : '🔧 Gerar OS'}
           </button>
           {pedido.status !== 'cancelado' && pedido.status !== 'faturado' && (
-            <button
-              onClick={() => { if (confirm('Cancelar este pedido/orçamento?')) handleStatus('cancelado') }}
+            <button onClick={() => setModalCancelar(true)}
               className="rounded-xl border border-red-200 px-4 py-2 text-sm font-semibold text-red-500 hover:bg-red-50 transition">
               Cancelar
             </button>
@@ -245,10 +277,7 @@ export function PedidoDetalheClient({
                 <label className="mb-1.5 block text-xs font-semibold uppercase text-gray-400">Depósito</label>
                 <select
                   value={infoDepositoId ?? ''}
-                  onChange={(e) => {
-                    setInfoDepositoId(e.target.value || null)
-                    setInfoDeposito(depositos.find(d => d.id === e.target.value)?.nome ?? '')
-                  }}
+                  onChange={(e) => setInfoDepositoId(e.target.value)}
                   className="field w-full">
                   <option value="">— Nenhum —</option>
                   {depositos.map(d => <option key={d.id} value={d.id}>{d.nome}</option>)}
@@ -258,10 +287,7 @@ export function PedidoDetalheClient({
                 <label className="mb-1.5 block text-xs font-semibold uppercase text-gray-400">Pagamento</label>
                 <select
                   value={infoFormaId ?? ''}
-                  onChange={(e) => {
-                    setInfoFormaId(e.target.value || null)
-                    setInfoForma(formas.find(f => f.id === e.target.value)?.nome ?? '')
-                  }}
+                  onChange={(e) => setInfoFormaId(e.target.value)}
                   className="field w-full">
                   <option value="">— A definir —</option>
                   {formas.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
@@ -477,10 +503,114 @@ export function PedidoDetalheClient({
         </div>
       </div>
 
-      {pedido.observacoes && (
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Observações</p>
-          <p className="text-sm text-gray-700">{pedido.observacoes}</p>
+      {/* Observações / Termos / Motivo Cancelamento */}
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <button
+          onClick={() => setObsAberto(!obsAberto)}
+          className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">
+          <span>Observações / Termos e Condições{pedido.motivo_cancelamento ? ' / Motivo Cancelamento' : ''}</span>
+          <svg className={`h-4 w-4 text-gray-400 transition-transform ${obsAberto ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        {obsAberto && (
+          <div className="border-t border-gray-100 px-4 py-4 space-y-4">
+            {editandoObs ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-400 mb-1.5">Observações Gerais</label>
+                  <textarea
+                    value={obsTexto}
+                    onChange={e => setObsTexto(e.target.value)}
+                    rows={4}
+                    placeholder="Observações internas ou para o cliente..."
+                    className="field w-full resize-none text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-400 mb-1.5">Termos e Condições de Venda</label>
+                  <textarea
+                    value={termosTexto}
+                    onChange={e => setTermosTexto(e.target.value)}
+                    rows={6}
+                    placeholder="Termos e condições para este pedido/orçamento..."
+                    className="field w-full resize-none text-sm" />
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleSalvarObs} disabled={salvandoObs}
+                    className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
+                    {salvandoObs ? 'Salvando...' : 'Salvar'}
+                  </button>
+                  <button onClick={() => { setObsTexto(pedido.observacoes ?? ''); setTermosTexto(pedido.termos_condicoes ?? ''); setEditandoObs(false) }}
+                    className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 space-y-4">
+                    {obsTexto ? (
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-gray-400 mb-1">Observações Gerais</p>
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{obsTexto}</p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400 italic">Nenhuma observação.</p>
+                    )}
+                    {termosTexto && (
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-gray-400 mb-1">Termos e Condições</p>
+                        <p className="text-sm text-gray-600 whitespace-pre-wrap">{termosTexto}</p>
+                      </div>
+                    )}
+                  </div>
+                  {podeEditar && (
+                    <button onClick={() => setEditandoObs(true)}
+                      className="shrink-0 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-50 transition">
+                      Editar
+                    </button>
+                  )}
+                </div>
+                {pedido.motivo_cancelamento && (
+                  <div className="rounded-lg bg-red-50 border border-red-100 px-3 py-2">
+                    <p className="text-xs font-semibold uppercase text-red-400 mb-1">Motivo do Cancelamento</p>
+                    <p className="text-sm text-red-700">{pedido.motivo_cancelamento}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Modal Cancelar com Motivo */}
+      {modalCancelar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setModalCancelar(false)}>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-gray-900 mb-1">Cancelar {pedido.tipo === 'orcamento' ? 'orçamento' : 'pedido'}?</h3>
+            <p className="text-sm text-gray-400 mb-4">Esta ação não pode ser desfeita.</p>
+            <div className="mb-4">
+              <label className="block text-xs font-semibold uppercase text-gray-400 mb-1.5">Motivo (opcional)</label>
+              <textarea
+                value={motivoCancelar}
+                onChange={e => setMotivoCancelar(e.target.value)}
+                rows={3}
+                placeholder="Ex: Cliente desistiu, produto fora de estoque..."
+                className="field w-full resize-none text-sm" />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setModalCancelar(false)}
+                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+                Voltar
+              </button>
+              <button onClick={handleCancelarComMotivo} disabled={cancelando}
+                className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-bold text-white hover:bg-red-600 disabled:opacity-50 transition">
+                {cancelando ? 'Cancelando...' : 'Confirmar'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

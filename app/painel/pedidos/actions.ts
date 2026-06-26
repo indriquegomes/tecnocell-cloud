@@ -103,6 +103,30 @@ export async function atualizarInfoPedido(
   return { ok: true }
 }
 
+export async function atualizarObservacoesTermos(
+  id: string,
+  dados: { observacoes?: string | null; termos_condicoes?: string | null }
+) {
+  await requireAuth()
+  const supabase = await createServiceClient()
+  const { error } = await supabase.from('pedidos').update(dados).eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath(`/painel/pedidos/${id}`)
+  return { ok: true }
+}
+
+export async function cancelarComMotivo(id: string, motivo: string) {
+  await requireAuth()
+  const supabase = await createServiceClient()
+  const { error } = await supabase.from('pedidos')
+    .update({ status: 'cancelado', motivo_cancelamento: motivo || null })
+    .eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/painel/pedidos')
+  revalidatePath(`/painel/pedidos/${id}`)
+  return { ok: true }
+}
+
 export async function removerItemPedido(itemId: string, pedidoId: string) {
   await requireAuth()
   const supabase = await createServiceClient()
