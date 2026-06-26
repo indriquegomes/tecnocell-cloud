@@ -1039,11 +1039,11 @@ export function OperacaoClient({
               <p className="text-sm font-semibold text-red-800">Retirada</p>
             </button>
 
-            <div className="rounded-2xl border border-amber-100 bg-gray-50 p-4 opacity-50 select-none">
+            <a href="/painel/devolucoes"
+              className="rounded-2xl border border-orange-200 bg-white p-4 text-left transition hover:border-orange-400 hover:shadow-md block">
               <div className="mb-2 text-2xl">↩️</div>
-              <p className="text-sm font-semibold text-amber-800">Devolução</p>
-              <p className="text-xs text-gray-400 mt-0.5">Em breve</p>
-            </div>
+              <p className="text-sm font-semibold text-orange-800">Devolução</p>
+            </a>
 
             <button
               onClick={() => toggle('saldo')}
