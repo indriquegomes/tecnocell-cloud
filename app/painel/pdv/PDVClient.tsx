@@ -97,9 +97,10 @@ interface Props {
   depositos: Deposito[]
   tabelas: TabelaPreco[]
   precosPorTabela: Record<string, Record<string, number>>
+  precosPromo: Record<string, number>
 }
 
-export function PDVClient({ produtos: produtosIniciais, formas, pessoas, depositos, tabelas, precosPorTabela }: Props) {
+export function PDVClient({ produtos: produtosIniciais, formas, pessoas, depositos, tabelas, precosPorTabela, precosPromo }: Props) {
   const [produtos, setProdutos] = useState(produtosIniciais)
   const [busca, setBusca] = useState('')
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([])
@@ -273,7 +274,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
         nome: p.nome,
         codigo: p.codigo,
         quantidade: 1,
-        preco_unitario: precosPorTabela[tabelaId]?.[p.id] ?? p.preco,
+        preco_unitario: precosPromo[p.id] ?? precosPorTabela[tabelaId]?.[p.id] ?? p.preco,
         estoque_disponivel: disp,
       }]
     })

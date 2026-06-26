@@ -108,12 +108,14 @@ export async function buscarPromocaoAtivaPorProduto(produtoId: string): Promise<
 
   if (!data) return null
 
-  const promo = (data as { preco_promocional: number | null; quantidade_x: number | null; quantidade_y: number | null; promocoes: { tipo: string } }).promocoes
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const promoArr = (data as any).promocoes
+  const promo = Array.isArray(promoArr) ? promoArr[0] : promoArr
 
   return {
-    tipo: promo.tipo,
-    preco_promocional: data.preco_promocional,
-    quantidade_x: data.quantidade_x,
-    quantidade_y: data.quantidade_y,
+    tipo: promo?.tipo ?? '',
+    preco_promocional: data.preco_promocional as number | null,
+    quantidade_x: data.quantidade_x as number | null,
+    quantidade_y: data.quantidade_y as number | null,
   }
 }

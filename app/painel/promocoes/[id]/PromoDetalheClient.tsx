@@ -72,9 +72,9 @@ export function PromoDetalheClient({
     await adicionarItemPromocao(
       promocao.id,
       prodSel.id,
-      parseFloat(precoTemp) || prodSel.preco,
-      promocao.tipo !== 'valor_direto' ? parseInt(qxTemp) || null : null,
-      promocao.tipo === 'leve_x_pague_y' ? parseInt(qyTemp) || null : null,
+      promocao.tipo === 'valor_direto' ? (parseFloat(precoTemp) || prodSel.preco) : prodSel.preco,
+      null,
+      null,
     )
     setBusca(''); setProdSel(null); setPrecoTemp(''); setSalvando(false)
     router.refresh()
@@ -167,23 +167,12 @@ export function PromoDetalheClient({
               </div>
             )}
 
-            {(promocao.tipo === 'leve_x_pague_y' || promocao.tipo === 'acima_x_pague_y') && (
-              <>
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold uppercase text-gray-400">
-                    {promocao.tipo === 'leve_x_pague_y' ? 'Leve (X)' : 'Mín. unidades (X)'}
-                  </label>
-                  <input value={qxTemp} onChange={e => setQxTemp(e.target.value)}
-                    type="number" min="1" className="field w-20" />
-                </div>
-                {promocao.tipo === 'leve_x_pague_y' && (
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold uppercase text-gray-400">Pague (Y)</label>
-                    <input value={qyTemp} onChange={e => setQyTemp(e.target.value)}
-                      type="number" min="1" className="field w-20" />
-                  </div>
-                )}
-              </>
+            {promocao.tipo !== 'valor_direto' && (
+              <p className="text-xs text-gray-400 self-end pb-2.5">
+                Condição: {promocao.tipo === 'leve_x_pague_y'
+                  ? `Leve ${promocao.quantidade_x} Pague ${promocao.quantidade_y} (definido na promoção)`
+                  : `Acima de ${promocao.quantidade_x} un. por R$ ${promocao.valor} (definido na promoção)`}
+              </p>
             )}
 
             <button onClick={handleAdicionar} disabled={!prodSel || salvando}
