@@ -68,21 +68,21 @@ export async function finalizarVenda(
   if (error) return { erro: error.message }
   if (!data) return { erro: 'RPC retornou vazio. Verifique o banco.' }
 
-  // Registra vendedor + linka lancamento de fiado ao venda_id (não-crítico)
   const vendaId = data.venda_id as string
-  supabase.from('vendas').update({
+
+  // Vendedor é rastreável — aguarda
+  await supabase.from('vendas').update({
     vendedor_id: usuario.id,
     vendedor_nome: vendedorNome,
-  }).eq('id', vendaId).then(() => {})
+  }).eq('id', vendaId)
 
-  // Linka qualquer lancamento fiado criado agora com o venda_id
-  supabase.from('lancamentos')
+  // Linka lançamento de fiado ao venda_id — secundário, não bloqueia retorno
+  void supabase.from('lancamentos')
     .update({ venda_id: vendaId })
     .eq('tipo', 'receber')
     .eq('status', 'pendente')
     .is('venda_id', null)
     .gte('created_at', new Date(Date.now() - 15000).toISOString())
-    .then(() => {})
 
   return {
     vendaId: data.venda_id as string,

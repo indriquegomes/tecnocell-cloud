@@ -31,10 +31,11 @@ export async function registrarDevolucao(
         (item.devolvido ?? 0) + Math.max(0, parseInt(rawQty as string) || 0),
       )
       if (novoDevolvido !== (item.devolvido ?? 0)) {
-        await supabase
+        const { error: eUpd } = await supabase
           .from('itens_consignado')
           .update({ devolvido: novoDevolvido })
           .eq('id', item.id)
+        if (eUpd) return { ok: false, message: `Erro ao atualizar item: ${eUpd.message}` }
       }
     }
 
@@ -48,10 +49,11 @@ export async function registrarDevolucao(
     const algumDevolvido = todos.some((i) => (i.devolvido ?? 0) > 0)
     const novoStatus = todoDevolvido ? 'devolvido' : algumDevolvido ? 'parcial' : 'aberto'
 
-    await supabase
+    const { error: eStatus } = await supabase
       .from('consignados')
       .update({ status: novoStatus })
       .eq('id', consignadoId)
+    if (eStatus) return { ok: false, message: eStatus.message }
 
     revalidatePath('/painel/consignado')
     return { ok: true, message: todoDevolvido ? 'Devolução total registrada.' : 'Devolução parcial registrada.' }

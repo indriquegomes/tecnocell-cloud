@@ -191,11 +191,12 @@ export async function registrarDevolucao(
   // Retorno ao estoque — tenta DEP001 como fallback se deposito_id for null
   const depositoEstoque = input.deposito_id ?? 'DEP001'
   for (const item of input.itens) {
-    await supabase.rpc('incrementar_estoque', {
+    const { error: eEstoque } = await supabase.rpc('incrementar_estoque', {
       p_produto_id: item.produto_id,
       p_deposito_id: depositoEstoque,
       p_quantidade: item.quantidade,
     })
+    if (eEstoque) throw new Error(`Falha ao retornar ${item.nome} ao estoque: ${eEstoque.message}`)
   }
 
   // Tratamento financeiro
