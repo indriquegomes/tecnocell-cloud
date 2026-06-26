@@ -225,8 +225,8 @@ export function PromoDetalheClient({
                     {promocao.tipo !== 'valor_direto' && (
                       <td className="px-6 py-3 text-center text-gray-600">
                         {promocao.tipo === 'leve_x_pague_y'
-                          ? `Leve ${item.quantidade_x} Pague ${item.quantidade_y}`
-                          : `Acima de ${item.quantidade_x} un.`}
+                          ? `Leve ${promocao.quantidade_x} Pague ${promocao.quantidade_y}`
+                          : `Acima de ${promocao.quantidade_x} un.`}
                       </td>
                     )}
                     <td className="px-6 py-3 text-right">
