@@ -18,10 +18,17 @@ const navCompleto: NavGroup[] = [
   {
     group: 'Vendas',
     items: [
-      { href: '/painel/pdv',          label: 'PDV / Caixa',         permissao: 'pdv' },
-      { href: '/painel/pdv/operacao', label: 'Operação do PDV',     permissao: 'pdv' },
-      { href: '/painel/vendas',       label: 'Painel de Vendas',    permissao: 'vendas' },
-      { href: '/painel/vales-credito', label: 'Créditos de Clientes', permissao: 'financeiro' },
+      { href: '/painel/pdv',            label: 'PDV / Caixa',           permissao: 'pdv' },
+      { href: '/painel/pdv/operacao',   label: 'Operação do PDV',       permissao: 'pdv' },
+      { href: '/painel/vendas',         label: 'Painel de Vendas',      permissao: 'vendas' },
+      { href: '/painel/vales-credito',  label: 'Créditos de Clientes',  permissao: 'financeiro' },
+      { href: '/painel/pedidos',        label: 'Pedidos e Orçamentos',  permissao: 'pedidos' },
+    ],
+  },
+  {
+    group: 'Estoque',
+    items: [
+      { href: '/painel/tabelas-preco', label: 'Tabelas de Preço', permissao: 'produtos' },
     ],
   },
 ]
@@ -30,20 +37,18 @@ const navEmConstrucao: NavGroup[] = [
   {
     group: 'Vendas',
     items: [
-      { href: '/painel/painel-vendedor', label: 'Painel Vendedor',      permissao: 'relatorios' },
-      { href: '/painel/consignado',      label: 'Consignado',           permissao: 'pdv' },
-      { href: '/painel/devolucoes',      label: 'Devoluções',           permissao: 'devolucoes' },
-      { href: '/painel/pedidos',         label: 'Pedidos e Orçamentos', permissao: 'pedidos' },
+      { href: '/painel/painel-vendedor', label: 'Painel Vendedor', permissao: 'relatorios' },
+      { href: '/painel/consignado',      label: 'Consignado',      permissao: 'pdv' },
+      { href: '/painel/devolucoes',      label: 'Devoluções',      permissao: 'devolucoes' },
     ],
   },
   {
     group: 'Estoque',
     items: [
-      { href: '/painel/produtos',        label: 'Produtos',         permissao: 'produtos' },
-      { href: '/painel/estoque',         label: 'Movimentações',    permissao: 'estoque' },
-      { href: '/painel/depositos',       label: 'Depósitos',        permissao: 'estoque' },
-      { href: '/painel/tabelas-preco',   label: 'Tabelas de Preço', permissao: 'produtos' },
-      { href: '/painel/categorias',      label: 'Categorias',       permissao: 'produtos' },
+      { href: '/painel/produtos',      label: 'Produtos',      permissao: 'produtos' },
+      { href: '/painel/estoque',       label: 'Movimentações', permissao: 'estoque' },
+      { href: '/painel/depositos',     label: 'Depósitos',     permissao: 'estoque' },
+      { href: '/painel/categorias',    label: 'Categorias',    permissao: 'produtos' },
     ],
   },
   {
