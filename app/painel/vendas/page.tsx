@@ -24,7 +24,7 @@ export default async function PainelVendasPage({
 
   if (status) query = query.eq('status', status)
   else query = query.neq('status', 'aberta') // exclui vendas em andamento
-  if (forma) query = query.eq('forma_pagamento_id', forma)
+  // filtro por forma é aplicado depois, via pagamentos_venda (campo forma_pagamento_id da venda é legado)
 
   const [{ data: vendasRaw }, { data: formasData }] = await Promise.all([
     query,
@@ -42,6 +42,25 @@ export default async function PainelVendasPage({
     pessoaMap = Object.fromEntries((pessoas ?? []).map(p => [p.id, p.nome]))
   }
 
+  // Formas de pagamento reais (tabela filha pagamentos_venda — suporta múltiplos pagamentos)
+  const vendaIds = (vendasRaw ?? []).map((v: { id: string }) => v.id)
+  const pagamentosMap: Record<string, string> = {}
+  const pagamentosIds: Record<string, Set<string>> = {}
+  if (vendaIds.length > 0) {
+    const { data: pags } = await supabase
+      .from('pagamentos_venda')
+      .select('venda_id, forma_pagamento_id')
+      .in('venda_id', vendaIds)
+    const porVenda: Record<string, Set<string>> = {}
+    for (const p of (pags ?? []) as { venda_id: string; forma_pagamento_id: string }[]) {
+      const nome = formaMap[p.forma_pagamento_id]
+      if (!nome) continue
+      ;(porVenda[p.venda_id] ||= new Set()).add(nome)
+      ;(pagamentosIds[p.venda_id] ||= new Set()).add(p.forma_pagamento_id)
+    }
+    for (const [vid, set] of Object.entries(porVenda)) pagamentosMap[vid] = [...set].join(' + ')
+  }
+
   const vendas = (vendasRaw ?? []).map((v: {
     id: string; numero: number | null; total: number; desconto: number
     created_at: string; status: string; vendedor_nome: string | null
@@ -55,8 +74,9 @@ export default async function PainelVendasPage({
     status: v.status,
     vendedor_nome: v.vendedor_nome ?? null,
     pessoa_nome: v.pessoa_id ? (pessoaMap[v.pessoa_id] ?? null) : null,
-    forma_pagamento_nome: v.forma_pagamento_id ? (formaMap[v.forma_pagamento_id] ?? null) : null,
+    forma_pagamento_nome: pagamentosMap[v.id] ?? (v.forma_pagamento_id ? (formaMap[v.forma_pagamento_id] ?? null) : null),
   })).filter((v) => {
+    if (forma && !(pagamentosIds[v.id]?.has(forma))) return false
     if (!busca) return true
     const b = busca.toLowerCase()
     return (
