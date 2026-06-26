@@ -1,0 +1,222 @@
+'use client'
+
+import { useState } from 'react'
+import { emitirCredito, estornarCredito } from './actions'
+import { ConfirmButton } from '@/components/ConfirmButton'
+
+const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmtData = (d: string) => new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+
+type Movimento = {
+  id: string
+  pessoa_id: string
+  pessoa_nome: string | null
+  valor: number
+  tipo: string
+  descricao: string | null
+  devolucao_id: string | null
+  created_at: string
+}
+
+type ClienteComSaldo = {
+  id: string
+  nome: string
+  saldo: number
+  movimentos: Movimento[]
+}
+
+export function CreditosClient({
+  clientes,
+  pessoas,
+  totalEmCirculacao,
+  clienteFiltroInicial,
+  erro,
+  ok,
+}: {
+  clientes: ClienteComSaldo[]
+  pessoas: { id: string; nome: string }[]
+  totalEmCirculacao: number
+  clienteFiltroInicial: string
+  erro?: string
+  ok?: string
+}) {
+  const [busca, setBusca] = useState(clienteFiltroInicial)
+  const [expandido, setExpandido] = useState<string | null>(null)
+  const [mostrarEmitir, setMostrarEmitir] = useState(false)
+
+  const clientesFiltrados = busca.trim()
+    ? clientes.filter((c) => c.nome.toLowerCase().includes(busca.toLowerCase()))
+    : clientes
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-900">Créditos de Clientes</h2>
+        <button
+          onClick={() => setMostrarEmitir(true)}
+          className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
+          + Emitir Crédito
+        </button>
+      </div>
+
+      {erro && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
+      {ok && <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">Crédito emitido com sucesso!</div>}
+
+      {/* Cards resumo */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-semibold uppercase text-gray-400">Total em circulação</p>
+          <p className="mt-1 text-xl font-bold text-blue-600">{fmt(totalEmCirculacao)}</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-semibold uppercase text-gray-400">Clientes com saldo</p>
+          <p className="mt-1 text-xl font-bold text-gray-800">{clientes.filter((c) => c.saldo > 0.01).length}</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-semibold uppercase text-gray-400">Total de clientes</p>
+          <p className="mt-1 text-xl font-bold text-gray-800">{clientes.length}</p>
+        </div>
+      </div>
+
+      {/* Busca */}
+      <input
+        value={busca}
+        onChange={(e) => setBusca(e.target.value)}
+        placeholder="Buscar cliente..."
+        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+
+      {/* Lista de clientes */}
+      <div className="space-y-2">
+        {clientesFiltrados.length === 0 && (
+          <div className="rounded-xl border border-gray-200 bg-white px-5 py-10 text-center text-sm text-gray-400">
+            Nenhum cliente com crédito encontrado.
+          </div>
+        )}
+        {clientesFiltrados.map((c) => {
+          const aberto = expandido === c.id
+          return (
+            <div key={c.id} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+              {/* Linha do cliente */}
+              <button
+                onClick={() => setExpandido(aberto ? null : c.id)}
+                className="flex w-full items-center justify-between px-5 py-4 hover:bg-gray-50 transition text-left">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-700">
+                    {c.nome[0]?.toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-800">{c.nome}</p>
+                    <p className="text-xs text-gray-400">{c.movimentos.length} movimento{c.movimentos.length !== 1 ? 's' : ''}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`text-lg font-bold ${c.saldo > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                    {fmt(Math.max(0, c.saldo))}
+                  </span>
+                  <span className="text-gray-400 text-sm">{aberto ? '▲' : '▼'}</span>
+                </div>
+              </button>
+
+              {/* Histórico expandido */}
+              {aberto && (
+                <div className="border-t border-gray-100">
+                  <table className="min-w-full divide-y divide-gray-50 text-sm">
+                    <thead className="bg-gray-50">
+                      <tr className="text-left text-xs font-semibold uppercase text-gray-400">
+                        <th className="px-5 py-2.5">Data</th>
+                        <th className="px-5 py-2.5">Descrição</th>
+                        <th className="px-5 py-2.5 text-center">Tipo</th>
+                        <th className="px-5 py-2.5 text-right">Valor</th>
+                        <th className="px-5 py-2.5" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {c.movimentos.map((m) => (
+                        <tr key={m.id} className="hover:bg-gray-50">
+                          <td className="px-5 py-2.5 text-xs text-gray-400 whitespace-nowrap">{fmtData(m.created_at)}</td>
+                          <td className="px-5 py-2.5 text-gray-600">
+                            {m.descricao ?? '—'}
+                            {m.devolucao_id && (
+                              <span className="ml-2 text-xs text-blue-500">↩ devolução</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-2.5 text-center">
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                              m.tipo === 'credito' ? 'bg-green-100 text-green-700' :
+                              m.tipo === 'uso' ? 'bg-blue-100 text-blue-600' :
+                              'bg-red-100 text-red-600'
+                            }`}>
+                              {m.tipo === 'credito' ? '+ Crédito' : m.tipo === 'uso' ? '✓ Usado' : '− Estorno'}
+                            </span>
+                          </td>
+                          <td className={`px-5 py-2.5 text-right font-semibold ${
+                            m.tipo === 'credito' ? 'text-green-600' :
+                            m.tipo === 'uso' ? 'text-blue-600' :
+                            'text-red-500'
+                          }`}>
+                            {m.tipo === 'uso' ? '−' : m.tipo === 'estorno' ? '−' : '+'}{fmt(m.valor ?? 0)}
+                          </td>
+                          <td className="px-5 py-2.5 text-right">
+                            {m.tipo === 'credito' && (
+                              <form action={estornarCredito.bind(null, m.id)}>
+                                <ConfirmButton message="Estornar este crédito?" className="text-xs text-red-400 hover:text-red-600 font-medium">
+                                  Estornar
+                                </ConfirmButton>
+                              </form>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Modal emitir crédito */}
+      {mostrarEmitir && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
+            <div className="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+              <h3 className="font-bold text-gray-900">Emitir Crédito Manual</h3>
+              <button onClick={() => setMostrarEmitir(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <form action={async (fd) => { await emitirCredito(fd); setMostrarEmitir(false) }} className="p-6 space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">Cliente <span className="text-red-500">*</span></label>
+                <select name="pessoa_id" required className="field w-full">
+                  <option value="">Selecione...</option>
+                  {pessoas.map((p) => (
+                    <option key={p.id} value={p.id}>{p.nome}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">Valor (R$) <span className="text-red-500">*</span></label>
+                <input name="valor" type="number" step="0.01" min="0.01" required className="field w-full" placeholder="0,00" />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">Motivo</label>
+                <input name="descricao" className="field w-full" placeholder="Ex: Vale de troca, bônus..." />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setMostrarEmitir(false)}
+                  className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+                  Cancelar
+                </button>
+                <button type="submit"
+                  className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
+                  Emitir
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
