@@ -14,21 +14,26 @@ export default async function PainelVendedorPage({
   const dataInicio = de ?? inicioMes
   const dataFim = ate ?? hoje
 
-  const { data: vendas } = await supabase
-    .from('vendas')
-    .select('id, total, desconto, vendedor_nome, created_at, forma_pagamento_id')
-    .eq('status', 'concluida')
-    .gte('created_at', dataInicio + 'T00:00:00')
-    .lte('created_at', dataFim + 'T23:59:59')
+  const [{ data: vendas }, { data: pedidos }] = await Promise.all([
+    supabase
+      .from('vendas')
+      .select('id, total, desconto, vendedor_nome, created_at')
+      .eq('status', 'concluida')
+      .gte('created_at', dataInicio + 'T00:00:00')
+      .lte('created_at', dataFim + 'T23:59:59'),
+    supabase
+      .from('pedidos')
+      .select('id, status')
+      .gte('created_at', dataInicio + 'T00:00:00')
+      .lte('created_at', dataFim + 'T23:59:59'),
+  ])
 
   const todasVendas = vendas ?? []
+  const todosPedidos = pedidos ?? []
 
   // Agrupa por vendedor
   const mapaVendedor: Record<string, {
-    nome: string
-    qtd: number
-    total: number
-    desconto: number
+    nome: string; qtd: number; total: number; desconto: number
     vendas: typeof todasVendas
   }> = {}
 
@@ -46,7 +51,21 @@ export default async function PainelVendedorPage({
   const ranking = Object.values(mapaVendedor).sort((a, b) => b.total - a.total)
   const totalGeral = todasVendas.reduce((s, v) => s + (v.total ?? 0), 0)
 
-  // Vendas do vendedor selecionado (para o drill-down)
+  // Vendas diárias para o gráfico
+  const mapaDia: Record<string, number> = {}
+  for (const v of todasVendas) {
+    const dia = v.created_at.slice(0, 10)
+    mapaDia[dia] = (mapaDia[dia] ?? 0) + (v.total ?? 0)
+  }
+  const vendasDiarias = Object.entries(mapaDia)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([dia, total]) => ({ dia, total }))
+
+  // Resumo pedidos
+  const orcamentos = todosPedidos.filter(p => p.status === 'orcamento').length
+  const finalizados = todosPedidos.filter(p => p.status === 'aprovado').length
+  const cancelados = todosPedidos.filter(p => p.status === 'cancelado').length
+
   let vendasVendedor: typeof todasVendas = []
   if (vendedorFiltro && mapaVendedor[vendedorFiltro]) {
     vendasVendedor = mapaVendedor[vendedorFiltro].vendas
@@ -59,6 +78,8 @@ export default async function PainelVendedorPage({
       totalVendas={todasVendas.length}
       filtros={{ de: dataInicio, ate: dataFim, vendedor: vendedorFiltro ?? '' }}
       vendasVendedor={vendasVendedor}
+      vendasDiarias={vendasDiarias}
+      resumoPedidos={{ orcamentos, finalizados, cancelados }}
     />
   )
 }

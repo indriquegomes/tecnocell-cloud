@@ -5,21 +5,84 @@ import { useRouter } from 'next/navigation'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtData = (s: string) => new Date(s).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
-
-type VendedorRow = {
-  nome: string
-  qtd: number
-  total: number
-  desconto: number
+const fmtDia = (s: string) => {
+  const [, m, d] = s.split('-')
+  return `${d}/${m}`
 }
 
-type VendaRow = {
-  id: string
-  total: number
-  desconto: number
-  vendedor_nome: string | null
-  created_at: string
-  forma_pagamento_id: string | null
+type VendedorRow = { nome: string; qtd: number; total: number; desconto: number }
+type VendaRow = { id: string; total: number; desconto: number; vendedor_nome: string | null; created_at: string }
+type DiaRow = { dia: string; total: number }
+
+function GraficoDiario({ dados, mesAno }: { dados: DiaRow[]; mesAno: string }) {
+  if (dados.length === 0) {
+    return (
+      <div className="flex h-48 items-center justify-center text-sm text-gray-300">
+        Sem vendas no período
+      </div>
+    )
+  }
+
+  const W = 680
+  const H = 160
+  const PADX = 40
+  const PADY = 20
+
+  const max = Math.max(...dados.map(d => d.total), 1)
+  const xStep = dados.length > 1 ? (W - PADX * 2) / (dados.length - 1) : W - PADX * 2
+
+  const toX = (i: number) => PADX + i * xStep
+  const toY = (v: number) => PADY + (H - PADY * 2) * (1 - v / max)
+
+  const pontos = dados.map((d, i) => `${toX(i).toFixed(1)},${toY(d.total).toFixed(1)}`).join(' ')
+  const area = [
+    `M${toX(0).toFixed(1)},${(H - PADY).toFixed(1)}`,
+    ...dados.map((d, i) => `L${toX(i).toFixed(1)},${toY(d.total).toFixed(1)}`),
+    `L${toX(dados.length - 1).toFixed(1)},${(H - PADY).toFixed(1)}Z`,
+  ].join(' ')
+
+  // Mostra no máx 10 labels no eixo X
+  const step = Math.ceil(dados.length / 10)
+
+  return (
+    <div className="overflow-x-auto">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 320 }}>
+        <defs>
+          <linearGradient id="gradVendas" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        {/* grid lines */}
+        {[0, 0.25, 0.5, 0.75, 1].map(pct => {
+          const y = PADY + (H - PADY * 2) * (1 - pct)
+          return (
+            <g key={pct}>
+              <line x1={PADX} y1={y} x2={W - PADX} y2={y} stroke="#f1f5f9" strokeWidth="1" />
+              <text x={PADX - 4} y={y + 4} textAnchor="end" fontSize="9" fill="#94a3b8">
+                {pct === 0 ? '0' : `${(max * pct / 1000).toFixed(0)}k`}
+              </text>
+            </g>
+          )
+        })}
+        {/* area */}
+        <path d={area} fill="url(#gradVendas)" />
+        {/* line */}
+        <polyline points={pontos} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinejoin="round" />
+        {/* dots + labels */}
+        {dados.map((d, i) => (
+          <g key={d.dia}>
+            <circle cx={toX(i)} cy={toY(d.total)} r="3" fill="#3b82f6" />
+            {i % step === 0 && (
+              <text x={toX(i)} y={H - 4} textAnchor="middle" fontSize="9" fill="#94a3b8">
+                {fmtDia(d.dia)}
+              </text>
+            )}
+          </g>
+        ))}
+      </svg>
+    </div>
+  )
 }
 
 export function PainelVendedorClient({
@@ -28,12 +91,16 @@ export function PainelVendedorClient({
   totalVendas,
   filtros,
   vendasVendedor,
+  vendasDiarias,
+  resumoPedidos,
 }: {
   ranking: VendedorRow[]
   totalGeral: number
   totalVendas: number
   filtros: { de: string; ate: string; vendedor: string }
   vendasVendedor: VendaRow[]
+  vendasDiarias: DiaRow[]
+  resumoPedidos: { orcamentos: number; finalizados: number; cancelados: number }
 }) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -44,13 +111,14 @@ export function PainelVendedorClient({
   const melhor = ranking[0]
   const ticketMedioGeral = totalVendas > 0 ? totalGeral / totalVendas : 0
 
+  const mesAno = filtros.de ? filtros.de.slice(0, 7) : ''
+
   const aplicar = (novoVendedor?: string) => {
     const p = new URLSearchParams()
     p.set('de', de)
     p.set('ate', ate)
-    if (novoVendedor !== undefined ? novoVendedor : vendedorSelecionado) {
-      p.set('vendedor', novoVendedor !== undefined ? novoVendedor : vendedorSelecionado)
-    }
+    const v = novoVendedor !== undefined ? novoVendedor : vendedorSelecionado
+    if (v) p.set('vendedor', v)
     startTransition(() => router.push(`/painel/painel-vendedor?${p.toString()}`))
   }
 
@@ -64,7 +132,7 @@ export function PainelVendedorClient({
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-900">Painel Vendedor</h2>
 
-      {/* Filtro de período */}
+      {/* Filtro */}
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-1">
           <label className="text-xs font-semibold uppercase text-gray-500">De</label>
@@ -86,23 +154,58 @@ export function PainelVendedorClient({
           setDe(ini); setAte(hj); setVendedorSelecionado('')
           startTransition(() => router.push('/painel/painel-vendedor'))
         }} className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 transition">
-          Limpar
+          Mês atual
         </button>
       </div>
 
-      {/* Cards de resumo */}
+      {/* Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'Total no período',   valor: fmt(totalGeral),        cor: 'text-green-600' },
-          { label: 'Vendas realizadas',  valor: String(totalVendas),    cor: 'text-blue-600' },
-          { label: 'Ticket médio',       valor: fmt(ticketMedioGeral),  cor: 'text-purple-600' },
-          { label: 'Melhor vendedor',    valor: melhor?.nome ?? '—',    cor: 'text-orange-500' },
+          { label: 'Vendas no período', valor: fmt(totalGeral), cor: 'text-green-600' },
+          { label: 'Qtd de vendas', valor: String(totalVendas), cor: 'text-blue-600' },
+          { label: 'Ticket médio', valor: fmt(ticketMedioGeral), cor: 'text-purple-600' },
+          { label: 'Melhor vendedor', valor: melhor?.nome ?? '—', cor: 'text-orange-500' },
         ].map(({ label, valor, cor }) => (
           <div key={label} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</p>
             <p className={`mt-1 text-xl font-bold truncate ${cor}`}>{valor}</p>
           </div>
         ))}
+      </div>
+
+      {/* Gráfico + resumo pedidos */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Gráfico */}
+        <div className="lg:col-span-2 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="font-semibold text-gray-800">Fluxo de Vendas</h3>
+            <span className="text-xs text-gray-400">{filtros.de} → {filtros.ate}</span>
+          </div>
+          <GraficoDiario dados={vendasDiarias} mesAno={mesAno} />
+        </div>
+
+        {/* Resumo pedidos */}
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h3 className="mb-4 font-semibold text-gray-800">Pedidos no período</h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between rounded-lg bg-blue-50 px-4 py-3">
+              <span className="text-sm font-medium text-blue-700">Orçamentos</span>
+              <span className="text-lg font-bold text-blue-700">{resumoPedidos.orcamentos}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-lg bg-green-50 px-4 py-3">
+              <span className="text-sm font-medium text-green-700">Aprovados</span>
+              <span className="text-lg font-bold text-green-700">{resumoPedidos.finalizados}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-lg bg-red-50 px-4 py-3">
+              <span className="text-sm font-medium text-red-700">Cancelados</span>
+              <span className="text-lg font-bold text-red-700">{resumoPedidos.cancelados}</span>
+            </div>
+            <div className="flex items-center justify-between border-t border-gray-100 pt-3">
+              <span className="text-sm font-medium text-gray-600">Total vendas PDV</span>
+              <span className="text-lg font-bold text-gray-900">{fmt(totalGeral)}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Ranking */}
@@ -116,7 +219,7 @@ export function PainelVendedorClient({
             <tr className="text-left text-xs font-semibold uppercase text-gray-500">
               <th className="px-5 py-3 w-8">#</th>
               <th className="px-5 py-3">Vendedor</th>
-              <th className="px-5 py-3 text-right">Qtd Vendas</th>
+              <th className="px-5 py-3 text-right">Vendas</th>
               <th className="px-5 py-3 text-right">Descontos</th>
               <th className="px-5 py-3 text-right">Ticket Médio</th>
               <th className="px-5 py-3 text-right">Total</th>
@@ -132,8 +235,7 @@ export function PainelVendedorClient({
               const pct = totalGeral > 0 ? (v.total / totalGeral) * 100 : 0
               const ativo = vendedorSelecionado === v.nome
               return (
-                <tr key={v.nome}
-                  onClick={() => abrirVendedor(v.nome)}
+                <tr key={v.nome} onClick={() => abrirVendedor(v.nome)}
                   className={`cursor-pointer transition ${ativo ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
                   <td className="px-5 py-3">
                     <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold
@@ -170,7 +272,7 @@ export function PainelVendedorClient({
         </table>
       </div>
 
-      {/* Drill-down: vendas do vendedor selecionado */}
+      {/* Drill-down vendedor */}
       {vendedorSelecionado && vendasVendedor.length > 0 && (
         <div className="overflow-hidden rounded-xl border border-blue-200 bg-white shadow-sm">
           <div className="border-b border-blue-100 bg-blue-50 px-5 py-4 flex items-center justify-between">
