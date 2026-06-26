@@ -23,7 +23,7 @@ export default async function PainelVendedorPage({
       .lte('created_at', dataFim + 'T23:59:59'),
     supabase
       .from('pedidos')
-      .select('id, status')
+      .select('id, tipo, status')
       .gte('created_at', dataInicio + 'T00:00:00')
       .lte('created_at', dataFim + 'T23:59:59'),
   ])
@@ -61,8 +61,8 @@ export default async function PainelVendedorPage({
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([dia, total]) => ({ dia, total }))
 
-  // Resumo pedidos
-  const orcamentos = todosPedidos.filter(p => p.status === 'orcamento').length
+  // Resumo pedidos — tipo distingue orçamento de pedido; status é o ciclo de vida
+  const orcamentos = todosPedidos.filter(p => p.tipo === 'orcamento').length
   const finalizados = todosPedidos.filter(p => p.status === 'aprovado').length
   const cancelados = todosPedidos.filter(p => p.status === 'cancelado').length
 
