@@ -3,8 +3,9 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { temPermissao } from '@/lib/permissoes'
 
-type NavItem = { href: string; label: string }
+type NavItem = { href: string; label: string; permissao?: string }
 type NavGroup = { group: string; items: NavItem[] }
 
 const nav: NavGroup[] = [
@@ -17,71 +18,58 @@ const nav: NavGroup[] = [
   {
     group: 'Vendas',
     items: [
-      { href: '/painel/pdv', label: 'PDV / Caixa' },
-      { href: '/painel/pedidos', label: 'Pedidos e Orçamentos' },
-      { href: '/painel/vendas', label: 'Painel de Vendas' },
-      { href: '/painel/os', label: 'Ordens de Serviço' },
-      { href: '/painel/consignado', label: 'Consignado' },
-      { href: '/painel/devolucoes', label: 'Devoluções' },
-      { href: '/painel/pdv/operacao', label: 'Operação do PDV' },
-      { href: '/painel/vales-credito', label: 'Vales de Crédito' },
-      { href: '/painel/promocoes', label: 'Promoções' },
+      { href: '/painel/pdv',           label: 'PDV / Caixa',          permissao: 'pdv' },
+      { href: '/painel/pdv/operacao',   label: 'Operação do PDV',      permissao: 'pdv' },
+      { href: '/painel/pedidos',        label: 'Pedidos e Orçamentos', permissao: 'pedidos' },
+      { href: '/painel/vendas',         label: 'Painel de Vendas',     permissao: 'vendas' },
+      { href: '/painel/os',             label: 'Ordens de Serviço',    permissao: 'os' },
+      { href: '/painel/consignado',     label: 'Consignado',           permissao: 'pdv' },
+      { href: '/painel/devolucoes',     label: 'Devoluções',           permissao: 'devolucoes' },
+      { href: '/painel/vales-credito',  label: 'Vales de Crédito',     permissao: 'financeiro' },
     ],
   },
   {
     group: 'Compras',
     items: [
-      { href: '/painel/compras', label: 'Notas de Entrada' },
+      { href: '/painel/compras', label: 'Notas de Entrada', permissao: 'compras' },
     ],
   },
   {
     group: 'Cadastros',
     items: [
-      { href: '/painel/clientes', label: 'Pessoas' },
-      { href: '/painel/produtos', label: 'Produtos' },
-      { href: '/painel/empresas', label: 'Empresas' },
-      { href: '/painel/formas-pagamento', label: 'Formas de Pagamento' },
+      { href: '/painel/clientes',          label: 'Pessoas',               permissao: 'clientes' },
+      { href: '/painel/produtos',          label: 'Produtos',              permissao: 'produtos' },
+      { href: '/painel/empresas',          label: 'Empresas',              permissao: 'usuarios' },
+      { href: '/painel/formas-pagamento',  label: 'Formas de Pagamento',   permissao: 'usuarios' },
     ],
   },
   {
     group: 'Estoque',
     items: [
-      { href: '/painel/estoque', label: 'Movimentações' },
-      { href: '/painel/depositos', label: 'Depósitos' },
-      { href: '/painel/tabelas-preco', label: 'Tabelas de Preço' },
-      { href: '/painel/catalogo', label: 'Catálogo' },
-      { href: '/painel/categorias', label: 'Categorias' },
+      { href: '/painel/estoque',        label: 'Movimentações',     permissao: 'estoque' },
+      { href: '/painel/depositos',      label: 'Depósitos',         permissao: 'estoque' },
+      { href: '/painel/tabelas-preco',  label: 'Tabelas de Preço',  permissao: 'produtos' },
+      { href: '/painel/categorias',     label: 'Categorias',        permissao: 'produtos' },
     ],
   },
   {
     group: 'Gestão',
     items: [
-      { href: '/painel/financeiro', label: 'Financeiro' },
-      { href: '/painel/relatorios', label: 'Relatórios' },
-      { href: '/painel/usuarios', label: 'Usuários' },
-      { href: '/painel/configuracoes', label: 'Configurações' },
-    ],
-  },
-  {
-    group: 'SIGE Loja',
-    items: [
-      { href: '/painel/loja', label: 'Gestão da Loja' },
-      { href: '/loja', label: 'Ver Loja Online' },
-    ],
-  },
-  {
-    group: 'Ferramentas',
-    items: [
-      { href: '/painel/chat', label: 'Chat IA' },
+      { href: '/painel/financeiro',     label: 'Financeiro',    permissao: 'financeiro' },
+      { href: '/painel/relatorios',     label: 'Relatórios',    permissao: 'relatorios' },
+      { href: '/painel/usuarios',       label: 'Usuários',      permissao: 'usuarios' },
+      { href: '/painel/configuracoes',  label: 'Configurações', permissao: 'usuarios' },
     ],
   },
 ]
 
-export function Sidebar() {
+export function Sidebar({ permissoes, isMaster }: { permissoes: string[]; isMaster: boolean }) {
   const pathname = usePathname()
-
   const isActive = (href: string) =>
     href === '/painel' ? pathname === '/painel' : pathname.startsWith(href)
+
+  const podeVer = (item: NavItem) =>
+    !item.permissao || temPermissao(permissoes, item.permissao, isMaster)
 
   return (
     <aside className="flex h-full w-60 flex-col border-r border-gray-200 bg-white">
@@ -96,37 +84,36 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3">
-        {nav.map((section) => (
-          <div key={section.group} className="mb-1">
-            <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
-              {section.group}
-            </p>
-            {section.items.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors',
-                  isActive(item.href)
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                )}
-              >
-                <span className={cn('h-1.5 w-1.5 rounded-full', isActive(item.href) ? 'bg-blue-500' : 'bg-gray-300')} />
-                {item.label}
-              </Link>
-            ))}
-          </div>
-        ))}
+        {nav.map((section) => {
+          const itensVisiveis = section.items.filter(podeVer)
+          if (!itensVisiveis.length) return null
+          return (
+            <div key={section.group} className="mb-1">
+              <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+                {section.group}
+              </p>
+              {itensVisiveis.map((item) => (
+                <Link key={item.href} href={item.href}
+                  className={cn(
+                    'flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors',
+                    isActive(item.href)
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  )}>
+                  <span className={cn('h-1.5 w-1.5 rounded-full', isActive(item.href) ? 'bg-blue-500' : 'bg-gray-300')} />
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          )
+        })}
       </nav>
 
-      {/* Footer — logout via POST (NUNCA Link/GET: o Next prefetcha e desloga sozinho) */}
+      {/* Footer — logout via POST */}
       <div className="border-t border-gray-200 p-3">
         <form action="/api/auth/signout" method="POST">
-          <button
-            type="submit"
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
-          >
+          <button type="submit"
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors">
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
