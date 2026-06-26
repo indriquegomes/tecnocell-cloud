@@ -98,9 +98,11 @@ interface Props {
   tabelas: TabelaPreco[]
   precosPorTabela: Record<string, Record<string, number>>
   precosPromo: Record<string, number>
+  promosLeveXY: Record<string, { x: number; y: number; nome: string }>
+  promosAcimaXY: Record<string, { x: number; valor: number; nome: string }>
 }
 
-export function PDVClient({ produtos: produtosIniciais, formas, pessoas, depositos, tabelas, precosPorTabela, precosPromo }: Props) {
+export function PDVClient({ produtos: produtosIniciais, formas, pessoas, depositos, tabelas, precosPorTabela, precosPromo, promosLeveXY, promosAcimaXY }: Props) {
   const [produtos, setProdutos] = useState(produtosIniciais)
   const [busca, setBusca] = useState('')
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([])
@@ -363,11 +365,29 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
 
   const subtotal = carrinho.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0)
   const totalItens = carrinho.reduce((s, i) => s + i.quantidade, 0)
+
+  // Desconto automático por promoções de quantidade
+  const descontoPromoDetalhes = carrinho.flatMap((item) => {
+    const leve = promosLeveXY[item.produto_id]
+    if (leve) {
+      const grupos = Math.floor(item.quantidade / leve.x)
+      const valor = grupos * (leve.x - leve.y) * item.preco_unitario
+      if (valor > 0) return [{ label: `${leve.nome} (${item.nome})`, valor }]
+    }
+    const acima = promosAcimaXY[item.produto_id]
+    if (acima && item.quantidade >= acima.x) {
+      const valor = item.quantidade * (item.preco_unitario - acima.valor)
+      if (valor > 0) return [{ label: `${acima.nome} (${item.nome})`, valor }]
+    }
+    return []
+  })
+  const descontoPromo = descontoPromoDetalhes.reduce((s, d) => s + d.valor, 0)
+
   const descontoBruto = descontoTipo === 'percent'
     ? subtotal * (parseFloat(desconto) || 0) / 100
     : parseFloat(desconto) || 0
   const descontoNum = Math.min(Math.max(0, descontoBruto), subtotal)
-  const total = subtotal - descontoNum
+  const total = subtotal - descontoNum - descontoPromo
 
   // Helpers por forma de pagamento
   const nomeDaForma = (id: string) => formas.find((f) => f.id === id)?.nome ?? ''
@@ -452,7 +472,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
           status: isFiadoForma(p.forma_id) ? 'pendente' : 'pago',
         })),
         pessoaId || null,
-        descontoNum,
+        descontoNum + descontoPromo,
         observacoes,
         depositoId,
       )
@@ -1276,6 +1296,12 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
             {descontoNum > 0 && descontoNum >= subtotal * 0.5 && (
               <p className="text-xs text-yellow-600">Desconto acima de 50% — confirme antes de finalizar.</p>
             )}
+            {descontoPromoDetalhes.map((d, i) => (
+              <div key={i} className="flex justify-between text-xs text-orange-600">
+                <span>🏷️ {d.label}</span>
+                <span>− {formatBRL(d.valor)}</span>
+              </div>
+            ))}
             <div className="flex justify-between border-t border-gray-100 pt-2 text-lg font-bold text-gray-900">
               <span>Total</span>
               <span className="text-green-600">{formatBRL(totalCobrado)}</span>

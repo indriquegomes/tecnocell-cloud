@@ -25,22 +25,47 @@ export default async function PDVPage() {
     precosPorTabela[it.tabela_id][it.produto_id] = it.preco
   }
 
-  // Busca promoções ativas agora para cruzar com itens
+  // Busca promoções ativas hoje (todos os tipos de uma vez)
   const { data: promocoesAtivas } = await supabase
     .from('promocoes')
-    .select('id, tipo, quantidade_x, quantidade_y, valor')
+    .select('id, nome, tipo, quantidade_x, quantidade_y, valor')
     .eq('ativa', true)
-    .eq('tipo', 'valor_direto')
     .lte('data_inicio', hoje)
     .gte('data_fim', hoje)
 
-  const idsPromoAtiva = new Set((promocoesAtivas ?? []).map(p => p.id))
+  const promosAtivas = promocoesAtivas ?? []
+  const idsValorDireto = new Set(promosAtivas.filter(p => p.tipo === 'valor_direto').map(p => p.id))
 
   // Mapa produto_id → preco_promocional (só valor_direto com promoção ativa hoje)
   const precosPromo: Record<string, number> = {}
   for (const it of (itensPromo ?? []) as { produto_id: string; preco_promocional: number | null; promocao_id: string }[]) {
-    if (it.preco_promocional != null && idsPromoAtiva.has(it.promocao_id)) {
+    if (it.preco_promocional != null && idsValorDireto.has(it.promocao_id)) {
       precosPromo[it.produto_id] = it.preco_promocional
+    }
+  }
+
+  // Busca itens das promos de quantidade (leve_x_pague_y e acima_x_pague_y)
+  const idsQtd = promosAtivas
+    .filter(p => p.tipo === 'leve_x_pague_y' || p.tipo === 'acima_x_pague_y')
+    .map(p => p.id)
+
+  const promosLeveXY: Record<string, { x: number; y: number; nome: string }> = {}
+  const promosAcimaXY: Record<string, { x: number; valor: number; nome: string }> = {}
+
+  if (idsQtd.length > 0) {
+    const { data: itensQtd } = await supabase
+      .from('itens_promocao')
+      .select('produto_id, promocao_id')
+      .in('promocao_id', idsQtd)
+
+    for (const it of (itensQtd ?? []) as { produto_id: string; promocao_id: string }[]) {
+      const promo = promosAtivas.find(p => p.id === it.promocao_id)
+      if (!promo) continue
+      if (promo.tipo === 'leve_x_pague_y' && promo.quantidade_x && promo.quantidade_y) {
+        promosLeveXY[it.produto_id] = { x: promo.quantidade_x, y: promo.quantidade_y, nome: promo.nome }
+      } else if (promo.tipo === 'acima_x_pague_y' && promo.quantidade_x && promo.valor) {
+        promosAcimaXY[it.produto_id] = { x: promo.quantidade_x, valor: promo.valor, nome: promo.nome }
+      }
     }
   }
 
@@ -76,6 +101,8 @@ export default async function PDVPage() {
         tabelas={tabelas ?? []}
         precosPorTabela={precosPorTabela}
         precosPromo={precosPromo}
+        promosLeveXY={promosLeveXY}
+        promosAcimaXY={promosAcimaXY}
       />
     </div>
   )
