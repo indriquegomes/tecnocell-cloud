@@ -49,3 +49,49 @@ export async function removerItemTabela(id: string, tabelaId: string) {
   revalidatePath(`/painel/tabelas-preco/${tabelaId}`)
   redirect(`/painel/tabelas-preco/${tabelaId}`)
 }
+
+export async function atualizarPrecoItem(id: string, tabelaId: string, preco: number) {
+  await requireAuth()
+  const supabase = await createServiceClient()
+  const { error } = await supabase
+    .from('itens_tabela_preco')
+    .update({ preco })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath(`/painel/tabelas-preco/${tabelaId}`)
+}
+
+export async function importarTodosComMultiplicador(tabelaId: string, multiplicador: number) {
+  await requireAuth()
+  const supabase = await createServiceClient()
+
+  const [{ data: produtos }, { data: jaExistem }] = await Promise.all([
+    supabase.from('produtos').select('id, preco').not('preco', 'is', null),
+    supabase.from('itens_tabela_preco').select('produto_id').eq('tabela_id', tabelaId),
+  ])
+
+  const jaSet = new Set((jaExistem ?? []).map((i) => i.produto_id))
+  const novos = (produtos ?? [])
+    .filter((p) => !jaSet.has(p.id) && (p.preco ?? 0) > 0)
+    .map((p) => ({
+      tabela_id: tabelaId,
+      produto_id: p.id,
+      preco: Math.round((p.preco! * multiplicador) * 100) / 100,
+    }))
+
+  if (novos.length > 0) {
+    const { error } = await supabase.from('itens_tabela_preco').insert(novos)
+    if (error) throw new Error(error.message)
+  }
+
+  revalidatePath(`/painel/tabelas-preco/${tabelaId}`)
+  return novos.length
+}
+
+export async function toggleTabela(id: string, ativa: boolean) {
+  await requireAuth()
+  const supabase = await createServiceClient()
+  await supabase.from('tabelas_preco').update({ ativa }).eq('id', id)
+  revalidatePath(`/painel/tabelas-preco/${id}`)
+  revalidatePath('/painel/tabelas-preco')
+}
