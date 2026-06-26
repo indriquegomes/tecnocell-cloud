@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { adicionarItemPedido, removerItemPedido, atualizarStatusPedido } from '../actions'
+import { adicionarItemPedido, removerItemPedido, atualizarStatusPedido, atualizarInfoPedido } from '../actions'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtDate = (d: string) => new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
@@ -41,6 +41,8 @@ export function PedidoDetalheClient({
   itensIniciais,
   produtos,
   precoTabela,
+  depositos,
+  formas,
 }: {
   pedido: {
     id: string
@@ -52,7 +54,9 @@ export function PedidoDetalheClient({
     observacoes: string | null
     created_at: string
     pessoa_nome: string | null
+    deposito_id: string | null
     deposito_nome: string | null
+    forma_pagamento_id: string | null
     forma_pagamento_nome: string | null
     vendedor_nome: string | null
     origem: string | null
@@ -67,6 +71,34 @@ export function PedidoDetalheClient({
   const [, startTransition] = useTransition()
   const [itens, setItens] = useState(itensIniciais)
   useEffect(() => { setItens(itensIniciais) }, [itensIniciais])
+
+  // Edição inline dos info cards
+  const [editandoInfo, setEditandoInfo] = useState(false)
+  const [infoDepositoId, setInfoDepositoId] = useState<string>(pedido.deposito_id ?? '')
+  const [infoFormaId, setInfoFormaId] = useState<string>(pedido.forma_pagamento_id ?? '')
+  const [infoOrigem, setInfoOrigem] = useState(pedido.origem ?? 'balcao')
+  const [salvandoInfo, setSalvandoInfo] = useState(false)
+
+  const cancelarInfo = () => {
+    setInfoDepositoId(pedido.deposito_id ?? '')
+    setInfoFormaId(pedido.forma_pagamento_id ?? '')
+    setInfoOrigem(pedido.origem ?? 'balcao')
+    setEditandoInfo(false)
+  }
+
+  const handleSalvarInfo = async () => {
+    setSalvandoInfo(true)
+    const res = await atualizarInfoPedido(pedido.id, {
+      deposito_id: infoDepositoId || null,
+      forma_pagamento_id: infoFormaId || null,
+      origem: infoOrigem || null,
+    })
+    if (!res?.error) {
+      setEditandoInfo(false)
+      router.refresh()
+    }
+    setSalvandoInfo(false)
+  }
 
   const [busca, setBusca] = useState('')
   const [produtoSel, setProdutoSel] = useState<Produto | null>(null)
@@ -169,18 +201,77 @@ export function PedidoDetalheClient({
       </div>
 
       {/* Info cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: 'Vendedor',    valor: pedido.vendedor_nome },
-          { label: 'Depósito',   valor: pedido.deposito_nome },
-          { label: 'Pagamento',  valor: pedido.forma_pagamento_nome },
-          { label: 'Origem',     valor: ORIGEM_LABEL[pedido.origem ?? ''] ?? pedido.origem },
-        ].map(({ label, valor }) => (
-          <div key={label} className="rounded-xl border border-gray-200 bg-white px-4 py-3">
-            <p className="text-xs font-semibold uppercase text-gray-400">{label}</p>
-            <p className="text-sm font-medium text-gray-700 mt-0.5">{valor ?? <span className="text-gray-300">—</span>}</p>
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        {editandoInfo ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase text-gray-400">Depósito</label>
+                <select
+                  value={infoDepositoId ?? ''}
+                  onChange={(e) => {
+                    setInfoDepositoId(e.target.value || null)
+                    setInfoDeposito(depositos.find(d => d.id === e.target.value)?.nome ?? '')
+                  }}
+                  className="field w-full">
+                  <option value="">— Nenhum —</option>
+                  {depositos.map(d => <option key={d.id} value={d.id}>{d.nome}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase text-gray-400">Pagamento</label>
+                <select
+                  value={infoFormaId ?? ''}
+                  onChange={(e) => {
+                    setInfoFormaId(e.target.value || null)
+                    setInfoForma(formas.find(f => f.id === e.target.value)?.nome ?? '')
+                  }}
+                  className="field w-full">
+                  <option value="">— A definir —</option>
+                  {formas.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase text-gray-400">Origem</label>
+                <select value={infoOrigem} onChange={(e) => setInfoOrigem(e.target.value)} className="field w-full">
+                  {Object.entries(ORIGEM_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={handleSalvarInfo} disabled={salvandoInfo}
+                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
+                {salvandoInfo ? 'Salvando...' : 'Salvar'}
+              </button>
+              <button onClick={cancelarInfo}
+                className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+                Cancelar
+              </button>
+            </div>
           </div>
-        ))}
+        ) : (
+          <div className="flex items-start gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-1">
+              {[
+                { label: 'VENDEDOR',  valor: pedido.vendedor_nome },
+                { label: 'DEPÓSITO',  valor: depositos.find(d => d.id === infoDepositoId)?.nome ?? pedido.deposito_nome },
+                { label: 'PAGAMENTO', valor: formas.find(f => f.id === infoFormaId)?.nome ?? pedido.forma_pagamento_nome },
+                { label: 'ORIGEM',    valor: ORIGEM_LABEL[infoOrigem] ?? infoOrigem },
+              ].map(({ label, valor }) => (
+                <div key={label}>
+                  <p className="text-xs font-semibold uppercase text-gray-400">{label}</p>
+                  <p className="text-sm font-medium text-gray-700 mt-0.5">{valor ?? <span className="text-gray-300">—</span>}</p>
+                </div>
+              ))}
+            </div>
+            {podeEditar && (
+              <button onClick={() => setEditandoInfo(true)}
+                className="shrink-0 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-50 transition">
+                Editar
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Adicionar produto */}

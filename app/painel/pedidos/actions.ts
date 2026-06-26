@@ -76,6 +76,18 @@ export async function adicionarItemPedido(pedidoId: string, formData: FormData) 
   return { ok: true }
 }
 
+export async function atualizarInfoPedido(
+  id: string,
+  dados: { deposito_id?: string | null; forma_pagamento_id?: string | null; origem?: string | null }
+) {
+  await requireAuth()
+  const supabase = await createServiceClient()
+  const { error } = await supabase.from('pedidos').update(dados).eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath(`/painel/pedidos/${id}`)
+  return { ok: true }
+}
+
 export async function removerItemPedido(itemId: string, pedidoId: string) {
   await requireAuth()
   const supabase = await createServiceClient()

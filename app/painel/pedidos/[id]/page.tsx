@@ -60,9 +60,11 @@ export default async function PedidoDetalhePage({
       <PedidoDetalheClient
         pedido={{
           ...pedido,
-          numero:       pedido.numero ?? null,
-          pessoa_nome:  pedido.pessoa_id ? (pessoaMap[pedido.pessoa_id] ?? null) : null,
-          deposito_nome: pedido.deposito_id ? (depositoMap[pedido.deposito_id] ?? null) : null,
+          numero:               pedido.numero ?? null,
+          pessoa_nome:          pedido.pessoa_id ? (pessoaMap[pedido.pessoa_id] ?? null) : null,
+          deposito_id:          pedido.deposito_id ?? null,
+          deposito_nome:        pedido.deposito_id ? (depositoMap[pedido.deposito_id] ?? null) : null,
+          forma_pagamento_id:   pedido.forma_pagamento_id ?? null,
           forma_pagamento_nome: pedido.forma_pagamento_id ? (formaMap[pedido.forma_pagamento_id] ?? null) : null,
         }}
         itensIniciais={(itens ?? []).map(i => {
