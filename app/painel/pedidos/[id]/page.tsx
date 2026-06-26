@@ -14,7 +14,7 @@ export default async function PedidoDetalhePage({
   const [{ data: pedido }, { data: itens }, { data: produtos }, { data: depositos }, { data: formas }] = await Promise.all([
     supabase
       .from('pedidos')
-      .select('id, numero, tipo, status, total, desconto, frete, data_validade, observacoes, created_at, pessoa_id, deposito_id, tabela_preco_id, forma_pagamento_id, vendedor_nome, origem')
+      .select('id, numero, tipo, status, total, desconto, frete, data_validade, observacoes, referencia_cliente, created_at, pessoa_id, deposito_id, tabela_preco_id, forma_pagamento_id, vendedor_nome, origem')
       .eq('id', id)
       .single(),
     supabase
@@ -68,6 +68,7 @@ export default async function PedidoDetalhePage({
           forma_pagamento_nome: pedido.forma_pagamento_id ? (formaMap[pedido.forma_pagamento_id] ?? null) : null,
           desconto:             pedido.desconto ?? 0,
           frete:                pedido.frete ?? 0,
+          referencia_cliente:   pedido.referencia_cliente ?? null,
         }}
         itensIniciais={(itens ?? []).map(i => {
           const prod = (produtos ?? []).find(p => p.id === i.produto_id) ?? null

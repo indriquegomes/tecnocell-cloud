@@ -1,99 +1,113 @@
 'use server'
 
 import { createServiceClient, requireAuth } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 
-export type StatusOS = 'aberta' | 'em_andamento' | 'aguardando_peca' | 'pronta' | 'entregue' | 'cancelada'
+export type StatusOS = 'aguardando' | 'em_reparo' | 'aguardando_peca' | 'pronto' | 'entregue' | 'cancelado'
 
 export interface OrdemServico {
   id: string
   numero: number
   pessoa_nome: string | null
   pessoa_id: string | null
-  equipamento: string
-  marca: string | null
+  aparelho: string | null
   modelo: string | null
-  numero_serie: string | null
-  defeito_relatado: string | null
+  imei: string | null
+  problema: string
   observacoes: string | null
   status: StatusOS
   total: number
   tecnico_nome: string | null
   created_at: string
-  itens_count: number
 }
 
-export interface NovaOSInput {
-  pessoa_nome: string
-  pessoa_id: string | null
-  equipamento: string
-  marca: string | null
-  modelo: string | null
-  numero_serie: string | null
-  defeito_relatado: string
-  observacoes: string | null
-  tecnico_nome: string | null
-}
-
-export async function criarOS(accessToken: string, input: NovaOSInput): Promise<{ id: string; numero: number }> {
-  await requireAuth(accessToken)
+export async function gerarOSDePedido(pedidoId: string) {
+  const usuario = await requireAuth()
   const supabase = await createServiceClient()
 
-  const { data: ultimo } = await supabase
-    .from('ordens_servico')
-    .select('numero')
-    .order('numero', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  const numero = (ultimo?.numero ?? 0) + 1
-
-  const { data, error } = await supabase
-    .from('ordens_servico')
-    .insert({
-      numero,
-      pessoa_nome: input.pessoa_nome || 'Cliente Final',
-      pessoa_id: input.pessoa_id,
-      equipamento: input.equipamento,
-      marca: input.marca || null,
-      modelo: input.modelo || null,
-      numero_serie: input.numero_serie || null,
-      defeito_relatado: input.defeito_relatado,
-      observacoes: input.observacoes || null,
-      tecnico_nome: input.tecnico_nome || null,
-      status: 'aberta',
-      total: 0,
-    })
-    .select('id, numero')
+  const { data: pedido } = await supabase
+    .from('pedidos')
+    .select('pessoa_id, total, referencia_cliente, observacoes')
+    .eq('id', pedidoId)
     .single()
+  if (!pedido) return { error: 'Pedido não encontrado' }
 
-  if (error) throw new Error(error.message)
-  return data
+  let pessoaNome: string | null = null
+  if (pedido.pessoa_id) {
+    const { data: p } = await supabase.from('pessoas').select('nome').eq('id', pedido.pessoa_id).maybeSingle()
+    pessoaNome = p?.nome ?? null
+  }
+
+  const { data: perfil } = await supabase.from('perfis').select('nome').eq('id', usuario.id).maybeSingle()
+  const tecnicoNome = (perfil as { nome?: string } | null)?.nome ?? usuario.email ?? ''
+
+  const { data: os, error } = await supabase.from('ordens_servico').insert({
+    pedido_id:    pedidoId,
+    pessoa_id:    pedido.pessoa_id,
+    pessoa_nome:  pessoaNome,
+    problema:     pedido.observacoes ?? pedido.referencia_cliente ?? 'Gerada a partir de pedido',
+    tecnico_id:   usuario.id,
+    tecnico_nome: tecnicoNome,
+    total:        pedido.total ?? 0,
+    status:       'aguardando',
+  }).select('id').single()
+
+  if (error) return { error: error.message }
+  revalidatePath('/painel/os')
+  redirect(`/painel/os/${os!.id}`)
 }
 
-export async function atualizarStatusOS(
-  accessToken: string,
-  osId: string,
-  status: StatusOS,
-): Promise<void> {
-  await requireAuth(accessToken)
+export async function criarOS(formData: FormData) {
+  const usuario = await requireAuth()
   const supabase = await createServiceClient()
-  const { error } = await supabase
-    .from('ordens_servico')
-    .update({ status, updated_at: new Date().toISOString() })
-    .eq('id', osId)
-  if (error) throw new Error(error.message)
+
+  const pessoaId = (formData.get('pessoa_id') as string) || null
+  let pessoaNome: string | null = null
+  if (pessoaId) {
+    const { data: p } = await supabase.from('pessoas').select('nome').eq('id', pessoaId).maybeSingle()
+    pessoaNome = p?.nome ?? null
+  } else {
+    pessoaNome = (formData.get('pessoa_nome') as string) || null
+  }
+
+  const { data: perfil } = await supabase.from('perfis').select('nome').eq('id', usuario.id).maybeSingle()
+  const tecnicoNome = (perfil as { nome?: string } | null)?.nome ?? usuario.email ?? ''
+
+  const { data: os, error } = await supabase.from('ordens_servico').insert({
+    pessoa_id:    pessoaId,
+    pessoa_nome:  pessoaNome,
+    aparelho:     (formData.get('aparelho') as string) || null,
+    modelo:       (formData.get('modelo') as string) || null,
+    imei:         (formData.get('imei') as string) || null,
+    problema:     formData.get('problema') as string,
+    observacoes:  (formData.get('observacoes') as string) || null,
+    tecnico_id:   usuario.id,
+    tecnico_nome: tecnicoNome,
+    status:       'aguardando',
+  }).select('id').single()
+
+  if (error) return { error: error.message }
+  revalidatePath('/painel/os')
+  redirect(`/painel/os/${os!.id}`)
 }
 
-export async function buscarClientes(
-  accessToken: string,
-  busca: string,
-): Promise<{ id: string; nome: string; telefone: string | null }[]> {
-  await requireAuth(accessToken)
+export async function atualizarStatusOS(osId: string, status: StatusOS) {
+  await requireAuth()
+  const supabase = await createServiceClient()
+  const { error } = await supabase.from('ordens_servico').update({ status }).eq('id', osId)
+  if (error) return { error: error.message }
+  revalidatePath('/painel/os')
+  revalidatePath(`/painel/os/${osId}`)
+  return { ok: true }
+}
+
+export async function buscarClientesOS(busca: string) {
+  await requireAuth()
   const supabase = await createServiceClient()
   const { data } = await supabase
     .from('pessoas')
     .select('id, nome, telefone')
-    .or(`tipo.eq.cliente,tipo.eq.ambos`)
     .ilike('nome', `%${busca}%`)
     .limit(10)
   return (data ?? []) as { id: string; nome: string; telefone: string | null }[]

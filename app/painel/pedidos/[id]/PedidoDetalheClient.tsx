@@ -3,6 +3,7 @@
 import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { adicionarItemPedido, removerItemPedido, atualizarStatusPedido, atualizarInfoPedido, atualizarDescontoFrete } from '../actions'
+import { gerarOSDePedido } from '@/app/painel/os/actions'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtDate = (d: string) => new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
@@ -62,6 +63,7 @@ export function PedidoDetalheClient({
     origem: string | null
     desconto: number
     frete: number
+    referencia_cliente: string | null
   }
   itensIniciais: Item[]
   produtos: Produto[]
@@ -170,6 +172,17 @@ export function PedidoDetalheClient({
     })
   }
 
+  const [gerandoOS, setGerandoOS] = useState(false)
+  const [erroOS, setErroOS] = useState('')
+
+  const handleGerarOS = async () => {
+    if (!confirm('Gerar Ordem de Serviço a partir deste pedido?')) return
+    setGerandoOS(true); setErroOS('')
+    const res = await gerarOSDePedido(pedido.id)
+    if (res?.error) { setErroOS(res.error); setGerandoOS(false) }
+    // redirect acontece dentro da action
+  }
+
   const podeEditar = pedido.status === 'rascunho'
   const subtotal = itens.reduce((s, i) => s + (i.total_item ?? 0), 0)
   const totalAtual = Math.max(0, subtotal - desconto + frete)
@@ -191,6 +204,7 @@ export function PedidoDetalheClient({
           <p className="text-sm text-gray-400 mt-0.5">
             {pedido.pessoa_nome ?? 'Sem cliente'} · {fmtDate(pedido.created_at)}
             {pedido.data_validade && ` · Válido até ${new Date(pedido.data_validade).toLocaleDateString('pt-BR')}`}
+            {pedido.referencia_cliente && ` · Ref: ${pedido.referencia_cliente}`}
           </p>
         </div>
 
@@ -207,6 +221,10 @@ export function PedidoDetalheClient({
               Abrir no PDV
             </a>
           )}
+          <button onClick={handleGerarOS} disabled={gerandoOS}
+            className="rounded-xl border border-purple-200 px-4 py-2 text-sm font-semibold text-purple-600 hover:bg-purple-50 disabled:opacity-50 transition">
+            {gerandoOS ? 'Gerando...' : '🔧 Gerar OS'}
+          </button>
           {pedido.status !== 'cancelado' && pedido.status !== 'faturado' && (
             <button
               onClick={() => { if (confirm('Cancelar este pedido/orçamento?')) handleStatus('cancelado') }}
@@ -214,6 +232,7 @@ export function PedidoDetalheClient({
               Cancelar
             </button>
           )}
+          {erroOS && <p className="text-xs text-red-500">{erroOS}</p>}
         </div>
       </div>
 

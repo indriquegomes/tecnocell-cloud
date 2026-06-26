@@ -1,0 +1,1044 @@
+<form id="content">
+        <div ng-controller="CtrlOperacoesPDV" ng-app="sistemaerp" class="ng-scope">
+            <div id="headerPDV">
+                <div style="width: 1000px; margin: auto;">
+                    <div class="row-fluid">
+                        <div class="span3">
+                            <a href="https://app.sigecloud.com.br" title="Acessar o sistema" id="logoNew"></a>
+                        </div>
+                        <div class="span6">
+                            <h2 style="text-align: center; margin: 15.3px 0; font-family: Raleway;">Operações PDV</h2>
+                        </div>
+                        <div class="span3">
+                            <button type="button" class="btn-flat btn-flat-transparent" ng-click="btnSairServerClick()" title="Sair do Sistema" style="width: 80px; margin-top: 13px; float: right;">Sair</button>
+                            <div class="horarioNew numberHelvetica ng-binding">23/06/2026 17:54:01</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="contentWrapper-5-operations">
+                <div id="contentOperacoes" class="contentOperacoes">
+                    <div id="dvNovaOperacao" style="">
+                        <div class="novaOperacao" style="margin: 0; min-height: 500px;">
+                            <div class="quadradoFormaPagamentoOutside" style="margin-top: 160px;">
+
+                                
+                                <div class="quadradoOperacao" ng-click="btAbrirCaixaClick()" ng-show="IsCaixaOpened==false">
+                                    <div style="background-color: #04a9da;">
+                                        <img src="https://app.sigecloud.com.br/Images/PDVOnline_OperacaoAbrirFecharCaixa.png">
+                                    </div>
+                                    <div style="color: #04a9da;" id="btAbrirCaixa">Abrir meu Caixa</div>
+                                </div>
+                                <div id="fecharCaixa" class="quadradoOperacao ng-hide" ng-click="isFechamentoAsCegas()" ng-show="IsCaixaOpened==true">
+                                    <div style="background-color: #04a9da;">
+                                        <img src="https://app.sigecloud.com.br/Images/PDVOnline_OperacaoAbrirFecharCaixa.png">
+                                    </div>
+                                    <div style="color: #04a9da;" id="btFecharCaixa">Fechar meu Caixa</div>
+                                </div>
+                                <div class="quadradoOperacao" ng-click="btReforcarCaixaClick()" ng-show="PossuiDireitoOperacoesPDV">
+                                    <div style="background-color: #63bc50;">
+                                        <img src="https://app.sigecloud.com.br/Images/PDVOnline_OperacaoReforcarCaixa.png">
+                                    </div>
+                                    <div style="color: #63bc50;" id="btReforcarCaixa">Reforçar Caixa</div>
+                                </div>
+                                <div class="quadradoOperacao" ng-click="btSangrarCaixaClick()" ng-show="PossuiDireitoOperacoesPDV">
+                                    <div style="background-color: #ed2c25;">
+                                        <img src="https://app.sigecloud.com.br/Images/PDVOnline_OperacaoSangrarCaixa.png">
+                                    </div>
+                                    <div style="color: #ed2c25;" id="btSangrarCaixa">Retirada</div>
+                                </div>
+                                
+                                <div class="quadradoOperacao" ng-click="btDevolverMercadoriaClick()" ng-show="PossuiDireitoOperacoesPDV">
+                                    <div style="background-color: #f2b705;">
+                                        <img src="https://app.sigecloud.com.br/Images/PDVOnline_OperacaoDevolucaoCaixa.png">
+                                    </div>
+                                    <div style="color: #f2b705;" id="btDevolverMercadoria">Devolução de mercadoria</div>
+                                </div>
+                                
+                                
+                                <div class="quadradoOperacao" ng-click="btMostrarSaldoClick()" ng-show="podeMostrarSaldoPDV">
+                                    <div style="background-color: #0381a7;">
+                                        <img src="https://app.sigecloud.com.br/Images/PDVOnline_OperacaoSaldoEmCaixa.png">
+                                    </div>
+                                    <div style="color: #0381a7;" id="btMostrarSaldo">Saldo em Caixa</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="dvAbrirCaixa" style="display: none; width: 875px; margin: auto">
+                        <div>
+                            <h2 class="titleFormasPagamento">Abertura de caixa</h2>
+                        </div>
+                        <div class="box-shadow divAberturaCaixa">
+                            <header class="contentHeader">
+                                <div style="padding: 20px 0;" class="row-fluid" defaultbutton="btnAdicionar">
+                                    <div class="span4">
+                                        <label>Caixa</label>
+                                        <input type="text" id="VendedorOperacoes" ng-model="operacao.CaixaNome" class="inputPDVStyle ng-pristine ng-valid" style="width: calc(100% - 14px);" disabled="" autocomplete="1782248038964">
+                                    </div>
+                                    <div class="span4">
+                                        <label>Empresa</label>
+                                        <input type="text" id="EmpresaOperacoes" ng-model="operacao.EmpresaNome" disabled="" ng-show="canEditEmpresaOperacao() != true" class="inputPDVStyle ng-pristine ng-valid ng-hide" autocomplete="1782248038964" style="">
+                                        <select id="DropEmpresaOperacoes" ng-model="operacao.EmpresaNome" ng-options="e.NomeFantasia as e.NomeFantasia for e in empresas" ng-show="canEditEmpresaOperacao() == true" class="inputPDVStyle ng-pristine ng-valid" style="width: 100%;"><option value="?" selected="selected"></option></select>
+                                    </div>
+                                    <div class="span4">
+                                        <div class="dropdown dropdownNewPattern grayNewDrop" style="width: 100%; margin-top: 17px;">
+                                            <button type="button" class="btn-flat btn-flat-greenNewPattern" data-toggle="dropdown">
+                                                <div style="text-align: left;">
+                                                    <img style="float: left; margin-left: 15px;" src="https://app.sigecloud.com.br/Images/PDVOnline_Adicionar.png">
+                                                    <span style="margin-bottom: 4px; margin-left: 10px;">Adicionar saldo inicial</span>
+                                                </div>
+                                            </button>
+                                            <ul class="dropdown-menuNewPattern">
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Dinheiro')">Dinheiro</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Cheque')">Cheque</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Cartão de Crédito')" ng-show="showDevolucaoFields()" class="ng-hide">Cartão de Crédito</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Cartão de Débito')" ng-show="showDevolucaoFields()" class="ng-hide">Cartão de Débito</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Crédito Loja')" ng-show="showDevolucaoFields()" class="ng-hide">Crédito Loja</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('PIX')" ng-show="showDevolucaoFields()" class="ng-hide">PIX</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Vale Alimentação')">Vale Alimentação</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Vale Refeição')">Vale Refeição</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Vale Presente')">Vale Presente</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Vale Combustível')">Vale Combustível</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Boleto Bancário')">Boleto Bancário</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Outros')">Outros</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </header>
+                            <section class="contentSection" id="sectionAberturaCaixa">
+                                <table>
+                                    <tbody>
+                                        <!-- ngRepeat: valor in operacao.Valores -->
+                                    </tbody>
+                                </table>
+                            </section>
+                            <footer class="contentFooter">
+                                <div class="row-fluid" style="text-align: right; padding-top: 18px;">
+                                    <span style="font-size: 22px;">Valor total de Abertura:</span>
+                                    <span style="font-size: 24px; margin-right: 6px;" class="numberHelvetica ng-binding">R$ 0,00</span>
+                                </div>
+                            </footer>
+                        </div>
+                        <div class="contentFooterDown row-fluid" style="width: 875px !important; padding-bottom: 4px; margin: auto; margin-top: 30px;">
+                            <div class="span4" style="text-align: center;">
+                                <input type="button" value="Voltar" class="btn-flat btn-flat-greenNewPattern btn-flat-redNewPattern" ng-click="btnVoltarOperacaoClick()" style="width: 210px; margin: auto;">
+                            </div>
+                            <div class="span4" style="text-align: center;">
+                                <input type="button" value="Salvar" class="btn-flat btn-flat-greenNewPattern" ng-click="btnAbrirCaixaClick(false)" style="width: 210px; margin: auto;" saveaction="true">
+                            </div>
+                            <div class="span4" style="text-align: center;">
+                                <input type="button" value="Salvar e ir ao PDV" class="btn-flat btn-flat-greenNewPattern" ng-click="btnAbrirCaixaClick(true)" style="width: 210px; margin: auto;" saveaction="true">
+                            </div>
+                        </div>
+                    </div>
+                    <div id="dvReforcarCaixa" style="display: none; margin-top: 40px;">
+                        <div class="box-shadow">
+                            <header class="contentHeader" style="height: 15px; background-color: #63bc50;"></header>
+                            <section class="contentSection" style="min-height: 430px; max-height: 430px;">
+                                <div class="row-fluid divHeaderOperacao" style="position: relative;">
+                                    <img src="https://app.sigecloud.com.br/Images/PDVOnline_OperacaoReforcar.png">
+                                    <h2>Reforçar Caixa</h2>
+                                </div>
+                                <div class="row-fluid" style="margin: 10px 50px; width: calc(100% - 100px);">
+                                    <div class="span7">
+                                        <div class="row-fluid">
+                                            <div class="span6 labelBlack">
+                                                <label>Caixa</label>
+                                                <select ng-model="operacao.CaixaNome" ng-change="onCaixaNomeChanged()" ng-options="u for u in users" class="inputPDVStyleOperacao ng-pristine ng-valid" ng-disabled="canEditCaixaOperacao() == false"><option value="?" selected="selected"></option></select>
+                                                <label>Empresa</label>
+                                                <select ng-model="operacao.EmpresaNome" ng-options="e.NomeFantasia as e.NomeFantasia for e in empresas" class="inputPDVStyleOperacao ng-pristine ng-valid" ng-disabled="canEditCaixaOperacao() == false"><option value="?" selected="selected"></option></select>
+                                                <label>Motivo</label>
+                                                <textarea ng-model="operacao.MotivoSangria" class="inputPDVStyleOperacao ng-pristine ng-valid" maxlength="150" style="height: 80px; max-width: calc(100% - 14px); max-height: 140px;"></textarea>
+                                            </div>
+                                            <div ng-hide="ocultaValoresCaixa()" class="span6 labelBlack">
+                                                <label>Em Caixa</label>
+                                                <table class="tableSaldos">
+                                                    <tbody><!-- ngRepeat: saldo in SaldosCaixaOperacao -->
+                                                </tbody></table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="span5">
+                                        <div class="dropdown dropdownNewPattern grayNewDrop" style="width: 240px; margin: auto;">
+                                            <button type="button" class="btn-flat btn-flat-greenNewPattern" data-toggle="dropdown">
+                                                <div style="text-align: left;">
+                                                    <img style="float: left; margin-left: 15px;" src="https://app.sigecloud.com.br/Images/PDVOnline_Adicionar.png">
+                                                    <span style="margin-bottom: 4px; margin-left: 10px;">Adicionar pagamento</span>
+                                                </div>
+                                            </button>
+
+                                            <ul class="dropdown-menuNewPattern">
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Dinheiro', '2')">Dinheiro</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Cheque', '2')">Cheque</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Cartão de Crédito', '2')">Cartão de Crédito</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Cartão de Débito', '2')">Cartão de Débito</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Crédito Loja', '2')">Crédito Loja</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('PIX', '2')">PIX</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Vale Alimentação', '2')">Vale Alimentação</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Vale Refeição', '2')">Vale Refeição</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Vale Presente', '2')">Vale Presente</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Vale Combustível', '2')">Vale Combustível</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Boleto Bancário', '2')">Boleto Bancário</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Outros', '2')">Outros</li>
+                                            </ul>
+                                        </div>
+                                        <div ng-hide="operacao.Valores.length" class="">
+                                            <h4 class="labelBlackDirect" style="text-align: center;">Adicione uma forma de pagamento</h4>
+                                        </div>
+                                        <table class="tableReforcoSangriaOperacao ng-hide" ng-show="operacao.Valores.length">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width: 200px;">Forma de pagamento</th>
+                                                    <th style="width: 100px;">Valor R$</th>
+                                                    <th style="width: 60px;"></th>
+                                                </tr>
+                                            </thead>
+                                        </table>
+                                        <div class="tableReforcoSangriaBody ng-hide" ng-show="operacao.Valores.length">
+                                            <table class="tableReforcoSangriaOperacao" style="margin-top: 0;">
+                                                <tbody>
+                                                    <!-- ngRepeat: valor in operacao.Valores -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+                            <footer class="contentFooter" style="background-color: #63bc50;">
+                                <div class="row-fluid" style="padding-top: 18px;">
+                                    <div class="span6" style="padding-top: 9px;">
+                                        <span style="font-size: 14px;">Horário e data do reforço:</span>
+                                        <span style="font-size: 14px;" class="numberHelvetica ng-binding"></span>
+                                    </div>
+                                    <div class="span6" style="text-align: right;">
+                                        <span style="font-size: 22px;">Total do reforço:</span>
+                                        <span style="font-size: 24px; margin-right: 6px;" class="numberHelvetica ng-binding">R$ 0,00</span>
+                                    </div>
+                                </div>
+                            </footer>
+                        </div>
+                        <div class="contentFooterDown row-fluid" style="width: 900px !important; padding-bottom: 4px; margin: auto; margin-top: 30px; height: 120px;">
+                            <div class="span4">
+                                <input type="button" value="Voltar" class="btn-flat btn-flat-greenNewPattern btn-flat-redNewPattern" ng-click="btnVoltarOperacaoClick()" style="width: 150px; margin: 0px;">
+                            </div>
+                            <div class="span8" style="text-align: right;">
+                                <div class="dropdown dropdownNewPattern grayNewDrop" style="width: 200px; margin: auto; margin-right: 0;">
+                                    <button type="button" class="btn-flat btn-flat-greenNewPattern" data-toggle="dropdown" saveaction="true">Salvar<i class="fa fa-angle-down"></i></button>
+                                    <ul class="dropdown-menuNewPattern">
+                                        <li ng-click="btnReforcarCaixaClick(false)" saveaction="true">Salvar</li>
+                                        <li ng-click="btnReforcarCaixaClick(true)" saveaction="true">Salvar e ir ao PDV</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="dvSangrarCaixa" style="display: none; margin-top: 40px;">
+                        <div class="box-shadow">
+                            <header class="contentHeader" style="height: 15px; background-color: #ed2c25;"></header>
+                            <section class="contentSection" style="min-height: 430px; max-height: 430px;">
+                                <div class="row-fluid divHeaderOperacao" style="position: relative;">
+                                    <img src="https://app.sigecloud.com.br/Images/PDVOnline_OperacaoSangrar.png">
+                                    <h2 style="color: #ed2c25">Retirada</h2>
+                                </div>
+                                <div class="row-fluid" style="margin: 10px 50px; width: calc(100% - 100px);">
+                                    <div class="span7">
+                                        <div class="row-fluid">
+                                            <div class="span6 labelBlack">
+                                                <label>Caixa</label>
+                                                <select ng-model="operacao.CaixaNome" ng-change="onCaixaNomeChanged()" ng-options="u for u in users" class="inputPDVStyleOperacao ng-pristine ng-valid" ng-disabled="canEditCaixaOperacao() == false"><option value="?" selected="selected"></option></select>
+                                                <label>Empresa</label>
+                                                <select ng-model="operacao.EmpresaNome" ng-options="e.NomeFantasia as e.NomeFantasia for e in empresas" class="inputPDVStyleOperacao ng-pristine ng-valid" ng-disabled="canEditCaixaOperacao() == false"><option value="?" selected="selected"></option></select>
+                                                <label>Motivo</label>
+                                                <textarea ng-model="operacao.MotivoSangria" class="inputPDVStyleOperacao ng-pristine ng-valid" maxlength="150" style="height: 80px; max-width: calc(100% - 14px); max-height: 140px;"></textarea>
+                                            </div>
+                                            <div ng-hide="ocultaValoresCaixa()" class="span6 labelBlack">
+                                                <label>Em Caixa</label>
+                                                <table class="tableSaldos">
+                                                    <tbody><!-- ngRepeat: saldo in SaldosCaixaOperacao -->
+                                                </tbody></table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="span5">
+                                        <div class="dropdown dropdownNewPattern grayNewDrop" style="width: 240px; margin: auto;">
+                                            <button type="button" class="btn-flat btn-flat-greenNewPattern" data-toggle="dropdown">
+                                                <div style="text-align: left;">
+                                                    <img style="float: left; margin-left: 15px;" src="https://app.sigecloud.com.br/Images/PDVOnline_Adicionar.png">
+                                                    <span style="margin-bottom: 4px; margin-left: 10px;">Adicionar pagamento</span>
+                                                </div>
+                                            </button>
+
+                                            <ul class="dropdown-menuNewPattern">
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Dinheiro', '3')">Dinheiro</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Cheque', '3')">Cheque</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Cartão de Crédito', '3')">Cartão de Crédito</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Cartão de Débito', '3')">Cartão de Débito</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Crédito Loja', '3')">Crédito Loja</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('PIX', '3')">PIX</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Vale Alimentação', '3')">Vale Alimentação</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Vale Refeição', '3')">Vale Refeição</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Vale Presente', '3')">Vale Presente</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Vale Combustível', '3')">Vale Combustível</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Boleto Bancário', '3')">Boleto Bancário</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Outros', '3')">Outros</li>
+                                            </ul>
+                                        </div>
+                                        <div ng-hide="operacao.Valores.length" class="">
+                                            <h4 class="labelBlackDirect" style="text-align: center;">Adicione uma forma de pagamento</h4>
+                                        </div>
+                                        <table class="tableReforcoSangriaOperacao ng-hide" ng-show="operacao.Valores.length">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width: 200px;">Forma de pagamento</th>
+                                                    <th style="width: 100px;">Valor R$</th>
+                                                    <th style="width: 60px;"></th>
+                                                </tr>
+                                            </thead>
+                                        </table>
+                                        <div class="tableReforcoSangriaBody ng-hide" ng-show="operacao.Valores.length">
+                                            <table class="tableReforcoSangriaOperacao" style="margin-top: 0;">
+                                                <tbody>
+                                                    <!-- ngRepeat: valor in operacao.Valores -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+                            <footer class="contentFooter" style="background-color: #ed2c25;">
+                                <div class="row-fluid" style="padding-top: 18px;">
+                                    <div class="span6" style="padding-top: 9px;">
+                                        <span style="font-size: 14px;">Horário e data da retirada:</span>
+                                        <span style="font-size: 14px;" class="numberHelvetica ng-binding"></span>
+                                    </div>
+                                    <div class="span6" style="text-align: right;">
+                                        <span style="font-size: 22px;">Total da retirada:</span>
+                                        <span style="font-size: 24px; margin-right: 6px;" class="numberHelvetica ng-binding">R$ 0,00</span>
+                                    </div>
+                                </div>
+                            </footer>
+                        </div>
+                        <div class="contentFooterDown row-fluid" style="width: 900px !important; padding-bottom: 4px; margin: auto; margin-top: 30px; height: 120px;">
+                            <div class="span4">
+                                <input type="button" value="Voltar" class="btn-flat btn-flat-greenNewPattern btn-flat-redNewPattern" ng-click="btnVoltarOperacaoClick()" style="width: 150px; margin: 0px;">
+                            </div>
+                            <div class="span8" style="text-align: right;">
+                                <div class="dropdown dropdownNewPattern grayNewDrop" style="width: 200px; margin: auto; margin-right: 0;">
+                                    <button type="button" class="btn-flat btn-flat-greenNewPattern" data-toggle="dropdown" saveaction="true">Salvar<i class="fa fa-angle-down"></i></button>
+                                    <ul class="dropdown-menuNewPattern">
+                                        <li ng-click="btnSangriaClick(false)" saveaction="true">Salvar</li>
+                                        <li ng-click="btnSangriaClick(true)" saveaction="true">Salvar e ir ao PDV</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="dvDevolverMercadoria" style="display: none;">
+                        <div class="box-shadow">
+                            <header class="contentHeader" style="height: 15px; background-color: #f2b705;"></header>
+                            <section class="contentSection" style="min-height: 500px; padding: 0px;">
+                                <div class="row-fluid" style="margin: 10px 50px; width: calc(100% - 100px);">
+
+                                    
+
+                                    <div class="span4">
+                                        <div class="row-fluid divHeaderOperacao" style="position: relative;">
+                                            <img style="position: absolute; margin-left: -50px;" src="https://app.sigecloud.com.br/Images/PDVOnline_OperacaoDevolucao.png">
+                                            <h2 style="color: #f2b705; padding-left: 65px;">Devolução de mercadoria</h2>
+                                        </div>
+                                        <div class="row-fluid">
+
+                                            <label class="labelBlackDirect">Caixa</label>
+                                            <select ng-model="operacao.CaixaNome" ng-change="onCaixaNomeChanged()" ng-options="u for u in users" class="inputPDVStyleOperacao ng-pristine ng-valid" ng-disabled="canEditCaixaOperacao() == false"><option value="?" selected="selected"></option></select>
+
+                                            <label class="labelBlackDirect">Empresa</label>
+                                            <select ng-model="operacao.EmpresaNome" ng-options="e.NomeFantasia as e.NomeFantasia for e in empresas" class="inputPDVStyleOperacao ng-pristine ng-valid" ng-disabled="canEditEmpresaOperacao() == false"><option value="?" selected="selected"></option></select>
+                                            <div class="container-switch" style="width: 72%; margin-top: 10px;">
+                                                <label class="labelBlackDirect" style="width: 60px; text-align: right; margin-top: 5px;">Número NFCe</label>
+                                                <div>
+                                                    <div class="onoffswitch">
+                                                        <input type="checkbox" ng-model="tipoNumeroNFCe" name="onoffswitch" id="onoffswitch" class="onoffswitch-checkbox ng-pristine ng-valid" style="">
+                                                        <label class="onoffswitch-label" for="onoffswitch">
+                                                            <span class="onoffswitch-inner"></span>
+                                                            <span class="onoffswitch-switch"></span>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <label class="labelBlackDirect" style="width: 55px;">Código Venda</label>
+                                            </div>
+                                            <label class="labelBlackDirect ng-binding" style="display: inline-block">Número NFCe</label>
+                                            <div>
+                                                <input type="text" numbers="" class="numbers inputPDVStyleOperacao ng-pristine ng-invalid ng-invalid-required" ng-model="NumeroNFCeOperacao" ng-required="true" style="width: 71%;" ng-keypress="userPressedEnter($event)" required="required" autocomplete="1782248038964">
+                                                <button ng-click="onNFCeDataChanged()" style="height: 32px; border-radius: 5px; border: 1px solid #fff; background: #0074ff; cursor: pointer; color: #fff; font-size: 15px; font-weight: bold; font-family: Raleway;">Carregar</button>
+                                            </div>
+                                            <div style="height: 15px;">
+                                                <label class="erroPreenchimentoSpan erroVermelho ng-binding ng-hide" ng-show="showNenhumItemEncontrado &amp;&amp; (NumeroNFCeOperacao != &quot;&quot; &amp;&amp; NumeroNFCeOperacao != null)">Nenhuma venda encontrada com este número.</label>
+                                                <label class="erroPreenchimentoSpan erroVermelho ng-binding ng-hide" ng-show="showVendaCancelada &amp;&amp; (NumeroNFCeOperacao != &quot;&quot; &amp;&amp; NumeroNFCeOperacao != null)">A venda com este número não pode ser devolvida pois está cancelada.</label>
+                                                <label class="erroPreenchimentoSpan erroVermelho ng-hide" ng-show="showDevolucaoCaixaFechadoPDV">Abra um caixa para devoluções de vendas do PDV.</label>
+                                            </div>
+                                            <label ng-show="operacao.CaixaNome != 'Nenhum Caixa' &amp;&amp; !ocultaValoresCaixa()" class="labelBlackDirect">Em Caixa</label>
+                                            <table ng-show="operacao.CaixaNome != 'Nenhum Caixa' &amp;&amp; !ocultaValoresCaixa()" class="tableSaldos">
+                                                <tbody><!-- ngRepeat: saldo in SaldosCaixaOperacao -->
+                                            </tbody></table>
+                                        </div>
+                                    </div>
+                                    <div class="span8">
+                                        <div class="row-fluid divHeaderOperacao span7" style="position: relative;">
+                                            <h2 style="color: #f2b705; padding-left: 0;">Cliente</h2>
+                                            <input type="text" id="Cliente" class="inputPDVStyleOperacao ng-pristine ng-invalid ng-invalid-required" ng-model="Cliente" ng-required="true" ng-disabled="BloquearAlteracaoCliente" style="margin-top: -15px;" required="required" autocomplete="1782248038964">
+                                            <h2 style="color: #f2b705; padding-left: 0;">Mercadorias</h2>
+                                        </div>
+                                        <div style="margin-left: 15px; margin-right: -30px; !important">
+                                            <div style="margin-top: 56px; margin-left: 10px; !important">
+                                                <label class="labelBlackDirect" style="margin-left: 338px; !important">Frete<a class="icon icon12 icomoon-icon-help blue ajuda tooltipstered"></a></label>
+                                                <div class="span2">
+                                                    <div class="onoffswitch">
+                                                        <input type="checkbox" ng-model="possuiFreteDevolucao" ng-change="onPossuiFreteDevolucaoChange()" name="onoffswitch2" id="onoffswitch2" class="onoffswitch-checkbox ng-pristine ng-valid" style="">
+                                                        <label class="onoffswitch-label" for="onoffswitch2">
+                                                            <span class="onoffswitch-inner"></span>
+                                                            <span class="onoffswitch-switch"></span>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="span2" style="margin-top: -25px; margin-left: -5px;">
+                                                <label class="labelBlackDirect">Valor (R$)</label>
+                                                <input type="text" onfocus="$(this).MascaraDinheiro(); $(this).Decimal();" id="ValorFrete" class="inputPDVStyleOperacao ng-pristine ng-valid ng-valid-required" ng-model="valorFrete" ng-required="true" ng-disabled="!possuiFreteDevolucao" required="required" disabled="disabled" autocomplete="1782248038964" style="">
+                                            </div>
+                                        </div>
+                                        <table class="tableDevolucaoMercadoriaHead" cellspacing="0">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width: 74px; text-align: left;">Código</th>
+                                                    <th style="text-align: left;">Descrição</th>
+                                                    <th style="width: 100px;">Qtd Maxima a Devolver</th>
+                                                    <th style="width: 80px;">Valor Unitario</th>
+                                                    <th style="width: 100px;">Quantidade Devolvida</th>
+                                                    <th style="width: 80px;">Valor a Devolver</th>
+                                                    <th style="width: 100px;">Status do produto</th>
+                                                </tr>
+                                            </thead>
+                                        </table>
+                                        <div class="divTableDevolucaoMercadoria" style="overflow: auto; max-height: 248px;">
+                                            <table class="tableDevolucaoMercadoriaBody" cellspacing="0">
+                                                <!-- ngRepeat: item in mercadoriasDevolucao -->
+                                            </table>
+                                            <!-- ngIf: mostraSeccaoFrete -->
+                                        </div>
+                                        <div class="dropdown dropdownNewPattern grayNewDrop" style="width: 240px; margin: auto; margin-top: 30px; position: inherit;">
+                                            <button type="button" class="btn-flat btn-flat-greenNewPattern" data-toggle="dropdown">
+                                                <div style="text-align: left;">
+                                                    <img style="float: left; margin-left: 15px;" src="https://app.sigecloud.com.br/Images/PDVOnline_Adicionar.png">
+                                                    <span style="margin-bottom: 4px; margin-left: 10px;">Adicionar pagamento</span>
+                                                </div>
+                                            </button>
+                                            <ul class="dropdown-menuNewPattern" style="width: 239px">
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Dinheiro', '4')">Dinheiro</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Cheque', '4')">Cheque</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Cartão de Crédito', '4')" ng-show="showDevolucaoFields()" class="ng-hide">Cartão de Crédito</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Cartão de Débito', '4')" ng-show="showDevolucaoFields()" class="ng-hide">Cartão de Débito</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Crédito Loja', '4')" ng-show="showDevolucaoFields()" class="ng-hide">Crédito Loja</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('PIX', '4')" ng-show="showDevolucaoFields()" class="ng-hide">PIX</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Vale Alimentação', '4')">Vale Alimentação</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Vale Refeição', '4')">Vale Refeição</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Vale Presente', '4')">Vale Presente</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Vale Combustível', '4')">Vale Combustível</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Vale Crédito', '4')">Vale Crédito</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Boleto Bancário', '4')">Boleto Bancário</li>
+                                                <li ng-click="btnAdicionarValorOperacaoClick('Outros', '4')">Outros</li>
+                                            </ul>
+                                        </div>
+                                        <div ng-hide="operacao.Valores.length" class="">
+                                            <h4 class="labelBlackDirect" style="text-align: center;">Adicione uma forma de pagamento</h4>
+                                        </div>
+                                        <table class="tableReforcoSangriaOperacao ng-hide" ng-show="operacao.Valores.length" style="width: 100%;">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width: 30%;">Forma de pagamento</th>
+                                                    <th style="width: 50%">Pagamento Venda<a class="icon icon12 icomoon-icon-help blue ajuda tooltipstered"></a></th>
+                                                    <th style="width: 15%;">Valor R$</th>
+                                                    <th style="width: 5%;"></th>
+                                                </tr>
+                                            </thead>
+                                        </table>
+                                        <div class="tableReforcoSangriaBody ng-hide" ng-show="operacao.Valores.length">
+                                            <table class="tableReforcoSangriaOperacao" style="margin-top: 0; width: 100%; text-align-last: center">
+                                                <tbody>
+                                                    <!-- ngRepeat: valor in operacao.Valores -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    
+                                </div>
+                            </section>
+                        </div>
+                        <div class="contentFooterDown row-fluid" style="width: 900px !important; padding-bottom: 4px; margin: auto; margin-top: 30px; height: 120px;">
+                            <div class="span4">
+                                <input type="button" value="Voltar" class="btn-flat btn-flat-greenNewPattern btn-flat-redNewPattern" ng-click="btnVoltarOperacaoClick()" style="width: 150px; margin: 0px;">
+                            </div>
+                            <div class="span5" style="text-align: right;">
+                                <input type="button" id="CancelarVendaOperacao" ng-show="podeCancelarVenda" ng-disabled="operacao == null || mercadoriasDevolucao == null" saveaction="true" ng-click="onCancelarVendaOperacaoChanged()" value="Cancelar Venda" class="btn-flat btn-flat-greenNewPattern btn-flat-blueNewPattern ng-hide" style="width: 150px; margin: 0px;">
+                            </div>
+                            <div class="span3" style="text-align: right;">
+                                <div class="dropdown dropdownNewPattern grayNewDrop" style="width: 200px; margin: auto; margin-right: 0;">
+                                    <button type="button" class="btn-flat btn-flat-greenNewPattern" data-toggle="dropdown" saveaction="true">Salvar<i class="fa fa-angle-down"></i></button>
+                                    <ul class="dropdown-menuNewPattern">
+                                        <li ng-click="btnSalvaDevolucaoClick(false)" saveaction="true">Salvar</li>
+                                        <!-- ngIf: redirectToPDV --><li ng-click="btnSalvaDevolucaoClick(true)" ng-if="redirectToPDV" saveaction="true" class="ng-scope">Salvar e ir ao PDV</li><!-- end ngIf: redirectToPDV -->
+                                        <!-- ngIf: redirectToVendas -->
+                                        <!-- ngIf: redirectToDevolucoes -->
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="modalNumerosSerie" class="modal modalBlue-mask modalPDVOnline" style="background-color: rgba(0,0,0,0.8) !important; display: none;">
+                            <div id="modalBlueNumerosSerie" class="modalBlue HeaderBlue" style="width: 770px; padding-left: 36px;">
+                                <div id="divBotaoFecharNumerosSerie" class="divBotaoFechar"><a id="aBotaoFecharNumerosSerie" ng-click="fechaModalNumerosSerie($event, 'modalNumerosSerie')"></a></div>
+                                <section class="modalBlue-content row-fluid modalPDVOnline" style="width: 500px; padding-left: 100px; padding-right: 100px; background: linear-gradient(#04a9da 55px, #fff 55px);">
+                                    <header class="row-fluid" style="display: block; font-size: 18px !important">
+                                        <h4>Escolha os Números de Série que deseja devolver</h4>
+                                    </header>
+                                    <article style="margin-top: 25px; margin-left: -80px; margin-right: -80px;">
+                                        <table class="tableDevolucaoMercadoriaBody orcamentoTable" cellspacing="0">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width: 74px; text-align: left;">Código</th>
+                                                    <th style="text-align: left;">Descrição</th>
+                                                    <th style="width: 100px;">Qtd Maxima a Devolver</th>
+                                                    <th style="width: 100px;">Qtd Devolvida</th>
+                                                    <th style="width: 80px;">Números de Série</th>
+                                                </tr>
+                                            </thead>
+                                            <!-- ngRepeat: item in mercadoriasDevolucao -->
+                                        </table>
+                                    </article>
+                                    <footer class="span12" style="margin: 20px 0 20px 0;">
+                                        <button type="button" class="btn-flat btn-flat-greenNewPattern" style="margin-bottom: 15px;" ng-click="fechaModalNumerosSerie()">Confirmar</button>
+                                        <label class="erroPreenchimentoSpan erroVermelho ng-hide" style="font-size: 12px;" ng-show="erroDevolucaoNroSerie">Necessário informar todos os Números de Série conforme a Quantidade Devolvida.</label>
+                                    </footer>
+                                </section>
+                                <div class="divBotaoFecharRight"></div>
+                            </div>
+                        </div>
+
+                        <div id="modalSelecaoNFCe" class="modal modalBlue-mask modalPDVOnline" style="background-color: rgba(0,0,0,0.8) !important; display: none;">
+                            <div id="modalBlueNumerosSerie" class="modalBlue HeaderBlue" style="width: 770px; padding-left: 36px;">
+                                <div id="divBotaoFecharNumerosSerie" class="divBotaoFechar"><a id="aBotaoFecharNumerosSerie" ng-click="fechaModalSelecaoNFCe($event, 'modalSelecaoNFCe')"></a></div>
+                                <section class="modalBlue-content row-fluid modalPDVOnline" style="width: 500px; padding-left: 100px; padding-right: 100px; background: linear-gradient(#04a9da 55px, #fff 55px);">
+                                    <header class="row-fluid" style="display: block; font-size: 18px !important">
+                                        <h4>Escolha a venda vinculada as NFCe encontradas</h4>
+                                    </header>
+                                    <article style="margin-top: 25px; margin-left: -80px; margin-right: -80px;">
+                                        <table class="tableDevolucaoMercadoriaBody orcamentoTable" cellspacing="0">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width: 180px; height: 20px; text-align: left;">Data</th>
+                                                    <th style="width: 74px; height: 20px;">Código</th>
+                                                    <th style="text-align: left; height: 20px;">Depósito</th>
+                                                    <th style="width: 100px; height: 20px;">Cliente</th>
+                                                    <th style="width: 100px; height: 20px;">Valor Final</th>
+                                                    <th style="width: 100px; height: 20px;"></th>
+                                                </tr>
+                                            </thead>
+                                            <!-- ngRepeat: item in vendasNFCe -->
+                                        </table>
+                                    </article>
+                                </section>
+                                <div class="divBotaoFecharRight"></div>
+                            </div>
+                        </div>
+
+                    </div>
+                    <div id="dvTrocarMercadoria" style="display: none;">
+                        <div class="box-shadow">
+                            <header class="contentHeader" style="height: 15px; background-color: #ff8400;"></header>
+                            <section class="contentSection" style="min-height: 500px; max-height: 500px;">
+                                <div class="row-fluid" style="margin: 10px 50px; width: calc(100% - 100px);">
+                                    <div class="span5">
+                                        <div class="row-fluid divHeaderOperacao" style="position: relative;">
+                                            <img style="position: absolute; margin-left: -50px;" src="https://app.sigecloud.com.br/Images/PDVOnline_OperacaoTrocaMercadoria.png">
+                                            <h2 style="color: #ff8400; padding-left: 65px;">Troca de mercadoria</h2>
+                                        </div>
+                                        <div class="row-fluid">
+                                            <label class="labelBlackDirect">Caixa</label>
+                                            <select ng-model="operacao.CaixaNome" ng-change="onCaixaNomeChanged()" ng-options="u for u in users" class="inputPDVStyleOperacao ng-pristine ng-valid" ng-disabled="canEditCaixaOperacao() == false"><option value="?" selected="selected"></option></select>
+                                            
+                                            <label class="labelBlackDirect">Depósito</label>
+                                            <select ng-model="operacao.DepositoNome" ng-options="e.Nome as e.Nome for e in depositos" class="inputPDVStyleOperacao ng-pristine ng-valid"><option value="" class="">Selecione</option></select>
+
+                                            <div id="tudo" style="display: flex;">
+                                                <div id="ladoInput" style="margin-right: 8px; flex: 6;">
+                                                    <label class="labelBlackDirect" style="display: inline-block">Produto para Troca</label>
+                                                    <input placeholder="Buscar Produto..." type="text" id="insertProductDescription" ng-focus="invokeProdutoTrocaAutoComplete()" class="inputPDVStyleOperacao ng-dirty ng-pristine ng-invalid ng-invalid-required" ng-model="produtoTroca" ng-required="true" required="required" autocomplete="1782248038964" style="">
+                                                </div>
+                                                <div id="ladoBtn" style="margin-top: 23px; flex: 3;">
+                                                    <button type="button" class="btn-flat btn-flat-greenNewPattern" data-toggle="dropdown" style="height: 30px; cursor: pointer" ng-click="onNFCeDataChangedTroca()">
+                                                        <div style="text-align: left; font-size: 14px;">
+                                                            <img style="float: left;" src="https://app.sigecloud.com.br/Images/PDVOnline_Adicionar.png">
+                                                            <span style="margin-bottom: 4px; margin-left: 10px;">Add. Item</span>
+                                                        </div>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div style="height: 15px;">
+                                                <label class="erroPreenchimentoSpan erroVermelho ng-binding ng-hide" ng-show="showNenhumItemEncontrado &amp;&amp; (NumeroNFCeOperacao != &quot;&quot; &amp;&amp; NumeroNFCeOperacao != null)">Nenhum venda de origem PDV encontrada com este número.</label>
+                                                <label class="erroPreenchimentoSpan erroVermelho ng-binding ng-hide" ng-show="showVendaCancelada &amp;&amp; (NumeroNFCeOperacao != &quot;&quot; &amp;&amp; NumeroNFCeOperacao != null)">A venda com este número não pode ser devolvida pois está cancelada.</label>
+                                            </div>
+                                            <label class="labelBlackDirect">Em Caixa</label>
+                                            <table class="tableSaldos">
+                                                <tbody><!-- ngRepeat: saldo in SaldosCaixaOperacao -->
+                                            </tbody></table>
+                                        </div>
+                                    </div>
+                                    <div class="span7">
+                                        <div class="row-fluid divHeaderOperacao" style="position: relative;">
+                                            <h2 style="color: #ff8400; padding-left: 0;">Mercadorias</h2>
+                                        </div>
+                                        <table class="tableDevolucaoMercadoriaHead" cellspacing="0">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width: 74px; text-align: left;">Código</th>
+                                                    <th style="text-align: left;">Descrição</th>
+                                                    <th style="text-align: left;">Depósito</th>
+                                                    <th style="width: 100px;">Qtd Maxima a Trocar</th>
+                                                    <th style="width: 100px;">Quantidade Trocada</th>
+                                                    <th style="width: 100px;">Status do produto</th>
+                                                    <th style="width: 50px;"></th>
+                                                </tr>
+                                            </thead>
+                                        </table>
+                                        <div class="divTableDevolucaoMercadoria">
+                                            <table class="tableDevolucaoMercadoriaBody" cellspacing="0">
+                                                <!-- ngRepeat: item in MercadoriasParaTroca -->
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+                        </div>
+                        <div class="contentFooterDown row-fluid" style="width: 900px !important; padding-bottom: 4px; margin: auto; margin-top: 30px; height: 120px;">
+                            <div class="span4">
+                                <input type="button" value="Voltar" class="btn-flat btn-flat-greenNewPattern btn-flat-redNewPattern" ng-click="btnVoltarOperacaoClick()" style="width: 150px; margin: 0px;">
+                            </div>
+                            <div class="span3" style="text-align: right; float: right;">
+                                <div class="dropdown dropdownNewPattern grayNewDrop" style="width: 200px; margin: auto; margin-right: 0;">
+                                    <button type="button" class="btn-flat btn-flat-greenNewPattern" data-toggle="dropdown" saveaction="true">Salvar<i class="fa fa-angle-down"></i></button>
+                                    <ul class="dropdown-menuNewPattern">
+                                        <li ng-click="btnSalvarTrocaClick()" saveaction="true">Salvar</li>
+                                        <li ng-click="btnSalvarTrocaClick(true)" saveaction="true">Salvar e ir ao PDV</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="dvMostrarSaldo" style="display: none;">
+                        <div class="box-shadow">
+                            <header class="contentHeader"></header>
+                            <section class="contentSection">
+                                <div class="row-fluid divHeaderOperacao">
+                                    <img src="https://app.sigecloud.com.br/Images/PDVOnline_OperacaoSaldo.png">
+                                    <h2>Saldo do Caixa</h2>
+                                    <a ng-click="btnImprimirFechamentoClick()">Ver Detalhes</a>
+                                </div>
+                                <div class="tabela-saldos-pdv">
+                                    <table>
+                                        <tbody>
+                                            <tr class="color-1">
+                                                <td>Saldo na Abertura
+                                                </td><td><span class="ng-binding">R$ </span>
+                                                                                              
+                                            </td></tr>
+                                            <tr class="color-2">
+                                                <td>Saldo em Vendas</td>
+                                                <td>
+                                                    <span class="ng-binding">R$ 0,00</span>
+                                                </td>
+                                            </tr>
+                                            <tr class="color-3">
+                                                <td>Saldo Crediário</td>
+                                                <td><span class="ng-binding">R$ </span></td>
+                                            </tr>
+                                            <tr class="color-4">
+                                                <td>Total Reforçado</td>
+                                                <td><span class="ng-binding">R$ </span></td>
+                                            </tr>
+                                            <tr class="color-5">
+                                                <td>Total Sangrado</td>
+                                                <td><span class="ng-binding">R$ </span></td>
+                                            </tr>
+                                            <tr class="color-6">
+                                                <td>Total de devoluções</td>
+                                                <td><span class="ng-binding">R$ </span></td>
+                                            </tr>
+                                            <tr class="color-7">
+                                                <td>Total do Saldo</td>
+                                                <td><span class="ng-binding">R$ </span></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </section>
+                        </div>
+                        <div class="contentFooterDown row-fluid">
+                            <div class="span4">
+                                <input type="button" value="Voltar" class="btn-flat btn-flat-greenNewPattern btn-flat-redNewPattern" ng-click="btnVoltarOperacaoClick()" style="width: 150px; margin: 0px;">
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: none;">
+                        <div>
+                            <table cellpadding="5px" cellspacing="0">
+                                <tbody><tr ng-show="IsCaixaOpened==false &amp;&amp; operacao.TipoOperacao != 0" class="">
+                                    <td colspan="2">
+                                        <div class="alert alert-danger" style="margin-bottom: 0;">
+                                            Seu caixa não está aberto,<br>
+                                            esta operação não poderá ser realizada em seu caixa.
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody></table>
+                        </div>
+                    </div>
+                    <div id="dvInfoFechamento" style="display: none; margin: auto; margin-top: 36px;">
+                        <div class="box-shadow">
+                            <header class="contentHeader" style="height: 10px;"></header>
+                            <section class="contentSection" style="min-height: inherit; max-height: inherit;">
+                                <img style="float: left; margin-top: 10px; position: absolute;" src="https://app.sigecloud.com.br/Images/PDVOnline_ModalFechamentoCaixa.png">
+                                <h2 style="margin-top: 10px;" class="titleFormasPagamento">Fechamento de Caixa</h2>
+                                <label class="labelFechamento">Caixa Aberto em: <span class="ng-binding"></span> às <span class="ng-binding"></span></label>
+                                <label class="labelFechamento">Caixa Fechado em: <span class="ng-binding"></span> às <span class="ng-binding"></span></label>
+                                <div class="row-fluid quadradosFechamento" style="margin-top: 10px;">
+                                    <div style="background-color: #0381a7;">
+                                        <label>
+                                            Saldo<br>
+                                            na Abertura
+                                        </label>
+                                        <label class="ng-binding"></label>
+                                    </div>
+                                    <div style="background-color: #545454;">
+                                        <label>
+                                            Saldo<br>
+                                            em Vendas
+                                        </label>
+                                        <label class="label2 ng-binding">0,00</label>
+                                        <button type="button" class="btn-flat btn-flat-transparent ng-hide" onclick="$('#modalSaldoVendas').fadeIn(500)" title="Ver Valores Vendas" style="width: 80%;" ng-show="FechamentoValoresVendidos.length &gt; 0">Ver Vendas</button>
+                                    </div>
+                                    <div style="background-color: #00abdd;">
+                                        <label>
+                                            Saldo<br>
+                                            Crediário
+                                        </label>
+                                        <label class="ng-binding"></label>
+                                    </div>
+                                    <div style="background-color: #63bc50;">
+                                        <label>
+                                            Total<br>
+                                            Reforçado
+                                        </label>
+                                        <label class="ng-binding"></label>
+                                    </div>
+                                    <div style="background-color: #ed2c25;">
+                                        <label>
+                                            Total<br>
+                                            Sangrado
+                                        </label>
+                                        <label class="ng-binding"></label>
+                                    </div>
+                                    <div style="background-color: #f1d611;">
+                                        <label>
+                                            Total<br>
+                                            de devoluções
+                                        </label>
+                                        <label class="ng-binding"></label>
+                                    </div>
+                                </div>
+                            </section>
+                            <footer class="contentFooter">
+                                <div class="row-fluid" style="text-align: right; padding-top: 25px;">
+                                    <span style="font-size: 22px;">Saldo em caixa:</span>
+                                    <span style="font-size: 24px;" class="numberHelvetica ng-binding">R$ </span>
+                                </div>
+                            </footer>
+                        </div>
+                        <div class="contentFooterDown row-fluid" style="margin-top: 20px; width: 900px !important; height: 40px;">
+                            <div class="span6">
+                                <input type="button" value="Voltar" class="btn-flat btn-flat-greenNewPattern btn-flat-redNewPattern" style="width: 180px; margin: auto; display: block;" ng-click="btnVoltarFechamentoClick()">
+                            </div>
+                            <div class="span6">
+                                <input type="button" value="Imprimir" class="btn-flat btn-flat-greenNewPattern" style="width: 180px; margin: auto auto auto 50px; display: block;" ng-click="btnImprimirFechamentoClick()">
+                            </div>
+                        </div>
+                    </div>
+                    <div id="dvFecharCaixa" style="width: 600px; display: none; margin: auto; margin-top: 5px;">
+                        <div class="box-shadow" style="text-align: center">
+                            <header class="contentHeader" style="height: 5px;"></header>
+                            <section class="contentSection" style="min-height: inherit; max-height: inherit;">
+                                <img style="float: left; margin-top: 20px;" src="https://app.sigecloud.com.br/Images/PDVOnline_ModalFechamentoCaixa.png">
+                                <div class="row-fluid" style="margin-bottom: 25px; margin-top: 10px;">
+                                    <div class="titleFormasPagamento">
+                                        <h2>Informe os Valores</h2>
+                                    </div>
+                                </div>
+                                <div class="dropdown dropdownNewPattern grayNewDrop" style="width: 100%;">
+                                    <button type="button" class="btn-flat btn-flat-greenNewPattern" data-toggle="dropdown" style="width: 50%; margin-bottom: 25px; margin-top: 10px;">
+                                        <div style="text-align: left;">
+                                            <img style="float: left; margin-left: 50px;" src="https://app.sigecloud.com.br/Images/PDVOnline_Adicionar.png">
+                                            <span style="margin-bottom: 4px; margin-left: 10px;">Adicionar Pagamento</span>
+                                        </div>
+                                    </button>
+                                    <ul class="dropdown-menuNewPattern">
+                                        <li ng-click="btnAdicionarValorCaixaAsCegas('Dinheiro')">Dinheiro</li>
+                                        <li ng-click="btnAdicionarValorCaixaAsCegas('Cheque')">Cheque</li>
+                                        <li ng-click="btnAdicionarValorCaixaAsCegas('Cartão de Crédito')">Cartão de Crédito</li>
+                                        <li ng-click="btnAdicionarValorCaixaAsCegas('Cartão de Débito')">Cartão de Débito</li>
+                                        <li ng-click="btnAdicionarValorCaixaAsCegas('PIX')">PIX</li>
+                                        <li ng-click="btnAdicionarValorCaixaAsCegas('Vale Alimentação')">Vale Alimentação</li>
+                                        <li ng-click="btnAdicionarValorCaixaAsCegas('Vale Refeição')">Vale Refeição</li>
+                                        <li ng-click="btnAdicionarValorCaixaAsCegas('Vale Presente')">Vale Presente</li>
+                                        <li ng-click="btnAdicionarValorCaixaAsCegas('Vale Combustível')">Vale Combustível</li>
+                                        <li ng-click="btnAdicionarValorCaixaAsCegas('Crédito Loja')">Crédito Loja</li>
+                                        <li ng-click="btnAdicionarValorCaixaAsCegas('Outros')">Outros</li>
+                                    </ul>
+                                </div>
+                                <article class="dvNovaOperacaoModal" style="height: 300px">
+                                    <table id="tableFecharCaixaHeader">
+                                        <thead>
+                                            <tr>
+                                                <th>Forma de pagamento</th>
+                                                <th style="padding-left: 145px;">Em caixa</th>
+                                                <th style="padding-left: 70px;">Reforços</th>
+                                                <th style="padding-left: 40px;">Retiradas</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                    </table>
+                                    <div id="tableFecharCaixaBody">
+                                        <table>
+                                            <tbody>
+                                                <!-- ngRepeat: valor in valoresAsCegas.Valores -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <div class="row-fluid" style="margin-top: 5px; margin-bottom: 5px;">
+                                        <div>
+                                            <label><b>Observações:</b></label>
+                                        </div>
+                                        <div>
+                                            <input type="text" ng-model="fechamento.Observacao" style="border: 0.5px solid; width: 90%;" id="inputObservacaos" class="ng-pristine ng-valid" autocomplete="1782248038964">
+                                        </div>
+                                    </div>
+
+                                </article>
+                            </section>
+                            <footer class="contentFooter">
+                                <div style="float: right !important; padding-right: 20px;">
+                                    <div class="span2">
+                                        <input type="button" value="Voltar" class="btn-flat btn-flat-greenNewPattern btn-flat-redNewPattern" style="width: 180px; margin-top: 15px; display: block;" ng-click="btnVoltarOperacaoClick()">
+                                    </div>
+                                    <div class="span2">
+                                        <input id="fecharCaixaCegas" type="button" value="Confirmar" class="btn-flat btn-flat-greenNewPattern" style="width: 180px; margin-top: 15px; margin-left: 30px; display: block;" ng-click="btFecharCaixaClick()">
+                                    </div>
+                                </div>
+                            </footer>
+                        </div>
+                        <div class="contentFooterDown row-fluid" style="margin-top: 10px; width: 800px !important; height: 40px;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="modalSaldoVendas" class="modal modalBlue-mask modalPDVOnline" style="background-color: rgba(0,0,0,0.8) !important; display: none;" ng-click="fechaModalSaldoVendas($event, 'modalErro')">
+                <div id="modalBlueSaldoVendas" class="modalBlue HeaderBlue" style="width: 770px; padding-left: 36px;">
+                    <div id="divBotaoFecharSaldoVendas" class="divBotaoFechar"><a id="aBotaoFecharSaldoVendas"></a></div>
+                    <section class="modalBlue-content row-fluid" style="width: 700px; padding: 0; padding-right: 0; background: linear-gradient(#545454 80px, #fff 80px);">
+                        <header class="row-fluid" style="height: 80px;">
+                            <label class="atencaoModalSEFAZ" style="margin: auto;">Saldo em Vendas</label>
+                        </header>
+                        <article class="articleModalSaldoVendas">
+                            <table style="width: 100%; margin-top: 5px;">
+                                <tbody><!-- ngRepeat: saldo in FechamentoValoresVendidos -->
+                            </tbody></table>
+                        </article>
+                    </section>
+                    <div class="divBotaoFecharRight"></div>
+                </div>
+            </div>
+            <div id="modalCancelarVenda" class="modal modalBlue-mask modalPDVOnline" style="background-color: rgba(0,0,0,0.8) !important; display: none;" ng-click="fechaModalCancelarVenda($event, 'modalCancelarVenda')">
+                <div id="modalBlueCancelarVenda" class="modalBlue HeaderBlue" style="width: 770px; padding-left: 36px;">
+                    <div id="divBotaoFecharCancelarVenda" class="divBotaoFechar"><a id="aBotaoFecharCancelarVenda"></a></div>
+                    <section class="modalBlue-content row-fluid" style="width: 700px; padding: 0; padding-right: 0; background: linear-gradient(#ed2c25 80px, #fff 80px);">
+                        <header class="row-fluid" style="height: 80px;">
+                            <label class="atencaoModalSEFAZ" style="margin: auto;">Atenção!</label>
+                        </header>
+                        <article style="margin-top: 50px;">
+                            <img src="https://app.sigecloud.com.br/Images/PDVOnline_PDVAtencao.png">
+                        </article>
+                        <footer class="span12" style="margin: 40px 0 60px 0;">
+                            <label class="txtModalSEFAZ">Você deseja cancelar a venda?</label>
+                            <div class="row-fluid" style="margin-top: 35px;">
+                                <div class="span6" style="text-align: right;">
+                                    <input id="btnVoltarModalCancelarVenda" type="button" value="Voltar" class="btn-flat btn-flat-greenNewPattern" ng-click="fechaModalCancelarVenda($event, 'modalCancelarVenda')" style="width: 200px; margin: 0px;">
+                                </div>
+                                <div class="span6" style="text-align: left;">
+                                    <input type="button" value="Sim, quero cancelar" saveaction="true" class="btn-flat btn-flat-greenNewPattern btn-flat-redNewPattern" ng-click="btnSalvarOperacaoClick(false)" onclick="$('#modalCancelarVenda').fadeOut(500); $('#CancelarVendaOperacao').prop('disabled', true);" style="width: 200px; margin: 0px;">
+                                </div>
+                            </div>
+                        </footer>
+                    </section>
+                    <div class="divBotaoFecharRight"></div>
+                </div>
+            </div>
+            <div id="modalEmpresaDifere" class="modal modalBlue-mask modalPDVOnline" style="background-color: rgba(0,0,0,0.8) !important; display: none;" ng-click="fechaModalEmpresaDifere($event, 'ModalEmpresaDifere')">
+                <div id="modalBlueEmpresaDifere" class="modalBlue HeaderBlue" style="width: 770px; padding-left: 36px;">
+                    <div id="divBotaoFecharEmpresaDifere" class="divBotaoFechar"><a id="aBotaoFecharEmpresaDifere"></a></div>
+                    <section class="modalBlue-content row-fluid" style="width: 700px; padding: 0; padding-right: 0; background: linear-gradient(#ed2c25 80px, #fff 80px);">
+                        <header class="row-fluid" style="height: 80px;">
+                            <label class="atencaoModalSEFAZ" style="margin: auto;">Atenção!</label>
+                        </header>
+                        <article style="margin-top: 50px;">
+                            <img src="https://app.sigecloud.com.br/Images/PDVOnline_PDVAtencao.png">
+                        </article>
+                        <footer class="span12" style="margin: 40px 0 60px 0;">
+                            <div style="text-align: left; margin-left: 10%">
+                                <label class="txtModalSEFAZ ng-binding"></label>
+                            </div>
+                            <br>
+                            <div style="text-align: left; margin-left: 10%">
+                                <label class="txtModalSEFAZ ng-binding"></label>
+                            </div>
+                            <div style="text-align: left; margin-left: 10%">
+                                <label class="txtModalSEFAZ ng-binding"></label>
+                            </div>
+                            <br>
+                            <div style="text-align: left; margin-left: 10%">
+                                <label class="txtModalSEFAZ">Deseja prosseguir?</label>
+                            </div>
+
+                            <div class="row-fluid" style="margin-top: 35px;">
+                                <div class="span6" style="text-align: right;">
+                                    <input id="btnVoltarModalEmpresaDifere" type="button" value="Voltar" class="btn-flat btn-flat-greenNewPattern" ng-click="fechaModalEmpresaDifere($event, 'modalEmpresaDifere')" style="width: 200px; margin: 0px;">
+                                </div>
+                                <div class="span6" style="text-align: left;">
+                                    <input type="button" value="Continuar" saveaction="true" class="btn-flat btn-flat-greenNewPattern btn-flat-redNewPattern" ng-click="btnSalvarOperacaoClick(redirectToPDVModal, true, ignoraPagamentos, true)" onclick="$('#modalEmpresaDifere').fadeOut(500);" style="width: 200px; margin: 0px;">
+                                </div>
+                            </div>
+                        </footer>
+                    </section>
+                    <div class="divBotaoFecharRight"></div>
+                </div>
+            </div>
+
+
+            <div id="modalPagamentoVenda" class="modal modalBlue-mask modalPDVOnline" style="background-color: rgba(0,0,0,0.8) !important; display: none;" ng-click="fechaModalPagamentoVenda($event, 'ModalPagamentoVenda')">
+                <div id="modalBluePagamentoVenda" class="modalBlue HeaderBlue" style="width: 770px; padding-left: 36px;">
+                    <div id="divBotaoFecharPagamentoVenda" class="divBotaoFechar"><a id="aBotaoFecharPagamentoVenda"></a></div>
+                    <section class="modalBlue-content row-fluid" style="width: 700px; padding: 0; padding-right: 0; background: linear-gradient(#ed2c25 80px, #fff 80px);">
+                        <header class="row-fluid" style="height: 80px;">
+                            <label class="atencaoModalSEFAZ" style="margin: auto;">Atenção!</label>
+                        </header>
+                        <article style="margin-top: 50px;">
+                            <img src="https://app.sigecloud.com.br/Images/PDVOnline_PDVAtencao.png">
+                        </article>
+                        <footer class="span12" style="margin: 40px 0 60px 0;">
+                            <div style="text-align: left; margin-left: 10%">
+                                <label class="txtModalSEFAZ ng-binding"></label>
+                            </div>
+                            <div style="text-align: left; margin-left: 10%">
+                                <label class="txtModalSEFAZ ng-binding"></label>
+                            </div>
+                            <br>
+                            <div style="text-align: left; margin-left: 10%">
+                                <label class="txtModalSEFAZ">Deseja prosseguir?</label>
+                            </div>
+
+                            <div class="row-fluid" style="margin-top: 35px;">
+                                <div class="span6" style="text-align: right;">
+                                    <input id="btnVoltarModalPagamentoVenda" type="button" value="Voltar" class="btn-flat btn-flat-greenNewPattern" ng-click="fechaModalPagamentoVenda($event, 'modalPagamentoVenda')" style="width: 200px; margin: 0px;">
+                                </div>
+                                <div class="span6" style="text-align: left;">
+                                    <input type="button" value="Continuar" saveaction="true" class="btn-flat btn-flat-greenNewPattern btn-flat-redNewPattern" ng-click="btnSalvarOperacaoClick(redirectToPDVModal, ignoraEmpresa, true, true)" onclick="$('#modalPagamentoVenda').fadeOut(500);" style="width: 200px; margin: 0px;">
+                                </div>
+                            </div>
+                        </footer>
+                    </section>
+                    <div class="divBotaoFecharRight"></div>
+                </div>
+            </div>
+
+            <div id="modalCashbackVinculado" class="modal modalBlue-mask modalPDVOnline" style="background-color: rgba(0,0,0,0.8) !important; display: none;" ng-click="fechaModalEmpresaDifere($event, 'ModalEmpresaDifere')">
+                <div class="modalBlue HeaderBlue" style="width: 770px; padding-left: 36px;">
+                    <section class="modalBlue-content row-fluid" style="width: 700px; padding: 0; padding-right: 0; background: linear-gradient(#ed2c25 80px, #fff 80px);">
+                        <header class="row-fluid" style="height: 80px;">
+                            <label class="atencaoModalSEFAZ" style="margin: auto;">Atenção!</label>
+                        </header>
+                        <article style="margin-top: 50px;">
+                            <img src="https://app.sigecloud.com.br/Images/PDVOnline_PDVAtencao.png">
+                        </article>
+                        <footer class="span12" style="margin: 40px 0 60px 0;">
+                            <div style="text-align: center; padding: 0 20px">
+                                <label class="txtModalSEFAZ">
+                                    Esta venda gerou cashback que já foi utilizado em outras vendas, <br>
+                                    totalizando <b class="ng-binding"></b></label>
+                            <br>
+                                <label class="txtModalSEFAZ">
+                                    Ao cancelar, o sistema irá gerar automaticamente um lançamento de despesa para ajustar o valor do cashback que já foi aproveitado.
+                                </label>
+                            </div>
+                            <br>
+                            <div class="row-fluid" style="margin-top: 35px;">
+                                <div class="span12" style="text-align: center;">
+                                    <input type="button" value="Continuar" class="btn-flat btn-flat-greenNewPattern" ng-click="btnCashbackClick(false)" onclick="$('#modalCashbackVinculado').fadeOut(500);" style="width: 200px; margin: 0px;">
+                                </div>
+                            </div>
+                        </footer>
+                    </section>
+                    <div class="divBotaoFecharRight"></div>
+                </div>
+            </div>
+
+            <div id="modalErro" class="modal modalBlue-mask modalPDVOnline" style="background-color: rgba(0,0,0,0.8) !important; display: none;" ng-click="fechaModalErro($event, 'modalErro')">
+                <div id="modalBlueErro" class="modalBlue HeaderBlue" style="width: 770px; padding-left: 36px;">
+                    <div id="divBotaoFecharErro" class="divBotaoFechar"><a id="aBotaoFecharErro"></a></div>
+                    <section class="modalBlue-content row-fluid" style="width: 500px; padding-left: 100px; padding-right: 100px; background: linear-gradient(#ed2c25 80px, #fff 80px);">
+                        <header class="row-fluid" style="height: 80px;">
+                            <label class="atencaoModalSEFAZ" style="margin: auto;">Atenção!</label>
+                        </header>
+                        <article style="margin-top: 50px;">
+                            <img src="https://app.sigecloud.com.br/Images/PDVOnline_PDVAtencao.png">
+                        </article>
+                        <footer class="span12" style="margin: 40px 0 60px 0;">
+                            <label class="txtModalSEFAZ ng-binding" ng-bind-html="msgErroPDV"></label>
+                        </footer>
+                    </section>
+                    <div class="divBotaoFecharRight"></div>
+                </div>
+            </div>
+            <div id="modalSucesso" class="modal modalBlue-mask modalPDVOnline" style="background-color: rgba(0,0,0,0.8) !important; display: none;" ng-click="fechaModalSucesso($event, 'modalSucesso')">
+                <div id="modalBlueSucesso" class="modalBlue HeaderBlue" style="width: 770px; padding-left: 36px;">
+                    <div id="divBotaoFecharSucesso" class="divBotaoFechar"><a id="aBotaoFecharSucesso"></a></div>
+                    <section class="modalBlue-content row-fluid" style="width: 500px; padding-left: 100px; padding-right: 100px; background: linear-gradient(#04a9da 80px, #fff 80px);">
+                        <header class="row-fluid" style="height: 80px;"></header>
+                        <article style="margin-top: 50px;">
+                            <img src="https://app.sigecloud.com.br/Images/PDVOnline_PDVSucesso.png">
+                        </article>
+                        <footer class="span12" style="margin: 40px 0 60px 0;">
+                            <label class="txtModalSEFAZ ng-binding" ng-bind-html="msgSucessoPDV"></label>
+                            <button ng-show="itemTemValeCredito &amp;&amp; operacao.TipoOperacao == 4" type="button" class="btn-flat btn-flat-greenNewPattern ng-hide" data-toggle="dropdown" style="width: 260px; margin-top: 35px; cursor: pointer" ng-click="btnBaixarValeCredito()">
+                                <div style="text-align: left;">
+                                    <span style="margin-bottom: 4px; width: 210px; margin-left: 10px;">Baixar Cupom de Vale Crédito</span>
+                                </div>
+                            </button>
+                        </footer>
+                    </section>
+                    <div class="divBotaoFecharRight"></div>
+                </div>
+            </div>
+        </div>
+    </form>

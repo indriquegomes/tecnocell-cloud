@@ -1,0 +1,329 @@
+{
+  "F4": {
+    "foco": {
+      "id": "63dec6bd59a9c82738d5c99d",
+      "class": "txtQtdItem numberHelvetica ng-pristine ng-valid inputQtdItem",
+      "tag": "INPUT",
+      "type": "text"
+    },
+    "modal": false
+  },
+  "F8": {
+    "texto": [
+      "TECNOCELL PETRÓPOLIS",
+      "TECNOCELL TERESÓPOLIS",
+      "TECNOCELL MACAÉ",
+      "ESTOQUE GERAL",
+      "ATACADO1",
+      "INATIVADA 4",
+      "ATACADO2",
+      "INATIVO 05",
+      "INATIVO 04",
+      "INATIVO 07",
+      "INATIVO 03",
+      "ESTOQUE GERAL",
+      "VAREJO",
+      "INATIVADA 3",
+      "PEL 3D / R$ 1,80",
+      "COPA 2026",
+      "Preço Padrão",
+      "Sair",
+      "Selecione a Forma de Pagamento",
+      "Valor da Venda: R$ 4,00 Cashback Disponível: R$ 1,25",
+      "F1",
+      "Dinheiro",
+      "F2",
+      "Cheque",
+      "F3",
+      "Cartão Crédito",
+      "F4",
+      "Cartão Débito",
+      "F5",
+      "Crédito Loja",
+      "F6",
+      "Vale Alimentação",
+      "F7",
+      "Vale Refeição",
+      "F8",
+      "Vale Presente",
+      "F9",
+      "PIX",
+      "F10",
+      "Vale Crédito",
+      "Vale Combustível",
+      "F11",
+      "Cash Back",
+      "Outros",
+      "F12 - Voltar",
+      "Nova Venda",
+      "Forma de Pagamento",
+      "Finalizar Venda"
+    ],
+    "botoes": [
+      "Sair",
+      "F12 - Voltar"
+    ],
+    "inputs": [
+      {
+        "id": null,
+        "placeholder": null,
+        "type": null
+      },
+      {
+        "id": "DropEmpresa",
+        "placeholder": null,
+        "type": null
+      },
+      {
+        "id": null,
+        "placeholder": null,
+        "type": null
+      }
+    ],
+    "dinheiro": {
+      "texto": [
+        "TECNOCELL PETRÓPOLIS",
+        "TECNOCELL TERESÓPOLIS",
+        "TECNOCELL MACAÉ",
+        "ESTOQUE GERAL",
+        "ATACADO1",
+        "INATIVADA 4",
+        "ATACADO2",
+        "INATIVO 05",
+        "INATIVO 04",
+        "INATIVO 07",
+        "INATIVO 03",
+        "ESTOQUE GERAL",
+        "VAREJO",
+        "INATIVADA 3",
+        "PEL 3D / R$ 1,80"
+      ],
+      "inputs": [
+        {
+          "id": null,
+          "placeholder": null,
+          "type": null
+        },
+        {
+          "id": "DropEmpresa",
+          "placeholder": null,
+          "type": null
+        },
+        {
+          "id": null,
+          "placeholder": null,
+          "type": null
+        },
+        {
+          "id": "65a0970f-a736-0b7d-2145-b545ba81c421",
+          "placeholder": null,
+          "type": "text"
+        },
+        {
+          "id": null,
+          "placeholder": null,
+          "type": "text"
+        }
+      ]
+    }
+  },
+  "F9": {
+    "texto": [
+      "TECNOCELL PETRÓPOLIS",
+      "TECNOCELL TERESÓPOLIS",
+      "TECNOCELL MACAÉ",
+      "ESTOQUE GERAL",
+      "ATACADO1",
+      "INATIVADA 4",
+      "ATACADO2",
+      "INATIVO 05",
+      "INATIVO 04",
+      "INATIVO 07",
+      "INATIVO 03",
+      "ESTOQUE GERAL",
+      "VAREJO",
+      "INATIVADA 3",
+      "PEL 3D / R$ 1,80",
+      "COPA 2026",
+      "Preço Padrão",
+      "Sair",
+      "Forma de pagamento",
+      "Adicionar forma de pagamento",
+      "Total do pedido:",
+      "4,00",
+      "\t\tPIX\t",
+      "Valor recebido:",
+      "Valor IPI:",
+      "0",
+      "Desconto:",
+      "0,00",
+      "Troco:",
+      "0",
+      "(F11) Voltar",
+      "Desconto",
+      "(F7) Selecione a ação",
+      "Nova Venda",
+      "Forma de Pagamento",
+      "Finalizar Venda",
+      "PIX",
+      "Valor",
+      "Credenciadora",
+      "Selecione"
+    ],
+    "botoes": [
+      "Sair",
+      "Adicionar forma de pagamento",
+      "(F11)\n                                        Voltar",
+      "Desconto",
+      "(F7) Selecione a ação",
+      "F8 - Salvar"
+    ],
+    "colunas": [],
+    "primeira_linha": [
+      "05744 - PELICULA 3D IPHONE 12 PRO MAX\n                                                    \n                                                    \n                                                        \n                                                        Prat:  \n                                                    \n                                                        \n                                                        L: ; Val:  \n                                                    L:\n                                                     \n                                                         \n                                                     \n                                                    \n                                                    Status:\n                                                        \n                                                    \n                                                    \n                                                        \n                                                        Nºs série:  \n                                                        \n                                                        \n                                                            \n                                                        \n                                                    \n                                                ",
+      "4,00",
+      "4",
+      "PIX",
+      "\n                                                    \n                                                        \n                                                        4,00\n                                                    \n                                                ",
+      "CAIXA DINHEIRO PETRÓPOLIS",
+      "PIX PETRÓPOLIS",
+      "R$ \n                                            ",
+      "R$ \n                                            ",
+      "R$ \n                                            ",
+      "R$\n                                            ",
+      "R$ \n                                            ",
+      "R$ \n                                            ",
+      "R$ \n                                            ",
+      "R$ \n                                            ",
+      "31",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "JanFevMarAbrMaiJunJulAugSetOutNovDez",
+      "201920202021202220232024202520262027202820292030"
+    ]
+  },
+  "F12": {
+    "texto": [
+      "TECNOCELL PETRÓPOLIS",
+      "TECNOCELL TERESÓPOLIS",
+      "TECNOCELL MACAÉ",
+      "ESTOQUE GERAL",
+      "ATACADO1",
+      "INATIVADA 4",
+      "ATACADO2",
+      "INATIVO 05",
+      "INATIVO 04",
+      "INATIVO 07",
+      "INATIVO 03",
+      "ESTOQUE GERAL",
+      "VAREJO",
+      "INATIVADA 3",
+      "PEL 3D / R$ 1,80",
+      "COPA 2026",
+      "Preço Padrão",
+      "Sair",
+      "Forma de pagamento",
+      "Adicionar forma de pagamento",
+      "Total do pedido:",
+      "4,00",
+      "\t\tPIX\t",
+      "Valor recebido:",
+      "Valor IPI:",
+      "0",
+      "Desconto:",
+      "0,00",
+      "Troco:",
+      "0"
+    ],
+    "botoes": [
+      "Sair",
+      "Adicionar forma de pagamento",
+      "(F11)\n                                        Voltar",
+      "Desconto",
+      "(F7) Selecione a ação",
+      "F8 - Salvar"
+    ],
+    "opcoes": [
+      "Sair → btnSairVendasClick()",
+      "PIX → abreModalCartao(item)",
+      "0,00 → onCampoDescontoClick()",
+      "(F11) Voltar → voltarPagamentos()",
+      "Desconto → onCampoDescontoClick()",
+      "PIX\nValor\nCredenciadora\nSelecione\nGRANIT → fechaModalCartaoFormaPgto($event, 'modalCartaoFormaPgto')",
+      "F8 - Salvar → salvarFormaPagamento()"
+    ]
+  },
+  "CtrlF11": {
+    "colunas": [],
+    "botoes": [
+      "Sair",
+      "Adicionar forma de pagamento",
+      "(F11)\n                                        Voltar",
+      "Desconto",
+      "(F7) Selecione a ação",
+      "F8 - Salvar"
+    ],
+    "primeira_linha": [
+      "05744 - PELICULA 3D IPHONE 12 PRO MAX\n                                                    \n                                                    \n                                                        \n                                                        Prat:  \n                                                    \n                                                        \n                                                        L: ; Val:  \n                                                    L:\n                                                     \n                                                         \n                                                     \n                                                    \n                                                    Status:\n                                                        \n                                                    \n                                                    \n                                                        \n                                                        Nºs série:  \n                                                        \n                                                        \n                                                            \n                                                        \n                                                    \n                                                ",
+      "4,00",
+      "4",
+      "PIX",
+      "\n                                                    \n                                                        \n                                                        4,00\n                                                    \n                                                ",
+      "CAIXA DINHEIRO PETRÓPOLIS",
+      "PIX PETRÓPOLIS",
+      "R$ \n                                            ",
+      "R$ \n                                            ",
+      "R$ \n                                            ",
+      "R$\n                                            ",
+      "R$ \n                                            ",
+      "R$ \n                                            ",
+      "R$ \n                                            ",
+      "R$ \n                                            ",
+      "31",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "JanFevMarAbrMaiJunJulAugSetOutNovDez",
+      "201920202021202220232024202520262027202820292030"
+    ],
+    "detalhe": {
+      "botoes": [
+        "Sair",
+        "Adicionar forma de pagamento",
+        "(F11)\n                                        Voltar",
+        "Desconto",
+        "(F7) Selecione a ação",
+        "F8 - Salvar"
+      ],
+      "texto": [
+        "TECNOCELL PETRÓPOLIS",
+        "TECNOCELL TERESÓPOLIS",
+        "TECNOCELL MACAÉ",
+        "ESTOQUE GERAL",
+        "ATACADO1",
+        "INATIVADA 4",
+        "ATACADO2",
+        "INATIVO 05",
+        "INATIVO 04",
+        "INATIVO 07",
+        "INATIVO 03",
+        "ESTOQUE GERAL",
+        "VAREJO",
+        "INATIVADA 3",
+        "PEL 3D / R$ 1,80",
+        "COPA 2026",
+        "Preço Padrão",
+        "Sair",
+        "Forma de pagamento",
+        "Adicionar forma de pagamento"
+      ]
+    }
+  }
+}
