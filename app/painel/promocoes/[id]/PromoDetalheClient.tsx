@@ -34,6 +34,8 @@ type Promocao = {
   data_fim: string
   ativa: boolean
   descricao: string | null
+  quantidade_x: number | null
+  quantidade_y: number | null
 }
 
 export function PromoDetalheClient({
@@ -110,7 +112,12 @@ export function PromoDetalheClient({
             </span>
           </div>
           <p className="mt-1 text-sm text-gray-500">
-            {TIPO_LABEL[promocao.tipo] ?? promocao.tipo} · {fmtDate(promocao.data_inicio)} até {fmtDate(promocao.data_fim)}
+            {TIPO_LABEL[promocao.tipo] ?? promocao.tipo}
+            {promocao.tipo === 'leve_x_pague_y' && promocao.quantidade_x && promocao.quantidade_y &&
+              ` · Leve ${promocao.quantidade_x} Pague ${promocao.quantidade_y}`}
+            {promocao.tipo === 'acima_x_pague_y' && promocao.quantidade_x &&
+              ` · Acima de ${promocao.quantidade_x} un. por ${fmt(promocao.valor)}/un.`}
+            {' · '}{fmtDate(promocao.data_inicio)} até {fmtDate(promocao.data_fim)}
           </p>
           {promocao.descricao && <p className="mt-0.5 text-xs text-gray-400">{promocao.descricao}</p>}
         </div>

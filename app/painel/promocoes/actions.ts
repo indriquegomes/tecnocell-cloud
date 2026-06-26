@@ -9,6 +9,9 @@ export async function criarPromocao(formData: FormData) {
   const supabase = await createServiceClient()
 
   const tipo = formData.get('tipo') as string
+  const qx = formData.get('quantidade_x')
+  const qy = formData.get('quantidade_y')
+
   const { data, error } = await supabase.from('promocoes').insert({
     nome: formData.get('nome') as string,
     tipo,
@@ -17,6 +20,8 @@ export async function criarPromocao(formData: FormData) {
     data_fim: formData.get('data_fim') as string || null,
     descricao: formData.get('descricao') as string || null,
     ativa: true,
+    quantidade_x: qx ? parseInt(qx as string) || null : null,
+    quantidade_y: qy ? parseInt(qy as string) || null : null,
   }).select('id').single()
 
   if (error) redirect(`/painel/promocoes?erro=${encodeURIComponent(error.message)}`)
@@ -60,13 +65,18 @@ export async function adicionarItemPromocao(
 ) {
   await requireAuth()
   const supabase = await createServiceClient()
-  await supabase.from('itens_promocao').upsert({
+  // Remove se já existir (evita duplicata sem precisar de unique constraint)
+  await supabase.from('itens_promocao')
+    .delete()
+    .eq('promocao_id', promocaoId)
+    .eq('produto_id', produtoId)
+  await supabase.from('itens_promocao').insert({
     promocao_id: promocaoId,
     produto_id: produtoId,
     preco_promocional: precoPromocional,
     quantidade_x: quantidadeX,
     quantidade_y: quantidadeY,
-  }, { onConflict: 'promocao_id,produto_id' })
+  })
   revalidatePath(`/painel/promocoes/${promocaoId}`)
 }
 
