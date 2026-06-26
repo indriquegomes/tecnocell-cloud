@@ -9,7 +9,7 @@ export default async function EditarLancamentoPage({ params }: { params: Promise
 
   const [{ data: lancamento }, { data: formas }] = await Promise.all([
     supabase.from('lancamentos').select('*').eq('id', id).single(),
-    supabase.from('formas_pagamento').select('id, nome').order('nome'),
+    supabase.from('formas_pagamento').select('id, nome').eq('ativo', true).order('nome'),
   ])
 
   if (!lancamento) notFound()

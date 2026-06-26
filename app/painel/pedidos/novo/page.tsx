@@ -10,7 +10,7 @@ export default async function NovoPedidoPage({ searchParams }: { searchParams: P
     supabase.from('pessoas').select('id, nome, tipo').order('nome').limit(500),
     supabase.from('depositos').select('id, nome').order('nome'),
     supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).order('nome'),
-    supabase.from('formas_pagamento').select('id, nome').order('nome'),
+    supabase.from('formas_pagamento').select('id, nome').eq('ativo', true).order('nome'),
   ])
 
   const clientes = (pessoasRaw ?? []).filter(p => p.tipo === 'cliente' || p.tipo === 'ambos')

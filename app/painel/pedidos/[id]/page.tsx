@@ -24,7 +24,7 @@ export default async function PedidoDetalhePage({
       .order('created_at'),
     supabase.from('produtos').select('id, nome, preco').eq('ativo', true).order('nome'),
     supabase.from('depositos').select('id, nome').order('nome'),
-    supabase.from('formas_pagamento').select('id, nome').order('nome'),
+    supabase.from('formas_pagamento').select('id, nome').eq('ativo', true).order('nome'),
   ])
 
   if (!pedido) notFound()

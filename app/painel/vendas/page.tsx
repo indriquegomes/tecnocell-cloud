@@ -30,7 +30,7 @@ export default async function PainelVendasPage({
   const [{ data: vendasRaw }, { data: depositosData }, { data: formasData }] = await Promise.all([
     query,
     supabase.from('depositos').select('id, nome').order('nome'),
-    supabase.from('formas_pagamento').select('id, nome').order('nome'),
+    supabase.from('formas_pagamento').select('id, nome').eq('ativo', true).order('nome'),
   ])
 
   const depositos = (depositosData ?? []) as { id: string; nome: string }[]
