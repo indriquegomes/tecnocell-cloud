@@ -20,39 +20,7 @@ const navCompleto: NavGroup[] = [
     items: [
       { href: '/painel/pdv',          label: 'PDV / Caixa',      permissao: 'pdv' },
       { href: '/painel/pdv/operacao', label: 'Operação do PDV',  permissao: 'pdv' },
-      { href: '/painel/vendas',           label: 'Painel de Vendas', permissao: 'vendas' },
-      { href: '/painel/painel-vendedor',  label: 'Painel Vendedor',  permissao: 'relatorios' },
-      { href: '/painel/os',           label: 'Ordens de Serviço',permissao: 'os' },
-      { href: '/painel/consignado',   label: 'Consignado',       permissao: 'pdv' },
-      { href: '/painel/devolucoes',   label: 'Devoluções',       permissao: 'devolucoes' },
-      { href: '/painel/vales-credito',label: 'Vales de Crédito', permissao: 'financeiro' },
-    ],
-  },
-  {
-    group: 'Cadastros',
-    items: [
-      { href: '/painel/clientes',         label: 'Pessoas',             permissao: 'clientes' },
-      { href: '/painel/produtos',         label: 'Produtos',            permissao: 'produtos' },
-      { href: '/painel/empresas',         label: 'Empresas',            permissao: 'usuarios' },
-      { href: '/painel/formas-pagamento', label: 'Formas de Pagamento', permissao: 'usuarios' },
-    ],
-  },
-  {
-    group: 'Estoque',
-    items: [
-      { href: '/painel/estoque',       label: 'Movimentações',    permissao: 'estoque' },
-      { href: '/painel/depositos',     label: 'Depósitos',        permissao: 'estoque' },
-      { href: '/painel/categorias',    label: 'Categorias',       permissao: 'produtos' },
-      { href: '/painel/tabelas-preco', label: 'Tabelas de Preço', permissao: 'produtos' },
-    ],
-  },
-  {
-    group: 'Gestão',
-    items: [
-      { href: '/painel/financeiro',    label: 'Financeiro',    permissao: 'financeiro' },
-      { href: '/painel/relatorios',    label: 'Relatórios',    permissao: 'relatorios' },
-      { href: '/painel/usuarios',      label: 'Usuários',      permissao: 'usuarios' },
-      { href: '/painel/configuracoes', label: 'Configurações', permissao: 'usuarios' },
+      { href: '/painel/vendas',       label: 'Painel de Vendas', permissao: 'vendas' },
     ],
   },
 ]
@@ -61,8 +29,25 @@ const navEmConstrucao: NavGroup[] = [
   {
     group: 'Em construção',
     items: [
-      { href: '/painel/pedidos', label: 'Pedidos e Orçamentos', permissao: 'pedidos' },
-      { href: '/painel/compras', label: 'Notas de Entrada',     permissao: 'compras' },
+      { href: '/painel/painel-vendedor',  label: 'Painel Vendedor',      permissao: 'relatorios' },
+      { href: '/painel/os',               label: 'Ordens de Serviço',    permissao: 'os' },
+      { href: '/painel/consignado',       label: 'Consignado',           permissao: 'pdv' },
+      { href: '/painel/devolucoes',       label: 'Devoluções',           permissao: 'devolucoes' },
+      { href: '/painel/vales-credito',    label: 'Vales de Crédito',     permissao: 'financeiro' },
+      { href: '/painel/clientes',         label: 'Pessoas',              permissao: 'clientes' },
+      { href: '/painel/produtos',         label: 'Produtos',             permissao: 'produtos' },
+      { href: '/painel/empresas',         label: 'Empresas',             permissao: 'usuarios' },
+      { href: '/painel/formas-pagamento', label: 'Formas de Pagamento',  permissao: 'usuarios' },
+      { href: '/painel/estoque',          label: 'Movimentações',        permissao: 'estoque' },
+      { href: '/painel/depositos',        label: 'Depósitos',            permissao: 'estoque' },
+      { href: '/painel/categorias',       label: 'Categorias',           permissao: 'produtos' },
+      { href: '/painel/tabelas-preco',    label: 'Tabelas de Preço',     permissao: 'produtos' },
+      { href: '/painel/financeiro',       label: 'Financeiro',           permissao: 'financeiro' },
+      { href: '/painel/relatorios',       label: 'Relatórios',           permissao: 'relatorios' },
+      { href: '/painel/usuarios',         label: 'Usuários',             permissao: 'usuarios' },
+      { href: '/painel/configuracoes',    label: 'Configurações',        permissao: 'usuarios' },
+      { href: '/painel/pedidos',          label: 'Pedidos e Orçamentos', permissao: 'pedidos' },
+      { href: '/painel/compras',          label: 'Notas de Entrada',     permissao: 'compras' },
     ],
   },
 ]
