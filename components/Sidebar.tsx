@@ -33,7 +33,7 @@ const navEmConstrucao: NavGroup[] = [
       { href: '/painel/os',               label: 'Ordens de Serviço',    permissao: 'os' },
       { href: '/painel/consignado',       label: 'Consignado',           permissao: 'pdv' },
       { href: '/painel/devolucoes',       label: 'Devoluções',           permissao: 'devolucoes' },
-      { href: '/painel/vales-credito',    label: 'Vales de Crédito',     permissao: 'financeiro' },
+      { href: '/painel/vales-credito',    label: 'Créditos de Clientes', permissao: 'financeiro' },
       { href: '/painel/clientes',         label: 'Pessoas',              permissao: 'clientes' },
       { href: '/painel/produtos',         label: 'Produtos',             permissao: 'produtos' },
       { href: '/painel/empresas',         label: 'Empresas',             permissao: 'usuarios' },

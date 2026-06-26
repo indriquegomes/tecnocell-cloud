@@ -5,7 +5,6 @@ import { formatBRL } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { finalizarVenda, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, buscarPedidosAbertos, registrarConsignado, buscarDetalheVenda, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
 import { buscarSaldoCredito, usarCreditoVenda } from '@/app/painel/creditos/actions'
-import { buscarValesCliente, usarValeNaVenda, type ValeCredito } from '@/app/painel/vales-credito/actions'
 
 // Lê o access token do navegador (cookie httpOnly:false). Fonte confiável de auth
 // para server actions — cookies() vem vazio em server actions na Vercel.
@@ -155,23 +154,15 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const [saldoCredito, setSaldoCredito] = useState(0)
   const [creditoAplicado, setCreditoAplicado] = useState(0)
 
-  // Vales de crédito do cliente
-  const [valesCliente, setValesCliente] = useState<ValeCredito[]>([])
-  const [valeAplicado, setValeAplicado] = useState<{ id: string; valor: number } | null>(null)
 
   const qtdRefs = useRef<Map<string, HTMLInputElement>>(new Map())
 
-  // Busca saldo de crédito e vales ao selecionar cliente
+  // Busca saldo de crédito ao selecionar cliente
   useEffect(() => {
-    if (!pessoaId) {
-      setSaldoCredito(0); setCreditoAplicado(0)
-      setValesCliente([]); setValeAplicado(null)
-      return
-    }
+    if (!pessoaId) { setSaldoCredito(0); setCreditoAplicado(0); return }
     authToken().then((t) => {
       if (!t) return
       buscarSaldoCredito(t, pessoaId).then(({ saldo }) => setSaldoCredito(saldo)).catch(() => {})
-      buscarValesCliente(t, pessoaId).then(setValesCliente).catch(() => {})
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pessoaId])
@@ -415,7 +406,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     parcelas: 1,
   })
 
-  const totalPagoDistribuido = pagamentos.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0) + creditoAplicado + (valeAplicado?.valor ?? 0)
+  const totalPagoDistribuido = pagamentos.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0) + creditoAplicado
   const totalTaxasPg = pagamentos.reduce((s, p) => s + taxaDoItem(p), 0)
   const totalCobrado = total + totalTaxasPg
   const faltamPg = Math.max(0, total - totalPagoDistribuido)
@@ -476,10 +467,6 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
         }).catch(() => {})
       }
 
-      // Débita vale de crédito se foi aplicado
-      if (valeAplicado && valeAplicado.valor > 0) {
-        await usarValeNaVenda(token, valeAplicado.id, valeAplicado.valor, result.vendaId)
-      }
 
       const snap = {
         numero: result.vendaNumero ?? null,
@@ -517,8 +504,6 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
       setDescontoTipo('valor')
       setCreditoAplicado(0)
       setSaldoCredito(0)
-      setValesCliente([])
-      setValeAplicado(null)
       // Atualiza o saldo local do depósito vendido sem router.refresh() (que dispara check de sessão)
       if (result.estoqueAtualizado) {
         const vendidoEm = depositoId
@@ -1107,27 +1092,6 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                   )}
                 </div>
               )}
-              {valesCliente.map((v) => {
-                const aplicado = valeAplicado?.id === v.id
-                return (
-                  <div key={v.id} className="flex items-center gap-2 rounded-lg bg-purple-50 border border-purple-200 px-2.5 py-1.5">
-                    <span className="text-xs text-purple-700 font-medium">🎟 Vale: {formatBRL(v.saldo)}{v.motivo ? ` · ${v.motivo}` : ''}</span>
-                    {!aplicado ? (
-                      <button type="button"
-                        onClick={() => setValeAplicado({ id: v.id, valor: Math.min(v.saldo, total > 0 ? total : v.saldo) })}
-                        className="ml-auto rounded-md bg-purple-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-purple-700 transition">
-                        Usar →
-                      </button>
-                    ) : (
-                      <span className="ml-auto text-xs font-bold text-purple-700">-{formatBRL(valeAplicado.valor)} aplicado</span>
-                    )}
-                    {aplicado && (
-                      <button type="button" onClick={() => setValeAplicado(null)}
-                        className="text-xs text-red-400 hover:text-red-600">✕</button>
-                    )}
-                  </div>
-                )
-              })}
             </div>
           ) : (
             <div className="flex items-center gap-2">
