@@ -24,6 +24,7 @@ const navCompleto: NavGroup[] = [
       { href: '/painel/vales-credito',  label: 'Créditos de Clientes',  permissao: 'financeiro' },
       { href: '/painel/pedidos',        label: 'Pedidos e Orçamentos',  permissao: 'pedidos' },
       { href: '/painel/devolucoes',     label: 'Devoluções',            permissao: 'devolucoes' },
+      { href: '/painel/consignado',     label: 'Consignado',            permissao: 'pdv' },
     ],
   },
   {
@@ -45,7 +46,6 @@ const navEmConstrucao: NavGroup[] = [
     group: 'Vendas',
     items: [
       { href: '/painel/painel-vendedor', label: 'Painel Vendedor', permissao: 'relatorios' },
-      { href: '/painel/consignado',      label: 'Consignado',      permissao: 'pdv' },
     ],
   },
   {

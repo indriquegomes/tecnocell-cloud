@@ -5,6 +5,69 @@ import { revalidatePath } from 'next/cache'
 
 export type ActionState = { ok: boolean; message: string } | null
 
+export async function buscarClientesConsignado(busca: string) {
+  const supabase = await createServiceClient()
+  const { data } = await supabase
+    .from('pessoas')
+    .select('id, nome, telefone')
+    .ilike('nome', `%${busca}%`)
+    .limit(8)
+  return (data ?? []) as { id: string; nome: string; telefone: string | null }[]
+}
+
+export async function buscarProdutosConsignado(busca: string) {
+  const supabase = await createServiceClient()
+  const { data } = await supabase
+    .from('produtos')
+    .select('id, nome, preco')
+    .eq('ativo', true)
+    .ilike('nome', `%${busca}%`)
+    .limit(8)
+  return (data ?? []) as { id: string; nome: string; preco: number }[]
+}
+
+export async function criarConsignado(formData: FormData): Promise<ActionState> {
+  try {
+    await requireAuth()
+    const supabase = await createServiceClient()
+
+    const pessoaId = (formData.get('pessoa_id') as string) || null
+    const pessoaNome = (formData.get('pessoa_nome') as string) || null
+    const observacoes = (formData.get('observacoes') as string) || null
+    const depositoId = (formData.get('deposito_id') as string) || null
+
+    const itensJson = formData.get('itens') as string
+    const itens: { produto_id: string; nome: string; quantidade: number; preco_unitario: number }[] = JSON.parse(itensJson || '[]')
+    if (itens.length === 0) return { ok: false, message: 'Adicione pelo menos um item.' }
+
+    const total = itens.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0)
+    const id = crypto.randomUUID()
+
+    const { error: eC } = await supabase.from('consignados').insert({
+      id, pessoa_id: pessoaId, pessoa_nome: pessoaNome,
+      deposito_id: depositoId, observacoes, total, status: 'aberto',
+    })
+    if (eC) return { ok: false, message: eC.message }
+
+    const { error: eI } = await supabase.from('itens_consignado').insert(
+      itens.map(i => ({
+        consignado_id: id,
+        produto_id: i.produto_id,
+        nome: i.nome,
+        quantidade: i.quantidade,
+        preco_unitario: i.preco_unitario,
+        devolvido: 0,
+      }))
+    )
+    if (eI) return { ok: false, message: eI.message }
+
+    revalidatePath('/painel/consignado')
+    return { ok: true, message: 'Saída consignada registrada!' }
+  } catch (e) {
+    return { ok: false, message: 'Erro ao criar consignado.' }
+  }
+}
+
 export async function registrarDevolucao(
   _prev: ActionState,
   formData: FormData,

@@ -1,7 +1,10 @@
 'use client'
 
-import { useState, useActionState } from 'react'
-import { registrarDevolucao, registrarAcerto, type ActionState } from './actions'
+import { useState, useActionState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { registrarDevolucao, registrarAcerto, criarConsignado, buscarClientesConsignado, buscarProdutosConsignado, type ActionState } from './actions'
+
+const fmt = (valor: number) => valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
 type ItemConsignado = {
   id: string
@@ -19,10 +22,6 @@ type Consignado = {
   total: number
   created_at: string
   itens: ItemConsignado[]
-}
-
-function fmt(valor: number) {
-  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -283,6 +282,160 @@ function LinhaConsignado({ c, formas }: { c: Consignado; formas: { id: string; n
   )
 }
 
+type ItemLista = { produto_id: string; nome: string; quantidade: number; preco_unitario: number }
+
+function ModalNovasSaida({ onFechar }: { onFechar: () => void }) {
+  const router = useRouter()
+  const [pessoaNome, setPessoaNome] = useState('')
+  const [pessoaId, setPessoaId] = useState<string | null>(null)
+  const [sugestoesCliente, setSugestoesCliente] = useState<{ id: string; nome: string; telefone: string | null }[]>([])
+  const [buscaProduto, setBuscaProduto] = useState('')
+  const [sugestoesProd, setSugestoesProd] = useState<{ id: string; nome: string; preco: number }[]>([])
+  const [itens, setItens] = useState<ItemLista[]>([])
+  const [qtdTemp, setQtdTemp] = useState('1')
+  const [obs, setObs] = useState('')
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState('')
+
+  useEffect(() => {
+    const q = pessoaNome.trim()
+    if (!q || pessoaId) { setSugestoesCliente([]); return }
+    const t = setTimeout(async () => setSugestoesCliente(await buscarClientesConsignado(q)), 250)
+    return () => clearTimeout(t)
+  }, [pessoaNome, pessoaId])
+
+  useEffect(() => {
+    const q = buscaProduto.trim()
+    if (!q) { setSugestoesProd([]); return }
+    const t = setTimeout(async () => setSugestoesProd(await buscarProdutosConsignado(q)), 250)
+    return () => clearTimeout(t)
+  }, [buscaProduto])
+
+  const adicionarItem = (p: { id: string; nome: string; preco: number }) => {
+    const qty = parseInt(qtdTemp) || 1
+    setItens(prev => {
+      const exists = prev.find(i => i.produto_id === p.id)
+      if (exists) return prev.map(i => i.produto_id === p.id ? { ...i, quantidade: i.quantidade + qty } : i)
+      return [...prev, { produto_id: p.id, nome: p.nome, quantidade: qty, preco_unitario: p.preco }]
+    })
+    setBuscaProduto(''); setSugestoesProd([]); setQtdTemp('1')
+  }
+
+  const handleSalvar = async () => {
+    if (itens.length === 0) { setErro('Adicione pelo menos um item.'); return }
+    setSalvando(true); setErro('')
+    const fd = new FormData()
+    if (pessoaId) fd.set('pessoa_id', pessoaId)
+    fd.set('pessoa_nome', pessoaNome)
+    fd.set('observacoes', obs)
+    fd.set('itens', JSON.stringify(itens))
+    const res = await criarConsignado(fd)
+    if (res?.ok) { onFechar(); router.refresh() }
+    else { setErro(res?.message ?? 'Erro'); setSalvando(false) }
+  }
+
+  const total = itens.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onFechar}>
+      <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 shrink-0">
+          <h3 className="text-base font-bold text-gray-900">Nova Saída Consignada</h3>
+          <button onClick={onFechar} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100">✕</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          {/* Cliente */}
+          <div>
+            <label className="block text-xs font-semibold uppercase text-gray-400 mb-1.5">Cliente</label>
+            <div className="relative">
+              <input value={pessoaNome} onChange={e => { setPessoaNome(e.target.value); if (pessoaId) setPessoaId(null) }}
+                placeholder="Buscar cliente..." className="field w-full" />
+              {sugestoesCliente.length > 0 && !pessoaId && (
+                <div className="absolute top-full left-0 right-0 z-10 mt-1 rounded-xl border border-gray-100 bg-white shadow-lg overflow-hidden">
+                  {sugestoesCliente.map(c => (
+                    <button key={c.id} type="button"
+                      onMouseDown={e => { e.preventDefault(); setPessoaId(c.id); setPessoaNome(c.nome); setSugestoesCliente([]) }}
+                      className="flex w-full items-center justify-between px-4 py-2.5 text-sm hover:bg-blue-50 text-left">
+                      <span className="font-medium text-gray-800">{c.nome}</span>
+                      {c.telefone && <span className="text-xs text-gray-400">{c.telefone}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {pessoaId && <p className="mt-1 text-xs text-green-600">✓ {pessoaNome}</p>}
+          </div>
+
+          {/* Produto */}
+          <div>
+            <label className="block text-xs font-semibold uppercase text-gray-400 mb-1.5">Adicionar Produto</label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <input value={buscaProduto} onChange={e => setBuscaProduto(e.target.value)}
+                  placeholder="Buscar produto..." className="field w-full" />
+                {sugestoesProd.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 z-10 mt-1 rounded-xl border border-gray-100 bg-white shadow-lg overflow-hidden">
+                    {sugestoesProd.map(p => (
+                      <button key={p.id} type="button"
+                        onMouseDown={e => { e.preventDefault(); adicionarItem(p) }}
+                        className="flex w-full items-center justify-between px-4 py-2.5 text-sm hover:bg-blue-50 text-left">
+                        <span className="font-medium text-gray-800">{p.nome}</span>
+                        <span className="text-xs text-blue-600 font-semibold">{fmt(p.preco)}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <input value={qtdTemp} onChange={e => setQtdTemp(e.target.value)}
+                type="number" min="1" placeholder="Qtd" className="field w-16 text-center" />
+            </div>
+          </div>
+
+          {/* Lista de itens */}
+          {itens.length > 0 && (
+            <div className="rounded-xl border border-gray-100 overflow-hidden">
+              {itens.map((item, idx) => (
+                <div key={item.produto_id} className={`flex items-center gap-3 px-4 py-2.5 text-sm ${idx > 0 ? 'border-t border-gray-50' : ''}`}>
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-800">{item.nome}</p>
+                    <p className="text-xs text-gray-400">{fmt(item.preco_unitario)} × {item.quantidade}</p>
+                  </div>
+                  <span className="font-semibold text-gray-700">{fmt(item.quantidade * item.preco_unitario)}</span>
+                  <button onClick={() => setItens(prev => prev.filter(i => i.produto_id !== item.produto_id))}
+                    className="text-gray-300 hover:text-red-400 text-xs transition">✕</button>
+                </div>
+              ))}
+              <div className="flex justify-between px-4 py-2 bg-gray-50 border-t border-gray-100 text-sm font-bold text-gray-800">
+                <span>Total</span><span>{fmt(total)}</span>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-semibold uppercase text-gray-400 mb-1.5">Observações</label>
+            <textarea value={obs} onChange={e => setObs(e.target.value)} rows={2}
+              placeholder="Opcional..." className="field w-full resize-none text-sm" />
+          </div>
+
+          {erro && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{erro}</p>}
+        </div>
+
+        <div className="border-t border-gray-100 px-6 py-4 flex gap-3 shrink-0">
+          <button onClick={onFechar}
+            className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+            Cancelar
+          </button>
+          <button onClick={handleSalvar} disabled={salvando || itens.length === 0}
+            className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50 transition">
+            {salvando ? 'Registrando...' : `✓ Registrar Saída${total > 0 ? ' · ' + fmt(total) : ''}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function ConsignadoClient({
   abertos,
   historico,
@@ -292,17 +445,27 @@ export function ConsignadoClient({
   historico: Consignado[]
   formas: { id: string; nome: string }[]
 }) {
+  const [modalNova, setModalNova] = useState(false)
+
   return (
     <>
+      {modalNova && <ModalNovasSaida onFechar={() => setModalNova(false)} />}
+
       {/* Saídas abertas */}
       <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
         <div className="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-900">Saídas Abertas</h3>
-          {abertos.length > 0 && (
-            <span className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-full px-2.5 py-0.5">
-              {abertos.length} pendente{abertos.length > 1 ? 's' : ''}
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {abertos.length > 0 && (
+              <span className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-full px-2.5 py-0.5">
+                {abertos.length} pendente{abertos.length > 1 ? 's' : ''}
+              </span>
+            )}
+            <button onClick={() => setModalNova(true)}
+              className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 transition">
+              + Nova Saída
+            </button>
+          </div>
         </div>
         {abertos.length === 0 ? (
           <div className="py-16 text-center">
