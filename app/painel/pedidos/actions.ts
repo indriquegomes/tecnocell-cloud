@@ -44,20 +44,21 @@ export async function adicionarItemPedido(pedidoId: string, formData: FormData) 
   const preco = parseFloat(formData.get('preco_unitario') as string) || 0
   const total = quantidade * preco
 
-  await supabase.from('itens_pedido').insert({
+  const { error } = await supabase.from('itens_pedido').insert({
     pedido_id: pedidoId,
     produto_id: formData.get('produto_id') as string,
     quantidade,
     preco_unitario: preco,
     total_item: total,
   })
+  if (error) return { error: error.message }
 
-  // Atualiza total do pedido
   const { data: itens } = await supabase.from('itens_pedido').select('total_item').eq('pedido_id', pedidoId)
   const novoTotal = itens?.reduce((s, i) => s + (i.total_item ?? 0), 0) ?? 0
   await supabase.from('pedidos').update({ total: novoTotal }).eq('id', pedidoId)
 
   revalidatePath(`/painel/pedidos/${pedidoId}`)
+  return { ok: true }
 }
 
 export async function removerItemPedido(itemId: string, pedidoId: string) {
