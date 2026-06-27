@@ -11,7 +11,18 @@ export async function registrarMovimento(formData: FormData) {
   const deposito_id = formData.get('deposito_id') as string
   const quantidade = parseInt(formData.get('quantidade') as string, 10)
   const operacao = formData.get('operacao') as string
-  const observacao = (formData.get('observacao') as string | null)?.trim() || null
+  const notaFiscal = (formData.get('nota_fiscal') as string | null)?.trim() || null
+  const obsRaw = (formData.get('observacao') as string | null)?.trim() || null
+  const observacao = notaFiscal
+    ? obsRaw ? `NF: ${notaFiscal} | ${obsRaw}` : `NF: ${notaFiscal}`
+    : obsRaw
+
+  // Data e hora da movimentação (permite backfill)
+  const dataMov = formData.get('data_mov') as string | null
+  const horarioMov = formData.get('horario_mov') as string | null
+  const createdAt = dataMov && horarioMov
+    ? new Date(`${dataMov}T${horarioMov}:00`).toISOString()
+    : new Date().toISOString()
 
   const { data: atual } = await supabase
     .from('estoque')
@@ -48,6 +59,7 @@ export async function registrarMovimento(formData: FormData) {
     qtd_nova: qtdNova,
     observacao,
     criado_por: user.id,
+    created_at: createdAt,
   })
   if (logError) throw new Error(`Falha ao registrar histórico: ${logError.message}`)
 

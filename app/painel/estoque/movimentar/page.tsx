@@ -14,6 +14,10 @@ export default async function MovimentarEstoquePage({
     supabase.from('depositos').select('id, nome').order('nome'),
   ])
 
+  const hoje = new Date()
+  const dataHoje = hoje.toISOString().split('T')[0]
+  const horaAgora = hoje.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false })
+
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <div className="flex items-center gap-3">
@@ -26,6 +30,45 @@ export default async function MovimentarEstoquePage({
       </div>
 
       <form action={registrarMovimento} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-5">
+
+        {/* Depósito + Data + Horário */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-2">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Depósito *</label>
+            <select name="deposito_id" required className="field" defaultValue={params.deposito_id ?? ''}>
+              <option value="">Selecionar depósito...</option>
+              {(depositos ?? []).map((d) => (
+                <option key={d.id} value={d.id}>{d.nome}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Data Movimentação *</label>
+            <input name="data_mov" type="date" required defaultValue={dataHoje} className="field" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Horário *</label>
+            <input name="horario_mov" type="time" required defaultValue={horaAgora} className="field" />
+          </div>
+        </div>
+
+        {/* Nota Fiscal + Operação */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Nota Fiscal</label>
+            <input name="nota_fiscal" type="text" placeholder="Ex: 001234" className="field" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Operação *</label>
+            <select name="operacao" required className="field">
+              <option value="entrada">Entrada</option>
+              <option value="saida">Saída</option>
+              <option value="ajuste">Ajuste</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Produto + Quantidade */}
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Produto *</label>
           <select name="produto_id" required className="field" defaultValue={params.produto_id ?? ''}>
@@ -39,45 +82,27 @@ export default async function MovimentarEstoquePage({
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">Depósito *</label>
-          <select name="deposito_id" required className="field" defaultValue={params.deposito_id ?? ''}>
-            <option value="">Selecionar depósito...</option>
-            {(depositos ?? []).map((d) => (
-              <option key={d.id} value={d.id}>{d.nome}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">Operação *</label>
-          <select name="operacao" required className="field">
-            <option value="entrada">Entrada (adicionar ao estoque)</option>
-            <option value="saida">Saída (retirar do estoque)</option>
-            <option value="ajuste">Ajuste (definir quantidade exata)</option>
-          </select>
-        </div>
-
-        <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Quantidade *</label>
-          <input name="quantidade" type="number" min="0" required defaultValue="1" className="field" />
+          <input name="quantidade" type="number" min="0" step="any" required defaultValue="1" className="field" />
         </div>
 
+        {/* Anotações */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">Observação</label>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Anotações</label>
           <textarea
             name="observacao"
-            rows={2}
-            placeholder="Ex: compra nota fiscal 001, devolução cliente..."
+            rows={3}
+            placeholder="Observações adicionais..."
             className="field resize-none"
           />
         </div>
 
         <div className="flex gap-3 pt-2">
           <button type="submit" className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
-            Registrar
+            Salvar
           </button>
           <Link href="/painel/estoque" className="rounded-xl border border-gray-200 px-6 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
-            Cancelar
+            Voltar
           </Link>
         </div>
       </form>
