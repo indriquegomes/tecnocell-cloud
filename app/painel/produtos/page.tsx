@@ -16,7 +16,11 @@ export default async function ProdutosPage({
   const ordemCampo = params.ordem === 'marca' ? 'marca'
     : params.ordem === 'categoria' ? 'categoria'
     : params.ordem === 'preco' ? 'preco'
+    : params.ordem === 'custo' ? 'preco_custo'
+    : params.ordem === 'status' ? 'ativo'
     : 'nome'
+
+  const ordemEstoque = params.ordem === 'estoque'
 
   let query = supabase
     .from('produtos')
@@ -25,7 +29,7 @@ export default async function ProdutosPage({
       cat:categorias!categoria ( nome ),
       estoque ( quantidade )
     `)
-    .order(ordemCampo)
+    .order(ordemCampo, { ascending: ordemCampo === 'ativo' ? false : true })
     .order('nome')
     .limit(200)
 
@@ -33,11 +37,19 @@ export default async function ProdutosPage({
   if (params.categoria) query = query.eq('categoria', params.categoria)
   if (params.marca) query = query.eq('marca', params.marca)
 
-  const [{ data: produtos }, { data: categorias }, { data: marcas }] = await Promise.all([
+  const [{ data: produtosRaw }, { data: categorias }, { data: marcas }] = await Promise.all([
     query,
     supabase.from('categorias').select('hierarquia, nome').order('nome'),
     supabase.from('marcas').select('nome').order('nome'),
   ])
+
+  const produtos = ordemEstoque
+    ? [...(produtosRaw ?? [])].sort((a, b) => {
+        const qa = ((a as Record<string, unknown>).estoque as { quantidade: number }[] ?? []).reduce((s, e) => s + (e.quantidade ?? 0), 0)
+        const qb = ((b as Record<string, unknown>).estoque as { quantidade: number }[] ?? []).reduce((s, e) => s + (e.quantidade ?? 0), 0)
+        return qa - qb
+      })
+    : (produtosRaw ?? [])
 
   return (
     <div className="space-y-6">
@@ -108,9 +120,22 @@ export default async function ProdutosPage({
                   </th>
                 )
               })}
-              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Custo</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Estoque</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+              {[
+                { label: 'Custo',   ordem: 'custo',   align: 'text-right' },
+                { label: 'Estoque', ordem: 'estoque', align: 'text-center' },
+                { label: 'Status',  ordem: 'status',  align: 'text-center' },
+              ].map(({ label, ordem, align }) => {
+                const ativo = params.ordem === ordem
+                const qs = new URLSearchParams({ ...params, ordem }).toString()
+                return (
+                  <th key={ordem} className={`px-4 py-3 ${align} text-xs font-semibold uppercase tracking-wide`}>
+                    <Link href={`?${qs}`} className={`inline-flex items-center gap-1 hover:text-blue-600 transition-colors ${ativo ? 'text-blue-600' : 'text-gray-500'}`}>
+                      {label}
+                      <span className={ativo ? 'text-blue-500' : 'text-gray-300'}>↑</span>
+                    </Link>
+                  </th>
+                )
+              })}
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Ações</th>
             </tr>
           </thead>
