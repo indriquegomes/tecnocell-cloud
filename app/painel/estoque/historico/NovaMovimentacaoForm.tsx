@@ -80,9 +80,9 @@ export function NovaMovimentacaoForm({
         </div>
 
         {/* Input de item: Produto | Qtd | Tipo | + Adicionar */}
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">Produto Selecionado</label>
-          <div className="flex items-center gap-2">
+        <div className="grid grid-cols-[1fr_100px_140px_auto] gap-2 items-end">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Nome do Produto</label>
             <input
               ref={prodInputRef}
               list="mov-produtos-list"
@@ -90,7 +90,7 @@ export function NovaMovimentacaoForm({
               onChange={e => setProdutoBusca(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); adicionar() } }}
               placeholder="Pesquise pelo nome dos produtos cadastrados"
-              className="field flex-1"
+              className="field"
               autoComplete="off"
             />
             <datalist id="mov-produtos-list">
@@ -98,6 +98,9 @@ export function NovaMovimentacaoForm({
                 <option key={p.id} value={p.nome + (p.codigo ? ` (${p.codigo})` : '')} />
               ))}
             </datalist>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Qtd</label>
             <input
               type="number"
               value={quantidade}
@@ -105,27 +108,29 @@ export function NovaMovimentacaoForm({
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); adicionar() } }}
               min="1"
               step="1"
-              placeholder="Qtd"
-              className="field w-24 text-center"
+              className="field text-center"
             />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Tipo</label>
             <select
               value={operacao}
               onChange={e => setOperacao(e.target.value)}
-              className="field w-32"
+              className="field"
             >
               <option value="entrada">Entrada</option>
               <option value="saida">Saída</option>
               <option value="ajuste">Ajuste</option>
             </select>
-            <button
-              type="button"
-              onClick={adicionar}
-              disabled={!produtoBusca.trim()}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition whitespace-nowrap"
-            >
-              + Adicionar
-            </button>
           </div>
+          <button
+            type="button"
+            onClick={adicionar}
+            disabled={!produtoBusca.trim()}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition whitespace-nowrap"
+          >
+            + Adicionar
+          </button>
         </div>
 
         {/* Tabela dos itens adicionados */}
