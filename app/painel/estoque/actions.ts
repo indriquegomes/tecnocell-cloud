@@ -74,5 +74,6 @@ export async function registrarMovimento(formData: FormData) {
   if (logError) throw new Error(`Falha ao registrar histórico: ${logError.message}`)
 
   revalidatePath('/painel/estoque')
-  redirect('/painel/estoque')
+  revalidatePath('/painel/estoque/historico')
+  redirect('/painel/estoque/historico')
 }

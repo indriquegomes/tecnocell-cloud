@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { formatBRL } from '@/lib/utils'
 import Link from 'next/link'
 import { ColunasToggler } from './ColunasToggler'
+import { registrarMovimento } from '../actions'
 
 type Tipo = 'venda' | 'devolucao' | 'entrada' | 'saida' | 'ajuste'
 
@@ -44,8 +45,8 @@ export default async function MovimentacoesPage({
   const params = await searchParams
   const supabase = await createServiceClient()
 
-  const hoje = new Date().toISOString().split('T')[0]
   const inicioMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+  const hoje = new Date().toISOString().split('T')[0]
   const de = params.de ?? inicioMes
   const ate = params.ate ?? hoje
   const ini = de + 'T00:00:00'
@@ -68,9 +69,14 @@ export default async function MovimentacoesPage({
     .gte('created_at', ini).lte('created_at', fim).order('created_at', { ascending: false }).limit(500)
   if (params.deposito) qDevs = qDevs.eq('deposito_id', params.deposito)
 
-  const [{ data: manuais }, { data: vendas }, { data: devolucoes }, { data: depositos }] = await Promise.all([
+  const hoje2 = new Date()
+  const dataHoje = hoje2.toISOString().split('T')[0]
+  const horaAgora = hoje2.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false })
+
+  const [{ data: manuais }, { data: vendas }, { data: devolucoes }, { data: depositos }, { data: todosProdutos }] = await Promise.all([
     qManuais, qVendas, qDevs,
     supabase.from('depositos').select('id, nome'),
+    supabase.from('produtos').select('id, nome, codigo').eq('ativo', true).order('nome').limit(500),
   ])
 
   const vendaIds = (vendas ?? []).map((v) => v.id)
@@ -213,7 +219,8 @@ export default async function MovimentacoesPage({
     })
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Breadcrumb + contagem */}
       <div className="flex items-center gap-3">
         <Link href="/painel/estoque" className="text-gray-400 hover:text-gray-600">
           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -224,6 +231,95 @@ export default async function MovimentacoesPage({
         <span className="ml-auto text-sm text-gray-400">{rows.length} registros</span>
         <ColunasToggler />
       </div>
+
+      {/* Aba Nova Movimentação */}
+      <details className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <summary className="cursor-pointer select-none border-b border-gray-100 bg-gray-50 px-6 py-3 text-sm font-semibold text-blue-600 hover:bg-gray-100 transition flex items-center gap-2">
+          Nova Movimentação Estoque
+          <svg className="h-4 w-4 text-blue-400 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </summary>
+
+        <form action={registrarMovimento} className="p-6 space-y-5">
+          {/* Linha 1: Depósito | Data | Horário */}
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Depósito *</label>
+              <select name="deposito_id" required className="field">
+                <option value="">*</option>
+                {(depositos ?? []).map((d) => (
+                  <option key={d.id} value={d.id}>{d.nome}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Data Movimentação *</label>
+              <input name="data_mov" type="date" required defaultValue={dataHoje} className="field" />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Horário *</label>
+              <input name="horario_mov" type="time" required defaultValue={horaAgora} className="field" />
+            </div>
+          </div>
+
+          {/* Linha 2: Nota Fiscal | Operação */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Nota Fiscal</label>
+              <input name="nota_fiscal" type="text" placeholder="Ex: 001234" className="field" />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Operação *</label>
+              <select name="operacao" required className="field">
+                <option value="entrada">Entrada</option>
+                <option value="saida">Saída</option>
+                <option value="ajuste">Ajuste</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Linha 3: Produto + Quantidade */}
+          <div className="flex items-end gap-3">
+            <div className="flex-1">
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Nome do Produto *</label>
+              <input
+                list="mov-produtos-list"
+                name="produto_busca"
+                required
+                placeholder="Pesquise pelo nome dos produtos cadastrados"
+                className="field"
+                autoComplete="off"
+              />
+              <datalist id="mov-produtos-list">
+                {(todosProdutos ?? []).map((p) => (
+                  <option key={p.id} value={p.nome + (p.codigo ? ` (${p.codigo})` : '')} />
+                ))}
+              </datalist>
+            </div>
+            <div className="w-36">
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Quantidade *</label>
+              <input name="quantidade" type="number" min="0" step="any" required defaultValue="1" className="field" />
+            </div>
+          </div>
+
+          {/* Anotações + botões */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Anotações</label>
+            <textarea name="observacao" rows={3} className="field resize-none" />
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button type="submit" className="rounded-lg bg-green-600 px-6 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
+              Salvar
+            </button>
+            <Link href="/painel/estoque/historico"
+              className="rounded-lg bg-gray-800 px-6 py-2 text-sm font-semibold text-white hover:bg-gray-700 transition">
+              Voltar
+            </Link>
+          </div>
+        </form>
+      </details>
 
       <form method="GET" className="space-y-3">
         {/* Linha principal de filtros */}
