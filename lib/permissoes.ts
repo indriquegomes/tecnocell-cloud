@@ -1,6 +1,5 @@
 export const ROTAS_PERMISSAO: Record<string, string> = {
   '/painel/pdv':           'pdv',
-  '/painel/consignado':    'pdv',
   '/painel/vendas':        'vendas',
   '/painel/devolucoes':    'devolucoes',
   '/painel/financeiro':    'financeiro',

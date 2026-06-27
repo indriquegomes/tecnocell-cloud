@@ -292,45 +292,6 @@ export async function buscarPedidosAbertos(accessToken: string): Promise<PedidoR
   }))
 }
 
-export interface ItemConsignado {
-  produto_id: string
-  nome: string
-  codigo: string | null
-  quantidade: number
-  preco_unitario: number
-}
-
-export async function registrarConsignado(
-  accessToken: string,
-  itens: ItemConsignado[],
-  pessoa_id: string | null,
-  pessoa_nome: string | null,
-  deposito_id: string,
-  observacoes: string,
-): Promise<string> {
-  if (itens.length === 0) throw new Error('Adicione itens ao consignado.')
-  await requireAuth(accessToken)
-  const supabase = await createServiceClient()
-  const total = itens.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0)
-  const id = crypto.randomUUID()
-  const { error: eC } = await supabase.from('consignados').insert({
-    id, pessoa_id, pessoa_nome, deposito_id, observacoes: observacoes || null, total, status: 'aberto',
-  })
-  if (eC) throw new Error(eC.message)
-  const { error: eI } = await supabase.from('itens_consignado').insert(
-    itens.map((i) => ({
-      consignado_id: id,
-      produto_id: i.produto_id,
-      nome: i.nome,
-      codigo: i.codigo,
-      quantidade: i.quantidade,
-      preco_unitario: i.preco_unitario,
-    }))
-  )
-  if (eI) throw new Error(eI.message)
-  return id
-}
-
 export interface VendaResumo {
   id: string
   total: number

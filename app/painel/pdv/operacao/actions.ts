@@ -63,16 +63,6 @@ export async function fecharCaixa(
       .maybeSingle()
     if (!caixa) return { ok: false, message: 'Caixa não encontrado ou já fechado.' }
 
-    // Bloqueia se há consignados abertos nesta sessão
-    const { count: qtdConsignados } = await supabase
-      .from('consignados')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'aberto')
-      .gte('created_at', caixa.aberto_em)
-    if ((qtdConsignados ?? 0) > 0) {
-      return { ok: false, message: `Há ${qtdConsignados} consignado(s) em aberto nesta sessão. Acerte ou devolva antes de fechar o caixa.` }
-    }
-
     // Verifica limite de divergência configurado
     const valorEsperado = parseFloat(formData.get('valor_esperado') as string) || 0
     const divergencia = valorFechamento - valorEsperado

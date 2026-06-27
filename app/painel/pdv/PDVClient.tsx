@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { formatBRL } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
-import { finalizarVenda, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, buscarPedidosAbertos, registrarConsignado, buscarDetalheVenda, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
+import { finalizarVenda, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, buscarPedidosAbertos, buscarDetalheVenda, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
 import { buscarSaldoCredito, usarCreditoVenda } from '@/app/painel/creditos/actions'
 import type { PromoInfo } from './page'
 
@@ -160,12 +160,6 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const [recebendoItem, setRecebendoItem] = useState<CrediarioItem | null>(null)
   const [formaRecebimento, setFormaRecebimento] = useState<string>('dinheiro')
   const [valorRecebido, setValorRecebido] = useState<string>('')
-  // F12 — Saída Consignada
-  const [mostrarConsignado, setMostrarConsignado] = useState(false)
-  const [obsConsignado, setObsConsignado] = useState('')
-  const [salvandoConsignado, setSalvandoConsignado] = useState(false)
-  const [consignadoId, setConsignadoId] = useState<string | null>(null)
-
   // F3 — Busca Orçamento/Pedido
   const [mostrarOrcamentos, setMostrarOrcamentos] = useState(false)
   const [orcamentos, setOrcamentos] = useState<PedidoResumo[]>([])
@@ -209,7 +203,6 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const acaoF4Ref = useRef<() => void>(() => {})
   const acaoF8Ref = useRef<() => void>(() => {})
   const acaoF9Ref = useRef<() => void>(() => {})
-  const acaoF12Ref = useRef<() => void>(() => {})
   const acaoEscRef = useRef<() => void>(() => {})
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -217,7 +210,6 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
       else if (e.key === 'F3') { e.preventDefault(); acaoF3Ref.current() }
       else if (e.key === 'F4') { e.preventDefault(); acaoF4Ref.current() }
       else if (e.key === 'F8') { e.preventDefault(); acaoF8Ref.current() }
-      else if (e.key === 'F12') { e.preventDefault(); acaoF12Ref.current() }
       else if (e.key === 'F9') { e.preventDefault(); acaoF9Ref.current() }
       else if (e.key === 'F2') { e.preventDefault(); buscaRef.current?.focus() }
       else if (e.key === 'Escape') { acaoEscRef.current() }
@@ -579,30 +571,6 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     }
   }
 
-  // F12 — Saída Consignada
-  const handleConsignado = async () => {
-    if (carrinho.length === 0) { setErro('Adicione produtos ao carrinho antes de registrar saída consignada.'); return }
-    setSalvandoConsignado(true)
-    try {
-      const id = await registrarConsignado(
-        await authToken(),
-        carrinho.map((i) => ({ produto_id: i.produto_id, nome: i.nome, codigo: i.codigo, quantidade: i.quantidade, preco_unitario: i.preco_unitario })),
-        pessoaId || null,
-        clienteSelecionado?.nome ?? null,
-        depositoId,
-        obsConsignado,
-      )
-      setConsignadoId(id)
-      setCarrinho([])
-      setObsConsignado('')
-      setMostrarConsignado(false)
-    } catch (e) {
-      setErro('Erro ao registrar consignado: ' + String(e))
-    } finally {
-      setSalvandoConsignado(false)
-    }
-  }
-
   // F3 — Busca Orçamento/Pedido
   const abrirOrcamentos = async () => {
     setMostrarOrcamentos(true)
@@ -808,36 +776,14 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     else if (!mostrarVendas && !mostrarCrediario) abrirConfirmacao()
   }
   acaoF9Ref.current = () => {
-    if (!mostrarConfirmacao && !mostrarVendas && !mostrarCrediario && !fichaAberta && !mostrarOrcamentos && !mostrarConsignado) abrirCrediario()
-  }
-  acaoF12Ref.current = () => {
-    if (!mostrarConfirmacao && !mostrarVendas && !mostrarCrediario && !fichaAberta && !mostrarOrcamentos && !mostrarConsignado) {
-      if (carrinho.length === 0) { setErro('Adicione produtos ao carrinho antes de registrar saída consignada.'); return }
-      setMostrarConsignado(true)
-    }
+    if (!mostrarConfirmacao && !mostrarVendas && !mostrarCrediario && !fichaAberta && !mostrarOrcamentos) abrirCrediario()
   }
   acaoEscRef.current = () => {
     if (fichaAberta) { fecharFicha(); return }
     if (mostrarOrcamentos) { setMostrarOrcamentos(false); return }
-    if (mostrarConsignado) { setMostrarConsignado(false); return }
     if (mostrarConfirmacao) setMostrarConfirmacao(false)
     else if (mostrarVendas) setMostrarVendas(false)
     else if (mostrarCrediario) setMostrarCrediario(false)
-  }
-
-  if (consignadoId) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <div className="rounded-full bg-blue-100 p-6 text-5xl mb-4">📦</div>
-        <h3 className="text-2xl font-bold text-gray-900 mb-1">Saída Consignada Registrada!</h3>
-        <p className="text-xs text-gray-400 mb-2">ID: {consignadoId.slice(0, 8).toUpperCase()}</p>
-        <p className="text-sm text-gray-500 mb-6">Acompanhe o acerto em <strong>Vendas → Consignado</strong>.</p>
-        <button onClick={() => setConsignadoId(null)}
-          className="rounded-xl bg-blue-600 px-8 py-3 font-semibold text-white hover:bg-blue-700 transition">
-          Nova Venda
-        </button>
-      </div>
-    )
   }
 
   function abrirCupom(snap: NonNullable<typeof vendaSnapshot>, vendaId: string) {
@@ -1531,7 +1477,6 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
           <span><kbd className="rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 font-mono text-[11px] text-gray-600">F4</kbd> Mudar quantidade</span>
           <span><kbd className="rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 font-mono text-[11px] text-gray-600">F8</kbd> Finalizar venda</span>
           <span><kbd className="rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 font-mono text-[11px] text-gray-600">F9</kbd> Crediário</span>
-          <span><kbd className="rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 font-mono text-[11px] text-gray-600">F12</kbd> Consignado</span>
           <span><kbd className="rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 font-mono text-[11px] text-gray-600">Esc</kbd> Fechar</span>
           <a href="/painel/devolucoes" className="ml-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 transition">↩ Devoluções</a>
         </div>
@@ -2129,65 +2074,6 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                 className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-bold text-white hover:bg-blue-700 transition disabled:opacity-40"
               >
                 + Adicionar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal F12 — Saída Consignada */}
-      {mostrarConsignado && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-              <h3 className="text-lg font-bold text-gray-900">Saída Consignada</h3>
-              <button type="button" onClick={() => setMostrarConsignado(false)}
-                className="text-gray-400 hover:text-gray-600 text-sm">✕</button>
-            </div>
-
-            <div className="px-6 py-4 space-y-4 text-sm">
-              <div className="rounded-xl border border-gray-100 bg-gray-50 divide-y divide-gray-100">
-                {carrinho.map((item) => (
-                  <div key={item.produto_id} className="flex justify-between px-4 py-2.5">
-                    <span className="text-gray-700">{item.quantidade}× {item.nome}</span>
-                    <span className="font-medium text-gray-800">{formatBRL(item.quantidade * item.preco_unitario)}</span>
-                  </div>
-                ))}
-                <div className="flex justify-between px-4 py-2.5 font-bold text-gray-900">
-                  <span>Total</span>
-                  <span>{formatBRL(subtotal)}</span>
-                </div>
-              </div>
-
-              <div>
-                <p className="mb-1 text-xs font-medium text-gray-600">Cliente</p>
-                <p className="font-medium text-gray-800">{clienteSelecionado?.nome ?? <span className="italic text-gray-400">Não informado</span>}</p>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">Observações</label>
-                <textarea
-                  value={obsConsignado}
-                  onChange={(e) => setObsConsignado(e.target.value)}
-                  rows={2}
-                  placeholder="Prazo de devolução, condições..."
-                  className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
-                ⚠ O estoque <strong>não</strong> será baixado automaticamente. O acerto acontece em Vendas → Consignado.
-              </p>
-            </div>
-
-            <div className="flex gap-3 border-t border-gray-100 px-6 py-4">
-              <button type="button" onClick={() => setMostrarConsignado(false)} disabled={salvandoConsignado}
-                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition disabled:opacity-50">
-                Cancelar
-              </button>
-              <button type="button" onClick={handleConsignado} disabled={salvandoConsignado}
-                className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-bold text-white hover:bg-blue-700 transition disabled:opacity-50">
-                {salvandoConsignado ? 'Registrando...' : 'Registrar Saída'}
               </button>
             </div>
           </div>
