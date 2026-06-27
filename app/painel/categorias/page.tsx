@@ -6,22 +6,26 @@ import Link from 'next/link'
 export default async function CategoriasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string; editar?: string }>
+  searchParams: Promise<{ erro?: string; editar?: string; busca?: string }>
 }) {
-  const { erro, editar } = await searchParams
+  const { erro, editar, busca } = await searchParams
   const supabase = await createServiceClient()
 
   const [{ data: categorias }, { data: produtos }] = await Promise.all([
-    supabase.from('categorias').select('id, nome, descricao').order('nome'),
-    supabase.from('produtos').select('categoria_id'),
+    supabase.from('categorias').select('hierarquia, nome, descricao').order('nome'),
+    supabase.from('produtos').select('categoria'),
   ])
 
-  const editando = categorias?.find((c) => c.id === editar)
+  const editando = categorias?.find((c) => c.hierarquia === editar)
 
   const comContagem = (categorias ?? []).map((c) => ({
     ...c,
-    total: (produtos ?? []).filter((p) => p.categoria_id === c.id).length,
+    total: (produtos ?? []).filter((p) => p.categoria === c.hierarquia).length,
   }))
+
+  const filtradas = busca
+    ? comContagem.filter((c) => c.nome.toLowerCase().includes(busca.toLowerCase()))
+    : comContagem
 
   return (
     <div className="space-y-6">
@@ -37,7 +41,7 @@ export default async function CategoriasPage({
         <h3 className="mb-4 text-sm font-semibold text-gray-700">
           {editando ? `Editando: ${editando.nome}` : 'Nova Categoria'}
         </h3>
-        <form action={editando ? editarCategoria.bind(null, editando.id) : criarCategoria}
+        <form action={editando ? editarCategoria.bind(null, editando.hierarquia) : criarCategoria}
           className="flex flex-wrap gap-3 items-end">
           <div className="flex-1 min-w-48">
             <label className="mb-1.5 block text-xs font-medium text-gray-600">Nome *</label>
@@ -60,6 +64,25 @@ export default async function CategoriasPage({
         </form>
       </div>
 
+      {/* Busca */}
+      <form method="GET" className="flex flex-wrap gap-3">
+        <input
+          name="busca"
+          defaultValue={busca}
+          placeholder="Buscar categoria..."
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition">
+          Filtrar
+        </button>
+        {busca && (
+          <Link href="/painel/categorias" className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition">
+            Limpar
+          </Link>
+        )}
+        <span className="ml-auto self-center text-sm text-gray-400">{filtradas.length} categorias</span>
+      </form>
+
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
@@ -71,20 +94,20 @@ export default async function CategoriasPage({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {comContagem.length === 0 ? (
-              <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">Nenhuma categoria cadastrada.</td></tr>
-            ) : comContagem.map((c) => (
-              <tr key={c.id} className="hover:bg-gray-50 transition">
+            {filtradas.length === 0 ? (
+              <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">Nenhuma categoria encontrada.</td></tr>
+            ) : filtradas.map((c) => (
+              <tr key={c.hierarquia} className="hover:bg-gray-50 transition">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.nome}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">{c.descricao || '—'}</td>
                 <td className="px-4 py-3 text-center text-sm text-gray-600">{c.total}</td>
                 <td className="px-4 py-3 text-center">
                   <div className="flex items-center justify-center gap-2">
-                    <Link href={`/painel/categorias?editar=${c.id}`}
+                    <Link href={`/painel/categorias?editar=${encodeURIComponent(c.hierarquia)}`}
                       className="rounded-lg px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 transition">
                       Editar
                     </Link>
-                    <BotaoExcluir action={deletarCategoria.bind(null, c.id)} mensagem={`Excluir categoria "${c.nome}"?`} />
+                    <BotaoExcluir action={deletarCategoria.bind(null, c.hierarquia)} mensagem={`Excluir categoria "${c.nome}"?`} />
                   </div>
                 </td>
               </tr>

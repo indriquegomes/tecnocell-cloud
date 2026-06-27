@@ -7,31 +7,34 @@ import { redirect } from 'next/navigation'
 export async function criarCategoria(formData: FormData) {
   await requireAuth()
   const supabase = await createServiceClient()
+  const nome = (formData.get('nome') as string)?.trim()
+  if (!nome) redirect(`/painel/categorias?erro=${encodeURIComponent('Nome obrigatório')}`)
   const { error } = await supabase.from('categorias').insert({
-    nome: formData.get('nome') as string,
-    descricao: (formData.get('descricao') as string) || null,
+    hierarquia: nome,
+    nome,
+    descricao: (formData.get('descricao') as string)?.trim() || null,
   })
   if (error) redirect(`/painel/categorias?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/categorias')
   redirect('/painel/categorias')
 }
 
-export async function editarCategoria(id: string, formData: FormData) {
+export async function editarCategoria(hierarquia: string, formData: FormData) {
   await requireAuth()
   const supabase = await createServiceClient()
   const { error } = await supabase.from('categorias').update({
-    nome: formData.get('nome') as string,
-    descricao: (formData.get('descricao') as string) || null,
-  }).eq('id', id)
+    nome: (formData.get('nome') as string)?.trim(),
+    descricao: (formData.get('descricao') as string)?.trim() || null,
+  }).eq('hierarquia', hierarquia)
   if (error) redirect(`/painel/categorias?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/categorias')
   redirect('/painel/categorias')
 }
 
-export async function deletarCategoria(id: string) {
+export async function deletarCategoria(hierarquia: string) {
   await requireAuth()
   const supabase = await createServiceClient()
-  const { error } = await supabase.from('categorias').delete().eq('id', id)
+  const { error } = await supabase.from('categorias').delete().eq('hierarquia', hierarquia)
   if (error) throw new Error(error.message)
   revalidatePath('/painel/categorias')
 }

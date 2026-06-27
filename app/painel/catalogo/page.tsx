@@ -1,19 +1,38 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { toggleCatalogo, salvarDescricaoCatalogo } from './actions'
+import Link from 'next/link'
 
 export default async function CatalogoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string; ok?: string; editar?: string }>
+  searchParams: Promise<{
+    erro?: string; ok?: string; editar?: string
+    busca?: string; categoria?: string; marca?: string; vis?: string
+  }>
 }) {
-  const { erro, ok, editar } = await searchParams
-  const supabase = await createClient()
+  const { erro, ok, editar, busca, categoria, marca, vis } = await searchParams
+  const supabase = await createServiceClient()
 
-  const { data: produtos } = await supabase
+  let query = supabase
     .from('produtos')
     .select('id, nome, descricao, preco, categoria, marca, ativo, visivel_catalogo, imagem_url, codigo')
     .eq('ativo', true)
     .order('nome')
+
+  if (busca) {
+    const termo = busca.replace(/[,()]/g, ' ').trim()
+    query = query.or(`nome.ilike.%${termo}%,codigo.ilike.%${termo}%`)
+  }
+  if (categoria) query = query.eq('categoria', categoria)
+  if (marca) query = query.eq('marca', marca)
+  if (vis === 'visiveis') query = query.eq('visivel_catalogo', true)
+  if (vis === 'ocultos') query = query.eq('visivel_catalogo', false)
+
+  const [{ data: produtos }, { data: categorias }, { data: marcas }] = await Promise.all([
+    query,
+    supabase.from('categorias').select('hierarquia, nome').order('nome'),
+    supabase.from('marcas').select('nome').order('nome'),
+  ])
 
   const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
   const visiveis = (produtos ?? []).filter((p) => p.visivel_catalogo).length
@@ -61,11 +80,48 @@ export default async function CatalogoPage({
         </div>
       )}
 
+      {/* Filtros */}
+      <form method="GET" className="flex flex-wrap gap-3">
+        <input
+          name="busca"
+          defaultValue={busca}
+          placeholder="Buscar por nome ou código..."
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <select name="categoria" defaultValue={categoria ?? ''}
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="">Todas as categorias</option>
+          {(categorias ?? []).map((c) => (
+            <option key={c.hierarquia} value={c.hierarquia}>{c.nome}</option>
+          ))}
+        </select>
+        <select name="marca" defaultValue={marca ?? ''}
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="">Todas as marcas</option>
+          {(marcas ?? []).map((m) => (
+            <option key={m.nome} value={m.nome}>{m.nome}</option>
+          ))}
+        </select>
+        <select name="vis" defaultValue={vis ?? ''}
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="">Todos</option>
+          <option value="visiveis">Só visíveis</option>
+          <option value="ocultos">Só ocultos</option>
+        </select>
+        <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition">
+          Filtrar
+        </button>
+        <Link href="/painel/catalogo" className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition">
+          Limpar
+        </Link>
+        <span className="ml-auto self-center text-sm text-gray-400">{produtos?.length ?? 0} produtos</span>
+      </form>
+
       {/* Grid de produtos */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {(produtos ?? []).length === 0 ? (
           <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-gray-200 bg-white px-4 py-10 text-center text-sm text-gray-400">
-            Nenhum produto cadastrado.
+            Nenhum produto encontrado.
           </div>
         ) : (produtos ?? []).map((p) => (
           <div key={p.id} className={`rounded-xl border p-4 space-y-3 ${p.visivel_catalogo ? 'border-blue-200 bg-white' : 'border-gray-200 bg-gray-50'}`}>
