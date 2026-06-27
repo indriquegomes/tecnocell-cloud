@@ -37,6 +37,8 @@ export default async function MovimentacoesPage({
     deposito?: string
     de?: string
     ate?: string
+    ordem?: string
+    dir?: string
   }>
 }) {
   const params = await searchParams
@@ -170,8 +172,37 @@ export default async function MovimentacoesPage({
     const t = params.cliente.toLowerCase()
     rows = rows.filter((r) => r.parte.toLowerCase().includes(t))
   }
-  rows.sort((a, b) => (a.data < b.data ? 1 : a.data > b.data ? -1 : 0))
+
+  const ordemAtual = params.ordem ?? 'data'
+  const ordemDesc = (params.dir ?? 'desc') === 'desc'
+  rows.sort((a, b) => {
+    let va: string | number = a.data
+    let vb: string | number = b.data
+    if (ordemAtual === 'tipo')    { va = TIPO[a.tipo]?.label ?? ''; vb = TIPO[b.tipo]?.label ?? '' }
+    if (ordemAtual === 'produto') { va = a.produto; vb = b.produto }
+    if (ordemAtual === 'cliente') { va = a.parte;   vb = b.parte }
+    if (ordemAtual === 'qtd')     { va = a.qtd;     vb = b.qtd }
+    if (va < vb) return ordemDesc ? 1 : -1
+    if (va > vb) return ordemDesc ? -1 : 1
+    return 0
+  })
   rows = rows.slice(0, 300)
+
+  const baseParams: Record<string, string> = {}
+  if (params.tipo)     baseParams.tipo     = params.tipo
+  if (params.produto)  baseParams.produto  = params.produto
+  if (params.cliente)  baseParams.cliente  = params.cliente
+  if (params.deposito) baseParams.deposito = params.deposito
+  if (params.de)       baseParams.de       = params.de
+  if (params.ate)      baseParams.ate      = params.ate
+
+  const sortLink = (ordem: string) => {
+    const ativo = ordemAtual === ordem
+    const nextDir = ativo ? (ordemDesc ? 'asc' : 'desc') : 'desc'
+    const arrow = ativo ? (ordemDesc ? '↓' : '↑') : '↕'
+    const qs = new URLSearchParams({ ...baseParams, ordem, ...(nextDir === 'asc' ? { dir: 'asc' } : {}) }).toString()
+    return { href: `/painel/estoque/historico?${qs}`, arrow, ativo }
+  }
 
   const advancedOn = !!(params.produto || params.cliente || params.deposito)
 
@@ -269,11 +300,22 @@ export default async function MovimentacoesPage({
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
             <tr>
-              <th data-col="data"      className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Data/Hora</th>
-              <th data-col="tipo"      className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Tipo</th>
-              <th data-col="produto"   className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Produto</th>
-              <th data-col="cliente"   className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Cliente / Depósito</th>
-              <th data-col="qtd"       className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Qtd</th>
+              {[
+                { col: 'data',    label: 'Data/Hora',        align: 'text-left',   dataCol: 'data' },
+                { col: 'tipo',    label: 'Tipo',             align: 'text-center',  dataCol: 'tipo' },
+                { col: 'produto', label: 'Produto',          align: 'text-left',   dataCol: 'produto' },
+                { col: 'cliente', label: 'Cliente / Depósito', align: 'text-left', dataCol: 'cliente' },
+                { col: 'qtd',     label: 'Qtd',              align: 'text-center',  dataCol: 'qtd' },
+              ].map(({ col, label, align, dataCol }) => {
+                const { href, arrow, ativo } = sortLink(col)
+                return (
+                  <th key={col} data-col={dataCol} className={`px-4 py-3 ${align} text-xs font-semibold text-gray-500 uppercase tracking-wide`}>
+                    <Link href={href} className={`inline-flex items-center gap-1 hover:text-gray-800 transition ${ativo ? 'text-blue-600' : ''}`}>
+                      {label} <span className="text-gray-400">{arrow}</span>
+                    </Link>
+                  </th>
+                )
+              })}
               <th data-col="vlr_unit"  className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Vlr. Unit.</th>
               <th data-col="vlr_total" className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Vlr. Total</th>
               <th data-col="obs"       className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Observação</th>
