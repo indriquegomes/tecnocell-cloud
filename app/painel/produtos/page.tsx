@@ -152,14 +152,14 @@ export default async function ProdutosPage({
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-500">Preço de R$</label>
-                <input name="preco_min" type="number" min="0" step="0.01" defaultValue={params.preco_min}
-                  placeholder="0,00"
+                <input name="preco_min" type="number" min="0" step="any" defaultValue={params.preco_min}
+                  placeholder="0"
                   className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-28" />
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-500">até R$</label>
-                <input name="preco_max" type="number" min="0" step="0.01" defaultValue={params.preco_max}
-                  placeholder="9999,00"
+                <input name="preco_max" type="number" min="0" step="any" defaultValue={params.preco_max}
+                  placeholder="9999"
                   className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-28" />
               </div>
               <div className="flex items-center gap-5 pb-0.5">
