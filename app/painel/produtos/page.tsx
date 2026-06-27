@@ -8,10 +8,15 @@ import Link from 'next/link'
 export default async function ProdutosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ busca?: string; categoria?: string; marca?: string }>
+  searchParams: Promise<{ busca?: string; categoria?: string; marca?: string; ordem?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
+
+  const ordemCampo = params.ordem === 'marca' ? 'marca'
+    : params.ordem === 'categoria' ? 'categoria'
+    : params.ordem === 'preco' ? 'preco'
+    : 'nome'
 
   let query = supabase
     .from('produtos')
@@ -20,6 +25,7 @@ export default async function ProdutosPage({
       cat:categorias!categoria ( nome ),
       estoque ( quantidade )
     `)
+    .order(ordemCampo)
     .order('nome')
     .limit(200)
 
@@ -85,10 +91,23 @@ export default async function ProdutosPage({
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Produto</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Marca</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Categoria</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Preço</th>
+              {[
+                { label: 'Produto',   ordem: 'nome',      align: 'text-left' },
+                { label: 'Marca',     ordem: 'marca',     align: 'text-left' },
+                { label: 'Categoria', ordem: 'categoria', align: 'text-left' },
+                { label: 'Preço',     ordem: 'preco',     align: 'text-right' },
+              ].map(({ label, ordem, align }) => {
+                const ativo = ordemCampo === ordem
+                const qs = new URLSearchParams({ ...params, ordem }).toString()
+                return (
+                  <th key={ordem} className={`px-4 py-3 ${align} text-xs font-semibold uppercase tracking-wide`}>
+                    <Link href={`?${qs}`} className={`inline-flex items-center gap-1 hover:text-blue-600 transition-colors ${ativo ? 'text-blue-600' : 'text-gray-500'}`}>
+                      {label}
+                      <span className={ativo ? 'text-blue-500' : 'text-gray-300'}>↑</span>
+                    </Link>
+                  </th>
+                )
+              })}
               <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Custo</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Estoque</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
