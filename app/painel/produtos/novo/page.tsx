@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { criarProduto } from '../actions'
 import { ImageUpload } from '@/components/ImageUpload'
+import { PrecoFields } from '../PrecoFields'
 import Link from 'next/link'
 
 export default async function NovoProdutoPage() {
@@ -34,14 +35,7 @@ export default async function NovoProdutoPage() {
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Descrição</label>
             <textarea name="descricao" rows={3} className="field resize-none" placeholder="Descrição opcional" />
           </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Preço de Venda (R$)</label>
-            <input name="preco" type="number" step="0.01" min="0" defaultValue="0" className="field" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Preço de Custo (R$)</label>
-            <input name="preco_custo" type="number" step="0.01" min="0" defaultValue="0" className="field" />
-          </div>
+          <PrecoFields />
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Categoria</label>
             <select name="categoria" className="field">
@@ -61,8 +55,22 @@ export default async function NovoProdutoPage() {
             </select>
           </div>
           <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Modelo</label>
+            <input name="modelo" className="field" placeholder="Ex: iPhone 13, Galaxy A54" />
+          </div>
+          <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Código / SKU</label>
             <input name="codigo" className="field" placeholder="Ex: TC-001" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Unidade</label>
+            <select name="unidade" defaultValue="UN" className="field">
+              <option value="UN">UN — Unidade</option>
+              <option value="CX">CX — Caixa</option>
+              <option value="PCT">PCT — Pacote</option>
+              <option value="PAR">PAR — Par</option>
+              <option value="KIT">KIT — Kit</option>
+            </select>
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Código de Barras (EAN)</label>
@@ -92,6 +100,10 @@ export default async function NovoProdutoPage() {
               <option value="false">Inativo</option>
             </select>
           </div>
+          <label className="sm:col-span-2 flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 cursor-pointer">
+            <input name="visivel_catalogo" type="checkbox" value="true" defaultChecked className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+            <span className="text-sm font-medium text-gray-800">Visível no catálogo / site</span>
+          </label>
           <label className="sm:col-span-2 flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 cursor-pointer">
             <input name="controla_serie" type="checkbox" value="true" className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
             <span>

@@ -36,6 +36,8 @@ create table if not exists produtos (
   preco_custo   numeric(12, 2) default 0,
   categoria     text references categorias(hierarquia) on delete set null,
   marca         text,
+  modelo        text,
+  unidade       text default 'UN',
   ativo         boolean default true,
   visivel_catalogo boolean default true,
   imagem_url    text,
