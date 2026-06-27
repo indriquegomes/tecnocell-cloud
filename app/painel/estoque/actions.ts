@@ -93,3 +93,77 @@ export async function registrarMovimento(formData: FormData) {
   revalidatePath('/painel/estoque/historico')
   redirect('/painel/estoque/historico')
 }
+
+export async function registrarMovimentos(formData: FormData) {
+  const user = await requireAuth()
+  const supabase = await createServiceClient()
+
+  const deposito_id = formData.get('deposito_id') as string
+  const dataMov = formData.get('data_mov') as string | null
+  const horarioMov = formData.get('horario_mov') as string | null
+  const notaFiscal = (formData.get('nota_fiscal') as string | null)?.trim() || null
+  const obsRaw = (formData.get('observacao') as string | null)?.trim() || null
+
+  const createdAt = dataMov && horarioMov
+    ? new Date(`${dataMov}T${horarioMov}:00-03:00`).toISOString()
+    : new Date().toISOString()
+
+  let itens: { produto_busca: string; quantidade: number; operacao: string }[] = []
+  try { itens = JSON.parse((formData.get('itens') as string) || '[]') } catch {}
+
+  if (itens.length === 0) {
+    redirect('/painel/estoque/historico?erro=sem-itens')
+  }
+
+  const naoEncontrados: string[] = []
+
+  for (const item of itens) {
+    const nomeBusca = item.produto_busca.replace(/\s*\([^)]*\)$/, '').trim()
+
+    let produtoId: string | null = null
+    const { data: exato } = await supabase
+      .from('produtos').select('id').ilike('nome', nomeBusca).limit(1).maybeSingle()
+    if (exato) {
+      produtoId = exato.id
+    } else {
+      const { data: prefixo } = await supabase
+        .from('produtos').select('id').ilike('nome', `${nomeBusca}%`).limit(1).maybeSingle()
+      produtoId = prefixo?.id ?? null
+    }
+
+    if (!produtoId) { naoEncontrados.push(nomeBusca); continue }
+
+    const quantidade = Math.round(item.quantidade)
+    const operacao = item.operacao
+    const observacao = notaFiscal
+      ? obsRaw ? `NF: ${notaFiscal} | ${obsRaw}` : `NF: ${notaFiscal}`
+      : obsRaw
+
+    const { data: atual } = await supabase
+      .from('estoque').select('quantidade')
+      .eq('produto_id', produtoId).eq('deposito_id', deposito_id).maybeSingle()
+    const qtdAnterior = atual?.quantidade ?? 0
+    let qtdNova: number
+    if (operacao === 'ajuste') qtdNova = quantidade
+    else if (operacao === 'saida') qtdNova = Math.max(0, qtdAnterior - quantidade)
+    else qtdNova = qtdAnterior + quantidade
+
+    await supabase.from('estoque').upsert(
+      { produto_id: produtoId, deposito_id, quantidade: qtdNova, updated_at: new Date().toISOString() },
+      { onConflict: 'produto_id,deposito_id' }
+    )
+    await supabase.from('movimentacoes_estoque').insert({
+      produto_id: produtoId, deposito_id, operacao, quantidade,
+      qtd_anterior: qtdAnterior, qtd_nova: qtdNova,
+      observacao, criado_por: user.id, created_at: createdAt,
+    })
+  }
+
+  revalidatePath('/painel/estoque')
+  revalidatePath('/painel/estoque/historico')
+
+  if (naoEncontrados.length > 0) {
+    redirect('/painel/estoque/historico?erro=produto-nao-encontrado')
+  }
+  redirect('/painel/estoque/historico')
+}
