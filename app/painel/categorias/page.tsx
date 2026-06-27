@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { criarCategoria, editarCategoria, deletarCategoria } from './actions'
 import Link from 'next/link'
+import { Dica } from '@/components/Dica'
 
 export default async function CategoriasPage({
   searchParams,
@@ -50,7 +51,10 @@ export default async function CategoriasPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Categorias de Produtos</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-gray-900">Categorias de Produtos</h2>
+          <Dica texto="Agrupe produtos por tipo (ex: Baterias, Telas, Carregadores). Facilita filtros e organização no catálogo." />
+        </div>
       </div>
 
       {erro && (

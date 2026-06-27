@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { deletarNota } from './actions'
 import Link from 'next/link'
+import { Dica } from '@/components/Dica'
 
 const STATUS_COLOR: Record<string, string> = {
   pendente: 'bg-yellow-100 text-yellow-700',
@@ -37,7 +38,10 @@ export default async function ComprasPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Notas de Entrada</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-gray-900">Notas de Entrada</h2>
+          <Dica texto="Registro de compras de fornecedores. Ao finalizar uma nota, o estoque dos produtos é atualizado automaticamente." />
+        </div>
         <Link href="/painel/compras/nova"
           className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
           + Nova Nota

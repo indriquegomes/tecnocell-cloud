@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { deletarEmpresa } from './actions'
 import Link from 'next/link'
+import { Dica } from '@/components/Dica'
 
 export default async function EmpresasPage({
   searchParams,
@@ -32,7 +33,10 @@ export default async function EmpresasPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Empresas</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-gray-900">Empresas</h2>
+          <Dica texto="Filiais e lojas cadastradas no sistema. Cada empresa pode ter seus próprios depósitos e configurações." />
+        </div>
         <Link href="/painel/empresas/nova"
           className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
           + Nova Empresa

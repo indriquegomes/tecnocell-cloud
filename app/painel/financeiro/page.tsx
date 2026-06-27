@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { marcarPago, deletarLancamento } from './actions'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import Link from 'next/link'
+import { Dica } from '@/components/Dica'
 
 export default async function FinanceiroPage({
   searchParams,
@@ -58,7 +59,10 @@ export default async function FinanceiroPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Financeiro</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-gray-900">Financeiro</h2>
+          <Dica texto="Controle de contas a pagar e a receber. Registre despesas, receitas e acompanhe o saldo pendente." />
+        </div>
         <div className="flex gap-2">
           <Link href="/painel/financeiro/novo?tipo=receber"
             className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">

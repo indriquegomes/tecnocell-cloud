@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { deletarPessoa } from './actions'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import Link from 'next/link'
+import { Dica } from '@/components/Dica'
 
 export default async function ClientesPage({
   searchParams,
@@ -43,7 +44,10 @@ export default async function ClientesPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Clientes e Fornecedores</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-gray-900">Clientes e Fornecedores</h2>
+          <Dica texto="Cadastro de pessoas físicas e jurídicas: clientes, fornecedores ou ambos. Usado no PDV, pedidos e financeiro." />
+        </div>
         <Link href="/painel/clientes/novo"
           className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
           + Novo Cadastro

@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { formatBRL, formatDate } from '@/lib/utils'
 import Link from 'next/link'
+import { Dica } from '@/components/Dica'
 
 export default async function DashboardPage() {
   const supabase = await createServiceClient()
@@ -73,7 +74,10 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
+          <Dica texto="Visão geral do sistema: estoque, vendas do dia, contas pendentes e indicadores principais." />
+        </div>
         <span className="text-xs text-gray-400">{itensEmEstoque} itens em estoque</span>
       </div>
 

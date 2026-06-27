@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { deletarProduto } from './actions'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import Link from 'next/link'
+import { Dica } from '@/components/Dica'
 
 export default async function ProdutosPage({
   searchParams,
@@ -90,7 +91,10 @@ export default async function ProdutosPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Produtos</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-gray-900">Produtos</h2>
+          <Dica texto="Catálogo completo de produtos para venda. Configure preço, custo, categoria, marca e controle de estoque mínimo." />
+        </div>
         <Link href="/painel/produtos/novo"
           className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
           + Novo Produto

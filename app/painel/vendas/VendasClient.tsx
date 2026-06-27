@@ -3,6 +3,7 @@
 import { useState, useTransition, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { buscarDetalheVendaPublic, type DetalheVendaCompleto } from './actions'
+import { Dica } from '@/components/Dica'
 
 type Venda = {
   id: string
@@ -88,7 +89,10 @@ export function VendasClient({
       {/* Header */}
       <div>
         <p className="text-xs text-gray-400 mb-0.5">Vendas</p>
-        <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Painel de Vendas</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Painel de Vendas</h2>
+          <Dica texto="Lista de todas as vendas realizadas. Clique em uma venda para ver os detalhes, produtos e forma de pagamento." />
+        </div>
       </div>
 
       {/* Cards */}

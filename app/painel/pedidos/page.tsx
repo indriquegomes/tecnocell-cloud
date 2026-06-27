@@ -3,6 +3,7 @@ import { deletarPedido } from './actions'
 import { ConfirmButton } from '@/components/ConfirmButton'
 import Link from 'next/link'
 import { PedidosFiltros } from './PedidosFiltros'
+import { Dica } from '@/components/Dica'
 
 const STATUS_SISTEMA: Record<string, string> = {
   rascunho:  'Rascunho',
@@ -67,7 +68,10 @@ export default async function PedidosPage({
     <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Pedidos e Orçamentos</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-gray-900">Pedidos e Orçamentos</h2>
+          <Dica texto="Crie orçamentos para clientes ou registre pedidos. Pedidos aprovados podem ser faturados no PDV." />
+        </div>
         <Link href="/painel/pedidos/novo"
           className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
           + Novo

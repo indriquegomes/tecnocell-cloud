@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import { Dica } from '@/components/Dica'
 
 export default async function RelatoriosPage({
   searchParams,
@@ -67,7 +68,10 @@ export default async function RelatoriosPage({
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Relatórios</h2>
+      <div className="flex items-center gap-2">
+        <h2 className="text-2xl font-bold text-gray-900">Relatórios</h2>
+        <Dica texto="Resumos e análises por período: financeiro, vendas e estoque. Use as abas para navegar entre os tipos de relatório." />
+      </div>
 
       {/* Abas */}
       <div className="flex gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1 w-fit">

@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
+import { Dica } from '@/components/Dica'
 
 export default async function EstoquePage({
   searchParams,
@@ -63,7 +64,10 @@ export default async function EstoquePage({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Estoque</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-gray-900">Estoque</h2>
+          <Dica texto="Quantidade atual de cada produto por depósito. Atualizado automaticamente após vendas, compras e movimentações manuais." />
+        </div>
         <div className="flex gap-2">
           <Link href="/painel/estoque/historico"
             className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">

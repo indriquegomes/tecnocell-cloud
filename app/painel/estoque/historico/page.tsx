@@ -3,6 +3,7 @@ import { formatBRL } from '@/lib/utils'
 import Link from 'next/link'
 import { ColunasToggler } from './ColunasToggler'
 import { NovaMovimentacaoForm } from './NovaMovimentacaoForm'
+import { Dica } from '@/components/Dica'
 
 type Tipo = 'venda' | 'devolucao' | 'entrada' | 'saida' | 'ajuste'
 
@@ -232,6 +233,7 @@ export default async function MovimentacoesPage({
           </svg>
         </Link>
         <h2 className="text-2xl font-bold text-gray-900">Movimentações</h2>
+        <Dica texto="Histórico completo de entradas, saídas e ajustes. Use 'Nova Movimentação' para registrar compras ou corrigir quantidades em lote." lado="baixo" />
         <span className="ml-auto text-sm text-gray-400">{rows.length} registros</span>
         <ColunasToggler />
       </div>
