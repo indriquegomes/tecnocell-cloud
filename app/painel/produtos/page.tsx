@@ -26,12 +26,14 @@ export default async function ProdutosPage({
     .from('produtos')
     .select(`
       id, nome, descricao, preco, preco_custo, marca, categoria, ativo, codigo, imagem_url,
+      estoque_minimo,
       cat:categorias!categoria ( nome ),
       estoque ( quantidade )
     `)
     .order(ordemCampo, { ascending: ordemCampo === 'ativo' ? false : true })
-    .order('nome')
     .limit(200)
+
+  if (ordemCampo !== 'nome') query = query.order('nome')
 
   if (params.busca) query = query.ilike('nome', `%${params.busca}%`)
   if (params.categoria) query = query.eq('categoria', params.categoria)
@@ -63,6 +65,7 @@ export default async function ProdutosPage({
 
       {/* Filtros */}
       <form method="GET" className="flex flex-wrap gap-3">
+        {params.ordem && <input type="hidden" name="ordem" value={params.ordem} />}
         <input
           name="busca"
           defaultValue={params.busca}
@@ -150,6 +153,8 @@ export default async function ProdutosPage({
               (produtos ?? []).map((p: Record<string, unknown>) => {
                 const estoqueTotal = ((p.estoque as { quantidade: number }[]) ?? [])
                   .reduce((s, e) => s + (e.quantidade ?? 0), 0)
+                const minimo = (p.estoque_minimo as number) ?? 0
+                const abaixoMinimo = minimo > 0 && estoqueTotal < minimo
                 return (
                   <tr key={p.id as string} className="hover:bg-gray-50 transition">
                     <td className="px-4 py-3">
@@ -179,8 +184,9 @@ export default async function ProdutosPage({
                     <td className="px-4 py-3 text-right text-sm text-gray-500">
                       {(p.preco_custo as number) > 0 ? formatBRL(p.preco_custo as number) : '—'}
                     </td>
-                    <td className="px-4 py-3 text-center text-sm font-medium text-gray-700">
+                    <td className={`px-4 py-3 text-center text-sm font-medium ${abaixoMinimo ? 'text-red-600' : 'text-gray-700'}`}>
                       {estoqueTotal}
+                      {abaixoMinimo && <span className="ml-1 text-xs text-red-400">(mín {minimo})</span>}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <Badge variant={p.ativo ? 'success' : 'danger'}>
