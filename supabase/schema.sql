@@ -40,6 +40,11 @@ create table if not exists produtos (
   visivel_catalogo boolean default true,
   imagem_url    text,
   codigo        text,
+  ean            text,
+  fornecedor_id  text references pessoas(id) on delete set null,
+  prateleira     text,
+  estoque_minimo integer default 0,
+  controla_serie boolean default false,
   created_at    timestamptz default now(),
   updated_at    timestamptz default now()
 );
@@ -51,6 +56,21 @@ create table if not exists estoque (
   quantidade  numeric(12, 3) default 0,
   updated_at  timestamptz default now(),
   unique(produto_id, deposito_id)
+);
+
+-- Unidades serializadas: 1 linha = 1 aparelho físico (IMEI / nº série)
+create table if not exists numeros_serie (
+  id          uuid primary key default uuid_generate_v4(),
+  produto_id  text references produtos(id) on delete cascade,
+  deposito_id text references depositos(id) on delete set null,
+  serie       text not null,
+  status      text default 'em_estoque',  -- em_estoque | vendido | devolvido | defeito
+  custo       numeric(12, 2),
+  venda_id    text,
+  observacao  text,
+  created_at  timestamptz default now(),
+  updated_at  timestamptz default now(),
+  unique(produto_id, serie)
 );
 
 create table if not exists pessoas (
@@ -134,6 +154,7 @@ alter publication supabase_realtime add table produtos;
 -- Produtos e estoque: leitura pública, escrita apenas autenticado
 alter table produtos enable row level security;
 alter table estoque enable row level security;
+alter table numeros_serie enable row level security;
 alter table categorias enable row level security;
 alter table marcas enable row level security;
 alter table depositos enable row level security;

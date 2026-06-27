@@ -8,13 +8,16 @@ export default async function EditarProdutoPage({ params }: { params: Promise<{ 
   const { id } = await params
   const supabase = await createServiceClient()
 
-  const [{ data: produto }, { data: categorias }, { data: marcas }] = await Promise.all([
+  const [{ data: produto }, { data: categorias }, { data: marcas }, { data: pessoas }] = await Promise.all([
     supabase.from('produtos').select('*').eq('id', id).single(),
     supabase.from('categorias').select('hierarquia, nome').order('nome'),
     supabase.from('marcas').select('nome').order('nome'),
+    supabase.from('pessoas').select('id, nome, tipo').order('nome').limit(500),
   ])
 
   if (!produto) notFound()
+
+  const fornecedores = (pessoas ?? []).filter((p) => p.tipo === 'fornecedor' || p.tipo === 'ambos')
 
   const action = editarProduto.bind(null, id)
 
@@ -71,12 +74,42 @@ export default async function EditarProdutoPage({ params }: { params: Promise<{ 
             <input name="codigo" defaultValue={produto.codigo ?? ''} className="field" />
           </div>
           <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Código de Barras (EAN)</label>
+            <input name="ean" defaultValue={produto.ean ?? ''} className="field" placeholder="Bipe ou digite" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Fornecedor</label>
+            <select name="fornecedor_id" defaultValue={produto.fornecedor_id ?? ''} className="field">
+              <option value="">Sem fornecedor</option>
+              {fornecedores.map((f) => (
+                <option key={f.id} value={f.id}>{f.nome}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Prateleira / Localização</label>
+            <input name="prateleira" defaultValue={produto.prateleira ?? ''} className="field" placeholder="Ex: A3, Vitrine 2" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Estoque Mínimo</label>
+            <input name="estoque_minimo" type="number" min="0" defaultValue={produto.estoque_minimo ?? 0} className="field" />
+          </div>
+          <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Status</label>
             <select name="ativo" defaultValue={String(produto.ativo)} className="field">
               <option value="true">Ativo</option>
               <option value="false">Inativo</option>
             </select>
           </div>
+          <label className="sm:col-span-2 flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 cursor-pointer">
+            <input name="controla_serie" type="checkbox" value="true" defaultChecked={produto.controla_serie ?? false} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+            <span>
+              <span className="block text-sm font-medium text-gray-800">Controla número de série / IMEI</span>
+              <span className="block text-xs text-gray-500 mt-0.5">
+                Marque para aparelhos. Cada unidade será cadastrada com seu IMEI e o estoque conta por unidade.
+              </span>
+            </span>
+          </label>
         </div>
 
         <div className="flex gap-3 pt-2">
