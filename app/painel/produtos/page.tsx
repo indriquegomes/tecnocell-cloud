@@ -8,19 +8,22 @@ import Link from 'next/link'
 export default async function ProdutosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ busca?: string; categoria?: string; marca?: string; ordem?: string }>
+  searchParams: Promise<{ busca?: string; categoria?: string; marca?: string; ordem?: string; dir?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
 
-  const ordemCampo = params.ordem === 'marca' ? 'marca'
-    : params.ordem === 'categoria' ? 'categoria'
-    : params.ordem === 'preco' ? 'preco'
-    : params.ordem === 'custo' ? 'preco_custo'
-    : params.ordem === 'status' ? 'ativo'
+  const ordemAtual = params.ordem ?? 'nome'
+  const ordemDir = params.dir === 'desc'
+
+  const ordemCampo = ordemAtual === 'marca' ? 'marca'
+    : ordemAtual === 'categoria' ? 'categoria'
+    : ordemAtual === 'preco' ? 'preco'
+    : ordemAtual === 'custo' ? 'preco_custo'
+    : ordemAtual === 'status' ? 'ativo'
     : 'nome'
 
-  const ordemEstoque = params.ordem === 'estoque'
+  const ordemEstoque = ordemAtual === 'estoque'
 
   let query = supabase
     .from('produtos')
@@ -30,10 +33,10 @@ export default async function ProdutosPage({
       cat:categorias!categoria ( nome ),
       estoque ( quantidade )
     `)
-    .order(ordemCampo, { ascending: ordemCampo === 'ativo' ? false : true })
+    .order(ordemCampo, { ascending: !ordemDir })
     .limit(200)
 
-  if (ordemCampo !== 'nome') query = query.order('nome')
+  if (ordemAtual !== 'nome' && !ordemEstoque) query = query.order('nome')
 
   if (params.busca) {
     const termo = params.busca.replace(/[,()]/g, ' ').trim()
@@ -52,7 +55,7 @@ export default async function ProdutosPage({
     ? [...(produtosRaw ?? [])].sort((a, b) => {
         const qa = ((a as Record<string, unknown>).estoque as { quantidade: number }[] ?? []).reduce((s, e) => s + (e.quantidade ?? 0), 0)
         const qb = ((b as Record<string, unknown>).estoque as { quantidade: number }[] ?? []).reduce((s, e) => s + (e.quantidade ?? 0), 0)
-        return qa - qb
+        return ordemDir ? qb - qa : qa - qb
       })
     : (produtosRaw ?? [])
 
@@ -69,6 +72,7 @@ export default async function ProdutosPage({
       {/* Filtros */}
       <form method="GET" className="flex flex-wrap gap-3">
         {params.ordem && <input type="hidden" name="ordem" value={params.ordem} />}
+        {params.dir && <input type="hidden" name="dir" value={params.dir} />}
         <input
           name="busca"
           defaultValue={params.busca}
@@ -114,30 +118,25 @@ export default async function ProdutosPage({
                 { label: 'Marca',     ordem: 'marca',     align: 'text-left' },
                 { label: 'Categoria', ordem: 'categoria', align: 'text-left' },
                 { label: 'Preço',     ordem: 'preco',     align: 'text-right' },
+                { label: 'Custo',     ordem: 'custo',     align: 'text-right' },
+                { label: 'Estoque',   ordem: 'estoque',   align: 'text-center' },
+                { label: 'Status',    ordem: 'status',    align: 'text-center' },
               ].map(({ label, ordem, align }) => {
-                const ativo = ordemCampo === ordem
-                const qs = new URLSearchParams({ ...params, ordem }).toString()
+                const ativo = ordemAtual === ordem
+                const nextDir = ativo ? (ordemDir ? 'asc' : 'desc') : 'asc'
+                const qs = new URLSearchParams({
+                  ...(params.busca ? { busca: params.busca } : {}),
+                  ...(params.categoria ? { categoria: params.categoria } : {}),
+                  ...(params.marca ? { marca: params.marca } : {}),
+                  ordem,
+                  ...(nextDir === 'desc' ? { dir: 'desc' } : {}),
+                }).toString()
+                const arrow = ativo ? (ordemDir ? '↓' : '↑') : '↑'
                 return (
                   <th key={ordem} className={`px-4 py-3 ${align} text-xs font-semibold uppercase tracking-wide`}>
                     <Link href={`?${qs}`} className={`inline-flex items-center gap-1 hover:text-blue-600 transition-colors ${ativo ? 'text-blue-600' : 'text-gray-500'}`}>
                       {label}
-                      <span className={ativo ? 'text-blue-500' : 'text-gray-300'}>↑</span>
-                    </Link>
-                  </th>
-                )
-              })}
-              {[
-                { label: 'Custo',   ordem: 'custo',   align: 'text-right' },
-                { label: 'Estoque', ordem: 'estoque', align: 'text-center' },
-                { label: 'Status',  ordem: 'status',  align: 'text-center' },
-              ].map(({ label, ordem, align }) => {
-                const ativo = params.ordem === ordem
-                const qs = new URLSearchParams({ ...params, ordem }).toString()
-                return (
-                  <th key={ordem} className={`px-4 py-3 ${align} text-xs font-semibold uppercase tracking-wide`}>
-                    <Link href={`?${qs}`} className={`inline-flex items-center gap-1 hover:text-blue-600 transition-colors ${ativo ? 'text-blue-600' : 'text-gray-500'}`}>
-                      {label}
-                      <span className={ativo ? 'text-blue-500' : 'text-gray-300'}>↑</span>
+                      <span className={ativo ? 'text-blue-500' : 'text-gray-300'}>{arrow}</span>
                     </Link>
                   </th>
                 )
