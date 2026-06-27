@@ -7,8 +7,18 @@ import { redirect } from 'next/navigation'
 export async function registrarMovimento(formData: FormData) {
   const user = await requireAuth()
   const supabase = await createServiceClient()
-  const produto_id = formData.get('produto_id') as string
   const deposito_id = formData.get('deposito_id') as string
+
+  // Produto via datalist: "Nome (codigo)" → busca por nome exato ou prefixo
+  const produtoBusca = (formData.get('produto_busca') as string | null)?.trim() ?? ''
+  const nomeBusca = produtoBusca.replace(/\s*\([^)]*\)$/, '').trim()
+  const { data: produtoEncontrado } = await supabase
+    .from('produtos')
+    .select('id')
+    .ilike('nome', nomeBusca)
+    .limit(1)
+    .maybeSingle()
+  const produto_id = produtoEncontrado?.id ?? (formData.get('produto_id') as string)
   const quantidade = parseInt(formData.get('quantidade') as string, 10)
   const operacao = formData.get('operacao') as string
   const notaFiscal = (formData.get('nota_fiscal') as string | null)?.trim() || null

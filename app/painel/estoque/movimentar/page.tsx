@@ -19,93 +19,116 @@ export default async function MovimentarEstoquePage({
   const horaAgora = hoje.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false })
 
   return (
-    <div className="mx-auto max-w-xl space-y-6">
-      <div className="flex items-center gap-3">
-        <Link href="/painel/estoque" className="text-gray-400 hover:text-gray-600">
-          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </Link>
-        <h2 className="text-2xl font-bold text-gray-900">Movimentar Estoque</h2>
-      </div>
-
-      <form action={registrarMovimento} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-5">
-
-        {/* Depósito + Data + Horário */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2">
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Depósito *</label>
-            <select name="deposito_id" required className="field" defaultValue={params.deposito_id ?? ''}>
-              <option value="">Selecionar depósito...</option>
-              {(depositos ?? []).map((d) => (
-                <option key={d.id} value={d.id}>{d.nome}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Data Movimentação *</label>
-            <input name="data_mov" type="date" required defaultValue={dataHoje} className="field" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Horário *</label>
-            <input name="horario_mov" type="time" required defaultValue={horaAgora} className="field" />
-          </div>
+    <div className="space-y-4">
+      {/* Breadcrumb + botões */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <Link href="/painel/estoque" className="hover:text-gray-700 transition">Estoque</Link>
+          <span>›</span>
+          <span className="text-gray-800 font-medium">Movimentações</span>
         </div>
-
-        {/* Nota Fiscal + Operação */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Nota Fiscal</label>
-            <input name="nota_fiscal" type="text" placeholder="Ex: 001234" className="field" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Operação *</label>
-            <select name="operacao" required className="field">
-              <option value="entrada">Entrada</option>
-              <option value="saida">Saída</option>
-              <option value="ajuste">Ajuste</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Produto + Quantidade */}
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">Produto *</label>
-          <select name="produto_id" required className="field" defaultValue={params.produto_id ?? ''}>
-            <option value="">Selecionar produto...</option>
-            {(produtos ?? []).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}{p.codigo ? ` (${p.codigo})` : ''}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">Quantidade *</label>
-          <input name="quantidade" type="number" min="0" step="any" required defaultValue="1" className="field" />
-        </div>
-
-        {/* Anotações */}
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">Anotações</label>
-          <textarea
-            name="observacao"
-            rows={3}
-            placeholder="Observações adicionais..."
-            className="field resize-none"
-          />
-        </div>
-
-        <div className="flex gap-3 pt-2">
-          <button type="submit" className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
+        <div className="flex gap-2">
+          <button form="form-mov" type="submit"
+            className="rounded-lg bg-green-600 px-5 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
             Salvar
           </button>
-          <Link href="/painel/estoque" className="rounded-xl border border-gray-200 px-6 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+          <Link href="/painel/estoque"
+            className="rounded-lg bg-gray-800 px-5 py-2 text-sm font-semibold text-white hover:bg-gray-700 transition">
             Voltar
           </Link>
         </div>
-      </form>
+      </div>
+
+      {/* Aba */}
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div className="border-b border-gray-200 bg-gray-50 px-6 py-3">
+          <span className="text-sm font-semibold text-blue-600">Nova Movimentação Estoque</span>
+        </div>
+
+        <form id="form-mov" action={registrarMovimento} className="p-6 space-y-5">
+
+          {/* Linha 1: Depósito | Data | Horário */}
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Depósito *</label>
+              <select name="deposito_id" required className="field" defaultValue={params.deposito_id ?? ''}>
+                <option value="">*</option>
+                {(depositos ?? []).map((d) => (
+                  <option key={d.id} value={d.id}>{d.nome}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Data Movimentação *</label>
+              <input name="data_mov" type="date" required defaultValue={dataHoje} className="field" />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Horário *</label>
+              <input name="horario_mov" type="time" required defaultValue={horaAgora} className="field" />
+            </div>
+          </div>
+
+          {/* Linha 2: Nota Fiscal | Operação */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Nota Fiscal</label>
+              <input name="nota_fiscal" type="text" placeholder="Ex: 001234" className="field" />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Operação *</label>
+              <select name="operacao" required className="field">
+                <option value="entrada">Entrada</option>
+                <option value="saida">Saída</option>
+                <option value="ajuste">Ajuste</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Linha 3: Produto + Quantidade */}
+          <div className="flex items-end gap-3">
+            <div className="flex-1">
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Nome do Produto *</label>
+              <input
+                list="produtos-list"
+                name="produto_busca"
+                required
+                placeholder="Pesquise pelo nome dos produtos cadastrados"
+                defaultValue={
+                  params.produto_id
+                    ? (produtos ?? []).find(p => p.id === params.produto_id)?.nome ?? ''
+                    : ''
+                }
+                className="field"
+                autoComplete="off"
+              />
+              <datalist id="produtos-list">
+                {(produtos ?? []).map((p) => (
+                  <option key={p.id} value={p.nome + (p.codigo ? ` (${p.codigo})` : '')} />
+                ))}
+              </datalist>
+              {params.produto_id && (
+                <input type="hidden" name="_produto_id_hint" value={params.produto_id} />
+              )}
+            </div>
+            <div className="w-36">
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Quantidade *</label>
+              <input name="quantidade" type="number" min="0" step="any" required defaultValue="1" className="field" />
+            </div>
+          </div>
+
+          {/* Anotações */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Anotações</label>
+            <textarea
+              name="observacao"
+              rows={4}
+              placeholder=""
+              className="field resize-none"
+            />
+          </div>
+
+        </form>
+      </div>
     </div>
   )
 }
