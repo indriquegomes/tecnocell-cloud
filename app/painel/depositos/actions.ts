@@ -4,13 +4,32 @@ import { createServiceClient, requireAuth } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
+async function extrairCampos(formData: FormData, supabase: Awaited<ReturnType<typeof createServiceClient>>) {
+  const empresa_id = (formData.get('empresa_id') as string) || null
+  let empresa: string | null = null
+  if (empresa_id) {
+    const { data } = await supabase.from('empresas').select('nome').eq('id', empresa_id).single()
+    empresa = data?.nome ?? null
+  }
+  return {
+    nome:        formData.get('nome') as string,
+    empresa_id,
+    empresa,
+    descricao:   (formData.get('descricao') as string) || null,
+    responsavel: (formData.get('responsavel') as string) || null,
+    telefone:    (formData.get('telefone') as string) || null,
+    email:       (formData.get('email') as string) || null,
+    cep:         (formData.get('cep') as string) || null,
+    cidade:      (formData.get('cidade') as string) || null,
+    uf:          (formData.get('uf') as string) || null,
+    ativo:       formData.get('ativo') !== 'false',
+  }
+}
+
 export async function criarDeposito(formData: FormData) {
   await requireAuth()
   const supabase = await createServiceClient()
-  const { error } = await supabase.from('depositos').insert({
-    nome: formData.get('nome') as string,
-    descricao: (formData.get('descricao') as string) || null,
-  })
+  const { error } = await supabase.from('depositos').insert(await extrairCampos(formData, supabase))
   if (error) redirect(`/painel/depositos?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/depositos')
   redirect('/painel/depositos')
@@ -19,10 +38,7 @@ export async function criarDeposito(formData: FormData) {
 export async function editarDeposito(id: string, formData: FormData) {
   await requireAuth()
   const supabase = await createServiceClient()
-  const { error } = await supabase.from('depositos').update({
-    nome: formData.get('nome') as string,
-    descricao: (formData.get('descricao') as string) || null,
-  }).eq('id', id)
+  const { error } = await supabase.from('depositos').update(await extrairCampos(formData, supabase)).eq('id', id)
   if (error) redirect(`/painel/depositos?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/depositos')
   redirect('/painel/depositos')
