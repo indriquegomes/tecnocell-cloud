@@ -9,20 +9,32 @@ export async function registrarMovimento(formData: FormData) {
   const supabase = await createServiceClient()
   const deposito_id = formData.get('deposito_id') as string
 
-  // Produto via datalist: "Nome (codigo)" → busca por nome exato ou prefixo
+  // Produto via datalist: "Nome (codigo)" → busca por nome exato, depois prefixo
   const produtoBusca = (formData.get('produto_busca') as string | null)?.trim() ?? ''
   const nomeBusca = produtoBusca.replace(/\s*\([^)]*\)$/, '').trim()
-  const { data: produtoEncontrado } = await supabase
-    .from('produtos')
-    .select('id')
-    .ilike('nome', nomeBusca)
-    .limit(1)
-    .maybeSingle()
+
+  let produtoEncontrado: { id: string } | null = null
+  if (nomeBusca) {
+    // 1. match exato (case-insensitive)
+    const { data: exato } = await supabase
+      .from('produtos').select('id').ilike('nome', nomeBusca).limit(1).maybeSingle()
+    // 2. fallback: começa com (cobre variações de sufixo)
+    if (!exato) {
+      const { data: prefixo } = await supabase
+        .from('produtos').select('id').ilike('nome', `${nomeBusca}%`).limit(1).maybeSingle()
+      produtoEncontrado = prefixo
+    } else {
+      produtoEncontrado = exato
+    }
+  }
+
   const produto_id = produtoEncontrado?.id ?? null
   if (!produto_id) {
     redirect('/painel/estoque/historico?erro=produto-nao-encontrado')
   }
-  const quantidade = parseFloat(formData.get('quantidade') as string)
+
+  // quantidade: coluna é integer — Math.round evita erro de tipo no banco
+  const quantidade = Math.round(parseFloat(formData.get('quantidade') as string))
   const operacao = formData.get('operacao') as string
   const notaFiscal = (formData.get('nota_fiscal') as string | null)?.trim() || null
   const obsRaw = (formData.get('observacao') as string | null)?.trim() || null
