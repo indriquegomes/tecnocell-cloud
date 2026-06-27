@@ -23,9 +23,9 @@ const navCompleto: NavGroup[] = [
       { href: '/painel/vendas',         label: 'Painel de Vendas',      permissao: 'vendas' },
       { href: '/painel/vales-credito',  label: 'Créditos de Clientes',  permissao: 'financeiro' },
       { href: '/painel/pedidos',        label: 'Pedidos e Orçamentos',  permissao: 'pedidos' },
-      { href: '/painel/devolucoes',       label: 'Devoluções',            permissao: 'devolucoes' },
-      { href: '/painel/painel-vendedor', label: 'Painel Vendedor',  permissao: 'relatorios' },
-      { href: '/painel/promocoes',      label: 'Promoções',        permissao: 'produtos' },
+      { href: '/painel/devolucoes',     label: 'Devoluções',            permissao: 'devolucoes' },
+      { href: '/painel/painel-vendedor', label: 'Painel Vendedor',      permissao: 'relatorios' },
+      { href: '/painel/promocoes',      label: 'Promoções',             permissao: 'produtos' },
     ],
   },
   {
@@ -37,6 +37,11 @@ const navCompleto: NavGroup[] = [
   {
     group: 'Estoque',
     items: [
+      { href: '/painel/produtos',      label: 'Produtos',         permissao: 'produtos' },
+      { href: '/painel/estoque',       label: 'Estoque',          permissao: 'estoque' },
+      { href: '/painel/depositos',     label: 'Depósitos',        permissao: 'estoque' },
+      { href: '/painel/categorias',    label: 'Categorias',       permissao: 'produtos' },
+      { href: '/painel/compras',       label: 'Notas de Entrada', permissao: 'compras' },
       { href: '/painel/tabelas-preco', label: 'Tabelas de Preço', permissao: 'produtos' },
     ],
   },
@@ -44,19 +49,9 @@ const navCompleto: NavGroup[] = [
 
 const navEmConstrucao: NavGroup[] = [
   {
-    group: 'Estoque',
-    items: [
-      { href: '/painel/produtos',      label: 'Produtos',      permissao: 'produtos' },
-      { href: '/painel/estoque',       label: 'Movimentações', permissao: 'estoque' },
-      { href: '/painel/depositos',     label: 'Depósitos',     permissao: 'estoque' },
-      { href: '/painel/categorias',    label: 'Categorias',    permissao: 'produtos' },
-    ],
-  },
-  {
     group: 'Financeiro',
     items: [
-      { href: '/painel/financeiro', label: 'Financeiro',      permissao: 'financeiro' },
-      { href: '/painel/compras',    label: 'Notas de Entrada', permissao: 'compras' },
+      { href: '/painel/financeiro', label: 'Financeiro', permissao: 'financeiro' },
     ],
   },
   {
