@@ -1,69 +1,158 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { formatBRL } from '@/lib/utils'
 import Link from 'next/link'
 
-const OPERACAO: Record<string, { label: string; cls: string }> = {
-  entrada: { label: 'Entrada', cls: 'text-green-700 bg-green-50 border-green-200' },
-  saida:   { label: 'Saída',   cls: 'text-red-700 bg-red-50 border-red-200' },
-  ajuste:  { label: 'Ajuste',  cls: 'text-blue-700 bg-blue-50 border-blue-200' },
+type Tipo = 'venda' | 'devolucao' | 'entrada' | 'saida' | 'ajuste'
+
+const TIPO: Record<Tipo, { label: string; cls: string; sinal: string }> = {
+  venda:     { label: 'Venda',     cls: 'text-red-700 bg-red-50 border-red-200',       sinal: '−' },
+  devolucao: { label: 'Devolução', cls: 'text-green-700 bg-green-50 border-green-200',  sinal: '+' },
+  entrada:   { label: 'Entrada',   cls: 'text-green-700 bg-green-50 border-green-200',  sinal: '+' },
+  saida:     { label: 'Saída',     cls: 'text-red-700 bg-red-50 border-red-200',        sinal: '−' },
+  ajuste:    { label: 'Ajuste',    cls: 'text-blue-700 bg-blue-50 border-blue-200',     sinal: '' },
 }
 
-export default async function HistoricoEstoquePage({
+type Linha = {
+  key: string
+  data: string
+  tipo: Tipo
+  produtoId: string
+  produto: string
+  parte: string      // cliente/fornecedor ou depósito
+  qtd: number
+  valorTotal: number | null
+  saldo: string | null
+  obs: string | null
+}
+
+export default async function MovimentacoesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ operacao?: string; deposito?: string; busca?: string }>
+  searchParams: Promise<{ tipo?: string; busca?: string; de?: string; ate?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
 
-  let query = supabase
-    .from('movimentacoes_estoque')
-    .select('id, produto_id, deposito_id, operacao, quantidade, qtd_anterior, qtd_nova, observacao, created_at')
-    .order('created_at', { ascending: false })
-    .limit(300)
+  const hoje = new Date().toISOString().split('T')[0]
+  const inicioMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+  const de = params.de ?? inicioMes
+  const ate = params.ate ?? hoje
+  const ini = de + 'T00:00:00'
+  const fim = ate + 'T23:59:59'
 
-  if (params.operacao) query = query.eq('operacao', params.operacao)
-  if (params.deposito) query = query.eq('deposito_id', params.deposito)
-
-  const [{ data: raw }, { data: depositos }] = await Promise.all([
-    query,
-    supabase.from('depositos').select('id, nome').order('nome'),
+  // 1. Fontes principais no período
+  const [{ data: manuais }, { data: vendas }, { data: devolucoes }] = await Promise.all([
+    supabase.from('movimentacoes_estoque')
+      .select('id, produto_id, deposito_id, operacao, quantidade, qtd_anterior, qtd_nova, observacao, created_at')
+      .gte('created_at', ini).lte('created_at', fim).order('created_at', { ascending: false }).limit(500),
+    supabase.from('vendas')
+      .select('id, numero, created_at, vendedor_nome, pessoa_id, deposito_id, status')
+      .neq('status', 'aberta')
+      .gte('created_at', ini).lte('created_at', fim).order('created_at', { ascending: false }).limit(500),
+    supabase.from('devolucoes')
+      .select('id, created_at, pessoa_nome, vendedor_nome, deposito_id, motivo')
+      .gte('created_at', ini).lte('created_at', fim).order('created_at', { ascending: false }).limit(500),
   ])
 
-  const rows = raw ?? []
+  const vendaIds = (vendas ?? []).map((v) => v.id)
+  const devolucaoIds = (devolucoes ?? []).map((d) => d.id)
 
-  // Buscar nomes de produtos e depósitos em batch
-  const prodIds = [...new Set(rows.map((r) => r.produto_id).filter(Boolean))]
-  const depIds  = [...new Set(rows.map((r) => r.deposito_id).filter(Boolean))]
+  // 2. Itens das vendas/devoluções + mapas de apoio
+  const [{ data: itensVenda }, { data: itensDev }, { data: depositos }] = await Promise.all([
+    vendaIds.length
+      ? supabase.from('itens_venda').select('venda_id, produto_id, quantidade, preco_unitario, total_item, produtos(nome)').in('venda_id', vendaIds)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    devolucaoIds.length
+      ? supabase.from('itens_devolucao').select('devolucao_id, produto_id, nome, quantidade, preco_unitario, total_item').in('devolucao_id', devolucaoIds)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    supabase.from('depositos').select('id, nome'),
+  ])
 
-  const [{ data: prods }, { data: deps }] = await Promise.all([
+  // 3. Nomes de produtos (p/ manuais) e pessoas (p/ vendas)
+  const prodIds = [...new Set((manuais ?? []).map((m) => m.produto_id).filter(Boolean))]
+  const pessoaIds = [...new Set((vendas ?? []).map((v) => v.pessoa_id).filter(Boolean))] as string[]
+  const [{ data: prods }, { data: pessoas }] = await Promise.all([
     prodIds.length
       ? supabase.from('produtos').select('id, nome, codigo').in('id', prodIds)
       : Promise.resolve({ data: [] as { id: string; nome: string; codigo: string | null }[] }),
-    depIds.length
-      ? supabase.from('depositos').select('id, nome').in('id', depIds)
+    pessoaIds.length
+      ? supabase.from('pessoas').select('id, nome').in('id', pessoaIds)
       : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
   ])
 
+  const depMap = Object.fromEntries((depositos ?? []).map((d) => [d.id, d.nome]))
   const prodMap = Object.fromEntries((prods ?? []).map((p) => [p.id, p]))
-  const depMap  = Object.fromEntries((deps  ?? []).map((d) => [d.id, d]))
+  const pessoaMap = Object.fromEntries((pessoas ?? []).map((p) => [p.id, p.nome]))
+  const vendaMap = Object.fromEntries((vendas ?? []).map((v) => [v.id, v]))
+  const devMap = Object.fromEntries((devolucoes ?? []).map((d) => [d.id, d]))
 
-  // Filtro JS por nome/código do produto
-  let movs = rows
-  if (params.busca) {
-    const t = params.busca.toLowerCase()
-    movs = rows.filter((r) => {
-      const p = prodMap[r.produto_id]
-      return (
-        (p?.nome ?? '').toLowerCase().includes(t) ||
-        (p?.codigo ?? '').toLowerCase().includes(t)
-      )
+  // 4. Montar livro-razão unificado
+  const linhas: Linha[] = []
+
+  for (const m of manuais ?? []) {
+    const p = prodMap[m.produto_id]
+    linhas.push({
+      key: 'm' + m.id,
+      data: m.created_at,
+      tipo: m.operacao as Tipo,
+      produtoId: m.produto_id,
+      produto: p?.nome ?? m.produto_id,
+      parte: depMap[m.deposito_id] ?? '—',
+      qtd: m.quantidade,
+      valorTotal: null,
+      saldo: `${m.qtd_anterior} → ${m.qtd_nova}`,
+      obs: m.observacao,
     })
   }
 
+  for (const it of (itensVenda ?? []) as Record<string, unknown>[]) {
+    const v = vendaMap[it.venda_id as string]
+    if (!v) continue
+    const nome = (it.produtos as { nome: string } | null)?.nome ?? (it.produto_id as string)
+    linhas.push({
+      key: 'v' + (it.venda_id as string) + (it.produto_id as string),
+      data: v.created_at,
+      tipo: 'venda',
+      produtoId: it.produto_id as string,
+      produto: nome,
+      parte: (v.pessoa_id ? pessoaMap[v.pessoa_id] : null) ?? 'Cliente Final',
+      qtd: it.quantidade as number,
+      valorTotal: it.total_item as number,
+      saldo: null,
+      obs: v.numero ? `Venda #${v.numero}` : 'Venda',
+    })
+  }
+
+  for (const it of (itensDev ?? []) as Record<string, unknown>[]) {
+    const d = devMap[it.devolucao_id as string]
+    if (!d) continue
+    linhas.push({
+      key: 'd' + (it.devolucao_id as string) + (it.produto_id as string),
+      data: d.created_at,
+      tipo: 'devolucao',
+      produtoId: it.produto_id as string,
+      produto: (it.nome as string) ?? (it.produto_id as string),
+      parte: d.pessoa_nome ?? 'Cliente Final',
+      qtd: it.quantidade as number,
+      valorTotal: it.total_item as number,
+      saldo: null,
+      obs: d.motivo || 'Devolução',
+    })
+  }
+
+  // 5. Filtros (tipo + busca) e ordenação
+  let rows = linhas
+  if (params.tipo) rows = rows.filter((r) => r.tipo === params.tipo)
+  if (params.busca) {
+    const t = params.busca.toLowerCase()
+    rows = rows.filter((r) => r.produto.toLowerCase().includes(t) || r.parte.toLowerCase().includes(t))
+  }
+  rows.sort((a, b) => (a.data < b.data ? 1 : a.data > b.data ? -1 : 0))
+  rows = rows.slice(0, 300)
+
   const fmtDate = (iso: string) =>
     new Date(iso).toLocaleString('pt-BR', {
-      day: '2-digit', month: '2-digit', year: '2-digit',
-      hour: '2-digit', minute: '2-digit',
+      day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit',
     })
 
   return (
@@ -74,37 +163,38 @@ export default async function HistoricoEstoquePage({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </Link>
-        <h2 className="text-2xl font-bold text-gray-900">Histórico de Estoque</h2>
-        <span className="ml-auto text-sm text-gray-400">{movs.length} registros</span>
+        <h2 className="text-2xl font-bold text-gray-900">Movimentações</h2>
+        <span className="ml-auto text-sm text-gray-400">{rows.length} registros</span>
       </div>
 
-      <form method="GET" className="flex flex-wrap gap-3">
-        <input
-          name="busca"
-          defaultValue={params.busca}
-          placeholder="Buscar produto..."
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <select
-          name="operacao"
-          defaultValue={params.operacao ?? ''}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">Todas as operações</option>
-          <option value="entrada">Entrada</option>
-          <option value="saida">Saída</option>
-          <option value="ajuste">Ajuste</option>
-        </select>
-        <select
-          name="deposito"
-          defaultValue={params.deposito ?? ''}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">Todos os depósitos</option>
-          {(depositos ?? []).map((d) => (
-            <option key={d.id} value={d.id}>{d.nome}</option>
-          ))}
-        </select>
+      <form method="GET" className="flex flex-wrap gap-3 items-end">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-500">Buscar</label>
+          <input name="busca" defaultValue={params.busca} placeholder="Produto ou cliente..."
+            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-500">Tipo</label>
+          <select name="tipo" defaultValue={params.tipo ?? ''}
+            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">Todos os tipos</option>
+            <option value="venda">Venda</option>
+            <option value="devolucao">Devolução</option>
+            <option value="entrada">Entrada</option>
+            <option value="saida">Saída</option>
+            <option value="ajuste">Ajuste</option>
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-500">De</label>
+          <input name="de" type="date" defaultValue={de}
+            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-500">Até</label>
+          <input name="ate" type="date" defaultValue={ate}
+            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
         <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition">
           Filtrar
         </button>
@@ -118,49 +208,42 @@ export default async function HistoricoEstoquePage({
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Data/Hora</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Tipo</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Produto</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Depósito</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Operação</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Cliente / Depósito</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Qtd</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Antes → Depois</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Valor</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Observação</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {movs.length === 0 ? (
+            {rows.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-12 text-center text-sm text-gray-400">
-                  Nenhuma movimentação registrada ainda.{' '}
-                  <Link href="/painel/estoque/movimentar" className="text-blue-500 hover:underline">
-                    Registrar entrada
-                  </Link>.
+                  Nenhuma movimentação no período.
                 </td>
               </tr>
             ) : (
-              movs.map((m) => {
-                const prod = prodMap[m.produto_id]
-                const dep  = depMap[m.deposito_id]
-                const op   = OPERACAO[m.operacao] ?? { label: m.operacao, cls: 'text-gray-700 bg-gray-50 border-gray-200' }
+              rows.map((r) => {
+                const t = TIPO[r.tipo] ?? { label: r.tipo, cls: 'text-gray-700 bg-gray-50 border-gray-200', sinal: '' }
                 return (
-                  <tr key={m.id} className="hover:bg-gray-50 transition">
-                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
-                      {fmtDate(m.created_at)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="text-sm font-medium text-gray-800">{prod?.nome ?? m.produto_id}</p>
-                      {prod?.codigo && <p className="text-xs text-gray-400">#{prod.codigo}</p>}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{dep?.nome ?? '—'}</td>
+                  <tr key={r.key} className="hover:bg-gray-50 transition">
+                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{fmtDate(r.data)}</td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${op.cls}`}>
-                        {op.label}
+                      <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${t.cls}`}>
+                        {t.label}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center text-sm font-bold text-gray-900">{m.quantidade}</td>
-                    <td className="px-4 py-3 text-center text-sm text-gray-500">
-                      {m.qtd_anterior} → {m.qtd_nova}
+                    <td className="px-4 py-3 text-sm font-medium text-gray-800">{r.produto}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{r.parte}</td>
+                    <td className="px-4 py-3 text-center text-sm font-bold text-gray-900">
+                      {t.sinal}{r.qtd}
+                      {r.saldo && <span className="block text-xs font-normal text-gray-400">{r.saldo}</span>}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-400">{m.observacao || '—'}</td>
+                    <td className="px-4 py-3 text-right text-sm text-gray-700">
+                      {r.valorTotal != null ? formatBRL(r.valorTotal) : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-400">{r.obs || '—'}</td>
                   </tr>
                 )
               })
