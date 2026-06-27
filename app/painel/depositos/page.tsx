@@ -6,13 +6,16 @@ import Link from 'next/link'
 export default async function DepositosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string; editar?: string }>
+  searchParams: Promise<{ erro?: string; editar?: string; busca?: string }>
 }) {
-  const { erro, editar } = await searchParams
+  const { erro, editar, busca } = await searchParams
   const supabase = await createServiceClient()
 
+  let qDepositos = supabase.from('depositos').select('id, nome, descricao').order('nome')
+  if (busca) qDepositos = qDepositos.ilike('nome', `%${busca}%`)
+
   const [{ data: depositos }, { data: estoque }] = await Promise.all([
-    supabase.from('depositos').select('id, nome, descricao').order('nome'),
+    qDepositos,
     supabase.from('estoque').select('deposito_id, quantidade'),
   ])
 
@@ -27,8 +30,21 @@ export default async function DepositosPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center gap-4">
         <h2 className="text-2xl font-bold text-gray-900">Depósitos</h2>
+        <span className="text-sm text-gray-400">{totalPorDeposito.length} registro{totalPorDeposito.length !== 1 ? 's' : ''}</span>
+        <form method="GET" className="ml-auto flex items-center gap-2">
+          <input name="busca" defaultValue={busca ?? ''} placeholder="Buscar depósito..."
+            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-56" />
+          <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition">
+            Buscar
+          </button>
+          {busca && (
+            <a href="/painel/depositos" className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition">
+              Limpar
+            </a>
+          )}
+        </form>
       </div>
 
       {erro && (
