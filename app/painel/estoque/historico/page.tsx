@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { formatBRL } from '@/lib/utils'
 import Link from 'next/link'
+import { ColunasToggler } from './ColunasToggler'
 
 type Tipo = 'venda' | 'devolucao' | 'entrada' | 'saida' | 'ajuste'
 
@@ -190,6 +191,7 @@ export default async function MovimentacoesPage({
         </Link>
         <h2 className="text-2xl font-bold text-gray-900">Movimentações</h2>
         <span className="ml-auto text-sm text-gray-400">{rows.length} registros</span>
+        <ColunasToggler />
       </div>
 
       <form method="GET" className="space-y-3">
@@ -267,14 +269,14 @@ export default async function MovimentacoesPage({
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Data/Hora</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Tipo</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Produto</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Cliente / Depósito</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Qtd</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Vlr. Unit.</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Vlr. Total</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Observação</th>
+              <th data-col="data"      className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Data/Hora</th>
+              <th data-col="tipo"      className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Tipo</th>
+              <th data-col="produto"   className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Produto</th>
+              <th data-col="cliente"   className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Cliente / Depósito</th>
+              <th data-col="qtd"       className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Qtd</th>
+              <th data-col="vlr_unit"  className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Vlr. Unit.</th>
+              <th data-col="vlr_total" className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Vlr. Total</th>
+              <th data-col="obs"       className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Observação</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -289,25 +291,25 @@ export default async function MovimentacoesPage({
                 const t = TIPO[r.tipo] ?? { label: r.tipo, cls: 'text-gray-700 bg-gray-50 border-gray-200', sinal: '' }
                 return (
                   <tr key={r.key} className="hover:bg-gray-50 transition">
-                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{fmtDate(r.data)}</td>
-                    <td className="px-4 py-3 text-center">
+                    <td data-col="data"      className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{fmtDate(r.data)}</td>
+                    <td data-col="tipo"      className="px-4 py-3 text-center">
                       <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${t.cls}`}>
                         {t.label}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-800">{r.produto}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{r.parte}</td>
-                    <td className="px-4 py-3 text-center text-sm font-bold text-gray-900">
+                    <td data-col="produto"   className="px-4 py-3 text-sm font-medium text-gray-800">{r.produto}</td>
+                    <td data-col="cliente"   className="px-4 py-3 text-sm text-gray-600">{r.parte}</td>
+                    <td data-col="qtd"       className="px-4 py-3 text-center text-sm font-bold text-gray-900">
                       {t.sinal}{r.qtd}
                       {r.saldo && <span className="block text-xs font-normal text-gray-400">{r.saldo}</span>}
                     </td>
-                    <td className="px-4 py-3 text-right text-sm text-gray-600">
+                    <td data-col="vlr_unit"  className="px-4 py-3 text-right text-sm text-gray-600">
                       {r.valorUnitario != null ? formatBRL(r.valorUnitario) : '—'}
                     </td>
-                    <td className="px-4 py-3 text-right text-sm font-medium text-gray-800">
+                    <td data-col="vlr_total" className="px-4 py-3 text-right text-sm font-medium text-gray-800">
                       {r.valorTotal != null ? formatBRL(r.valorTotal) : '—'}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-400">{r.obs || '—'}</td>
+                    <td data-col="obs"       className="px-4 py-3 text-sm text-gray-400">{r.obs || '—'}</td>
                   </tr>
                 )
               })
