@@ -9,12 +9,29 @@ const STATUS_COLOR: Record<string, string> = {
   cancelada: 'bg-red-100 text-red-600',
 }
 
-export default async function ComprasPage() {
+export default async function ComprasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ordem?: string; dir?: string }>
+}) {
+  const params = await searchParams
   const supabase = await createServiceClient()
+
+  const ordemAtual = params.ordem ?? 'created_at'
+  const ordemDir = params.dir === 'desc'
+  const camposDB: Record<string, string> = { created_at: 'created_at', numero: 'numero', valor_total: 'valor_total', status: 'status', data_entrada: 'data_entrada' }
+  const sortLink = (o: string) => {
+    const ativo = ordemAtual === o
+    const nextDir = ativo ? (ordemDir ? 'asc' : 'desc') : 'desc'
+    const arrow = ativo ? (ordemDir ? '↓' : '↑') : '↕'
+    const qs = new URLSearchParams({ ordem: o, ...(nextDir === 'asc' ? { dir: 'asc' } : {}) }).toString()
+    return { href: `/painel/compras?${qs}`, arrow, ativo }
+  }
+
   const { data: notas } = await supabase
     .from('notas_entrada')
     .select('id, numero, status, valor_total, data_entrada, data_emissao, pessoas(nome)')
-    .order('created_at', { ascending: false })
+    .order(camposDB[ordemAtual] ?? 'created_at', { ascending: !ordemDir })
     .limit(200)
 
   return (
@@ -31,11 +48,18 @@ export default async function ComprasPage() {
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Número</th>
+              {[
+                { o: 'numero',       l: 'Número',    a: 'text-left' },
+                { o: 'data_entrada', l: 'Entrada',   a: 'text-left' },
+                { o: 'valor_total',  l: 'Total',     a: 'text-left' },
+                { o: 'status',       l: 'Status',    a: 'text-center' },
+              ].map(({ o, l, a }) => {
+                const s = sortLink(o)
+                return <th key={o} className={`px-4 py-3 ${a} text-xs font-semibold text-gray-500 uppercase`}>
+                  <Link href={s.href} className={`inline-flex items-center gap-1 hover:text-gray-800 transition ${s.ativo ? 'text-blue-600' : ''}`}>{l} <span className="text-gray-400">{s.arrow}</span></Link>
+                </th>
+              })}
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Fornecedor</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Entrada</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Total</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Ações</th>
             </tr>
           </thead>
@@ -47,9 +71,6 @@ export default async function ComprasPage() {
             ) : (notas ?? []).map((n) => (
               <tr key={n.id} className="hover:bg-gray-50 transition">
                 <td className="px-4 py-3 text-sm font-mono text-gray-600">{n.numero || '—'}</td>
-                <td className="px-4 py-3 text-sm font-medium text-gray-800">
-                  {(n.pessoas as unknown as { nome: string } | null)?.nome ?? '—'}
-                </td>
                 <td className="px-4 py-3 text-sm text-gray-500">
                   {n.data_entrada ? new Date(n.data_entrada + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}
                 </td>
@@ -60,6 +81,9 @@ export default async function ComprasPage() {
                   <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLOR[n.status] ?? 'bg-gray-100 text-gray-500'}`}>
                     {n.status}
                   </span>
+                </td>
+                <td className="px-4 py-3 text-sm font-medium text-gray-800">
+                  {(n.pessoas as unknown as { nome: string } | null)?.nome ?? '—'}
                 </td>
                 <td className="px-4 py-3 text-center">
                   <div className="flex items-center justify-center gap-2">

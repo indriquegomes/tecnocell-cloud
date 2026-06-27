@@ -5,10 +5,23 @@ import Link from 'next/link'
 export default async function EstoquePage({
   searchParams,
 }: {
-  searchParams: Promise<{ deposito?: string; busca?: string }>
+  searchParams: Promise<{ deposito?: string; busca?: string; ordem?: string; dir?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
+
+  const ordemAtual = params.ordem ?? 'quantidade'
+  const ordemDir = params.dir === 'desc'
+  const baseParams: Record<string, string> = {}
+  if (params.deposito) baseParams.deposito = params.deposito
+  if (params.busca)    baseParams.busca    = params.busca
+  const sortLink = (ordem: string) => {
+    const ativo = ordemAtual === ordem
+    const nextDir = ativo ? (ordemDir ? 'asc' : 'desc') : 'asc'
+    const arrow = ativo ? (ordemDir ? '↓' : '↑') : '↕'
+    const qs = new URLSearchParams({ ...baseParams, ordem, ...(nextDir === 'desc' ? { dir: 'desc' } : {}) }).toString()
+    return { href: `/painel/estoque?${qs}`, arrow, ativo }
+  }
 
   const { data: depositos } = await supabase.from('depositos').select('id, nome').order('nome')
 
@@ -19,17 +32,28 @@ export default async function EstoquePage({
       produto:produtos ( id, nome, marca, categoria, preco ),
       deposito:depositos ( id, nome )
     `)
-    .order('quantidade', { ascending: true })
     .limit(300)
 
   if (params.deposito) query = query.eq('deposito_id', params.deposito)
 
   const { data: estoqueRaw } = await query
 
-  const estoque = (estoqueRaw ?? []).filter((e: Record<string, unknown>) => {
+  let estoque = (estoqueRaw ?? []).filter((e: Record<string, unknown>) => {
     if (!params.busca) return true
     const nome = ((e.produto as { nome: string } | null)?.nome ?? '').toLowerCase()
     return nome.includes(params.busca.toLowerCase())
+  })
+
+  estoque = [...estoque].sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+    let va: string | number = ''
+    let vb: string | number = ''
+    if (ordemAtual === 'produto') { va = ((a.produto as { nome: string } | null)?.nome ?? '').toLowerCase(); vb = ((b.produto as { nome: string } | null)?.nome ?? '').toLowerCase() }
+    else if (ordemAtual === 'marca') { va = ((a.produto as { marca: string } | null)?.marca ?? '').toLowerCase(); vb = ((b.produto as { marca: string } | null)?.marca ?? '').toLowerCase() }
+    else if (ordemAtual === 'deposito') { va = ((a.deposito as { nome: string } | null)?.nome ?? '').toLowerCase(); vb = ((b.deposito as { nome: string } | null)?.nome ?? '').toLowerCase() }
+    else { va = a.quantidade as number; vb = b.quantidade as number }
+    if (va < vb) return ordemDir ? 1 : -1
+    if (va > vb) return ordemDir ? -1 : 1
+    return 0
   })
 
   const semEstoque = estoque.filter((e: Record<string, unknown>) => (e.quantidade as number) <= 0).length
@@ -96,10 +120,17 @@ export default async function EstoquePage({
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Produto</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Marca</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Depósito</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Quantidade</th>
+              {[
+                { o: 'produto',    l: 'Produto',    a: 'text-left' },
+                { o: 'marca',      l: 'Marca',      a: 'text-left' },
+                { o: 'deposito',   l: 'Depósito',   a: 'text-left' },
+                { o: 'quantidade', l: 'Quantidade',  a: 'text-right' },
+              ].map(({ o, l, a }) => {
+                const s = sortLink(o)
+                return <th key={o} className={`px-4 py-3 ${a} text-xs font-semibold text-gray-500 uppercase tracking-wide`}>
+                  <Link href={s.href} className={`inline-flex items-center gap-1 hover:text-gray-800 transition ${s.ativo ? 'text-blue-600' : ''}`}>{l} <span className="text-gray-400">{s.arrow}</span></Link>
+                </th>
+              })}
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Ações</th>
             </tr>

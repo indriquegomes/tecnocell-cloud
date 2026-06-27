@@ -6,12 +6,26 @@ import Link from 'next/link'
 export default async function EmpresasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string; busca?: string }>
+  searchParams: Promise<{ erro?: string; busca?: string; ordem?: string; dir?: string }>
 }) {
-  const { erro, busca } = await searchParams
+  const { erro, busca, ordem, dir } = await searchParams
   const supabase = await createServiceClient()
 
-  let query = supabase.from('empresas').select('id, nome, cnpj, telefone, email, cidade, estado, ativa').order('nome')
+  const ordemAtual = ordem ?? 'nome'
+  const ordemDir = dir === 'desc'
+  const camposDB: Record<string, string> = { nome: 'nome', cidade: 'cidade', ativa: 'ativa' }
+  const baseParamsEmp: Record<string, string> = {}
+  if (busca) baseParamsEmp.busca = busca
+  const sortLink = (o: string) => {
+    const ativo = ordemAtual === o
+    const nextDir = ativo ? (ordemDir ? 'asc' : 'desc') : 'asc'
+    const arrow = ativo ? (ordemDir ? '↓' : '↑') : '↕'
+    const qs = new URLSearchParams({ ...baseParamsEmp, ordem: o, ...(nextDir === 'desc' ? { dir: 'desc' } : {}) }).toString()
+    return { href: `/painel/empresas?${qs}`, arrow, ativo }
+  }
+
+  let query = supabase.from('empresas').select('id, nome, cnpj, telefone, email, cidade, estado, ativa')
+    .order(camposDB[ordemAtual] ?? 'nome', { ascending: !ordemDir })
   if (busca) query = query.ilike('nome', `%${busca}%`)
   const { data: empresas } = await query
 
@@ -39,11 +53,14 @@ export default async function EmpresasPage({
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Nome</th>
+              {[{ o: 'nome', l: 'Nome', a: 'text-left' }, { o: 'cidade', l: 'Cidade', a: 'text-left' }, { o: 'ativa', l: 'Status', a: 'text-center' }].map(({ o, l, a }) => {
+                const s = sortLink(o)
+                return <th key={o} className={`px-4 py-3 ${a} text-xs font-semibold text-gray-500 uppercase`}>
+                  <Link href={s.href} className={`inline-flex items-center gap-1 hover:text-gray-800 transition ${s.ativo ? 'text-blue-600' : ''}`}>{l} <span className="text-gray-400">{s.arrow}</span></Link>
+                </th>
+              })}
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">CNPJ</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Contato</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Cidade</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Ações</th>
             </tr>
           </thead>
@@ -55,12 +72,6 @@ export default async function EmpresasPage({
             ) : (empresas ?? []).map((e) => (
               <tr key={e.id} className="hover:bg-gray-50 transition">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{e.nome}</td>
-                <td className="px-4 py-3 text-sm text-gray-500">{e.cnpj || '—'}</td>
-                <td className="px-4 py-3 text-sm text-gray-500">
-                  {e.email && <p>{e.email}</p>}
-                  {e.telefone && <p>{e.telefone}</p>}
-                  {!e.email && !e.telefone && '—'}
-                </td>
                 <td className="px-4 py-3 text-sm text-gray-500">
                   {e.cidade ? `${e.cidade}${e.estado ? `/${e.estado}` : ''}` : '—'}
                 </td>
@@ -68,6 +79,12 @@ export default async function EmpresasPage({
                   <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${e.ativa ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                     {e.ativa ? 'Ativa' : 'Inativa'}
                   </span>
+                </td>
+                <td className="px-4 py-3 text-sm text-gray-500">{e.cnpj || '—'}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">
+                  {e.email && <p>{e.email}</p>}
+                  {e.telefone && <p>{e.telefone}</p>}
+                  {!e.email && !e.telefone && '—'}
                 </td>
                 <td className="px-4 py-3 text-center">
                   <div className="flex items-center justify-center gap-2">

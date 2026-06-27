@@ -8,15 +8,29 @@ import Link from 'next/link'
 export default async function FinanceiroPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tipo?: string; busca?: string }>
+  searchParams: Promise<{ tipo?: string; busca?: string; ordem?: string; dir?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
 
+  const ordemAtual = params.ordem ?? 'data_vencimento'
+  const ordemDir = params.dir === 'desc'
+  const camposDB: Record<string, string> = { data_vencimento: 'data_vencimento', valor: 'valor', descricao: 'descricao', pessoa_nome: 'pessoa_nome', tipo: 'tipo', status: 'status' }
+  const baseParams: Record<string, string> = {}
+  if (params.tipo)  baseParams.tipo  = params.tipo
+  if (params.busca) baseParams.busca = params.busca
+  const sortLink = (o: string) => {
+    const ativo = ordemAtual === o
+    const nextDir = ativo ? (ordemDir ? 'asc' : 'desc') : 'asc'
+    const arrow = ativo ? (ordemDir ? '↓' : '↑') : '↕'
+    const qs = new URLSearchParams({ ...baseParams, ordem: o, ...(nextDir === 'desc' ? { dir: 'desc' } : {}) }).toString()
+    return { href: `/painel/financeiro?${qs}`, arrow, ativo }
+  }
+
   let query = supabase
     .from('lancamentos')
     .select('id, codigo, descricao, valor, tipo, status, data_vencimento, data_pagamento, forma_pagamento, pessoa_nome')
-    .order('data_vencimento', { ascending: false })
+    .order(camposDB[ordemAtual] ?? 'data_vencimento', { ascending: !ordemDir })
     .limit(200)
 
   if (params.tipo && (params.tipo === 'pagar' || params.tipo === 'receber')) {
@@ -102,12 +116,19 @@ export default async function FinanceiroPage({
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Descrição</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Pessoa</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Vencimento</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Valor</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Tipo</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+              {[
+                { o: 'descricao',      l: 'Descrição',  a: 'text-left' },
+                { o: 'pessoa_nome',    l: 'Pessoa',     a: 'text-left' },
+                { o: 'data_vencimento', l: 'Vencimento', a: 'text-left' },
+                { o: 'valor',          l: 'Valor',      a: 'text-right' },
+                { o: 'tipo',           l: 'Tipo',       a: 'text-center' },
+                { o: 'status',         l: 'Status',     a: 'text-center' },
+              ].map(({ o, l, a }) => {
+                const s = sortLink(o)
+                return <th key={o} className={`px-4 py-3 ${a} text-xs font-semibold text-gray-500 uppercase tracking-wide`}>
+                  <Link href={s.href} className={`inline-flex items-center gap-1 hover:text-gray-800 transition ${s.ativo ? 'text-blue-600' : ''}`}>{l} <span className="text-gray-400">{s.arrow}</span></Link>
+                </th>
+              })}
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Ações</th>
             </tr>
           </thead>

@@ -6,9 +6,9 @@ import Link from 'next/link'
 export default async function CategoriasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string; editar?: string; busca?: string }>
+  searchParams: Promise<{ erro?: string; editar?: string; busca?: string; ordem?: string; dir?: string }>
 }) {
-  const { erro, editar, busca } = await searchParams
+  const { erro, editar, busca, ordem, dir } = await searchParams
   const supabase = await createServiceClient()
 
   const [{ data: categorias }, { data: produtos }] = await Promise.all([
@@ -23,9 +23,29 @@ export default async function CategoriasPage({
     total: (produtos ?? []).filter((p) => p.categoria === c.hierarquia).length,
   }))
 
-  const filtradas = busca
+  const ordemAtual = ordem ?? 'nome'
+  const ordemDir = dir === 'desc'
+  const baseParamsCat: Record<string, string> = {}
+  if (busca) baseParamsCat.busca = busca
+  const sortLinkCat = (o: string) => {
+    const ativo = ordemAtual === o
+    const nextDir = ativo ? (ordemDir ? 'asc' : 'desc') : 'asc'
+    const arrow = ativo ? (ordemDir ? '↓' : '↑') : '↕'
+    const qs = new URLSearchParams({ ...baseParamsCat, ordem: o, ...(nextDir === 'desc' ? { dir: 'desc' } : {}) }).toString()
+    return { href: `/painel/categorias?${qs}`, arrow, ativo }
+  }
+
+  let filtradas = busca
     ? comContagem.filter((c) => c.nome.toLowerCase().includes(busca.toLowerCase()))
     : comContagem
+
+  filtradas = [...filtradas].sort((a, b) => {
+    const va = ordemAtual === 'total' ? a.total : a.nome.toLowerCase()
+    const vb = ordemAtual === 'total' ? b.total : b.nome.toLowerCase()
+    if (va < vb) return ordemDir ? 1 : -1
+    if (va > vb) return ordemDir ? -1 : 1
+    return 0
+  })
 
   return (
     <div className="space-y-6">
@@ -87,9 +107,13 @@ export default async function CategoriasPage({
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Categoria</th>
+              {[{ o: 'nome', l: 'Categoria', a: 'text-left' }, { o: 'total', l: 'Produtos', a: 'text-center' }].map(({ o, l, a }) => {
+                const s = sortLinkCat(o)
+                return <th key={o} className={`px-4 py-3 ${a} text-xs font-semibold text-gray-500 uppercase`}>
+                  <Link href={s.href} className={`inline-flex items-center gap-1 hover:text-gray-800 transition ${s.ativo ? 'text-blue-600' : ''}`}>{l} <span className="text-gray-400">{s.arrow}</span></Link>
+                </th>
+              })}
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Descrição</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Produtos</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Ações</th>
             </tr>
           </thead>
@@ -99,8 +123,8 @@ export default async function CategoriasPage({
             ) : filtradas.map((c) => (
               <tr key={c.hierarquia} className="hover:bg-gray-50 transition">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.nome}</td>
-                <td className="px-4 py-3 text-sm text-gray-500">{c.descricao || '—'}</td>
                 <td className="px-4 py-3 text-center text-sm text-gray-600">{c.total}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{c.descricao || '—'}</td>
                 <td className="px-4 py-3 text-center">
                   <div className="flex items-center justify-center gap-2">
                     <Link href={`/painel/categorias?editar=${encodeURIComponent(c.hierarquia)}`}
