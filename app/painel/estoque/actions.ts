@@ -18,8 +18,11 @@ export async function registrarMovimento(formData: FormData) {
     .ilike('nome', nomeBusca)
     .limit(1)
     .maybeSingle()
-  const produto_id = produtoEncontrado?.id ?? (formData.get('produto_id') as string)
-  const quantidade = parseInt(formData.get('quantidade') as string, 10)
+  const produto_id = produtoEncontrado?.id ?? null
+  if (!produto_id) {
+    redirect('/painel/estoque/historico?erro=produto-nao-encontrado')
+  }
+  const quantidade = parseFloat(formData.get('quantidade') as string)
   const operacao = formData.get('operacao') as string
   const notaFiscal = (formData.get('nota_fiscal') as string | null)?.trim() || null
   const obsRaw = (formData.get('observacao') as string | null)?.trim() || null
@@ -30,8 +33,9 @@ export async function registrarMovimento(formData: FormData) {
   // Data e hora da movimentação (permite backfill)
   const dataMov = formData.get('data_mov') as string | null
   const horarioMov = formData.get('horario_mov') as string | null
+  // Trata o horário como hora de Brasília (UTC-3)
   const createdAt = dataMov && horarioMov
-    ? new Date(`${dataMov}T${horarioMov}:00`).toISOString()
+    ? new Date(`${dataMov}T${horarioMov}:00-03:00`).toISOString()
     : new Date().toISOString()
 
   const { data: atual } = await supabase

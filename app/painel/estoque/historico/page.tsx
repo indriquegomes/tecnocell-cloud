@@ -40,17 +40,21 @@ export default async function MovimentacoesPage({
     ate?: string
     ordem?: string
     dir?: string
+    erro?: string
   }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
 
-  const inicioMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
-  const hoje = new Date().toISOString().split('T')[0]
+  // Datas no fuso de São Paulo (UTC-3), independente do servidor Vercel (UTC)
+  const agoraBr = new Date().toLocaleString('sv', { timeZone: 'America/Sao_Paulo' })
+  const hoje = agoraBr.slice(0, 10)
+  const anoMes = hoje.slice(0, 7)
+  const inicioMes = `${anoMes}-01`
   const de = params.de ?? inicioMes
   const ate = params.ate ?? hoje
-  const ini = de + 'T00:00:00'
-  const fim = ate + 'T23:59:59'
+  const ini = de + 'T00:00:00-03:00'
+  const fim = ate + 'T23:59:59-03:00'
 
   // 1. Fontes no período
   let qManuais = supabase.from('movimentacoes_estoque')
@@ -69,9 +73,8 @@ export default async function MovimentacoesPage({
     .gte('created_at', ini).lte('created_at', fim).order('created_at', { ascending: false }).limit(500)
   if (params.deposito) qDevs = qDevs.eq('deposito_id', params.deposito)
 
-  const hoje2 = new Date()
-  const dataHoje = hoje2.toISOString().split('T')[0]
-  const horaAgora = hoje2.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false })
+  const dataHoje = hoje
+  const horaAgora = agoraBr.slice(11, 16)
 
   const [{ data: manuais }, { data: vendas }, { data: devolucoes }, { data: depositos }, { data: todosProdutos }] = await Promise.all([
     qManuais, qVendas, qDevs,
@@ -216,6 +219,7 @@ export default async function MovimentacoesPage({
     new Date(iso).toLocaleString('pt-BR', {
       day: '2-digit', month: '2-digit', year: '2-digit',
       hour: '2-digit', minute: '2-digit',
+      timeZone: 'America/Sao_Paulo',
     })
 
   return (
@@ -231,6 +235,13 @@ export default async function MovimentacoesPage({
         <span className="ml-auto text-sm text-gray-400">{rows.length} registros</span>
         <ColunasToggler />
       </div>
+
+      {/* Banner de erro */}
+      {params.erro === 'produto-nao-encontrado' && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          Produto não encontrado. Selecione um produto da lista de sugestões.
+        </div>
+      )}
 
       {/* Aba Nova Movimentação */}
       <details className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">

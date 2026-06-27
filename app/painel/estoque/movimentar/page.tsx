@@ -14,9 +14,9 @@ export default async function MovimentarEstoquePage({
     supabase.from('depositos').select('id, nome').order('nome'),
   ])
 
-  const hoje = new Date()
-  const dataHoje = hoje.toISOString().split('T')[0]
-  const horaAgora = hoje.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false })
+  const agoraBr = new Date().toLocaleString('sv', { timeZone: 'America/Sao_Paulo' })
+  const dataHoje = agoraBr.slice(0, 10)
+  const horaAgora = agoraBr.slice(11, 16)
 
   return (
     <div className="space-y-4">
