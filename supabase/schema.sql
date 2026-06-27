@@ -60,6 +60,20 @@ create table if not exists estoque (
   unique(produto_id, deposito_id)
 );
 
+-- Histórico de movimentações de estoque (audit trail)
+create table if not exists movimentacoes_estoque (
+  id           uuid        primary key default gen_random_uuid(),
+  produto_id   text        not null,
+  deposito_id  text        not null,
+  operacao     text        not null check (operacao in ('entrada', 'saida', 'ajuste')),
+  quantidade   integer     not null,
+  qtd_anterior integer     not null default 0,
+  qtd_nova     integer     not null,
+  observacao   text,
+  criado_por   text,
+  created_at   timestamptz not null default now()
+);
+
 -- Unidades serializadas: 1 linha = 1 aparelho físico (IMEI / nº série)
 create table if not exists numeros_serie (
   id          uuid primary key default uuid_generate_v4(),

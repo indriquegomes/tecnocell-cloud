@@ -39,7 +39,7 @@ export async function registrarMovimento(formData: FormData) {
 
   if (error) throw new Error(error.message)
 
-  await supabase.from('movimentacoes_estoque').insert({
+  const { error: logError } = await supabase.from('movimentacoes_estoque').insert({
     produto_id,
     deposito_id,
     operacao,
@@ -49,6 +49,7 @@ export async function registrarMovimento(formData: FormData) {
     observacao,
     criado_por: user.id,
   })
+  if (logError) throw new Error(`Falha ao registrar histórico: ${logError.message}`)
 
   revalidatePath('/painel/estoque')
   redirect('/painel/estoque')
