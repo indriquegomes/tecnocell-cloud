@@ -8,19 +8,25 @@ import Link from 'next/link'
 export default async function ProdutosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ busca?: string; categoria?: string; marca?: string; ordem?: string; dir?: string }>
+  searchParams: Promise<{
+    busca?: string; categoria?: string; marca?: string
+    ordem?: string; dir?: string
+    preco_min?: string; preco_max?: string; prateleira?: string
+    com_estoque?: string; so_inativos?: string
+  }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
 
   const ordemAtual = params.ordem ?? 'nome'
-  const ordemDir = params.dir === 'desc'
+  const ordemDir   = params.dir === 'desc'
+  const advancedOn = !!(params.preco_min || params.preco_max || params.prateleira || params.com_estoque || params.so_inativos)
 
-  const ordemCampo = ordemAtual === 'marca' ? 'marca'
+  const ordemCampo = ordemAtual === 'marca'     ? 'marca'
     : ordemAtual === 'categoria' ? 'categoria'
-    : ordemAtual === 'preco' ? 'preco'
-    : ordemAtual === 'custo' ? 'preco_custo'
-    : ordemAtual === 'status' ? 'ativo'
+    : ordemAtual === 'preco'     ? 'preco'
+    : ordemAtual === 'custo'     ? 'preco_custo'
+    : ordemAtual === 'status'    ? 'ativo'
     : 'nome'
 
   const ordemEstoque = ordemAtual === 'estoque'
@@ -42,8 +48,12 @@ export default async function ProdutosPage({
     const termo = params.busca.replace(/[,()]/g, ' ').trim()
     query = query.or(`nome.ilike.%${termo}%,codigo.ilike.%${termo}%,ean.ilike.%${termo}%,modelo.ilike.%${termo}%`)
   }
-  if (params.categoria) query = query.eq('categoria', params.categoria)
-  if (params.marca) query = query.eq('marca', params.marca)
+  if (params.categoria)  query = query.eq('categoria', params.categoria)
+  if (params.marca)      query = query.eq('marca', params.marca)
+  if (params.prateleira) query = query.ilike('prateleira', `%${params.prateleira}%`)
+  if (params.preco_min)  query = query.gte('preco', parseFloat(params.preco_min))
+  if (params.preco_max)  query = query.lte('preco', parseFloat(params.preco_max))
+  if (params.so_inativos) query = query.eq('ativo', false)
 
   const [{ data: produtosRaw }, { data: categorias }, { data: marcas }] = await Promise.all([
     query,
@@ -51,13 +61,31 @@ export default async function ProdutosPage({
     supabase.from('marcas').select('nome').order('nome'),
   ])
 
-  const produtos = ordemEstoque
+  const getEstoque = (p: Record<string, unknown>) =>
+    ((p.estoque as { quantidade: number }[]) ?? []).reduce((s, e) => s + (e.quantidade ?? 0), 0)
+
+  let produtos = ordemEstoque
     ? [...(produtosRaw ?? [])].sort((a, b) => {
-        const qa = ((a as Record<string, unknown>).estoque as { quantidade: number }[] ?? []).reduce((s, e) => s + (e.quantidade ?? 0), 0)
-        const qb = ((b as Record<string, unknown>).estoque as { quantidade: number }[] ?? []).reduce((s, e) => s + (e.quantidade ?? 0), 0)
-        return ordemDir ? qb - qa : qa - qb
+        const diff = getEstoque(a as Record<string, unknown>) - getEstoque(b as Record<string, unknown>)
+        return ordemDir ? -diff : diff
       })
     : (produtosRaw ?? [])
+
+  if (params.com_estoque) {
+    produtos = produtos.filter((p) => getEstoque(p as Record<string, unknown>) > 0)
+  }
+
+  // Params base pra preservar filtros nos links de ordenação
+  const baseParams = {
+    ...(params.busca      ? { busca: params.busca }           : {}),
+    ...(params.categoria  ? { categoria: params.categoria }   : {}),
+    ...(params.marca      ? { marca: params.marca }           : {}),
+    ...(params.prateleira ? { prateleira: params.prateleira } : {}),
+    ...(params.preco_min  ? { preco_min: params.preco_min }   : {}),
+    ...(params.preco_max  ? { preco_max: params.preco_max }   : {}),
+    ...(params.com_estoque  ? { com_estoque: params.com_estoque }   : {}),
+    ...(params.so_inativos  ? { so_inativos: params.so_inativos }   : {}),
+  }
 
   return (
     <div className="space-y-6">
@@ -70,42 +98,85 @@ export default async function ProdutosPage({
       </div>
 
       {/* Filtros */}
-      <form method="GET" className="flex flex-wrap gap-3">
+      <form method="GET" className="space-y-3">
         {params.ordem && <input type="hidden" name="ordem" value={params.ordem} />}
-        {params.dir && <input type="hidden" name="dir" value={params.dir} />}
-        <input
-          name="busca"
-          defaultValue={params.busca}
-          placeholder="Buscar por nome, código, EAN ou modelo..."
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <select
-          name="categoria"
-          defaultValue={params.categoria ?? ''}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">Todas as categorias</option>
-          {(categorias ?? []).map((c) => (
-            <option key={c.hierarquia} value={c.hierarquia}>{c.nome}</option>
-          ))}
-        </select>
-        <select
-          name="marca"
-          defaultValue={params.marca ?? ''}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">Todas as marcas</option>
-          {(marcas ?? []).map((m) => (
-            <option key={m.nome} value={m.nome}>{m.nome}</option>
-          ))}
-        </select>
-        <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition">
-          Filtrar
-        </button>
-        <Link href="/painel/produtos" className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition">
-          Limpar
-        </Link>
-        <span className="ml-auto self-center text-sm text-gray-400">{produtos?.length ?? 0} registros</span>
+        {params.dir   && <input type="hidden" name="dir"   value={params.dir}   />}
+
+        {/* Filtros básicos */}
+        <div className="flex flex-wrap gap-3">
+          <input
+            name="busca"
+            defaultValue={params.busca}
+            placeholder="Buscar por nome, código, EAN ou modelo..."
+            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <select name="categoria" defaultValue={params.categoria ?? ''}
+            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">Todas as categorias</option>
+            {(categorias ?? []).map((c) => (
+              <option key={c.hierarquia} value={c.hierarquia}>{c.nome}</option>
+            ))}
+          </select>
+          <select name="marca" defaultValue={params.marca ?? ''}
+            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">Todas as marcas</option>
+            {(marcas ?? []).map((m) => (
+              <option key={m.nome} value={m.nome}>{m.nome}</option>
+            ))}
+          </select>
+          <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition">
+            Filtrar
+          </button>
+          <Link href="/painel/produtos" className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition">
+            Limpar
+          </Link>
+          <span className="ml-auto self-center text-sm text-gray-400">{produtos.length} registros</span>
+        </div>
+
+        {/* Busca Avançada */}
+        <details open={advancedOn} className="rounded-xl border border-gray-200 bg-gray-50">
+          <summary className="cursor-pointer select-none px-4 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-900 list-none flex items-center gap-2">
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
+            </svg>
+            Busca Avançada
+            {advancedOn && <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700">ativo</span>}
+          </summary>
+          <div className="border-t border-gray-200 px-4 py-4 space-y-4">
+            <div className="flex flex-wrap gap-3 items-end">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-500">Prateleira</label>
+                <input name="prateleira" defaultValue={params.prateleira}
+                  placeholder="Ex: Vitrine 1"
+                  className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-36" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-500">Preço de R$</label>
+                <input name="preco_min" type="number" min="0" step="0.01" defaultValue={params.preco_min}
+                  placeholder="0,00"
+                  className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-28" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-500">até R$</label>
+                <input name="preco_max" type="number" min="0" step="0.01" defaultValue={params.preco_max}
+                  placeholder="9999,00"
+                  className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-28" />
+              </div>
+              <div className="flex items-center gap-5 pb-0.5">
+                <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+                  <input type="checkbox" name="com_estoque" value="1" defaultChecked={!!params.com_estoque}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                  Somente com estoque
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+                  <input type="checkbox" name="so_inativos" value="1" defaultChecked={!!params.so_inativos}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                  Somente inativos
+                </label>
+              </div>
+            </div>
+          </div>
+        </details>
       </form>
 
       {/* Tabela */}
@@ -122,12 +193,10 @@ export default async function ProdutosPage({
                 { label: 'Estoque',   ordem: 'estoque',   align: 'text-center' },
                 { label: 'Status',    ordem: 'status',    align: 'text-center' },
               ].map(({ label, ordem, align }) => {
-                const ativo = ordemAtual === ordem
-                const nextDir = ativo ? (ordemDir ? 'asc' : 'desc') : 'asc'
+                const ativo    = ordemAtual === ordem
+                const nextDir  = ativo ? (ordemDir ? 'asc' : 'desc') : 'asc'
                 const qs = new URLSearchParams({
-                  ...(params.busca ? { busca: params.busca } : {}),
-                  ...(params.categoria ? { categoria: params.categoria } : {}),
-                  ...(params.marca ? { marca: params.marca } : {}),
+                  ...baseParams,
                   ordem,
                   ...(nextDir === 'desc' ? { dir: 'desc' } : {}),
                 }).toString()
@@ -145,17 +214,16 @@ export default async function ProdutosPage({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {(produtos ?? []).length === 0 ? (
+            {produtos.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-4 py-12 text-center text-sm text-gray-400">
                   Nenhum produto encontrado. <Link href="/painel/produtos/novo" className="text-blue-500 hover:underline">Cadastrar produto</Link>.
                 </td>
               </tr>
             ) : (
-              (produtos ?? []).map((p: Record<string, unknown>) => {
-                const estoqueTotal = ((p.estoque as { quantidade: number }[]) ?? [])
-                  .reduce((s, e) => s + (e.quantidade ?? 0), 0)
-                const minimo = (p.estoque_minimo as number) ?? 0
+              produtos.map((p: Record<string, unknown>) => {
+                const estoqueTotal = getEstoque(p)
+                const minimo       = (p.estoque_minimo as number) ?? 0
                 const abaixoMinimo = minimo > 0 && estoqueTotal < minimo
                 return (
                   <tr key={p.id as string} className="hover:bg-gray-50 transition">
