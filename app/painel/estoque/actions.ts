@@ -5,12 +5,13 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 export async function registrarMovimento(formData: FormData) {
-  await requireAuth()
+  const user = await requireAuth()
   const supabase = await createServiceClient()
   const produto_id = formData.get('produto_id') as string
   const deposito_id = formData.get('deposito_id') as string
   const quantidade = parseInt(formData.get('quantidade') as string, 10)
-  const operacao = formData.get('operacao') as string // 'entrada' | 'saida' | 'ajuste'
+  const operacao = formData.get('operacao') as string
+  const observacao = (formData.get('observacao') as string | null)?.trim() || null
 
   const { data: atual } = await supabase
     .from('estoque')
@@ -19,23 +20,36 @@ export async function registrarMovimento(formData: FormData) {
     .eq('deposito_id', deposito_id)
     .maybeSingle()
 
-  let novaQtd: number
+  const qtdAnterior = atual?.quantidade ?? 0
+  let qtdNova: number
   if (operacao === 'ajuste') {
-    novaQtd = quantidade
+    qtdNova = quantidade
   } else if (operacao === 'saida') {
-    novaQtd = Math.max(0, (atual?.quantidade ?? 0) - quantidade)
+    qtdNova = Math.max(0, qtdAnterior - quantidade)
   } else {
-    novaQtd = (atual?.quantidade ?? 0) + quantidade
+    qtdNova = qtdAnterior + quantidade
   }
 
   const { error } = await supabase
     .from('estoque')
     .upsert(
-      { produto_id, deposito_id, quantidade: novaQtd, updated_at: new Date().toISOString() },
+      { produto_id, deposito_id, quantidade: qtdNova, updated_at: new Date().toISOString() },
       { onConflict: 'produto_id,deposito_id' }
     )
 
   if (error) throw new Error(error.message)
+
+  await supabase.from('movimentacoes_estoque').insert({
+    produto_id,
+    deposito_id,
+    operacao,
+    quantidade,
+    qtd_anterior: qtdAnterior,
+    qtd_nova: qtdNova,
+    observacao,
+    criado_por: user.id,
+  })
+
   revalidatePath('/painel/estoque')
   redirect('/painel/estoque')
 }

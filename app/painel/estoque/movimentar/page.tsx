@@ -62,6 +62,16 @@ export default async function MovimentarEstoquePage({
           <input name="quantidade" type="number" min="0" required defaultValue="1" className="field" />
         </div>
 
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Observação</label>
+          <textarea
+            name="observacao"
+            rows={2}
+            placeholder="Ex: compra nota fiscal 001, devolução cliente..."
+            className="field resize-none"
+          />
+        </div>
+
         <div className="flex gap-3 pt-2">
           <button type="submit" className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
             Registrar
