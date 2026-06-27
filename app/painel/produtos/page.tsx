@@ -35,7 +35,10 @@ export default async function ProdutosPage({
 
   if (ordemCampo !== 'nome') query = query.order('nome')
 
-  if (params.busca) query = query.ilike('nome', `%${params.busca}%`)
+  if (params.busca) {
+    const termo = params.busca.replace(/[,()]/g, ' ').trim()
+    query = query.or(`nome.ilike.%${termo}%,codigo.ilike.%${termo}%,ean.ilike.%${termo}%,modelo.ilike.%${termo}%`)
+  }
   if (params.categoria) query = query.eq('categoria', params.categoria)
   if (params.marca) query = query.eq('marca', params.marca)
 
@@ -69,7 +72,7 @@ export default async function ProdutosPage({
         <input
           name="busca"
           defaultValue={params.busca}
-          placeholder="Buscar por nome..."
+          placeholder="Buscar por nome, código, EAN ou modelo..."
           className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <select
