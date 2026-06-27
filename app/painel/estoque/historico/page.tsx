@@ -5,11 +5,11 @@ import Link from 'next/link'
 type Tipo = 'venda' | 'devolucao' | 'entrada' | 'saida' | 'ajuste'
 
 const TIPO: Record<Tipo, { label: string; cls: string; sinal: string }> = {
-  venda:     { label: 'Venda',     cls: 'text-red-700 bg-red-50 border-red-200',       sinal: '−' },
-  devolucao: { label: 'Devolução', cls: 'text-green-700 bg-green-50 border-green-200',  sinal: '+' },
-  entrada:   { label: 'Entrada',   cls: 'text-green-700 bg-green-50 border-green-200',  sinal: '+' },
-  saida:     { label: 'Saída',     cls: 'text-red-700 bg-red-50 border-red-200',        sinal: '−' },
-  ajuste:    { label: 'Ajuste',    cls: 'text-blue-700 bg-blue-50 border-blue-200',     sinal: '' },
+  venda:     { label: 'Venda',     cls: 'text-red-700 bg-red-50 border-red-200',      sinal: '−' },
+  devolucao: { label: 'Devolução', cls: 'text-green-700 bg-green-50 border-green-200', sinal: '+' },
+  entrada:   { label: 'Entrada',   cls: 'text-green-700 bg-green-50 border-green-200', sinal: '+' },
+  saida:     { label: 'Saída',     cls: 'text-red-700 bg-red-50 border-red-200',       sinal: '−' },
+  ajuste:    { label: 'Ajuste',    cls: 'text-blue-700 bg-blue-50 border-blue-200',    sinal: '' },
 }
 
 type Linha = {
@@ -18,8 +18,9 @@ type Linha = {
   tipo: Tipo
   produtoId: string
   produto: string
-  parte: string      // cliente/fornecedor ou depósito
+  parte: string
   qtd: number
+  valorUnitario: number | null
   valorTotal: number | null
   saldo: string | null
   obs: string | null
@@ -28,7 +29,14 @@ type Linha = {
 export default async function MovimentacoesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tipo?: string; busca?: string; de?: string; ate?: string }>
+  searchParams: Promise<{
+    tipo?: string
+    produto?: string
+    cliente?: string
+    deposito?: string
+    de?: string
+    ate?: string
+  }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
@@ -40,35 +48,42 @@ export default async function MovimentacoesPage({
   const ini = de + 'T00:00:00'
   const fim = ate + 'T23:59:59'
 
-  // 1. Fontes principais no período
-  const [{ data: manuais }, { data: vendas }, { data: devolucoes }] = await Promise.all([
-    supabase.from('movimentacoes_estoque')
-      .select('id, produto_id, deposito_id, operacao, quantidade, qtd_anterior, qtd_nova, observacao, created_at')
-      .gte('created_at', ini).lte('created_at', fim).order('created_at', { ascending: false }).limit(500),
-    supabase.from('vendas')
-      .select('id, numero, created_at, vendedor_nome, pessoa_id, deposito_id, status')
-      .neq('status', 'aberta')
-      .gte('created_at', ini).lte('created_at', fim).order('created_at', { ascending: false }).limit(500),
-    supabase.from('devolucoes')
-      .select('id, created_at, pessoa_nome, vendedor_nome, deposito_id, motivo')
-      .gte('created_at', ini).lte('created_at', fim).order('created_at', { ascending: false }).limit(500),
+  // 1. Fontes no período
+  let qManuais = supabase.from('movimentacoes_estoque')
+    .select('id, produto_id, deposito_id, operacao, quantidade, qtd_anterior, qtd_nova, observacao, created_at')
+    .gte('created_at', ini).lte('created_at', fim).order('created_at', { ascending: false }).limit(500)
+  if (params.deposito) qManuais = qManuais.eq('deposito_id', params.deposito)
+
+  let qVendas = supabase.from('vendas')
+    .select('id, numero, created_at, vendedor_nome, pessoa_id, deposito_id, status')
+    .neq('status', 'aberta')
+    .gte('created_at', ini).lte('created_at', fim).order('created_at', { ascending: false }).limit(500)
+  if (params.deposito) qVendas = qVendas.eq('deposito_id', params.deposito)
+
+  let qDevs = supabase.from('devolucoes')
+    .select('id, created_at, pessoa_nome, vendedor_nome, deposito_id, motivo')
+    .gte('created_at', ini).lte('created_at', fim).order('created_at', { ascending: false }).limit(500)
+  if (params.deposito) qDevs = qDevs.eq('deposito_id', params.deposito)
+
+  const [{ data: manuais }, { data: vendas }, { data: devolucoes }, { data: depositos }] = await Promise.all([
+    qManuais, qVendas, qDevs,
+    supabase.from('depositos').select('id, nome'),
   ])
 
   const vendaIds = (vendas ?? []).map((v) => v.id)
   const devolucaoIds = (devolucoes ?? []).map((d) => d.id)
 
-  // 2. Itens das vendas/devoluções + mapas de apoio
-  const [{ data: itensVenda }, { data: itensDev }, { data: depositos }] = await Promise.all([
+  // 2. Itens + mapas
+  const [{ data: itensVenda }, { data: itensDev }] = await Promise.all([
     vendaIds.length
       ? supabase.from('itens_venda').select('venda_id, produto_id, quantidade, preco_unitario, total_item, produtos(nome)').in('venda_id', vendaIds)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
     devolucaoIds.length
       ? supabase.from('itens_devolucao').select('devolucao_id, produto_id, nome, quantidade, preco_unitario, total_item').in('devolucao_id', devolucaoIds)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
-    supabase.from('depositos').select('id, nome'),
   ])
 
-  // 3. Nomes de produtos (p/ manuais) e pessoas (p/ vendas)
+  // 3. Nomes de produtos (manuais) e pessoas (vendas)
   const prodIds = [...new Set((manuais ?? []).map((m) => m.produto_id).filter(Boolean))]
   const pessoaIds = [...new Set((vendas ?? []).map((v) => v.pessoa_id).filter(Boolean))] as string[]
   const [{ data: prods }, { data: pessoas }] = await Promise.all([
@@ -86,7 +101,7 @@ export default async function MovimentacoesPage({
   const vendaMap = Object.fromEntries((vendas ?? []).map((v) => [v.id, v]))
   const devMap = Object.fromEntries((devolucoes ?? []).map((d) => [d.id, d]))
 
-  // 4. Montar livro-razão unificado
+  // 4. Livro-razão unificado
   const linhas: Linha[] = []
 
   for (const m of manuais ?? []) {
@@ -99,6 +114,7 @@ export default async function MovimentacoesPage({
       produto: p?.nome ?? m.produto_id,
       parte: depMap[m.deposito_id] ?? '—',
       qtd: m.quantidade,
+      valorUnitario: null,
       valorTotal: null,
       saldo: `${m.qtd_anterior} → ${m.qtd_nova}`,
       obs: m.observacao,
@@ -117,6 +133,7 @@ export default async function MovimentacoesPage({
       produto: nome,
       parte: (v.pessoa_id ? pessoaMap[v.pessoa_id] : null) ?? 'Cliente Final',
       qtd: it.quantidade as number,
+      valorUnitario: it.preco_unitario as number | null,
       valorTotal: it.total_item as number,
       saldo: null,
       obs: v.numero ? `Venda #${v.numero}` : 'Venda',
@@ -134,25 +151,33 @@ export default async function MovimentacoesPage({
       produto: (it.nome as string) ?? (it.produto_id as string),
       parte: d.pessoa_nome ?? 'Cliente Final',
       qtd: it.quantidade as number,
+      valorUnitario: it.preco_unitario as number | null,
       valorTotal: it.total_item as number,
       saldo: null,
       obs: d.motivo || 'Devolução',
     })
   }
 
-  // 5. Filtros (tipo + busca) e ordenação
+  // 5. Filtros JS + ordenação
   let rows = linhas
   if (params.tipo) rows = rows.filter((r) => r.tipo === params.tipo)
-  if (params.busca) {
-    const t = params.busca.toLowerCase()
-    rows = rows.filter((r) => r.produto.toLowerCase().includes(t) || r.parte.toLowerCase().includes(t))
+  if (params.produto) {
+    const t = params.produto.toLowerCase()
+    rows = rows.filter((r) => r.produto.toLowerCase().includes(t))
+  }
+  if (params.cliente) {
+    const t = params.cliente.toLowerCase()
+    rows = rows.filter((r) => r.parte.toLowerCase().includes(t))
   }
   rows.sort((a, b) => (a.data < b.data ? 1 : a.data > b.data ? -1 : 0))
   rows = rows.slice(0, 300)
 
+  const advancedOn = !!(params.produto || params.cliente || params.deposito)
+
   const fmtDate = (iso: string) =>
     new Date(iso).toLocaleString('pt-BR', {
-      day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit',
+      day: '2-digit', month: '2-digit', year: '2-digit',
+      hour: '2-digit', minute: '2-digit',
     })
 
   return (
@@ -167,40 +192,75 @@ export default async function MovimentacoesPage({
         <span className="ml-auto text-sm text-gray-400">{rows.length} registros</span>
       </div>
 
-      <form method="GET" className="flex flex-wrap gap-3 items-end">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500">Buscar</label>
-          <input name="busca" defaultValue={params.busca} placeholder="Produto ou cliente..."
-            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      <form method="GET" className="space-y-3">
+        {/* Linha principal de filtros */}
+        <div className="flex flex-wrap gap-3 items-end">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-500">Tipo</label>
+            <select name="tipo" defaultValue={params.tipo ?? ''}
+              className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">Todos os tipos</option>
+              <option value="venda">Venda</option>
+              <option value="devolucao">Devolução</option>
+              <option value="entrada">Entrada</option>
+              <option value="saida">Saída</option>
+              <option value="ajuste">Ajuste</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-500">De</label>
+            <input name="de" type="date" defaultValue={de}
+              className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-500">Até</label>
+            <input name="ate" type="date" defaultValue={ate}
+              className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <button type="submit"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition">
+            Filtrar
+          </button>
+          <Link href="/painel/estoque/historico"
+            className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition">
+            Limpar
+          </Link>
         </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500">Tipo</label>
-          <select name="tipo" defaultValue={params.tipo ?? ''}
-            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="">Todos os tipos</option>
-            <option value="venda">Venda</option>
-            <option value="devolucao">Devolução</option>
-            <option value="entrada">Entrada</option>
-            <option value="saida">Saída</option>
-            <option value="ajuste">Ajuste</option>
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500">De</label>
-          <input name="de" type="date" defaultValue={de}
-            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500">Até</label>
-          <input name="ate" type="date" defaultValue={ate}
-            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-        </div>
-        <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition">
-          Filtrar
-        </button>
-        <Link href="/painel/estoque/historico" className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition">
-          Limpar
-        </Link>
+
+        {/* Busca Avançada */}
+        <details open={advancedOn} className="rounded-xl border border-gray-200 bg-gray-50">
+          <summary className="cursor-pointer px-4 py-2.5 text-sm font-medium text-gray-600 select-none flex items-center gap-2">
+            <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
+            </svg>
+            Busca Avançada
+            {advancedOn && (
+              <span className="ml-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">ativo</span>
+            )}
+          </summary>
+          <div className="flex flex-wrap gap-3 px-4 pb-4 pt-3 items-end">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-500">Produto</label>
+              <input name="produto" defaultValue={params.produto ?? ''} placeholder="Nome do produto..."
+                className="w-52 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-500">Cliente / Fornecedor</label>
+              <input name="cliente" defaultValue={params.cliente ?? ''} placeholder="Nome do cliente..."
+                className="w-52 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-500">Depósito</label>
+              <select name="deposito" defaultValue={params.deposito ?? ''}
+                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">Todos os depósitos</option>
+                {(depositos ?? []).map((d) => (
+                  <option key={d.id} value={d.id}>{d.nome}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </details>
       </form>
 
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -212,14 +272,15 @@ export default async function MovimentacoesPage({
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Produto</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Cliente / Depósito</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Qtd</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Valor</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Vlr. Unit.</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Vlr. Total</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Observação</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-sm text-gray-400">
+                <td colSpan={8} className="px-4 py-12 text-center text-sm text-gray-400">
                   Nenhuma movimentação no período.
                 </td>
               </tr>
@@ -240,7 +301,10 @@ export default async function MovimentacoesPage({
                       {t.sinal}{r.qtd}
                       {r.saldo && <span className="block text-xs font-normal text-gray-400">{r.saldo}</span>}
                     </td>
-                    <td className="px-4 py-3 text-right text-sm text-gray-700">
+                    <td className="px-4 py-3 text-right text-sm text-gray-600">
+                      {r.valorUnitario != null ? formatBRL(r.valorUnitario) : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm font-medium text-gray-800">
                       {r.valorTotal != null ? formatBRL(r.valorTotal) : '—'}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-400">{r.obs || '—'}</td>
