@@ -37,9 +37,10 @@ const navCompleto: NavGroup[] = [
   {
     group: 'Estoque',
     items: [
-      { href: '/painel/produtos',      label: 'Produtos',         permissao: 'produtos' },
-      { href: '/painel/estoque',       label: 'Estoque',          permissao: 'estoque' },
-      { href: '/painel/depositos',     label: 'Depósitos',        permissao: 'estoque' },
+      { href: '/painel/produtos',         label: 'Produtos',         permissao: 'produtos' },
+      { href: '/painel/estoque',          label: 'Estoque',          permissao: 'estoque' },
+      { href: '/painel/estoque/historico', label: 'Movimentações',   permissao: 'estoque' },
+      { href: '/painel/depositos',        label: 'Depósitos',        permissao: 'estoque' },
       { href: '/painel/categorias',    label: 'Categorias',       permissao: 'produtos' },
       { href: '/painel/compras',       label: 'Notas de Entrada', permissao: 'compras' },
       { href: '/painel/tabelas-preco', label: 'Tabelas de Preço', permissao: 'produtos' },
@@ -74,8 +75,9 @@ const navEmConstrucao: NavGroup[] = [
 
 export function Sidebar({ permissoes, isMaster }: { permissoes: string[]; isMaster: boolean }) {
   const pathname = usePathname()
+  const exactOnly = ['/painel', '/painel/estoque']
   const isActive = (href: string) =>
-    href === '/painel' ? pathname === '/painel' : pathname.startsWith(href)
+    exactOnly.includes(href) ? pathname === href : pathname.startsWith(href)
 
   const podeVer = (item: NavItem) =>
     !item.permissao || temPermissao(permissoes, item.permissao, isMaster)
