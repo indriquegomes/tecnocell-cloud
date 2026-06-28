@@ -8,6 +8,7 @@ export async function criarLancamento(formData: FormData) {
   await requireAuth()
   const supabase = await createServiceClient()
   const { error } = await supabase.from('lancamentos').insert({
+    id: crypto.randomUUID(),
     descricao: formData.get('descricao') as string,
     valor: parseFloat((formData.get('valor') as string) || '0'),
     tipo: formData.get('tipo') as string,

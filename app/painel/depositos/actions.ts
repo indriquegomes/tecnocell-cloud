@@ -29,7 +29,7 @@ async function extrairCampos(formData: FormData, supabase: Awaited<ReturnType<ty
 export async function criarDeposito(formData: FormData) {
   await requireAuth()
   const supabase = await createServiceClient()
-  const { error } = await supabase.from('depositos').insert(await extrairCampos(formData, supabase))
+  const { error } = await supabase.from('depositos').insert({ id: crypto.randomUUID(), ...await extrairCampos(formData, supabase) })
   if (error) redirect(`/painel/depositos?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/depositos')
   redirect('/painel/depositos')

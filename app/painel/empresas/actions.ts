@@ -8,6 +8,7 @@ export async function criarEmpresa(formData: FormData) {
   await requireAuth()
   const supabase = await createServiceClient()
   const { error } = await supabase.from('empresas').insert({
+    id: crypto.randomUUID(),
     nome: formData.get('nome') as string,
     cnpj: (formData.get('cnpj') as string) || null,
     telefone: (formData.get('telefone') as string) || null,

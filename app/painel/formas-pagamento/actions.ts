@@ -8,6 +8,7 @@ export async function criarFormaPagamento(formData: FormData) {
   await requireAuth()
   const supabase = await createServiceClient()
   const { error } = await supabase.from('formas_pagamento').insert({
+    id: crypto.randomUUID(),
     nome: formData.get('nome') as string,
     ativo: true,
   })
