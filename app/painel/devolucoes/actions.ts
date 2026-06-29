@@ -54,7 +54,7 @@ export async function buscarVendaParaDevolucao(
   const [vendaRes, itensRes, lancRes] = await Promise.all([
     supabase
       .from('vendas')
-      .select('id, numero, total, created_at, vendedor_nome, forma_pagamento_id, pessoa_id, pessoas!pessoa_id(nome)')
+      .select('id, numero, total, created_at, vendedor_nome, forma_pagamento_id, pessoa_id, deposito_id, pessoas!pessoa_id(nome)')
       .eq('id', vendaId)
       .maybeSingle(),
     supabase
@@ -86,7 +86,7 @@ export async function buscarVendaParaDevolucao(
     pessoa_id: (vRaw.pessoa_id ?? null) as string | null,
     pessoa_nome: pessoaNome,
     vendedor_nome: vRaw.vendedor_nome ?? null,
-    deposito_id: null,
+    deposito_id: (vRaw.deposito_id ?? null) as string | null,
     deposito_nome: null,
     forma_pagamento_nome: (formaRes as { data: { nome: string } | null }).data?.nome ?? null,
     lancamento_pendente: (lancRes.data ?? []).length > 0,
@@ -188,8 +188,13 @@ export async function registrarDevolucao(
   )
   if (eItens) throw new Error(eItens.message)
 
-  // Retorno ao estoque — tenta DEP001 como fallback se deposito_id for null
-  const depositoEstoque = input.deposito_id ?? 'DEP001'
+  // Retorno ao estoque — usa o depósito da venda; se faltar, o primeiro cadastrado
+  let depositoEstoque = input.deposito_id
+  if (!depositoEstoque) {
+    const { data: depFallback } = await supabase.from('depositos').select('id').order('nome').limit(1).maybeSingle()
+    depositoEstoque = depFallback?.id ?? null
+  }
+  if (!depositoEstoque) throw new Error('Nenhum depósito cadastrado para retornar o estoque.')
   for (const item of input.itens) {
     const { error: eEstoque } = await supabase.rpc('incrementar_estoque', {
       p_produto_id: item.produto_id,
