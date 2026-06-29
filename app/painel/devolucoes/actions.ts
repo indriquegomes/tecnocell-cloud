@@ -220,6 +220,7 @@ export async function registrarDevolucao(
   } else if (input.tipo_credito !== 'sem_reembolso') {
     const today = new Date().toISOString().split('T')[0]
     await supabase.from('lancamentos').insert({
+      id: crypto.randomUUID(),
       tipo: 'pagar',
       descricao: `Devolução — ${input.pessoa_nome ?? 'Cliente'}`,
       valor: valorTotal,
