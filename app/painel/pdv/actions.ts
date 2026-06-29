@@ -76,8 +76,10 @@ export async function finalizarVenda(
     vendedor_nome: vendedorNome,
   }).eq('id', vendaId)
 
-  // Linka lançamento de fiado ao venda_id — secundário, não bloqueia retorno
-  void supabase.from('lancamentos')
+  // Linka lançamento de fiado ao venda_id — precisa AWAIT: fire-and-forget (void)
+  // não completa em server action / serverless e deixava o lançamento órfão
+  // (venda_id NULL), quebrando a devolução de fiado e a rastreabilidade.
+  await supabase.from('lancamentos')
     .update({ venda_id: vendaId })
     .eq('tipo', 'receber')
     .eq('status', 'pendente')
