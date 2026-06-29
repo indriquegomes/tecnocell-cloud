@@ -144,7 +144,7 @@ export async function buscarDetalheVenda(accessToken: string, vendaId: string): 
   const [vendaRes, itensRes] = await Promise.all([
     supabase
       .from('vendas')
-      .select('id, total, created_at, vendedor_nome, forma_pagamento_id, deposito_id')
+      .select('id, numero, total, desconto, observacoes, created_at, vendedor_nome, forma_pagamento_id, deposito_id')
       .eq('id', vendaId)
       .maybeSingle(),
     supabase
@@ -154,7 +154,7 @@ export async function buscarDetalheVenda(accessToken: string, vendaId: string): 
   ])
 
   if (!vendaRes.data) return null
-  const v = vendaRes.data as { id: string; total: number; created_at: string; vendedor_nome: string | null; forma_pagamento_id: string | null; deposito_id: string | null }
+  const v = vendaRes.data as { id: string; numero: number | null; total: number; desconto: number | null; observacoes: string | null; created_at: string; vendedor_nome: string | null; forma_pagamento_id: string | null; deposito_id: string | null }
 
   // Busca nomes de forma e depósito
   const [formaRes, depositoRes] = await Promise.all([
@@ -168,13 +168,13 @@ export async function buscarDetalheVenda(accessToken: string, vendaId: string): 
 
   return {
     id: v.id,
-    numero: null,
+    numero: v.numero,
     total: v.total,
-    desconto: 0,
+    desconto: v.desconto ?? 0,
     created_at: v.created_at,
     vendedor_nome: v.vendedor_nome ?? null,
     deposito_nome: (depositoRes as { data: { nome: string } | null }).data?.nome ?? null,
-    observacoes: null,
+    observacoes: v.observacoes,
     forma_pagamento_nome: (formaRes as { data: { nome: string } | null }).data?.nome ?? null,
     itens: ((itensRes.data ?? []) as unknown as { quantidade: number; preco_unitario: number; total_item: number; produtos: { nome: string } | null }[]).map((i) => ({
       nome: i.produtos?.nome ?? '—',
