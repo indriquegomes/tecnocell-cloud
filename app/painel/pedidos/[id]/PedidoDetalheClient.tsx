@@ -4,6 +4,7 @@ import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { adicionarItemPedido, removerItemPedido, atualizarStatusPedido, atualizarInfoPedido, atualizarDescontoFrete, atualizarObservacoesTermos, cancelarComMotivo } from '../actions'
 import { gerarOSDePedido } from '@/app/painel/os/actions'
+import { formatDate } from '@/lib/utils'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtDate = (d: string) => new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
@@ -236,7 +237,7 @@ export function PedidoDetalheClient({
           </div>
           <p className="text-sm text-gray-400 mt-0.5">
             {pedido.pessoa_nome ?? 'Sem cliente'} · {fmtDate(pedido.created_at)}
-            {pedido.data_validade && ` · Válido até ${new Date(pedido.data_validade).toLocaleDateString('pt-BR')}`}
+            {pedido.data_validade && ` · Válido até ${formatDate(pedido.data_validade)}`}
             {pedido.referencia_cliente && ` · Ref: ${pedido.referencia_cliente}`}
           </p>
         </div>

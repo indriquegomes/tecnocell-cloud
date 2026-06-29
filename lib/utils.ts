@@ -13,11 +13,16 @@ export function formatBRL(value: number): string {
 }
 
 export function formatDate(iso: string): string {
+  if (!iso) return ''
+  // date-only "YYYY-MM-DD" → fixa meio-dia pra timezone não pular o dia (-1)
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(iso + 'T12:00:00') : new Date(iso)
+  if (isNaN(d.getTime())) return ''
   return new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-  }).format(new Date(iso))
+    timeZone: 'America/Sao_Paulo',
+  }).format(d)
 }
 
 export function slugify(text: string): string {

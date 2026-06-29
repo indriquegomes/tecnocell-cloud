@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
+import { formatDate } from '@/lib/utils'
 
 export default async function RelatoriosPage({
   searchParams,
@@ -141,7 +142,7 @@ export default async function RelatoriosPage({
                     <td className="px-4 py-3 text-sm text-gray-800">{l.descricao || '—'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">{l.pessoa_nome || '—'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">
-                      {l.data_vencimento ? new Date(l.data_vencimento).toLocaleDateString('pt-BR') : '—'}
+                      {l.data_vencimento ? formatDate(l.data_vencimento) : '—'}
                     </td>
                     <td className="px-4 py-3 text-sm text-right font-medium text-gray-800">{fmt(l.valor)}</td>
                     <td className="px-4 py-3 text-center">
