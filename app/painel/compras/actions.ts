@@ -24,6 +24,12 @@ export async function criarNotaEntrada(formData: FormData) {
 export async function receberNota(id: string) {
   await requireAuth()
   const supabase = await createServiceClient()
+
+  // Guard de idempotência: receber 2x duplicaria o estoque
+  const { data: nota } = await supabase.from('notas_entrada').select('status').eq('id', id).maybeSingle()
+  if (!nota) throw new Error('Nota não encontrada')
+  if (nota.status === 'recebida') return
+
   // Busca itens da nota e dá entrada no estoque
   const { data: itens } = await supabase
     .from('itens_nota_entrada')
