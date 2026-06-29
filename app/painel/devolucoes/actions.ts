@@ -54,7 +54,7 @@ export async function buscarVendaParaDevolucao(
   const [vendaRes, itensRes, lancRes] = await Promise.all([
     supabase
       .from('vendas')
-      .select('id, numero, total, created_at, vendedor_nome, forma_pagamento_id, pessoa_id, deposito_id, pessoas!pessoa_id(nome)')
+      .select('id, numero, total, created_at, vendedor_nome, forma_pagamento_id, pessoa_id, pessoas!pessoa_id(nome)')
       .eq('id', vendaId)
       .maybeSingle(),
     supabase
@@ -86,7 +86,7 @@ export async function buscarVendaParaDevolucao(
     pessoa_id: (vRaw.pessoa_id ?? null) as string | null,
     pessoa_nome: pessoaNome,
     vendedor_nome: vRaw.vendedor_nome ?? null,
-    deposito_id: (vRaw.deposito_id ?? null) as string | null,
+    deposito_id: null,
     deposito_nome: null,
     forma_pagamento_nome: (formaRes as { data: { nome: string } | null }).data?.nome ?? null,
     lancamento_pendente: (lancRes.data ?? []).length > 0,
@@ -196,11 +196,14 @@ export async function registrarDevolucao(
   }
   if (!depositoEstoque) throw new Error('Nenhum depósito cadastrado para retornar o estoque.')
   for (const item of input.itens) {
-    const { error: eEstoque } = await supabase.rpc('incrementar_estoque', {
-      p_produto_id: item.produto_id,
-      p_deposito_id: depositoEstoque,
-      p_quantidade: item.quantidade,
-    })
+    const { data: estAtual } = await supabase.from('estoque')
+      .select('quantidade').eq('produto_id', item.produto_id).eq('deposito_id', depositoEstoque).maybeSingle()
+    const { error: eEstoque } = estAtual
+      ? await supabase.from('estoque')
+          .update({ quantidade: (estAtual.quantidade ?? 0) + item.quantidade })
+          .eq('produto_id', item.produto_id).eq('deposito_id', depositoEstoque)
+      : await supabase.from('estoque')
+          .insert({ produto_id: item.produto_id, deposito_id: depositoEstoque, quantidade: item.quantidade })
     if (eEstoque) throw new Error(`Falha ao retornar ${item.nome} ao estoque: ${eEstoque.message}`)
   }
 

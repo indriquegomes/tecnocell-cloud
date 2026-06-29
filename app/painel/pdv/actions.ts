@@ -144,7 +144,7 @@ export async function buscarDetalheVenda(accessToken: string, vendaId: string): 
   const [vendaRes, itensRes, pagamentosRes] = await Promise.all([
     supabase
       .from('vendas')
-      .select('id, numero, total, desconto, observacoes, created_at, vendedor_nome, forma_pagamento_id, deposito_id')
+      .select('id, numero, total, desconto, observacoes, created_at, vendedor_nome, forma_pagamento_id')
       .eq('id', vendaId)
       .maybeSingle(),
     supabase
@@ -158,7 +158,7 @@ export async function buscarDetalheVenda(accessToken: string, vendaId: string): 
   ])
 
   if (!vendaRes.data) return null
-  const v = vendaRes.data as { id: string; numero: number | null; total: number; desconto: number | null; observacoes: string | null; created_at: string; vendedor_nome: string | null; forma_pagamento_id: string | null; deposito_id: string | null }
+  const v = vendaRes.data as { id: string; numero: number | null; total: number; desconto: number | null; observacoes: string | null; created_at: string; vendedor_nome: string | null; forma_pagamento_id: string | null }
 
   // Formas de pagamento reais (pagamento misto via pagamentos_venda;
   // fallback p/ forma_pagamento_id em vendas antigas)
@@ -173,9 +173,7 @@ export async function buscarDetalheVenda(accessToken: string, vendaId: string): 
     formaIds.length
       ? supabase.from('formas_pagamento').select('nome').in('id', formaIds)
       : Promise.resolve({ data: [] }),
-    v.deposito_id
-      ? supabase.from('depositos').select('nome').eq('id', v.deposito_id).maybeSingle()
-      : Promise.resolve({ data: null }),
+    Promise.resolve({ data: null }),
   ])
   const formaNome = ((formasRes as { data: { nome: string }[] | null }).data ?? [])
     .map((f) => f.nome).join(' + ') || null
