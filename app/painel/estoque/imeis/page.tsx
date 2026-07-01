@@ -53,10 +53,14 @@ export default async function ImeisPage({
     : { data: [] as { id: string; numero: number | null }[] }
   const vendaNum = Object.fromEntries((vendas ?? []).map((v) => [v.id, v.numero]))
 
-  const contar = (s: Status) => (raw ?? []).filter((l) => l.status === s).length
-  const emEstoque = contar('em_estoque')
-  const vendido = contar('vendido')
-  const defeito = contar('defeito')
+  // Contagem exata por status (head:true) — não depende do limit da lista
+  const contar = async (s: Status) => {
+    let q = supabase.from('numeros_serie').select('*', { count: 'exact', head: true }).eq('status', s)
+    if (params.deposito) q = q.eq('deposito_id', params.deposito)
+    const { count } = await q
+    return count ?? 0
+  }
+  const [emEstoque, vendido, defeito] = await Promise.all([contar('em_estoque'), contar('vendido'), contar('defeito')])
 
   return (
     <div className="space-y-6">

@@ -33,6 +33,7 @@ export function TransferenciaForm({
   const [quantidade, setQuantidade] = useState('1')
   const [series, setSeries] = useState<string[]>([])
   const [imeiInput, setImeiInput] = useState('')
+  const [imeiErro, setImeiErro] = useState('')
   const imeiRef = useRef<HTMLInputElement>(null)
 
   const prodMatch = acharProduto(produtos, produtoBusca)
@@ -42,7 +43,12 @@ export function TransferenciaForm({
   function addImei() {
     const s = imeiInput.trim()
     if (!s) return
-    if (!disponiveis.includes(s)) { setImeiInput(''); return }
+    if (!disponiveis.includes(s)) {
+      setImeiErro(`IMEI "${s}" não está em estoque na origem.`)
+      setImeiInput('')
+      return
+    }
+    setImeiErro('')
     if (!series.includes(s)) setSeries(prev => [...prev, s])
     setImeiInput('')
     imeiRef.current?.focus()
@@ -130,6 +136,7 @@ export function TransferenciaForm({
                   {series.length} escolhido{series.length === 1 ? '' : 's'}
                 </span>
               </div>
+              {imeiErro && <p className="text-[11px] font-medium text-red-600">{imeiErro}</p>}
               {disponiveis.length === 0 ? (
                 <p className="text-[11px] text-amber-700">Nenhum IMEI em estoque na origem.</p>
               ) : (

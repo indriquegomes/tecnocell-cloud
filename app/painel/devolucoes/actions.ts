@@ -86,9 +86,14 @@ export async function buscarVendaParaDevolucao(
   const vRaw = vendaRes.data as any
   const pessoaNome = (vRaw.pessoas?.nome ?? vRaw.vendedor_nome ?? null) as string | null
 
-  const formaRes = vRaw.forma_pagamento_id
-    ? await supabase.from('formas_pagamento').select('nome').eq('id', vRaw.forma_pagamento_id).maybeSingle()
-    : { data: null }
+  const [formaRes, depositoRes] = await Promise.all([
+    vRaw.forma_pagamento_id
+      ? supabase.from('formas_pagamento').select('nome').eq('id', vRaw.forma_pagamento_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    vRaw.deposito_id
+      ? supabase.from('depositos').select('nome').eq('id', vRaw.deposito_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
 
   return {
     id: vRaw.id,
@@ -99,7 +104,7 @@ export async function buscarVendaParaDevolucao(
     pessoa_nome: pessoaNome,
     vendedor_nome: vRaw.vendedor_nome ?? null,
     deposito_id: (vRaw.deposito_id ?? null) as string | null,
-    deposito_nome: null,
+    deposito_nome: (depositoRes as { data: { nome: string } | null }).data?.nome ?? null,
     forma_pagamento_nome: (formaRes as { data: { nome: string } | null }).data?.nome ?? null,
     lancamento_pendente: (lancRes.data ?? []).length > 0,
     itens: ((itensRes.data ?? []) as unknown as {
@@ -132,14 +137,28 @@ export async function buscarVendasRecentes(
 
   if (error) throw new Error(error.message)
 
+  // Esconde vendas já totalmente devolvidas (evita devolução dupla).
+  // Soma o valor devolvido por venda e compara com o total.
+  const ids = (data ?? []).map((v) => v.id as string)
+  const devolvidoPorVenda: Record<string, number> = {}
+  if (ids.length) {
+    const { data: devs } = await supabase
+      .from('devolucoes').select('venda_id, valor_total').in('venda_id', ids)
+    for (const d of (devs ?? []) as { venda_id: string | null; valor_total: number | null }[]) {
+      if (d.venda_id) devolvidoPorVenda[d.venda_id] = (devolvidoPorVenda[d.venda_id] ?? 0) + (d.valor_total ?? 0)
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let rows = (data ?? []).map((v: any) => ({
-    id: v.id as string,
-    numero: v.numero as number | null,
-    pessoa_nome: (v.pessoas?.nome ?? v.vendedor_nome ?? null) as string | null,
-    total: v.total as number,
-    created_at: v.created_at as string,
-  }))
+  let rows = (data ?? [])
+    .filter((v: any) => (devolvidoPorVenda[v.id] ?? 0) < (v.total as number) - 0.01)
+    .map((v: any) => ({
+      id: v.id as string,
+      numero: v.numero as number | null,
+      pessoa_nome: (v.pessoas?.nome ?? v.vendedor_nome ?? null) as string | null,
+      total: v.total as number,
+      created_at: v.created_at as string,
+    }))
 
   if (busca.trim()) {
     const b = busca.toLowerCase().trim()
