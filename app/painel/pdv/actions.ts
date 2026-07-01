@@ -27,6 +27,7 @@ export async function finalizarVenda(
   observacoes: string,
   deposito_id: string = '',
   series: { produto_id: string; serie: string }[] = [],
+  credito_valor: number = 0,
 ): Promise<
   | { erro: string }
   | { vendaId: string; vendaNumero: number | null; total: number; estoqueAtualizado: Record<string, number> }
@@ -67,6 +68,7 @@ export async function finalizarVenda(
     p_series: series,
     p_vendedor_id: usuario.id,
     p_vendedor_nome: vendedorNome,
+    p_credito_valor: credito_valor,
   })
 
   if (error) return { erro: error.message }

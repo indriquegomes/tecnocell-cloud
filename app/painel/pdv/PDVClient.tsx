@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { formatBRL } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { finalizarVenda, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, buscarPedidosAbertos, buscarDetalheVenda, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
-import { buscarSaldoCredito, usarCreditoVenda } from '@/app/painel/creditos/actions'
+import { buscarSaldoCredito } from '@/app/painel/creditos/actions'
 import type { PromoInfo } from './page'
 
 // Desconto que uma promoção dá para uma linha (preço base + quantidade)
@@ -596,19 +596,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
         observacoes,
         depositoId,
         carrinho.flatMap((i) => (i.series ?? []).map((serie) => ({ produto_id: i.produto_id, serie }))),
+        creditoAplicado,   // débito do crédito é atômico dentro do RPC (migration 2026-07-10)
       )
       if ('erro' in result) { setErro(result.erro); return }
-
-      // Débita crédito do cliente se foi aplicado
-      if (creditoAplicado > 0 && pessoaId && clienteSelecionado) {
-        usarCreditoVenda(token, {
-          pessoa_id: pessoaId,
-          pessoa_nome: clienteSelecionado.nome,
-          valor: creditoAplicado,
-          venda_id: result.vendaId,
-        }).catch(() => {})
-      }
-
 
       const snap = {
         numero: result.vendaNumero ?? null,
