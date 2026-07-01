@@ -5,8 +5,44 @@ import { TODAS_PERMISSOES } from '@/lib/permissoes'
 import { revalidatePath } from 'next/cache'
 
 export type ActionResult = { ok: true; message: string } | { ok: false; message: string }
+export type ConviteResult = { ok: true; message: string; link: string } | { ok: false; message: string }
 
 const TODAS_KEYS = TODAS_PERMISSOES.map((p) => p.key)
+
+export async function criarConvite(_: ConviteResult | null, fd: FormData): Promise<ConviteResult> {
+  const token = fd.get('access_token') as string
+  let admin: { id: string }
+  try { admin = await requirePermissao('usuarios', token) } catch { return { ok: false, message: 'Não autorizado' } }
+
+  const email    = (fd.get('email') as string ?? '').trim()
+  const nome     = (fd.get('nome') as string ?? '').trim()
+  const isMaster = fd.get('is_master') === '1'
+  const perms    = fd.getAll('permissoes') as string[]
+  if (!email || !nome) return { ok: false, message: 'Preencha nome e e-mail' }
+
+  const supabase = await createServiceClient()
+
+  // Conta criada com senha aleatória — a funcionária define a real pelo link
+  const { data: authData, error: authErr } = await supabase.auth.admin.createUser({
+    email, password: crypto.randomUUID(), email_confirm: true,
+  })
+  if (authErr || !authData.user) return { ok: false, message: authErr?.message ?? 'Erro ao criar conta' }
+
+  const { error: perfErr } = await supabase.from('perfis').insert({
+    id: authData.user.id, nome, permissoes: isMaster ? TODAS_KEYS : perms, is_master: isMaster, ativo: true,
+  })
+  if (perfErr) { await supabase.auth.admin.deleteUser(authData.user.id); return { ok: false, message: perfErr.message } }
+
+  const conviteToken = (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, '')
+  const expira = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()
+  const { error: cErr } = await supabase.from('convites').insert({
+    token: conviteToken, user_id: authData.user.id, nome, expires_at: expira, criado_por: admin.id,
+  })
+  if (cErr) { await supabase.auth.admin.deleteUser(authData.user.id); return { ok: false, message: cErr.message } }
+
+  revalidatePath('/painel/usuarios')
+  return { ok: true, message: `Convite criado para ${nome}`, link: `/convite/${conviteToken}` }
+}
 
 export async function criarUsuario(_: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const token = fd.get('access_token') as string

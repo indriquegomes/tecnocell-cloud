@@ -3,7 +3,7 @@
 import { useState, useActionState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { TODAS_PERMISSOES } from '@/lib/permissoes'
-import { criarUsuario, atualizarPerfil, alterarSenha, type ActionResult } from './actions'
+import { criarUsuario, criarConvite, atualizarPerfil, alterarSenha, type ActionResult, type ConviteResult } from './actions'
 
 const supabaseBrowser = createClient()
 async function authToken() {
@@ -156,6 +156,67 @@ function NovoUsuarioModal({ onClose }: { onClose: () => void }) {
   )
 }
 
+function ConvidarModal({ onClose }: { onClose: () => void }) {
+  const [state, action, pending] = useActionState<ConviteResult | null, FormData>(criarConvite, null)
+  const [copiado, setCopiado] = useState(false)
+  const link = state && state.ok ? `${window.location.origin}${state.link}` : ''
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-xl rounded-2xl bg-white shadow-xl overflow-hidden">
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+          <h3 className="text-base font-semibold text-gray-800">Convidar usuária</h3>
+          <button onClick={onClose} className="text-xl leading-none text-gray-400 hover:text-gray-600">×</button>
+        </div>
+
+        {state?.ok ? (
+          <div className="space-y-4 px-6 py-5">
+            <p className="text-sm text-green-700">✓ {state.message}</p>
+            <p className="text-sm text-gray-600">Envie este link para ela (WhatsApp). Ela define a própria senha e ativa a conta:</p>
+            <div className="flex gap-2">
+              <input readOnly value={link} className="field flex-1 text-xs" onFocus={(e) => e.target.select()} />
+              <button type="button"
+                onClick={() => { navigator.clipboard?.writeText(link); setCopiado(true) }}
+                className="shrink-0 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
+                {copiado ? 'Copiado!' : 'Copiar'}
+              </button>
+            </div>
+            <div className="flex justify-end border-t border-gray-100 pt-4">
+              <button onClick={onClose} className="rounded-xl border border-gray-200 px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+                Fechar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form action={withToken(action)} className="space-y-5 px-6 py-5">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Nome *</label>
+                <input name="nome" className="field" placeholder="Ex: Mariana" required />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">E-mail *</label>
+                <input name="email" type="email" className="field" placeholder="mariana@tecnocell.com" required />
+              </div>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">Permissões</label>
+              <PermissoesGrid permissoes={[]} isMaster={false} />
+            </div>
+            <div className="flex items-center justify-between border-t border-gray-100 pt-4">
+              {state && !state.ok ? <Feedback state={state} /> : <span />}
+              <button type="submit" disabled={pending}
+                className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50">
+                {pending ? 'Gerando...' : 'Gerar convite'}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function EditarModal({ usuario, onClose }: { usuario: Usuario; onClose: () => void }) {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(atualizarPerfil, null)
   const [senhaState, senhaAction, senhaPending] = useActionState<ActionResult | null, FormData>(alterarSenha, null)
@@ -232,6 +293,7 @@ function EditarModal({ usuario, onClose }: { usuario: Usuario; onClose: () => vo
 
 export function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
   const [criando, setCriando] = useState(false)
+  const [convidando, setConvidando] = useState(false)
   const [editando, setEditando] = useState<Usuario | null>(null)
 
   const resumoPermissoes = (u: Usuario) => {
@@ -250,12 +312,20 @@ export function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
           <h2 className="text-2xl font-bold text-gray-900">Usuários</h2>
           <p className="mt-0.5 text-sm text-gray-500">Gerencie os acessos da equipe</p>
         </div>
-        <button
-          onClick={() => setCriando(true)}
-          className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition"
-        >
-          + Novo Usuário
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setConvidando(true)}
+            className="rounded-xl border border-blue-200 bg-blue-50 px-5 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition"
+          >
+            ✉ Convidar
+          </button>
+          <button
+            onClick={() => setCriando(true)}
+            className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition"
+          >
+            + Novo Usuário
+          </button>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
@@ -314,6 +384,7 @@ export function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
       </div>
 
       {criando && <NovoUsuarioModal onClose={() => setCriando(false)} />}
+      {convidando && <ConvidarModal onClose={() => setConvidando(false)} />}
       {editando && <EditarModal usuario={editando} onClose={() => setEditando(null)} />}
     </div>
   )
