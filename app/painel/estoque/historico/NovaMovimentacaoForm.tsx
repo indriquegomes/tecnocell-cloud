@@ -4,14 +4,27 @@ import { useState, useRef } from 'react'
 import { registrarMovimentos } from '../actions'
 
 type Deposito = { id: string; nome: string }
-type Produto = { id: string; nome: string; codigo: string | null }
-type ItemLista = { produtoBusca: string; quantidade: number; operacao: string }
+type Produto = { id: string; nome: string; codigo: string | null; controla_serie: boolean | null }
+type ItemLista = { produtoBusca: string; quantidade: number; operacao: string; imeis?: string[] }
 
 const OP_LABEL: Record<string, string> = { entrada: 'Entrada', saida: 'Saída', ajuste: 'Ajuste' }
 const OP_CLS: Record<string, string> = {
   entrada: 'text-green-700 bg-green-50 border-green-200',
   saida:   'text-red-700 bg-red-50 border-red-200',
   ajuste:  'text-blue-700 bg-blue-50 border-blue-200',
+}
+
+// Casa o texto digitado ("Nome (codigo)" ou só "Nome") com um produto cadastrado
+function acharProduto(produtos: Produto[], busca: string): Produto | null {
+  const alvo = busca.trim().toLowerCase()
+  if (!alvo) return null
+  const semCodigo = alvo.replace(/\s*\([^)]*\)$/, '').trim()
+  return (
+    produtos.find(p => (p.nome + (p.codigo ? ` (${p.codigo})` : '')).toLowerCase() === alvo) ??
+    produtos.find(p => p.nome.toLowerCase() === semCodigo) ??
+    produtos.find(p => p.nome.toLowerCase().startsWith(semCodigo)) ??
+    null
+  )
 }
 
 export function NovaMovimentacaoForm({
@@ -29,19 +42,45 @@ export function NovaMovimentacaoForm({
   const [produtoBusca, setProdutoBusca] = useState('')
   const [quantidade, setQuantidade] = useState('1')
   const [operacao, setOperacao] = useState('entrada')
+  const [imeis, setImeis] = useState<string[]>([])
+  const [imeiInput, setImeiInput] = useState('')
   const prodInputRef = useRef<HTMLInputElement>(null)
+  const imeiInputRef = useRef<HTMLInputElement>(null)
+
+  const prodMatch = acharProduto(produtos, produtoBusca)
+  const serializado = !!prodMatch?.controla_serie && operacao === 'entrada'
+
+  function addImei() {
+    const s = imeiInput.trim()
+    if (!s) return
+    if (imeis.includes(s)) { setImeiInput(''); return } // não duplica na mesma entrada
+    setImeis(prev => [...prev, s])
+    setImeiInput('')
+    imeiInputRef.current?.focus()
+  }
+
+  function limparInput() {
+    setProdutoBusca('')
+    setQuantidade('1')
+    setImeis([])
+    setImeiInput('')
+    prodInputRef.current?.focus()
+  }
 
   function adicionar() {
     const nome = produtoBusca.trim()
     if (!nome) return
-    setItens(prev => [...prev, {
-      produtoBusca: nome,
-      quantidade: Math.max(1, Math.round(parseFloat(quantidade) || 1)),
-      operacao,
-    }])
-    setProdutoBusca('')
-    setQuantidade('1')
-    prodInputRef.current?.focus()
+    if (serializado) {
+      if (imeis.length === 0) { imeiInputRef.current?.focus(); return }
+      setItens(prev => [...prev, { produtoBusca: nome, quantidade: imeis.length, operacao: 'entrada', imeis }])
+    } else {
+      setItens(prev => [...prev, {
+        produtoBusca: nome,
+        quantidade: Math.max(1, Math.round(parseFloat(quantidade) || 1)),
+        operacao,
+      }])
+    }
+    limparInput()
   }
 
   return (
@@ -88,7 +127,7 @@ export function NovaMovimentacaoForm({
               list="mov-produtos-list"
               value={produtoBusca}
               onChange={e => setProdutoBusca(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); adicionar() } }}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); serializado ? imeiInputRef.current?.focus() : adicionar() } }}
               placeholder="Pesquise pelo nome dos produtos cadastrados"
               className="field"
               autoComplete="off"
@@ -103,12 +142,13 @@ export function NovaMovimentacaoForm({
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Qtd</label>
             <input
               type="number"
-              value={quantidade}
+              value={serializado ? imeis.length : quantidade}
               onChange={e => setQuantidade(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); adicionar() } }}
               min="1"
               step="1"
-              className="field text-center"
+              disabled={serializado}
+              className="field text-center disabled:bg-gray-100 disabled:text-gray-400"
             />
           </div>
           <div>
@@ -126,12 +166,57 @@ export function NovaMovimentacaoForm({
           <button
             type="button"
             onClick={adicionar}
-            disabled={!produtoBusca.trim()}
+            disabled={!produtoBusca.trim() || (serializado && imeis.length === 0)}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition whitespace-nowrap"
           >
             + Adicionar
           </button>
         </div>
+
+        {/* Captura de IMEIs (só produto serializado em Entrada) */}
+        {serializado && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 space-y-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-amber-800">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M9 16H5v4m8-15V4a1 1 0 011-1h5a1 1 0 011 1v11a1 1 0 01-1 1h-5a1 1 0 01-1-1z" />
+              </svg>
+              {prodMatch?.nome} controla número de série — bipe ou digite cada IMEI:
+            </div>
+            <div className="flex gap-2 max-w-md">
+              <input
+                ref={imeiInputRef}
+                value={imeiInput}
+                onChange={e => setImeiInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addImei() } }}
+                placeholder="IMEI / número de série + Enter"
+                className="field flex-1"
+                autoComplete="off"
+                inputMode="numeric"
+              />
+              <button
+                type="button"
+                onClick={addImei}
+                disabled={!imeiInput.trim()}
+                className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-40 transition whitespace-nowrap"
+              >
+                + IMEI
+              </button>
+            </div>
+            {imeis.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {imeis.map((im, i) => (
+                  <span key={im} className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-white px-2.5 py-1 text-xs font-mono text-amber-900">
+                    {im}
+                    <button type="button" onClick={() => setImeis(prev => prev.filter((_, j) => j !== i))} className="text-amber-400 hover:text-red-500 leading-none font-bold">✕</button>
+                  </span>
+                ))}
+                <span className="inline-flex items-center rounded-full bg-amber-600 px-2.5 py-1 text-xs font-semibold text-white">
+                  {imeis.length} {imeis.length === 1 ? 'aparelho' : 'aparelhos'}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Tabela dos itens adicionados */}
         {itens.length > 0 && (
@@ -149,19 +234,26 @@ export function NovaMovimentacaoForm({
               <tbody className="divide-y divide-gray-50 bg-white">
                 {itens.map((item, i) => (
                   <tr key={i} className="hover:bg-gray-50 transition">
-                    <td className="px-4 py-2.5 text-sm text-gray-400">{i + 1}</td>
+                    <td className="px-4 py-2.5 text-sm text-gray-400 align-top">{i + 1}</td>
                     <td className="px-4 py-2.5 text-sm font-medium text-gray-800">
                       {item.produtoBusca.replace(/\s*\([^)]*\)$/, '').trim()}
+                      {item.imeis && item.imeis.length > 0 && (
+                        <span className="mt-1 flex flex-wrap gap-1">
+                          {item.imeis.map(im => (
+                            <span key={im} className="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-mono text-amber-800 border border-amber-200">{im}</span>
+                          ))}
+                        </span>
+                      )}
                     </td>
-                    <td className="px-4 py-2.5 text-center text-sm font-semibold text-gray-900">
+                    <td className="px-4 py-2.5 text-center text-sm font-semibold text-gray-900 align-top">
                       {item.quantidade}
                     </td>
-                    <td className="px-4 py-2.5 text-center">
+                    <td className="px-4 py-2.5 text-center align-top">
                       <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${OP_CLS[item.operacao]}`}>
                         {OP_LABEL[item.operacao]}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-center">
+                    <td className="px-4 py-2.5 text-center align-top">
                       <button
                         type="button"
                         onClick={() => setItens(prev => prev.filter((_, j) => j !== i))}
@@ -186,6 +278,7 @@ export function NovaMovimentacaoForm({
             produto_busca: it.produtoBusca,
             quantidade: it.quantidade,
             operacao: it.operacao,
+            ...(it.imeis && it.imeis.length > 0 ? { imeis: it.imeis } : {}),
           })))}
         />
 

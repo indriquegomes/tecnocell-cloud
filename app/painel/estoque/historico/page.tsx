@@ -42,6 +42,8 @@ export default async function MovimentacoesPage({
     ordem?: string
     dir?: string
     erro?: string
+    aviso?: string
+    n?: string
   }>
 }) {
   const params = await searchParams
@@ -80,7 +82,7 @@ export default async function MovimentacoesPage({
   const [{ data: manuais }, { data: vendas }, { data: devolucoes }, { data: depositos }, { data: todosProdutos }] = await Promise.all([
     qManuais, qVendas, qDevs,
     supabase.from('depositos').select('id, nome'),
-    supabase.from('produtos').select('id, nome, codigo').eq('ativo', true).order('nome').limit(500),
+    supabase.from('produtos').select('id, nome, codigo, controla_serie').eq('ativo', true).order('nome').limit(500),
   ])
 
   const vendaIds = (vendas ?? []).map((v) => v.id)
@@ -242,6 +244,11 @@ export default async function MovimentacoesPage({
       {params.erro === 'produto-nao-encontrado' && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           Produto não encontrado. Selecione um produto da lista de sugestões.
+        </div>
+      )}
+      {params.aviso === 'imeis-duplicados' && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {params.n} {Number(params.n) === 1 ? 'IMEI já estava' : 'IMEIs já estavam'} cadastrado(s) e foram ignorados. O restante entrou normalmente.
         </div>
       )}
 
