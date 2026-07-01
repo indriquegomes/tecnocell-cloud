@@ -195,7 +195,7 @@ export default async function RelatoriosPage({
                   <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">Nenhuma venda no período.</td></tr>
                 ) : vendas.map((v) => (
                   <tr key={v.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-600">{new Date(v.created_at).toLocaleString('pt-BR')}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{new Date(v.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</td>
                     <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{fmt(v.total)}</td>
                     <td className="px-4 py-3 text-sm text-right text-red-500">{fmt(v.desconto ?? 0)}</td>
                     <td className="px-4 py-3 text-center">
