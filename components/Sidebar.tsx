@@ -13,6 +13,7 @@ const navCompleto: NavGroup[] = [
     group: 'Geral',
     items: [
       { href: '/painel', label: 'Dashboard' },
+      { href: '/painel/meu-perfil', label: 'Meu Perfil' },
     ],
   },
   {
