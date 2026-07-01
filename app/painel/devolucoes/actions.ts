@@ -1,6 +1,6 @@
 'use server'
 
-import { createServiceClient, requireAuth } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 
 export interface ItemVendaParaDevolucao {
   produto_id: string
@@ -48,7 +48,7 @@ export async function buscarVendaParaDevolucao(
   accessToken: string,
   vendaId: string,
 ): Promise<VendaParaDevolucao | null> {
-  await requireAuth(accessToken)
+  await requirePermissao('devolucoes', accessToken)
   const supabase = await createServiceClient()
 
   const [vendaRes, itensRes, lancRes] = await Promise.all([
@@ -107,7 +107,7 @@ export async function buscarVendasRecentes(
   accessToken: string,
   busca: string,
 ): Promise<VendaResumo[]> {
-  await requireAuth(accessToken)
+  await requirePermissao('devolucoes', accessToken)
   const supabase = await createServiceClient()
 
   const { data, error } = await supabase
@@ -156,7 +156,7 @@ export async function registrarDevolucao(
   accessToken: string,
   input: RegistrarDevolucaoInput,
 ): Promise<{ id: string }> {
-  await requireAuth(accessToken)
+  await requirePermissao('devolucoes', accessToken)
   const supabase = await createServiceClient()
 
   const valorTotal = input.itens.reduce((s, i) => s + i.total_item, 0)
@@ -247,7 +247,7 @@ export async function buscarItensDevolucao(
   accessToken: string,
   devolucaoId: string,
 ): Promise<{ nome: string; quantidade: number; preco_unitario: number; total_item: number; status_produto: string }[]> {
-  await requireAuth(accessToken)
+  await requirePermissao('devolucoes', accessToken)
   const supabase = await createServiceClient()
   const { data } = await supabase
     .from('itens_devolucao')

@@ -1,11 +1,11 @@
 'use server'
 
-import { createServiceClient, requireAuth } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 export async function criarPromocao(formData: FormData) {
-  await requireAuth()
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
 
   const tipo = formData.get('tipo') as string
@@ -30,7 +30,7 @@ export async function criarPromocao(formData: FormData) {
 }
 
 export async function togglePromocao(id: string, ativa: boolean) {
-  await requireAuth()
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
   await supabase.from('promocoes').update({ ativa: !ativa }).eq('id', id)
   revalidatePath('/painel/promocoes')
@@ -38,7 +38,7 @@ export async function togglePromocao(id: string, ativa: boolean) {
 }
 
 export async function deletarPromocao(id: string) {
-  await requireAuth()
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
   await supabase.from('promocoes').delete().eq('id', id)
   revalidatePath('/painel/promocoes')
@@ -63,7 +63,7 @@ export async function adicionarItemPromocao(
   quantidadeX: number | null,
   quantidadeY: number | null,
 ) {
-  await requireAuth()
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
   // Remove se já existir (evita duplicata sem precisar de unique constraint)
   await supabase.from('itens_promocao')
@@ -81,7 +81,7 @@ export async function adicionarItemPromocao(
 }
 
 export async function removerItemPromocao(itemId: string, promocaoId: string) {
-  await requireAuth()
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
   await supabase.from('itens_promocao').delete().eq('id', itemId)
   revalidatePath(`/painel/promocoes/${promocaoId}`)

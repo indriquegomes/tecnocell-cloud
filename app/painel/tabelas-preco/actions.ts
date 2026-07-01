@@ -1,11 +1,11 @@
 'use server'
 
-import { createServiceClient, requireAuth } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 export async function criarTabela(formData: FormData) {
-  await requireAuth()
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
 
   const { error } = await supabase.from('tabelas_preco').insert({
@@ -20,7 +20,7 @@ export async function criarTabela(formData: FormData) {
 }
 
 export async function deletarTabela(id: string) {
-  await requireAuth()
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
   await supabase.from('tabelas_preco').delete().eq('id', id)
   revalidatePath('/painel/tabelas-preco')
@@ -28,7 +28,7 @@ export async function deletarTabela(id: string) {
 }
 
 export async function adicionarItemTabela(tabelaId: string, formData: FormData) {
-  await requireAuth()
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
 
   const { error } = await supabase.from('itens_tabela_preco').insert({
@@ -43,7 +43,7 @@ export async function adicionarItemTabela(tabelaId: string, formData: FormData) 
 }
 
 export async function removerItemTabela(id: string, tabelaId: string) {
-  await requireAuth()
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
   await supabase.from('itens_tabela_preco').delete().eq('id', id)
   revalidatePath(`/painel/tabelas-preco/${tabelaId}`)
@@ -51,7 +51,7 @@ export async function removerItemTabela(id: string, tabelaId: string) {
 }
 
 export async function atualizarPrecoItem(id: string, tabelaId: string, preco: number) {
-  await requireAuth()
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
   const { error } = await supabase
     .from('itens_tabela_preco')
@@ -62,7 +62,7 @@ export async function atualizarPrecoItem(id: string, tabelaId: string, preco: nu
 }
 
 export async function importarTodosComMultiplicador(tabelaId: string, multiplicador: number) {
-  await requireAuth()
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
 
   const [{ data: produtos }, { data: jaExistem }] = await Promise.all([
@@ -89,7 +89,7 @@ export async function importarTodosComMultiplicador(tabelaId: string, multiplica
 }
 
 export async function toggleTabela(id: string, ativa: boolean) {
-  await requireAuth()
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
   await supabase.from('tabelas_preco').update({ ativa }).eq('id', id)
   revalidatePath(`/painel/tabelas-preco/${id}`)

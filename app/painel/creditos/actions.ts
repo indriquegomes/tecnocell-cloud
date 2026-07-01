@@ -1,6 +1,6 @@
 'use server'
 
-import { createServiceClient, requireAuth } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 
 export interface MovimentoCredito {
   id: string
@@ -14,7 +14,7 @@ export async function buscarSaldoCredito(
   accessToken: string,
   pessoaId: string,
 ): Promise<{ saldo: number; movimentos: MovimentoCredito[] }> {
-  await requireAuth(accessToken)
+  await requirePermissao('financeiro', accessToken)
   const supabase = await createServiceClient()
 
   const { data } = await supabase
@@ -43,7 +43,7 @@ export async function registrarCreditoCliente(
     devolucao_id?: string
   },
 ): Promise<void> {
-  await requireAuth(accessToken)
+  await requirePermissao('financeiro', accessToken)
   const supabase = await createServiceClient()
 
   const { error } = await supabase.from('creditos_clientes').insert({
@@ -66,7 +66,7 @@ export async function usarCreditoVenda(
     venda_id: string
   },
 ): Promise<void> {
-  await requireAuth(accessToken)
+  await requirePermissao('financeiro', accessToken)
   const supabase = await createServiceClient()
 
   // Valida saldo disponível

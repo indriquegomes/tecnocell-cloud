@@ -2,7 +2,23 @@ import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { streamChat, buildSystemPrompt, type ChatMessage } from '@/lib/claude'
 
+// Rate-limit simples em memória por IP. Evita abuso de custo Anthropic na rota
+// pública. Reinicia a cada cold start — suficiente pra barrar flood.
+const hits = new Map<string, number[]>()
+function limitado(ip: string, max = 20, janelaMs = 60_000): boolean {
+  const agora = Date.now()
+  const recentes = (hits.get(ip) ?? []).filter((t) => agora - t < janelaMs)
+  recentes.push(agora)
+  hits.set(ip, recentes)
+  return recentes.length > max
+}
+
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'desconhecido'
+  if (limitado(ip)) {
+    return new Response('Muitas requisições. Aguarde um momento.', { status: 429 })
+  }
+
   const { mensagens, tipo: tipoRequisitado = 'cliente' } = await req.json() as {
     mensagens: ChatMessage[]
     tipo: 'funcionario' | 'cliente'

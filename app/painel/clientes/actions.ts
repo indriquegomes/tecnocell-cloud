@@ -1,12 +1,12 @@
 'use server'
 
-import { createServiceClient, requireAuth } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { validarCpfCnpj } from '@/lib/validacoes'
 
 export async function criarPessoa(formData: FormData) {
-  await requireAuth()
+  await requirePermissao('clientes')
   const supabase = await createServiceClient()
 
   const cpfCnpj = (formData.get('cpf_cnpj') as string)?.trim()
@@ -40,7 +40,7 @@ export async function criarPessoa(formData: FormData) {
 }
 
 export async function editarPessoa(id: string, formData: FormData) {
-  await requireAuth()
+  await requirePermissao('clientes')
   const supabase = await createServiceClient()
 
   const cpfCnpj = (formData.get('cpf_cnpj') as string)?.trim()
@@ -73,7 +73,7 @@ export async function editarPessoa(id: string, formData: FormData) {
 }
 
 export async function deletarPessoa(id: string) {
-  await requireAuth()
+  await requirePermissao('clientes')
   const supabase = await createServiceClient()
   const { error } = await supabase.from('pessoas').delete().eq('id', id)
   if (error) throw new Error(error.message)

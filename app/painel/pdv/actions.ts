@@ -1,6 +1,6 @@
 'use server'
 
-import { createServiceClient, requireAuth } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 
 interface ItemCarrinho {
   produto_id: string
@@ -36,7 +36,7 @@ export async function finalizarVenda(
 
   let usuario: { id: string; email: string | null }
   try {
-    usuario = await requireAuth(accessToken)
+    usuario = await requirePermissao('pdv', accessToken)
   } catch (e) {
     return { erro: 'Sessão expirada. Recarregue a página (F5) e entre novamente. ' + (e instanceof Error ? e.message : '') }
   }
@@ -127,7 +127,7 @@ export interface DetalheVenda {
 }
 
 export async function buscarCrediario(accessToken: string): Promise<CrediarioItem[]> {
-  await requireAuth(accessToken)
+  await requirePermissao('pdv', accessToken)
   const supabase = await createServiceClient()
   const { data, error } = await supabase
     .from('lancamentos')
@@ -140,7 +140,7 @@ export async function buscarCrediario(accessToken: string): Promise<CrediarioIte
 }
 
 export async function buscarDetalheVenda(accessToken: string, vendaId: string): Promise<DetalheVenda | null> {
-  await requireAuth(accessToken)
+  await requirePermissao('pdv', accessToken)
   const supabase = await createServiceClient()
 
   const [vendaRes, itensRes, pagamentosRes] = await Promise.all([
@@ -201,7 +201,7 @@ export async function buscarDetalheVenda(accessToken: string, vendaId: string): 
 
 export async function pagarLancamentos(accessToken: string, ids: string[], formaPagamento = 'dinheiro'): Promise<void> {
   if (ids.length === 0) return
-  await requireAuth(accessToken)
+  await requirePermissao('pdv', accessToken)
   const supabase = await createServiceClient()
   const today = new Date().toISOString().split('T')[0]
   const { data, error } = await supabase
@@ -219,7 +219,7 @@ export async function registrarPagamentoParcial(
   valorPago: number,
   formaPagamento: string,
 ): Promise<{ quitado: boolean }> {
-  await requireAuth(accessToken)
+  await requirePermissao('pdv', accessToken)
   const supabase = await createServiceClient()
 
   const { data: lanc, error: errBusca } = await supabase
@@ -275,7 +275,7 @@ export interface PedidoResumo {
 }
 
 export async function buscarPedidosAbertos(accessToken: string): Promise<PedidoResumo[]> {
-  await requireAuth(accessToken)
+  await requirePermissao('pdv', accessToken)
   const supabase = await createServiceClient()
   const { data, error } = await supabase
     .from('pedidos')
@@ -317,7 +317,7 @@ export interface VendaResumo {
 
 // Buscar as últimas vendas concluídas para consulta no PDV (#9 Buscar Vendas)
 export async function buscarVendas(accessToken: string, limite: number = 30): Promise<VendaResumo[]> {
-  await requireAuth(accessToken)
+  await requirePermissao('pdv', accessToken)
   const supabase = await createServiceClient()
   const { data, error } = await supabase
     .from('vendas')

@@ -1,11 +1,11 @@
 'use server'
 
-import { createServiceClient, requireAuth } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 export async function emitirCredito(formData: FormData) {
-  await requireAuth()
+  await requirePermissao('financeiro')
   const supabase = await createServiceClient()
 
   const pessoa_id = formData.get('pessoa_id') as string
@@ -35,7 +35,7 @@ export async function emitirCredito(formData: FormData) {
 }
 
 export async function estornarCredito(id: string) {
-  await requireAuth()
+  await requirePermissao('financeiro')
   const supabase = await createServiceClient()
 
   const { data: lanc } = await supabase

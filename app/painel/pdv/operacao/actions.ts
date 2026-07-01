@@ -1,6 +1,6 @@
 'use server'
 
-import { createServiceClient, requireAuth } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -11,7 +11,7 @@ export async function abrirCaixa(
   formData: FormData,
 ): Promise<ActionState> {
   try {
-    await requireAuth(formData.get('access_token') as string)
+    await requirePermissao('pdv', formData.get('access_token') as string)
     const supabase = await createServiceClient()
 
     // Impede caixa duplo
@@ -42,7 +42,7 @@ export async function fecharCaixa(
   formData: FormData,
 ): Promise<ActionState> {
   try {
-    await requireAuth(formData.get('access_token') as string)
+    await requirePermissao('pdv', formData.get('access_token') as string)
     const id = formData.get('caixa_id') as string
     if (!id) return { ok: false, message: 'Caixa não identificado.' }
 
@@ -103,7 +103,7 @@ export async function registrarReforco(
   formData: FormData,
 ): Promise<ActionState> {
   try {
-    await requireAuth(formData.get('access_token') as string)
+    await requirePermissao('pdv', formData.get('access_token') as string)
     const caixaId = formData.get('caixa_id') as string
     const valor = parseFloat(formData.get('valor') as string) || 0
     if (!caixaId) return { ok: false, message: 'Caixa não identificado.' }
@@ -131,7 +131,7 @@ export async function registrarRetirada(
   formData: FormData,
 ): Promise<ActionState> {
   try {
-    await requireAuth(formData.get('access_token') as string)
+    await requirePermissao('pdv', formData.get('access_token') as string)
     const caixaId = formData.get('caixa_id') as string
     const valor = parseFloat(formData.get('valor') as string) || 0
     if (!caixaId) return { ok: false, message: 'Caixa não identificado.' }

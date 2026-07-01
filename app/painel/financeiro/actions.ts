@@ -1,11 +1,11 @@
 'use server'
 
-import { createServiceClient, requireAuth } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 export async function criarLancamento(formData: FormData) {
-  await requireAuth()
+  await requirePermissao('financeiro')
   const supabase = await createServiceClient()
   const { error } = await supabase.from('lancamentos').insert({
     id: crypto.randomUUID(),
@@ -25,7 +25,7 @@ export async function criarLancamento(formData: FormData) {
 }
 
 export async function editarLancamento(id: string, formData: FormData) {
-  await requireAuth()
+  await requirePermissao('financeiro')
   const supabase = await createServiceClient()
   const { error } = await supabase.from('lancamentos').update({
     descricao: formData.get('descricao') as string,
@@ -43,7 +43,7 @@ export async function editarLancamento(id: string, formData: FormData) {
 }
 
 export async function marcarPago(id: string) {
-  await requireAuth()
+  await requirePermissao('financeiro')
   const supabase = await createServiceClient()
   const { error } = await supabase.from('lancamentos').update({
     status: 'pago',
@@ -54,7 +54,7 @@ export async function marcarPago(id: string) {
 }
 
 export async function deletarLancamento(id: string) {
-  await requireAuth()
+  await requirePermissao('financeiro')
   const supabase = await createServiceClient()
   const { error } = await supabase.from('lancamentos').delete().eq('id', id)
   if (error) throw new Error(error.message)

@@ -1,6 +1,6 @@
 'use server'
 
-import { createServiceClient, requireAuth } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -23,7 +23,7 @@ export interface OrdemServico {
 }
 
 export async function gerarOSDePedido(pedidoId: string) {
-  const usuario = await requireAuth()
+  const usuario = await requirePermissao('os')
   const supabase = await createServiceClient()
 
   const { data: pedido } = await supabase
@@ -59,7 +59,7 @@ export async function gerarOSDePedido(pedidoId: string) {
 }
 
 export async function criarOS(formData: FormData) {
-  const usuario = await requireAuth()
+  const usuario = await requirePermissao('os')
   const supabase = await createServiceClient()
 
   const pessoaId = (formData.get('pessoa_id') as string) || null
@@ -93,7 +93,7 @@ export async function criarOS(formData: FormData) {
 }
 
 export async function atualizarStatusOS(osId: string, status: StatusOS) {
-  await requireAuth()
+  await requirePermissao('os')
   const supabase = await createServiceClient()
   const { error } = await supabase.from('ordens_servico').update({ status }).eq('id', osId)
   if (error) return { error: error.message }
@@ -103,7 +103,7 @@ export async function atualizarStatusOS(osId: string, status: StatusOS) {
 }
 
 export async function buscarClientesOS(busca: string) {
-  await requireAuth()
+  await requirePermissao('os')
   const supabase = await createServiceClient()
   const { data } = await supabase
     .from('pessoas')

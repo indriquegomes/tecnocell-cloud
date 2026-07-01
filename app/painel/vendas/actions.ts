@@ -1,6 +1,6 @@
 'use server'
 
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 
 export type PagamentoDetalhe = {
   forma_nome: string
@@ -24,6 +24,7 @@ export type DetalheVendaCompleto = {
 }
 
 export async function buscarDetalheVendaPublic(vendaId: string): Promise<DetalheVendaCompleto | null> {
+  await requirePermissao('vendas')
   const supabase = await createServiceClient()
 
   const [vendaRes, itensRes, pagamentosRes] = await Promise.all([

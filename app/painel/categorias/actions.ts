@@ -1,11 +1,11 @@
 'use server'
 
-import { createServiceClient, requireAuth } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 export async function criarCategoria(formData: FormData) {
-  await requireAuth()
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
   const nome = (formData.get('nome') as string)?.trim()
   if (!nome) redirect(`/painel/categorias?erro=${encodeURIComponent('Nome obrigatório')}`)
@@ -20,7 +20,7 @@ export async function criarCategoria(formData: FormData) {
 }
 
 export async function editarCategoria(hierarquia: string, formData: FormData) {
-  await requireAuth()
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
   const { error } = await supabase.from('categorias').update({
     nome: (formData.get('nome') as string)?.trim(),
@@ -32,7 +32,7 @@ export async function editarCategoria(hierarquia: string, formData: FormData) {
 }
 
 export async function deletarCategoria(hierarquia: string) {
-  await requireAuth()
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
   const { error } = await supabase.from('categorias').delete().eq('hierarquia', hierarquia)
   if (error) throw new Error(error.message)

@@ -1,6 +1,6 @@
 'use server'
 
-import { createServiceClient, requireAuth } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -19,7 +19,7 @@ async function uploadImagem(supabase: Awaited<ReturnType<typeof createServiceCli
 }
 
 export async function criarProduto(formData: FormData) {
-  await requireAuth()
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
   const id = crypto.randomUUID()
   const imagemFile = formData.get('imagem') as File | null
@@ -52,7 +52,7 @@ export async function criarProduto(formData: FormData) {
 }
 
 export async function editarProduto(id: string, formData: FormData) {
-  await requireAuth()
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
   const imagemFile = formData.get('imagem') as File | null
   const novaImagem = imagemFile ? await uploadImagem(supabase, imagemFile, id) : undefined
@@ -85,7 +85,7 @@ export async function editarProduto(id: string, formData: FormData) {
 }
 
 export async function deletarProduto(id: string) {
-  await requireAuth()
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
   await supabase.from('estoque').delete().eq('produto_id', id)
   const { error } = await supabase.from('produtos').delete().eq('id', id)
@@ -94,7 +94,7 @@ export async function deletarProduto(id: string) {
 }
 
 export async function criarCategoria(nome: string) {
-  await requireAuth()
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
   const hierarquia = nome.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
   await supabase.from('categorias').upsert({ hierarquia, nome, descricao: null }, { onConflict: 'hierarquia' })
@@ -102,7 +102,7 @@ export async function criarCategoria(nome: string) {
 }
 
 export async function criarMarca(nome: string) {
-  await requireAuth()
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
   await supabase.from('marcas').upsert({ nome }, { onConflict: 'nome' })
   revalidatePath('/painel/produtos')

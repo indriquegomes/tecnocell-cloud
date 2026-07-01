@@ -1,11 +1,11 @@
 'use server'
 
-import { createServiceClient, requireAuth } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 export async function criarPedido(formData: FormData) {
-  const usuario = await requireAuth()
+  const usuario = await requirePermissao('pedidos')
   const supabase = await createServiceClient()
 
   // Captura nome do vendedor
@@ -36,7 +36,7 @@ export async function criarPedido(formData: FormData) {
 }
 
 export async function atualizarStatusPedido(id: string, status: string) {
-  await requireAuth()
+  await requirePermissao('pedidos')
   const supabase = await createServiceClient()
   const { error } = await supabase.from('pedidos').update({ status }).eq('id', id)
   if (error) throw new Error(error.message)
@@ -45,7 +45,7 @@ export async function atualizarStatusPedido(id: string, status: string) {
 }
 
 export async function deletarPedido(id: string) {
-  await requireAuth()
+  await requirePermissao('pedidos')
   const supabase = await createServiceClient()
   const { error } = await supabase.from('pedidos').delete().eq('id', id)
   if (error) throw new Error(error.message)
@@ -53,7 +53,7 @@ export async function deletarPedido(id: string) {
 }
 
 export async function adicionarItemPedido(pedidoId: string, formData: FormData) {
-  await requireAuth()
+  await requirePermissao('pedidos')
   const supabase = await createServiceClient()
   const quantidade = parseFloat(formData.get('quantidade') as string) || 1
   const preco = parseFloat(formData.get('preco_unitario') as string) || 0
@@ -79,7 +79,7 @@ export async function adicionarItemPedido(pedidoId: string, formData: FormData) 
 }
 
 export async function atualizarDescontoFrete(id: string, desconto: number, frete: number) {
-  await requireAuth()
+  await requirePermissao('pedidos')
   const supabase = await createServiceClient()
   // recalcula total com os itens existentes
   const { data: itens } = await supabase.from('itens_pedido').select('total_item').eq('pedido_id', id)
@@ -95,7 +95,7 @@ export async function atualizarInfoPedido(
   id: string,
   dados: { deposito_id?: string | null; forma_pagamento_id?: string | null; origem?: string | null }
 ) {
-  await requireAuth()
+  await requirePermissao('pedidos')
   const supabase = await createServiceClient()
   const { error } = await supabase.from('pedidos').update(dados).eq('id', id)
   if (error) return { error: error.message }
@@ -107,7 +107,7 @@ export async function atualizarObservacoesTermos(
   id: string,
   dados: { observacoes?: string | null; termos_condicoes?: string | null }
 ) {
-  await requireAuth()
+  await requirePermissao('pedidos')
   const supabase = await createServiceClient()
   const { error } = await supabase.from('pedidos').update(dados).eq('id', id)
   if (error) return { error: error.message }
@@ -116,7 +116,7 @@ export async function atualizarObservacoesTermos(
 }
 
 export async function cancelarComMotivo(id: string, motivo: string) {
-  await requireAuth()
+  await requirePermissao('pedidos')
   const supabase = await createServiceClient()
   const { error } = await supabase.from('pedidos')
     .update({ status: 'cancelado', motivo_cancelamento: motivo || null })
@@ -128,7 +128,7 @@ export async function cancelarComMotivo(id: string, motivo: string) {
 }
 
 export async function removerItemPedido(itemId: string, pedidoId: string) {
-  await requireAuth()
+  await requirePermissao('pedidos')
   const supabase = await createServiceClient()
   await supabase.from('itens_pedido').delete().eq('id', itemId)
   const { data: ped } = await supabase.from('pedidos').select('desconto, frete').eq('id', pedidoId).single()

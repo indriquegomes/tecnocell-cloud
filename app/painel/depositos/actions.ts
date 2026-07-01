@@ -1,6 +1,6 @@
 'use server'
 
-import { createServiceClient, requireAuth } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -27,7 +27,7 @@ async function extrairCampos(formData: FormData, supabase: Awaited<ReturnType<ty
 }
 
 export async function criarDeposito(formData: FormData) {
-  await requireAuth()
+  await requirePermissao('estoque')
   const supabase = await createServiceClient()
   const { error } = await supabase.from('depositos').insert({ id: crypto.randomUUID(), ...await extrairCampos(formData, supabase) })
   if (error) redirect(`/painel/depositos?erro=${encodeURIComponent(error.message)}`)
@@ -36,7 +36,7 @@ export async function criarDeposito(formData: FormData) {
 }
 
 export async function editarDeposito(id: string, formData: FormData) {
-  await requireAuth()
+  await requirePermissao('estoque')
   const supabase = await createServiceClient()
   const { error } = await supabase.from('depositos').update(await extrairCampos(formData, supabase)).eq('id', id)
   if (error) redirect(`/painel/depositos?erro=${encodeURIComponent(error.message)}`)
@@ -45,7 +45,7 @@ export async function editarDeposito(id: string, formData: FormData) {
 }
 
 export async function deletarDeposito(id: string) {
-  await requireAuth()
+  await requirePermissao('estoque')
   const supabase = await createServiceClient()
   const { error } = await supabase.from('depositos').delete().eq('id', id)
   if (error) throw new Error(error.message)

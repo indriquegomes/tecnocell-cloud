@@ -1,11 +1,11 @@
 'use server'
 
-import { createServiceClient, requireAuth } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 export async function toggleCatalogo(id: string, visivel: boolean) {
-  await requireAuth()
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
   await supabase.from('produtos').update({ visivel_catalogo: !visivel }).eq('id', id)
   revalidatePath('/painel/catalogo')
@@ -13,7 +13,7 @@ export async function toggleCatalogo(id: string, visivel: boolean) {
 }
 
 export async function salvarDescricaoCatalogo(formData: FormData) {
-  await requireAuth()
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
   const id = formData.get('id') as string
   const { error } = await supabase

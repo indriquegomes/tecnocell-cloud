@@ -1,25 +1,20 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
-// Next.js 16: "middleware" agora se chama "proxy". Doc: aqui só "optimistic checks".
+// Next.js 16: "middleware" agora se chama "proxy".
 //
-// CRÍTICO: NÃO chamar supabase.auth.getUser() aqui. Em produção, quando o servidor
-// responde AuthSessionMissing (sessão rotacionada), o supabase-js chama _removeSession()
-// e APAGA o cookie — derrubando o login depois de 1-2 navegações. Isso quebrou todas
-// as vendas em 2026-06-24. A autorização real fica no requireAuth(accessToken) das
-// server actions, que valida o token sem depender de cookie.
+// CRÍTICO: NÃO usar supabase-js aqui. Em produção, quando o servidor responde
+// AuthSessionMissing (sessão rotacionada), o supabase-js chama _removeSession()
+// e APAGA o cookie — derrubando o login depois de 1-2 navegações. Isso quebrou
+// todas as vendas em 2026-06-24.
 //
-// Aqui só decodificamos o JWT do cookie LOCALMENTE (sem rede, sem limpar nada) para o
-// check otimista de redirect e para repassar x-user-id aos server components.
+// Por isso validamos o token com um fetch DIRETO ao endpoint /auth/v1/user do
+// Supabase (Bearer). Esse fetch só LÊ — não gerencia sessão, não toca cookie.
+// Valida a ASSINATURA do JWT no servidor do Supabase; não confiamos no conteúdo
+// local do cookie. A identidade verificada é repassada via header x-user-id.
 
 interface Claims { sub: string; email?: string }
 
-function b64urlToString(b64url: string): string {
-  const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(b64url.length / 4) * 4, '=')
-  return atob(b64)
-}
-
-function lerSessao(request: NextRequest): Claims | null {
-  // Junta os chunks do cookie de sessão (sb-<ref>-auth-token[.N])
+function extrairToken(request: NextRequest): string | null {
   const partes = request.cookies
     .getAll()
     .filter((c) => /-auth-token(\.\d+)?$/.test(c.name))
@@ -30,18 +25,32 @@ function lerSessao(request: NextRequest): Claims | null {
     let raw = partes.map((c) => c.value).join('')
     if (raw.startsWith('base64-')) raw = atob(raw.slice(7))
     const sessao = JSON.parse(raw)
-    const token: string | undefined = sessao.access_token
-    if (!token) return null
-    const payload = JSON.parse(b64urlToString(token.split('.')[1]))
-    if (!payload.sub) return null
-    return { sub: payload.sub, email: payload.email }
+    return typeof sessao.access_token === 'string' ? sessao.access_token : null
   } catch {
     return null
   }
 }
 
-export function proxy(request: NextRequest) {
-  const sessao = lerSessao(request)
+async function validarToken(token: string): Promise<Claims | null> {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      },
+    })
+    if (!res.ok) return null
+    const user = await res.json()
+    if (!user?.id) return null
+    return { sub: user.id, email: user.email }
+  } catch {
+    return null
+  }
+}
+
+export async function proxy(request: NextRequest) {
+  const token = extrairToken(request)
+  const sessao = token ? await validarToken(token) : null
   const noPainel = request.nextUrl.pathname.startsWith('/painel')
 
   if (!sessao && noPainel) {
@@ -50,8 +59,11 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Repassa identidade e pathname aos server components via REQUEST header.
+  // Clona headers e REMOVE qualquer x-user-* forjado que tenha vindo do cliente.
+  // Sem isso, um atacante mandaria x-user-id direto e seria tratado como logado.
   const requestHeaders = new Headers(request.headers)
+  requestHeaders.delete('x-user-id')
+  requestHeaders.delete('x-user-email')
   requestHeaders.set('x-pathname', request.nextUrl.pathname)
   if (sessao) {
     requestHeaders.set('x-user-id', sessao.sub)

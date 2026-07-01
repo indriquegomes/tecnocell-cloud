@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies, headers } from 'next/headers'
+import { temPermissao } from '@/lib/permissoes'
 
 export async function createClient() {
   const cookieStore = await cookies()
@@ -76,4 +77,25 @@ export async function requireAuth(accessToken?: string): Promise<{ id: string; e
   const { data: { user }, error } = await authClient.auth.getUser()
   if (error || !user) throw new Error(error?.message ?? 'Não autorizado')
   return { id: user.id, email: user.email ?? null }
+}
+
+// Valida sessão E permissão. As server actions NÃO passam pelo layout do painel,
+// então sem isto dá pra chamar a action direto via POST sem ter acesso ao módulo.
+// Carrega o perfil com service client (bypassa RLS) e checa ativo + permissão.
+export async function requirePermissao(
+  key: string,
+  accessToken?: string
+): Promise<{ id: string; email: string | null }> {
+  const usuario = await requireAuth(accessToken)
+  const service = await createServiceClient()
+  const { data } = await service
+    .from('perfis')
+    .select('permissoes, is_master, ativo')
+    .eq('id', usuario.id)
+    .maybeSingle()
+  if (!data || data.ativo === false) throw new Error('Conta sem acesso.')
+  if (!temPermissao(data.permissoes ?? [], key, data.is_master ?? false)) {
+    throw new Error('Sem permissão para esta ação.')
+  }
+  return usuario
 }

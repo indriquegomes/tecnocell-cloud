@@ -1,6 +1,6 @@
 'use server'
 
-import { createServiceClient, requireAuth } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { TODAS_PERMISSOES } from '@/lib/permissoes'
 import { revalidatePath } from 'next/cache'
 
@@ -10,7 +10,7 @@ const TODAS_KEYS = TODAS_PERMISSOES.map((p) => p.key)
 
 export async function criarUsuario(_: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const token = fd.get('access_token') as string
-  try { await requireAuth(token) } catch { return { ok: false, message: 'Não autorizado' } }
+  try { await requirePermissao('usuarios', token) } catch { return { ok: false, message: 'Não autorizado' } }
 
   const email    = (fd.get('email') as string ?? '').trim()
   const senha    = (fd.get('senha') as string ?? '').trim()
@@ -52,7 +52,7 @@ export async function criarUsuario(_: ActionResult | null, fd: FormData): Promis
 
 export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const token = fd.get('access_token') as string
-  try { await requireAuth(token) } catch { return { ok: false, message: 'Não autorizado' } }
+  try { await requirePermissao('usuarios', token) } catch { return { ok: false, message: 'Não autorizado' } }
 
   const userId   = fd.get('user_id') as string
   const nome     = (fd.get('nome') as string ?? '').trim()
@@ -78,7 +78,7 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
 
 export async function alterarSenha(_: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const token = fd.get('access_token') as string
-  try { await requireAuth(token) } catch { return { ok: false, message: 'Não autorizado' } }
+  try { await requirePermissao('usuarios', token) } catch { return { ok: false, message: 'Não autorizado' } }
 
   const userId = fd.get('user_id') as string
   const senha  = (fd.get('senha') as string ?? '').trim()
