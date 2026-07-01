@@ -159,91 +159,24 @@ export async function registrarDevolucao(
   await requirePermissao('devolucoes', accessToken)
   const supabase = await createServiceClient()
 
-  const valorTotal = input.itens.reduce((s, i) => s + i.total_item, 0)
-  const devolucaoId = crypto.randomUUID()
-
-  const { error: eDev } = await supabase.from('devolucoes').insert({
-    id: devolucaoId,
-    venda_id: input.venda_id,
-    // devolucoes.deposito_id é uuid no schema, mas os ids de depósito são TEXT (SIGE) —
-    // gravar o id real quebraria o insert. O retorno ao estoque abaixo usa o deposito_id
-    // certo (estoque.deposito_id é TEXT). Coluna fica null até migrar para text.
-    deposito_id: null,
-    pessoa_nome: input.pessoa_nome ?? 'Cliente Final',
-    vendedor_nome: input.vendedor_nome ?? null,
-    motivo: input.motivo || null,
-    valor_total: valorTotal,
-    tipo_credito: input.tipo_credito,
-    status: 'concluida',
+  // Tudo numa transação atômica no RPC (migration 2026-07-03): devolução + itens +
+  // retorno ao estoque + financeiro. Falha em qualquer passo reverte o conjunto —
+  // sem devolução órfã nem estoque retornado pela metade.
+  const { data, error } = await supabase.rpc('registrar_devolucao', {
+    p_venda_id: input.venda_id,
+    p_deposito_id: input.deposito_id,
+    p_pessoa_id: input.pessoa_id,
+    p_pessoa_nome: input.pessoa_nome,
+    p_vendedor_nome: input.vendedor_nome,
+    p_motivo: input.motivo,
+    p_tipo_credito: input.tipo_credito,
+    p_itens: input.itens,
+    p_lancamento_pendente: input.lancamento_pendente,
   })
-  if (eDev) throw new Error(eDev.message)
+  if (error) throw new Error(error.message)
+  if (!data) throw new Error('RPC registrar_devolucao retornou vazio.')
 
-  const { error: eItens } = await supabase.from('itens_devolucao').insert(
-    input.itens.map((i) => ({
-      devolucao_id: devolucaoId,
-      produto_id: i.produto_id,
-      nome: i.nome,
-      quantidade: i.quantidade,
-      preco_unitario: i.preco_unitario,
-      total_item: i.total_item,
-      status_produto: i.status_produto ?? 'ok',
-    }))
-  )
-  if (eItens) throw new Error(eItens.message)
-
-  // Retorno ao estoque — usa o depósito da venda; se faltar, o primeiro cadastrado
-  let depositoEstoque = input.deposito_id
-  if (!depositoEstoque) {
-    const { data: depFallback } = await supabase.from('depositos').select('id').order('nome').limit(1).maybeSingle()
-    depositoEstoque = depFallback?.id ?? null
-  }
-  if (!depositoEstoque) throw new Error('Nenhum depósito cadastrado para retornar o estoque.')
-  for (const item of input.itens) {
-    const { data: estAtual } = await supabase.from('estoque')
-      .select('quantidade').eq('produto_id', item.produto_id).eq('deposito_id', depositoEstoque).maybeSingle()
-    const { error: eEstoque } = estAtual
-      ? await supabase.from('estoque')
-          .update({ quantidade: (estAtual.quantidade ?? 0) + item.quantidade })
-          .eq('produto_id', item.produto_id).eq('deposito_id', depositoEstoque)
-      : await supabase.from('estoque')
-          .insert({ produto_id: item.produto_id, deposito_id: depositoEstoque, quantidade: item.quantidade })
-    if (eEstoque) throw new Error(`Falha ao retornar ${item.nome} ao estoque: ${eEstoque.message}`)
-  }
-
-  // Tratamento financeiro
-  if (input.lancamento_pendente) {
-    await supabase
-      .from('lancamentos')
-      .update({ status: 'cancelado' })
-      .eq('venda_id', input.venda_id)
-      .eq('status', 'pendente')
-  } else if (input.tipo_credito === 'credito_conta') {
-    if (input.pessoa_id) {
-      await supabase.from('creditos_clientes').insert({
-        pessoa_id: input.pessoa_id,
-        pessoa_nome: input.pessoa_nome ?? 'Cliente',
-        valor: valorTotal,
-        tipo: 'credito',
-        descricao: `Devolução de compra`,
-        devolucao_id: devolucaoId,
-      })
-    }
-  } else if (input.tipo_credito !== 'sem_reembolso') {
-    const today = new Date().toISOString().split('T')[0]
-    await supabase.from('lancamentos').insert({
-      id: crypto.randomUUID(),
-      tipo: 'pagar',
-      descricao: `Devolução — ${input.pessoa_nome ?? 'Cliente'}`,
-      valor: valorTotal,
-      status: 'pago',
-      data_vencimento: today,
-      data_pagamento: today,
-      forma_pagamento: input.tipo_credito,
-      pessoa_nome: input.pessoa_nome,
-    })
-  }
-
-  return { id: devolucaoId }
+  return { id: (data as { devolucao_id: string }).devolucao_id }
 }
 
 export async function buscarItensDevolucao(
