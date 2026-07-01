@@ -114,6 +114,7 @@ export function DevolucoesClient({
   const [carregandoVenda, setCarregandoVenda] = useState(false)
   const [itens, setItens] = useState<Map<string, number>>(new Map())
   const [statusProduto, setStatusProduto] = useState<Map<string, string>>(new Map())
+  const [seriesSel, setSeriesSel] = useState<Map<string, string[]>>(new Map())  // produto_id → IMEIs escolhidos p/ devolver
   const [motivo, setMotivo] = useState('')
   const [tipoCredito, setTipoCredito] = useState('dinheiro')
   const [salvando, setSalvando] = useState(false)
@@ -147,7 +148,7 @@ export function DevolucoesClient({
 
   const fechar = () => {
     setOpen(false); setStep('buscar'); setBuscaVenda(''); setVendas([])
-    setVenda(null); setItens(new Map()); setStatusProduto(new Map())
+    setVenda(null); setItens(new Map()); setStatusProduto(new Map()); setSeriesSel(new Map())
     setMotivo(''); setTipoCredito('dinheiro'); setErro('')
   }
 
@@ -171,8 +172,9 @@ export function DevolucoesClient({
       setVenda(v)
       const m = new Map<string, number>()
       const sp = new Map<string, string>()
-      v.itens.forEach((i) => { m.set(i.produto_id, i.quantidade); sp.set(i.produto_id, 'ok') })
-      setItens(m); setStatusProduto(sp)
+      // serializado começa sem nada marcado (operador escolhe os IMEIs); demais, quantidade cheia
+      v.itens.forEach((i) => { m.set(i.produto_id, i.series.length > 0 ? 0 : i.quantidade); sp.set(i.produto_id, 'ok') })
+      setItens(m); setStatusProduto(sp); setSeriesSel(new Map())
       setTipoCredito(v.lancamento_pendente ? 'cancelamento_fiado' : 'dinheiro')
       setStep('itens')
     } catch (e) { setErro(e instanceof Error ? e.message : 'Erro ao carregar venda.') }
@@ -182,6 +184,21 @@ export function DevolucoesClient({
   const totalSelecionado = venda
     ? venda.itens.reduce((s, i) => s + (itens.get(i.produto_id) ?? 0) * i.preco_unitario, 0)
     : 0
+
+  // Serializado: marca/desmarca IMEIs (quantidade = nº de IMEIs escolhidos)
+  const toggleSerie = (produtoId: string, serie: string) => {
+    setSeriesSel((prev) => {
+      const cur = prev.get(produtoId) ?? []
+      const next = cur.includes(serie) ? cur.filter((s) => s !== serie) : [...cur, serie]
+      const m = new Map(prev); m.set(produtoId, next)
+      setItens((pi) => { const mm = new Map(pi); mm.set(produtoId, next.length); return mm })
+      return m
+    })
+  }
+  const marcarTodasSeries = (produtoId: string, disponiveis: string[], marcar: boolean) => {
+    setSeriesSel((prev) => { const m = new Map(prev); m.set(produtoId, marcar ? [...disponiveis] : []); return m })
+    setItens((pi) => { const mm = new Map(pi); mm.set(produtoId, marcar ? disponiveis.length : 0); return mm })
+  }
 
   const confirmar = async () => {
     if (!venda) return
@@ -195,8 +212,11 @@ export function DevolucoesClient({
           quantidade: itens.get(i.produto_id) ?? 0,
           total_item: (itens.get(i.produto_id) ?? 0) * i.preco_unitario,
           status_produto: statusProduto.get(i.produto_id) ?? 'ok',
+          series: seriesSel.get(i.produto_id) ?? [],   // IMEIs escolhidos (vazio p/ não serializado)
         }))
       if (!itensDev.length) { setErro('Selecione ao menos um item.'); return }
+      const semImei = itensDev.find((i) => venda.itens.find((x) => x.produto_id === i.produto_id)!.series.length > 0 && i.series.length === 0)
+      if (semImei) { setErro(`Escolha o(s) IMEI(s) a devolver de "${semImei.nome}".`); return }
       await registrarDevolucao(t, {
         venda_id: venda.id, deposito_id: venda.deposito_id,
         pessoa_id: venda.pessoa_id, pessoa_nome: venda.pessoa_nome,
@@ -520,25 +540,44 @@ export function DevolucoesClient({
                         {venda.itens.map((item) => {
                           const qtd = itens.get(item.produto_id) ?? 0
                           const sp = statusProduto.get(item.produto_id) ?? 'ok'
+                          const serial = item.series.length > 0
+                          const sel = seriesSel.get(item.produto_id) ?? []
                           return (
                             <tr key={item.produto_id} className={qtd > 0 ? 'bg-blue-50/30' : ''}>
                               <td className="px-3 py-2.5">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-start gap-2">
                                   <input type="checkbox" checked={qtd > 0}
                                     onChange={(e) => {
+                                      if (serial) { marcarTodasSeries(item.produto_id, item.series, e.target.checked); return }
                                       const m = new Map(itens)
                                       m.set(item.produto_id, e.target.checked ? item.quantidade : 0)
                                       setItens(m)
                                     }}
-                                    className="h-4 w-4 rounded border-gray-300 text-blue-600" />
-                                  <div>
+                                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600" />
+                                  <div className="min-w-0">
                                     <p className="font-medium text-gray-800 text-xs leading-tight">{item.nome}</p>
                                     <p className="text-[11px] text-gray-400">{fmt(item.preco_unitario)}/un.</p>
+                                    {serial && (
+                                      <div className="mt-1.5 flex flex-wrap gap-1">
+                                        {item.series.map((s) => {
+                                          const on = sel.includes(s)
+                                          return (
+                                            <button key={s} type="button" onClick={() => toggleSerie(item.produto_id, s)}
+                                              className={`rounded-full border px-2 py-0.5 text-[11px] font-mono transition ${on ? 'border-amber-500 bg-amber-500 text-white' : 'border-amber-300 bg-white text-amber-800 hover:bg-amber-100'}`}>
+                                              {on ? '✓ ' : ''}{s}
+                                            </button>
+                                          )
+                                        })}
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               </td>
                               <td className="px-3 py-2.5 text-center text-xs text-gray-500">{item.quantidade}</td>
                               <td className="px-3 py-2.5 text-center">
+                                {serial ? (
+                                  <span className="text-sm font-bold">{qtd}</span>
+                                ) : (
                                 <div className="flex items-center justify-center gap-1">
                                   <button onClick={() => {
                                     const m = new Map(itens)
@@ -553,6 +592,7 @@ export function DevolucoesClient({
                                   }} disabled={qtd >= item.quantidade}
                                     className="flex h-6 w-6 items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-100 transition text-base leading-none disabled:opacity-30 disabled:cursor-not-allowed">+</button>
                                 </div>
+                                )}
                               </td>
                               <td className="px-3 py-2.5 text-right">
                                 <span className={`text-sm font-bold ${qtd > 0 ? 'text-red-600' : 'text-gray-300'}`}>

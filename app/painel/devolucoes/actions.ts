@@ -8,6 +8,7 @@ export interface ItemVendaParaDevolucao {
   quantidade: number
   preco_unitario: number
   total_item: number
+  series: string[]   // IMEIs vendidos deste produto nesta venda (vazio p/ não serializado)
 }
 
 export interface VendaParaDevolucao {
@@ -51,7 +52,7 @@ export async function buscarVendaParaDevolucao(
   await requirePermissao('devolucoes', accessToken)
   const supabase = await createServiceClient()
 
-  const [vendaRes, itensRes, lancRes] = await Promise.all([
+  const [vendaRes, itensRes, lancRes, seriesRes] = await Promise.all([
     supabase
       .from('vendas')
       .select('id, numero, total, created_at, vendedor_nome, forma_pagamento_id, pessoa_id, deposito_id, pessoas!pessoa_id(nome)')
@@ -67,7 +68,18 @@ export async function buscarVendaParaDevolucao(
       .eq('tipo', 'receber')
       .eq('status', 'pendente')
       .eq('venda_id', vendaId),
+    supabase
+      .from('numeros_serie')
+      .select('produto_id, serie')
+      .eq('venda_id', vendaId)
+      .eq('status', 'vendido'),
   ])
+
+  // IMEIs vendidos agrupados por produto (aparelhos serializados desta venda)
+  const seriesPorProduto: Record<string, string[]> = {}
+  for (const s of (seriesRes.data ?? []) as { produto_id: string; serie: string }[]) {
+    ;(seriesPorProduto[s.produto_id] ??= []).push(s.serie)
+  }
 
   if (!vendaRes.data) return null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -99,6 +111,7 @@ export async function buscarVendaParaDevolucao(
       quantidade: i.quantidade,
       preco_unitario: i.preco_unitario,
       total_item: i.total_item,
+      series: seriesPorProduto[i.produto_id] ?? [],
     })),
   }
 }
@@ -148,7 +161,7 @@ export interface RegistrarDevolucaoInput {
   vendedor_nome: string | null
   motivo: string
   tipo_credito: string
-  itens: { produto_id: string; nome: string; quantidade: number; preco_unitario: number; total_item: number; status_produto: string }[]
+  itens: { produto_id: string; nome: string; quantidade: number; preco_unitario: number; total_item: number; status_produto: string; series?: string[] }[]
   lancamento_pendente: boolean
 }
 
@@ -162,6 +175,11 @@ export async function registrarDevolucao(
   // Tudo numa transação atômica no RPC (migration 2026-07-03): devolução + itens +
   // retorno ao estoque + financeiro. Falha em qualquer passo reverte o conjunto —
   // sem devolução órfã nem estoque retornado pela metade.
+  // IMEIs devolvidos (aparelhos serializados) — cada um com o status escolhido
+  const series = input.itens.flatMap((i) =>
+    (i.series ?? []).map((serie) => ({ produto_id: i.produto_id, serie, status_produto: i.status_produto })),
+  )
+
   const { data, error } = await supabase.rpc('registrar_devolucao', {
     p_venda_id: input.venda_id,
     p_deposito_id: input.deposito_id,
@@ -172,6 +190,7 @@ export async function registrarDevolucao(
     p_tipo_credito: input.tipo_credito,
     p_itens: input.itens,
     p_lancamento_pendente: input.lancamento_pendente,
+    p_series: series,
   })
   if (error) throw new Error(error.message)
   if (!data) throw new Error('RPC registrar_devolucao retornou vazio.')
