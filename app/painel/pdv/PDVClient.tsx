@@ -92,6 +92,17 @@ interface Pessoa {
 interface Deposito {
   id: string
   nome: string
+  loja_id: string | null
+}
+
+interface Loja {
+  id: string
+  nome: string
+  cnpj: string | null
+  telefone: string | null
+  endereco: string | null
+  cidade: string | null
+  uf: string | null
 }
 
 interface TabelaPreco {
@@ -124,13 +135,14 @@ interface Props {
   formas: FormaPagamento[]
   pessoas: Pessoa[]
   depositos: Deposito[]
+  lojas: Loja[]
   tabelas: TabelaPreco[]
   precosPorTabela: Record<string, Record<string, number>>
   promosPorProduto: Record<string, PromoInfo[]>
   seriesPorProduto: Record<string, Record<string, string[]>>  // produto_id → deposito_id → [IMEIs em_estoque]
 }
 
-export function PDVClient({ produtos: produtosIniciais, formas, pessoas, depositos, tabelas, precosPorTabela, promosPorProduto, seriesPorProduto }: Props) {
+export function PDVClient({ produtos: produtosIniciais, formas, pessoas, depositos, lojas, tabelas, precosPorTabela, promosPorProduto, seriesPorProduto }: Props) {
   const [produtos, setProdutos] = useState(produtosIniciais)
   const [busca, setBusca] = useState('')
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([])
@@ -231,15 +243,34 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     clienteTelefone: string | null
     clienteEndereco: string | null
     deposito: string
+    loja: string | null
+    lojaCnpj: string | null
+    lojaEndereco: string | null
+    lojaTelefone: string | null
     desconto: number
     horario: string
   } | null>(null)
   const [mostrarConfirmacao, setMostrarConfirmacao] = useState(false)
-  // Loja padrão ao abrir o PDV (temporário — quando houver login por loja, virá do usuário)
-  const LOJA_PADRAO = 'PETRÓPOLIS'
+  // Loja/depósito: lembrado por COMPUTADOR (localStorage) — as usuárias revezam
+  // entre lojas, então cada PC fica na sua loja. Sem loja chumbada.
+  const [lojaId, setLojaId] = useState(lojas[0]?.id ?? '')
   const [depositoId, setDepositoId] = useState(
-    depositos.find((d) => d.nome === LOJA_PADRAO)?.id ?? depositos[0]?.id ?? ''
+    depositos.find((d) => d.loja_id === (lojas[0]?.id ?? ''))?.id ?? ''
   )
+  useEffect(() => {
+    const lj = localStorage.getItem('pdv_loja')
+    const dp = localStorage.getItem('pdv_deposito')
+    if (lj && lojas.some((l) => l.id === lj)) {
+      setLojaId(lj)
+      const depsLoja = depositos.filter((d) => d.loja_id === lj)
+      setDepositoId(dp && depsLoja.some((d) => d.id === dp) ? dp : (depsLoja[0]?.id ?? ''))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  useEffect(() => { if (lojaId) localStorage.setItem('pdv_loja', lojaId) }, [lojaId])
+  useEffect(() => { if (depositoId) localStorage.setItem('pdv_deposito', depositoId) }, [depositoId])
+  const lojaSel = lojas.find((l) => l.id === lojaId) ?? null
+  const depositosDaLoja = depositos.filter((d) => d.loja_id === lojaId)
   const [tabelaId, setTabelaId] = useState('')   // '' = Preço Padrão
 
   const clienteSelecionado = pessoas.find((p) => p.id === pessoaId)
@@ -413,6 +444,13 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
       }
       return ajustado
     })
+  }
+
+  // Trocar de loja: seleciona a loja e cai no primeiro depósito dela
+  const trocarLoja = (novoLojaId: string) => {
+    setLojaId(novoLojaId)
+    const primeiro = depositos.find((d) => d.loja_id === novoLojaId)
+    trocarDeposito(primeiro?.id ?? '')
   }
 
   const alterarQtd = (produto_id: string, delta: number) => {
@@ -591,6 +629,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
           return partes.length > 0 ? partes.join(', ') : null
         })(),
         deposito: nomeDeposito,
+        loja: lojaSel?.nome ?? null,
+        lojaCnpj: lojaSel?.cnpj ?? null,
+        lojaEndereco: [lojaSel?.endereco, lojaSel?.cidade && lojaSel?.uf ? `${lojaSel.cidade}/${lojaSel.uf}` : (lojaSel?.cidade ?? lojaSel?.uf)].filter(Boolean).join(' - ') || null,
+        lojaTelefone: lojaSel?.telefone ?? null,
         desconto: descontoNum + descontoPromo,
         horario: new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       }
@@ -938,6 +980,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     <hr class="sep">
     <p class="bold" style="font-size:13px">VENDA NÚMERO ${numeroLabel}</p>
     <p>EMISSÃO EM ${snap.horario}</p>
+    ${snap.loja ? `<p class="bold">${snap.loja}</p>` : ''}
+    ${snap.lojaCnpj ? `<p>CNPJ: ${snap.lojaCnpj}</p>` : ''}
+    ${snap.lojaEndereco ? `<p>${snap.lojaEndereco}</p>` : ''}
+    ${snap.lojaTelefone ? `<p>Tel: ${snap.lojaTelefone}</p>` : ''}
     <p>${snap.deposito}</p>
     <p class="bold">CONSUMIDOR</p>
     ${snap.cliente ? `<p>${snap.cliente}</p>` : '<p>CONSUMIDOR FINAL</p>'}
@@ -963,7 +1009,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     const id = vendaConcluidaId.slice(0, 8).toUpperCase()
     const numero = snap.numero != null ? String(snap.numero) : id
     const linhas = [
-      `*TecnoCell — ${snap.deposito}*`,
+      `*TecnoCell — ${snap.loja ?? snap.deposito}*`,
       `Venda #${numero} | ${snap.horario}`,
       snap.cliente ? `Cliente: ${snap.cliente}` : '',
       snap.clienteEndereco ? snap.clienteEndereco : '',
@@ -1015,7 +1061,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
           {snap && (
             <div className="px-6 py-4 font-mono text-sm space-y-1">
               <div className="flex justify-between text-xs text-gray-400 mb-2">
-                <span>{snap.deposito}</span>
+                <span>{snap.loja ?? snap.deposito}{snap.lojaCnpj ? ` · CNPJ ${snap.lojaCnpj}` : ''}</span>
                 <span>{snap.horario}</span>
               </div>
               {snap.cliente && (
@@ -1096,17 +1142,28 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
           </button>
         </div>
 
-        {/* Seletores de loja/depósito e tabela de preço */}
-        <div className="grid gap-3 sm:grid-cols-2">
+        {/* Seletores de loja, depósito e tabela de preço */}
+        <div className="grid gap-3 sm:grid-cols-3">
           <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide shrink-0">Loja / Estoque</label>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide shrink-0">Loja</label>
+            <select
+              value={lojaId}
+              onChange={(e) => trocarLoja(e.target.value)}
+              className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {lojas.length === 0 && <option value="">Nenhuma loja</option>}
+              {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide shrink-0">Estoque</label>
             <select
               value={depositoId}
               onChange={(e) => trocarDeposito(e.target.value)}
               className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              {depositos.length === 0 && <option value="">Nenhum depósito cadastrado</option>}
-              {depositos.map((d) => <option key={d.id} value={d.id}>{d.nome}</option>)}
+              {depositosDaLoja.length === 0 && <option value="">Sem depósito nesta loja</option>}
+              {depositosDaLoja.map((d) => <option key={d.id} value={d.id}>{d.nome}</option>)}
             </select>
           </div>
           <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">

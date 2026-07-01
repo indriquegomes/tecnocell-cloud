@@ -16,14 +16,15 @@ export default async function PDVPage() {
 
   const hoje = new Date().toISOString().split('T')[0]
 
-  const [{ data: produtos }, { data: formas }, { data: pessoas }, { data: depositos }, { data: tabelas }, { data: itensTabela }, { data: seriesEmEstoque }] = await Promise.all([
+  const [{ data: produtos }, { data: formas }, { data: pessoas }, { data: depositos }, { data: tabelas }, { data: itensTabela }, { data: seriesEmEstoque }, { data: lojas }] = await Promise.all([
     supabase.from('produtos').select('id, nome, preco, codigo, marca, categoria, descricao, imagem_url, controla_serie, estoque(deposito_id, quantidade)').eq('ativo', true).order('nome'),
     supabase.from('formas_pagamento').select('id, nome').eq('ativo', true),
     supabase.from('pessoas').select('id, nome, cpf_cnpj, telefone, endereco, bairro, cidade, estado, cep').in('tipo', ['cliente', 'ambos']).order('nome'),
-    supabase.from('depositos').select('id, nome').order('nome'),
+    supabase.from('depositos').select('id, nome, loja_id').order('nome'),
     supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).order('nome'),
     supabase.from('itens_tabela_preco').select('tabela_id, produto_id, preco'),
     supabase.from('numeros_serie').select('produto_id, deposito_id, serie').eq('status', 'em_estoque').order('serie'),
+    supabase.from('lojas').select('id, nome, cnpj, telefone, endereco, cidade, uf').eq('ativa', true).order('nome'),
   ])
 
   // IMEIs disponíveis: { produto_id: { deposito_id: [serie, ...] } }
@@ -106,6 +107,7 @@ export default async function PDVPage() {
         formas={formasOrdenadas}
         pessoas={pessoas ?? []}
         depositos={depositos ?? []}
+        lojas={lojas ?? []}
         tabelas={tabelas ?? []}
         precosPorTabela={precosPorTabela}
         promosPorProduto={promosPorProduto}
