@@ -4,17 +4,10 @@ import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-async function extrairCampos(formData: FormData, supabase: Awaited<ReturnType<typeof createServiceClient>>) {
-  const empresa_id = (formData.get('empresa_id') as string) || null
-  let empresa: string | null = null
-  if (empresa_id) {
-    const { data } = await supabase.from('empresas').select('nome').eq('id', empresa_id).single()
-    empresa = data?.nome ?? null
-  }
+function extrairCampos(formData: FormData) {
   return {
     nome:        formData.get('nome') as string,
-    empresa_id,
-    empresa,
+    loja_id:     (formData.get('loja_id') as string) || null,   // loja a que o depósito pertence
     descricao:   (formData.get('descricao') as string) || null,
     responsavel: (formData.get('responsavel') as string) || null,
     telefone:    (formData.get('telefone') as string) || null,
@@ -29,7 +22,7 @@ async function extrairCampos(formData: FormData, supabase: Awaited<ReturnType<ty
 export async function criarDeposito(formData: FormData) {
   await requirePermissao('estoque')
   const supabase = await createServiceClient()
-  const { error } = await supabase.from('depositos').insert({ id: crypto.randomUUID(), ...await extrairCampos(formData, supabase) })
+  const { error } = await supabase.from('depositos').insert({ id: crypto.randomUUID(), ...extrairCampos(formData) })
   if (error) redirect(`/painel/depositos?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/depositos')
   redirect('/painel/depositos')
@@ -38,7 +31,7 @@ export async function criarDeposito(formData: FormData) {
 export async function editarDeposito(id: string, formData: FormData) {
   await requirePermissao('estoque')
   const supabase = await createServiceClient()
-  const { error } = await supabase.from('depositos').update(await extrairCampos(formData, supabase)).eq('id', id)
+  const { error } = await supabase.from('depositos').update(extrairCampos(formData)).eq('id', id)
   if (error) redirect(`/painel/depositos?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/depositos')
   redirect('/painel/depositos')

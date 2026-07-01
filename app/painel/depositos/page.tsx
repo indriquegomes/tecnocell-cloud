@@ -14,18 +14,19 @@ export default async function DepositosPage({
 
   let qDepositos = supabase
     .from('depositos')
-    .select('id, nome, descricao, empresa_id, empresa, ativo, responsavel, telefone, email, cep, cidade, uf')
+    .select('id, nome, descricao, loja_id, ativo, responsavel, telefone, email, cep, cidade, uf')
     .order('nome')
 
   if (busca) qDepositos = qDepositos.ilike('nome', `%${busca}%`)
   if (so_inativos === '1') qDepositos = qDepositos.eq('ativo', false)
 
-  const [{ data: depositos }, { data: estoqueRaw }, { data: empresas }] = await Promise.all([
+  const [{ data: depositos }, { data: estoqueRaw }, { data: lojas }] = await Promise.all([
     qDepositos,
     supabase.from('estoque').select('deposito_id, quantidade, produto_id'),
-    supabase.from('empresas').select('id, nome').order('nome'),
+    supabase.from('lojas').select('id, nome').eq('ativa', true).order('nome'),
   ])
 
+  const lojaById: Record<string, string> = Object.fromEntries((lojas ?? []).map((l) => [l.id, l.nome]))
   const editando = depositos?.find((d) => d.id === editar)
 
   type DepositoRow = NonNullable<typeof depositos>[number]
@@ -85,12 +86,11 @@ export default async function DepositosPage({
               <input name="nome" required defaultValue={editando?.nome ?? ''} className="field" placeholder="Ex: Loja Principal" />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-gray-600">Empresa</label>
-              <select name="empresa_id" defaultValue={editando?.empresa_id ?? ''} className="field"
-                >
-                <option value="">Sem vínculo</option>
-                {(empresas ?? []).map((e) => (
-                  <option key={e.id} value={e.id}>{e.nome}</option>
+              <label className="mb-1.5 block text-xs font-medium text-gray-600">Loja *</label>
+              <select name="loja_id" defaultValue={editando?.loja_id ?? ''} className="field">
+                <option value="">Selecione a loja</option>
+                {(lojas ?? []).map((l) => (
+                  <option key={l.id} value={l.id}>{l.nome}</option>
                 ))}
               </select>
             </div>
@@ -167,7 +167,7 @@ export default async function DepositosPage({
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Depósito</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Empresa</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Loja</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Localização</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Responsável</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Estoque</th>
@@ -184,7 +184,7 @@ export default async function DepositosPage({
                   <p className="text-sm font-medium text-gray-800">{d.nome}</p>
                   {d.descricao && <p className="text-xs text-gray-400">{d.descricao}</p>}
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-500">{d.empresa || '—'}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{d.loja_id ? (lojaById[d.loja_id] ?? '—') : '—'}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">
                   {d.cidade && d.uf ? `${d.cidade}/${d.uf}` : d.cidade || d.uf || (d.cep ? `CEP ${d.cep}` : '—')}
                 </td>
