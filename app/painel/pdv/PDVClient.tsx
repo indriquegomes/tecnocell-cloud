@@ -68,6 +68,7 @@ interface Produto {
   categoria: string | null
   descricao: string | null
   imagem_url: string | null
+  controla_serie: boolean
   estoquePorDeposito: Record<string, number>
 }
 
@@ -106,6 +107,8 @@ interface ItemCarrinho {
   preco_unitario: number   // preço base (tabela/padrão) — promoção entra como desconto
   estoque_disponivel: number
   promoSel: string         // 'auto' = melhor desconto | '' = sem promoção | <id> = promoção fixa
+  serializado?: boolean    // produto controla IMEI/número de série
+  series?: string[]        // IMEIs escolhidos (serializado: quantidade = series.length)
 }
 
 interface PagamentoItem {
@@ -124,9 +127,10 @@ interface Props {
   tabelas: TabelaPreco[]
   precosPorTabela: Record<string, Record<string, number>>
   promosPorProduto: Record<string, PromoInfo[]>
+  seriesPorProduto: Record<string, Record<string, string[]>>  // produto_id → deposito_id → [IMEIs em_estoque]
 }
 
-export function PDVClient({ produtos: produtosIniciais, formas, pessoas, depositos, tabelas, precosPorTabela, promosPorProduto }: Props) {
+export function PDVClient({ produtos: produtosIniciais, formas, pessoas, depositos, tabelas, precosPorTabela, promosPorProduto, seriesPorProduto }: Props) {
   const [produtos, setProdutos] = useState(produtosIniciais)
   const [busca, setBusca] = useState('')
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([])
@@ -281,6 +285,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     setCarrinho((prev) => {
       const existing = prev.find((i) => i.produto_id === p.id)
       if (existing) {
+        // Serializado: a linha já existe; os IMEIs são escolhidos no picker da linha
+        if (p.controla_serie) return prev
         if (existing.quantidade >= disp) {
           setErro(`Estoque máximo em ${nomeDeposito}: ${disp} unidade(s).`)
           return prev
@@ -291,14 +297,52 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
         produto_id: p.id,
         nome: p.nome,
         codigo: p.codigo,
-        quantidade: 1,
+        quantidade: p.controla_serie ? 0 : 1,   // serializado: quantidade = IMEIs escolhidos
         preco_unitario: precosPorTabela[tabelaId]?.[p.id] ?? p.preco,
         estoque_disponivel: disp,
         promoSel: 'auto',
+        serializado: p.controla_serie,
+        series: p.controla_serie ? [] : undefined,
       }]
     })
     setBusca('')
   }, [depositoId, nomeDeposito, tabelaId, precosPorTabela])
+
+  // IMEIs disponíveis (em_estoque) do produto no depósito atual
+  const seriesDisponiveis = useCallback(
+    (produto_id: string) => seriesPorProduto[produto_id]?.[depositoId] ?? [],
+    [seriesPorProduto, depositoId],
+  )
+
+  // Marca/desmarca um IMEI na linha serializada (quantidade = nº de IMEIs)
+  const toggleSerie = (produto_id: string, serie: string) => {
+    setErro(null)
+    setCarrinho((prev) => prev.map((i) => {
+      if (i.produto_id !== produto_id) return i
+      const atuais = i.series ?? []
+      const novas = atuais.includes(serie) ? atuais.filter((s) => s !== serie) : [...atuais, serie]
+      return { ...i, series: novas, quantidade: novas.length }
+    }))
+  }
+
+  // Bipa um IMEI: valida contra os disponíveis e adiciona se ainda não escolhido
+  const biparSerie = (produto_id: string, valorRaw: string) => {
+    const valor = valorRaw.trim()
+    if (!valor) return
+    const disp = seriesDisponiveis(produto_id)
+    if (!disp.includes(valor)) {
+      setErro(`IMEI "${valor}" não está no estoque de ${nomeDeposito}.`)
+      return
+    }
+    setErro(null)
+    setCarrinho((prev) => prev.map((i) => {
+      if (i.produto_id !== produto_id) return i
+      const atuais = i.series ?? []
+      if (atuais.includes(valor)) return i
+      const novas = [...atuais, valor]
+      return { ...i, series: novas, quantidade: novas.length }
+    }))
+  }
 
   // Troca a promoção aplicada a uma linha do carrinho
   const trocarPromo = (produto_id: string, valor: string) => {
@@ -325,6 +369,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     const n = parseInt(valor, 10)
     setCarrinho((prev) => prev.map((i) => {
       if (i.produto_id !== produto_id) return i
+      if (i.serializado) return i   // quantidade dirigida pelos IMEIs escolhidos
       if (isNaN(n) || n < 1) return { ...i, quantidade: 1 }
       if (n > i.estoque_disponivel) {
         setErro(`Estoque máximo: ${i.estoque_disponivel} unidade(s).`)
@@ -355,7 +400,12 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
         const prod = produtos.find((p) => p.id === item.produto_id)
         const disp = prod?.estoquePorDeposito[novoId] ?? 0
         if (disp <= 0) { removidos.push(item.nome); continue }
-        ajustado.push({ ...item, quantidade: Math.min(item.quantidade, disp), estoque_disponivel: disp })
+        if (item.serializado) {
+          // IMEIs escolhidos eram do depósito anterior — zera para re-escolher no novo
+          ajustado.push({ ...item, series: [], quantidade: 0, estoque_disponivel: disp })
+        } else {
+          ajustado.push({ ...item, quantidade: Math.min(item.quantidade, disp), estoque_disponivel: disp })
+        }
       }
       if (removidos.length > 0) {
         const nome = depositos.find((d) => d.id === novoId)?.nome ?? 'novo depósito'
@@ -370,6 +420,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     setCarrinho((prev) =>
       prev.map((i) => {
         if (i.produto_id !== produto_id) return i
+        if (i.serializado) return i   // quantidade dirigida pelos IMEIs escolhidos
         const novaQtd = i.quantidade + delta
         if (novaQtd > i.estoque_disponivel) {
           setErro(`Estoque máximo disponível: ${i.estoque_disponivel} unidade(s).`)
@@ -475,6 +526,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     if (pagamentos.some((p) => isCartaoForma(p.forma_id) && !p.maquina)) {
       setErro('Selecione a máquina (TON ou Pagbank) para o(s) pagamento(s) em cartão.'); return
     }
+    const semSerie = carrinho.find((i) => i.serializado && (i.series?.length ?? 0) === 0)
+    if (semSerie) { setErro(`Escolha o(s) IMEI(s) do aparelho "${semSerie.nome}".`); return }
     setErro(null)
     setMostrarConfirmacao(true)
   }
@@ -504,6 +557,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
         descontoNum + descontoPromo,
         observacoes,
         depositoId,
+        carrinho.flatMap((i) => (i.series ?? []).map((serie) => ({ produto_id: i.produto_id, serie }))),
       )
       if ('erro' in result) { setErro(result.erro); return }
 
@@ -1214,8 +1268,46 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                           </select>
                         )
                       })()}
+                      {item.serializado && (() => {
+                        const disp = seriesDisponiveis(item.produto_id)
+                        const sel = item.series ?? []
+                        return (
+                          <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/60 p-2 space-y-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                placeholder="Bipe o IMEI + Enter"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') { e.preventDefault(); const el = e.target as HTMLInputElement; biparSerie(item.produto_id, el.value); el.value = '' }
+                                }}
+                                className="flex-1 rounded-md border border-amber-300 bg-white px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
+                              />
+                              <span className="rounded-full bg-amber-600 px-2 py-0.5 text-[11px] font-semibold text-white whitespace-nowrap">{sel.length} escolhido{sel.length === 1 ? '' : 's'}</span>
+                            </div>
+                            {disp.length === 0 ? (
+                              <p className="text-[11px] text-amber-700">Nenhum IMEI em estoque neste depósito.</p>
+                            ) : (
+                              <div className="flex flex-wrap gap-1">
+                                {disp.map((s) => {
+                                  const on = sel.includes(s)
+                                  return (
+                                    <button key={s} type="button" onClick={() => toggleSerie(item.produto_id, s)}
+                                      className={`rounded-full border px-2 py-0.5 text-[11px] font-mono transition ${on ? 'border-amber-500 bg-amber-500 text-white' : 'border-amber-300 bg-white text-amber-800 hover:bg-amber-100'}`}>
+                                      {on ? '✓ ' : ''}{s}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
                     </td>
                     <td className="px-4 py-3">
+                      {item.serializado ? (
+                        <div className="text-center text-sm font-semibold text-gray-900">{item.quantidade}</div>
+                      ) : (
                       <div className="flex items-center justify-center gap-1.5">
                         <button type="button" onClick={() => alterarQtd(item.produto_id, -1)}
                           className="flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100 text-xs font-bold">−</button>
@@ -1231,6 +1323,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                         <button type="button" onClick={() => alterarQtd(item.produto_id, 1)}
                           className="flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100 text-xs font-bold">+</button>
                       </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right text-sm text-gray-600">{formatBRL(item.preco_unitario)}</td>
                     <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">

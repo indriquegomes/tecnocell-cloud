@@ -26,6 +26,7 @@ export async function finalizarVenda(
   desconto: number,
   observacoes: string,
   deposito_id: string = '',
+  series: { produto_id: string; serie: string }[] = [],
 ): Promise<
   | { erro: string }
   | { vendaId: string; vendaNumero: number | null; total: number; estoqueAtualizado: Record<string, number> }
@@ -63,6 +64,7 @@ export async function finalizarVenda(
     p_desconto: desconto,
     p_observacoes: observacoes || null,
     p_deposito_id: deposito_id,
+    p_series: series,
   })
 
   if (error) return { erro: error.message }

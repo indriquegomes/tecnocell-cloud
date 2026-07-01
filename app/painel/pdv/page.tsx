@@ -16,14 +16,24 @@ export default async function PDVPage() {
 
   const hoje = new Date().toISOString().split('T')[0]
 
-  const [{ data: produtos }, { data: formas }, { data: pessoas }, { data: depositos }, { data: tabelas }, { data: itensTabela }] = await Promise.all([
-    supabase.from('produtos').select('id, nome, preco, codigo, marca, categoria, descricao, imagem_url, estoque(deposito_id, quantidade)').eq('ativo', true).order('nome'),
+  const [{ data: produtos }, { data: formas }, { data: pessoas }, { data: depositos }, { data: tabelas }, { data: itensTabela }, { data: seriesEmEstoque }] = await Promise.all([
+    supabase.from('produtos').select('id, nome, preco, codigo, marca, categoria, descricao, imagem_url, controla_serie, estoque(deposito_id, quantidade)').eq('ativo', true).order('nome'),
     supabase.from('formas_pagamento').select('id, nome').eq('ativo', true),
     supabase.from('pessoas').select('id, nome, cpf_cnpj, telefone, endereco, bairro, cidade, estado, cep').in('tipo', ['cliente', 'ambos']).order('nome'),
     supabase.from('depositos').select('id, nome').order('nome'),
     supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).order('nome'),
     supabase.from('itens_tabela_preco').select('tabela_id, produto_id, preco'),
+    supabase.from('numeros_serie').select('produto_id, deposito_id, serie').eq('status', 'em_estoque').order('serie'),
   ])
+
+  // IMEIs disponíveis: { produto_id: { deposito_id: [serie, ...] } }
+  const seriesPorProduto: Record<string, Record<string, string[]>> = {}
+  for (const s of (seriesEmEstoque ?? []) as { produto_id: string; deposito_id: string; serie: string }[]) {
+    if (!s.produto_id || !s.deposito_id) continue
+    if (!seriesPorProduto[s.produto_id]) seriesPorProduto[s.produto_id] = {}
+    if (!seriesPorProduto[s.produto_id][s.deposito_id]) seriesPorProduto[s.produto_id][s.deposito_id] = []
+    seriesPorProduto[s.produto_id][s.deposito_id].push(s.serie)
+  }
 
   // Mapa de preços por tabela: { tabela_id: { produto_id: preco } }
   const precosPorTabela: Record<string, Record<string, number>> = {}
@@ -91,7 +101,7 @@ export default async function PDVPage() {
           for (const e of linhas) {
             estoquePorDeposito[e.deposito_id] = (estoquePorDeposito[e.deposito_id] ?? 0) + e.quantidade
           }
-          return { id: p.id, nome: p.nome, preco: p.preco, codigo: p.codigo, marca: p.marca, categoria: (p as Record<string, unknown>).categoria as string | null ?? null, descricao: (p as Record<string, unknown>).descricao as string | null ?? null, imagem_url: (p as Record<string, unknown>).imagem_url as string | null ?? null, estoquePorDeposito }
+          return { id: p.id, nome: p.nome, preco: p.preco, codigo: p.codigo, marca: p.marca, categoria: (p as Record<string, unknown>).categoria as string | null ?? null, descricao: (p as Record<string, unknown>).descricao as string | null ?? null, imagem_url: (p as Record<string, unknown>).imagem_url as string | null ?? null, controla_serie: (p as Record<string, unknown>).controla_serie as boolean | null ?? false, estoquePorDeposito }
         })}
         formas={formasOrdenadas}
         pessoas={pessoas ?? []}
@@ -99,6 +109,7 @@ export default async function PDVPage() {
         tabelas={tabelas ?? []}
         precosPorTabela={precosPorTabela}
         promosPorProduto={promosPorProduto}
+        seriesPorProduto={seriesPorProduto}
       />
     </div>
   )
