@@ -76,15 +76,8 @@ export async function finalizarVenda(
     vendedor_nome: vendedorNome,
   }).eq('id', vendaId)
 
-  // Linka lançamento de fiado ao venda_id — precisa AWAIT: fire-and-forget (void)
-  // não completa em server action / serverless e deixava o lançamento órfão
-  // (venda_id NULL), quebrando a devolução de fiado e a rastreabilidade.
-  await supabase.from('lancamentos')
-    .update({ venda_id: vendaId })
-    .eq('tipo', 'receber')
-    .eq('status', 'pendente')
-    .is('venda_id', null)
-    .gte('created_at', new Date(Date.now() - 15000).toISOString())
+  // O lançamento de fiado já nasce vinculado ao venda_id dentro do RPC
+  // finalizar_venda (migration 2026-07-02) — sem link posterior nem race.
 
   return {
     vendaId: data.venda_id as string,

@@ -54,7 +54,7 @@ export async function buscarVendaParaDevolucao(
   const [vendaRes, itensRes, lancRes] = await Promise.all([
     supabase
       .from('vendas')
-      .select('id, numero, total, created_at, vendedor_nome, forma_pagamento_id, pessoa_id, pessoas!pessoa_id(nome)')
+      .select('id, numero, total, created_at, vendedor_nome, forma_pagamento_id, pessoa_id, deposito_id, pessoas!pessoa_id(nome)')
       .eq('id', vendaId)
       .maybeSingle(),
     supabase
@@ -86,7 +86,7 @@ export async function buscarVendaParaDevolucao(
     pessoa_id: (vRaw.pessoa_id ?? null) as string | null,
     pessoa_nome: pessoaNome,
     vendedor_nome: vRaw.vendedor_nome ?? null,
-    deposito_id: null,
+    deposito_id: (vRaw.deposito_id ?? null) as string | null,
     deposito_nome: null,
     forma_pagamento_nome: (formaRes as { data: { nome: string } | null }).data?.nome ?? null,
     lancamento_pendente: (lancRes.data ?? []).length > 0,
@@ -165,7 +165,10 @@ export async function registrarDevolucao(
   const { error: eDev } = await supabase.from('devolucoes').insert({
     id: devolucaoId,
     venda_id: input.venda_id,
-    deposito_id: input.deposito_id,
+    // devolucoes.deposito_id é uuid no schema, mas os ids de depósito são TEXT (SIGE) —
+    // gravar o id real quebraria o insert. O retorno ao estoque abaixo usa o deposito_id
+    // certo (estoque.deposito_id é TEXT). Coluna fica null até migrar para text.
+    deposito_id: null,
     pessoa_nome: input.pessoa_nome ?? 'Cliente Final',
     vendedor_nome: input.vendedor_nome ?? null,
     motivo: input.motivo || null,
