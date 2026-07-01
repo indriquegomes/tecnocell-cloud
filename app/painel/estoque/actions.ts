@@ -50,44 +50,19 @@ export async function registrarMovimento(formData: FormData) {
     ? new Date(`${dataMov}T${horarioMov}:00-03:00`).toISOString()
     : new Date().toISOString()
 
-  const { data: atual } = await supabase
-    .from('estoque')
-    .select('quantidade')
-    .eq('produto_id', produto_id)
-    .eq('deposito_id', deposito_id)
-    .maybeSingle()
-
-  const qtdAnterior = atual?.quantidade ?? 0
-  let qtdNova: number
-  if (operacao === 'ajuste') {
-    qtdNova = quantidade
-  } else if (operacao === 'saida') {
-    qtdNova = Math.max(0, qtdAnterior - quantidade)
-  } else {
-    qtdNova = qtdAnterior + quantidade
-  }
-
-  const { error } = await supabase
-    .from('estoque')
-    .upsert(
-      { produto_id, deposito_id, quantidade: qtdNova, updated_at: new Date().toISOString() },
-      { onConflict: 'produto_id,deposito_id' }
-    )
-
-  if (error) throw new Error(error.message)
-
-  const { error: logError } = await supabase.from('movimentacoes_estoque').insert({
-    produto_id,
-    deposito_id,
-    operacao,
-    quantidade,
-    qtd_anterior: qtdAnterior,
-    qtd_nova: qtdNova,
-    observacao,
-    criado_por: user.id,
-    created_at: createdAt,
+  // Movimento atômico (trava a linha; produto serializado exige IMEIs — este
+  // form singular não os captura, então cai no erro e orienta usar o de lote)
+  const { error } = await supabase.rpc('movimentar_estoque', {
+    p_produto_id: produto_id,
+    p_deposito_id: deposito_id,
+    p_operacao: operacao,
+    p_quantidade: quantidade,
+    p_series: [],
+    p_observacao: observacao,
+    p_user: user.id,
+    p_created_at: createdAt,
   })
-  if (logError) throw new Error(`Falha ao registrar histórico: ${logError.message}`)
+  if (error) redirect(`/painel/estoque/historico?erro=${encodeURIComponent(error.message)}`)
 
   revalidatePath('/painel/estoque')
   revalidatePath('/painel/estoque/historico')
@@ -167,6 +142,7 @@ export async function registrarMovimentos(formData: FormData) {
 
   const naoEncontrados: string[] = []
   let imeisDuplicados = 0
+  let erroRpc: string | null = null
 
   for (const item of itens) {
     const nomeBusca = item.produto_busca.replace(/\s*\([^)]*\)$/, '').trim()
@@ -188,52 +164,32 @@ export async function registrarMovimentos(formData: FormData) {
       ? obsRaw ? `NF: ${notaFiscal} | ${obsRaw}` : `NF: ${notaFiscal}`
       : obsRaw
 
-    // Produto serializado: registra cada IMEI (dedup por unique(produto_id,serie)).
-    // O estoque cresce só pelo nº de unidades novas efetivamente inseridas.
+    // IMEIs escolhidos (entrada: novos; saída: os que saem)
     const imeis = Array.isArray(item.imeis)
       ? [...new Set(item.imeis.map((s) => s.trim()).filter(Boolean))]
       : []
 
-    const operacao = imeis.length > 0 ? 'entrada' : item.operacao
-    let quantidade = imeis.length > 0 ? imeis.length : Math.round(item.quantidade)
-
-    if (imeis.length > 0) {
-      const { data: inseridos } = await supabase
-        .from('numeros_serie')
-        .upsert(
-          imeis.map((serie) => ({ produto_id: produtoId, deposito_id, serie, status: 'em_estoque', observacao })),
-          { onConflict: 'produto_id,serie', ignoreDuplicates: true }
-        )
-        .select('id')
-      const novos = inseridos?.length ?? 0
-      imeisDuplicados += imeis.length - novos
-      if (novos === 0) continue // todos já existiam — nada a movimentar
-      quantidade = novos
-    }
-
-    const { data: atual } = await supabase
-      .from('estoque').select('quantidade')
-      .eq('produto_id', produtoId).eq('deposito_id', deposito_id).maybeSingle()
-    const qtdAnterior = atual?.quantidade ?? 0
-    let qtdNova: number
-    if (operacao === 'ajuste') qtdNova = quantidade
-    else if (operacao === 'saida') qtdNova = Math.max(0, qtdAnterior - quantidade)
-    else qtdNova = qtdAnterior + quantidade
-
-    await supabase.from('estoque').upsert(
-      { produto_id: produtoId, deposito_id, quantidade: qtdNova, updated_at: new Date().toISOString() },
-      { onConflict: 'produto_id,deposito_id' }
-    )
-    await supabase.from('movimentacoes_estoque').insert({
-      produto_id: produtoId, deposito_id, operacao, quantidade,
-      qtd_anterior: qtdAnterior, qtd_nova: qtdNova,
-      observacao, criado_por: user.id, created_at: createdAt,
+    // Movimento atômico no RPC (trava a linha; trata numeros_serie p/ serializado)
+    const { data, error } = await supabase.rpc('movimentar_estoque', {
+      p_produto_id: produtoId,
+      p_deposito_id: deposito_id,
+      p_operacao: item.operacao,
+      p_quantidade: Math.round(item.quantidade),
+      p_series: imeis.map((serie) => ({ serie })),
+      p_observacao: observacao,
+      p_user: user.id,
+      p_created_at: createdAt,
     })
+    if (error) { erroRpc = error.message; break }
+    imeisDuplicados += (data as { duplicados?: number })?.duplicados ?? 0
   }
 
   revalidatePath('/painel/estoque')
   revalidatePath('/painel/estoque/historico')
 
+  if (erroRpc) {
+    redirect(`/painel/estoque/historico?erro=${encodeURIComponent(erroRpc)}`)
+  }
   if (naoEncontrados.length > 0) {
     redirect('/painel/estoque/historico?erro=produto-nao-encontrado')
   }

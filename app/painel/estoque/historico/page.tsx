@@ -79,11 +79,20 @@ export default async function MovimentacoesPage({
   const dataHoje = hoje
   const horaAgora = agoraBr.slice(11, 16)
 
-  const [{ data: manuais }, { data: vendas }, { data: devolucoes }, { data: depositos }, { data: todosProdutos }] = await Promise.all([
+  const [{ data: manuais }, { data: vendas }, { data: devolucoes }, { data: depositos }, { data: todosProdutos }, { data: seriesEmEstoque }] = await Promise.all([
     qManuais, qVendas, qDevs,
     supabase.from('depositos').select('id, nome'),
     supabase.from('produtos').select('id, nome, codigo, controla_serie').eq('ativo', true).order('nome').limit(500),
+    supabase.from('numeros_serie').select('produto_id, deposito_id, serie').eq('status', 'em_estoque').order('serie'),
   ])
+
+  // IMEIs disponíveis por produto/depósito (para baixa de serializado na saída)
+  const seriesPorProduto: Record<string, Record<string, string[]>> = {}
+  for (const s of (seriesEmEstoque ?? []) as { produto_id: string; deposito_id: string; serie: string }[]) {
+    if (!s.produto_id || !s.deposito_id) continue
+    ;(seriesPorProduto[s.produto_id] ??= {})[s.deposito_id] ??= []
+    seriesPorProduto[s.produto_id][s.deposito_id].push(s.serie)
+  }
 
   const vendaIds = (vendas ?? []).map((v) => v.id)
   const devolucaoIds = (devolucoes ?? []).map((d) => d.id)
@@ -256,6 +265,7 @@ export default async function MovimentacoesPage({
       <NovaMovimentacaoForm
         depositos={depositos ?? []}
         produtos={todosProdutos ?? []}
+        seriesPorProduto={seriesPorProduto}
         dataHoje={dataHoje}
         horaAgora={horaAgora}
       />
