@@ -16,7 +16,7 @@ export async function criarConvite(_: ConviteResult | null, fd: FormData): Promi
 
   const email    = (fd.get('email') as string ?? '').trim()
   const nome     = (fd.get('nome') as string ?? '').trim()
-  const isMaster = fd.get('is_master') === '1'
+  const isMaster = fd.getAll('is_master').includes('1')
   const perms    = fd.getAll('permissoes') as string[]
   if (!email || !nome) return { ok: false, message: 'Preencha nome e e-mail' }
 
@@ -51,7 +51,7 @@ export async function criarUsuario(_: ActionResult | null, fd: FormData): Promis
   const email    = (fd.get('email') as string ?? '').trim()
   const senha    = (fd.get('senha') as string ?? '').trim()
   const nome     = (fd.get('nome') as string ?? '').trim()
-  const isMaster = fd.get('is_master') === '1'
+  const isMaster = fd.getAll('is_master').includes('1')
   const perms    = fd.getAll('permissoes') as string[]
 
   if (!email || !senha || !nome) return { ok: false, message: 'Preencha todos os campos obrigatórios' }
@@ -92,8 +92,8 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
 
   const userId   = fd.get('user_id') as string
   const nome     = (fd.get('nome') as string ?? '').trim()
-  const isMaster = fd.get('is_master') === '1'
-  const ativo    = fd.get('ativo') === '1'
+  const isMaster = fd.getAll('is_master').includes('1')
+  const ativo    = fd.getAll('ativo').includes('1')
   const perms    = fd.getAll('permissoes') as string[]
 
   if (!userId || !nome) return { ok: false, message: 'Dados inválidos' }
