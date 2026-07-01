@@ -65,21 +65,15 @@ export async function finalizarVenda(
     p_observacoes: observacoes || null,
     p_deposito_id: deposito_id,
     p_series: series,
+    p_vendedor_id: usuario.id,
+    p_vendedor_nome: vendedorNome,
   })
 
   if (error) return { erro: error.message }
   if (!data) return { erro: 'RPC retornou vazio. Verifique o banco.' }
 
-  const vendaId = data.venda_id as string
-
-  // Vendedor é rastreável — aguarda
-  await supabase.from('vendas').update({
-    vendedor_id: usuario.id,
-    vendedor_nome: vendedorNome,
-  }).eq('id', vendaId)
-
-  // O lançamento de fiado já nasce vinculado ao venda_id dentro do RPC
-  // finalizar_venda (migration 2026-07-02) — sem link posterior nem race.
+  // Vendedor (rastreabilidade), fiado vinculado e baixa de IMEI já nascem
+  // dentro do RPC finalizar_venda — sem escrita posterior nem race.
 
   return {
     vendaId: data.venda_id as string,
