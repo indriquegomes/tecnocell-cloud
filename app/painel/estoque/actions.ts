@@ -94,6 +94,56 @@ export async function registrarMovimento(formData: FormData) {
   redirect('/painel/estoque/historico')
 }
 
+export async function transferirEstoque(formData: FormData) {
+  const user = await requirePermissao('estoque')
+  const supabase = await createServiceClient()
+
+  const origem = formData.get('origem_id') as string
+  const destino = formData.get('destino_id') as string
+  const obs = (formData.get('observacao') as string | null)?.trim() || null
+
+  const produtoBusca = (formData.get('produto_busca') as string | null)?.trim() ?? ''
+  const nomeBusca = produtoBusca.replace(/\s*\([^)]*\)$/, '').trim()
+
+  let produtoId: string | null = null
+  if (nomeBusca) {
+    const { data: exato } = await supabase.from('produtos').select('id').ilike('nome', nomeBusca).limit(1).maybeSingle()
+    if (exato) produtoId = exato.id
+    else {
+      const { data: prefixo } = await supabase.from('produtos').select('id').ilike('nome', `${nomeBusca}%`).limit(1).maybeSingle()
+      produtoId = prefixo?.id ?? null
+    }
+  }
+  if (!produtoId) redirect('/painel/estoque/transferencias?erro=produto-nao-encontrado')
+
+  let series: { serie: string }[] = []
+  try {
+    const raw = JSON.parse((formData.get('series') as string) || '[]') as string[]
+    series = [...new Set(raw.map((s) => s.trim()).filter(Boolean))].map((serie) => ({ serie }))
+  } catch {}
+
+  const quantidade = series.length > 0
+    ? series.length
+    : Math.round(parseFloat(formData.get('quantidade') as string) || 0)
+
+  const { error } = await supabase.rpc('transferir_estoque', {
+    p_produto_id: produtoId,
+    p_origem: origem,
+    p_destino: destino,
+    p_quantidade: quantidade,
+    p_series: series,
+    p_obs: obs,
+    p_user: user.id,
+  })
+
+  if (error) redirect(`/painel/estoque/transferencias?erro=${encodeURIComponent(error.message)}`)
+
+  revalidatePath('/painel/estoque')
+  revalidatePath('/painel/estoque/transferencias')
+  revalidatePath('/painel/estoque/historico')
+  redirect('/painel/estoque/transferencias?ok=1')
+}
+
 export async function registrarMovimentos(formData: FormData) {
   const user = await requirePermissao('estoque')
   const supabase = await createServiceClient()
