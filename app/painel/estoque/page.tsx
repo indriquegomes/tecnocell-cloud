@@ -69,6 +69,10 @@ export default async function EstoquePage({
           <Dica texto="Quantidade atual de cada produto por depósito. Atualizado automaticamente após vendas, compras e movimentações manuais." />
         </div>
         <div className="flex gap-2">
+          <Link href="/painel/estoque/imeis"
+            className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+            Aparelhos (IMEIs)
+          </Link>
           <Link href="/painel/estoque/historico"
             className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
             Histórico
