@@ -56,6 +56,7 @@ const navEmConstrucao: NavGroup[] = [
     group: 'Cadastros',
     items: [
       { href: '/painel/clientes',         label: 'Pessoas',             permissao: 'clientes' },
+      { href: '/painel/lojas',            label: 'Lojas',               permissao: 'usuarios' },
       { href: '/painel/empresas',         label: 'Empresas',            permissao: 'usuarios' },
       { href: '/painel/formas-pagamento', label: 'Formas de Pagamento', permissao: 'usuarios' },
       { href: '/painel/categorias',       label: 'Categorias',          permissao: 'produtos' },
