@@ -77,6 +77,10 @@ export default async function EstoquePage({
             className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
             Aparelhos (IMEIs)
           </Link>
+          <Link href="/painel/estoque/marcas"
+            className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+            Marcas
+          </Link>
           <Link href="/painel/estoque/historico"
             className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
             Histórico
