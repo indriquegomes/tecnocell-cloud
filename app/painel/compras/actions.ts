@@ -57,6 +57,34 @@ export async function deletarNota(id: string) {
   revalidatePath('/painel/compras')
 }
 
+export async function editarNota(id: string, formData: FormData) {
+  await requirePermissao('compras')
+  const supabase = await createServiceClient()
+  const { data: nota } = await supabase.from('notas_entrada').select('status').eq('id', id).maybeSingle()
+  if (nota?.status !== 'pendente') {
+    redirect(`/painel/compras/${id}?erro=${encodeURIComponent('Só dá pra editar uma nota pendente.')}`)
+  }
+  await supabase.from('notas_entrada').update({
+    numero: (formData.get('numero') as string)?.trim() || null,
+    fornecedor_id: (formData.get('fornecedor_id') as string) || null,
+    data_emissao: (formData.get('data_emissao') as string) || null,
+    data_entrada: (formData.get('data_entrada') as string) || new Date().toISOString().split('T')[0],
+    observacoes: (formData.get('observacoes') as string)?.trim() || null,
+  }).eq('id', id)
+  revalidatePath(`/painel/compras/${id}`)
+  redirect(`/painel/compras/${id}`)
+}
+
+export async function removerItemNota(itemId: string, notaId: string) {
+  await requirePermissao('compras')
+  const supabase = await createServiceClient()
+  await supabase.from('itens_nota_entrada').delete().eq('id', itemId)
+  const { data: itens } = await supabase.from('itens_nota_entrada').select('total_item').eq('nota_id', notaId)
+  const total = itens?.reduce((s, i) => s + (i.total_item ?? 0), 0) ?? 0
+  await supabase.from('notas_entrada').update({ valor_total: total }).eq('id', notaId)
+  revalidatePath(`/painel/compras/${notaId}`)
+}
+
 export async function adicionarItemNota(notaId: string, formData: FormData) {
   await requirePermissao('compras')
   const supabase = await createServiceClient()
