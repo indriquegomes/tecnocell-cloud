@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { TabelaDetalheClient } from './TabelaDetalheClient'
+import { atualizarVigencia } from '../actions'
 
 export default async function TabelaPrecoDetalhe({
   params,
@@ -12,7 +13,7 @@ export default async function TabelaPrecoDetalhe({
   const supabase = await createServiceClient()
 
   const [{ data: tabela }, { data: itens }, { data: produtos }] = await Promise.all([
-    supabase.from('tabelas_preco').select('id, nome, descricao, ativa').eq('id', id).single(),
+    supabase.from('tabelas_preco').select('id, nome, descricao, ativa, data_inicio, data_fim').eq('id', id).single(),
     supabase
       .from('itens_tabela_preco')
       .select('id, produto_id, preco, produtos(id, nome, preco)')
@@ -31,6 +32,21 @@ export default async function TabelaPrecoDetalhe({
         </svg>
         Tabelas de Preço
       </Link>
+
+      {/* Vigência */}
+      <form action={atualizarVigencia.bind(null, id)} className="flex flex-wrap items-end gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+        <span className="text-xs font-semibold uppercase tracking-wide text-gray-400 self-center">Vigência</span>
+        <div>
+          <label className="mb-1 block text-[11px] text-gray-500">Válida de</label>
+          <input name="data_inicio" type="date" defaultValue={(tabela as { data_inicio: string | null }).data_inicio ?? ''} className="field py-1.5 text-sm" />
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] text-gray-500">até</label>
+          <input name="data_fim" type="date" defaultValue={(tabela as { data_fim: string | null }).data_fim ?? ''} className="field py-1.5 text-sm" />
+        </div>
+        <button type="submit" className="rounded-lg border border-gray-200 px-4 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">Salvar vigência</button>
+        <span className="ml-auto self-center text-[11px] text-gray-400">Vazio = sempre válida. Fora do período, o PDV não oferece a tabela.</span>
+      </form>
 
       <TabelaDetalheClient
         tabela={tabela}

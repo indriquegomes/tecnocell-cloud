@@ -16,6 +16,9 @@ export default async function TabelasPrecoPage({
     .select('*, itens_tabela_preco(count)')
     .order('nome')
 
+  const hoje = new Date().toISOString().slice(0, 10)
+  const brDate = (d: string | null) => (d ? d.split('-').reverse().join('/') : null)
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-900">Tabelas de Preço</h2>
@@ -34,6 +37,14 @@ export default async function TabelasPrecoPage({
           <div className="flex-1 min-w-48">
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Descrição</label>
             <input name="descricao" className="field" placeholder="Opcional" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Válida de</label>
+            <input name="data_inicio" type="date" className="field" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">até</label>
+            <input name="data_fim" type="date" className="field" />
           </div>
           <button type="submit"
             className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
@@ -62,6 +73,14 @@ export default async function TabelasPrecoPage({
             <p className="text-sm text-gray-500">
               {Array.isArray(t.itens_tabela_preco) ? t.itens_tabela_preco.length : 0} produtos
             </p>
+            {(t.data_inicio || t.data_fim) && (() => {
+              const foraVigencia = (t.data_inicio && t.data_inicio > hoje) || (t.data_fim && t.data_fim < hoje)
+              return (
+                <p className={`text-[11px] ${foraVigencia ? 'text-amber-600' : 'text-gray-400'}`}>
+                  {foraVigencia ? '⚠ fora de vigência · ' : ''}Válida {brDate(t.data_inicio) ?? '…'} – {brDate(t.data_fim) ?? '…'}
+                </p>
+              )
+            })()}
             <div className="flex gap-3">
               <Link href={`/painel/tabelas-preco/${t.id}`}
                 className="flex-1 text-center rounded-lg border border-blue-200 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 transition">

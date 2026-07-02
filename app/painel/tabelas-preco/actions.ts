@@ -11,6 +11,8 @@ export async function criarTabela(formData: FormData) {
   const { error } = await supabase.from('tabelas_preco').insert({
     nome: formData.get('nome') as string,
     descricao: formData.get('descricao') as string || null,
+    data_inicio: (formData.get('data_inicio') as string) || null,
+    data_fim: (formData.get('data_fim') as string) || null,
     ativa: true,
   })
 
@@ -22,9 +24,27 @@ export async function criarTabela(formData: FormData) {
 export async function deletarTabela(id: string) {
   await requirePermissao('produtos')
   const supabase = await createServiceClient()
+  // não deixa apagar tabela vinculada a cliente (deixaria o cliente órfão)
+  const { count } = await supabase.from('pessoas').select('id', { count: 'exact', head: true }).eq('tabela_preco_id', id)
+  if ((count ?? 0) > 0) {
+    redirect(`/painel/tabelas-preco?erro=${encodeURIComponent(`Esta tabela está vinculada a ${count} cliente(s). Desvincule antes de excluir.`)}`)
+  }
+  // remove os itens da tabela junto (senão o vínculo trava)
+  await supabase.from('itens_tabela_preco').delete().eq('tabela_id', id)
   await supabase.from('tabelas_preco').delete().eq('id', id)
   revalidatePath('/painel/tabelas-preco')
   redirect('/painel/tabelas-preco')
+}
+
+export async function atualizarVigencia(id: string, formData: FormData) {
+  await requirePermissao('produtos')
+  const supabase = await createServiceClient()
+  await supabase.from('tabelas_preco').update({
+    data_inicio: (formData.get('data_inicio') as string) || null,
+    data_fim: (formData.get('data_fim') as string) || null,
+  }).eq('id', id)
+  revalidatePath(`/painel/tabelas-preco/${id}`)
+  redirect(`/painel/tabelas-preco/${id}`)
 }
 
 export async function adicionarItemTabela(tabelaId: string, formData: FormData) {
