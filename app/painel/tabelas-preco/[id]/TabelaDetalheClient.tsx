@@ -49,8 +49,34 @@ export function TabelaDetalheClient({
   // Importar em lote
   const [mostrarImportar, setMostrarImportar] = useState(false)
   const [multiplicador, setMultiplicador] = useState('1.00')
+  const [importBase, setImportBase] = useState<'venda' | 'custo'>('venda')
+  const [importArred, setImportArred] = useState<'nenhum' | '90' | '99'>('nenhum')
+  const [importAtualizar, setImportAtualizar] = useState(false)
   const [importando, setImportando] = useState(false)
   const [importMsg, setImportMsg] = useState('')
+
+  // Exportar a tabela pra planilha (CSV, separador ; e vírgula decimal — Excel pt-BR)
+  const exportarCSV = () => {
+    const linhas: string[][] = [['Produto', 'Qtd mínima', 'Preço padrão', 'Preço tabela', 'Diferença']]
+    for (const i of itens) {
+      const padrao = i.produtos?.preco ?? 0
+      linhas.push([
+        i.produtos?.nome ?? '',
+        String(i.quantidade_minima),
+        padrao.toFixed(2).replace('.', ','),
+        i.preco.toFixed(2).replace('.', ','),
+        (i.preco - padrao).toFixed(2).replace('.', ','),
+      ])
+    }
+    const csv = linhas.map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `tabela-${tabela.nome.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   // Busca nos itens da tabela
   const [buscaItens, setBuscaItens] = useState('')
@@ -126,7 +152,7 @@ export function TabelaDetalheClient({
     setImportando(true)
     setImportMsg('')
     try {
-      const count = await importarTodosComMultiplicador(tabela.id, mult)
+      const count = await importarTodosComMultiplicador(tabela.id, mult, importBase, importArred, importAtualizar)
       setImportMsg(`${count} produto${count !== 1 ? 's' : ''} importado${count !== 1 ? 's' : ''} com sucesso.`)
       router.refresh()
     } catch {
@@ -160,6 +186,11 @@ export function TabelaDetalheClient({
             disabled={isPending}
             className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
             {tabela.ativa ? 'Desativar' : 'Ativar'}
+          </button>
+          <button
+            onClick={exportarCSV}
+            className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+            Exportar planilha
           </button>
           <button
             onClick={() => setMostrarImportar(true)}
@@ -343,6 +374,32 @@ export function TabelaDetalheClient({
                   </p>
                 )}
               </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">Aplicar sobre</label>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setImportBase('venda')}
+                    className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition ${importBase === 'venda' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                    Preço de venda
+                  </button>
+                  <button type="button" onClick={() => setImportBase('custo')}
+                    className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition ${importBase === 'custo' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                    Custo (markup)
+                  </button>
+                </div>
+                {importBase === 'custo' && <p className="mt-1 text-[11px] text-gray-400">Preço = custo × multiplicador. Ex: custo R$ 100 × 1.5 = R$ 150 (margem 50%).</p>}
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">Arredondar para terminar em</label>
+                <select value={importArred} onChange={(e) => setImportArred(e.target.value as 'nenhum' | '90' | '99')} className="field w-full">
+                  <option value="nenhum">Não arredondar</option>
+                  <option value="90">,90 (ex: 45,90)</option>
+                  <option value="99">,99 (ex: 45,99)</option>
+                </select>
+              </div>
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input type="checkbox" checked={importAtualizar} onChange={(e) => setImportAtualizar(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-blue-600" />
+                Atualizar também os produtos que já estão na tabela
+              </label>
               {importMsg && (
                 <p className={`text-sm font-medium ${importMsg.includes('Erro') ? 'text-red-600' : 'text-green-600'}`}>
                   {importMsg}

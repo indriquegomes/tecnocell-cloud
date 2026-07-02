@@ -82,31 +82,54 @@ export async function atualizarPrecoItem(id: string, tabelaId: string, preco: nu
   revalidatePath(`/painel/tabelas-preco/${tabelaId}`)
 }
 
-export async function importarTodosComMultiplicador(tabelaId: string, multiplicador: number) {
+export async function importarTodosComMultiplicador(
+  tabelaId: string,
+  multiplicador: number,
+  base: 'venda' | 'custo' = 'venda',
+  arredondamento: 'nenhum' | '90' | '99' = 'nenhum',
+  atualizar = false,
+) {
   await requirePermissao('produtos')
   const supabase = await createServiceClient()
 
   const [{ data: produtos }, { data: jaExistem }] = await Promise.all([
-    supabase.from('produtos').select('id, preco').not('preco', 'is', null),
-    supabase.from('itens_tabela_preco').select('produto_id').eq('tabela_id', tabelaId),
+    supabase.from('produtos').select('id, preco, preco_custo'),
+    supabase.from('itens_tabela_preco').select('id, produto_id').eq('tabela_id', tabelaId).eq('quantidade_minima', 1),
   ])
 
-  const jaSet = new Set((jaExistem ?? []).map((i) => i.produto_id))
-  const novos = (produtos ?? [])
-    .filter((p) => !jaSet.has(p.id) && (p.preco ?? 0) > 0)
-    .map((p) => ({
-      tabela_id: tabelaId,
-      produto_id: p.id,
-      preco: Math.round((p.preco! * multiplicador) * 100) / 100,
-    }))
+  const existente = new Map((jaExistem ?? []).map((i) => [i.produto_id, i.id]))
+  const arredondar = (x: number) => {
+    let v = Math.round(x * 100) / 100
+    if (arredondamento === '90' || arredondamento === '99') {
+      const centavos = arredondamento === '90' ? 0.90 : 0.99
+      let r = Math.floor(v) + centavos
+      if (r < v - 0.001) r += 1
+      v = Math.round(r * 100) / 100
+    }
+    return v
+  }
 
+  let count = 0
+  const novos: { tabela_id: string; produto_id: string; preco: number; quantidade_minima: number }[] = []
+  for (const p of produtos ?? []) {
+    const baseVal = base === 'custo' ? (p.preco_custo ?? 0) : (p.preco ?? 0)
+    if (baseVal <= 0) continue
+    const preco = arredondar(baseVal * multiplicador)
+    const id = existente.get(p.id)
+    if (id) {
+      if (atualizar) { await supabase.from('itens_tabela_preco').update({ preco }).eq('id', id); count++ }
+    } else {
+      novos.push({ tabela_id: tabelaId, produto_id: p.id, preco, quantidade_minima: 1 })
+    }
+  }
   if (novos.length > 0) {
     const { error } = await supabase.from('itens_tabela_preco').insert(novos)
     if (error) throw new Error(error.message)
+    count += novos.length
   }
 
   revalidatePath(`/painel/tabelas-preco/${tabelaId}`)
-  return novos.length
+  return count
 }
 
 export async function toggleTabela(id: string, ativa: boolean) {
