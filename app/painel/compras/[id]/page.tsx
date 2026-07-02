@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import { adicionarItemNota, receberNota } from '../actions'
+import { adicionarItemNota, receberNota, estornarNota } from '../actions'
+import { ConfirmButton } from '@/components/ConfirmButton'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -59,11 +60,18 @@ export default async function NotaEntradaDetalhe({
         </div>
         {nota.status === 'pendente' && (
           <form action={receberNota.bind(null, id)}>
-            <button type="submit"
-              className="rounded-xl bg-green-600 px-5 py-2 text-sm font-semibold text-white hover:bg-green-700 transition"
-              onClick={(e) => { if (!confirm('Confirmar recebimento? O estoque será atualizado.')) e.preventDefault() }}>
+            <ConfirmButton message="Confirmar recebimento? O estoque será atualizado."
+              className="rounded-xl bg-green-600 px-5 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
               Confirmar Recebimento
-            </button>
+            </ConfirmButton>
+          </form>
+        )}
+        {nota.status === 'recebida' && (
+          <form action={estornarNota.bind(null, id)}>
+            <ConfirmButton message="Estornar esta nota? O estoque que entrou será devolvido."
+              className="rounded-xl border border-red-200 px-5 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 transition">
+              Estornar
+            </ConfirmButton>
           </form>
         )}
       </div>

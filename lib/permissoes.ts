@@ -9,6 +9,7 @@ export const ROTAS_PERMISSAO: Record<string, string> = {
   '/painel/clientes':      'clientes',
   '/painel/produtos':      'produtos',
   '/painel/categorias':    'produtos',
+  '/painel/marcas':        'produtos',
   '/painel/tabelas-preco': 'produtos',
   '/painel/catalogo':      'produtos',
   '/painel/os':            'os',

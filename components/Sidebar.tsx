@@ -58,6 +58,7 @@ const navCompleto: NavGroup[] = [
       { href: '/painel/formas-pagamento', label: 'Formas de Pagamento', permissao: 'usuarios' },
       { href: '/painel/maquinas-cartao',  label: 'Máquinas de Cartão',   permissao: 'usuarios' },
       { href: '/painel/categorias',       label: 'Categorias',          permissao: 'produtos' },
+      { href: '/painel/marcas',           label: 'Marcas',              permissao: 'produtos' },
       { href: '/painel/tabelas-preco',    label: 'Tabelas de Preço',    permissao: 'produtos' },
     ],
   },

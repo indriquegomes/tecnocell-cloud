@@ -13,7 +13,7 @@ const STATUS_COLOR: Record<string, string> = {
 export default async function ComprasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ordem?: string; dir?: string }>
+  searchParams: Promise<{ ordem?: string; dir?: string; erro?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
@@ -47,6 +47,10 @@ export default async function ComprasPage({
           + Nova Nota
         </Link>
       </div>
+
+      {params.erro && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{params.erro}</div>
+      )}
 
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-gray-100">

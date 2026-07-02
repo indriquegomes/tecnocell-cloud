@@ -24,50 +24,36 @@ export async function criarNotaEntrada(formData: FormData) {
 export async function receberNota(id: string) {
   await requirePermissao('compras')
   const supabase = await createServiceClient()
-
-  // Guard de idempotência: receber 2x duplicaria o estoque
-  const { data: nota } = await supabase.from('notas_entrada').select('status').eq('id', id).maybeSingle()
-  if (!nota) throw new Error('Nota não encontrada')
-  if (nota.status === 'recebida') return
-
-  // Busca itens da nota e dá entrada no estoque
-  const { data: itens } = await supabase
-    .from('itens_nota_entrada')
-    .select('produto_id, quantidade, deposito_id')
-    .eq('nota_id', id)
-
-  for (const item of itens ?? []) {
-    if (!item.produto_id || !item.deposito_id) continue
-    const { data: est } = await supabase
-      .from('estoque')
-      .select('quantidade')
-      .eq('produto_id', item.produto_id)
-      .eq('deposito_id', item.deposito_id)
-      .maybeSingle()
-
-    if (est) {
-      await supabase.from('estoque').update({
-        quantidade: (est.quantidade ?? 0) + item.quantidade,
-      }).eq('produto_id', item.produto_id).eq('deposito_id', item.deposito_id)
-    } else {
-      await supabase.from('estoque').insert({
-        produto_id: item.produto_id,
-        deposito_id: item.deposito_id,
-        quantidade: item.quantidade,
-      })
-    }
-  }
-
-  await supabase.from('notas_entrada').update({ status: 'recebida' }).eq('id', id)
+  // entrada atômica no estoque + atualiza custo do produto (tudo ou nada)
+  const { error } = await supabase.rpc('receber_nota_entrada', { p_nota_id: id })
+  if (error) redirect(`/painel/compras/${id}?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/compras')
   revalidatePath(`/painel/compras/${id}`)
+  revalidatePath('/painel/estoque')
+}
+
+export async function estornarNota(id: string) {
+  await requirePermissao('compras')
+  const supabase = await createServiceClient()
+  // devolve o estoque e marca cancelada (atômico)
+  const { error } = await supabase.rpc('estornar_nota_entrada', { p_nota_id: id })
+  if (error) redirect(`/painel/compras/${id}?erro=${encodeURIComponent(error.message)}`)
+  revalidatePath('/painel/compras')
+  revalidatePath(`/painel/compras/${id}`)
+  revalidatePath('/painel/estoque')
 }
 
 export async function deletarNota(id: string) {
   await requirePermissao('compras')
   const supabase = await createServiceClient()
+  // nota recebida mexeu no estoque — não pode sumir sem estornar antes
+  const { data: nota } = await supabase.from('notas_entrada').select('status').eq('id', id).maybeSingle()
+  if (nota?.status === 'recebida') {
+    redirect(`/painel/compras?erro=${encodeURIComponent('Esta nota já foi recebida (mexeu no estoque). Estorne a nota antes de excluir.')}`)
+  }
+  await supabase.from('itens_nota_entrada').delete().eq('nota_id', id)
   const { error } = await supabase.from('notas_entrada').delete().eq('id', id)
-  if (error) throw new Error(error.message)
+  if (error) redirect(`/painel/compras?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/compras')
 }
 
