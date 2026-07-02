@@ -15,3 +15,19 @@ export type TipoPagamento = typeof TIPOS_PAGAMENTO[number]['key']
 export function labelTipoPagamento(tipo: string | null): string {
   return TIPOS_PAGAMENTO.find((t) => t.key === tipo)?.label ?? '—'
 }
+
+export function tipoUsaMaquina(tipo: string | null): boolean {
+  return tipo === 'cartao_credito' || tipo === 'cartao_debito'
+}
+
+// Quando o dinheiro entra de verdade. Alimenta a previsão de recebimento.
+export const PRAZOS_RECEBIMENTO = [
+  { key: 'a_vista',     label: 'Na hora',            dias: 0 },
+  { key: 'd1',          label: '1 dia útil',         dias: 1 },
+  { key: 'd30',         label: '30 dias',            dias: 30 },
+  { key: 'por_parcela', label: 'Conforme parcelas',  dias: null },
+] as const
+
+export function labelPrazo(prazo: string | null): string {
+  return PRAZOS_RECEBIMENTO.find((p) => p.key === prazo)?.label ?? 'Na hora'
+}

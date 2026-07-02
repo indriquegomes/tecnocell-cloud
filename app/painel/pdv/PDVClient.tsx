@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { formatBRL } from '@/lib/utils'
+import { labelPrazo } from '@/lib/formas-pagamento'
 import { createClient } from '@/lib/supabase/client'
 import { finalizarVenda, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, buscarPedidosAbertos, buscarDetalheVenda, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
 import { buscarSaldoCredito } from '@/app/painel/creditos/actions'
@@ -65,6 +66,8 @@ interface FormaPagamento {
   id: string
   nome: string
   tipo: string | null
+  maquina_id: string | null
+  prazo_recebimento: string | null
 }
 
 interface Maquina {
@@ -147,7 +150,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const [busca, setBusca] = useState('')
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([])
   const [pagamentos, setPagamentos] = useState<PagamentoItem[]>([
-    { uid: '1', forma_id: formas[0]?.id ?? '', valor: '', maquina: '', parcelas: 1 },
+    { uid: '1', forma_id: formas[0]?.id ?? '', valor: '', maquina: formas[0]?.maquina_id ?? '', parcelas: 1 },
   ])
   const [pessoaId, setPessoaId] = useState('')
   const [desconto, setDesconto] = useState('')
@@ -517,6 +520,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const isDinheiroForma = (id: string) => tipoDaForma(id) === 'dinheiro'
 
   const maquinaById = (id: string) => maquinas.find((m) => m.id === id)
+  // máquina fixada pela forma (Etapa 1): cartão não pede máquina de novo no PDV
+  const maquinaDaForma = (id: string) => formas.find((f) => f.id === id)?.maquina_id ?? ''
+  const prazoDaForma = (id: string) => formas.find((f) => f.id === id)?.prazo_recebimento ?? 'a_vista'
   const taxaDoItem = (p: PagamentoItem): number => {
     const val = parseFloat(p.valor) || 0
     const maq = maquinaById(p.maquina)
@@ -531,7 +537,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     uid: String(Date.now() + Math.random()),
     forma_id: formas[0]?.id ?? '',
     valor: '',
-    maquina: '',
+    maquina: maquinaDaForma(formas[0]?.id ?? ''),
     parcelas: 1,
   })
 
@@ -622,7 +628,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
       setVendaSnapshot(snap)
       setMostrarConfirmacao(false)
       setCarrinho([])
-      setPagamentos([{ uid: '1', forma_id: formas[0]?.id ?? '', valor: '', maquina: '', parcelas: 1 }])
+      setPagamentos([{ uid: '1', forma_id: formas[0]?.id ?? '', valor: '', maquina: formas[0]?.maquina_id ?? '', parcelas: 1 }])
       setPessoaId('')
       setDesconto('')
       setObservacoes('')
@@ -1456,7 +1462,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                       <select
                         value={p.forma_id}
                         onChange={(e) => setPagamentos((prev) => prev.map((x) =>
-                          x.uid === p.uid ? { ...x, forma_id: e.target.value, maquina: '', parcelas: 1 } : x
+                          x.uid === p.uid ? { ...x, forma_id: e.target.value, maquina: maquinaDaForma(e.target.value), parcelas: 1 } : x
                         ))}
                         className="flex-1 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
@@ -1492,24 +1498,31 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                       )}
                     </div>
 
+                    {prazoDaForma(p.forma_id) !== 'a_vista' && (
+                      <p className="text-[11px] text-gray-400">Recebimento: {labelPrazo(prazoDaForma(p.forma_id))}</p>
+                    )}
+
                     {isCartaoForma(p.forma_id) && (
                       <div className="space-y-2">
-                        <div className="flex gap-2 flex-wrap">
-                          {maquinas.length === 0 && (
-                            <span className="text-xs text-gray-400">Nenhuma máquina cadastrada (Cadastros → Máquinas de Cartão)</span>
-                          )}
-                          {maquinas.map((m) => (
-                            <button key={m.id} type="button"
-                              onClick={() => setPagamentos((prev) => prev.map((x) =>
-                                x.uid === p.uid ? { ...x, maquina: m.id, parcelas: 1 } : x
-                              ))}
-                              className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${
-                                p.maquina === m.id ? 'bg-blue-600 text-white' : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-                              }`}>
-                              {m.nome}
-                            </button>
-                          ))}
-                        </div>
+                        {/* máquina só é escolhida aqui quando a forma NÃO tem uma fixada */}
+                        {!maquinaDaForma(p.forma_id) && (
+                          <div className="flex gap-2 flex-wrap">
+                            {maquinas.length === 0 && (
+                              <span className="text-xs text-gray-400">Nenhuma máquina cadastrada (Cadastros → Máquinas de Cartão)</span>
+                            )}
+                            {maquinas.map((m) => (
+                              <button key={m.id} type="button"
+                                onClick={() => setPagamentos((prev) => prev.map((x) =>
+                                  x.uid === p.uid ? { ...x, maquina: m.id, parcelas: 1 } : x
+                                ))}
+                                className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${
+                                  p.maquina === m.id ? 'bg-blue-600 text-white' : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                                }`}>
+                                {m.nome}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                         {isCreditoForma(p.forma_id) && p.maquina && (
                           <div className="grid grid-cols-5 gap-1">
                             {Array.from({ length: maquinaById(p.maquina)?.max_parcelas ?? 1 }, (_, i) => i + 1).map((n) => (

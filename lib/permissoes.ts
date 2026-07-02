@@ -23,6 +23,7 @@ export const ROTAS_PERMISSAO: Record<string, string> = {
   '/painel/maquinas-cartao':  'usuarios',
   '/painel/configuracoes':    'usuarios',
   '/painel/vales-credito':    'financeiro',
+  '/painel/contas':           'financeiro',
 }
 
 export const TODAS_PERMISSOES = [

@@ -51,6 +51,7 @@ const navEmConstrucao: NavGroup[] = [
     group: 'Financeiro',
     items: [
       { href: '/painel/financeiro', label: 'Financeiro', permissao: 'financeiro' },
+      { href: '/painel/contas',     label: 'Contas',     permissao: 'financeiro' },
     ],
   },
   {
