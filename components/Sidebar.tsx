@@ -44,6 +44,19 @@ const navCompleto: NavGroup[] = [
       { href: '/painel/depositos',         label: 'Depósitos',      permissao: 'estoque' },
     ],
   },
+  {
+    group: 'Financeiro',
+    items: [
+      { href: '/painel/contas', label: 'Contas', permissao: 'financeiro' },
+    ],
+  },
+  {
+    group: 'Cadastros',
+    items: [
+      { href: '/painel/clientes',         label: 'Pessoas',             permissao: 'clientes' },
+      { href: '/painel/formas-pagamento', label: 'Formas de Pagamento', permissao: 'usuarios' },
+    ],
+  },
 ]
 
 const navEmConstrucao: NavGroup[] = [
@@ -51,16 +64,13 @@ const navEmConstrucao: NavGroup[] = [
     group: 'Financeiro',
     items: [
       { href: '/painel/financeiro', label: 'Financeiro', permissao: 'financeiro' },
-      { href: '/painel/contas',     label: 'Contas',     permissao: 'financeiro' },
     ],
   },
   {
     group: 'Cadastros',
     items: [
-      { href: '/painel/clientes',         label: 'Pessoas',             permissao: 'clientes' },
       { href: '/painel/lojas',            label: 'Lojas',               permissao: 'usuarios' },
       { href: '/painel/empresas',         label: 'Empresas',            permissao: 'usuarios' },
-      { href: '/painel/formas-pagamento', label: 'Formas de Pagamento', permissao: 'usuarios' },
       { href: '/painel/maquinas-cartao',  label: 'Máquinas de Cartão',   permissao: 'usuarios' },
       { href: '/painel/categorias',       label: 'Categorias',          permissao: 'produtos' },
       { href: '/painel/compras',          label: 'Notas de Entrada',    permissao: 'compras' },
