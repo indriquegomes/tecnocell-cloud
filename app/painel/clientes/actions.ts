@@ -33,6 +33,8 @@ export async function criarPessoa(formData: FormData) {
     telefone: (formData.get('telefone') as string) || null,
     cidade: (formData.get('cidade') as string) || null,
     estado: (formData.get('estado') as string) || null,
+    tabela_preco_id: (formData.get('tabela_preco_id') as string) || null,
+    limite_credito: parseFloat(formData.get('limite_credito') as string) || 0,
   })
   if (error) redirect(`/painel/clientes/novo?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/clientes')
@@ -66,6 +68,8 @@ export async function editarPessoa(id: string, formData: FormData) {
     telefone: (formData.get('telefone') as string) || null,
     cidade: (formData.get('cidade') as string) || null,
     estado: (formData.get('estado') as string) || null,
+    tabela_preco_id: (formData.get('tabela_preco_id') as string) || null,
+    limite_credito: parseFloat(formData.get('limite_credito') as string) || 0,
   }).eq('id', id)
   if (error) redirect(`/painel/clientes/${id}/editar?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/clientes')

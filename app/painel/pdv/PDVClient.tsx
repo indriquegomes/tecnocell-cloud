@@ -85,6 +85,7 @@ interface Pessoa {
   cidade?: string | null
   estado?: string | null
   cep?: string | null
+  tabela_preco_id?: string | null
 }
 
 interface Deposito {
@@ -1204,7 +1205,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
             <div className="absolute top-full left-0 right-0 z-20 mt-1 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
               {clientesFiltrados.map((p) => (
                 <button key={p.id} type="button"
-                  onClick={() => { setPessoaId(p.id); setBuscaCliente('') }}
+                  onClick={() => {
+                    setPessoaId(p.id); setBuscaCliente('')
+                    // aplica a tabela de preço padrão do cliente, se tiver
+                    if (p.tabela_preco_id && tabelas.some((t) => t.id === p.tabela_preco_id)) trocarTabela(p.tabela_preco_id)
+                  }}
                   className="flex w-full items-center justify-between px-4 py-2.5 text-sm hover:bg-blue-50 transition text-left">
                   <span className="font-medium text-gray-800">{p.nome}</span>
                   {p.cpf_cnpj && <span className="text-xs text-gray-400">{p.cpf_cnpj}</span>}
