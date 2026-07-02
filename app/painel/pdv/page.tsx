@@ -22,7 +22,7 @@ export default async function PDVPage() {
     supabase.from('pessoas').select('id, nome, cpf_cnpj, telefone, endereco, bairro, cidade, estado, cep, tabela_preco_id').eq('ativo', true).in('tipo', ['cliente', 'ambos']).order('nome'),
     supabase.from('depositos').select('id, nome, loja_id').order('nome'),
     supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).or(`data_inicio.is.null,data_inicio.lte.${hoje}`).or(`data_fim.is.null,data_fim.gte.${hoje}`).order('nome'),
-    supabase.from('itens_tabela_preco').select('tabela_id, produto_id, preco'),
+    supabase.from('itens_tabela_preco').select('tabela_id, produto_id, preco, quantidade_minima'),
     supabase.from('numeros_serie').select('produto_id, deposito_id, serie').eq('status', 'em_estoque').order('serie'),
     supabase.from('lojas').select('id, nome, razao_social, cnpj, inscricao_estadual, telefone, whatsapp, cep, endereco, numero, complemento, bairro, cidade, uf, deposito_padrao_id, tabela_padrao_id, senha_desconto, logo_url, termos_venda').eq('ativa', true).order('nome'),
     supabase.from('maquinas_cartao').select('id, nome, taxa_debito, taxas_credito, max_parcelas').eq('ativo', true).order('nome'),
@@ -37,11 +37,16 @@ export default async function PDVPage() {
     seriesPorProduto[s.produto_id][s.deposito_id].push(s.serie)
   }
 
-  // Mapa de preços por tabela: { tabela_id: { produto_id: preco } }
-  const precosPorTabela: Record<string, Record<string, number>> = {}
-  for (const it of (itensTabela ?? []) as { tabela_id: string; produto_id: string; preco: number }[]) {
+  // Mapa de preços por tabela com faixas: { tabela_id: { produto_id: [{qtd_min, preco}] } }
+  // As faixas ficam ordenadas do maior qtd_min pro menor (o PDV pega a 1ª que couber).
+  const precosPorTabela: Record<string, Record<string, { qtd_min: number; preco: number }[]>> = {}
+  for (const it of (itensTabela ?? []) as { tabela_id: string; produto_id: string; preco: number; quantidade_minima: number | null }[]) {
     if (!precosPorTabela[it.tabela_id]) precosPorTabela[it.tabela_id] = {}
-    precosPorTabela[it.tabela_id][it.produto_id] = it.preco
+    if (!precosPorTabela[it.tabela_id][it.produto_id]) precosPorTabela[it.tabela_id][it.produto_id] = []
+    precosPorTabela[it.tabela_id][it.produto_id].push({ qtd_min: it.quantidade_minima ?? 1, preco: it.preco })
+  }
+  for (const tab of Object.values(precosPorTabela)) {
+    for (const faixas of Object.values(tab)) faixas.sort((a, b) => b.qtd_min - a.qtd_min)
   }
 
   // Busca promoções ativas hoje (todos os tipos de uma vez)

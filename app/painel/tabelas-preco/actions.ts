@@ -55,9 +55,10 @@ export async function adicionarItemTabela(tabelaId: string, formData: FormData) 
     tabela_id: tabelaId,
     produto_id: formData.get('produto_id') as string,
     preco: parseFloat(formData.get('preco') as string) || 0,
+    quantidade_minima: parseInt(formData.get('quantidade_minima') as string) || 1,
   })
 
-  if (error) return { error: error.message }
+  if (error) return { error: /duplicate|unique/i.test(error.message) ? 'Já existe uma faixa com essa quantidade mínima pra esse produto.' : error.message }
   revalidatePath(`/painel/tabelas-preco/${tabelaId}`)
   return { ok: true }
 }

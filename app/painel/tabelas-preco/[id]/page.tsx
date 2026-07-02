@@ -16,9 +16,9 @@ export default async function TabelaPrecoDetalhe({
     supabase.from('tabelas_preco').select('id, nome, descricao, ativa, data_inicio, data_fim').eq('id', id).single(),
     supabase
       .from('itens_tabela_preco')
-      .select('id, produto_id, preco, produtos(id, nome, preco)')
+      .select('id, produto_id, preco, quantidade_minima, produtos(id, nome, preco)')
       .eq('tabela_id', id)
-      .order('created_at'),
+      .order('quantidade_minima'),
     supabase.from('produtos').select('id, nome, preco').order('nome'),
   ])
 
@@ -54,6 +54,7 @@ export default async function TabelaPrecoDetalhe({
           id: string
           produto_id: string
           preco: number
+          quantidade_minima: number
           produtos: { id: string; nome: string; preco: number } | null
         }[])}
         produtos={(produtos ?? []).map((p) => ({ id: p.id, nome: p.nome, preco: p.preco ?? 0 }))}

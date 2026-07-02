@@ -152,7 +152,7 @@ interface Props {
   lojas: Loja[]
   maquinas: Maquina[]
   tabelas: TabelaPreco[]
-  precosPorTabela: Record<string, Record<string, number>>
+  precosPorTabela: Record<string, Record<string, { qtd_min: number; preco: number }[]>>
   promosPorProduto: Record<string, PromoInfo[]>
   seriesPorProduto: Record<string, Record<string, string[]>>  // produto_id → deposito_id → [IMEIs em_estoque]
 }
@@ -311,8 +311,16 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
 
   const nomeDeposito = depositos.find((d) => d.id === depositoId)?.nome ?? ''
   const saldoNoDeposito = (p: Produto) => p.estoquePorDeposito[depositoId] ?? 0
-  // Preço do produto na tabela selecionada (cai no preço padrão se não houver)
-  const precoDoProduto = (p: Produto) => precosPorTabela[tabelaId]?.[p.id] ?? p.preco
+  // Preço na tabela conforme a quantidade (faixa/atacado): pega a 1ª faixa que cabe
+  // (as faixas já vêm ordenadas do maior qtd_min pro menor). null = tabela não cobre o produto.
+  const precoTabela = (tab: string, produtoId: string, qtd: number): number | null => {
+    const faixas = precosPorTabela[tab]?.[produtoId]
+    if (!faixas || faixas.length === 0) return null
+    const faixa = faixas.find((f) => qtd >= f.qtd_min)
+    return faixa ? faixa.preco : null
+  }
+  // Preço do produto na tabela selecionada (qtd 1 pra vitrine; cai no padrão se não houver)
+  const precoDoProduto = (p: Produto) => precoTabela(tabelaId, p.id, 1) ?? p.preco
 
   const produtosFiltrados = busca.length >= 1
     ? produtos.filter((p) =>
@@ -354,7 +362,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
         nome: p.nome,
         codigo: p.codigo,
         quantidade: p.controla_serie ? 0 : 1,   // serializado: quantidade = IMEIs escolhidos
-        preco_unitario: precosPorTabela[tabelaId]?.[p.id] ?? p.preco,
+        preco_unitario: precoTabela(tabelaId, p.id, 1) ?? p.preco,
         estoque_disponivel: disp,
         promoSel: 'auto',
         serializado: p.controla_serie,
@@ -426,12 +434,13 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     setCarrinho((prev) => prev.map((i) => {
       if (i.produto_id !== produto_id) return i
       if (i.serializado) return i   // quantidade dirigida pelos IMEIs escolhidos
-      if (isNaN(n) || n < 1) return { ...i, quantidade: 1 }
+      const reprecar = (q: number) => precoTabela(tabelaId, produto_id, q) ?? i.preco_unitario
+      if (isNaN(n) || n < 1) return { ...i, quantidade: 1, preco_unitario: reprecar(1) }
       if (n > i.estoque_disponivel) {
         setErro(`Estoque máximo: ${i.estoque_disponivel} unidade(s).`)
-        return { ...i, quantidade: i.estoque_disponivel }
+        return { ...i, quantidade: i.estoque_disponivel, preco_unitario: reprecar(i.estoque_disponivel) }
       }
-      return { ...i, quantidade: n }
+      return { ...i, quantidade: n, preco_unitario: reprecar(n) }
     }))
   }
 
@@ -440,7 +449,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     setTabelaId(novaTabela)
     setCarrinho((prev) => prev.map((item) => {
       const prod = produtos.find((p) => p.id === item.produto_id)
-      const novoPreco = precosPorTabela[novaTabela]?.[item.produto_id] ?? prod?.preco ?? item.preco_unitario
+      const novoPreco = precoTabela(novaTabela, item.produto_id, item.quantidade) ?? prod?.preco ?? item.preco_unitario
       return { ...item, preco_unitario: novoPreco }
     }))
   }
@@ -489,7 +498,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
           setErro(`Estoque máximo disponível: ${i.estoque_disponivel} unidade(s).`)
           return i
         }
-        return { ...i, quantidade: Math.max(1, novaQtd) }
+        const q = Math.max(1, novaQtd)
+        // re-preço por faixa de quantidade (atacado); sem tabela/faixa, mantém o preço
+        return { ...i, quantidade: q, preco_unitario: precoTabela(tabelaId, produto_id, q) ?? i.preco_unitario }
       })
     )
   }

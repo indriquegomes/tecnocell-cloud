@@ -16,6 +16,7 @@ type Item = {
   id: string
   produto_id: string
   preco: number
+  quantidade_minima: number
   produtos: { id: string; nome: string; preco: number } | null
 }
 
@@ -42,6 +43,7 @@ export function TabelaDetalheClient({
   const [buscaProd, setBuscaProd] = useState('')
   const [produtoSelecionado, setProdutoSelecionado] = useState<Produto | null>(null)
   const [novoPreco, setNovoPreco] = useState('')
+  const [novaQtdMin, setNovaQtdMin] = useState('1')
   const [adicionando, setAdicionando] = useState(false)
 
   // Importar em lote
@@ -53,15 +55,12 @@ export function TabelaDetalheClient({
   // Busca nos itens da tabela
   const [buscaItens, setBuscaItens] = useState('')
 
-  const idsNaTabela = useMemo(() => new Set(itens.map((i) => i.produto_id)), [itens])
-
   const produtosFiltrados = useMemo(() => {
     const q = buscaProd.toLowerCase().trim()
     if (!q) return []
-    return produtos
-      .filter((p) => !idsNaTabela.has(p.id) && p.nome.toLowerCase().includes(q))
-      .slice(0, 8)
-  }, [buscaProd, produtos, idsNaTabela])
+    // não exclui produtos já na tabela — o mesmo produto pode ter várias faixas de qtd
+    return produtos.filter((p) => p.nome.toLowerCase().includes(q)).slice(0, 8)
+  }, [buscaProd, produtos])
 
   const itensFiltrados = useMemo(() => {
     const q = buscaItens.toLowerCase().trim()
@@ -85,6 +84,7 @@ export function TabelaDetalheClient({
     const fd = new FormData()
     fd.set('produto_id', produtoSelecionado.id)
     fd.set('preco', novoPreco)
+    fd.set('quantidade_minima', novaQtdMin || '1')
     const res = await adicionarItemTabela(tabela.id, fd)
     if (res?.error) {
       setErroAdicionar(res.error)
@@ -92,6 +92,7 @@ export function TabelaDetalheClient({
       setBuscaProd('')
       setProdutoSelecionado(null)
       setNovoPreco('')
+      setNovaQtdMin('1')
       router.refresh()
     }
     setAdicionando(false)
@@ -195,6 +196,18 @@ export function TabelaDetalheClient({
               </div>
             )}
           </div>
+          <div className="w-32">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">A partir de (qtd)</label>
+            <input
+              value={novaQtdMin}
+              onChange={(e) => setNovaQtdMin(e.target.value)}
+              type="number"
+              step="1"
+              min="1"
+              className="field w-full"
+              placeholder="1"
+            />
+          </div>
           <div className="w-44">
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Preço nesta tabela</label>
             <input
@@ -232,6 +245,7 @@ export function TabelaDetalheClient({
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Produto</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">A partir de</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Preço Padrão</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Preço Tabela</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Diferença</th>
@@ -240,7 +254,7 @@ export function TabelaDetalheClient({
           </thead>
           <tbody className="divide-y divide-gray-50">
             {itensFiltrados.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">Nenhum produto encontrado.</td></tr>
+              <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-400">Nenhum produto encontrado.</td></tr>
             ) : itensFiltrados.map((item) => {
               const prod = item.produtos
               const precoPadrao = prod?.preco ?? 0
@@ -249,6 +263,7 @@ export function TabelaDetalheClient({
               return (
                 <tr key={item.id} className="hover:bg-gray-50 group">
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">{prod?.nome ?? '—'}</td>
+                  <td className="px-4 py-3 text-center text-sm text-gray-500">{item.quantidade_minima}un+</td>
                   <td className="px-4 py-3 text-sm text-right text-gray-400">{fmt(precoPadrao)}</td>
                   <td className="px-4 py-3 text-right">
                     {editando ? (
