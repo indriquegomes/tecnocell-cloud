@@ -39,17 +39,6 @@ async function authToken(): Promise<string> {
   return data.session?.access_token ?? ''
 }
 
-const TAXAS = {
-  ton: {
-    debito: 3,
-    credito: [0, 5, 9.38, 10.38, 11.38, 12.38, 13.38, 14.38, 15.38, 16.38, 16.38],
-  },
-  pagbank: {
-    debito: 3,
-    credito: [0, 5, 8.4, 10.6, 12.8, 15, 17.2, 19.4, 21.6, 23.8, 26],
-  },
-}
-
 function iconeForma(nome: string) {
   const n = nome.toLowerCase()
   if (n.includes('pix')) return '💠'
@@ -76,6 +65,14 @@ interface FormaPagamento {
   id: string
   nome: string
   tipo: string | null
+}
+
+interface Maquina {
+  id: string
+  nome: string
+  taxa_debito: number
+  taxas_credito: number[]
+  max_parcelas: number
 }
 
 interface Pessoa {
@@ -127,7 +124,7 @@ interface PagamentoItem {
   uid: string
   forma_id: string
   valor: string
-  maquina: '' | 'ton' | 'pagbank'
+  maquina: string   // id da máquina de cartão ('' = nenhuma)
   parcelas: number
 }
 
@@ -137,13 +134,14 @@ interface Props {
   pessoas: Pessoa[]
   depositos: Deposito[]
   lojas: Loja[]
+  maquinas: Maquina[]
   tabelas: TabelaPreco[]
   precosPorTabela: Record<string, Record<string, number>>
   promosPorProduto: Record<string, PromoInfo[]>
   seriesPorProduto: Record<string, Record<string, string[]>>  // produto_id → deposito_id → [IMEIs em_estoque]
 }
 
-export function PDVClient({ produtos: produtosIniciais, formas, pessoas, depositos, lojas, tabelas, precosPorTabela, promosPorProduto, seriesPorProduto }: Props) {
+export function PDVClient({ produtos: produtosIniciais, formas, pessoas, depositos, lojas, maquinas, tabelas, precosPorTabela, promosPorProduto, seriesPorProduto }: Props) {
   const [produtos, setProdutos] = useState(produtosIniciais)
   const [busca, setBusca] = useState('')
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([])
@@ -517,12 +515,14 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const isFiadoForma = (id: string) => tipoDaForma(id) === 'fiado'
   const isDinheiroForma = (id: string) => tipoDaForma(id) === 'dinheiro'
 
+  const maquinaById = (id: string) => maquinas.find((m) => m.id === id)
   const taxaDoItem = (p: PagamentoItem): number => {
     const val = parseFloat(p.valor) || 0
-    if (!p.maquina || !isCartaoForma(p.forma_id) || val <= 0) return 0
+    const maq = maquinaById(p.maquina)
+    if (!maq || !isCartaoForma(p.forma_id) || val <= 0) return 0
     const pct = isDebitoForma(p.forma_id)
-      ? TAXAS[p.maquina].debito
-      : TAXAS[p.maquina].credito[p.parcelas] ?? 0
+      ? maq.taxa_debito
+      : (maq.taxas_credito[p.parcelas - 1] ?? 0)   // taxas_credito 0-indexed: [0]=1x
     return Math.round(val * pct) / 100
   }
 
@@ -576,7 +576,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
           forma_pagamento_id: p.forma_id,
           valor: parseFloat(p.valor) || 0,
           taxa: taxaDoItem(p),
-          maquina: p.maquina,
+          maquina: maquinaById(p.maquina)?.nome ?? '',   // grava o nome legível
           parcelas: p.parcelas,
           status: isFiadoForma(p.forma_id) ? 'pendente' : 'pago',
         })),
@@ -1489,22 +1489,25 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
 
                     {isCartaoForma(p.forma_id) && (
                       <div className="space-y-2">
-                        <div className="flex gap-2">
-                          {(['ton', 'pagbank'] as const).map((m) => (
-                            <button key={m} type="button"
+                        <div className="flex gap-2 flex-wrap">
+                          {maquinas.length === 0 && (
+                            <span className="text-xs text-gray-400">Nenhuma máquina cadastrada (Cadastros → Máquinas de Cartão)</span>
+                          )}
+                          {maquinas.map((m) => (
+                            <button key={m.id} type="button"
                               onClick={() => setPagamentos((prev) => prev.map((x) =>
-                                x.uid === p.uid ? { ...x, maquina: m } : x
+                                x.uid === p.uid ? { ...x, maquina: m.id, parcelas: 1 } : x
                               ))}
                               className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${
-                                p.maquina === m ? 'bg-blue-600 text-white' : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                                p.maquina === m.id ? 'bg-blue-600 text-white' : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
                               }`}>
-                              {m === 'ton' ? 'TON' : 'Pagbank'}
+                              {m.nome}
                             </button>
                           ))}
                         </div>
-                        {isCreditoForma(p.forma_id) && (
+                        {isCreditoForma(p.forma_id) && p.maquina && (
                           <div className="grid grid-cols-5 gap-1">
-                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                            {Array.from({ length: maquinaById(p.maquina)?.max_parcelas ?? 1 }, (_, i) => i + 1).map((n) => (
                               <button key={n} type="button"
                                 onClick={() => setPagamentos((prev) => prev.map((x) =>
                                   x.uid === p.uid ? { ...x, parcelas: n } : x
@@ -1519,7 +1522,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                         )}
                         {p.maquina && (
                           <div className="flex justify-between rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700">
-                            <span>{isCreditoForma(p.forma_id) ? `${p.parcelas}x` : 'Débito'} · {p.maquina === 'ton' ? 'TON' : 'Pagbank'}</span>
+                            <span>{isCreditoForma(p.forma_id) ? `${p.parcelas}x` : 'Débito'} · {maquinaById(p.maquina)?.nome ?? ''}</span>
                             <span className="font-semibold">+ {formatBRL(taxaDoItem(p))}</span>
                           </div>
                         )}

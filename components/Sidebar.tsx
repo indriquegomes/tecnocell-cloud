@@ -60,6 +60,7 @@ const navEmConstrucao: NavGroup[] = [
       { href: '/painel/lojas',            label: 'Lojas',               permissao: 'usuarios' },
       { href: '/painel/empresas',         label: 'Empresas',            permissao: 'usuarios' },
       { href: '/painel/formas-pagamento', label: 'Formas de Pagamento', permissao: 'usuarios' },
+      { href: '/painel/maquinas-cartao',  label: 'Máquinas de Cartão',   permissao: 'usuarios' },
       { href: '/painel/categorias',       label: 'Categorias',          permissao: 'produtos' },
       { href: '/painel/compras',          label: 'Notas de Entrada',    permissao: 'compras' },
       { href: '/painel/tabelas-preco',    label: 'Tabelas de Preço',    permissao: 'produtos' },
