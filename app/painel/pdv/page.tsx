@@ -24,7 +24,7 @@ export default async function PDVPage() {
     supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).order('nome'),
     supabase.from('itens_tabela_preco').select('tabela_id, produto_id, preco'),
     supabase.from('numeros_serie').select('produto_id, deposito_id, serie').eq('status', 'em_estoque').order('serie'),
-    supabase.from('lojas').select('id, nome, cnpj, telefone, whatsapp, endereco, numero, complemento, bairro, cidade, uf, deposito_padrao_id, tabela_padrao_id, senha_desconto, logo_url, termos_venda').eq('ativa', true).order('nome'),
+    supabase.from('lojas').select('id, nome, razao_social, cnpj, inscricao_estadual, telefone, whatsapp, cep, endereco, numero, complemento, bairro, cidade, uf, deposito_padrao_id, tabela_padrao_id, senha_desconto, logo_url, termos_venda').eq('ativa', true).order('nome'),
     supabase.from('maquinas_cartao').select('id, nome, taxa_debito, taxas_credito, max_parcelas').eq('ativo', true).order('nome'),
   ])
 

@@ -100,9 +100,12 @@ interface Deposito {
 interface Loja {
   id: string
   nome: string
+  razao_social: string | null
   cnpj: string | null
+  inscricao_estadual: string | null
   telefone: string | null
   whatsapp: string | null
+  cep: string | null
   endereco: string | null
   numero: string | null
   complemento: string | null
@@ -257,7 +260,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     clienteEndereco: string | null
     deposito: string
     loja: string | null
+    lojaRazao: string | null
     lojaCnpj: string | null
+    lojaIE: string | null
     lojaEndereco: string | null
     lojaTelefone: string | null
     lojaLogo: string | null
@@ -640,12 +645,15 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
         })(),
         deposito: nomeDeposito,
         loja: lojaSel?.nome ?? null,
+        lojaRazao: lojaSel?.razao_social ?? null,
         lojaCnpj: lojaSel?.cnpj ?? null,
+        lojaIE: lojaSel?.inscricao_estadual ?? null,
         lojaEndereco: [
           [lojaSel?.endereco, lojaSel?.numero].filter(Boolean).join(', '),
           lojaSel?.complemento,
           lojaSel?.bairro,
           lojaSel?.cidade && lojaSel?.uf ? `${lojaSel.cidade}/${lojaSel.uf}` : (lojaSel?.cidade ?? lojaSel?.uf),
+          lojaSel?.cep ? `CEP: ${lojaSel.cep}` : null,
         ].filter(Boolean).join(' - ') || null,
         lojaTelefone: lojaSel?.whatsapp ?? lojaSel?.telefone ?? null,
         lojaLogo: lojaSel?.logo_url ?? null,
@@ -952,10 +960,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     <div style="text-align:center;margin-bottom:4px">
       <img src="${snap.lojaLogo || logoUrl}" style="max-width:160px;max-height:60px;object-fit:contain" />
     </div>
-    <p>IGTFRANCA COMERCIO E SERVICO LTDA</p>
-    <p>CNPJ: 39.682.023/0001-69 &nbsp; IE: 11951408</p>
-    <p>Rua Dezesseis de Março, 336 - Centro</p>
-    <p>Petrópolis, RJ - CEP: 25620040</p>
+    <p class="bold">${snap.lojaRazao || snap.loja || 'TecnoCell'}</p>
+    ${snap.lojaCnpj || snap.lojaIE ? `<p>${snap.lojaCnpj ? `CNPJ: ${snap.lojaCnpj}` : ''}${snap.lojaCnpj && snap.lojaIE ? ' &nbsp; ' : ''}${snap.lojaIE ? `IE: ${snap.lojaIE}` : ''}</p>` : ''}
+    ${snap.lojaEndereco ? `<p>${snap.lojaEndereco}</p>` : ''}
+    ${snap.lojaTelefone ? `<p>Tel: ${snap.lojaTelefone}</p>` : ''}
 
     <hr class="sep">
     <p class="bold" style="font-size:13px">COMPROVANTE DE VENDA</p>
@@ -999,9 +1007,6 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     <p class="bold" style="font-size:13px">VENDA NÚMERO ${numeroLabel}</p>
     <p>EMISSÃO EM ${snap.horario}</p>
     ${snap.loja ? `<p class="bold">${snap.loja}</p>` : ''}
-    ${snap.lojaCnpj ? `<p>CNPJ: ${snap.lojaCnpj}</p>` : ''}
-    ${snap.lojaEndereco ? `<p>${snap.lojaEndereco}</p>` : ''}
-    ${snap.lojaTelefone ? `<p>Tel: ${snap.lojaTelefone}</p>` : ''}
     <p>${snap.deposito}</p>
     <p class="bold">CONSUMIDOR</p>
     ${snap.cliente ? `<p>${snap.cliente}</p>` : '<p>CONSUMIDOR FINAL</p>'}
