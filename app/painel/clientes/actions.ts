@@ -5,6 +5,32 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { validarCpfCnpj } from '@/lib/validacoes'
 
+// Campos compartilhados entre criar e editar — Novo e Editar são o mesmo formulário
+function camposPessoa(formData: FormData, cpfCnpj: string, email: string) {
+  const txt = (k: string) => (formData.get(k) as string)?.trim() || null
+  return {
+    nome: formData.get('nome') as string,
+    nome_fantasia: txt('nome_fantasia'),
+    tipo: formData.get('tipo') as string,
+    pessoa_fisica: formData.get('pessoa_fisica') === 'true',
+    cpf_cnpj: cpfCnpj || null,
+    data_nascimento: txt('data_nascimento'),
+    email: email || null,
+    telefone: txt('telefone'),
+    celular: txt('celular'),
+    cep: txt('cep'),
+    endereco: txt('endereco'),
+    numero: txt('numero'),
+    complemento: txt('complemento'),
+    bairro: txt('bairro'),
+    cidade: txt('cidade'),
+    estado: txt('estado'),
+    tabela_preco_id: txt('tabela_preco_id'),
+    limite_credito: parseFloat(formData.get('limite_credito') as string) || 0,
+    observacoes: txt('observacoes'),
+  }
+}
+
 export async function criarPessoa(formData: FormData) {
   await requirePermissao('clientes')
   const supabase = await createServiceClient()
@@ -25,16 +51,7 @@ export async function criarPessoa(formData: FormData) {
 
   const { error } = await supabase.from('pessoas').insert({
     id: crypto.randomUUID(),
-    nome: formData.get('nome') as string,
-    tipo: formData.get('tipo') as string,
-    pessoa_fisica: formData.get('pessoa_fisica') === 'true',
-    cpf_cnpj: cpfCnpj || null,
-    email: email || null,
-    telefone: (formData.get('telefone') as string) || null,
-    cidade: (formData.get('cidade') as string) || null,
-    estado: (formData.get('estado') as string) || null,
-    tabela_preco_id: (formData.get('tabela_preco_id') as string) || null,
-    limite_credito: parseFloat(formData.get('limite_credito') as string) || 0,
+    ...camposPessoa(formData, cpfCnpj, email),
   })
   if (error) redirect(`/painel/clientes/novo?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/clientes')
@@ -59,18 +76,7 @@ export async function editarPessoa(id: string, formData: FormData) {
     if (existente) redirect(`/painel/clientes/${id}/editar?erro=${encodeURIComponent('Já existe outro cadastro com este e-mail.')}`)
   }
 
-  const { error } = await supabase.from('pessoas').update({
-    nome: formData.get('nome') as string,
-    tipo: formData.get('tipo') as string,
-    pessoa_fisica: formData.get('pessoa_fisica') === 'true',
-    cpf_cnpj: cpfCnpj || null,
-    email: email || null,
-    telefone: (formData.get('telefone') as string) || null,
-    cidade: (formData.get('cidade') as string) || null,
-    estado: (formData.get('estado') as string) || null,
-    tabela_preco_id: (formData.get('tabela_preco_id') as string) || null,
-    limite_credito: parseFloat(formData.get('limite_credito') as string) || 0,
-  }).eq('id', id)
+  const { error } = await supabase.from('pessoas').update(camposPessoa(formData, cpfCnpj, email)).eq('id', id)
   if (error) redirect(`/painel/clientes/${id}/editar?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/clientes')
   redirect('/painel/clientes')

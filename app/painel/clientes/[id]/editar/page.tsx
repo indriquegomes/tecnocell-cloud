@@ -1,14 +1,8 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import { editarPessoa } from '../../actions'
+import { PessoaForm, type PessoaEdit } from '../../PessoaForm'
 import { formatBRL, formatDate } from '@/lib/utils'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-
-const ESTADOS = ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO']
-const TIPOS = [
-  ['cliente', 'Cliente'], ['fornecedor', 'Fornecedor'], ['ambos', 'Cliente e Fornecedor'],
-  ['tecnico', 'Técnico'], ['transportadora', 'Transportadora'], ['vendedor', 'Vendedor'],
-]
 
 export default async function EditarClientePage({
   params,
@@ -38,8 +32,6 @@ export default async function EditarClientePage({
   const saldoCredito = (creds ?? []).reduce((s, c) => (c.tipo === 'uso' ? s - (c.valor ?? 0) : s + (c.valor ?? 0)), 0)
   const totalComprado = (vendas ?? []).reduce((s, v) => s + (v.total ?? 0), 0)
   const limite = Number(pessoa.limite_credito ?? 0)
-
-  const action = editarPessoa.bind(null, id)
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -73,71 +65,7 @@ export default async function EditarClientePage({
       {erro && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
 
       {/* Cadastro */}
-      <form action={action} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-5">
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Nome / Razão Social *</label>
-            <input name="nome" required defaultValue={pessoa.nome} className="field" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Rótulo (tipo) *</label>
-            <select name="tipo" defaultValue={pessoa.tipo} className="field">
-              {TIPOS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Pessoa</label>
-            <select name="pessoa_fisica" defaultValue={String(pessoa.pessoa_fisica)} className="field">
-              <option value="true">Física</option>
-              <option value="false">Jurídica</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">CPF / CNPJ</label>
-            <input name="cpf_cnpj" defaultValue={pessoa.cpf_cnpj ?? ''} className="field" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Telefone</label>
-            <input name="telefone" defaultValue={pessoa.telefone ?? ''} className="field" />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">E-mail</label>
-            <input name="email" type="email" defaultValue={pessoa.email ?? ''} className="field" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Cidade</label>
-            <input name="cidade" defaultValue={pessoa.cidade ?? ''} className="field" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Estado</label>
-            <select name="estado" defaultValue={pessoa.estado ?? ''} className="field">
-              <option value="">—</option>
-              {ESTADOS.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Tabela de preço padrão</label>
-            <select name="tabela_preco_id" defaultValue={pessoa.tabela_preco_id ?? ''} className="field">
-              <option value="">Preço Padrão</option>
-              {(tabelas ?? []).map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
-            </select>
-            <p className="mt-1 text-[11px] text-gray-400">Aplicada automaticamente no PDV ao escolher este cliente</p>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Limite de crédito (fiado) R$</label>
-            <input name="limite_credito" type="number" step="0.01" min="0" defaultValue={String(limite)} className="field" />
-          </div>
-        </div>
-
-        <div className="flex gap-3 pt-2">
-          <button type="submit" className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
-            Salvar Alterações
-          </button>
-          <Link href="/painel/clientes" className="rounded-xl border border-gray-200 px-6 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
-            Cancelar
-          </Link>
-        </div>
-      </form>
+      <PessoaForm tabelas={tabelas ?? []} editando={pessoa as PessoaEdit} />
 
       {/* Histórico de compras */}
       <div>
