@@ -9,17 +9,20 @@ const TIPOS: [string, string][] = [
   ['cliente', 'Cliente'], ['fornecedor', 'Fornecedor'], ['ambos', 'Cliente e Fornecedor'],
   ['tecnico', 'Técnico'], ['transportadora', 'Transportadora'], ['vendedor', 'Vendedor'],
 ]
+const ORIGENS = ['Indicação', 'Instagram', 'Facebook', 'Google', 'Passou na loja', 'Cliente antigo', 'Outro']
 
 type Tabela = { id: string; nome: string }
+type Vendedor = { id: string; nome: string }
 export type PessoaEdit = {
   id: string; nome: string; nome_fantasia: string | null; tipo: string; pessoa_fisica: boolean
-  cpf_cnpj: string | null; data_nascimento: string | null; email: string | null
+  cpf_cnpj: string | null; rg: string | null; data_nascimento: string | null; email: string | null
   telefone: string | null; celular: string | null; cep: string | null; endereco: string | null
   numero: string | null; complemento: string | null; bairro: string | null; cidade: string | null
-  estado: string | null; tabela_preco_id: string | null; limite_credito: number | null; observacoes: string | null
+  estado: string | null; tabela_preco_id: string | null; limite_credito: number | null
+  vendedor_id: string | null; origem: string | null; observacoes: string | null
 }
 
-export function PessoaForm({ tabelas, editando }: { tabelas: Tabela[]; editando?: PessoaEdit }) {
+export function PessoaForm({ tabelas, vendedores, editando }: { tabelas: Tabela[]; vendedores: Vendedor[]; editando?: PessoaEdit }) {
   const action = editando ? editarPessoa.bind(null, editando.id) : criarPessoa
 
   // Endereço é controlado p/ a busca de CEP conseguir preencher
@@ -77,6 +80,10 @@ export function PessoaForm({ tabelas, editando }: { tabelas: Tabela[]; editando?
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">CPF / CNPJ</label>
             <input name="cpf_cnpj" defaultValue={editando?.cpf_cnpj ?? ''} className="field" placeholder="000.000.000-00" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">RG</label>
+            <input name="rg" defaultValue={editando?.rg ?? ''} className="field" placeholder="00.000.000-0" />
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Data de nascimento</label>
@@ -162,6 +169,20 @@ export function PessoaForm({ tabelas, editando }: { tabelas: Tabela[]; editando?
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Limite de crédito (fiado) R$</label>
             <input name="limite_credito" type="number" step="0.01" min="0" defaultValue={String(editando?.limite_credito ?? 0)} className="field" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Vendedor responsável</label>
+            <select name="vendedor_id" defaultValue={editando?.vendedor_id ?? ''} className="field">
+              <option value="">—</option>
+              {vendedores.map((v) => <option key={v.id} value={v.id}>{v.nome}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Origem (como conheceu)</label>
+            <select name="origem" defaultValue={editando?.origem ?? ''} className="field">
+              <option value="">—</option>
+              {ORIGENS.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
           </div>
         </div>
       </div>

@@ -14,6 +14,7 @@ function camposPessoa(formData: FormData, cpfCnpj: string, email: string) {
     tipo: formData.get('tipo') as string,
     pessoa_fisica: formData.get('pessoa_fisica') === 'true',
     cpf_cnpj: cpfCnpj || null,
+    rg: txt('rg'),
     data_nascimento: txt('data_nascimento'),
     email: email || null,
     telefone: txt('telefone'),
@@ -27,6 +28,8 @@ function camposPessoa(formData: FormData, cpfCnpj: string, email: string) {
     estado: txt('estado'),
     tabela_preco_id: txt('tabela_preco_id'),
     limite_credito: parseFloat(formData.get('limite_credito') as string) || 0,
+    vendedor_id: txt('vendedor_id'),
+    origem: txt('origem'),
     observacoes: txt('observacoes'),
   }
 }

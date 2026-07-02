@@ -15,11 +15,13 @@ export default async function EditarClientePage({
   const { erro } = await searchParams
   const supabase = await createServiceClient()
 
-  const [{ data: pessoa }, { data: tabelas }, { data: vendas }, { data: creds }] = await Promise.all([
+  const [{ data: pessoa }, { data: tabelas }, { data: vendedores }, { data: vendas }, { data: creds }, { data: oss }] = await Promise.all([
     supabase.from('pessoas').select('*').eq('id', id).single(),
     supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).order('nome'),
+    supabase.from('perfis').select('id, nome').eq('ativo', true).order('nome'),
     supabase.from('vendas').select('id, numero, total, created_at, status').eq('pessoa_id', id).order('created_at', { ascending: false }).limit(20),
     supabase.from('creditos_clientes').select('tipo, valor').eq('pessoa_id', id),
+    supabase.from('ordens_servico').select('id, numero, aparelho, modelo, status, total, created_at').eq('pessoa_id', id).order('created_at', { ascending: false }).limit(20),
   ])
   if (!pessoa) notFound()
 
@@ -65,7 +67,7 @@ export default async function EditarClientePage({
       {erro && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
 
       {/* Cadastro */}
-      <PessoaForm tabelas={tabelas ?? []} editando={pessoa as PessoaEdit} />
+      <PessoaForm tabelas={tabelas ?? []} vendedores={vendedores ?? []} editando={pessoa as PessoaEdit} />
 
       {/* Histórico de compras */}
       <div>
@@ -89,6 +91,37 @@ export default async function EditarClientePage({
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">{v.numero ? `#${v.numero}` : '—'}</td>
                   <td className="px-4 py-3 text-center text-sm text-gray-500">{v.status}</td>
                   <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">{formatBRL(v.total ?? 0)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Histórico de OS (aparelhos que passaram pela assistência) */}
+      <div>
+        <h3 className="mb-2 text-sm font-semibold text-gray-500 uppercase tracking-wide">Ordens de serviço</h3>
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <table className="min-w-full divide-y divide-gray-100">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Data</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">OS</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Aparelho</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {(oss ?? []).length === 0 ? (
+                <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">Nenhuma ordem de serviço.</td></tr>
+              ) : (oss ?? []).map((o) => (
+                <tr key={o.id} className="hover:bg-gray-50 transition">
+                  <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{formatDate(o.created_at)}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-gray-800">{o.numero ? `#${o.numero}` : '—'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">{[o.aparelho, o.modelo].filter(Boolean).join(' ') || '—'}</td>
+                  <td className="px-4 py-3 text-center text-sm text-gray-500">{o.status}</td>
+                  <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">{formatBRL(o.total ?? 0)}</td>
                 </tr>
               ))}
             </tbody>
