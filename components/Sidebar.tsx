@@ -60,6 +60,7 @@ const navCompleto: NavGroup[] = [
       { href: '/painel/categorias',       label: 'Categorias',          permissao: 'produtos' },
       { href: '/painel/marcas',           label: 'Marcas',              permissao: 'produtos' },
       { href: '/painel/tabelas-preco',    label: 'Tabelas de Preço',    permissao: 'produtos' },
+      { href: '/painel/compras',          label: 'Notas de Entrada',    permissao: 'compras' },
     ],
   },
 ]
@@ -69,12 +70,6 @@ const navEmConstrucao: NavGroup[] = [
     group: 'Financeiro',
     items: [
       { href: '/painel/financeiro', label: 'Financeiro', permissao: 'financeiro' },
-    ],
-  },
-  {
-    group: 'Cadastros',
-    items: [
-      { href: '/painel/compras',          label: 'Notas de Entrada',    permissao: 'compras' },
     ],
   },
   {
