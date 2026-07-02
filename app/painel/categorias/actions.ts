@@ -49,7 +49,12 @@ export async function editarCategoria(hierarquia: string, formData: FormData) {
 export async function deletarCategoria(hierarquia: string) {
   await requirePermissao('produtos')
   const supabase = await createServiceClient()
+  // não deixa apagar categoria com produtos (deixaria os produtos órfãos)
+  const { count } = await supabase.from('produtos').select('id', { count: 'exact', head: true }).eq('categoria', hierarquia)
+  if ((count ?? 0) > 0) {
+    redirect(`/painel/categorias?erro=${encodeURIComponent(`Esta categoria tem ${count} produto(s). Mova os produtos pra outra categoria antes de excluir.`)}`)
+  }
   const { error } = await supabase.from('categorias').delete().eq('hierarquia', hierarquia)
-  if (error) throw new Error(error.message)
+  if (error) redirect(`/painel/categorias?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/categorias')
 }
