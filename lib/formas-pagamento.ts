@@ -24,6 +24,9 @@ export function tipoUsaMaquina(tipo: string | null): boolean {
 export const PRAZOS_RECEBIMENTO = [
   { key: 'a_vista',     label: 'Na hora',            dias: 0 },
   { key: 'd1',          label: '1 dia útil',         dias: 1 },
+  { key: 'd2',          label: '2 dias',             dias: 2 },
+  { key: 'd7',          label: '7 dias',             dias: 7 },
+  { key: 'd15',         label: '15 dias',            dias: 15 },
   { key: 'd30',         label: '30 dias',            dias: 30 },
   { key: 'por_parcela', label: 'Conforme parcelas',  dias: null },
 ] as const
