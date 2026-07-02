@@ -19,6 +19,9 @@ function campos(formData: FormData) {
     bairro: txt('bairro'),
     cidade: txt('cidade'),
     uf: txt('uf'),
+    deposito_padrao_id: txt('deposito_padrao_id'),
+    conta_padrao_id: txt('conta_padrao_id'),
+    tabela_padrao_id: txt('tabela_padrao_id'),
   }
 }
 

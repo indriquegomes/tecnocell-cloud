@@ -105,6 +105,8 @@ interface Loja {
   endereco: string | null
   cidade: string | null
   uf: string | null
+  deposito_padrao_id: string | null
+  tabela_padrao_id: string | null
 }
 
 interface TabelaPreco {
@@ -256,17 +258,22 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const [mostrarConfirmacao, setMostrarConfirmacao] = useState(false)
   // Loja/depósito: lembrado por COMPUTADOR (localStorage) — as usuárias revezam
   // entre lojas, então cada PC fica na sua loja. Sem loja chumbada.
+  // Depósito padrão vem da configuração da loja; senão cai no 1º dela.
+  function depoDefaultDaLoja(lj: string): string {
+    const loja = lojas.find((l) => l.id === lj)
+    if (loja?.deposito_padrao_id && depositos.some((d) => d.id === loja.deposito_padrao_id && d.loja_id === lj)) return loja.deposito_padrao_id
+    return depositos.find((d) => d.loja_id === lj)?.id ?? ''
+  }
   const [lojaId, setLojaId] = useState(lojas[0]?.id ?? '')
-  const [depositoId, setDepositoId] = useState(
-    depositos.find((d) => d.loja_id === (lojas[0]?.id ?? ''))?.id ?? ''
-  )
+  const [depositoId, setDepositoId] = useState(depoDefaultDaLoja(lojas[0]?.id ?? ''))
   useEffect(() => {
     const lj = localStorage.getItem('pdv_loja')
     const dp = localStorage.getItem('pdv_deposito')
     if (lj && lojas.some((l) => l.id === lj)) {
       setLojaId(lj)
       const depsLoja = depositos.filter((d) => d.loja_id === lj)
-      setDepositoId(dp && depsLoja.some((d) => d.id === dp) ? dp : (depsLoja[0]?.id ?? ''))
+      setDepositoId(dp && depsLoja.some((d) => d.id === dp) ? dp : depoDefaultDaLoja(lj))
+      setTabelaId(lojas.find((l) => l.id === lj)?.tabela_padrao_id ?? '')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -274,7 +281,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   useEffect(() => { if (depositoId) localStorage.setItem('pdv_deposito', depositoId) }, [depositoId])
   const lojaSel = lojas.find((l) => l.id === lojaId) ?? null
   const depositosDaLoja = depositos.filter((d) => d.loja_id === lojaId)
-  const [tabelaId, setTabelaId] = useState('')   // '' = Preço Padrão
+  const [tabelaId, setTabelaId] = useState(lojas[0]?.tabela_padrao_id ?? '')   // '' = Preço Padrão
 
   const clienteSelecionado = pessoas.find((p) => p.id === pessoaId)
   const soDigitos = (s: string) => s.replace(/\D/g, '')
@@ -449,11 +456,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     })
   }
 
-  // Trocar de loja: seleciona a loja e cai no primeiro depósito dela
+  // Trocar de loja: aplica o depósito e a tabela padrão dela
   const trocarLoja = (novoLojaId: string) => {
     setLojaId(novoLojaId)
-    const primeiro = depositos.find((d) => d.loja_id === novoLojaId)
-    trocarDeposito(primeiro?.id ?? '')
+    trocarDeposito(depoDefaultDaLoja(novoLojaId))
+    trocarTabela(lojas.find((l) => l.id === novoLojaId)?.tabela_padrao_id ?? '')
   }
 
   const alterarQtd = (produto_id: string, delta: number) => {

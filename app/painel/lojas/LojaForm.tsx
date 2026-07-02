@@ -6,13 +6,17 @@ import { criarLoja, editarLoja } from './actions'
 
 const UFS = ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO']
 
+type Opcao = { id: string; nome: string }
 export type LojaEdit = {
   id: string; nome: string; razao_social: string | null; cnpj: string | null; inscricao_estadual: string | null
   telefone: string | null; cep: string | null; endereco: string | null; numero: string | null
   bairro: string | null; cidade: string | null; uf: string | null; ativa: boolean
+  deposito_padrao_id: string | null; conta_padrao_id: string | null; tabela_padrao_id: string | null
 }
 
-export function LojaForm({ editando }: { editando?: LojaEdit }) {
+export function LojaForm({ editando, depositos = [], contas = [], tabelas = [] }: {
+  editando?: LojaEdit; depositos?: Opcao[]; contas?: Opcao[]; tabelas?: Opcao[]
+}) {
   const action = editando ? editarLoja.bind(null, editando.id) : criarLoja
 
   const [cep, setCep] = useState(editando?.cep ?? '')
@@ -103,6 +107,37 @@ export function LojaForm({ editando }: { editando?: LojaEdit }) {
               <option value="">—</option>
               {UFS.map((u) => <option key={u} value={u}>{u}</option>)}
             </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Padrões no PDV */}
+      <div>
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Padrões no PDV</h3>
+        <div className="grid gap-5 sm:grid-cols-3">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Depósito padrão</label>
+            <select name="deposito_padrao_id" defaultValue={editando?.deposito_padrao_id ?? ''} className="field" disabled={!editando}>
+              <option value="">—</option>
+              {depositos.map((d) => <option key={d.id} value={d.id}>{d.nome}</option>)}
+            </select>
+            <p className="mt-1 text-[11px] text-gray-400">{editando ? 'Já vem selecionado no PDV desta loja' : 'Disponível após salvar e vincular depósitos'}</p>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Tabela de preço padrão</label>
+            <select name="tabela_padrao_id" defaultValue={editando?.tabela_padrao_id ?? ''} className="field">
+              <option value="">Preço Padrão</option>
+              {tabelas.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
+            </select>
+            <p className="mt-1 text-[11px] text-gray-400">Aplicada no PDV ao operar nesta loja</p>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Conta padrão</label>
+            <select name="conta_padrao_id" defaultValue={editando?.conta_padrao_id ?? ''} className="field">
+              <option value="">—</option>
+              {contas.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+            <p className="mt-1 text-[11px] text-gray-400">Conta que recebe as vendas desta loja</p>
           </div>
         </div>
       </div>

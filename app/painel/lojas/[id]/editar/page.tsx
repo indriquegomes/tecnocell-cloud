@@ -13,7 +13,12 @@ export default async function EditarLojaPage({
   const { id } = await params
   const { erro } = await searchParams
   const supabase = await createServiceClient()
-  const { data: loja } = await supabase.from('lojas').select('*').eq('id', id).maybeSingle()
+  const [{ data: loja }, { data: depositos }, { data: contas }, { data: tabelas }] = await Promise.all([
+    supabase.from('lojas').select('*').eq('id', id).maybeSingle(),
+    supabase.from('depositos').select('id, nome').eq('loja_id', id).order('nome'),
+    supabase.from('contas').select('id, nome').eq('ativa', true).order('nome'),
+    supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).order('nome'),
+  ])
   if (!loja) notFound()
 
   return (
@@ -27,7 +32,7 @@ export default async function EditarLojaPage({
         <h2 className="text-2xl font-bold text-gray-900">Editar Loja</h2>
       </div>
       {erro && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
-      <LojaForm editando={loja as LojaEdit} />
+      <LojaForm editando={loja as LojaEdit} depositos={depositos ?? []} contas={contas ?? []} tabelas={tabelas ?? []} />
     </div>
   )
 }
