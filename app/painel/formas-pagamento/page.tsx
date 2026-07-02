@@ -1,6 +1,8 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { criarFormaPagamento, editarFormaPagamento, deletarFormaPagamento } from './actions'
+import { TIPOS_PAGAMENTO, labelTipoPagamento } from '@/lib/formas-pagamento'
+import { Dica } from '@/components/Dica'
 import Link from 'next/link'
 
 export default async function FormasPagamentoPage({
@@ -12,15 +14,16 @@ export default async function FormasPagamentoPage({
   const supabase = await createServiceClient()
   const { data: formas } = await supabase
     .from('formas_pagamento')
-    .select('id, nome, ativo')
+    .select('id, nome, tipo, ativo')
     .order('nome')
 
   const editando = formas?.find((f) => f.id === editar)
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
         <h2 className="text-2xl font-bold text-gray-900">Formas de Pagamento</h2>
+        <Dica texto="O TIPO define como o pagamento funciona no PDV (dá troco, vira fiado, tem máquina/parcela). O nome é só o rótulo — pode renomear à vontade sem quebrar nada." />
       </div>
 
       {erro && (
@@ -37,6 +40,13 @@ export default async function FormasPagamentoPage({
           <div className="flex-1 min-w-48">
             <label className="mb-1.5 block text-xs font-medium text-gray-600">Nome *</label>
             <input name="nome" required defaultValue={editando?.nome ?? ''} className="field" placeholder="Ex: Dinheiro" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-gray-600">Tipo *</label>
+            <select name="tipo" required defaultValue={editando?.tipo ?? ''} className="field">
+              <option value="" disabled>Selecione</option>
+              {TIPOS_PAGAMENTO.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+            </select>
           </div>
           {editando && (
             <div>
@@ -66,16 +76,18 @@ export default async function FormasPagamentoPage({
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Nome</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tipo</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {(formas ?? []).length === 0 ? (
-              <tr><td colSpan={3} className="px-4 py-10 text-center text-sm text-gray-400">Nenhuma forma cadastrada.</td></tr>
+              <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">Nenhuma forma cadastrada.</td></tr>
             ) : (formas ?? []).map((f) => (
               <tr key={f.id} className="hover:bg-gray-50 transition">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{f.nome}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{labelTipoPagamento(f.tipo)}</td>
                 <td className="px-4 py-3 text-center">
                   <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${f.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                     {f.ativo ? 'Ativo' : 'Inativo'}

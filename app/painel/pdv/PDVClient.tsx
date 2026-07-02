@@ -75,6 +75,7 @@ interface Produto {
 interface FormaPagamento {
   id: string
   nome: string
+  tipo: string | null
 }
 
 interface Pessoa {
@@ -507,26 +508,14 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const descontoNum = Math.min(Math.max(0, descontoBruto), subtotal)
   const total = subtotal - descontoNum - descontoPromo
 
-  // Helpers por forma de pagamento
+  // Helpers por forma de pagamento — o comportamento vem do TIPO, não do nome
   const nomeDaForma = (id: string) => formas.find((f) => f.id === id)?.nome ?? ''
-  const isCartaoForma = (id: string) => {
-    const n = nomeDaForma(id).toLowerCase()
-    return n.includes('cartão de crédito') || n.includes('cartao de credito') ||
-           n.includes('cartão de débito') || n.includes('cartao de debito')
-  }
-  const isCreditoForma = (id: string) => {
-    const n = nomeDaForma(id).toLowerCase()
-    return n.includes('cartão de crédito') || n.includes('cartao de credito')
-  }
-  const isDebitoForma = (id: string) => {
-    const n = nomeDaForma(id).toLowerCase()
-    return n.includes('cartão de débito') || n.includes('cartao de debito')
-  }
-  const isFiadoForma = (id: string) => {
-    const n = nomeDaForma(id).toLowerCase()
-    return n.includes('fiado') || n.includes('crédito loja') || n.includes('credito loja')
-  }
-  const isDinheiroForma = (id: string) => nomeDaForma(id).toLowerCase().includes('dinheiro')
+  const tipoDaForma = (id: string) => formas.find((f) => f.id === id)?.tipo ?? ''
+  const isCartaoForma = (id: string) => ['cartao_credito', 'cartao_debito'].includes(tipoDaForma(id))
+  const isCreditoForma = (id: string) => tipoDaForma(id) === 'cartao_credito'
+  const isDebitoForma = (id: string) => tipoDaForma(id) === 'cartao_debito'
+  const isFiadoForma = (id: string) => tipoDaForma(id) === 'fiado'
+  const isDinheiroForma = (id: string) => tipoDaForma(id) === 'dinheiro'
 
   const taxaDoItem = (p: PagamentoItem): number => {
     const val = parseFloat(p.valor) || 0

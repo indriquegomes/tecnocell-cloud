@@ -10,6 +10,7 @@ export async function criarFormaPagamento(formData: FormData) {
   const { error } = await supabase.from('formas_pagamento').insert({
     id: crypto.randomUUID(),
     nome: formData.get('nome') as string,
+    tipo: (formData.get('tipo') as string) || 'outro',
     ativo: true,
   })
   if (error) redirect(`/painel/formas-pagamento?erro=${encodeURIComponent(error.message)}`)
@@ -22,6 +23,7 @@ export async function editarFormaPagamento(id: string, formData: FormData) {
   const supabase = await createServiceClient()
   const { error } = await supabase.from('formas_pagamento').update({
     nome: formData.get('nome') as string,
+    tipo: (formData.get('tipo') as string) || 'outro',
     ativo: formData.get('ativo') === 'true',
   }).eq('id', id)
   if (error) redirect(`/painel/formas-pagamento?erro=${encodeURIComponent(error.message)}`)
