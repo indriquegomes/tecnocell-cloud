@@ -1,6 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { Badge } from '@/components/ui/badge'
-import { deletarPessoa } from './actions'
+import { deletarPessoa, inativarPessoa, reativarPessoa } from './actions'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
@@ -8,11 +8,12 @@ import { Dica } from '@/components/Dica'
 export default async function ClientesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ busca?: string; tipo?: string; ordem?: string; dir?: string }>
+  searchParams: Promise<{ busca?: string; tipo?: string; ordem?: string; dir?: string; status?: string; erro?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
 
+  const verInativos = params.status === 'inativos'
   const ordemAtual = params.ordem ?? 'nome'
   const ordemDir = params.dir === 'desc'
   const camposDB: Record<string, string> = { nome: 'nome', cidade: 'cidade', tipo: 'tipo' }
@@ -21,6 +22,7 @@ export default async function ClientesPage({
   const baseParams: Record<string, string> = {}
   if (params.busca) baseParams.busca = params.busca
   if (params.tipo)  baseParams.tipo  = params.tipo
+  if (verInativos)  baseParams.status = 'inativos'
 
   const sortLink = (ordem: string) => {
     const ativo = ordemAtual === ordem
@@ -32,7 +34,8 @@ export default async function ClientesPage({
 
   let query = supabase
     .from('pessoas')
-    .select('id, nome, tipo, pessoa_fisica, cpf_cnpj, email, telefone, cidade, estado')
+    .select('id, nome, tipo, pessoa_fisica, cpf_cnpj, email, telefone, cidade, estado, ativo')
+    .eq('ativo', !verInativos)
     .order(ordemCampo, { ascending: !ordemDir })
     .limit(200)
 
@@ -54,8 +57,13 @@ export default async function ClientesPage({
         </Link>
       </div>
 
+      {params.erro && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{params.erro}</div>
+      )}
+
       {/* Filtros */}
       <form method="GET" className="flex flex-wrap gap-3">
+        {verInativos && <input type="hidden" name="status" value="inativos" />}
         <input
           name="busca"
           defaultValue={params.busca}
@@ -63,19 +71,23 @@ export default async function ClientesPage({
           className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
-          <Link href="/painel/clientes"
+          <Link href={verInativos ? '/painel/clientes?status=inativos' : '/painel/clientes'}
             className={`px-4 py-2 transition ${!params.tipo ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
             Todos
           </Link>
-          <Link href="/painel/clientes?tipo=cliente"
+          <Link href={`/painel/clientes?tipo=cliente${verInativos ? '&status=inativos' : ''}`}
             className={`px-4 py-2 border-l border-gray-200 transition ${params.tipo === 'cliente' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
             Clientes
           </Link>
-          <Link href="/painel/clientes?tipo=fornecedor"
+          <Link href={`/painel/clientes?tipo=fornecedor${verInativos ? '&status=inativos' : ''}`}
             className={`px-4 py-2 border-l border-gray-200 transition ${params.tipo === 'fornecedor' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
             Fornecedores
           </Link>
         </div>
+        <Link href={verInativos ? `/painel/clientes${params.tipo ? `?tipo=${params.tipo}` : ''}` : `/painel/clientes?status=inativos${params.tipo ? `&tipo=${params.tipo}` : ''}`}
+          className={`rounded-lg border px-4 py-2 text-sm transition ${verInativos ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+          {verInativos ? '← Voltar aos ativos' : 'Ver inativos'}
+        </Link>
         <span className="ml-auto self-center text-sm text-gray-400">{pessoas?.length ?? 0} registros</span>
       </form>
 
@@ -131,7 +143,22 @@ export default async function ClientesPage({
                       >
                         Editar
                       </Link>
-                      <BotaoExcluir action={deletarPessoa.bind(null, p.id)} mensagem="Excluir este cadastro?" />
+                      {verInativos ? (
+                        <form action={reativarPessoa.bind(null, p.id)}>
+                          <button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-medium text-green-600 hover:bg-green-50 transition">
+                            Reativar
+                          </button>
+                        </form>
+                      ) : (
+                        <>
+                          <form action={inativarPessoa.bind(null, p.id)}>
+                            <button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 transition">
+                              Inativar
+                            </button>
+                          </form>
+                          <BotaoExcluir action={deletarPessoa.bind(null, p.id)} mensagem="Excluir este cadastro? (só funciona se não tiver histórico)" />
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>

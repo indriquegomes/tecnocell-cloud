@@ -76,10 +76,36 @@ export async function editarPessoa(id: string, formData: FormData) {
   redirect('/painel/clientes')
 }
 
+// Quem já movimentou (venda ou crédito) não pode ser apagado — perderia histórico.
+async function temMovimento(supabase: Awaited<ReturnType<typeof createServiceClient>>, id: string) {
+  const [{ count: nv }, { count: nc }] = await Promise.all([
+    supabase.from('vendas').select('id', { count: 'exact', head: true }).eq('pessoa_id', id),
+    supabase.from('creditos_clientes').select('id', { count: 'exact', head: true }).eq('pessoa_id', id),
+  ])
+  return (nv ?? 0) > 0 || (nc ?? 0) > 0
+}
+
 export async function deletarPessoa(id: string) {
   await requirePermissao('clientes')
   const supabase = await createServiceClient()
+  if (await temMovimento(supabase, id)) {
+    redirect(`/painel/clientes?erro=${encodeURIComponent('Este cadastro já tem histórico (venda/crédito) e não pode ser excluído. Use Inativar.')}`)
+  }
   const { error } = await supabase.from('pessoas').delete().eq('id', id)
   if (error) throw new Error(error.message)
+  revalidatePath('/painel/clientes')
+}
+
+export async function inativarPessoa(id: string) {
+  await requirePermissao('clientes')
+  const supabase = await createServiceClient()
+  await supabase.from('pessoas').update({ ativo: false }).eq('id', id)
+  revalidatePath('/painel/clientes')
+}
+
+export async function reativarPessoa(id: string) {
+  await requirePermissao('clientes')
+  const supabase = await createServiceClient()
+  await supabase.from('pessoas').update({ ativo: true }).eq('id', id)
   revalidatePath('/painel/clientes')
 }
