@@ -1,15 +1,9 @@
 -- ============================================================
--- Marcas: registro próprio (antes era texto livre em produtos.marca).
--- produtos.marca continua sendo o nome (ligação por texto, como categorias).
--- Semeia com as marcas que já existem nos produtos. Idempotente.
+-- Marcas: registro dos fabricantes. Já existia uma tabela marcas(nome) do SIGE
+-- (chave = nome). produtos.marca liga por texto (como categorias). Idempotente.
 -- ============================================================
 
-create table if not exists marcas (
-  id         uuid primary key default gen_random_uuid(),
-  nome       text not null unique,
-  ativa      boolean default true,
-  created_at timestamptz default now()
-);
+create table if not exists marcas (nome text primary key);
 
 insert into marcas (nome)
 select distinct trim(marca) from produtos

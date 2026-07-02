@@ -4,8 +4,6 @@ import { criarMarca, editarMarca, deletarMarca } from './actions'
 import { Dica } from '@/components/Dica'
 import Link from 'next/link'
 
-type Marca = { id: string; nome: string; ativa: boolean }
-
 export default async function MarcasPage({
   searchParams,
 }: {
@@ -15,30 +13,30 @@ export default async function MarcasPage({
   const supabase = await createServiceClient()
 
   const [{ data: marcasData }, { data: produtos }] = await Promise.all([
-    supabase.from('marcas').select('id, nome, ativa').order('nome'),
+    supabase.from('marcas').select('nome').order('nome'),
     supabase.from('produtos').select('marca'),
   ])
-  const marcas = (marcasData ?? []) as Marca[]
+  const marcas = (marcasData ?? []) as { nome: string }[]
 
   const contagem: Record<string, number> = {}
   for (const p of (produtos ?? []) as { marca: string | null }[]) {
     if (p.marca) contagem[p.marca] = (contagem[p.marca] ?? 0) + 1
   }
 
-  const editando = editar ? marcas.find((m) => m.id === editar) : undefined
+  const editando = editar ? marcas.find((m) => m.nome === editar) : undefined
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
         <h2 className="text-2xl font-bold text-gray-900">Marcas</h2>
-        <Dica texto="Fabricantes/marcas dos produtos (Apple, Samsung...). Vira registro pra padronizar e filtrar. Renomear aqui atualiza os produtos junto." />
+        <Dica texto="Fabricantes/marcas dos produtos. Vira registro pra padronizar e filtrar. Renomear aqui atualiza os produtos junto." />
       </div>
 
       {erro && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
 
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <h3 className="mb-4 text-sm font-semibold text-gray-700">{editando ? `Editando: ${editando.nome}` : 'Nova Marca'}</h3>
-        <form action={editando ? editarMarca.bind(null, editando.id) : criarMarca} className="flex flex-wrap items-end gap-3">
+        <form action={editando ? editarMarca.bind(null, editando.nome) : criarMarca} className="flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-48">
             <label className="mb-1.5 block text-xs font-medium text-gray-600">Nome *</label>
             <input name="nome" required defaultValue={editando?.nome ?? ''} className="field" placeholder="Ex: Apple, Samsung, Motorola" />
@@ -65,13 +63,13 @@ export default async function MarcasPage({
             {marcas.length === 0 ? (
               <tr><td colSpan={3} className="px-4 py-10 text-center text-sm text-gray-400">Nenhuma marca.</td></tr>
             ) : marcas.map((m) => (
-              <tr key={m.id} className="hover:bg-gray-50 transition">
+              <tr key={m.nome} className="hover:bg-gray-50 transition">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{m.nome}</td>
                 <td className="px-4 py-3 text-center text-sm text-gray-600">{contagem[m.nome] ?? 0}</td>
                 <td className="px-4 py-3 text-center">
                   <div className="flex items-center justify-center gap-2">
-                    <Link href={`/painel/marcas?editar=${m.id}`} className="rounded-lg px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 transition">Editar</Link>
-                    <BotaoExcluir action={deletarMarca.bind(null, m.id)} mensagem={`Excluir a marca "${m.nome}"?`} />
+                    <Link href={`/painel/marcas?editar=${encodeURIComponent(m.nome)}`} className="rounded-lg px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 transition">Editar</Link>
+                    <BotaoExcluir action={deletarMarca.bind(null, m.nome)} mensagem={`Excluir a marca "${m.nome}"?`} />
                   </div>
                 </td>
               </tr>

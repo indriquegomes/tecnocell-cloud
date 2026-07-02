@@ -1,0 +1,91 @@
+'use client'
+
+import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
+import { adicionarItemNota } from '../actions'
+
+const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+type Produto = { id: string; nome: string; preco_custo: number | null }
+type Deposito = { id: string; nome: string }
+
+export function AddItemNota({ notaId, produtos, depositos }: { notaId: string; produtos: Produto[]; depositos: Deposito[] }) {
+  const router = useRouter()
+  const [busca, setBusca] = useState('')
+  const [sel, setSel] = useState<Produto | null>(null)
+  const [deposito, setDeposito] = useState(depositos[0]?.id ?? '')
+  const [qtd, setQtd] = useState('1')
+  const [preco, setPreco] = useState('')
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState('')
+
+  const filtrados = useMemo(() => {
+    const q = busca.toLowerCase().trim()
+    if (!q || sel) return []
+    return produtos.filter((p) => p.nome.toLowerCase().includes(q)).slice(0, 8)
+  }, [busca, produtos, sel])
+
+  const escolher = (p: Produto) => {
+    setSel(p); setBusca(p.nome)
+    setPreco(p.preco_custo ? String(p.preco_custo) : '')  // pré-preenche com o último custo
+  }
+
+  const adicionar = async () => {
+    if (!sel || !deposito || !preco) return
+    setSalvando(true); setErro('')
+    const fd = new FormData()
+    fd.set('produto_id', sel.id); fd.set('deposito_id', deposito)
+    fd.set('quantidade', qtd || '1'); fd.set('preco_unitario', preco)
+    try {
+      await adicionarItemNota(notaId, fd)
+      setBusca(''); setSel(null); setPreco(''); setQtd('1')
+      router.refresh()
+    } catch { setErro('Erro ao adicionar item.') }
+    setSalvando(false)
+  }
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
+      <h3 className="font-semibold text-gray-800">Adicionar Item</h3>
+      <div className="flex flex-wrap gap-4 items-end">
+        <div className="relative flex-1 min-w-64">
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Produto</label>
+          <input value={busca} onChange={(e) => { setBusca(e.target.value); setSel(null) }}
+            className="field w-full" placeholder="Digite o nome do produto..." />
+          {filtrados.length > 0 && (
+            <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+              {filtrados.map((p) => (
+                <button key={p.id} type="button" onMouseDown={(e) => { e.preventDefault(); escolher(p) }}
+                  className="flex w-full items-center justify-between px-4 py-2.5 hover:bg-blue-50 text-left text-sm">
+                  <span className="font-medium text-gray-800">{p.nome}</span>
+                  <span className="text-gray-400 text-xs ml-2">último custo {fmt(p.preco_custo ?? 0)}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="w-48">
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Depósito (onde entra)</label>
+          <select value={deposito} onChange={(e) => setDeposito(e.target.value)} className="field w-full">
+            {depositos.map((d) => <option key={d.id} value={d.id}>{d.nome}</option>)}
+          </select>
+        </div>
+        <div className="w-20">
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Qtd</label>
+          <input value={qtd} onChange={(e) => setQtd(e.target.value)} type="number" min="1" step="1" className="field w-full" />
+        </div>
+        <div className="w-40">
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Preço Unit. (R$)</label>
+          <input value={preco} onChange={(e) => setPreco(e.target.value)} type="number" step="0.01" min="0" className="field w-full" placeholder="0,00" />
+          {sel && sel.preco_custo != null && Number(preco) !== Number(sel.preco_custo) && (
+            <p className="mt-1 text-[11px] text-amber-600">era {fmt(sel.preco_custo)}{Number(preco) > Number(sel.preco_custo) ? ' ▲' : ' ▼'}</p>
+          )}
+        </div>
+        <button onClick={adicionar} disabled={!sel || !deposito || !preco || salvando}
+          className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
+          {salvando ? 'Adicionando...' : 'Adicionar'}
+        </button>
+      </div>
+      {erro && <p className="text-sm text-red-600">{erro}</p>}
+    </div>
+  )
+}
