@@ -70,7 +70,6 @@ const navEmConstrucao: NavGroup[] = [
   {
     group: 'Cadastros',
     items: [
-      { href: '/painel/empresas',         label: 'Empresas',            permissao: 'usuarios' },
       { href: '/painel/maquinas-cartao',  label: 'Máquinas de Cartão',   permissao: 'usuarios' },
       { href: '/painel/categorias',       label: 'Categorias',          permissao: 'produtos' },
       { href: '/painel/compras',          label: 'Notas de Entrada',    permissao: 'compras' },
