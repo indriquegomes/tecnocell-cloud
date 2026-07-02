@@ -1,6 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
-import { deletarMaquina } from './actions'
+import { deletarMaquina, inativarMaquina, reativarMaquina } from './actions'
 import { MaquinaForm } from './MaquinaForm'
 import { Dica } from '@/components/Dica'
 import Link from 'next/link'
@@ -63,7 +63,16 @@ export default async function MaquinasCartaoPage({
                       className="rounded-lg px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 transition">
                       Editar
                     </Link>
-                    <BotaoExcluir action={deletarMaquina.bind(null, m.id)} mensagem="Excluir esta máquina?" />
+                    {m.ativo ? (
+                      <form action={inativarMaquina.bind(null, m.id)}>
+                        <button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 transition">Inativar</button>
+                      </form>
+                    ) : (
+                      <form action={reativarMaquina.bind(null, m.id)}>
+                        <button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-medium text-green-600 hover:bg-green-50 transition">Reativar</button>
+                      </form>
+                    )}
+                    <BotaoExcluir action={deletarMaquina.bind(null, m.id)} mensagem="Excluir esta máquina? (só se não estiver em uso)" />
                   </div>
                 </td>
               </tr>

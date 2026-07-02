@@ -46,8 +46,29 @@ export async function editarMaquina(id: string, formData: FormData) {
 export async function deletarMaquina(id: string) {
   await requirePermissao('usuarios')
   const supabase = await createServiceClient()
+  // não deixa apagar máquina usada por uma forma de pagamento (deixaria a forma órfã)
+  const { count } = await supabase.from('formas_pagamento').select('id', { count: 'exact', head: true }).eq('maquina_id', id)
+  if ((count ?? 0) > 0) {
+    redirect(`/painel/maquinas-cartao?erro=${encodeURIComponent('Esta máquina está em uso por uma forma de pagamento. Troque a máquina da forma ou inative aqui.')}`)
+  }
   const { error } = await supabase.from('maquinas_cartao').delete().eq('id', id)
-  if (error) throw new Error(error.message)
+  if (error) redirect(`/painel/maquinas-cartao?erro=${encodeURIComponent(error.message)}`)
+  revalidatePath('/painel/maquinas-cartao')
+  revalidatePath('/painel/pdv')
+}
+
+export async function inativarMaquina(id: string) {
+  await requirePermissao('usuarios')
+  const supabase = await createServiceClient()
+  await supabase.from('maquinas_cartao').update({ ativo: false }).eq('id', id)
+  revalidatePath('/painel/maquinas-cartao')
+  revalidatePath('/painel/pdv')
+}
+
+export async function reativarMaquina(id: string) {
+  await requirePermissao('usuarios')
+  const supabase = await createServiceClient()
+  await supabase.from('maquinas_cartao').update({ ativo: true }).eq('id', id)
   revalidatePath('/painel/maquinas-cartao')
   revalidatePath('/painel/pdv')
 }
