@@ -9,13 +9,17 @@ const UFS = ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','P
 type Opcao = { id: string; nome: string }
 export type LojaEdit = {
   id: string; nome: string; razao_social: string | null; cnpj: string | null; inscricao_estadual: string | null
-  telefone: string | null; cep: string | null; endereco: string | null; numero: string | null
+  inscricao_municipal: string | null; matriz_id: string | null
+  telefone: string | null; whatsapp: string | null; email: string | null
+  cep: string | null; endereco: string | null; numero: string | null; complemento: string | null
   bairro: string | null; cidade: string | null; uf: string | null; ativa: boolean
   deposito_padrao_id: string | null; conta_padrao_id: string | null; tabela_padrao_id: string | null
+  senha_desconto: string | null; prazo_troca_dias: number | null
+  termos_venda: string | null; informativo_os: string | null; logo_url: string | null
 }
 
-export function LojaForm({ editando, depositos = [], contas = [], tabelas = [] }: {
-  editando?: LojaEdit; depositos?: Opcao[]; contas?: Opcao[]; tabelas?: Opcao[]
+export function LojaForm({ editando, depositos = [], contas = [], tabelas = [], lojasMatriz = [] }: {
+  editando?: LojaEdit; depositos?: Opcao[]; contas?: Opcao[]; tabelas?: Opcao[]; lojasMatriz?: Opcao[]
 }) {
   const action = editando ? editarLoja.bind(null, editando.id) : criarLoja
 
@@ -67,8 +71,28 @@ export function LojaForm({ editando, depositos = [], contas = [], tabelas = [] }
             <input name="inscricao_estadual" defaultValue={editando?.inscricao_estadual ?? ''} className="field" placeholder="Isento ou nº" />
           </div>
           <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Inscrição Municipal</label>
+            <input name="inscricao_municipal" defaultValue={editando?.inscricao_municipal ?? ''} className="field" placeholder="Nº ou isento" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Matriz</label>
+            <select name="matriz_id" defaultValue={editando?.matriz_id ?? ''} className="field">
+              <option value="">— esta é a matriz / independente —</option>
+              {lojasMatriz.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
+            </select>
+            <p className="mt-1 text-[11px] text-gray-400">Se esta loja é filial, aponte a matriz</p>
+          </div>
+          <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Telefone</label>
-            <input name="telefone" defaultValue={editando?.telefone ?? ''} className="field" placeholder="(21) 99999-9999" />
+            <input name="telefone" defaultValue={editando?.telefone ?? ''} className="field" placeholder="(21) 3333-3333" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">WhatsApp</label>
+            <input name="whatsapp" defaultValue={editando?.whatsapp ?? ''} className="field" placeholder="(21) 99999-9999" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">E-mail</label>
+            <input name="email" type="email" defaultValue={editando?.email ?? ''} className="field" placeholder="loja@tecnocell.com" />
           </div>
         </div>
       </div>
@@ -92,6 +116,10 @@ export function LojaForm({ editando, depositos = [], contas = [], tabelas = [] }
           <div className="sm:col-span-1">
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Número</label>
             <input name="numero" defaultValue={editando?.numero ?? ''} className="field" placeholder="123" />
+          </div>
+          <div className="sm:col-span-3">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Complemento</label>
+            <input name="complemento" defaultValue={editando?.complemento ?? ''} className="field" placeholder="Loja 2, sala…" />
           </div>
           <div className="sm:col-span-2">
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Bairro</label>
@@ -138,6 +166,35 @@ export function LojaForm({ editando, depositos = [], contas = [], tabelas = [] }
               {contas.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
             <p className="mt-1 text-[11px] text-gray-400">Conta que recebe as vendas desta loja</p>
+          </div>
+        </div>
+      </div>
+
+      {/* PDV e Cupom */}
+      <div>
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">PDV e Cupom</h3>
+        <div className="grid gap-5 sm:grid-cols-3">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Senha de desconto</label>
+            <input name="senha_desconto" defaultValue={editando?.senha_desconto ?? ''} className="field" placeholder="ex: 1234" autoComplete="off" />
+            <p className="mt-1 text-[11px] text-gray-400">Exigida no PDV pra aplicar desconto. Vazio = livre</p>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Prazo de troca (dias)</label>
+            <input name="prazo_troca_dias" type="number" min="0" defaultValue={editando?.prazo_troca_dias ?? ''} className="field" placeholder="7" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Logo (URL)</label>
+            <input name="logo_url" defaultValue={editando?.logo_url ?? ''} className="field" placeholder="https://…/logo.png" />
+            <p className="mt-1 text-[11px] text-gray-400">Aparece no topo do cupom desta loja</p>
+          </div>
+          <div className="sm:col-span-3">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Termos / garantia (rodapé do cupom)</label>
+            <textarea name="termos_venda" rows={2} defaultValue={editando?.termos_venda ?? ''} className="field" placeholder="Garantia de 90 dias. Troca em até X dias com nota…" />
+          </div>
+          <div className="sm:col-span-3">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Informativo padrão da OS</label>
+            <textarea name="informativo_os" rows={2} defaultValue={editando?.informativo_os ?? ''} className="field" placeholder="Aparelho não retirado em 90 dias…" />
           </div>
         </div>
       </div>

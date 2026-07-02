@@ -2,6 +2,14 @@
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 
+// Confere a senha de desconto da loja no servidor (a senha nunca vai pro cliente)
+export async function validarSenhaDesconto(lojaId: string, senha: string): Promise<boolean> {
+  const supabase = await createServiceClient()
+  const { data } = await supabase.from('lojas').select('senha_desconto').eq('id', lojaId).maybeSingle()
+  const esperada = (data?.senha_desconto ?? '').trim()
+  return !esperada || senha.trim() === esperada
+}
+
 interface ItemCarrinho {
   produto_id: string
   nome: string

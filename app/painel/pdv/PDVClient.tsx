@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { formatBRL } from '@/lib/utils'
 import { labelPrazo } from '@/lib/formas-pagamento'
 import { createClient } from '@/lib/supabase/client'
-import { finalizarVenda, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, buscarPedidosAbertos, buscarDetalheVenda, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
+import { finalizarVenda, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, buscarPedidosAbertos, buscarDetalheVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
 import { buscarSaldoCredito } from '@/app/painel/creditos/actions'
 import type { PromoInfo } from './page'
 
@@ -102,11 +102,18 @@ interface Loja {
   nome: string
   cnpj: string | null
   telefone: string | null
+  whatsapp: string | null
   endereco: string | null
+  numero: string | null
+  complemento: string | null
+  bairro: string | null
   cidade: string | null
   uf: string | null
   deposito_padrao_id: string | null
   tabela_padrao_id: string | null
+  exige_senha_desconto: boolean
+  logo_url: string | null
+  termos_venda: string | null
 }
 
 interface TabelaPreco {
@@ -156,6 +163,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   ])
   const [pessoaId, setPessoaId] = useState('')
   const [desconto, setDesconto] = useState('')
+  const [senhaDesconto, setSenhaDesconto] = useState('')
   const [observacoes, setObservacoes] = useState('')
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
@@ -252,6 +260,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     lojaCnpj: string | null
     lojaEndereco: string | null
     lojaTelefone: string | null
+    lojaLogo: string | null
+    lojaTermos: string | null
     desconto: number
     horario: string
   } | null>(null)
@@ -557,8 +567,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const trocoPg = temDinheiro && excessoPg > 0.005 ? excessoPg : 0
   const temFiado = pagamentos.some((p) => isFiadoForma(p.forma_id))
 
+  const exigeSenhaDesconto = descontoNum > 0 && !!lojaSel?.exige_senha_desconto
+
   // Valida e abre o resumo de conferência antes de gravar
-  const abrirConfirmacao = () => {
+  const abrirConfirmacao = async () => {
     if (carrinho.length === 0) { setErro('Adicione produtos ao carrinho.'); return }
     if (!depositoId) { setErro('Selecione a loja/depósito.'); return }
     if (!pagamentos.some((p) => p.forma_id)) { setErro('Selecione a forma de pagamento.'); return }
@@ -569,6 +581,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     }
     const semSerie = carrinho.find((i) => i.serializado && (i.series?.length ?? 0) === 0)
     if (semSerie) { setErro(`Escolha o(s) IMEI(s) do aparelho "${semSerie.nome}".`); return }
+    if (exigeSenhaDesconto) {
+      if (!senhaDesconto) { setErro('Este desconto exige a senha do gerente.'); return }
+      const ok = await validarSenhaDesconto(lojaId, senhaDesconto)
+      if (!ok) { setErro('Senha de desconto incorreta.'); return }
+    }
     setErro(null)
     setMostrarConfirmacao(true)
   }
@@ -624,8 +641,15 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
         deposito: nomeDeposito,
         loja: lojaSel?.nome ?? null,
         lojaCnpj: lojaSel?.cnpj ?? null,
-        lojaEndereco: [lojaSel?.endereco, lojaSel?.cidade && lojaSel?.uf ? `${lojaSel.cidade}/${lojaSel.uf}` : (lojaSel?.cidade ?? lojaSel?.uf)].filter(Boolean).join(' - ') || null,
-        lojaTelefone: lojaSel?.telefone ?? null,
+        lojaEndereco: [
+          [lojaSel?.endereco, lojaSel?.numero].filter(Boolean).join(', '),
+          lojaSel?.complemento,
+          lojaSel?.bairro,
+          lojaSel?.cidade && lojaSel?.uf ? `${lojaSel.cidade}/${lojaSel.uf}` : (lojaSel?.cidade ?? lojaSel?.uf),
+        ].filter(Boolean).join(' - ') || null,
+        lojaTelefone: lojaSel?.whatsapp ?? lojaSel?.telefone ?? null,
+        lojaLogo: lojaSel?.logo_url ?? null,
+        lojaTermos: lojaSel?.termos_venda ?? null,
         desconto: descontoNum + descontoPromo,
         horario: new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       }
@@ -638,6 +662,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
       setPagamentos([{ uid: '1', forma_id: formas[0]?.id ?? '', valor: '', maquina: formas[0]?.maquina_id ?? '', parcelas: 1 }])
       setPessoaId('')
       setDesconto('')
+      setSenhaDesconto('')
       setObservacoes('')
       setBuscaCliente('')
       setDescontoTipo('valor')
@@ -925,7 +950,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     </style></head><body>
 
     <div style="text-align:center;margin-bottom:4px">
-      <img src="${logoUrl}" style="max-width:160px;max-height:60px;object-fit:contain" />
+      <img src="${snap.lojaLogo || logoUrl}" style="max-width:160px;max-height:60px;object-fit:contain" />
     </div>
     <p>IGTFRANCA COMERCIO E SERVICO LTDA</p>
     <p>CNPJ: 39.682.023/0001-69 &nbsp; IE: 11951408</p>
@@ -983,6 +1008,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     ${snap.clienteEndereco ? `<p>${snap.clienteEndereco}</p>` : ''}
 
     <hr class="sep">
+    ${snap.lojaTermos ? `<p style="font-size:9px;text-align:center;white-space:pre-wrap">${snap.lojaTermos.replace(/</g, '&lt;')}</p><hr class="sep">` : ''}
     <p>Obrigado pela preferência!</p>
     <p style="margin-top:4px">www.tecnocell.com.br</p>
 
@@ -1444,6 +1470,19 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
             )}
             {descontoNum > 0 && descontoNum >= subtotal * 0.5 && (
               <p className="text-xs text-yellow-600">Desconto acima de 50% — confirme antes de finalizar.</p>
+            )}
+            {exigeSenhaDesconto && (
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5">
+                <span className="text-xs font-medium text-amber-700">🔒 Senha do gerente</span>
+                <input
+                  type="password"
+                  value={senhaDesconto}
+                  onChange={(e) => setSenhaDesconto(e.target.value)}
+                  placeholder="senha"
+                  autoComplete="off"
+                  className="w-28 rounded-lg border border-amber-300 px-2 py-1 text-right text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
             )}
             {descontoPromoDetalhes.map((d, i) => (
               <div key={i} className="flex justify-between text-xs text-orange-600">
