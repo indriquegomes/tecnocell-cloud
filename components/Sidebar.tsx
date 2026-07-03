@@ -63,6 +63,13 @@ const navCompleto: NavGroup[] = [
       { href: '/painel/compras',          label: 'Notas de Entrada',    permissao: 'compras' },
     ],
   },
+  {
+    group: 'Admin',
+    items: [
+      { href: '/painel/usuarios', label: 'Usuários', permissao: 'usuarios' },
+      { href: '/painel/cargos',   label: 'Cargos',   permissao: 'usuarios' },
+    ],
+  },
 ]
 
 const navEmConstrucao: NavGroup[] = [
@@ -76,8 +83,6 @@ const navEmConstrucao: NavGroup[] = [
     group: 'Admin',
     items: [
       { href: '/painel/relatorios',    label: 'Relatórios',   permissao: 'relatorios' },
-      { href: '/painel/usuarios',      label: 'Usuários',     permissao: 'usuarios' },
-      { href: '/painel/cargos',        label: 'Cargos',       permissao: 'usuarios' },
       { href: '/painel/configuracoes', label: 'Configurações', permissao: 'usuarios' },
     ],
   },
