@@ -347,20 +347,219 @@ export default async function RelatoriosPage({
       .sort((a, b) => a.dia - b.dia)
   }
 
+  // ---------- Comissões (por vendedor, % global) ----------
+  let comissoes: { nome: string; vendido: number; comissao: number }[] = []
+  let comissaoPctG = 0, totalComissao = 0
+  if (aba === 'comissoes') {
+    const [{ data: cfg }, { data: vs }] = await Promise.all([
+      supabase.from('configuracoes').select('valor').eq('chave', 'pdv').maybeSingle(),
+      supabase.from('vendas').select('total, vendedor_nome').eq('status', 'concluida')
+        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim),
+    ])
+    comissaoPctG = Number((cfg?.valor as Record<string, number> | null)?.comissao_percentual ?? 0)
+    const mapa: Record<string, number> = {}
+    for (const v of (vs ?? []) as { total: number; vendedor_nome: string | null }[]) {
+      const nome = v.vendedor_nome || 'Sem vendedor'
+      mapa[nome] = (mapa[nome] ?? 0) + (v.total ?? 0)
+    }
+    comissoes = Object.entries(mapa).map(([nome, vendido]) => ({ nome, vendido, comissao: vendido * comissaoPctG / 100 })).sort((a, b) => b.comissao - a.comissao)
+    totalComissao = comissoes.reduce((s, c) => s + c.comissao, 0)
+  }
+
+  // ---------- Previsão de Caixa (lançamentos futuros pendentes) ----------
+  let prevCaixa: { data: string; descricao: string; tipo: string; valor: number; saldo: number }[] = []
+  let prevReceber = 0, prevPagar = 0
+  if (aba === 'previsaocaixa') {
+    const { data } = await supabase.from('lancamentos')
+      .select('descricao, valor, valor_pago, tipo, data_vencimento')
+      .eq('status', 'pendente').gte('data_vencimento', hoje).order('data_vencimento')
+    let saldo = 0
+    prevCaixa = (data ?? []).map((l) => {
+      const rest = (l.valor ?? 0) - (l.valor_pago ?? 0)
+      const signed = l.tipo === 'receber' ? rest : -rest
+      saldo += signed
+      if (l.tipo === 'receber') prevReceber += rest; else prevPagar += rest
+      return { data: l.data_vencimento as string, descricao: (l.descricao as string) || '—', tipo: l.tipo as string, valor: signed, saldo }
+    })
+  }
+
+  // ---------- Comparativo (período atual × anterior) ----------
+  type Comp = { receita: number; despesas: number; nvendas: number }
+  let compAtual: Comp = { receita: 0, despesas: 0, nvendas: 0 }
+  let compAnt: Comp = { receita: 0, despesas: 0, nvendas: 0 }
+  if (aba === 'comparativo') {
+    const msLen = new Date(dataFim + 'T23:59:59').getTime() - new Date(dataInicio + 'T00:00:00').getTime()
+    const prevFim = new Date(new Date(dataInicio + 'T00:00:00').getTime() - 1)
+    const prevIni = new Date(prevFim.getTime() - msLen)
+    const janela = async (ini: string, fim: string): Promise<Comp> => {
+      const [{ data: vs }, { data: ds }] = await Promise.all([
+        supabase.from('vendas').select('total').eq('status', 'concluida').gte('created_at', ini).lte('created_at', fim),
+        supabase.from('lancamentos').select('valor').eq('tipo', 'pagar').gte('data_vencimento', ini.slice(0, 10)).lte('data_vencimento', fim.slice(0, 10) + 'T23:59:59'),
+      ])
+      return { receita: (vs ?? []).reduce((s, v) => s + (v.total ?? 0), 0), despesas: (ds ?? []).reduce((s, l) => s + (l.valor ?? 0), 0), nvendas: (vs ?? []).length }
+    }
+    compAtual = await janela(periodo.inicio, periodo.fim)
+    compAnt = await janela(prevIni.toISOString(), prevFim.toISOString())
+  }
+  const variacao = (a: number, b: number) => b === 0 ? (a > 0 ? 100 : 0) : ((a - b) / b) * 100
+
+  // ---------- Itens por vendedor ----------
+  let itensVendedor: { vendedor: string; itens: { nome: string; qtd: number; valor: number }[] }[] = []
+  if (aba === 'itensvendedor') {
+    const { data } = await supabase.from('itens_venda')
+      .select('quantidade, total_item, produtos(nome), vendas!inner(vendedor_nome, status, created_at)')
+      .eq('vendas.status', 'concluida').gte('vendas.created_at', periodo.inicio).lte('vendas.created_at', periodo.fim)
+    const mapa: Record<string, Record<string, { nome: string; qtd: number; valor: number }>> = {}
+    for (const it of (data ?? []) as unknown as { quantidade: number; total_item: number; produtos: { nome: string } | null; vendas: { vendedor_nome: string | null } | null }[]) {
+      const vend = it.vendas?.vendedor_nome || 'Sem vendedor'
+      const nome = it.produtos?.nome ?? '—'
+      const m = (mapa[vend] ??= {})
+      ;(m[nome] ??= { nome, qtd: 0, valor: 0 }).qtd += it.quantidade
+      m[nome].valor += it.total_item ?? 0
+    }
+    itensVendedor = Object.entries(mapa).map(([vendedor, prods]) => ({
+      vendedor, itens: Object.values(prods).sort((a, b) => b.qtd - a.qtd).slice(0, 8),
+    })).sort((a, b) => b.itens.reduce((s, i) => s + i.valor, 0) - a.itens.reduce((s, i) => s + i.valor, 0))
+  }
+
+  // ---------- Precificação (lista de preços) ----------
+  let precos: { nome: string; custo: number; preco: number; minimo: number; margem: number }[] = []
+  if (aba === 'precificacao') {
+    const { data } = await supabase.from('produtos').select('nome, preco, preco_custo, preco_minimo').eq('ativo', true).order('nome').limit(1000)
+    precos = (data ?? []).map((p) => {
+      const custo = p.preco_custo ?? 0, preco = p.preco ?? 0
+      return { nome: p.nome as string, custo, preco, minimo: (p as { preco_minimo?: number | null }).preco_minimo ?? 0, margem: custo > 0 ? ((preco - custo) / custo) * 100 : 0 }
+    })
+  }
+
+  // ---------- Pedidos / Orçamentos ----------
+  let pedidosLista: { numero: number | null; tipo: string; status: string; total: number; created_at: string; cliente: string }[] = []
+  const pedidosResumo: Record<string, number> = {}
+  if (aba === 'pedidos') {
+    const { data } = await supabase.from('pedidos')
+      .select('numero, tipo, status, total, created_at, pessoas(nome)')
+      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).order('created_at', { ascending: false }).limit(300)
+    pedidosLista = (data ?? []).map((p) => {
+      const st = (p.status as string) || 'rascunho'
+      pedidosResumo[st] = (pedidosResumo[st] ?? 0) + 1
+      return { numero: p.numero as number | null, tipo: (p.tipo as string) || 'orcamento', status: st, total: (p.total as number) ?? 0, created_at: p.created_at as string, cliente: (p.pessoas as unknown as { nome: string } | null)?.nome ?? '—' }
+    })
+  }
+
+  // ---------- Entrada de Produtos (compras por período) ----------
+  let entradas: { nome: string; qtd: number; valor: number }[] = []
+  let totalEntradas = 0
+  if (aba === 'entradas') {
+    const { data: notas } = await supabase.from('notas_entrada').select('id').eq('status', 'recebida')
+      .gte('data_entrada', dataInicio).lte('data_entrada', dataFim + 'T23:59:59')
+    const ids = (notas ?? []).map((n) => n.id)
+    if (ids.length) {
+      const { data } = await supabase.from('itens_nota_entrada')
+        .select('quantidade, total_item, preco_unitario, produtos(nome)').in('nota_id', ids)
+      const mapa: Record<string, { nome: string; qtd: number; valor: number }> = {}
+      for (const it of (data ?? []) as unknown as { quantidade: number; total_item: number | null; preco_unitario: number; produtos: { nome: string } | null }[]) {
+        const nome = it.produtos?.nome ?? '—'
+        ;(mapa[nome] ??= { nome, qtd: 0, valor: 0 }).qtd += it.quantidade
+        mapa[nome].valor += it.total_item ?? it.preco_unitario * it.quantidade
+      }
+      entradas = Object.values(mapa).sort((a, b) => b.valor - a.valor)
+      totalEntradas = entradas.reduce((s, e) => s + e.valor, 0)
+    }
+  }
+
+  // ---------- Produtos por Fornecedor ----------
+  let porFornecedor: { fornecedor: string; produtos: number }[] = []
+  if (aba === 'porfornecedor') {
+    const { data } = await supabase.from('produtos').select('fornecedor_id, pessoas(nome)').eq('ativo', true).limit(2000)
+    const mapa: Record<string, number> = {}
+    for (const p of (data ?? []) as unknown as { fornecedor_id: string | null; pessoas: { nome: string } | null }[]) {
+      const f = p.pessoas?.nome || 'Sem fornecedor'
+      mapa[f] = (mapa[f] ?? 0) + 1
+    }
+    porFornecedor = Object.entries(mapa).map(([fornecedor, produtos]) => ({ fornecedor, produtos })).sort((a, b) => b.produtos - a.produtos)
+  }
+
+  // ---------- Inventário (folha de contagem) ----------
+  let inventario: { nome: string; deposito: string; sistema: number; custo: number }[] = []
+  if (aba === 'inventario') {
+    const { data } = await supabase.from('estoque').select('quantidade, produtos(nome, preco_custo), depositos(nome)').gt('quantidade', 0).limit(2000)
+    inventario = (data ?? []).map((e) => ({
+      nome: (e.produtos as unknown as { nome: string } | null)?.nome ?? '—',
+      deposito: (e.depositos as unknown as { nome: string } | null)?.nome ?? '—',
+      sistema: e.quantidade, custo: (e.produtos as unknown as { preco_custo: number | null } | null)?.preco_custo ?? 0,
+    })).sort((a, b) => a.nome.localeCompare(b.nome))
+  }
+
+  // ---------- Movimentações x Saldo ----------
+  let movSaldo: { nome: string; entradas: number; saidas: number; saldo: number }[] = []
+  if (aba === 'movsaldo') {
+    const [{ data: movs }, { data: est }] = await Promise.all([
+      supabase.from('movimentacoes_estoque').select('produto_id, operacao, quantidade, produtos(nome)')
+        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim),
+      supabase.from('estoque').select('produto_id, quantidade'),
+    ])
+    const saldoAtual: Record<string, number> = {}
+    for (const e of (est ?? []) as { produto_id: string; quantidade: number }[]) saldoAtual[e.produto_id] = (saldoAtual[e.produto_id] ?? 0) + e.quantidade
+    const mapa: Record<string, { nome: string; entradas: number; saidas: number }> = {}
+    for (const m of (movs ?? []) as unknown as { produto_id: string; operacao: string; quantidade: number; produtos: { nome: string } | null }[]) {
+      const nome = m.produtos?.nome ?? '—'
+      const e = (mapa[m.produto_id] ??= { nome, entradas: 0, saidas: 0 })
+      if (m.operacao === 'entrada') e.entradas += m.quantidade
+      else if (m.operacao === 'saida') e.saidas += m.quantidade
+    }
+    movSaldo = Object.entries(mapa).map(([id, v]) => ({ ...v, saldo: saldoAtual[id] ?? 0 })).sort((a, b) => (b.entradas + b.saidas) - (a.entradas + a.saidas))
+  }
+
+  // ---------- Performance de Técnicos (OS) ----------
+  let tecnicos: { nome: string; os: number; total: number; concluidas: number }[] = []
+  if (aba === 'tecnicos') {
+    const { data } = await supabase.from('ordens_servico').select('tecnico_nome, status, total')
+      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+    const mapa: Record<string, { nome: string; os: number; total: number; concluidas: number }> = {}
+    for (const o of (data ?? []) as { tecnico_nome: string | null; status: string | null; total: number | null }[]) {
+      const nome = o.tecnico_nome || 'Sem técnico'
+      const t = (mapa[nome] ??= { nome, os: 0, total: 0, concluidas: 0 })
+      t.os++
+      t.total += o.total ?? 0
+      if ((o.status ?? '').toLowerCase().includes('conclu') || (o.status ?? '').toLowerCase().includes('entreg')) t.concluidas++
+    }
+    tecnicos = Object.values(mapa).sort((a, b) => b.os - a.os)
+  }
+
+  // ---------- Contatos (agenda) ----------
+  let contatos: { nome: string; telefone: string; cidade: string; tipo: string }[] = []
+  if (aba === 'contatos') {
+    const { data } = await supabase.from('pessoas').select('nome, telefone, celular, cidade, tipo').eq('ativo', true).order('nome').limit(2000)
+    contatos = (data ?? []).map((p) => ({
+      nome: p.nome as string, telefone: (p.celular as string) || (p.telefone as string) || '—',
+      cidade: (p.cidade as string) || '—', tipo: (p.tipo as string) || '—',
+    })).filter((p) => p.telefone !== '—')
+  }
+
   const categorias: { cat: string; abas: { id: string; label: string }[] }[] = [
     { cat: 'Financeiro', abas: [
       { id: 'financeiro', label: 'Lançamentos' }, { id: 'fluxo', label: 'Fluxo de Caixa' },
       { id: 'dre', label: 'DRE' }, { id: 'inadimplencia', label: 'Inadimplência' },
+      { id: 'comissoes', label: 'Comissões' }, { id: 'previsaocaixa', label: 'Previsão de Caixa' },
+      { id: 'comparativo', label: 'Comparativo' },
     ] },
     { cat: 'Vendas', abas: [
       { id: 'vendas', label: 'Vendas' }, { id: 'lucro', label: 'Lucro' }, { id: 'produtos', label: 'Mais vendidos' },
       { id: 'abc', label: 'Curva ABC' }, { id: 'formas', label: 'Formas de pgto' }, { id: 'porloja', label: 'Por loja' },
-      { id: 'porvendedor', label: 'Por vendedor' }, { id: 'periodicidade', label: 'Periodicidade' },
+      { id: 'porvendedor', label: 'Por vendedor' }, { id: 'itensvendedor', label: 'Itens por vendedor' },
+      { id: 'periodicidade', label: 'Periodicidade' }, { id: 'precificacao', label: 'Precificação' },
+      { id: 'pedidos', label: 'Pedidos' },
     ] },
+    { cat: 'Compras', abas: [{ id: 'entradas', label: 'Entrada de Produtos' }] },
+    { cat: 'Estoque', abas: [
+      { id: 'estoque', label: 'Estoque e compra' }, { id: 'porfornecedor', label: 'Por fornecedor' },
+      { id: 'inventario', label: 'Inventário' }, { id: 'movsaldo', label: 'Movimentações' },
+    ] },
+    { cat: 'Serviços', abas: [{ id: 'tecnicos', label: 'Performance Técnicos' }] },
     { cat: 'Clientes', abas: [
       { id: 'inativos', label: 'Inativos' }, { id: 'aniversarios', label: 'Aniversariantes' },
+      { id: 'contatos', label: 'Contatos' },
     ] },
-    { cat: 'Estoque', abas: [{ id: 'estoque', label: 'Estoque e compra' }] },
   ]
 
   const Card = ({ label, valor, cor }: { label: string; valor: string; cor: string }) => (
@@ -832,6 +1031,279 @@ export default async function RelatoriosPage({
                 <td className="px-4 py-3 text-center"><span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-pink-100 text-xs font-bold text-pink-700">{a.dia}</span></td>
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">🎂 {a.nome}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">{a.telefone || '—'}</td>
+              </tr>
+            ))}
+          </Tabela>
+        </div>
+      )}
+
+      {/* ---------------- Comissões ---------------- */}
+      {aba === 'comissoes' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+            <Card label="Comissão a pagar" valor={fmt(totalComissao)} cor="text-green-600" />
+            <Card label="% aplicado" valor={`${comissaoPctG}%`} cor="text-gray-800" />
+            <Card label="Vendedores" valor={String(comissoes.length)} cor="text-gray-800" />
+          </div>
+          {comissaoPctG === 0 && <p className="text-[11px] text-orange-500">Defina a % de comissão em Configurações pra calcular.</p>}
+          <div className="flex justify-end">
+            <ExportCsv filename={`comissoes_${dataInicio}_${dataFim}.csv`}
+              cols={[{ key: 'nome', label: 'Vendedor' }, { key: 'vendido', label: 'Vendido', money: true }, { key: 'comissao', label: 'Comissão', money: true }]} rows={asRows(comissoes)} />
+          </div>
+          <Tabela vazio={comissoes.length === 0} vazioMsg="Sem vendas no período." head={['Vendedor', 'Vendido', 'Comissão']} alinhas={['l', 'r', 'r']}>
+            {comissoes.map((c, i) => (
+              <tr key={i} className="hover:bg-gray-50">
+                <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.nome}</td>
+                <td className="px-4 py-3 text-sm text-right text-gray-700">{fmt(c.vendido)}</td>
+                <td className="px-4 py-3 text-sm text-right font-semibold text-green-600">{fmt(c.comissao)}</td>
+              </tr>
+            ))}
+          </Tabela>
+        </div>
+      )}
+
+      {/* ---------------- Previsão de Caixa ---------------- */}
+      {aba === 'previsaocaixa' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+            <Card label="A receber (futuro)" valor={fmt(prevReceber)} cor="text-green-600" />
+            <Card label="A pagar (futuro)" valor={fmt(prevPagar)} cor="text-red-500" />
+            <Card label="Saldo projetado" valor={fmt(prevReceber - prevPagar)} cor={prevReceber - prevPagar >= 0 ? 'text-blue-600' : 'text-red-500'} />
+          </div>
+          <p className="text-[11px] text-gray-400">Lançamentos pendentes com vencimento a partir de hoje. Independe do filtro de período.</p>
+          <Tabela vazio={prevCaixa.length === 0} vazioMsg="Nada pendente pra frente." head={['Vencimento', 'Descrição', 'Valor', 'Saldo projetado']} alinhas={['l', 'l', 'r', 'r']}>
+            {prevCaixa.map((l, i) => (
+              <tr key={i} className="hover:bg-gray-50">
+                <td className="px-4 py-3 text-sm text-gray-600">{formatDate(l.data)}</td>
+                <td className="px-4 py-3 text-sm text-gray-700">{l.descricao}</td>
+                <td className={`px-4 py-3 text-sm text-right font-medium ${l.valor >= 0 ? 'text-green-600' : 'text-red-500'}`}>{fmt(l.valor)}</td>
+                <td className={`px-4 py-3 text-sm text-right font-semibold ${l.saldo >= 0 ? 'text-blue-600' : 'text-red-500'}`}>{fmt(l.saldo)}</td>
+              </tr>
+            ))}
+          </Tabela>
+        </div>
+      )}
+
+      {/* ---------------- Comparativo ---------------- */}
+      {aba === 'comparativo' && (
+        <div className="space-y-4">
+          <p className="text-[11px] text-gray-400">Período selecionado × período anterior de mesmo tamanho.</p>
+          <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+            <table className="min-w-full divide-y divide-gray-100">
+              <thead className="bg-gray-50"><tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Indicador</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Anterior</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Atual</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Variação</th>
+              </tr></thead>
+              <tbody className="divide-y divide-gray-50">
+                {[
+                  { l: 'Receita', a: compAtual.receita, b: compAnt.receita, money: true },
+                  { l: 'Despesas', a: compAtual.despesas, b: compAnt.despesas, money: true },
+                  { l: 'Resultado', a: compAtual.receita - compAtual.despesas, b: compAnt.receita - compAnt.despesas, money: true },
+                  { l: 'Nº de vendas', a: compAtual.nvendas, b: compAnt.nvendas, money: false },
+                ].map((r, i) => {
+                  const v = variacao(r.a, r.b)
+                  return (
+                    <tr key={i} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-800">{r.l}</td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-500">{r.money ? fmt(r.b) : r.b}</td>
+                      <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{r.money ? fmt(r.a) : r.a}</td>
+                      <td className={`px-4 py-3 text-sm text-right font-semibold ${v >= 0 ? 'text-green-600' : 'text-red-500'}`}>{v >= 0 ? '▲' : '▼'} {Math.abs(v).toFixed(0)}%</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- Itens por vendedor ---------------- */}
+      {aba === 'itensvendedor' && (
+        <div className="space-y-6">
+          {itensVendedor.length === 0 && <p className="text-sm text-gray-400">Sem vendas no período.</p>}
+          {itensVendedor.map((v) => (
+            <div key={v.vendedor}>
+              <h3 className="mb-2 font-semibold text-gray-800">{v.vendedor}</h3>
+              <Tabela vazio={false} head={['Produto', 'Qtd', 'Valor']} alinhas={['l', 'r', 'r']}>
+                {v.itens.map((it, i) => (
+                  <tr key={i} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-800">{it.nome}</td>
+                    <td className="px-4 py-3 text-sm text-right font-semibold text-blue-600">{it.qtd}</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-600">{fmt(it.valor)}</td>
+                  </tr>
+                ))}
+              </Tabela>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ---------------- Precificação ---------------- */}
+      {aba === 'precificacao' && (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <ExportCsv filename={`precificacao.csv`}
+              cols={[{ key: 'nome', label: 'Produto' }, { key: 'custo', label: 'Custo', money: true }, { key: 'preco', label: 'Preço', money: true }, { key: 'minimo', label: 'Mínimo', money: true }, { key: 'margem', label: 'Margem %' }]} rows={asRows(precos)} />
+          </div>
+          <Tabela vazio={precos.length === 0} vazioMsg="Sem produtos." head={['Produto', 'Custo', 'Preço', 'Mínimo', 'Margem']} alinhas={['l', 'r', 'r', 'r', 'r']}>
+            {precos.map((p, i) => (
+              <tr key={i} className="hover:bg-gray-50">
+                <td className="px-4 py-3 text-sm font-medium text-gray-800">{p.nome}</td>
+                <td className="px-4 py-3 text-sm text-right text-orange-500">{fmt(p.custo)}</td>
+                <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{fmt(p.preco)}</td>
+                <td className="px-4 py-3 text-sm text-right text-gray-400">{p.minimo > 0 ? fmt(p.minimo) : '—'}</td>
+                <td className={`px-4 py-3 text-sm text-right ${p.margem < 0 ? 'text-red-500' : 'text-gray-600'}`}>{p.margem.toFixed(0)}%</td>
+              </tr>
+            ))}
+          </Tabela>
+        </div>
+      )}
+
+      {/* ---------------- Pedidos ---------------- */}
+      {aba === 'pedidos' && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(pedidosResumo).map(([st, n]) => (
+              <span key={st} className="rounded-lg bg-gray-100 px-3 py-1.5 text-sm text-gray-600">{st}: <b className="text-gray-900">{n}</b></span>
+            ))}
+          </div>
+          <div className="flex justify-end">
+            <ExportCsv filename={`pedidos_${dataInicio}_${dataFim}.csv`}
+              cols={[{ key: 'numero', label: 'Nº' }, { key: 'tipo', label: 'Tipo' }, { key: 'cliente', label: 'Cliente' }, { key: 'status', label: 'Status' }, { key: 'total', label: 'Total', money: true }]} rows={asRows(pedidosLista)} />
+          </div>
+          <Tabela vazio={pedidosLista.length === 0} vazioMsg="Nenhum pedido no período." head={['Nº', 'Tipo', 'Cliente', 'Status', 'Total']} alinhas={['l', 'l', 'l', 'c', 'r']}>
+            {pedidosLista.map((p, i) => (
+              <tr key={i} className="hover:bg-gray-50">
+                <td className="px-4 py-3 text-sm font-medium text-gray-800">{p.numero ? `#${p.numero}` : '—'}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{p.tipo}</td>
+                <td className="px-4 py-3 text-sm text-gray-700">{p.cliente}</td>
+                <td className="px-4 py-3 text-center"><span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{p.status}</span></td>
+                <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{fmt(p.total)}</td>
+              </tr>
+            ))}
+          </Tabela>
+        </div>
+      )}
+
+      {/* ---------------- Entrada de Produtos ---------------- */}
+      {aba === 'entradas' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+            <Card label="Total entrado (custo)" valor={fmt(totalEntradas)} cor="text-orange-600" />
+            <Card label="Produtos distintos" valor={String(entradas.length)} cor="text-gray-800" />
+          </div>
+          <div className="flex justify-end">
+            <ExportCsv filename={`entradas_${dataInicio}_${dataFim}.csv`}
+              cols={[{ key: 'nome', label: 'Produto' }, { key: 'qtd', label: 'Qtd' }, { key: 'valor', label: 'Custo total', money: true }]} rows={asRows(entradas)} />
+          </div>
+          <Tabela vazio={entradas.length === 0} vazioMsg="Nenhuma nota de entrada recebida no período." head={['Produto', 'Qtd', 'Custo total']} alinhas={['l', 'r', 'r']}>
+            {entradas.map((e, i) => (
+              <tr key={i} className="hover:bg-gray-50">
+                <td className="px-4 py-3 text-sm font-medium text-gray-800">{e.nome}</td>
+                <td className="px-4 py-3 text-sm text-right font-semibold text-blue-600">{e.qtd}</td>
+                <td className="px-4 py-3 text-sm text-right text-gray-700">{fmt(e.valor)}</td>
+              </tr>
+            ))}
+          </Tabela>
+        </div>
+      )}
+
+      {/* ---------------- Produtos por Fornecedor ---------------- */}
+      {aba === 'porfornecedor' && (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <ExportCsv filename={`produtos_por_fornecedor.csv`}
+              cols={[{ key: 'fornecedor', label: 'Fornecedor' }, { key: 'produtos', label: 'Produtos' }]} rows={asRows(porFornecedor)} />
+          </div>
+          <Tabela vazio={porFornecedor.length === 0} vazioMsg="Sem produtos." head={['Fornecedor', 'Nº de produtos']} alinhas={['l', 'r']}>
+            {porFornecedor.map((f, i) => (
+              <tr key={i} className="hover:bg-gray-50">
+                <td className="px-4 py-3 text-sm font-medium text-gray-800">{f.fornecedor}</td>
+                <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{f.produtos}</td>
+              </tr>
+            ))}
+          </Tabela>
+        </div>
+      )}
+
+      {/* ---------------- Inventário (folha de contagem) ---------------- */}
+      {aba === 'inventario' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] text-gray-400">Folha pra contagem física. Exporte, conte, compare com o sistema.</p>
+            <ExportCsv filename={`inventario_${dataFim}.csv`}
+              cols={[{ key: 'nome', label: 'Produto' }, { key: 'deposito', label: 'Depósito' }, { key: 'sistema', label: 'Sistema' }, { key: 'contagem', label: 'Contagem' }, { key: 'custo', label: 'Custo Unit', money: true }]}
+              rows={inventario.map((i) => ({ ...i, contagem: '' }))} />
+          </div>
+          <Tabela vazio={inventario.length === 0} vazioMsg="Sem estoque." head={['Produto', 'Depósito', 'Sistema', 'Contagem']} alinhas={['l', 'l', 'r', 'r']}>
+            {inventario.map((e, i) => (
+              <tr key={i} className="hover:bg-gray-50">
+                <td className="px-4 py-3 text-sm font-medium text-gray-800">{e.nome}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{e.deposito}</td>
+                <td className="px-4 py-3 text-sm text-right text-gray-700">{e.sistema}</td>
+                <td className="px-4 py-3 text-right text-gray-300">____</td>
+              </tr>
+            ))}
+          </Tabela>
+        </div>
+      )}
+
+      {/* ---------------- Movimentações x Saldo ---------------- */}
+      {aba === 'movsaldo' && (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <ExportCsv filename={`movimentacoes_${dataInicio}_${dataFim}.csv`}
+              cols={[{ key: 'nome', label: 'Produto' }, { key: 'entradas', label: 'Entradas' }, { key: 'saidas', label: 'Saídas' }, { key: 'saldo', label: 'Saldo atual' }]} rows={asRows(movSaldo)} />
+          </div>
+          <Tabela vazio={movSaldo.length === 0} vazioMsg="Sem movimentações no período." head={['Produto', 'Entradas', 'Saídas', 'Saldo atual']} alinhas={['l', 'r', 'r', 'r']}>
+            {movSaldo.map((m, i) => (
+              <tr key={i} className="hover:bg-gray-50">
+                <td className="px-4 py-3 text-sm font-medium text-gray-800">{m.nome}</td>
+                <td className="px-4 py-3 text-sm text-right text-green-600">+{m.entradas}</td>
+                <td className="px-4 py-3 text-sm text-right text-red-500">−{m.saidas}</td>
+                <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{m.saldo}</td>
+              </tr>
+            ))}
+          </Tabela>
+        </div>
+      )}
+
+      {/* ---------------- Performance Técnicos ---------------- */}
+      {aba === 'tecnicos' && (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <ExportCsv filename={`performance_tecnicos_${dataInicio}_${dataFim}.csv`}
+              cols={[{ key: 'nome', label: 'Técnico' }, { key: 'os', label: 'OS' }, { key: 'concluidas', label: 'Concluídas' }, { key: 'total', label: 'Faturado', money: true }]} rows={asRows(tecnicos)} />
+          </div>
+          <Tabela vazio={tecnicos.length === 0} vazioMsg="Nenhuma OS no período." head={['Técnico', 'OS', 'Concluídas', 'Faturado']} alinhas={['l', 'r', 'r', 'r']}>
+            {tecnicos.map((t, i) => (
+              <tr key={i} className="hover:bg-gray-50">
+                <td className="px-4 py-3 text-sm font-medium text-gray-800">{t.nome}</td>
+                <td className="px-4 py-3 text-sm text-right text-gray-700">{t.os}</td>
+                <td className="px-4 py-3 text-sm text-right text-green-600">{t.concluidas}</td>
+                <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{fmt(t.total)}</td>
+              </tr>
+            ))}
+          </Tabela>
+        </div>
+      )}
+
+      {/* ---------------- Contatos ---------------- */}
+      {aba === 'contatos' && (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <ExportCsv filename={`contatos.csv`}
+              cols={[{ key: 'nome', label: 'Nome' }, { key: 'telefone', label: 'Telefone' }, { key: 'cidade', label: 'Cidade' }, { key: 'tipo', label: 'Tipo' }]} rows={asRows(contatos)} />
+          </div>
+          <Tabela vazio={contatos.length === 0} vazioMsg="Sem contatos com telefone." head={['Nome', 'Telefone', 'Cidade', 'Tipo']} alinhas={['l', 'l', 'l', 'c']}>
+            {contatos.map((c, i) => (
+              <tr key={i} className="hover:bg-gray-50">
+                <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.nome}</td>
+                <td className="px-4 py-3 text-sm text-gray-700">{c.telefone}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{c.cidade}</td>
+                <td className="px-4 py-3 text-center text-xs text-gray-400">{c.tipo}</td>
               </tr>
             ))}
           </Tabela>
