@@ -259,6 +259,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     cliente: string | null
     clienteTelefone: string | null
     clienteEndereco: string | null
+    vendedor: string | null
     deposito: string
     loja: string | null
     lojaRazao: string | null
@@ -662,6 +663,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
           const partes = [p.endereco, p.bairro, p.cidade && p.estado ? `${p.cidade}/${p.estado}` : (p.cidade ?? p.estado), p.cep].filter(Boolean)
           return partes.length > 0 ? partes.join(', ') : null
         })(),
+        vendedor: result.vendedorNome || null,
         deposito: nomeDeposito,
         loja: lojaSel?.nome ?? null,
         lojaRazao: lojaSel?.razao_social ?? null,
@@ -1027,6 +1029,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     <p>EMISSÃO EM ${snap.horario}</p>
     ${snap.loja ? `<p class="bold">${snap.loja}</p>` : ''}
     <p>${snap.deposito}</p>
+    ${snap.vendedor ? `<p>Vendedor(a): ${snap.vendedor}</p>` : ''}
     <p class="bold">CONSUMIDOR</p>
     ${snap.cliente ? `<p>${snap.cliente}</p>` : '<p>CONSUMIDOR FINAL</p>'}
     ${snap.clienteEndereco ? `<p>${snap.clienteEndereco}</p>` : ''}
@@ -1054,6 +1057,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     const linhas = [
       `*TecnoCell — ${snap.loja ?? snap.deposito}*`,
       `Venda #${numero} | ${snap.horario}`,
+      snap.vendedor ? `Vendedor(a): ${snap.vendedor}` : '',
       snap.cliente ? `Cliente: ${snap.cliente}` : '',
       snap.clienteEndereco ? snap.clienteEndereco : '',
       '',
@@ -1107,6 +1111,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                 <span>{snap.loja ?? snap.deposito}{snap.lojaCnpj ? ` · CNPJ ${snap.lojaCnpj}` : ''}</span>
                 <span>{snap.horario}</span>
               </div>
+              {snap.vendedor && (
+                <p className="text-xs text-gray-600">Vendedor(a): <strong>{snap.vendedor}</strong></p>
+              )}
               {snap.cliente && (
                 <p className="text-xs text-gray-600 mb-2">Cliente: <strong>{snap.cliente}</strong></p>
               )}

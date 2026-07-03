@@ -40,7 +40,7 @@ export async function finalizarVenda(
   desconto_manual: number = 0,
 ): Promise<
   | { erro: string }
-  | { vendaId: string; vendaNumero: number | null; total: number; estoqueAtualizado: Record<string, number> }
+  | { vendaId: string; vendaNumero: number | null; total: number; estoqueAtualizado: Record<string, number>; vendedorNome: string }
 > {
   if (itens.length === 0) return { erro: 'Carrinho vazio' }
   if (!deposito_id) return { erro: 'Depósito não selecionado' }
@@ -120,6 +120,7 @@ export async function finalizarVenda(
     vendaNumero: data.venda_numero as number | null,
     total: data.total as number,
     estoqueAtualizado: data.estoque_atualizado as Record<string, number>,
+    vendedorNome,
   }
 }
 
