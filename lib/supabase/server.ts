@@ -79,22 +79,47 @@ export async function requireAuth(accessToken?: string): Promise<{ id: string; e
   return { id: user.id, email: user.email ?? null }
 }
 
+// Permissões EFETIVAS do usuário. Cargo dinâmico (modelo Discord): se o perfil
+// tem cargo_id, as permissões vêm do CARGO (mudou o cargo → todos mudam junto).
+// Sem cargo (ou cargo inativo), usa as permissões individuais do perfil.
+export async function permissoesEfetivas(
+  userId: string
+): Promise<{ permissoes: string[]; isMaster: boolean; ativo: boolean }> {
+  const service = await createServiceClient()
+  // base do perfil (sem cargo_id, pra não quebrar caso a migration ainda não tenha rodado)
+  const { data: perfil } = await service
+    .from('perfis')
+    .select('permissoes, is_master, ativo')
+    .eq('id', userId)
+    .maybeSingle()
+  if (!perfil) return { permissoes: [], isMaster: false, ativo: false }
+  const base = { permissoes: perfil.permissoes ?? [], isMaster: perfil.is_master ?? false, ativo: perfil.ativo !== false }
+
+  // cargo dinâmico — query separada e tolerante (se a coluna/tabela não existir, ignora)
+  try {
+    const { data: pc } = await service.from('perfis').select('cargo_id').eq('id', userId).maybeSingle()
+    const cargoId = (pc as { cargo_id?: string | null } | null)?.cargo_id
+    if (cargoId) {
+      const { data: cargo } = await service.from('cargos').select('permissoes, is_master, ativo').eq('id', cargoId).maybeSingle()
+      if (cargo && cargo.ativo !== false) {
+        return { permissoes: cargo.permissoes ?? [], isMaster: cargo.is_master ?? false, ativo: base.ativo }
+      }
+    }
+  } catch { /* coluna/tabela ainda não existe — usa as permissões individuais */ }
+
+  return base
+}
+
 // Valida sessão E permissão. As server actions NÃO passam pelo layout do painel,
 // então sem isto dá pra chamar a action direto via POST sem ter acesso ao módulo.
-// Carrega o perfil com service client (bypassa RLS) e checa ativo + permissão.
 export async function requirePermissao(
   key: string,
   accessToken?: string
 ): Promise<{ id: string; email: string | null }> {
   const usuario = await requireAuth(accessToken)
-  const service = await createServiceClient()
-  const { data } = await service
-    .from('perfis')
-    .select('permissoes, is_master, ativo')
-    .eq('id', usuario.id)
-    .maybeSingle()
-  if (!data || data.ativo === false) throw new Error('Conta sem acesso.')
-  if (!temPermissao(data.permissoes ?? [], key, data.is_master ?? false)) {
+  const { permissoes, isMaster, ativo } = await permissoesEfetivas(usuario.id)
+  if (!ativo) throw new Error('Conta sem acesso.')
+  if (!temPermissao(permissoes, key, isMaster)) {
     throw new Error('Sem permissão para esta ação.')
   }
   return usuario

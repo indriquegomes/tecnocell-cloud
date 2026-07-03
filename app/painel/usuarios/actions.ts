@@ -28,8 +28,9 @@ export async function criarConvite(_: ConviteResult | null, fd: FormData): Promi
   })
   if (authErr || !authData.user) return { ok: false, message: authErr?.message ?? 'Erro ao criar conta' }
 
+  const cargoId = (fd.get('cargo_id') as string) || null
   const { error: perfErr } = await supabase.from('perfis').insert({
-    id: authData.user.id, nome, permissoes: isMaster ? TODAS_KEYS : perms, is_master: isMaster, ativo: true,
+    id: authData.user.id, nome, permissoes: isMaster ? TODAS_KEYS : perms, is_master: isMaster, ativo: true, cargo_id: cargoId,
   })
   if (perfErr) { await supabase.auth.admin.deleteUser(authData.user.id); return { ok: false, message: perfErr.message } }
 
@@ -75,6 +76,7 @@ export async function criarUsuario(_: ActionResult | null, fd: FormData): Promis
     permissoes: isMaster ? TODAS_KEYS : perms,
     is_master: isMaster,
     ativo: true,
+    cargo_id: (fd.get('cargo_id') as string) || null,
   })
 
   if (perfErr) {
@@ -104,6 +106,7 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
     permissoes: isMaster ? TODAS_KEYS : perms,
     is_master: isMaster,
     ativo,
+    cargo_id: (fd.get('cargo_id') as string) || null,
   }).eq('id', userId)
 
   if (error) return { ok: false, message: error.message }

@@ -77,6 +77,7 @@ const navEmConstrucao: NavGroup[] = [
     items: [
       { href: '/painel/relatorios',    label: 'Relatórios',   permissao: 'relatorios' },
       { href: '/painel/usuarios',      label: 'Usuários',     permissao: 'usuarios' },
+      { href: '/painel/cargos',        label: 'Cargos',       permissao: 'usuarios' },
       { href: '/painel/configuracoes', label: 'Configurações', permissao: 'usuarios' },
     ],
   },

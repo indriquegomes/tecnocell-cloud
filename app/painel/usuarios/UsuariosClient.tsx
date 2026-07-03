@@ -24,8 +24,10 @@ export interface Usuario {
   permissoes: string[]
   isMaster: boolean
   ativo: boolean
+  cargoId: string | null
   created_at: string
 }
+export type Cargo = { id: string; nome: string }
 
 function Feedback({ state }: { state: ActionResult | null }) {
   if (!state) return null
@@ -110,7 +112,29 @@ function PermissoesGrid({
   )
 }
 
-function NovoUsuarioModal({ onClose }: { onClose: () => void }) {
+// Escolhe um cargo (permissões vêm dele) OU marca permissões individuais (sem cargo)
+function CargoOuPermissoes({ cargos, cargoId: defaultCargo, permissoes, isMaster }: {
+  cargos: Cargo[]; cargoId: string | null; permissoes: string[]; isMaster: boolean
+}) {
+  const [cargoId, setCargoId] = useState(defaultCargo ?? '')
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="mb-1 block text-sm font-medium text-gray-700">Cargo</label>
+        <select name="cargo_id" value={cargoId} onChange={(e) => setCargoId(e.target.value)} className="field w-full">
+          <option value="">Personalizado (sem cargo)</option>
+          {cargos.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+        </select>
+        <p className="mt-1 text-[11px] text-gray-400">
+          {cargoId ? 'As permissões vêm do cargo. Mudou o cargo, muda pra todo mundo que tem ele.' : 'Sem cargo: marque as permissões abaixo pra esta pessoa.'}
+        </p>
+      </div>
+      {!cargoId && <PermissoesGrid permissoes={permissoes} isMaster={isMaster} />}
+    </div>
+  )
+}
+
+function NovoUsuarioModal({ cargos, onClose }: { cargos: Cargo[]; onClose: () => void }) {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(criarUsuario, null)
 
   return (
@@ -137,8 +161,8 @@ function NovoUsuarioModal({ onClose }: { onClose: () => void }) {
             <p className="mt-1 text-xs text-gray-400">Pode ser simples: nome + número</p>
           </div>
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">Permissões</label>
-            <PermissoesGrid permissoes={[]} isMaster={false} />
+            <label className="mb-2 block text-sm font-medium text-gray-700">Cargo / Permissões</label>
+            <CargoOuPermissoes cargos={cargos} cargoId={null} permissoes={[]} isMaster={false} />
           </div>
           <div className="flex items-center justify-between border-t border-gray-100 pt-4">
             <Feedback state={state} />
@@ -156,7 +180,7 @@ function NovoUsuarioModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-function ConvidarModal({ onClose }: { onClose: () => void }) {
+function ConvidarModal({ cargos, onClose }: { cargos: Cargo[]; onClose: () => void }) {
   const [state, action, pending] = useActionState<ConviteResult | null, FormData>(criarConvite, null)
   const [copiado, setCopiado] = useState(false)
   const link = state && state.ok ? `${window.location.origin}${state.link}` : ''
@@ -200,8 +224,8 @@ function ConvidarModal({ onClose }: { onClose: () => void }) {
               </div>
             </div>
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">Permissões</label>
-              <PermissoesGrid permissoes={[]} isMaster={false} />
+              <label className="mb-2 block text-sm font-medium text-gray-700">Cargo / Permissões</label>
+              <CargoOuPermissoes cargos={cargos} cargoId={null} permissoes={[]} isMaster={false} />
             </div>
             <div className="flex items-center justify-between border-t border-gray-100 pt-4">
               {state && !state.ok ? <Feedback state={state} /> : <span />}
@@ -217,7 +241,7 @@ function ConvidarModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-function EditarModal({ usuario, onClose }: { usuario: Usuario; onClose: () => void }) {
+function EditarModal({ usuario, cargos, onClose }: { usuario: Usuario; cargos: Cargo[]; onClose: () => void }) {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(atualizarPerfil, null)
   const [senhaState, senhaAction, senhaPending] = useActionState<ActionResult | null, FormData>(alterarSenha, null)
 
@@ -255,8 +279,8 @@ function EditarModal({ usuario, onClose }: { usuario: Usuario; onClose: () => vo
               </div>
             </div>
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">Permissões</label>
-              <PermissoesGrid permissoes={usuario.permissoes} isMaster={usuario.isMaster} />
+              <label className="mb-2 block text-sm font-medium text-gray-700">Cargo / Permissões</label>
+              <CargoOuPermissoes cargos={cargos} cargoId={usuario.cargoId} permissoes={usuario.permissoes} isMaster={usuario.isMaster} />
             </div>
             <div className="flex items-center justify-between pt-2">
               <Feedback state={state} />
@@ -291,12 +315,14 @@ function EditarModal({ usuario, onClose }: { usuario: Usuario; onClose: () => vo
   )
 }
 
-export function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
+export function UsuariosClient({ usuarios, cargos }: { usuarios: Usuario[]; cargos: Cargo[] }) {
   const [criando, setCriando] = useState(false)
   const [convidando, setConvidando] = useState(false)
   const [editando, setEditando] = useState<Usuario | null>(null)
+  const cargoNome = new Map(cargos.map((c) => [c.id, c.nome]))
 
   const resumoPermissoes = (u: Usuario) => {
+    if (u.cargoId) return `Cargo: ${cargoNome.get(u.cargoId) ?? '—'}`
     if (u.isMaster) return 'Acesso total'
     if (!u.permissoes.length) return 'Sem permissões'
     const labels = u.permissoes
@@ -383,9 +409,9 @@ export function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
         </table>
       </div>
 
-      {criando && <NovoUsuarioModal onClose={() => setCriando(false)} />}
-      {convidando && <ConvidarModal onClose={() => setConvidando(false)} />}
-      {editando && <EditarModal usuario={editando} onClose={() => setEditando(null)} />}
+      {criando && <NovoUsuarioModal cargos={cargos} onClose={() => setCriando(false)} />}
+      {convidando && <ConvidarModal cargos={cargos} onClose={() => setConvidando(false)} />}
+      {editando && <EditarModal usuario={editando} cargos={cargos} onClose={() => setEditando(null)} />}
     </div>
   )
 }

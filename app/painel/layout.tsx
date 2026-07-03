@@ -1,7 +1,7 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { PainelShell } from '@/components/PainelShell'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, permissoesEfetivas } from '@/lib/supabase/server'
 import { permissaoPorRota, temPermissao } from '@/lib/permissoes'
 
 export default async function PainelLayout({ children }: { children: React.ReactNode }) {
@@ -18,18 +18,13 @@ export default async function PainelLayout({ children }: { children: React.React
   if (userId) {
     try {
       const supabase = await createServiceClient()
-      const { data } = await supabase
-        .from('perfis')
-        .select('nome, permissoes, is_master, ativo')
-        .eq('id', userId)
-        .maybeSingle()
-
-      if (data) {
-        nome       = data.nome       ?? nome
-        permissoes = data.permissoes ?? []
-        isMaster   = data.is_master  ?? false
-        ativo      = data.ativo      ?? true
-      }
+      const { data } = await supabase.from('perfis').select('nome').eq('id', userId).maybeSingle()
+      if (data) nome = data.nome ?? nome
+      // permissões efetivas (via cargo dinâmico, se houver)
+      const ef = await permissoesEfetivas(userId)
+      permissoes = ef.permissoes
+      isMaster   = ef.isMaster
+      ativo      = ef.ativo
     } catch {}
   }
 
