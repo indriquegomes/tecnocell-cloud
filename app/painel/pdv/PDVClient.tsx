@@ -633,6 +633,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
         depositoId,
         carrinho.flatMap((i) => (i.series ?? []).map((serie) => ({ produto_id: i.produto_id, serie }))),
         creditoAplicado,   // débito do crédito é atômico dentro do RPC (migration 2026-07-10)
+        descontoNum,       // desconto MANUAL (para checar permissão 'venda_desconto')
       )
       if ('erro' in result) { setErro(result.erro); return }
 

@@ -1,6 +1,7 @@
 'use server'
 
-import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao, permissoesEfetivas } from '@/lib/supabase/server'
+import { temPermissao } from '@/lib/permissoes'
 
 // Confere a senha de desconto da loja no servidor (a senha nunca vai pro cliente)
 export async function validarSenhaDesconto(lojaId: string, senha: string): Promise<boolean> {
@@ -36,6 +37,7 @@ export async function finalizarVenda(
   deposito_id: string = '',
   series: { produto_id: string; serie: string }[] = [],
   credito_valor: number = 0,
+  desconto_manual: number = 0,
 ): Promise<
   | { erro: string }
   | { vendaId: string; vendaNumero: number | null; total: number; estoqueAtualizado: Record<string, number> }
@@ -49,6 +51,15 @@ export async function finalizarVenda(
     usuario = await requirePermissao('pdv', accessToken)
   } catch (e) {
     return { erro: 'Sessão expirada. Recarregue a página (F5) e entre novamente. ' + (e instanceof Error ? e.message : '') }
+  }
+
+  // Limite de operação: só quem tem 'venda_desconto' pode dar desconto MANUAL.
+  // (desconto de promoção é automático e não conta.)
+  if (desconto_manual > 0) {
+    const { permissoes, isMaster } = await permissoesEfetivas(usuario.id)
+    if (!temPermissao(permissoes, 'venda_desconto', isMaster)) {
+      return { erro: 'Seu cargo não permite dar desconto. Chame o gerente.' }
+    }
   }
 
   let supabase: Awaited<ReturnType<typeof createServiceClient>>
@@ -202,7 +213,7 @@ export async function buscarDetalheVenda(accessToken: string, vendaId: string): 
 
 export async function pagarLancamentos(accessToken: string, ids: string[], formaPagamento = 'dinheiro'): Promise<void> {
   if (ids.length === 0) return
-  await requirePermissao('pdv', accessToken)
+  await requirePermissao('crediario_receber', accessToken)
   const supabase = await createServiceClient()
   const today = new Date().toISOString().split('T')[0]
   const { data, error } = await supabase
@@ -220,7 +231,7 @@ export async function registrarPagamentoParcial(
   valorPago: number,
   formaPagamento: string,
 ): Promise<{ quitado: boolean }> {
-  await requirePermissao('pdv', accessToken)
+  await requirePermissao('crediario_receber', accessToken)
   const supabase = await createServiceClient()
 
   const { data: lanc, error: errBusca } = await supabase

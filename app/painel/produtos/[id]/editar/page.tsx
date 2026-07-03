@@ -1,4 +1,5 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, permissoesUsuarioAtual } from '@/lib/supabase/server'
+import { temPermissao } from '@/lib/permissoes'
 import { editarProduto } from '../../actions'
 import { ImageUpload } from '@/components/ImageUpload'
 import { PrecoFields } from '../../PrecoFields'
@@ -19,6 +20,8 @@ export default async function EditarProdutoPage({ params }: { params: Promise<{ 
   if (!produto) notFound()
 
   const fornecedores = (pessoas ?? []).filter((p) => p.tipo === 'fornecedor' || p.tipo === 'ambos')
+  const { permissoes, isMaster } = await permissoesUsuarioAtual()
+  const podeCusto = temPermissao(permissoes, 'produto_custo', isMaster)
 
   const action = editarProduto.bind(null, id)
 
@@ -44,7 +47,7 @@ export default async function EditarProdutoPage({ params }: { params: Promise<{ 
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Descrição</label>
             <textarea name="descricao" rows={3} defaultValue={produto.descricao ?? ''} className="field resize-none" />
           </div>
-          <PrecoFields custoInicial={produto.preco_custo ?? 0} vendaInicial={produto.preco ?? 0} />
+          <PrecoFields custoInicial={produto.preco_custo ?? 0} vendaInicial={produto.preco ?? 0} podeCusto={podeCusto} />
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Categoria</label>
             <select name="categoria" defaultValue={produto.categoria ?? ''} className="field">

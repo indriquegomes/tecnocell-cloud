@@ -22,7 +22,7 @@ export type PessoaEdit = {
   vendedor_id: string | null; origem: string | null; observacoes: string | null
 }
 
-export function PessoaForm({ tabelas, vendedores, editando }: { tabelas: Tabela[]; vendedores: Vendedor[]; editando?: PessoaEdit }) {
+export function PessoaForm({ tabelas, vendedores, editando, podeCredito = true }: { tabelas: Tabela[]; vendedores: Vendedor[]; editando?: PessoaEdit; podeCredito?: boolean }) {
   const action = editando ? editarPessoa.bind(null, editando.id) : criarPessoa
 
   // Endereço é controlado p/ a busca de CEP conseguir preencher
@@ -166,10 +166,18 @@ export function PessoaForm({ tabelas, vendedores, editando }: { tabelas: Tabela[
             </select>
             <p className="mt-1 text-[11px] text-gray-400">Aplicada sozinha no PDV ao escolher este cliente</p>
           </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Limite de crédito (fiado) R$</label>
-            <input name="limite_credito" type="number" step="0.01" min="0" defaultValue={String(editando?.limite_credito ?? 0)} className="field" />
-          </div>
+          {podeCredito ? (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Limite de crédito (fiado) R$</label>
+              <input name="limite_credito" type="number" step="0.01" min="0" defaultValue={String(editando?.limite_credito ?? 0)} className="field" />
+            </div>
+          ) : (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-400">Limite de crédito (fiado) R$</label>
+              <input disabled value={Number(editando?.limite_credito ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} className="field bg-gray-100 text-gray-400" />
+              <p className="mt-1 text-[11px] text-gray-400">Seu cargo não pode alterar o limite.</p>
+            </div>
+          )}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Vendedor responsável</label>
             <select name="vendedor_id" defaultValue={editando?.vendedor_id ?? ''} className="field">

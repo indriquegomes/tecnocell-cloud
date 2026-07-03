@@ -5,7 +5,17 @@ import { useState } from 'react'
 const round2 = (n: number) => Math.round(n * 100) / 100
 const fmt = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-export function PrecoFields({ custoInicial = 0, vendaInicial = 0 }: { custoInicial?: number; vendaInicial?: number }) {
+export function PrecoFields({ custoInicial = 0, vendaInicial = 0, podeCusto = true }: { custoInicial?: number; vendaInicial?: number; podeCusto?: boolean }) {
+  if (!podeCusto) {
+    return (
+      <div className="sm:col-span-2">
+        <label className="mb-1.5 block text-sm font-medium text-gray-700">Preço de Venda (R$)</label>
+        <input name="preco" type="number" step="0.01" min="0" defaultValue={vendaInicial || ''} className="field" placeholder="0,00" />
+        <p className="mt-1 text-[11px] text-gray-400">Seu cargo não tem acesso ao preço de custo.</p>
+      </div>
+    )
+  }
+
   const margemInicial = custoInicial > 0 ? round2(((vendaInicial - custoInicial) / custoInicial) * 100) : 0
   const [custo, setCusto] = useState(custoInicial ? String(custoInicial) : '')
   const [margem, setMargem] = useState(margemInicial ? String(margemInicial) : '')

@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies, headers } from 'next/headers'
 import { temPermissao } from '@/lib/permissoes'
 
+export type Efetivas = { permissoes: string[]; isMaster: boolean; ativo: boolean }
+
 export async function createClient() {
   const cookieStore = await cookies()
   return createServerClient(
@@ -108,6 +110,27 @@ export async function permissoesEfetivas(
   } catch { /* coluna/tabela ainda não existe — usa as permissões individuais */ }
 
   return base
+}
+
+// Permissões efetivas do usuário logado a partir do header do proxy (x-user-id).
+// Uso em PÁGINAS (server components) pra esconder campos que a pessoa não pode ver.
+export async function permissoesUsuarioAtual(): Promise<Efetivas> {
+  const h = await headers()
+  const userId = h.get('x-user-id')
+  if (!userId) return { permissoes: [], isMaster: false, ativo: true }
+  return permissoesEfetivas(userId)
+}
+
+// Checa se o usuário (por accessToken/header) pode uma ação específica. Retorna bool
+// em vez de lançar — pra usar dentro de actions que já validaram o módulo principal.
+export async function podeAcao(key: string, accessToken?: string): Promise<boolean> {
+  try {
+    const usuario = await requireAuth(accessToken)
+    const { permissoes, isMaster } = await permissoesEfetivas(usuario.id)
+    return temPermissao(permissoes, key, isMaster)
+  } catch {
+    return false
+  }
 }
 
 // Valida sessão E permissão. As server actions NÃO passam pelo layout do painel,

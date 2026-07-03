@@ -46,11 +46,13 @@ export function CargoForm({ editando }: { editando?: CargoEdit }) {
         </div>
       </label>
 
-      {!master && (
-        <div>
-          <label className="mb-2 block text-sm font-medium text-gray-700">Permissões deste cargo</label>
+      {!master && (['Módulos', 'Limites'] as const).map((grupo) => (
+        <div key={grupo}>
+          <label className="mb-2 block text-sm font-medium text-gray-700">
+            {grupo === 'Módulos' ? 'Módulos que o cargo acessa' : 'Limites de operação (o que pode fazer)'}
+          </label>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {TODAS_PERMISSOES.map((p) => {
+            {TODAS_PERMISSOES.filter((p) => p.grupo === grupo).map((p) => {
               const on = sel.has(p.key)
               return (
                 <label key={p.key} className={`flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2.5 transition ${on ? 'border-blue-200 bg-blue-50' : 'border-gray-200 bg-gray-50 hover:border-gray-300'}`}>
@@ -64,7 +66,7 @@ export function CargoForm({ editando }: { editando?: CargoEdit }) {
             })}
           </div>
         </div>
-      )}
+      ))}
 
       <div className="flex gap-3 pt-1">
         <button type="submit" className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">

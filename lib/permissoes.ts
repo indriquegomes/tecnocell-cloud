@@ -28,18 +28,25 @@ export const ROTAS_PERMISSAO: Record<string, string> = {
 }
 
 export const TODAS_PERMISSOES = [
-  { key: 'pdv',        label: 'PDV / Caixa',         desc: 'Acessar o ponto de venda e operação de caixa' },
-  { key: 'vendas',     label: 'Vendas',               desc: 'Ver histórico de vendas' },
-  { key: 'devolucoes', label: 'Devoluções',           desc: 'Registrar e consultar devoluções' },
-  { key: 'os',         label: 'Ordens de Serviço',    desc: 'Assistência técnica e reparos' },
-  { key: 'pedidos',    label: 'Pedidos',              desc: 'Orçamentos e pedidos de clientes' },
-  { key: 'clientes',   label: 'Clientes',             desc: 'Ver e editar clientes e fornecedores' },
-  { key: 'produtos',   label: 'Produtos',             desc: 'Catálogo, categorias e tabelas de preço' },
-  { key: 'estoque',    label: 'Estoque',              desc: 'Movimentações e depósitos' },
-  { key: 'compras',    label: 'Compras',              desc: 'Notas de entrada' },
-  { key: 'financeiro', label: 'Financeiro',           desc: 'A receber, a pagar e lançamentos' },
-  { key: 'relatorios', label: 'Relatórios',           desc: 'Relatórios gerenciais e indicadores' },
-  { key: 'usuarios',   label: 'Usuários',             desc: 'Gerenciar contas e permissões' },
+  // Módulos — acesso à área
+  { grupo: 'Módulos',  key: 'pdv',        label: 'PDV / Caixa',         desc: 'Acessar o ponto de venda e operação de caixa' },
+  { grupo: 'Módulos',  key: 'vendas',     label: 'Vendas',               desc: 'Ver histórico de vendas' },
+  { grupo: 'Módulos',  key: 'devolucoes', label: 'Devoluções',           desc: 'Registrar e consultar devoluções' },
+  { grupo: 'Módulos',  key: 'os',         label: 'Ordens de Serviço',    desc: 'Assistência técnica e reparos' },
+  { grupo: 'Módulos',  key: 'pedidos',    label: 'Pedidos',              desc: 'Orçamentos e pedidos de clientes' },
+  { grupo: 'Módulos',  key: 'clientes',   label: 'Clientes',             desc: 'Ver e editar clientes e fornecedores' },
+  { grupo: 'Módulos',  key: 'produtos',   label: 'Produtos',             desc: 'Catálogo, categorias e tabelas de preço' },
+  { grupo: 'Módulos',  key: 'estoque',    label: 'Estoque',              desc: 'Movimentações e depósitos' },
+  { grupo: 'Módulos',  key: 'compras',    label: 'Compras',              desc: 'Notas de entrada' },
+  { grupo: 'Módulos',  key: 'financeiro', label: 'Financeiro',           desc: 'A receber, a pagar e lançamentos' },
+  { grupo: 'Módulos',  key: 'relatorios', label: 'Relatórios',           desc: 'Relatórios gerenciais e indicadores' },
+  { grupo: 'Módulos',  key: 'usuarios',   label: 'Usuários',             desc: 'Gerenciar contas e permissões' },
+
+  // Limites de operação — o que pode FAZER dentro do módulo (segurança de balcão)
+  { grupo: 'Limites',  key: 'venda_desconto',   label: 'Dar desconto',            desc: 'Aplicar desconto na venda no PDV' },
+  { grupo: 'Limites',  key: 'produto_custo',     label: 'Ver/editar custo',        desc: 'Ver e alterar o preço de custo dos produtos' },
+  { grupo: 'Limites',  key: 'crediario_receber', label: 'Receber crediário',       desc: 'Registrar pagamento de fiado' },
+  { grupo: 'Limites',  key: 'credito_limite',    label: 'Alterar limite de crédito', desc: 'Mudar o limite de crédito das pessoas' },
 ] as const
 
 export type PermissaoKey = typeof TODAS_PERMISSOES[number]['key']

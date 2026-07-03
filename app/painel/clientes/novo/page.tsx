@@ -1,14 +1,17 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, permissoesUsuarioAtual } from '@/lib/supabase/server'
+import { temPermissao } from '@/lib/permissoes'
 import { PessoaForm } from '../PessoaForm'
 import Link from 'next/link'
 
 export default async function NovaClientePage({ searchParams }: { searchParams: Promise<{ erro?: string }> }) {
   const { erro } = await searchParams
   const supabase = await createServiceClient()
-  const [{ data: tabelas }, { data: vendedores }] = await Promise.all([
+  const [{ data: tabelas }, { data: vendedores }, { permissoes, isMaster }] = await Promise.all([
     supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).order('nome'),
     supabase.from('perfis').select('id, nome').eq('ativo', true).order('nome'),
+    permissoesUsuarioAtual(),
   ])
+  const podeCredito = temPermissao(permissoes, 'credito_limite', isMaster)
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -25,7 +28,7 @@ export default async function NovaClientePage({ searchParams }: { searchParams: 
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>
       )}
 
-      <PessoaForm tabelas={tabelas ?? []} vendedores={vendedores ?? []} />
+      <PessoaForm tabelas={tabelas ?? []} vendedores={vendedores ?? []} podeCredito={podeCredito} />
     </div>
   )
 }

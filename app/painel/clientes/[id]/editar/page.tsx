@@ -1,4 +1,5 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, permissoesUsuarioAtual } from '@/lib/supabase/server'
+import { temPermissao } from '@/lib/permissoes'
 import { PessoaForm, type PessoaEdit } from '../../PessoaForm'
 import { formatBRL, formatDate } from '@/lib/utils'
 import Link from 'next/link'
@@ -34,6 +35,8 @@ export default async function EditarClientePage({
   const saldoCredito = (creds ?? []).reduce((s, c) => (c.tipo === 'uso' ? s - (c.valor ?? 0) : s + (c.valor ?? 0)), 0)
   const totalComprado = (vendas ?? []).reduce((s, v) => s + (v.total ?? 0), 0)
   const limite = Number(pessoa.limite_credito ?? 0)
+  const { permissoes, isMaster } = await permissoesUsuarioAtual()
+  const podeCredito = temPermissao(permissoes, 'credito_limite', isMaster)
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -67,7 +70,7 @@ export default async function EditarClientePage({
       {erro && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
 
       {/* Cadastro */}
-      <PessoaForm tabelas={tabelas ?? []} vendedores={vendedores ?? []} editando={pessoa as PessoaEdit} />
+      <PessoaForm tabelas={tabelas ?? []} vendedores={vendedores ?? []} editando={pessoa as PessoaEdit} podeCredito={podeCredito} />
 
       {/* Histórico de compras */}
       <div>

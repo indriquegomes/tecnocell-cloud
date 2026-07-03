@@ -1,4 +1,5 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, permissoesUsuarioAtual } from '@/lib/supabase/server'
+import { temPermissao } from '@/lib/permissoes'
 import { criarProduto } from '../actions'
 import { ImageUpload } from '@/components/ImageUpload'
 import { PrecoFields } from '../PrecoFields'
@@ -12,6 +13,8 @@ export default async function NovoProdutoPage() {
     supabase.from('pessoas').select('id, nome, tipo').order('nome').limit(500),
   ])
   const fornecedores = (pessoas ?? []).filter((p) => p.tipo === 'fornecedor' || p.tipo === 'ambos')
+  const { permissoes, isMaster } = await permissoesUsuarioAtual()
+  const podeCusto = temPermissao(permissoes, 'produto_custo', isMaster)
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -35,7 +38,7 @@ export default async function NovoProdutoPage() {
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Descrição</label>
             <textarea name="descricao" rows={3} className="field resize-none" placeholder="Descrição opcional" />
           </div>
-          <PrecoFields />
+          <PrecoFields podeCusto={podeCusto} />
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Categoria</label>
             <select name="categoria" className="field">

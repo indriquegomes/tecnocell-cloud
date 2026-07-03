@@ -1,6 +1,6 @@
 'use server'
 
-import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao, podeAcao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { validarCpfCnpj } from '@/lib/validacoes'
@@ -52,9 +52,11 @@ export async function criarPessoa(formData: FormData) {
     if (existente) redirect(`/painel/clientes/novo?erro=${encodeURIComponent('Já existe um cadastro com este e-mail.')}`)
   }
 
+  const campos = camposPessoa(formData, cpfCnpj, email)
+  if (!(await podeAcao('credito_limite'))) campos.limite_credito = 0
   const { error } = await supabase.from('pessoas').insert({
     id: crypto.randomUUID(),
-    ...camposPessoa(formData, cpfCnpj, email),
+    ...campos,
   })
   if (error) redirect(`/painel/clientes/novo?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/clientes')
@@ -79,7 +81,10 @@ export async function editarPessoa(id: string, formData: FormData) {
     if (existente) redirect(`/painel/clientes/${id}/editar?erro=${encodeURIComponent('Já existe outro cadastro com este e-mail.')}`)
   }
 
-  const { error } = await supabase.from('pessoas').update(camposPessoa(formData, cpfCnpj, email)).eq('id', id)
+  const campos: Partial<ReturnType<typeof camposPessoa>> = camposPessoa(formData, cpfCnpj, email)
+  // sem permissão: não mexe no limite de crédito (preserva o existente)
+  if (!(await podeAcao('credito_limite'))) delete campos.limite_credito
+  const { error } = await supabase.from('pessoas').update(campos).eq('id', id)
   if (error) redirect(`/painel/clientes/${id}/editar?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/clientes')
   redirect('/painel/clientes')
