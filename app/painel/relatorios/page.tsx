@@ -242,16 +242,125 @@ export default async function RelatoriosPage({
       .sort((a, b) => b.sugestao - a.sugestao)
   }
 
-  const abas = [
-    { id: 'financeiro', label: 'Financeiro' },
-    { id: 'fluxo', label: 'Fluxo de Caixa' },
-    { id: 'dre', label: 'DRE' },
-    { id: 'inadimplencia', label: 'Inadimplência' },
-    { id: 'vendas', label: 'Vendas' },
-    { id: 'lucro', label: 'Lucro' },
-    { id: 'produtos', label: 'Produtos' },
-    { id: 'abc', label: 'Curva ABC' },
-    { id: 'estoque', label: 'Estoque' },
+  // ---------- Formas de pagamento ----------
+  let rankFormas: { nome: string; total: number; qtd: number }[] = []
+  let totalFormas = 0
+  if (aba === 'formas') {
+    const { data: vs } = await supabase.from('vendas').select('id').eq('status', 'concluida')
+      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+    const ids = (vs ?? []).map((v) => v.id)
+    if (ids.length) {
+      const [{ data: pgs }, { data: formas }] = await Promise.all([
+        supabase.from('pagamentos_venda').select('valor, forma_pagamento_id').in('venda_id', ids),
+        supabase.from('formas_pagamento').select('id, nome'),
+      ])
+      const nomeF = Object.fromEntries((formas ?? []).map((f) => [f.id, f.nome]))
+      const mapa: Record<string, { total: number; qtd: number }> = {}
+      for (const p of (pgs ?? []) as { valor: number; forma_pagamento_id: string | null }[]) {
+        const nome = (p.forma_pagamento_id && nomeF[p.forma_pagamento_id]) || 'Não informado'
+        ;(mapa[nome] ??= { total: 0, qtd: 0 }).total += p.valor ?? 0
+        mapa[nome].qtd++
+      }
+      rankFormas = Object.entries(mapa).map(([nome, v]) => ({ nome, ...v })).sort((a, b) => b.total - a.total)
+      totalFormas = rankFormas.reduce((s, f) => s + f.total, 0)
+    }
+  }
+
+  // ---------- Vendas por loja ----------
+  let rankLojas: { nome: string; total: number; qtd: number }[] = []
+  if (aba === 'porloja') {
+    const [{ data: vs }, { data: lojasData }] = await Promise.all([
+      supabase.from('vendas').select('total, deposito_id, depositos(nome, loja_id)').eq('status', 'concluida')
+        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim),
+      supabase.from('lojas').select('id, nome'),
+    ])
+    const nomeLoja = Object.fromEntries((lojasData ?? []).map((l) => [l.id, l.nome]))
+    const mapa: Record<string, { total: number; qtd: number }> = {}
+    for (const v of (vs ?? []) as unknown as { total: number; depositos: { nome: string; loja_id: string | null } | null }[]) {
+      const loja = (v.depositos?.loja_id && nomeLoja[v.depositos.loja_id]) || v.depositos?.nome || 'Sem loja'
+      ;(mapa[loja] ??= { total: 0, qtd: 0 }).total += v.total ?? 0
+      mapa[loja].qtd++
+    }
+    rankLojas = Object.entries(mapa).map(([nome, v]) => ({ nome, ...v })).sort((a, b) => b.total - a.total)
+  }
+
+  // ---------- Vendas por vendedor ----------
+  let rankVendedores: { nome: string; total: number; qtd: number }[] = []
+  if (aba === 'porvendedor') {
+    const { data } = await supabase.from('vendas').select('total, vendedor_nome').eq('status', 'concluida')
+      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+    const mapa: Record<string, { total: number; qtd: number }> = {}
+    for (const v of (data ?? []) as { total: number; vendedor_nome: string | null }[]) {
+      const nome = v.vendedor_nome || 'Sem vendedor'
+      ;(mapa[nome] ??= { total: 0, qtd: 0 }).total += v.total ?? 0
+      mapa[nome].qtd++
+    }
+    rankVendedores = Object.entries(mapa).map(([nome, v]) => ({ nome, ...v })).sort((a, b) => b.total - a.total)
+  }
+
+  // ---------- Periodicidade (dia da semana) ----------
+  const DIAS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+  let periodicidade: { dia: string; total: number; qtd: number }[] = []
+  if (aba === 'periodicidade') {
+    const { data } = await supabase.from('vendas').select('total, created_at').eq('status', 'concluida')
+      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+    const buckets = DIAS.map((dia) => ({ dia, total: 0, qtd: 0 }))
+    for (const v of (data ?? []) as { total: number; created_at: string }[]) {
+      const wd = new Date(new Date(v.created_at).toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })).getDay()
+      buckets[wd].total += v.total ?? 0
+      buckets[wd].qtd++
+    }
+    periodicidade = buckets
+  }
+  const maxPeriodo = Math.max(...periodicidade.map((p) => p.total), 1)
+
+  // ---------- Clientes inativos (compraram mas sumiram há 60+ dias) ----------
+  let inativos: { nome: string; ultima: string; dias: number }[] = []
+  if (aba === 'inativos') {
+    const [{ data: vs }, { data: ps }] = await Promise.all([
+      supabase.from('vendas').select('pessoa_id, created_at').eq('status', 'concluida').not('pessoa_id', 'is', null),
+      supabase.from('pessoas').select('id, nome').in('tipo', ['cliente', 'ambos']).eq('ativo', true),
+    ])
+    const ultimaPorPessoa: Record<string, string> = {}
+    for (const v of (vs ?? []) as { pessoa_id: string; created_at: string }[]) {
+      if (!ultimaPorPessoa[v.pessoa_id] || v.created_at > ultimaPorPessoa[v.pessoa_id]) ultimaPorPessoa[v.pessoa_id] = v.created_at
+    }
+    const nomeP = Object.fromEntries((ps ?? []).map((p) => [p.id, p.nome]))
+    const agora = Date.now()
+    inativos = Object.entries(ultimaPorPessoa)
+      .map(([id, ultima]) => ({ nome: nomeP[id], ultima, dias: Math.floor((agora - new Date(ultima).getTime()) / 86400000) }))
+      .filter((x) => x.nome && x.dias >= 60)
+      .sort((a, b) => b.dias - a.dias)
+  }
+
+  // ---------- Aniversariantes do mês ----------
+  let aniversariantes: { nome: string; dia: number; telefone: string | null }[] = []
+  if (aba === 'aniversarios') {
+    const mesAtual = new Date().getMonth() + 1
+    const { data } = await supabase.from('pessoas').select('nome, data_nascimento, telefone, celular').not('data_nascimento', 'is', null)
+    aniversariantes = (data ?? [])
+      .map((p) => {
+        const d = new Date((p.data_nascimento as string) + 'T12:00:00')
+        return { nome: p.nome as string, mes: d.getMonth() + 1, dia: d.getDate(), telefone: (p.telefone as string) || (p.celular as string) || null }
+      })
+      .filter((p) => p.mes === mesAtual)
+      .sort((a, b) => a.dia - b.dia)
+  }
+
+  const categorias: { cat: string; abas: { id: string; label: string }[] }[] = [
+    { cat: 'Financeiro', abas: [
+      { id: 'financeiro', label: 'Lançamentos' }, { id: 'fluxo', label: 'Fluxo de Caixa' },
+      { id: 'dre', label: 'DRE' }, { id: 'inadimplencia', label: 'Inadimplência' },
+    ] },
+    { cat: 'Vendas', abas: [
+      { id: 'vendas', label: 'Vendas' }, { id: 'lucro', label: 'Lucro' }, { id: 'produtos', label: 'Mais vendidos' },
+      { id: 'abc', label: 'Curva ABC' }, { id: 'formas', label: 'Formas de pgto' }, { id: 'porloja', label: 'Por loja' },
+      { id: 'porvendedor', label: 'Por vendedor' }, { id: 'periodicidade', label: 'Periodicidade' },
+    ] },
+    { cat: 'Clientes', abas: [
+      { id: 'inativos', label: 'Inativos' }, { id: 'aniversarios', label: 'Aniversariantes' },
+    ] },
+    { cat: 'Estoque', abas: [{ id: 'estoque', label: 'Estoque e compra' }] },
   ]
 
   const Card = ({ label, valor, cor }: { label: string; valor: string; cor: string }) => (
@@ -269,13 +378,18 @@ export default async function RelatoriosPage({
         <Dica texto="Análises por período. Cada aba exporta CSV. Financeiro, fluxo de caixa, DRE, inadimplência, vendas, lucro, produtos, curva ABC e estoque." />
       </div>
 
-      {/* Abas */}
-      <div className="flex flex-wrap gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1 w-fit">
-        {abas.map((a) => (
-          <Link key={a.id} href={`/painel/relatorios?aba=${a.id}&de=${dataInicio}&ate=${dataFim}`}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${aba === a.id ? 'bg-white shadow-sm text-blue-700' : 'text-gray-500 hover:text-gray-700'}`}>
-            {a.label}
-          </Link>
+      {/* Abas por categoria (estilo SIGE) */}
+      <div className="space-y-2">
+        {categorias.map((c) => (
+          <div key={c.cat} className="flex flex-wrap items-center gap-1.5">
+            <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{c.cat}</span>
+            {c.abas.map((a) => (
+              <Link key={a.id} href={`/painel/relatorios?aba=${a.id}&de=${dataInicio}&ate=${dataFim}`}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${aba === a.id ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}>
+                {a.label}
+              </Link>
+            ))}
+          </div>
         ))}
       </div>
 
@@ -624,6 +738,137 @@ export default async function RelatoriosPage({
           </div>
         </div>
       )}
+
+      {/* ---------------- Formas de pagamento ---------------- */}
+      {aba === 'formas' && (
+        <div className="space-y-4">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              {totalFormas > 0 ? (
+                <Donut centro={fmt(totalFormas).replace('R$', 'R$ ')} centroLabel="recebido"
+                  slices={rankFormas.slice(0, 6).map((f, i) => ({ label: f.nome, valor: f.total, cor: ['#1B6CA8', '#F47920', '#22c55e', '#eab308', '#a855f7', '#94a3b8'][i] }))} />
+              ) : <p className="text-sm text-gray-400">Sem pagamentos no período.</p>}
+            </div>
+            <div className="flex-1">
+              <div className="mb-2 flex justify-end">
+                <ExportCsv filename={`formas_pagamento_${dataInicio}_${dataFim}.csv`}
+                  cols={[{ key: 'nome', label: 'Forma' }, { key: 'qtd', label: 'Qtd' }, { key: 'total', label: 'Total', money: true }]} rows={asRows(rankFormas)} />
+              </div>
+              <Tabela vazio={rankFormas.length === 0} vazioMsg="Sem pagamentos no período." head={['Forma', 'Qtd', 'Total', '%']} alinhas={['l', 'r', 'r', 'r']}>
+                {rankFormas.map((f, i) => (
+                  <tr key={i} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-800">{f.nome}</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-600">{f.qtd}</td>
+                    <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{fmt(f.total)}</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-500">{totalFormas > 0 ? ((f.total / totalFormas) * 100).toFixed(0) : 0}%</td>
+                  </tr>
+                ))}
+              </Tabela>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- Por loja ---------------- */}
+      {aba === 'porloja' && (
+        <RankSimples titulo="Vendas por loja" filename={`vendas_por_loja_${dataInicio}_${dataFim}.csv`}
+          rows={rankLojas} colLabel="Loja" />
+      )}
+
+      {/* ---------------- Por vendedor ---------------- */}
+      {aba === 'porvendedor' && (
+        <RankSimples titulo="Vendas por vendedor" filename={`vendas_por_vendedor_${dataInicio}_${dataFim}.csv`}
+          rows={rankVendedores} colLabel="Vendedor" />
+      )}
+
+      {/* ---------------- Periodicidade ---------------- */}
+      {aba === 'periodicidade' && (
+        <div className="space-y-4">
+          <p className="text-[11px] text-gray-400">Em que dia da semana a loja mais vende — útil pra escala e promoções.</p>
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-2">
+            {periodicidade.map((p) => (
+              <div key={p.dia} className="flex items-center gap-3">
+                <span className="w-20 shrink-0 text-sm text-gray-600">{p.dia}</span>
+                <div className="flex-1"><Barra frac={p.total / maxPeriodo} /></div>
+                <span className="w-28 shrink-0 text-right text-sm font-semibold text-gray-800">{fmt(p.total)}</span>
+                <span className="w-16 shrink-0 text-right text-xs text-gray-400">{p.qtd} vd</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- Clientes inativos ---------------- */}
+      {aba === 'inativos' && (
+        <div className="space-y-4">
+          <p className="text-[11px] text-gray-400">Clientes que já compraram mas não voltam há 60+ dias. Ligue e traga de volta.</p>
+          <div className="flex justify-end">
+            <ExportCsv filename={`clientes_inativos_${dataFim}.csv`}
+              cols={[{ key: 'nome', label: 'Cliente' }, { key: 'dias', label: 'Dias sem comprar' }, { key: 'ultima', label: 'Última compra' }]} rows={asRows(inativos)} />
+          </div>
+          <Tabela vazio={inativos.length === 0} vazioMsg="Nenhum cliente inativo. 👏" head={['Cliente', 'Última compra', 'Dias sem comprar']} alinhas={['l', 'l', 'r']}>
+            {inativos.map((c, i) => (
+              <tr key={i} className="hover:bg-gray-50">
+                <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.nome}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{formatDate(c.ultima)}</td>
+                <td className={`px-4 py-3 text-sm text-right font-medium ${c.dias > 120 ? 'text-red-600' : 'text-orange-500'}`}>{c.dias}</td>
+              </tr>
+            ))}
+          </Tabela>
+        </div>
+      )}
+
+      {/* ---------------- Aniversariantes ---------------- */}
+      {aba === 'aniversarios' && (
+        <div className="space-y-4">
+          <p className="text-[11px] text-gray-400">Aniversariantes deste mês — manda um desconto no WhatsApp e vende mais.</p>
+          <div className="flex justify-end">
+            <ExportCsv filename={`aniversariantes.csv`}
+              cols={[{ key: 'dia', label: 'Dia' }, { key: 'nome', label: 'Cliente' }, { key: 'telefone', label: 'Telefone' }]} rows={asRows(aniversariantes)} />
+          </div>
+          <Tabela vazio={aniversariantes.length === 0} vazioMsg="Ninguém faz aniversário este mês (ou faltam datas nos cadastros)." head={['Dia', 'Cliente', 'Telefone']} alinhas={['c', 'l', 'l']}>
+            {aniversariantes.map((a, i) => (
+              <tr key={i} className="hover:bg-gray-50">
+                <td className="px-4 py-3 text-center"><span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-pink-100 text-xs font-bold text-pink-700">{a.dia}</span></td>
+                <td className="px-4 py-3 text-sm font-medium text-gray-800">🎂 {a.nome}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{a.telefone || '—'}</td>
+              </tr>
+            ))}
+          </Tabela>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Ranking simples: uma dimensão × total + barra (por loja, por vendedor)
+function RankSimples({ titulo, filename, rows, colLabel }: { titulo: string; filename: string; rows: { nome: string; total: number; qtd: number }[]; colLabel: string }) {
+  const max = Math.max(...rows.map((r) => r.total), 1)
+  const totalGeral = rows.reduce((s, r) => s + r.total, 0)
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <div className="rounded-xl border border-gray-200 bg-white p-4"><p className="text-xs text-gray-500">Total</p><p className="text-xl font-bold text-blue-600">{totalGeral.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p></div>
+        <div className="rounded-xl border border-gray-200 bg-white p-4"><p className="text-xs text-gray-500">{colLabel}s</p><p className="text-xl font-bold text-gray-800">{rows.length}</p></div>
+      </div>
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-gray-800">{titulo}</h3>
+        <ExportCsv filename={filename} cols={[{ key: 'nome', label: colLabel }, { key: 'qtd', label: 'Vendas' }, { key: 'total', label: 'Total', money: true }]} rows={rows as unknown as Record<string, unknown>[]} />
+      </div>
+      <Tabela vazio={rows.length === 0} vazioMsg="Sem vendas no período." head={[colLabel, 'Vendas', 'Total']} alinhas={['l', 'r', 'r']}>
+        {rows.map((r, i) => (
+          <tr key={i} className="hover:bg-gray-50">
+            <td className="px-4 py-3 text-sm font-medium text-gray-800">{r.nome}</td>
+            <td className="px-4 py-3 text-sm text-right text-gray-600">{r.qtd}</td>
+            <td className="px-4 py-3">
+              <div className="flex items-center justify-end gap-2">
+                <div className="w-24 shrink-0"><Barra frac={r.total / max} /></div>
+                <span className="text-sm font-semibold text-gray-800">{r.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+              </div>
+            </td>
+          </tr>
+        ))}
+      </Tabela>
     </div>
   )
 }
