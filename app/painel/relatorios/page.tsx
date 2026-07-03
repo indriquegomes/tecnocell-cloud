@@ -686,7 +686,7 @@ export default async function RelatoriosPage({
                 slices={[
                   { label: 'Custo (CMV)', valor: dreCmv, cor: '#F47920' },
                   { label: 'Despesas', valor: dreDespesas, cor: '#ef4444' },
-                  { label: 'Resultado', valor: Math.max(0, dreResultado), cor: '#1B6CA8' },
+                  { label: dreResultado >= 0 ? 'Resultado' : 'Prejuízo', valor: dreResultado, cor: dreResultado >= 0 ? '#1B6CA8' : '#dc2626' },
                 ]}
               />
             ) : <p className="text-sm text-gray-400">Sem receita no período.</p>}
@@ -944,7 +944,7 @@ export default async function RelatoriosPage({
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
             <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
               {totalFormas > 0 ? (
-                <Donut centro={fmt(totalFormas).replace('R$', 'R$ ')} centroLabel="recebido"
+                <Donut centro={totalFormas >= 1000 ? `R$ ${(totalFormas / 1000).toFixed(1)}k` : fmt(totalFormas)} centroLabel="em vendas"
                   slices={rankFormas.slice(0, 6).map((f, i) => ({ label: f.nome, valor: f.total, cor: ['#1B6CA8', '#F47920', '#22c55e', '#eab308', '#a855f7', '#94a3b8'][i] }))} />
               ) : <p className="text-sm text-gray-400">Sem pagamentos no período.</p>}
             </div>
@@ -1098,18 +1098,20 @@ export default async function RelatoriosPage({
               </tr></thead>
               <tbody className="divide-y divide-gray-50">
                 {[
-                  { l: 'Receita', a: compAtual.receita, b: compAnt.receita, money: true },
-                  { l: 'Despesas', a: compAtual.despesas, b: compAnt.despesas, money: true },
-                  { l: 'Resultado', a: compAtual.receita - compAtual.despesas, b: compAnt.receita - compAnt.despesas, money: true },
-                  { l: 'Nº de vendas', a: compAtual.nvendas, b: compAnt.nvendas, money: false },
+                  { l: 'Receita', a: compAtual.receita, b: compAnt.receita, money: true, inv: false },
+                  { l: 'Despesas', a: compAtual.despesas, b: compAnt.despesas, money: true, inv: true },
+                  { l: 'Resultado', a: compAtual.receita - compAtual.despesas, b: compAnt.receita - compAnt.despesas, money: true, inv: false },
+                  { l: 'Nº de vendas', a: compAtual.nvendas, b: compAnt.nvendas, money: false, inv: false },
                 ].map((r, i) => {
                   const v = variacao(r.a, r.b)
+                  // pra despesas, subir é ruim (vermelho); pro resto, subir é bom (verde)
+                  const bom = r.inv ? v <= 0 : v >= 0
                   return (
                     <tr key={i} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-medium text-gray-800">{r.l}</td>
                       <td className="px-4 py-3 text-sm text-right text-gray-500">{r.money ? fmt(r.b) : r.b}</td>
                       <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{r.money ? fmt(r.a) : r.a}</td>
-                      <td className={`px-4 py-3 text-sm text-right font-semibold ${v >= 0 ? 'text-green-600' : 'text-red-500'}`}>{v >= 0 ? '▲' : '▼'} {Math.abs(v).toFixed(0)}%</td>
+                      <td className={`px-4 py-3 text-sm text-right font-semibold ${bom ? 'text-green-600' : 'text-red-500'}`}>{v >= 0 ? '▲' : '▼'} {Math.abs(v).toFixed(0)}%</td>
                     </tr>
                   )
                 })}
