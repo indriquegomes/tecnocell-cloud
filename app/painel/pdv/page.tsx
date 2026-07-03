@@ -1,5 +1,25 @@
+import { headers } from 'next/headers'
 import { createServiceClient } from '@/lib/supabase/server'
 import { PDVClient } from './PDVClient'
+
+// Config de PDV do usuário logado (lojas permitidas + padrão). Tolerante:
+// se a migration 2026-07-28 não rodou, devolve tudo liberado.
+async function configPdvUsuario(supabase: Awaited<ReturnType<typeof createServiceClient>>) {
+  try {
+    const h = await headers()
+    const userId = h.get('x-user-id')
+    if (!userId) return null
+    const { data } = await supabase.from('perfis')
+      .select('lojas_permitidas, pdv_loja_id, pdv_deposito_id')
+      .eq('id', userId).maybeSingle()
+    if (!data) return null
+    return {
+      lojasPermitidas: (data.lojas_permitidas ?? []) as string[],
+      pdvLojaId: (data.pdv_loja_id ?? null) as string | null,
+      pdvDepositoId: (data.pdv_deposito_id ?? null) as string | null,
+    }
+  } catch { return null }
+}
 
 export type PromoInfo = {
   id: string
@@ -84,6 +104,19 @@ export default async function PDVPage() {
     }
   }
 
+  // Restrição/padrão de lojas por usuário (Config PDV do perfil)
+  const cfg = await configPdvUsuario(supabase)
+  let lojasVisiveis = lojas ?? []
+  if (cfg?.lojasPermitidas?.length) {
+    lojasVisiveis = lojasVisiveis.filter((l) => cfg.lojasPermitidas.includes(l.id))
+  }
+  // loja padrão do usuário vai pra frente (vira o lojas[0] que o PDV usa de default)
+  if (cfg?.pdvLojaId && lojasVisiveis.some((l) => l.id === cfg.pdvLojaId)) {
+    lojasVisiveis = [...lojasVisiveis].sort((a, b) => (a.id === cfg.pdvLojaId ? -1 : b.id === cfg.pdvLojaId ? 1 : 0))
+  }
+  const idsVisiveis = new Set(lojasVisiveis.map((l) => l.id))
+  const depositosVisiveis = (depositos ?? []).filter((d) => !d.loja_id || idsVisiveis.has(d.loja_id))
+
   // Ordem fixa das formas de pagamento no PDV (as não listadas caem no fim, alfabético)
   const ORDEM_FORMAS = ['PIX', 'Dinheiro', 'Crédito Loja (Fiado)', 'Cartão de Débito', 'Cartão de Crédito']
   const formasOrdenadas = (formas ?? []).slice().sort((a, b) => {
@@ -112,8 +145,9 @@ export default async function PDVPage() {
         })}
         formas={formasOrdenadas}
         pessoas={pessoas ?? []}
-        depositos={depositos ?? []}
-        lojas={(lojas ?? []).map(({ senha_desconto, ...l }) => ({ ...l, exige_senha_desconto: !!senha_desconto }))}
+        depositos={depositosVisiveis}
+        lojas={lojasVisiveis.map(({ senha_desconto, ...l }) => ({ ...l, exige_senha_desconto: !!senha_desconto }))}
+        depositoInicial={cfg?.pdvDepositoId ?? undefined}
         maquinas={maquinas ?? []}
         tabelas={tabelas ?? []}
         precosPorTabela={precosPorTabela}

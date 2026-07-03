@@ -100,6 +100,13 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
 
   if (!userId || !nome) return { ok: false, message: 'Dados inválidos' }
 
+  // Config operacional (lojas + PDV padrão). lojas_permitidas vazio = todas.
+  const lojasPermitidas = (fd.getAll('lojas_permitidas') as string[]).filter(Boolean)
+  const pdvLojaId    = (fd.get('pdv_loja_id') as string) || null
+  const pdvDepositoId = (fd.get('pdv_deposito_id') as string) || null
+  const caixaRaw     = (fd.get('caixa_numero') as string) || ''
+  const caixaNumero  = caixaRaw.trim() === '' ? null : (parseInt(caixaRaw, 10) || null)
+
   const supabase = await createServiceClient()
   const { error } = await supabase.from('perfis').update({
     nome,
@@ -107,6 +114,10 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
     is_master: isMaster,
     ativo,
     cargo_id: (fd.get('cargo_id') as string) || null,
+    lojas_permitidas: lojasPermitidas,
+    pdv_loja_id: pdvLojaId,
+    pdv_deposito_id: pdvDepositoId,
+    caixa_numero: caixaNumero,
   }).eq('id', userId)
 
   if (error) return { ok: false, message: error.message }

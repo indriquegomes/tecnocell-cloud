@@ -155,9 +155,10 @@ interface Props {
   precosPorTabela: Record<string, Record<string, { qtd_min: number; preco: number }[]>>
   promosPorProduto: Record<string, PromoInfo[]>
   seriesPorProduto: Record<string, Record<string, string[]>>  // produto_id → deposito_id → [IMEIs em_estoque]
+  depositoInicial?: string   // depósito padrão do usuário (config PDV do perfil)
 }
 
-export function PDVClient({ produtos: produtosIniciais, formas, pessoas, depositos, lojas, maquinas, tabelas, precosPorTabela, promosPorProduto, seriesPorProduto }: Props) {
+export function PDVClient({ produtos: produtosIniciais, formas, pessoas, depositos, lojas, maquinas, tabelas, precosPorTabela, promosPorProduto, seriesPorProduto, depositoInicial }: Props) {
   const [produtos, setProdutos] = useState(produtosIniciais)
   const [busca, setBusca] = useState('')
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([])
@@ -275,6 +276,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   // entre lojas, então cada PC fica na sua loja. Sem loja chumbada.
   // Depósito padrão vem da configuração da loja; senão cai no 1º dela.
   function depoDefaultDaLoja(lj: string): string {
+    // 1º: depósito padrão do USUÁRIO (config PDV do perfil), se for desta loja
+    if (depositoInicial && depositos.some((d) => d.id === depositoInicial && d.loja_id === lj)) return depositoInicial
     const loja = lojas.find((l) => l.id === lj)
     if (loja?.deposito_padrao_id && depositos.some((d) => d.id === loja.deposito_padrao_id && d.loja_id === lj)) return loja.deposito_padrao_id
     return depositos.find((d) => d.loja_id === lj)?.id ?? ''

@@ -25,9 +25,15 @@ export interface Usuario {
   isMaster: boolean
   ativo: boolean
   cargoId: string | null
+  lojasPermitidas: string[]
+  pdvLojaId: string | null
+  pdvDepositoId: string | null
+  caixaNumero: number | null
   created_at: string
 }
 export type Cargo = { id: string; nome: string }
+export type Loja = { id: string; nome: string }
+export type Deposito = { id: string; nome: string; loja_id: string | null }
 
 function Feedback({ state }: { state: ActionResult | null }) {
   if (!state) return null
@@ -130,6 +136,67 @@ function CargoOuPermissoes({ cargos, cargoId: defaultCargo, permissoes, isMaster
         </p>
       </div>
       {!cargoId && <PermissoesGrid permissoes={permissoes} isMaster={isMaster} />}
+    </div>
+  )
+}
+
+// Lojas que a pessoa pode operar + o que já vem selecionado no PDV.
+// lojas_permitidas vazio = todas. Só aparece se houver >1 loja (senão não faz sentido).
+function LojasPdvConfig({ lojas, depositos, usuario }: { lojas: Loja[]; depositos: Deposito[]; usuario: Usuario }) {
+  const [permitidas, setPermitidas] = useState<Set<string>>(new Set(usuario.lojasPermitidas))
+  const [lojaPadrao, setLojaPadrao] = useState(usuario.pdvLojaId ?? '')
+
+  const togglePermitida = (id: string) => setPermitidas((prev) => {
+    const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n
+  })
+
+  // Lojas onde ela pode escolher o padrão = as permitidas (ou todas, se vazio).
+  const lojasDisponiveis = permitidas.size ? lojas.filter((l) => permitidas.has(l.id)) : lojas
+  const depositosDaLoja = lojaPadrao ? depositos.filter((d) => d.loja_id === lojaPadrao) : []
+
+  return (
+    <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
+      <p className="text-sm font-semibold text-gray-700">Lojas & PDV</p>
+
+      {lojas.length > 1 && (
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-gray-600">Lojas que pode operar</label>
+          <div className="grid grid-cols-2 gap-2">
+            {lojas.map((l) => {
+              const on = permitidas.has(l.id)
+              return (
+                <label key={l.id} className={`flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2 text-xs transition ${on ? 'border-blue-200 bg-blue-50 text-blue-700 font-semibold' : 'border-gray-200 bg-white text-gray-600'}`}>
+                  {l.nome}
+                  <input type="checkbox" name="lojas_permitidas" value={l.id} checked={on} onChange={() => togglePermitida(l.id)} className="h-4 w-4 rounded accent-blue-600" />
+                </label>
+              )
+            })}
+          </div>
+          <p className="mt-1 text-[11px] text-gray-400">Nenhuma marcada = pode operar todas.</p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-600">Loja padrão no PDV</label>
+          <select name="pdv_loja_id" value={lojaPadrao} onChange={(e) => setLojaPadrao(e.target.value)} className="field w-full text-sm">
+            <option value="">Automático</option>
+            {lojasDisponiveis.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-600">Depósito padrão</label>
+          <select name="pdv_deposito_id" defaultValue={usuario.pdvDepositoId ?? ''} className="field w-full text-sm" disabled={!lojaPadrao}>
+            <option value="">{lojaPadrao ? 'Padrão da loja' : 'Escolha a loja'}</option>
+            {depositosDaLoja.map((d) => <option key={d.id} value={d.id}>{d.nome}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div className="w-32">
+        <label className="mb-1 block text-xs font-medium text-gray-600">Nº do caixa</label>
+        <input name="caixa_numero" type="number" min="0" defaultValue={usuario.caixaNumero ?? ''} className="field w-full text-sm" placeholder="—" />
+      </div>
     </div>
   )
 }
@@ -241,7 +308,7 @@ function ConvidarModal({ cargos, onClose }: { cargos: Cargo[]; onClose: () => vo
   )
 }
 
-function EditarModal({ usuario, cargos, onClose }: { usuario: Usuario; cargos: Cargo[]; onClose: () => void }) {
+function EditarModal({ usuario, cargos, lojas, depositos, onClose }: { usuario: Usuario; cargos: Cargo[]; lojas: Loja[]; depositos: Deposito[]; onClose: () => void }) {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(atualizarPerfil, null)
   const [senhaState, senhaAction, senhaPending] = useActionState<ActionResult | null, FormData>(alterarSenha, null)
 
@@ -282,6 +349,7 @@ function EditarModal({ usuario, cargos, onClose }: { usuario: Usuario; cargos: C
               <label className="mb-2 block text-sm font-medium text-gray-700">Cargo / Permissões</label>
               <CargoOuPermissoes cargos={cargos} cargoId={usuario.cargoId} permissoes={usuario.permissoes} isMaster={usuario.isMaster} />
             </div>
+            <LojasPdvConfig lojas={lojas} depositos={depositos} usuario={usuario} />
             <div className="flex items-center justify-between pt-2">
               <Feedback state={state} />
               <button
@@ -315,7 +383,7 @@ function EditarModal({ usuario, cargos, onClose }: { usuario: Usuario; cargos: C
   )
 }
 
-export function UsuariosClient({ usuarios, cargos }: { usuarios: Usuario[]; cargos: Cargo[] }) {
+export function UsuariosClient({ usuarios, cargos, lojas, depositos }: { usuarios: Usuario[]; cargos: Cargo[]; lojas: Loja[]; depositos: Deposito[] }) {
   const [criando, setCriando] = useState(false)
   const [convidando, setConvidando] = useState(false)
   const [editando, setEditando] = useState<Usuario | null>(null)
@@ -411,7 +479,7 @@ export function UsuariosClient({ usuarios, cargos }: { usuarios: Usuario[]; carg
 
       {criando && <NovoUsuarioModal cargos={cargos} onClose={() => setCriando(false)} />}
       {convidando && <ConvidarModal cargos={cargos} onClose={() => setConvidando(false)} />}
-      {editando && <EditarModal usuario={editando} cargos={cargos} onClose={() => setEditando(null)} />}
+      {editando && <EditarModal usuario={editando} cargos={cargos} lojas={lojas} depositos={depositos} onClose={() => setEditando(null)} />}
     </div>
   )
 }
