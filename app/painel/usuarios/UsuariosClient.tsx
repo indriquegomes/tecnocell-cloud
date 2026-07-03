@@ -28,7 +28,6 @@ export interface Usuario {
   lojasPermitidas: string[]
   pdvLojaId: string | null
   pdvDepositoId: string | null
-  caixaNumero: number | null
   acessoHoraInicio: string | null
   acessoHoraFim: string | null
   acessoBloqSabado: boolean
@@ -199,15 +198,9 @@ function LojasPdvConfig({ lojas, depositos, usuario }: { lojas: Loja[]; deposito
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">Nº do caixa</label>
-          <input name="caixa_numero" type="number" min="0" defaultValue={usuario.caixaNumero ?? ''} className="field w-full text-sm" placeholder="—" />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">Meta de venda mensal (R$)</label>
-          <input name="meta_venda_mensal" type="number" step="0.01" min="0" defaultValue={usuario.metaVendaMensal || ''} className="field w-full text-sm" placeholder="0 = sem meta" />
-        </div>
+      <div className="w-48">
+        <label className="mb-1 block text-xs font-medium text-gray-600">Meta de venda mensal (R$)</label>
+        <input name="meta_venda_mensal" type="number" step="0.01" min="0" defaultValue={usuario.metaVendaMensal || ''} className="field w-full text-sm" placeholder="0 = sem meta" />
       </div>
     </div>
   )

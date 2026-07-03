@@ -104,9 +104,6 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
   const lojasPermitidas = (fd.getAll('lojas_permitidas') as string[]).filter(Boolean)
   const pdvLojaId    = (fd.get('pdv_loja_id') as string) || null
   const pdvDepositoId = (fd.get('pdv_deposito_id') as string) || null
-  const caixaRaw     = (fd.get('caixa_numero') as string) || ''
-  const caixaNumero  = caixaRaw.trim() === '' ? null : (parseInt(caixaRaw, 10) || null)
-
   // Restrição de acesso (checkbox lido com getAll — hidden+get() pegaria errado)
   const horaInicio = (fd.get('acesso_hora_inicio') as string) || null
   const horaFim    = (fd.get('acesso_hora_fim') as string) || null
@@ -126,7 +123,6 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
     lojas_permitidas: lojasPermitidas,
     pdv_loja_id: pdvLojaId,
     pdv_deposito_id: pdvDepositoId,
-    caixa_numero: caixaNumero,
     acesso_hora_inicio: horaInicio,
     acesso_hora_fim: horaFim,
     acesso_bloqueia_sabado: bloqSabado,
