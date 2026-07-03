@@ -47,7 +47,8 @@ const navCompleto: NavGroup[] = [
   {
     group: 'Financeiro',
     items: [
-      { href: '/painel/contas', label: 'Contas', permissao: 'financeiro' },
+      { href: '/painel/financeiro', label: 'Financeiro', permissao: 'financeiro' },
+      { href: '/painel/contas',     label: 'Contas',     permissao: 'financeiro' },
     ],
   },
   {
@@ -74,14 +75,7 @@ const navCompleto: NavGroup[] = [
   },
 ]
 
-const navEmConstrucao: NavGroup[] = [
-  {
-    group: 'Financeiro',
-    items: [
-      { href: '/painel/financeiro', label: 'Financeiro', permissao: 'financeiro' },
-    ],
-  },
-]
+const navEmConstrucao: NavGroup[] = []
 
 export function Sidebar({ permissoes, isMaster }: { permissoes: string[]; isMaster: boolean }) {
   const pathname = usePathname()
@@ -130,8 +124,10 @@ export function Sidebar({ permissoes, isMaster }: { permissoes: string[]; isMast
           )
         })}
 
-        {/* Divisor */}
-        <div className="mx-4 my-3 border-t border-dashed border-gray-200" />
+        {/* Divisor — só quando há módulos em construção */}
+        {navEmConstrucao.length > 0 && (
+          <div className="mx-4 my-3 border-t border-dashed border-gray-200" />
+        )}
 
         {/* Módulos em construção */}
         {navEmConstrucao.map((section) => {

@@ -52,6 +52,69 @@ export async function deletarPedido(id: string) {
   revalidatePath('/painel/pedidos')
 }
 
+// Faturar pedido → cria a venda de verdade (baixa estoque + fiado) via o mesmo
+// RPC do PDV. Retorna {ok,msg}. Aparelho com IMEI vai pelo PDV (precisa escolher série).
+export async function faturarPedido(id: string): Promise<{ ok: boolean; msg: string; vendaNumero?: number | null }> {
+  const usuario = await requirePermissao('pedidos')
+  const supabase = await createServiceClient()
+
+  const { data: pedido } = await supabase.from('pedidos')
+    .select('id, status, desconto, deposito_id, forma_pagamento_id, pessoa_id, vendedor_id, vendedor_nome, observacoes')
+    .eq('id', id).single()
+  if (!pedido) return { ok: false, msg: 'Pedido não encontrado.' }
+  if (pedido.status === 'faturado') return { ok: false, msg: 'Este pedido já foi faturado.' }
+  if (pedido.status === 'cancelado') return { ok: false, msg: 'Pedido cancelado não pode ser faturado.' }
+  if (!pedido.deposito_id) return { ok: false, msg: 'Defina o depósito no pedido antes de faturar.' }
+  if (!pedido.forma_pagamento_id) return { ok: false, msg: 'Defina a forma de pagamento no pedido antes de faturar.' }
+
+  const { data: itens } = await supabase.from('itens_pedido')
+    .select('produto_id, quantidade, preco_unitario, total_item, produtos(nome, controla_serie)')
+    .eq('pedido_id', id)
+  const lista = (itens ?? []) as unknown as { produto_id: string; quantidade: number; preco_unitario: number; total_item: number | null; produtos: { nome: string; controla_serie: boolean | null } | null }[]
+  if (lista.length === 0) return { ok: false, msg: 'Pedido sem itens.' }
+  if (lista.some((i) => i.produtos?.controla_serie)) {
+    return { ok: false, msg: 'Tem aparelho com IMEI. Fature pelo botão "Abrir no PDV" pra escolher a série.' }
+  }
+
+  const { data: forma } = await supabase.from('formas_pagamento').select('tipo, nome').eq('id', pedido.forma_pagamento_id).maybeSingle()
+  const isFiado = (forma?.tipo === 'credito_loja') || /fiado/i.test(forma?.nome ?? '')
+
+  const desconto = pedido.desconto ?? 0
+  const totalItens = lista.reduce((s, i) => s + (i.total_item ?? i.preco_unitario * i.quantidade), 0)
+  const total = Math.max(0, totalItens - desconto)
+
+  // Trava atômica: marca 'faturado' ANTES de criar a venda. Se dois cliques
+  // caírem juntos, só um consegue (o outro não acha linha pra atualizar).
+  const { data: marcado, error: eStatus } = await supabase.from('pedidos')
+    .update({ status: 'faturado' })
+    .eq('id', id).neq('status', 'faturado').neq('status', 'cancelado')
+    .select('id').maybeSingle()
+  if (eStatus) return { ok: false, msg: 'Não deu pra marcar como faturado (rode a migration 2026-08-01). ' + eStatus.message }
+  if (!marcado) return { ok: false, msg: 'Este pedido já foi faturado ou está cancelado.' }
+
+  const { data, error } = await supabase.rpc('finalizar_venda', {
+    p_itens: lista.map((i) => ({ produto_id: i.produto_id, nome: i.produtos?.nome ?? '', quantidade: i.quantidade, preco_unitario: i.preco_unitario })),
+    p_pagamentos: [{ forma_pagamento_id: pedido.forma_pagamento_id, valor: total, taxa: 0, maquina: '', parcelas: 1, status: isFiado ? 'pendente' : 'pago' }],
+    p_pessoa_id: pedido.pessoa_id,
+    p_desconto: desconto,
+    p_observacoes: `Faturado do pedido${pedido.observacoes ? ' — ' + pedido.observacoes : ''}`,
+    p_deposito_id: pedido.deposito_id,
+    p_series: [],
+    p_vendedor_id: pedido.vendedor_id ?? usuario.id,
+    p_vendedor_nome: pedido.vendedor_nome ?? usuario.email ?? '',
+    p_credito_valor: 0,
+  })
+  if (error) {
+    // venda falhou → devolve o pedido pro status anterior
+    await supabase.from('pedidos').update({ status: pedido.status }).eq('id', id)
+    return { ok: false, msg: error.message }
+  }
+
+  revalidatePath('/painel/pedidos')
+  revalidatePath(`/painel/pedidos/${id}`)
+  return { ok: true, msg: 'Pedido faturado!', vendaNumero: (data?.venda_numero ?? null) as number | null }
+}
+
 export async function adicionarItemPedido(pedidoId: string, formData: FormData) {
   await requirePermissao('pedidos')
   const supabase = await createServiceClient()

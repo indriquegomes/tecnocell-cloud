@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { adicionarItemPedido, removerItemPedido, atualizarStatusPedido, atualizarInfoPedido, atualizarDescontoFrete, atualizarObservacoesTermos, cancelarComMotivo } from '../actions'
+import { adicionarItemPedido, removerItemPedido, atualizarStatusPedido, atualizarInfoPedido, atualizarDescontoFrete, atualizarObservacoesTermos, cancelarComMotivo, faturarPedido } from '../actions'
 import { gerarOSDePedido } from '@/app/painel/os/actions'
 import { formatDate } from '@/lib/utils'
 
@@ -206,6 +206,18 @@ export function PedidoDetalheClient({
     router.refresh()
   }
 
+  const [faturando, setFaturando] = useState(false)
+  const [msgFaturar, setMsgFaturar] = useState<{ ok: boolean; texto: string } | null>(null)
+
+  const handleFaturar = async () => {
+    if (!confirm('Faturar este pedido? Isso cria a venda e baixa o estoque.')) return
+    setFaturando(true); setMsgFaturar(null)
+    const res = await faturarPedido(pedido.id)
+    setFaturando(false)
+    setMsgFaturar({ ok: res.ok, texto: res.ok ? `✓ ${res.msg}${res.vendaNumero ? ` (Venda #${res.vendaNumero})` : ''}` : `✗ ${res.msg}` })
+    if (res.ok) router.refresh()
+  }
+
   const [gerandoOS, setGerandoOS] = useState(false)
   const [erroOS, setErroOS] = useState('')
 
@@ -249,11 +261,17 @@ export function PedidoDetalheClient({
               Aprovar
             </button>
           )}
-          {(pedido.status === 'rascunho' || pedido.status === 'aprovado') && itens.length > 0 && (
-            <a href={`/painel/pdv?pedido=${pedido.id}`}
-              className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
-              Abrir no PDV
-            </a>
+          {(pedido.status === 'rascunho' || pedido.status === 'aprovado' || pedido.status === 'pendente') && itens.length > 0 && (
+            <>
+              <button onClick={handleFaturar} disabled={faturando}
+                className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50 transition">
+                {faturando ? 'Faturando...' : '💰 Faturar'}
+              </button>
+              <a href={`/painel/pdv?pedido=${pedido.id}`}
+                className="rounded-xl border border-green-200 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-50 transition">
+                Abrir no PDV
+              </a>
+            </>
           )}
           <button onClick={handleGerarOS} disabled={gerandoOS}
             className="rounded-xl border border-purple-200 px-4 py-2 text-sm font-semibold text-purple-600 hover:bg-purple-50 disabled:opacity-50 transition">
@@ -268,6 +286,11 @@ export function PedidoDetalheClient({
           {erroOS && <p className="text-xs text-red-500">{erroOS}</p>}
         </div>
       </div>
+      {msgFaturar && (
+        <div className={`rounded-xl border px-4 py-3 text-sm ${msgFaturar.ok ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
+          {msgFaturar.texto}
+        </div>
+      )}
 
       {/* Info cards */}
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
