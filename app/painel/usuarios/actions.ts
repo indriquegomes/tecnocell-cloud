@@ -107,6 +107,15 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
   const caixaRaw     = (fd.get('caixa_numero') as string) || ''
   const caixaNumero  = caixaRaw.trim() === '' ? null : (parseInt(caixaRaw, 10) || null)
 
+  // Restrição de acesso (checkbox lido com getAll — hidden+get() pegaria errado)
+  const horaInicio = (fd.get('acesso_hora_inicio') as string) || null
+  const horaFim    = (fd.get('acesso_hora_fim') as string) || null
+  const bloqSabado  = fd.getAll('acesso_bloqueia_sabado').includes('1')
+  const bloqDomingo = fd.getAll('acesso_bloqueia_domingo').includes('1')
+  const bloqFeriado = fd.getAll('acesso_bloqueia_feriado').includes('1')
+  const metaRaw = parseFloat((fd.get('meta_venda_mensal') as string) || '0')
+  const metaVendaMensal = isNaN(metaRaw) ? 0 : metaRaw
+
   const supabase = await createServiceClient()
   const { error } = await supabase.from('perfis').update({
     nome,
@@ -118,6 +127,12 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
     pdv_loja_id: pdvLojaId,
     pdv_deposito_id: pdvDepositoId,
     caixa_numero: caixaNumero,
+    acesso_hora_inicio: horaInicio,
+    acesso_hora_fim: horaFim,
+    acesso_bloqueia_sabado: bloqSabado,
+    acesso_bloqueia_domingo: bloqDomingo,
+    acesso_bloqueia_feriado: bloqFeriado,
+    meta_venda_mensal: metaVendaMensal,
   }).eq('id', userId)
 
   if (error) return { ok: false, message: error.message }

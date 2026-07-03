@@ -14,7 +14,7 @@ export default async function PainelVendedorPage({
   const dataInicio = de ?? inicioMes
   const dataFim = ate ?? hoje
 
-  const [{ data: vendas }, { data: pedidos }] = await Promise.all([
+  const [{ data: vendas }, { data: pedidos }, { data: configPdv }] = await Promise.all([
     supabase
       .from('vendas')
       .select('id, total, desconto, vendedor_nome, created_at')
@@ -26,7 +26,16 @@ export default async function PainelVendedorPage({
       .select('id, tipo, status')
       .gte('created_at', dataInicio + 'T00:00:00')
       .lte('created_at', dataFim + 'T23:59:59'),
+    supabase.from('configuracoes').select('valor').eq('chave', 'pdv').maybeSingle(),
   ])
+
+  // Comissão global (%) + metas por vendedora (nome do perfil = vendedor_nome da venda).
+  const comissaoPct = Number((configPdv?.valor as Record<string, number> | null)?.comissao_percentual ?? 0)
+  let metaPorNome: Record<string, number> = {}
+  try {
+    const { data: perfis } = await supabase.from('perfis').select('nome, meta_venda_mensal')
+    metaPorNome = Object.fromEntries((perfis ?? []).filter((p) => p.nome).map((p) => [p.nome as string, Number(p.meta_venda_mensal ?? 0)]))
+  } catch { /* migration 2026-07-29 ainda não rodou */ }
 
   const todasVendas = vendas ?? []
   const todosPedidos = pedidos ?? []
@@ -48,7 +57,9 @@ export default async function PainelVendedorPage({
     mapaVendedor[nome].vendas.push(v)
   }
 
-  const ranking = Object.values(mapaVendedor).sort((a, b) => b.total - a.total)
+  const ranking = Object.values(mapaVendedor)
+    .map((v) => ({ ...v, meta: metaPorNome[v.nome] ?? 0 }))
+    .sort((a, b) => b.total - a.total)
   const totalGeral = todasVendas.reduce((s, v) => s + (v.total ?? 0), 0)
 
   // Vendas diárias para o gráfico
@@ -80,6 +91,7 @@ export default async function PainelVendedorPage({
       vendasVendedor={vendasVendedor}
       vendasDiarias={vendasDiarias}
       resumoPedidos={{ orcamentos, finalizados, cancelados }}
+      comissaoPct={comissaoPct}
     />
   )
 }

@@ -1,8 +1,10 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { PainelShell } from '@/components/PainelShell'
-import { createServiceClient, permissoesEfetivas } from '@/lib/supabase/server'
+import { createServiceClient, permissoesEfetivas, configAcesso } from '@/lib/supabase/server'
 import { permissaoPorRota, temPermissao } from '@/lib/permissoes'
+import { acessoBloqueado } from '@/lib/acesso'
 
 export default async function PainelLayout({ children }: { children: React.ReactNode }) {
   const h = await headers()
@@ -30,6 +32,23 @@ export default async function PainelLayout({ children }: { children: React.React
 
   // Conta desativada → logout
   if (!ativo) redirect('/api/auth/signout')
+
+  // Restrição de horário/dias — Master (dono) sempre entra.
+  if (userId && !isMaster) {
+    const motivo = acessoBloqueado(await configAcesso(userId))
+    if (motivo) {
+      return (
+        <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-gray-50 px-6 text-center">
+          <div className="text-5xl">🔒</div>
+          <h1 className="text-xl font-bold text-gray-800">Fora do horário de acesso</h1>
+          <p className="max-w-sm text-sm text-gray-500">{motivo}</p>
+          <Link href="/api/auth/signout" className="rounded-xl bg-gray-800 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-900 transition">
+            Sair
+          </Link>
+        </div>
+      )
+    }
+  }
 
   // Checa permissão para a rota atual
   const permNecessaria = permissaoPorRota(pathname)

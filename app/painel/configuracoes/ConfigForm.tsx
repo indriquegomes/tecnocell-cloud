@@ -88,6 +88,20 @@ export function ConfigForm({ dados, dadosPdv }: { dados: Record<string, string>;
           />
           <p className="text-xs text-gray-400 mt-1">Bloqueia o fechamento se a diferença entre contado e esperado ultrapassar este valor. Zero desativa o bloqueio.</p>
         </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Comissão das vendedoras (%)</label>
+          <input
+            name="comissao_percentual"
+            type="number"
+            step="0.1"
+            min="0"
+            max="100"
+            defaultValue={dadosPdv.comissao_percentual ?? 0}
+            className="field"
+            placeholder="Ex: 2"
+          />
+          <p className="text-xs text-gray-400 mt-1">% global sobre o total vendido, igual pra todas. Aparece no Painel de Vendas. Zero desativa.</p>
+        </div>
       </div>
 
       <div className="pt-2">

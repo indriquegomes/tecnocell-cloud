@@ -133,6 +133,26 @@ export async function podeAcao(key: string, accessToken?: string): Promise<boole
   }
 }
 
+// Config de restrição de acesso (horário/dias). Tolerante: se a migration
+// 2026-07-29 não rodou, devolve tudo liberado.
+export async function configAcesso(userId: string): Promise<import('@/lib/acesso').AcessoConfig> {
+  const vazio = { horaInicio: null, horaFim: null, bloqSabado: false, bloqDomingo: false, bloqFeriado: false }
+  try {
+    const service = await createServiceClient()
+    const { data } = await service.from('perfis')
+      .select('acesso_hora_inicio, acesso_hora_fim, acesso_bloqueia_sabado, acesso_bloqueia_domingo, acesso_bloqueia_feriado')
+      .eq('id', userId).maybeSingle()
+    if (!data) return vazio
+    return {
+      horaInicio: data.acesso_hora_inicio ?? null,
+      horaFim: data.acesso_hora_fim ?? null,
+      bloqSabado: data.acesso_bloqueia_sabado ?? false,
+      bloqDomingo: data.acesso_bloqueia_domingo ?? false,
+      bloqFeriado: data.acesso_bloqueia_feriado ?? false,
+    }
+  } catch { return vazio }
+}
+
 // Valida sessão E permissão. As server actions NÃO passam pelo layout do painel,
 // então sem isto dá pra chamar a action direto via POST sem ter acesso ao módulo.
 export async function requirePermissao(

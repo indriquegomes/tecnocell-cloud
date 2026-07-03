@@ -21,8 +21,10 @@ export async function salvarConfiguracoes(_prev: State, formData: FormData): Pro
   }
 
   const limiteDivergenciaRaw = parseFloat(formData.get('limite_divergencia') as string)
+  const comissaoRaw = parseFloat(formData.get('comissao_percentual') as string)
   const valorPdv = {
     limite_divergencia: isNaN(limiteDivergenciaRaw) ? 0 : limiteDivergenciaRaw,
+    comissao_percentual: isNaN(comissaoRaw) ? 0 : comissaoRaw,
   }
 
   const [r1, r2] = await Promise.all([

@@ -29,6 +29,12 @@ export interface Usuario {
   pdvLojaId: string | null
   pdvDepositoId: string | null
   caixaNumero: number | null
+  acessoHoraInicio: string | null
+  acessoHoraFim: string | null
+  acessoBloqSabado: boolean
+  acessoBloqDomingo: boolean
+  acessoBloqFeriado: boolean
+  metaVendaMensal: number
   created_at: string
 }
 export type Cargo = { id: string; nome: string }
@@ -193,9 +199,57 @@ function LojasPdvConfig({ lojas, depositos, usuario }: { lojas: Loja[]; deposito
         </div>
       </div>
 
-      <div className="w-32">
-        <label className="mb-1 block text-xs font-medium text-gray-600">Nº do caixa</label>
-        <input name="caixa_numero" type="number" min="0" defaultValue={usuario.caixaNumero ?? ''} className="field w-full text-sm" placeholder="—" />
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-600">Nº do caixa</label>
+          <input name="caixa_numero" type="number" min="0" defaultValue={usuario.caixaNumero ?? ''} className="field w-full text-sm" placeholder="—" />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-600">Meta de venda mensal (R$)</label>
+          <input name="meta_venda_mensal" type="number" step="0.01" min="0" defaultValue={usuario.metaVendaMensal || ''} className="field w-full text-sm" placeholder="0 = sem meta" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Restrição de horário/dias de acesso (Master ignora). Só bloqueia a menina.
+function RestricaoAcesso({ usuario }: { usuario: Usuario }) {
+  const [limitar, setLimitar] = useState(!!(usuario.acessoHoraInicio && usuario.acessoHoraFim))
+  return (
+    <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
+      <p className="text-sm font-semibold text-gray-700">Restrição de acesso</p>
+
+      <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+        <input type="checkbox" checked={limitar} onChange={(e) => setLimitar(e.target.checked)} className="h-4 w-4 rounded accent-blue-600" />
+        Limitar horário de acesso
+      </label>
+      {limitar && (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-600">Das</label>
+            <input name="acesso_hora_inicio" type="time" defaultValue={usuario.acessoHoraInicio ?? '08:00'} className="field w-full text-sm" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-600">Até</label>
+            <input name="acesso_hora_fim" type="time" defaultValue={usuario.acessoHoraFim ?? '19:00'} className="field w-full text-sm" />
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-4 pt-1">
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" name="acesso_bloqueia_sabado" value="1" defaultChecked={usuario.acessoBloqSabado} className="h-4 w-4 rounded accent-blue-600" />
+          Bloquear sábado
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" name="acesso_bloqueia_domingo" value="1" defaultChecked={usuario.acessoBloqDomingo} className="h-4 w-4 rounded accent-blue-600" />
+          Bloquear domingo
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" name="acesso_bloqueia_feriado" value="1" defaultChecked={usuario.acessoBloqFeriado} className="h-4 w-4 rounded accent-blue-600" />
+          Bloquear feriado
+        </label>
       </div>
     </div>
   )
@@ -350,6 +404,7 @@ function EditarModal({ usuario, cargos, lojas, depositos, onClose }: { usuario: 
               <CargoOuPermissoes cargos={cargos} cargoId={usuario.cargoId} permissoes={usuario.permissoes} isMaster={usuario.isMaster} />
             </div>
             <LojasPdvConfig lojas={lojas} depositos={depositos} usuario={usuario} />
+            <RestricaoAcesso usuario={usuario} />
             <div className="flex items-center justify-between pt-2">
               <Feedback state={state} />
               <button
