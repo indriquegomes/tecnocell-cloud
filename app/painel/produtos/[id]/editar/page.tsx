@@ -47,7 +47,7 @@ export default async function EditarProdutoPage({ params }: { params: Promise<{ 
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Descrição</label>
             <textarea name="descricao" rows={3} defaultValue={produto.descricao ?? ''} className="field resize-none" />
           </div>
-          <PrecoFields custoInicial={produto.preco_custo ?? 0} vendaInicial={produto.preco ?? 0} podeCusto={podeCusto} />
+          <PrecoFields custoInicial={produto.preco_custo ?? 0} vendaInicial={produto.preco ?? 0} minimoInicial={produto.preco_minimo ?? 0} podeCusto={podeCusto} />
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Categoria</label>
             <select name="categoria" defaultValue={produto.categoria ?? ''} className="field">

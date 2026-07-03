@@ -10,11 +10,12 @@ async function configPdvUsuario(supabase: Awaited<ReturnType<typeof createServic
     const userId = h.get('x-user-id')
     if (!userId) return null
     const { data } = await supabase.from('perfis')
-      .select('lojas_permitidas, pdv_loja_id, pdv_deposito_id')
+      .select('lojas_permitidas, tabelas_permitidas, pdv_loja_id, pdv_deposito_id')
       .eq('id', userId).maybeSingle()
     if (!data) return null
     return {
       lojasPermitidas: (data.lojas_permitidas ?? []) as string[],
+      tabelasPermitidas: ((data as { tabelas_permitidas?: string[] | null }).tabelas_permitidas ?? []) as string[],
       pdvLojaId: (data.pdv_loja_id ?? null) as string | null,
       pdvDepositoId: (data.pdv_deposito_id ?? null) as string | null,
     }
@@ -117,6 +118,12 @@ export default async function PDVPage() {
   const idsVisiveis = new Set(lojasVisiveis.map((l) => l.id))
   const depositosVisiveis = (depositos ?? []).filter((d) => !d.loja_id || idsVisiveis.has(d.loja_id))
 
+  // Tabelas de preço visíveis pro usuário (vazio = todas; Preço Padrão sempre existe)
+  let tabelasVisiveis = tabelas ?? []
+  if (cfg?.tabelasPermitidas?.length) {
+    tabelasVisiveis = tabelasVisiveis.filter((t) => cfg.tabelasPermitidas.includes(t.id))
+  }
+
   // Ordem fixa das formas de pagamento no PDV (as não listadas caem no fim, alfabético)
   const ORDEM_FORMAS = ['PIX', 'Dinheiro', 'Crédito Loja (Fiado)', 'Cartão de Débito', 'Cartão de Crédito']
   const formasOrdenadas = (formas ?? []).slice().sort((a, b) => {
@@ -149,7 +156,7 @@ export default async function PDVPage() {
         lojas={lojasVisiveis.map(({ senha_desconto, ...l }) => ({ ...l, exige_senha_desconto: !!senha_desconto }))}
         depositoInicial={cfg?.pdvDepositoId ?? undefined}
         maquinas={maquinas ?? []}
-        tabelas={tabelas ?? []}
+        tabelas={tabelasVisiveis}
         precosPorTabela={precosPorTabela}
         promosPorProduto={promosPorProduto}
         seriesPorProduto={seriesPorProduto}

@@ -102,6 +102,7 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
 
   // Config operacional (lojas + PDV padrão). lojas_permitidas vazio = todas.
   const lojasPermitidas = (fd.getAll('lojas_permitidas') as string[]).filter(Boolean)
+  const tabelasPermitidas = (fd.getAll('tabelas_permitidas') as string[]).filter(Boolean)
   const pdvLojaId    = (fd.get('pdv_loja_id') as string) || null
   const pdvDepositoId = (fd.get('pdv_deposito_id') as string) || null
   // Restrição de acesso (checkbox lido com getAll — hidden+get() pegaria errado)
@@ -121,6 +122,7 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
     ativo,
     cargo_id: (fd.get('cargo_id') as string) || null,
     lojas_permitidas: lojasPermitidas,
+    tabelas_permitidas: tabelasPermitidas,
     pdv_loja_id: pdvLojaId,
     pdv_deposito_id: pdvDepositoId,
     acesso_hora_inicio: horaInicio,

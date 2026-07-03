@@ -1,10 +1,13 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, permissoesUsuarioAtual } from '@/lib/supabase/server'
+import { temPermissao } from '@/lib/permissoes'
 import { formatBRL, formatDate } from '@/lib/utils'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 
 export default async function DashboardPage() {
   const supabase = await createServiceClient()
+  const { permissoes, isMaster } = await permissoesUsuarioAtual()
+  const pode = (k: string) => temPermissao(permissoes, k, isMaster)
 
   const [
     { count: totalProdutos },
@@ -40,6 +43,7 @@ export default async function DashboardPage() {
 
   const totalVendasHoje = (vendasHoje ?? []).reduce((s, v) => s + (v.total ?? 0), 0)
 
+  // Cada card/atalho só aparece pra quem tem a permissão do módulo
   const cards = [
     {
       label: 'Produtos Ativos',
@@ -47,6 +51,7 @@ export default async function DashboardPage() {
       icon: '📦',
       href: '/painel/produtos',
       color: 'bg-blue-50 text-blue-700',
+      permissao: 'produtos',
     },
     {
       label: 'Vendas Hoje',
@@ -54,6 +59,7 @@ export default async function DashboardPage() {
       icon: '🛒',
       href: '/painel/pdv',
       color: 'bg-green-50 text-green-700',
+      permissao: 'vendas',
     },
     {
       label: 'Estoque Baixo',
@@ -61,6 +67,7 @@ export default async function DashboardPage() {
       icon: '⚠️',
       href: '/painel/estoque',
       color: estoqueBaixo > 0 ? 'bg-yellow-50 text-yellow-700' : 'bg-gray-50 text-gray-600',
+      permissao: 'estoque',
     },
     {
       label: 'Clientes',
@@ -68,8 +75,9 @@ export default async function DashboardPage() {
       icon: '👥',
       href: '/painel/clientes',
       color: 'bg-purple-50 text-purple-700',
+      permissao: 'clientes',
     },
-  ]
+  ].filter((c) => pode(c.permissao))
 
   return (
     <div className="space-y-6">
@@ -78,7 +86,7 @@ export default async function DashboardPage() {
           <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
           <Dica texto="Visão geral do sistema: estoque, vendas do dia, contas pendentes e indicadores principais." />
         </div>
-        <span className="text-xs text-gray-400">{itensEmEstoque} itens em estoque</span>
+        {pode('estoque') && <span className="text-xs text-gray-400">{itensEmEstoque} itens em estoque</span>}
       </div>
 
       {/* Cards de resumo */}
@@ -100,7 +108,8 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {/* Resumo financeiro */}
+      {/* Resumo financeiro — só pra quem tem financeiro */}
+      {pode('financeiro') && (
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <h3 className="mb-3 text-sm font-semibold text-gray-500 uppercase tracking-wide">A Receber</h3>
@@ -117,9 +126,10 @@ export default async function DashboardPage() {
           </Link>
         </div>
       </div>
+      )}
 
       {/* Lançamentos recentes */}
-      {(lancamentosRecentes ?? []).length > 0 && (
+      {pode('financeiro') && (lancamentosRecentes ?? []).length > 0 && (
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
             <h3 className="font-semibold text-gray-800">Últimos Lançamentos</h3>
@@ -144,16 +154,20 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Atalhos */}
+      {/* Atalhos — por permissão */}
       <div className="grid gap-3 sm:grid-cols-3">
+        {pode('pdv') && (
         <Link href="/painel/pdv"
           className="flex items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-white p-4 text-sm font-medium text-gray-600 transition hover:border-green-400 hover:text-green-600">
           <span className="text-xl">🛒</span> Abrir PDV
         </Link>
+        )}
+        {pode('financeiro') && (
         <Link href="/painel/financeiro/novo"
           className="flex items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-white p-4 text-sm font-medium text-gray-600 transition hover:border-blue-400 hover:text-blue-600">
           <span className="text-xl">💰</span> Novo Lançamento
         </Link>
+        )}
         <Link href="/painel/chat"
           className="flex items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-white p-4 text-sm font-medium text-gray-600 transition hover:border-blue-400 hover:text-blue-600">
           <span className="text-xl">🤖</span> Chat com IA

@@ -26,6 +26,7 @@ export interface Usuario {
   ativo: boolean
   cargoId: string | null
   lojasPermitidas: string[]
+  tabelasPermitidas: string[]
   pdvLojaId: string | null
   pdvDepositoId: string | null
   acessoHoraInicio: string | null
@@ -39,6 +40,7 @@ export interface Usuario {
 export type Cargo = { id: string; nome: string }
 export type Loja = { id: string; nome: string }
 export type Deposito = { id: string; nome: string; loja_id: string | null }
+export type Tabela = { id: string; nome: string }
 
 function Feedback({ state }: { state: ActionResult | null }) {
   if (!state) return null
@@ -147,11 +149,15 @@ function CargoOuPermissoes({ cargos, cargoId: defaultCargo, permissoes, isMaster
 
 // Lojas que a pessoa pode operar + o que já vem selecionado no PDV.
 // lojas_permitidas vazio = todas. Só aparece se houver >1 loja (senão não faz sentido).
-function LojasPdvConfig({ lojas, depositos, usuario }: { lojas: Loja[]; depositos: Deposito[]; usuario: Usuario }) {
+function LojasPdvConfig({ lojas, depositos, tabelas, usuario }: { lojas: Loja[]; depositos: Deposito[]; tabelas: Tabela[]; usuario: Usuario }) {
   const [permitidas, setPermitidas] = useState<Set<string>>(new Set(usuario.lojasPermitidas))
+  const [tabsSel, setTabsSel] = useState<Set<string>>(new Set(usuario.tabelasPermitidas))
   const [lojaPadrao, setLojaPadrao] = useState(usuario.pdvLojaId ?? '')
 
   const togglePermitida = (id: string) => setPermitidas((prev) => {
+    const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n
+  })
+  const toggleTabela = (id: string) => setTabsSel((prev) => {
     const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n
   })
 
@@ -202,6 +208,24 @@ function LojasPdvConfig({ lojas, depositos, usuario }: { lojas: Loja[]; deposito
         <label className="mb-1 block text-xs font-medium text-gray-600">Meta de venda mensal (R$)</label>
         <input name="meta_venda_mensal" type="number" step="0.01" min="0" defaultValue={usuario.metaVendaMensal || ''} className="field w-full text-sm" placeholder="0 = sem meta" />
       </div>
+
+      {tabelas.length > 0 && (
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-gray-600">Tabelas de preço visíveis no PDV</label>
+          <div className="grid grid-cols-2 gap-2">
+            {tabelas.map((t) => {
+              const on = tabsSel.has(t.id)
+              return (
+                <label key={t.id} className={`flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2 text-xs transition ${on ? 'border-blue-200 bg-blue-50 text-blue-700 font-semibold' : 'border-gray-200 bg-white text-gray-600'}`}>
+                  {t.nome}
+                  <input type="checkbox" name="tabelas_permitidas" value={t.id} checked={on} onChange={() => toggleTabela(t.id)} className="h-4 w-4 rounded accent-blue-600" />
+                </label>
+              )
+            })}
+          </div>
+          <p className="mt-1 text-[11px] text-gray-400">Nenhuma marcada = vê todas. Preço Padrão sempre aparece.</p>
+        </div>
+      )}
     </div>
   )
 }
@@ -355,7 +379,7 @@ function ConvidarModal({ cargos, onClose }: { cargos: Cargo[]; onClose: () => vo
   )
 }
 
-function EditarModal({ usuario, cargos, lojas, depositos, onClose }: { usuario: Usuario; cargos: Cargo[]; lojas: Loja[]; depositos: Deposito[]; onClose: () => void }) {
+function EditarModal({ usuario, cargos, lojas, depositos, tabelas, onClose }: { usuario: Usuario; cargos: Cargo[]; lojas: Loja[]; depositos: Deposito[]; tabelas: Tabela[]; onClose: () => void }) {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(atualizarPerfil, null)
   const [senhaState, senhaAction, senhaPending] = useActionState<ActionResult | null, FormData>(alterarSenha, null)
 
@@ -396,7 +420,7 @@ function EditarModal({ usuario, cargos, lojas, depositos, onClose }: { usuario: 
               <label className="mb-2 block text-sm font-medium text-gray-700">Cargo / Permissões</label>
               <CargoOuPermissoes cargos={cargos} cargoId={usuario.cargoId} permissoes={usuario.permissoes} isMaster={usuario.isMaster} />
             </div>
-            <LojasPdvConfig lojas={lojas} depositos={depositos} usuario={usuario} />
+            <LojasPdvConfig lojas={lojas} depositos={depositos} tabelas={tabelas} usuario={usuario} />
             <RestricaoAcesso usuario={usuario} />
             <div className="flex items-center justify-between pt-2">
               <Feedback state={state} />
@@ -431,7 +455,7 @@ function EditarModal({ usuario, cargos, lojas, depositos, onClose }: { usuario: 
   )
 }
 
-export function UsuariosClient({ usuarios, cargos, lojas, depositos }: { usuarios: Usuario[]; cargos: Cargo[]; lojas: Loja[]; depositos: Deposito[] }) {
+export function UsuariosClient({ usuarios, cargos, lojas, depositos, tabelas }: { usuarios: Usuario[]; cargos: Cargo[]; lojas: Loja[]; depositos: Deposito[]; tabelas: Tabela[] }) {
   const [criando, setCriando] = useState(false)
   const [convidando, setConvidando] = useState(false)
   const [editando, setEditando] = useState<Usuario | null>(null)
@@ -527,7 +551,7 @@ export function UsuariosClient({ usuarios, cargos, lojas, depositos }: { usuario
 
       {criando && <NovoUsuarioModal cargos={cargos} onClose={() => setCriando(false)} />}
       {convidando && <ConvidarModal cargos={cargos} onClose={() => setConvidando(false)} />}
-      {editando && <EditarModal usuario={editando} cargos={cargos} lojas={lojas} depositos={depositos} onClose={() => setEditando(null)} />}
+      {editando && <EditarModal usuario={editando} cargos={cargos} lojas={lojas} depositos={depositos} tabelas={tabelas} onClose={() => setEditando(null)} />}
     </div>
   )
 }

@@ -4,7 +4,7 @@ import { UsuariosClient } from './UsuariosClient'
 // Lê a config de PDV do perfil de forma tolerante — se a migration
 // (colunas lojas_permitidas/pdv_*) ainda não rodou, não quebra a página.
 type CfgPerfil = {
-  lojasPermitidas: string[]; pdvLojaId: string | null; pdvDepositoId: string | null
+  lojasPermitidas: string[]; tabelasPermitidas: string[]; pdvLojaId: string | null; pdvDepositoId: string | null
   acessoHoraInicio: string | null; acessoHoraFim: string | null
   acessoBloqSabado: boolean; acessoBloqDomingo: boolean; acessoBloqFeriado: boolean
   metaVendaMensal: number
@@ -13,10 +13,11 @@ async function configPdvPorPerfil(
   supabase: Awaited<ReturnType<typeof createServiceClient>>
 ): Promise<Record<string, CfgPerfil>> {
   try {
-    const { data } = await supabase.from('perfis').select('id, lojas_permitidas, pdv_loja_id, pdv_deposito_id, acesso_hora_inicio, acesso_hora_fim, acesso_bloqueia_sabado, acesso_bloqueia_domingo, acesso_bloqueia_feriado, meta_venda_mensal')
+    const { data } = await supabase.from('perfis').select('id, lojas_permitidas, tabelas_permitidas, pdv_loja_id, pdv_deposito_id, acesso_hora_inicio, acesso_hora_fim, acesso_bloqueia_sabado, acesso_bloqueia_domingo, acesso_bloqueia_feriado, meta_venda_mensal')
     return Object.fromEntries(
       (data ?? []).map((p) => [p.id, {
         lojasPermitidas: (p.lojas_permitidas ?? []) as string[],
+        tabelasPermitidas: ((p as { tabelas_permitidas?: string[] | null }).tabelas_permitidas ?? []) as string[],
         pdvLojaId: p.pdv_loja_id ?? null,
         pdvDepositoId: p.pdv_deposito_id ?? null,
         acessoHoraInicio: p.acesso_hora_inicio ?? null,
@@ -34,13 +35,14 @@ export default async function UsuariosPage() {
   const supabase = await createServiceClient()
 
   // Lista usuários do Auth + perfis
-  const [authResult, perfisResult, cargosResult, lojasResult, depositosResult, cfgPdv] = await Promise.all([
+  const [authResult, perfisResult, cargosResult, lojasResult, depositosResult, cfgPdv, tabelasResult] = await Promise.all([
     supabase.auth.admin.listUsers(),
     supabase.from('perfis').select('id, nome, permissoes, is_master, ativo, created_at, cargo_id'),
     supabase.from('cargos').select('id, nome').eq('ativo', true).order('nome'),
     supabase.from('lojas').select('id, nome').eq('ativa', true).order('nome'),
     supabase.from('depositos').select('id, nome, loja_id').order('nome'),
     configPdvPorPerfil(supabase),
+    supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).order('nome'),
   ])
 
   const authUsers = authResult.data?.users ?? []
@@ -50,6 +52,7 @@ export default async function UsuariosPage() {
   const cargos = (cargosResult.data ?? []) as { id: string; nome: string }[]
   const lojas = (lojasResult.data ?? []) as { id: string; nome: string }[]
   const depositos = (depositosResult.data ?? []) as { id: string; nome: string; loja_id: string | null }[]
+  const tabelas = (tabelasResult.data ?? []) as { id: string; nome: string }[]
 
   const usuarios = authUsers
     .filter((u) => perfisMap[u.id])
@@ -62,6 +65,7 @@ export default async function UsuariosPage() {
       ativo: perfisMap[u.id]?.ativo ?? true,
       cargoId: (perfisMap[u.id] as { cargo_id?: string | null })?.cargo_id ?? null,
       lojasPermitidas: cfgPdv[u.id]?.lojasPermitidas ?? [],
+      tabelasPermitidas: cfgPdv[u.id]?.tabelasPermitidas ?? [],
       pdvLojaId: cfgPdv[u.id]?.pdvLojaId ?? null,
       pdvDepositoId: cfgPdv[u.id]?.pdvDepositoId ?? null,
       acessoHoraInicio: cfgPdv[u.id]?.acessoHoraInicio ?? null,
@@ -73,5 +77,5 @@ export default async function UsuariosPage() {
       created_at: u.created_at,
     }))
 
-  return <UsuariosClient usuarios={usuarios} cargos={cargos} lojas={lojas} depositos={depositos} />
+  return <UsuariosClient usuarios={usuarios} cargos={cargos} lojas={lojas} depositos={depositos} tabelas={tabelas} />
 }

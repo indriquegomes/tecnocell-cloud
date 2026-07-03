@@ -5,7 +5,7 @@ import { useState } from 'react'
 const round2 = (n: number) => Math.round(n * 100) / 100
 const fmt = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-export function PrecoFields({ custoInicial = 0, vendaInicial = 0, podeCusto = true }: { custoInicial?: number; vendaInicial?: number; podeCusto?: boolean }) {
+export function PrecoFields({ custoInicial = 0, vendaInicial = 0, minimoInicial = 0, podeCusto = true }: { custoInicial?: number; vendaInicial?: number; minimoInicial?: number; podeCusto?: boolean }) {
   if (!podeCusto) {
     return (
       <div className="sm:col-span-2">
@@ -61,7 +61,12 @@ export function PrecoFields({ custoInicial = 0, vendaInicial = 0, podeCusto = tr
         <input name="preco" type="number" step="0.01" min="0" value={venda}
           onChange={(e) => handleVenda(e.target.value)} className="field" placeholder="0,00" />
       </div>
-      <div className="sm:col-span-3 text-sm">
+      <div className="sm:col-span-2">
+        <label className="mb-1.5 block text-sm font-medium text-gray-700">Preço Mínimo (R$)</label>
+        <input name="preco_minimo" type="number" step="0.01" min="0" defaultValue={minimoInicial || ''} className="field" placeholder="0 = sem piso" />
+        <p className="mt-1 text-[11px] text-gray-400">Piso de venda. Só quem tem a permissão &quot;Vender abaixo do mínimo&quot; fecha venda abaixo disso.</p>
+      </div>
+      <div className="text-sm self-end pb-2">
         {nc > 0 && nv > 0 ? (
           <span className={lucro >= 0 ? 'text-green-600' : 'text-red-600'}>
             Lucro: {fmt(lucro)}{nc > 0 ? ` (${round2((lucro / nc) * 100)}%)` : ''}

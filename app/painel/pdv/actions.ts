@@ -62,6 +62,25 @@ export async function finalizarVenda(
     }
   }
 
+  // Piso de venda: item abaixo do preco_minimo exige 'venda_abaixo_minimo'.
+  try {
+    const svc = await createServiceClient()
+    const { data: pisos } = await svc.from('produtos')
+      .select('id, nome, preco_minimo')
+      .in('id', itens.map((i) => i.produto_id))
+      .gt('preco_minimo', 0)
+    const abaixo = (pisos ?? [])
+      .map((p) => ({ ...p, item: itens.find((i) => i.produto_id === p.id) }))
+      .filter((p) => p.item && p.item.preco_unitario < Number(p.preco_minimo))
+    if (abaixo.length > 0) {
+      const { permissoes, isMaster } = await permissoesEfetivas(usuario.id)
+      if (!temPermissao(permissoes, 'venda_abaixo_minimo', isMaster)) {
+        const p = abaixo[0]
+        return { erro: `"${p.nome}" está abaixo do preço mínimo (R$ ${Number(p.preco_minimo).toFixed(2)}). Seu cargo não permite vender abaixo do piso.` }
+      }
+    }
+  } catch { /* coluna preco_minimo ainda não existe — sem piso */ }
+
   let supabase: Awaited<ReturnType<typeof createServiceClient>>
   try {
     supabase = await createServiceClient()

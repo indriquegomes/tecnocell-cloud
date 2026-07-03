@@ -45,6 +45,7 @@ export const TODAS_PERMISSOES = [
   // Limites de operação — o que pode FAZER dentro do módulo (segurança de balcão)
   { grupo: 'Limites',  key: 'venda_desconto',   label: 'Dar desconto',            desc: 'Aplicar desconto na venda no PDV' },
   { grupo: 'Limites',  key: 'produto_custo',     label: 'Ver/editar custo',        desc: 'Ver e alterar o preço de custo dos produtos' },
+  { grupo: 'Limites',  key: 'venda_abaixo_minimo', label: 'Vender abaixo do mínimo', desc: 'Fechar venda com preço abaixo do piso do produto' },
   { grupo: 'Limites',  key: 'crediario_receber', label: 'Receber crediário',       desc: 'Registrar pagamento de fiado' },
   { grupo: 'Limites',  key: 'credito_limite',    label: 'Alterar limite de crédito', desc: 'Mudar o limite de crédito das pessoas' },
 ] as const

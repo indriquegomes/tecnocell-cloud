@@ -291,7 +291,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
       setLojaId(lj)
       const depsLoja = depositos.filter((d) => d.loja_id === lj)
       setDepositoId(dp && depsLoja.some((d) => d.id === dp) ? dp : depoDefaultDaLoja(lj))
-      setTabelaId(lojas.find((l) => l.id === lj)?.tabela_padrao_id ?? '')
+      setTabelaId(tabelaVisivel(lojas.find((l) => l.id === lj)?.tabela_padrao_id))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -299,7 +299,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   useEffect(() => { if (depositoId) localStorage.setItem('pdv_deposito', depositoId) }, [depositoId])
   const lojaSel = lojas.find((l) => l.id === lojaId) ?? null
   const depositosDaLoja = depositos.filter((d) => d.loja_id === lojaId)
-  const [tabelaId, setTabelaId] = useState(lojas[0]?.tabela_padrao_id ?? '')   // '' = Preço Padrão
+  // Tabela padrão só vale se o usuário pode vê-la (tabelas vem filtrada do servidor); senão Preço Padrão
+  function tabelaVisivel(id: string | null | undefined): string {
+    return id && tabelas.some((t) => t.id === id) ? id : ''
+  }
+  const [tabelaId, setTabelaId] = useState(tabelaVisivel(lojas[0]?.tabela_padrao_id))   // '' = Preço Padrão
 
   const clienteSelecionado = pessoas.find((p) => p.id === pessoaId)
   const soDigitos = (s: string) => s.replace(/\D/g, '')
@@ -487,7 +491,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const trocarLoja = (novoLojaId: string) => {
     setLojaId(novoLojaId)
     trocarDeposito(depoDefaultDaLoja(novoLojaId))
-    trocarTabela(lojas.find((l) => l.id === novoLojaId)?.tabela_padrao_id ?? '')
+    trocarTabela(tabelaVisivel(lojas.find((l) => l.id === novoLojaId)?.tabela_padrao_id))
   }
 
   const alterarQtd = (produto_id: string, delta: number) => {

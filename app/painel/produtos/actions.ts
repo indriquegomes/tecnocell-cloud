@@ -32,6 +32,7 @@ export async function criarProduto(formData: FormData) {
     descricao: (formData.get('descricao') as string) || null,
     preco: parseFloat((formData.get('preco') as string) || '0'),
     preco_custo: podeCusto ? parseFloat((formData.get('preco_custo') as string) || '0') : 0,
+    preco_minimo: podeCusto ? parseFloat((formData.get('preco_minimo') as string) || '0') : 0,
     categoria: (formData.get('categoria') as string) || null,
     marca: (formData.get('marca') as string) || null,
     modelo: (formData.get('modelo') as string) || null,
@@ -63,8 +64,11 @@ export async function editarProduto(id: string, formData: FormData) {
     nome: formData.get('nome') as string,
     descricao: (formData.get('descricao') as string) || null,
     preco: parseFloat((formData.get('preco') as string) || '0'),
-    // sem permissão de custo: não mexe no preço de custo (preserva o existente)
-    ...(podeCusto ? { preco_custo: parseFloat((formData.get('preco_custo') as string) || '0') } : {}),
+    // sem permissão de custo: não mexe no custo nem no piso (preserva os existentes)
+    ...(podeCusto ? {
+      preco_custo: parseFloat((formData.get('preco_custo') as string) || '0'),
+      preco_minimo: parseFloat((formData.get('preco_minimo') as string) || '0'),
+    } : {}),
     categoria: (formData.get('categoria') as string) || null,
     marca: (formData.get('marca') as string) || null,
     modelo: (formData.get('modelo') as string) || null,
