@@ -33,6 +33,32 @@ export async function editarConta(id: string, formData: FormData) {
   redirect('/painel/contas')
 }
 
+export async function criarTransferencia(formData: FormData) {
+  await requirePermissao('financeiro')
+  const origem = formData.get('conta_origem_id') as string
+  const destino = formData.get('conta_destino_id') as string
+  const valor = parseFloat(formData.get('valor') as string) || 0
+  const data = (formData.get('data') as string) || new Date().toISOString().slice(0, 10)
+  const observacao = ((formData.get('observacao') as string) || '').trim() || null
+  const err = (m: string) => redirect(`/painel/contas?erro=${encodeURIComponent(m)}`)
+  if (!origem || !destino) err('Escolha a conta de origem e a de destino.')
+  if (origem === destino) err('Origem e destino não podem ser a mesma conta.')
+  if (valor <= 0) err('Informe um valor maior que zero.')
+
+  const supabase = await createServiceClient()
+  const { error } = await supabase.from('transferencias').insert({ conta_origem_id: origem, conta_destino_id: destino, valor, data, observacao })
+  if (error) err(error.message)
+  revalidatePath('/painel/contas')
+  redirect('/painel/contas')
+}
+
+export async function deletarTransferencia(id: string) {
+  await requirePermissao('financeiro')
+  const supabase = await createServiceClient()
+  await supabase.from('transferencias').delete().eq('id', id)
+  revalidatePath('/painel/contas')
+}
+
 export async function deletarConta(id: string) {
   await requirePermissao('financeiro')
   const supabase = await createServiceClient()
