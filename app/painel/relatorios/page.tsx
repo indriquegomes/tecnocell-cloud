@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 import { formatDate } from '@/lib/utils'
 import { ExportCsv } from './ExportCsv'
+import { FluxoChart, ParetoChart, Donut, Barra } from './Charts'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const asRows = (a: unknown[]) => a as unknown as Record<string, unknown>[]
@@ -101,6 +102,9 @@ export default async function RelatoriosPage({
     }
   }
   const rankClientes = Object.values(porCliente).sort((a, b) => b.total - a.total)
+  const maxQtd = rankQtd[0]?.qtd || 1
+  const maxCli = rankClientes[0]?.total || 1
+  const maxLuc = Math.max(...rankLucro.map((p) => p.lucro), 1)
 
   // Curva ABC: acumula % do total e classifica A(≤80) B(≤95) C(resto)
   function classificarABC<T extends { valor: number }>(items: T[]): (T & { pctAcum: number; classe: 'A' | 'B' | 'C' })[] {
@@ -327,6 +331,7 @@ export default async function RelatoriosPage({
             <Card label="Saldo do período" valor={fmt(fluxoEntradas - fluxoSaidas)} cor={fluxoEntradas - fluxoSaidas >= 0 ? 'text-blue-600' : 'text-red-500'} />
           </div>
           <p className="text-[11px] text-gray-400">Entradas = vendas concluídas no dia · Saídas = contas a pagar quitadas no dia (data de pagamento).</p>
+          <FluxoChart dados={fluxo} />
           <div className="flex justify-end">
             <ExportCsv filename={`fluxo_caixa_${dataInicio}_${dataFim}.csv`}
               cols={[{ key: 'dia', label: 'Dia' }, { key: 'entrada', label: 'Entradas', money: true }, { key: 'saida', label: 'Saídas', money: true }, { key: 'saldo', label: 'Saldo', money: true }, { key: 'acumulado', label: 'Acumulado', money: true }]}
@@ -349,15 +354,30 @@ export default async function RelatoriosPage({
 
       {/* ---------------- DRE ---------------- */}
       {aba === 'dre' && (
-        <div className="max-w-lg space-y-1 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <LinhaDRE label="Receita de vendas" valor={dreReceita} cor="text-gray-800" />
-          <LinhaDRE label="(−) Custo dos produtos (CMV)" valor={-dreCmv} cor="text-orange-500" />
-          <div className="my-1 border-t border-gray-100" />
-          <LinhaDRE label="(=) Lucro bruto" valor={dreLucroBruto} cor={dreLucroBruto >= 0 ? 'text-green-600' : 'text-red-500'} bold />
-          <LinhaDRE label="(−) Despesas (contas a pagar)" valor={-dreDespesas} cor="text-red-500" />
-          <div className="my-1 border-t-2 border-gray-200" />
-          <LinhaDRE label="(=) Resultado do período" valor={dreResultado} cor={dreResultado >= 0 ? 'text-blue-600' : 'text-red-600'} bold big />
-          <p className="pt-3 text-[11px] text-gray-400">Receita e CMV pela data da venda; despesas pelo vencimento no período. CMV usa o custo atual do produto.</p>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="space-y-1 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <LinhaDRE label="Receita de vendas" valor={dreReceita} cor="text-gray-800" />
+            <LinhaDRE label="(−) Custo dos produtos (CMV)" valor={-dreCmv} cor="text-orange-500" />
+            <div className="my-1 border-t border-gray-100" />
+            <LinhaDRE label="(=) Lucro bruto" valor={dreLucroBruto} cor={dreLucroBruto >= 0 ? 'text-green-600' : 'text-red-500'} bold />
+            <LinhaDRE label="(−) Despesas (contas a pagar)" valor={-dreDespesas} cor="text-red-500" />
+            <div className="my-1 border-t-2 border-gray-200" />
+            <LinhaDRE label="(=) Resultado do período" valor={dreResultado} cor={dreResultado >= 0 ? 'text-blue-600' : 'text-red-600'} bold big />
+            <p className="pt-3 text-[11px] text-gray-400">Receita e CMV pela data da venda; despesas pelo vencimento no período. CMV usa o custo atual do produto.</p>
+          </div>
+          <div className="flex items-center justify-center rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            {dreReceita > 0 ? (
+              <Donut
+                centro={`${((dreResultado / dreReceita) * 100).toFixed(0)}%`}
+                centroLabel="resultado"
+                slices={[
+                  { label: 'Custo (CMV)', valor: dreCmv, cor: '#F47920' },
+                  { label: 'Despesas', valor: dreDespesas, cor: '#ef4444' },
+                  { label: 'Resultado', valor: Math.max(0, dreResultado), cor: '#1B6CA8' },
+                ]}
+              />
+            ) : <p className="text-sm text-gray-400">Sem receita no período.</p>}
+          </div>
         </div>
       )}
 
@@ -439,7 +459,12 @@ export default async function RelatoriosPage({
                 <td className="px-4 py-3 text-sm text-right text-gray-600">{p.qtd}</td>
                 <td className="px-4 py-3 text-sm text-right text-gray-700">{fmt(p.vendido)}</td>
                 <td className="px-4 py-3 text-sm text-right text-orange-500">{fmt(p.custo)}</td>
-                <td className={`px-4 py-3 text-sm text-right font-semibold ${p.lucro >= 0 ? 'text-green-600' : 'text-red-500'}`}>{fmt(p.lucro)}</td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center justify-end gap-2">
+                    <div className="w-20 shrink-0"><Barra frac={Math.max(0, p.lucro) / maxLuc} cor="#22c55e" /></div>
+                    <span className={`text-sm text-right font-semibold ${p.lucro >= 0 ? 'text-green-600' : 'text-red-500'}`}>{fmt(p.lucro)}</span>
+                  </div>
+                </td>
                 <td className="px-4 py-3 text-sm text-right text-gray-600">{p.margem.toFixed(1)}%</td>
               </tr>
             ))}
@@ -456,7 +481,12 @@ export default async function RelatoriosPage({
             {rankQtd.slice(0, 20).map((p, i) => (
               <tr key={i} className="hover:bg-gray-50">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{p.nome}</td>
-                <td className="px-4 py-3 text-sm text-right font-semibold text-blue-600">{p.qtd}</td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center justify-end gap-2">
+                    <div className="w-20 shrink-0"><Barra frac={p.qtd / maxQtd} /></div>
+                    <span className="text-sm font-semibold text-blue-600">{p.qtd}</span>
+                  </div>
+                </td>
                 <td className="px-4 py-3 text-sm text-right text-gray-600">{fmt(p.vendido)}</td>
               </tr>
             ))}
@@ -468,7 +498,12 @@ export default async function RelatoriosPage({
               <tr key={i} className="hover:bg-gray-50">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.nome}</td>
                 <td className="px-4 py-3 text-sm text-right text-gray-600">{c.qtd}</td>
-                <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{fmt(c.total)}</td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center justify-end gap-2">
+                    <div className="w-20 shrink-0"><Barra frac={c.total / maxCli} cor="#F47920" /></div>
+                    <span className="text-sm font-semibold text-gray-800">{fmt(c.total)}</span>
+                  </div>
+                </td>
               </tr>
             ))}
           </RankingBox>
@@ -479,6 +514,7 @@ export default async function RelatoriosPage({
       {aba === 'abc' && (
         <div className="space-y-6">
           <p className="text-[11px] text-gray-400">Classe A = os que somam até 80% do faturamento · B = até 95% · C = o resto. É onde focar.</p>
+          {abcProdutos.length > 0 && <ParetoChart dados={abcProdutos} />}
           <div className="grid gap-6 lg:grid-cols-2">
             <div>
               <div className="mb-2 flex items-center justify-between">
