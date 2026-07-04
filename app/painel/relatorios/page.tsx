@@ -126,14 +126,23 @@ export default async function RelatoriosPage({
   const contaClasse = (arr: { classe: string }[], c: string) => arr.filter((x) => x.classe === c).length
 
   // ---------- Inadimplência (fiado vencido) ----------
-  type Inad = { pessoa: string; emAberto: number; titulos: number; diasAtraso: number }
+  type Inad = { pessoa: string; emAberto: number; titulos: number; diasAtraso: number; telefone: string | null }
   let inadimplentes: Inad[] = []
   let totalInad = 0
   if (aba === 'inadimplencia') {
-    const { data } = await supabase.from('lancamentos')
-      .select('valor, valor_pago, data_vencimento, pessoa_nome')
-      .eq('tipo', 'receber').eq('status', 'pendente')
-      .lt('data_vencimento', hoje)
+    const [{ data }, { data: pessoasData }] = await Promise.all([
+      supabase.from('lancamentos')
+        .select('valor, valor_pago, data_vencimento, pessoa_nome')
+        .eq('tipo', 'receber').eq('status', 'pendente')
+        .lt('data_vencimento', hoje),
+      supabase.from('pessoas').select('nome, telefone, celular').limit(3000),
+    ])
+    // mapa nome → telefone (pra cobrar direto pelo relatório)
+    const telPorNome: Record<string, string> = {}
+    for (const p of (pessoasData ?? []) as { nome: string | null; telefone: string | null; celular: string | null }[]) {
+      const tel = (p.celular || p.telefone || '').trim()
+      if (p.nome && tel) telPorNome[p.nome.trim().toLowerCase()] = tel
+    }
     const mapa: Record<string, Inad> = {}
     const agora = Date.now()
     for (const l of (data ?? []) as { valor: number; valor_pago: number | null; data_vencimento: string | null; pessoa_nome: string | null }[]) {
@@ -141,7 +150,7 @@ export default async function RelatoriosPage({
       const aberto = (l.valor ?? 0) - (l.valor_pago ?? 0)
       if (aberto <= 0) continue
       const dias = l.data_vencimento ? Math.floor((agora - new Date(l.data_vencimento).getTime()) / 86400000) : 0
-      if (!mapa[pessoa]) mapa[pessoa] = { pessoa, emAberto: 0, titulos: 0, diasAtraso: 0 }
+      if (!mapa[pessoa]) mapa[pessoa] = { pessoa, emAberto: 0, titulos: 0, diasAtraso: 0, telefone: telPorNome[pessoa.trim().toLowerCase()] ?? null }
       mapa[pessoa].emAberto += aberto
       mapa[pessoa].titulos++
       mapa[pessoa].diasAtraso = Math.max(mapa[pessoa].diasAtraso, dias)
@@ -705,19 +714,30 @@ export default async function RelatoriosPage({
           <p className="text-[11px] text-gray-400">Fiado (a receber) com vencimento passado e ainda não quitado. Independe do filtro de período.</p>
           <div className="flex justify-end">
             <ExportCsv filename={`inadimplentes_${dataFim}.csv`}
-              cols={[{ key: 'pessoa', label: 'Cliente' }, { key: 'titulos', label: 'Títulos' }, { key: 'diasAtraso', label: 'Dias atraso' }, { key: 'emAberto', label: 'Em aberto', money: true }]}
+              cols={[{ key: 'pessoa', label: 'Cliente' }, { key: 'telefone', label: 'Telefone' }, { key: 'titulos', label: 'Títulos' }, { key: 'diasAtraso', label: 'Dias atraso' }, { key: 'emAberto', label: 'Em aberto', money: true }]}
               rows={asRows(inadimplentes)} />
           </div>
           <Tabela vazio={inadimplentes.length === 0} vazioMsg="Ninguém em atraso. 🎉"
-            head={['Cliente', 'Títulos', 'Atraso (dias)', 'Em aberto']} alinhas={['l', 'r', 'r', 'r']}>
-            {inadimplentes.map((c, i) => (
-              <tr key={i} className="hover:bg-gray-50">
-                <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.pessoa}</td>
-                <td className="px-4 py-3 text-sm text-right text-gray-600">{c.titulos}</td>
-                <td className={`px-4 py-3 text-sm text-right font-medium ${c.diasAtraso > 30 ? 'text-red-600' : 'text-orange-500'}`}>{c.diasAtraso}</td>
-                <td className="px-4 py-3 text-sm text-right font-semibold text-red-600">{fmt(c.emAberto)}</td>
-              </tr>
-            ))}
+            head={['Cliente', 'Contato', 'Títulos', 'Atraso (dias)', 'Em aberto']} alinhas={['l', 'l', 'r', 'r', 'r']}>
+            {inadimplentes.map((c, i) => {
+              const zap = (c.telefone || '').replace(/\D/g, '')
+              const zapLink = zap.length >= 10 ? `https://wa.me/55${zap}?text=${encodeURIComponent(`Oi ${c.pessoa}, tudo bem? Passando pra lembrar do seu fiado na TecnoCell: ${fmt(c.emAberto)} em aberto. Quando puder acertar, agradeço! 😊`)}` : null
+              return (
+                <tr key={i} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.pessoa}</td>
+                  <td className="px-4 py-3 text-sm">
+                    {c.telefone ? (
+                      zapLink
+                        ? <a href={zapLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-lg bg-green-50 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-100 transition">💬 {c.telefone}</a>
+                        : <span className="text-gray-600">{c.telefone}</span>
+                    ) : <span className="text-gray-300">—</span>}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-right text-gray-600">{c.titulos}</td>
+                  <td className={`px-4 py-3 text-sm text-right font-medium ${c.diasAtraso > 30 ? 'text-red-600' : 'text-orange-500'}`}>{c.diasAtraso}</td>
+                  <td className="px-4 py-3 text-sm text-right font-semibold text-red-600">{fmt(c.emAberto)}</td>
+                </tr>
+              )
+            })}
           </Tabela>
         </div>
       )}
