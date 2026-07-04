@@ -231,14 +231,25 @@ export async function buscarDetalheVenda(accessToken: string, vendaId: string): 
   }
 }
 
+// Resolve em qual conta o dinheiro do fiado recebido cai, a partir do texto da forma
+// (ex: 'dinheiro' → forma "Dinheiro" → conta_destino_id). Assim o saldo da conta é atualizado.
+async function contaDaFormaTexto(supabase: Awaited<ReturnType<typeof createServiceClient>>, texto: string): Promise<string | null> {
+  const t = (texto || '').trim().toLowerCase()
+  if (!t) return null
+  const { data } = await supabase.from('formas_pagamento').select('nome, tipo, conta_destino_id')
+  const f = (data ?? []).find((x) => (x.nome ?? '').toLowerCase() === t || (x.tipo ?? '').toLowerCase() === t)
+  return (f?.conta_destino_id as string | null) ?? null
+}
+
 export async function pagarLancamentos(accessToken: string, ids: string[], formaPagamento = 'dinheiro'): Promise<void> {
   if (ids.length === 0) return
   await requirePermissao('crediario_receber', accessToken)
   const supabase = await createServiceClient()
   const today = new Date().toISOString().split('T')[0]
+  const contaId = await contaDaFormaTexto(supabase, formaPagamento)
   const { data, error } = await supabase
     .from('lancamentos')
-    .update({ status: 'pago', data_pagamento: today, forma_pagamento: formaPagamento, updated_at: new Date().toISOString() })
+    .update({ status: 'pago', data_pagamento: today, forma_pagamento: formaPagamento, conta_id: contaId, updated_at: new Date().toISOString() })
     .in('id', ids)
     .select('id')
   if (error) throw new Error(error.message)
@@ -281,6 +292,7 @@ export async function registrarPagamentoParcial(
   if (quitado) {
     update.status = 'pago'
     update.data_pagamento = today
+    update.conta_id = await contaDaFormaTexto(supabase, formaPagamento)
   }
 
   const { error } = await supabase.from('lancamentos').update(update).eq('id', id)
