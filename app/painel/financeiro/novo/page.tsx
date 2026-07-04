@@ -10,6 +10,7 @@ export default async function NovoLancamentoPage({
   const params = await searchParams
   const supabase = await createServiceClient()
   const { data: formasRaw } = await supabase.from('formas_pagamento').select('id, nome').eq('ativo', true)
+  const { data: contas } = await supabase.from('contas').select('id, nome, tipo').eq('ativa', true).order('nome')
   const ORDEM_FORMAS = ['PIX', 'Dinheiro', 'Crédito Loja (Fiado)', 'Cartão de Débito', 'Cartão de Crédito']
   const formas = (formasRaw ?? []).slice().sort((a, b) => {
     const ia = ORDEM_FORMAS.indexOf(a.nome)
@@ -67,7 +68,21 @@ export default async function NovoLancamentoPage({
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Cliente / Fornecedor</label>
             <input name="pessoa_nome" className="field" placeholder="Nome da pessoa" />
           </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Conta (entra/sai daqui)</label>
+            <select name="conta_id" className="field">
+              <option value="">—</option>
+              {(contas ?? []).map((c) => (
+                <option key={c.id} value={c.id}>{c.tipo === 'caixa' ? '💵' : '🏦'} {c.nome}</option>
+              ))}
+            </select>
+          </div>
+          <label className="flex items-center gap-2 self-end pb-2.5 text-sm font-medium text-gray-700">
+            <input type="checkbox" name="quitado" value="1" className="h-4 w-4 rounded" />
+            Já está pago/recebido?
+          </label>
         </div>
+        <p className="text-[11px] text-gray-400">Marque a Conta + &quot;já pago&quot; pra o valor entrar no saldo da conta na hora. Fiado/a pagar futuro deixa desmarcado.</p>
 
         <div className="flex gap-3 pt-2">
           <button type="submit" className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">

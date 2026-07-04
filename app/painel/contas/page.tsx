@@ -5,7 +5,7 @@ import { Dica } from '@/components/Dica'
 import { formatBRL, formatDate } from '@/lib/utils'
 import Link from 'next/link'
 
-type Conta = { id: string; nome: string; tipo: string; ativa: boolean }
+type Conta = { id: string; nome: string; tipo: string; ativa: boolean; saldo_inicial?: number | null }
 type Transf = { id: string; conta_origem_id: string; conta_destino_id: string; valor: number; data: string; observacao: string | null }
 
 // Leitura tolerante — não quebra se a migration 2026-07-31 ainda não rodou.
@@ -16,6 +16,41 @@ async function lerTransferencias(supabase: Awaited<ReturnType<typeof createServi
   } catch { return [] }
 }
 
+// Saldo atual de cada conta. Sem dupla contagem:
+//  - vendas entram via pagamentos_venda PAGO → forma → conta (fiado à vista não conta)
+//  - lançamentos manuais pagos com conta_id (receber +, pagar −)
+//  - transferências (destino +, origem −)
+// Venda-lançamentos (auto) não têm conta_id, então não duplicam com pagamentos_venda.
+async function calcularSaldos(
+  supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  contas: Conta[],
+): Promise<Record<string, number>> {
+  const saldo: Record<string, number> = {}
+  for (const c of contas) saldo[c.id] = Number(c.saldo_inicial ?? 0)
+  try {
+    const [{ data: formas }, { data: pv }, { data: tr }, { data: lc }] = await Promise.all([
+      supabase.from('formas_pagamento').select('id, conta_destino_id'),
+      supabase.from('pagamentos_venda').select('valor, taxa, forma_pagamento_id').eq('status', 'pago'),
+      supabase.from('transferencias').select('conta_origem_id, conta_destino_id, valor'),
+      supabase.from('lancamentos').select('tipo, valor, conta_id, status').eq('status', 'pago').not('conta_id', 'is', null),
+    ])
+    const contaDaForma = Object.fromEntries((formas ?? []).map((f) => [f.id, (f as { conta_destino_id: string | null }).conta_destino_id]))
+    for (const p of (pv ?? []) as { valor: number; taxa: number | null; forma_pagamento_id: string | null }[]) {
+      const conta = p.forma_pagamento_id ? contaDaForma[p.forma_pagamento_id] : null
+      if (conta && conta in saldo) saldo[conta] += (p.valor ?? 0) - (p.taxa ?? 0)
+    }
+    for (const t of (tr ?? []) as { conta_origem_id: string; conta_destino_id: string; valor: number }[]) {
+      if (t.conta_destino_id in saldo) saldo[t.conta_destino_id] += t.valor ?? 0
+      if (t.conta_origem_id in saldo) saldo[t.conta_origem_id] -= t.valor ?? 0
+    }
+    for (const l of (lc ?? []) as { tipo: string; valor: number; conta_id: string }[]) {
+      if (!(l.conta_id in saldo)) continue
+      saldo[l.conta_id] += l.tipo === 'receber' ? (l.valor ?? 0) : -(l.valor ?? 0)
+    }
+  } catch { /* colunas novas ainda não existem — mostra só o inicial */ }
+  return saldo
+}
+
 export default async function ContasPage({
   searchParams,
 }: {
@@ -23,19 +58,27 @@ export default async function ContasPage({
 }) {
   const { erro, editar } = await searchParams
   const supabase = await createServiceClient()
-  const { data } = await supabase.from('contas').select('id, nome, tipo, ativa').order('created_at')
+  const { data } = await supabase.from('contas').select('id, nome, tipo, ativa, saldo_inicial').order('created_at')
   const contas = (data ?? []) as Conta[]
   const editando = editar ? contas.find((c) => c.id === editar) : undefined
   const transferencias = await lerTransferencias(supabase)
+  const saldos = await calcularSaldos(supabase, contas)
+  const saldoTotal = contas.filter((c) => c.ativa).reduce((s, c) => s + (saldos[c.id] ?? 0), 0)
   const contasAtivas = contas.filter((c) => c.ativa)
   const nomeConta = (id: string) => contas.find((c) => c.id === id)?.nome ?? '—'
   const hoje = new Date().toISOString().slice(0, 10)
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <h2 className="text-2xl font-bold text-gray-900">Contas</h2>
-        <Dica texto="Onde o dinheiro fica de verdade: o Caixa (gaveta da loja) e suas contas de banco. Cada forma de pagamento aponta pra uma conta — aí você sabe quanto tem em cada lugar." />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-gray-900">Contas</h2>
+          <Dica texto="Onde o dinheiro fica de verdade: Caixa (gaveta) e contas de banco. O saldo de cada uma é calculado sozinho: saldo inicial + vendas que caem nela + lançamentos pagos + transferências." />
+        </div>
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 px-5 py-2.5 text-right">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-400">Saldo total</p>
+          <p className={`text-2xl font-bold ${saldoTotal >= 0 ? 'text-blue-700' : 'text-red-600'}`}>{formatBRL(saldoTotal)}</p>
+        </div>
       </div>
 
       {erro && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
@@ -53,6 +96,10 @@ export default async function ContasPage({
               <option value="caixa">Caixa (dinheiro em mãos)</option>
               <option value="banco">Banco</option>
             </select>
+          </div>
+          <div className="w-40">
+            <label className="mb-1.5 block text-xs font-medium text-gray-600">Saldo inicial (R$)</label>
+            <input name="saldo_inicial" type="number" step="0.01" defaultValue={editando?.saldo_inicial ?? 0} className="field" placeholder="0,00" />
           </div>
           {editando && (
             <div>
@@ -78,17 +125,19 @@ export default async function ContasPage({
             <tr>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Conta</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tipo</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Saldo atual</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {contas.length === 0 ? (
-              <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">Nenhuma conta.</td></tr>
+              <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">Nenhuma conta.</td></tr>
             ) : contas.map((c) => (
               <tr key={c.id} className="hover:bg-gray-50 transition">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.tipo === 'caixa' ? '💵' : '🏦'} {c.nome}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">{c.tipo === 'caixa' ? 'Caixa' : 'Banco'}</td>
+                <td className={`px-4 py-3 text-right text-sm font-bold ${(saldos[c.id] ?? 0) >= 0 ? 'text-gray-900' : 'text-red-600'}`}>{formatBRL(saldos[c.id] ?? 0)}</td>
                 <td className="px-4 py-3 text-center">
                   <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${c.ativa ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                     {c.ativa ? 'Ativa' : 'Inativa'}

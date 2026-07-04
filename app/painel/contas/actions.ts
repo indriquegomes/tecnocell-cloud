@@ -5,9 +5,11 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 function campos(formData: FormData) {
+  const saldoRaw = parseFloat((formData.get('saldo_inicial') as string) || '0')
   return {
     nome: (formData.get('nome') as string)?.trim(),
     tipo: (formData.get('tipo') as string) === 'caixa' ? 'caixa' : 'banco',
+    saldo_inicial: isNaN(saldoRaw) ? 0 : saldoRaw,
   }
 }
 
