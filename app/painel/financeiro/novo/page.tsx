@@ -69,6 +69,16 @@ export default async function NovoLancamentoPage({
             <input name="pessoa_nome" className="field" placeholder="Nome da pessoa" />
           </div>
           <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Categoria</label>
+            <input name="categoria" list="categorias-list" className="field" placeholder="Ex: Aluguel, Fornecedor..." />
+            <datalist id="categorias-list">
+              <option value="Vendas" /><option value="Serviços (OS)" /><option value="Aluguel" />
+              <option value="Fornecedor / Mercadoria" /><option value="Salários" /><option value="Impostos" />
+              <option value="Energia / Água / Internet" /><option value="Marketing" /><option value="Manutenção" />
+              <option value="Outras receitas" /><option value="Outras despesas" />
+            </datalist>
+          </div>
+          <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Conta (entra/sai daqui)</label>
             <select name="conta_id" className="field">
               <option value="">—</option>
@@ -83,6 +93,20 @@ export default async function NovoLancamentoPage({
           </label>
         </div>
         <p className="text-[11px] text-gray-400">Marque a Conta + &quot;já pago&quot; pra o valor entrar no saldo da conta na hora. Fiado/a pagar futuro deixa desmarcado.</p>
+
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <p className="mb-2 text-sm font-semibold text-gray-700">Repetição</p>
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex items-center gap-2 text-sm text-gray-700"><input type="radio" name="repeticao" value="nao" defaultChecked className="h-4 w-4" /> Não repetir</label>
+            <label className="flex items-center gap-2 text-sm text-gray-700"><input type="radio" name="repeticao" value="parcelar" className="h-4 w-4" /> Parcelar (divide o valor)</label>
+            <label className="flex items-center gap-2 text-sm text-gray-700"><input type="radio" name="repeticao" value="mensal" className="h-4 w-4" /> Repetir todo mês (mesmo valor)</label>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600">Quantas vezes:</label>
+              <input name="repeticoes" type="number" min="1" max="60" defaultValue="1" className="field w-20" />
+            </div>
+          </div>
+          <p className="mt-2 text-[11px] text-gray-400">Ex: aluguel = &quot;todo mês&quot; 12×. Compra parcelada = &quot;parcelar&quot; 3×. Cada parcela vence no mês seguinte.</p>
+        </div>
 
         <div className="flex gap-3 pt-2">
           <button type="submit" className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
