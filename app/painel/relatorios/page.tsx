@@ -161,13 +161,20 @@ export default async function RelatoriosPage({
 
   // ---------- DRE (resultado do período) ----------
   let dreReceita = 0, dreDespesas = 0
+  let despesasPorCategoria: { categoria: string; valor: number }[] = []
   if (aba === 'dre') {
     const { data: vs } = await supabase.from('vendas').select('total').eq('status', 'concluida')
       .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
     dreReceita = (vs ?? []).reduce((s, v) => s + (v.total ?? 0), 0)
-    const { data: ds } = await supabase.from('lancamentos').select('valor')
+    const { data: ds } = await supabase.from('lancamentos').select('valor, categoria')
       .eq('tipo', 'pagar').gte('data_vencimento', dataInicio).lte('data_vencimento', dataFim + 'T23:59:59')
-    dreDespesas = (ds ?? []).reduce((s, l) => s + (l.valor ?? 0), 0)
+    const catMap: Record<string, number> = {}
+    for (const l of (ds ?? []) as { valor: number; categoria: string | null }[]) {
+      dreDespesas += l.valor ?? 0
+      const cat = (l.categoria || 'Sem categoria').trim()
+      catMap[cat] = (catMap[cat] ?? 0) + (l.valor ?? 0)
+    }
+    despesasPorCategoria = Object.entries(catMap).map(([categoria, valor]) => ({ categoria, valor })).sort((a, b) => b.valor - a.valor)
   }
   const dreCmv = totalCustoItens
   const dreLucroBruto = dreReceita - dreCmv
@@ -676,6 +683,7 @@ export default async function RelatoriosPage({
 
       {/* ---------------- DRE ---------------- */}
       {aba === 'dre' && (
+        <div className="space-y-6">
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="space-y-1 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             <LinhaDRE label="Receita de vendas" valor={dreReceita} cor="text-gray-800" />
@@ -700,6 +708,27 @@ export default async function RelatoriosPage({
               />
             ) : <p className="text-sm text-gray-400">Sem receita no período.</p>}
           </div>
+        </div>
+
+        {despesasPorCategoria.length > 0 && (
+          <div>
+            <h3 className="mb-2 font-semibold text-gray-800">Despesas por categoria</h3>
+            <Tabela vazio={false} head={['Categoria', 'Valor', '%']} alinhas={['l', 'r', 'r']}>
+              {despesasPorCategoria.map((d, i) => (
+                <tr key={i} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-24 shrink-0"><Barra frac={dreDespesas > 0 ? d.valor / dreDespesas : 0} cor="#ef4444" /></div>
+                      <span className="text-sm font-medium text-gray-800">{d.categoria}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm font-semibold text-red-500">{fmt(d.valor)}</td>
+                  <td className="px-4 py-3 text-right text-sm text-gray-500">{dreDespesas > 0 ? ((d.valor / dreDespesas) * 100).toFixed(0) : 0}%</td>
+                </tr>
+              ))}
+            </Tabela>
+          </div>
+        )}
         </div>
       )}
 
