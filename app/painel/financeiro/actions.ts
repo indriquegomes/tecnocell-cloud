@@ -21,8 +21,8 @@ export async function criarLancamento(formData: FormData) {
   const hoje = new Date().toISOString().slice(0, 10)
   const descricao = formData.get('descricao') as string
   const tipo = formData.get('tipo') as string
-  const competencia = formData.get('data_competencia') as string
-  const vencimento = formData.get('data_vencimento') as string
+  const competencia = (formData.get('data_competencia') as string) || null
+  const vencimento = (formData.get('data_vencimento') as string) || hoje
   const contaId = (formData.get('conta_id') as string) || null
 
   const repeticao = (formData.get('repeticao') as string) || 'nao'
@@ -61,10 +61,12 @@ export async function editarLancamento(id: string, formData: FormData) {
     descricao: formData.get('descricao') as string,
     valor: parseFloat((formData.get('valor') as string) || '0'),
     tipo: formData.get('tipo') as string,
-    data_competencia: formData.get('data_competencia') as string,
-    data_vencimento: formData.get('data_vencimento') as string,
+    data_competencia: (formData.get('data_competencia') as string) || null,
+    data_vencimento: (formData.get('data_vencimento') as string) || null,
     forma_pagamento: (formData.get('forma_pagamento') as string) || null,
     pessoa_nome: (formData.get('pessoa_nome') as string) || null,
+    categoria: (formData.get('categoria') as string) || null,
+    conta_id: (formData.get('conta_id') as string) || null,
     updated_at: new Date().toISOString(),
   }).eq('id', id)
   if (error) throw new Error(error.message)

@@ -7,9 +7,10 @@ export default async function EditarLancamentoPage({ params }: { params: Promise
   const { id } = await params
   const supabase = await createServiceClient()
 
-  const [{ data: lancamento }, { data: formas }] = await Promise.all([
+  const [{ data: lancamento }, { data: formas }, { data: contas }] = await Promise.all([
     supabase.from('lancamentos').select('*').eq('id', id).single(),
     supabase.from('formas_pagamento').select('id, nome').eq('ativo', true).order('nome'),
+    supabase.from('contas').select('id, nome, tipo').eq('ativa', true).order('nome'),
   ])
 
   if (!lancamento) notFound()
@@ -64,6 +65,25 @@ export default async function EditarLancamentoPage({ params }: { params: Promise
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Cliente / Fornecedor</label>
             <input name="pessoa_nome" defaultValue={lancamento.pessoa_nome ?? ''} className="field" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Categoria</label>
+            <input name="categoria" list="categorias-list" defaultValue={lancamento.categoria ?? ''} className="field" placeholder="Ex: Aluguel, Fornecedor..." />
+            <datalist id="categorias-list">
+              <option value="Vendas" /><option value="Serviços (OS)" /><option value="Aluguel" />
+              <option value="Fornecedor / Mercadoria" /><option value="Salários" /><option value="Impostos" />
+              <option value="Energia / Água / Internet" /><option value="Marketing" /><option value="Manutenção" />
+              <option value="Outras receitas" /><option value="Outras despesas" />
+            </datalist>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Conta (entra/sai daqui)</label>
+            <select name="conta_id" defaultValue={lancamento.conta_id ?? ''} className="field">
+              <option value="">—</option>
+              {(contas ?? []).map((c) => (
+                <option key={c.id} value={c.id}>{c.tipo === 'caixa' ? '💵' : '🏦'} {c.nome}</option>
+              ))}
+            </select>
           </div>
         </div>
 
