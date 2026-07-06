@@ -48,9 +48,10 @@ export default async function ClientesPage({
       // busca numérica → CPF/CNPJ ou telefone
       query = query.or(`cpf_cnpj.ilike.%${digitos}%,telefone.ilike.%${digitos}%,celular.ilike.%${digitos}%`)
     } else {
-      // busca textual → cada palavra tem que aparecer no nome (qualquer ordem)
-      const palavras = raw.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
-      for (const w of palavras) query = query.ilike('nome', `%${w}%`)
+      // busca textual sem acento → cada palavra tem que aparecer no nome (qualquer ordem)
+      const semAcento = raw.normalize('NFD').split('').filter(c => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
+      const palavras = semAcento.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
+      for (const w of palavras) query = query.ilike('nome_norm', `%${w}%`)
     }
   }
   if (params.tipo) query = query.eq('tipo', params.tipo)
