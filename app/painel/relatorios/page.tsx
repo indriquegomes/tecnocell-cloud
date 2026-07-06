@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 import { formatDate } from '@/lib/utils'
@@ -130,12 +130,12 @@ export default async function RelatoriosPage({
   let inadimplentes: Inad[] = []
   let totalInad = 0
   if (aba === 'inadimplencia') {
-    const [{ data }, { data: pessoasData }] = await Promise.all([
+    const [{ data }, pessoasData] = await Promise.all([
       supabase.from('lancamentos')
         .select('valor, valor_pago, data_vencimento, pessoa_nome')
         .eq('tipo', 'receber').eq('status', 'pendente')
         .lt('data_vencimento', hoje),
-      supabase.from('pessoas').select('nome, telefone, celular').limit(3000),
+      fetchAll((from, to) => supabase.from('pessoas').select('nome, telefone, celular').range(from, to)),
     ])
     // mapa nome → telefone (pra cobrar direto pelo relatório)
     const telPorNome: Record<string, string> = {}
@@ -218,9 +218,9 @@ export default async function RelatoriosPage({
   let criticos: { nome: string; qtd: number; minimo: number }[] = []
   let previsao: { nome: string; estoque: number; vendido30: number; sugestao: number }[] = []
   if (aba === 'estoque') {
-    const { data } = await supabase.from('estoque')
+    const data = await fetchAll((from, to) => supabase.from('estoque')
       .select('produto_id, quantidade, produtos(nome, preco, preco_custo, estoque_minimo, ativo), depositos(nome)')
-      .gt('quantidade', 0).limit(1000)
+      .gt('quantidade', 0).range(from, to))
     estoque = (data ?? []).map((e) => {
       const p = e.produtos as unknown as { nome: string; preco: number; preco_custo: number | null; estoque_minimo: number | null; ativo: boolean } | null
       return {
@@ -333,9 +333,9 @@ export default async function RelatoriosPage({
   // ---------- Clientes inativos (compraram mas sumiram há 60+ dias) ----------
   let inativos: { nome: string; ultima: string; dias: number }[] = []
   if (aba === 'inativos') {
-    const [{ data: vs }, { data: ps }] = await Promise.all([
+    const [{ data: vs }, ps] = await Promise.all([
       supabase.from('vendas').select('pessoa_id, created_at').eq('status', 'concluida').not('pessoa_id', 'is', null),
-      supabase.from('pessoas').select('id, nome').in('tipo', ['cliente', 'ambos']).eq('ativo', true),
+      fetchAll((from, to) => supabase.from('pessoas').select('id, nome').in('tipo', ['cliente', 'ambos']).eq('ativo', true).range(from, to)),
     ])
     const ultimaPorPessoa: Record<string, string> = {}
     for (const v of (vs ?? []) as { pessoa_id: string; created_at: string }[]) {
@@ -353,7 +353,7 @@ export default async function RelatoriosPage({
   let aniversariantes: { nome: string; dia: number; telefone: string | null }[] = []
   if (aba === 'aniversarios') {
     const mesAtual = new Date().getMonth() + 1
-    const { data } = await supabase.from('pessoas').select('nome, data_nascimento, telefone, celular').not('data_nascimento', 'is', null)
+    const data = await fetchAll((from, to) => supabase.from('pessoas').select('nome, data_nascimento, telefone, celular').not('data_nascimento', 'is', null).range(from, to))
     aniversariantes = (data ?? [])
       .map((p) => {
         const d = new Date((p.data_nascimento as string) + 'T12:00:00')
@@ -441,7 +441,7 @@ export default async function RelatoriosPage({
   // ---------- Precificação (lista de preços) ----------
   let precos: { nome: string; custo: number; preco: number; minimo: number; margem: number }[] = []
   if (aba === 'precificacao') {
-    const { data } = await supabase.from('produtos').select('nome, preco, preco_custo, preco_minimo').eq('ativo', true).order('nome').limit(1000)
+    const data = await fetchAll((from, to) => supabase.from('produtos').select('nome, preco, preco_custo, preco_minimo').eq('ativo', true).order('nome').range(from, to))
     precos = (data ?? []).map((p) => {
       const custo = p.preco_custo ?? 0, preco = p.preco ?? 0
       return { nome: p.nome as string, custo, preco, minimo: (p as { preco_minimo?: number | null }).preco_minimo ?? 0, margem: custo > 0 ? ((preco - custo) / custo) * 100 : 0 }
@@ -486,7 +486,7 @@ export default async function RelatoriosPage({
   // ---------- Produtos por Fornecedor ----------
   let porFornecedor: { fornecedor: string; produtos: number }[] = []
   if (aba === 'porfornecedor') {
-    const { data } = await supabase.from('produtos').select('fornecedor_id, pessoas(nome)').eq('ativo', true).limit(2000)
+    const data = await fetchAll((from, to) => supabase.from('produtos').select('fornecedor_id, pessoas(nome)').eq('ativo', true).range(from, to))
     const mapa: Record<string, number> = {}
     for (const p of (data ?? []) as unknown as { fornecedor_id: string | null; pessoas: { nome: string } | null }[]) {
       const f = p.pessoas?.nome || 'Sem fornecedor'
@@ -498,7 +498,7 @@ export default async function RelatoriosPage({
   // ---------- Inventário (folha de contagem) ----------
   let inventario: { nome: string; deposito: string; sistema: number; custo: number }[] = []
   if (aba === 'inventario') {
-    const { data } = await supabase.from('estoque').select('quantidade, produtos(nome, preco_custo), depositos(nome)').gt('quantidade', 0).limit(2000)
+    const data = await fetchAll((from, to) => supabase.from('estoque').select('quantidade, produtos(nome, preco_custo), depositos(nome)').gt('quantidade', 0).range(from, to))
     inventario = (data ?? []).map((e) => ({
       nome: (e.produtos as unknown as { nome: string } | null)?.nome ?? '—',
       deposito: (e.depositos as unknown as { nome: string } | null)?.nome ?? '—',
@@ -509,10 +509,10 @@ export default async function RelatoriosPage({
   // ---------- Movimentações x Saldo ----------
   let movSaldo: { nome: string; entradas: number; saidas: number; saldo: number }[] = []
   if (aba === 'movsaldo') {
-    const [{ data: movs }, { data: est }] = await Promise.all([
+    const [{ data: movs }, est] = await Promise.all([
       supabase.from('movimentacoes_estoque').select('produto_id, operacao, quantidade, produtos(nome)')
         .gte('created_at', periodo.inicio).lte('created_at', periodo.fim),
-      supabase.from('estoque').select('produto_id, quantidade'),
+      fetchAll((from, to) => supabase.from('estoque').select('produto_id, quantidade').range(from, to)),
     ])
     const saldoAtual: Record<string, number> = {}
     for (const e of (est ?? []) as { produto_id: string; quantidade: number }[]) saldoAtual[e.produto_id] = (saldoAtual[e.produto_id] ?? 0) + e.quantidade
@@ -545,7 +545,7 @@ export default async function RelatoriosPage({
   // ---------- Contatos (agenda) ----------
   let contatos: { nome: string; telefone: string; cidade: string; tipo: string }[] = []
   if (aba === 'contatos') {
-    const { data } = await supabase.from('pessoas').select('nome, telefone, celular, cidade, tipo').eq('ativo', true).order('nome').limit(2000)
+    const data = await fetchAll((from, to) => supabase.from('pessoas').select('nome, telefone, celular, cidade, tipo').eq('ativo', true).order('nome').range(from, to))
     contatos = (data ?? []).map((p) => ({
       nome: p.nome as string, telefone: (p.celular as string) || (p.telefone as string) || '—',
       cidade: (p.cidade as string) || '—', tipo: (p.tipo as string) || '—',
