@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { BuscaPessoas } from './BuscaPessoas'
 import { Badge } from '@/components/ui/badge'
 import { deletarPessoa, inativarPessoa, reativarPessoa } from './actions'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
@@ -37,9 +38,15 @@ export default async function ClientesPage({
     .select('id, nome, tipo, pessoa_fisica, cpf_cnpj, email, telefone, cidade, estado, ativo')
     .eq('ativo', !verInativos)
     .order(ordemCampo, { ascending: !ordemDir })
-    .limit(200)
+    .limit(500)
 
-  if (params.busca) query = query.ilike('nome', `%${params.busca}%`)
+  if (params.busca) {
+    const termo = params.busca.replace(/[,()]/g, ' ').trim()
+    const digitos = params.busca.replace(/\D/g, '')
+    const ors = [`nome.ilike.%${termo}%`]
+    if (digitos.length >= 3) ors.push(`cpf_cnpj.ilike.%${digitos}%`, `telefone.ilike.%${digitos}%`, `celular.ilike.%${digitos}%`)
+    query = query.or(ors.join(','))
+  }
   if (params.tipo) query = query.eq('tipo', params.tipo)
 
   const { data: pessoas } = await query
@@ -62,14 +69,8 @@ export default async function ClientesPage({
       )}
 
       {/* Filtros */}
-      <form method="GET" className="flex flex-wrap gap-3">
-        {verInativos && <input type="hidden" name="status" value="inativos" />}
-        <input
-          name="busca"
-          defaultValue={params.busca}
-          placeholder="Buscar por nome..."
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+      <div className="flex flex-wrap gap-3">
+        <BuscaPessoas />
         <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
           <Link href={verInativos ? '/painel/clientes?status=inativos' : '/painel/clientes'}
             className={`px-4 py-2 transition ${!params.tipo ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
@@ -89,7 +90,7 @@ export default async function ClientesPage({
           {verInativos ? '← Voltar aos ativos' : 'Ver inativos'}
         </Link>
         <span className="ml-auto self-center text-sm text-gray-400">{pessoas?.length ?? 0} registros</span>
-      </form>
+      </div>
 
       {/* Tabela */}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
