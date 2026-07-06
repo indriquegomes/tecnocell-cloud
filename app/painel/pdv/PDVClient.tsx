@@ -164,6 +164,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const [produtos, setProdutos] = useState(produtosIniciais)
   const [busca, setBusca] = useState('')
   const [copiado, setCopiado] = useState(false)
+  const [selCopia, setSelCopia] = useState<Set<string>>(new Set())  // peças marcadas pra copiar preço
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([])
   const [pagamentos, setPagamentos] = useState<PagamentoItem[]>([
     { uid: '1', forma_id: formas[0]?.id ?? '', valor: '', maquina: formas[0]?.maquina_id ?? '', parcelas: 1 },
@@ -351,10 +352,20 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     ? produtos.filter((p) => casaBusca(textoProduto(p), buscaFicha)).slice(0, 20)
     : []
 
-  // Copiar a lista de preços que casou a busca (pra mandar orçamento pro cliente no WhatsApp)
+  // trocar a busca zera as peças marcadas (evita marcar de uma busca e copiar de outra)
+  useEffect(() => { setSelCopia(new Set()) }, [busca])
+  const marcarCopia = (id: string) => setSelCopia((s) => {
+    const n = new Set(s)
+    if (n.has(id)) n.delete(id); else n.add(id)
+    return n
+  })
+
+  // Copiar preços pra mandar orçamento no WhatsApp: as marcadas, ou todas se nenhuma marcada
   const copiarPrecos = async () => {
-    const todos = produtos.filter((p) => casaBusca(textoProduto(p), busca)).slice(0, 50)
-    const txt = todos.map((p) => `${p.nome} — ${formatBRL(precoDoProduto(p))}`).join('\n')
+    const base = produtos.filter((p) => casaBusca(textoProduto(p), busca)).slice(0, 50)
+    const marcadas = base.filter((p) => selCopia.has(p.id))
+    const alvo = marcadas.length ? marcadas : base
+    const txt = alvo.map((p) => `${p.nome} — ${formatBRL(precoDoProduto(p))}`).join('\n')
     try {
       await navigator.clipboard.writeText(txt)
       setCopiado(true)
@@ -1322,10 +1333,21 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                 const disp = saldoNoDeposito(p)
                 return (
                 <div key={p.id} className="flex items-center border-b border-gray-50 last:border-b-0">
+                  <label
+                    className="flex shrink-0 cursor-pointer items-center pl-3 pr-1"
+                    title="Marcar pra copiar o preço"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selCopia.has(p.id)}
+                      onChange={() => marcarCopia(p.id)}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                  </label>
                   <button
                     type="button"
                     onClick={() => adicionarAoCarrinho(p)}
-                    className="flex flex-1 items-center justify-between px-4 py-3 text-sm hover:bg-blue-50 transition text-left min-w-0"
+                    className="flex flex-1 items-center justify-between px-3 py-3 text-sm hover:bg-blue-50 transition text-left min-w-0"
                   >
                     <div className="min-w-0">
                       <p className="font-medium text-gray-800 truncate">{p.nome}</p>
@@ -1357,7 +1379,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                 onClick={copiarPrecos}
                 className="flex w-full items-center justify-center gap-2 border-t border-gray-100 bg-gray-50 px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100 transition"
               >
-                {copiado ? '✓ Copiado!' : '📋 Copiar lista de preços (mandar pro cliente)'}
+                {copiado ? '✓ Copiado!' : selCopia.size > 0 ? `📋 Copiar ${selCopia.size} marcada${selCopia.size > 1 ? 's' : ''}` : '📋 Copiar todas (ou marque algumas acima)'}
               </button>
             </div>
           )}
