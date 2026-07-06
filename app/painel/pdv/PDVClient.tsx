@@ -330,19 +330,22 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   // Preço do produto na tabela selecionada (qtd 1 pra vitrine; cai no padrão se não houver)
   const precoDoProduto = (p: Produto) => precoTabela(tabelaId, p.id, 1) ?? p.preco
 
-  const produtosFiltrados = busca.length >= 1
-    ? produtos.filter((p) =>
-        p.nome.toLowerCase().includes(busca.toLowerCase()) ||
-        (p.codigo ?? '').toLowerCase().includes(busca.toLowerCase())
-      ).slice(0, 8)
+  // Busca esperta: tira acento e casa cada palavra em qualquer ordem/posição
+  // ("fr a11" acha "FRONTAL ... A11"; "tam" acha "TAMPA"). Procura em nome + código + marca.
+  const semAcento = (s: string) => s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
+  const casaBusca = (texto: string, termo: string) => {
+    const alvo = semAcento(texto)
+    return semAcento(termo).split(/\s+/).filter(Boolean).every((w) => alvo.includes(w))
+  }
+  const textoProduto = (p: Produto) => `${p.nome} ${p.codigo ?? ''} ${p.marca ?? ''}`
+
+  const produtosFiltrados = busca.trim().length >= 1
+    ? produtos.filter((p) => casaBusca(textoProduto(p), busca)).slice(0, 8)
     : []
 
   // Busca interna do modal Consultar Produtos (F1)
-  const fichaFiltrados = buscaFicha.length >= 1
-    ? produtos.filter((p) =>
-        p.nome.toLowerCase().includes(buscaFicha.toLowerCase()) ||
-        (p.codigo ?? '').toLowerCase().includes(buscaFicha.toLowerCase())
-      ).slice(0, 20)
+  const fichaFiltrados = buscaFicha.trim().length >= 1
+    ? produtos.filter((p) => casaBusca(textoProduto(p), buscaFicha)).slice(0, 20)
     : []
 
   const fecharFicha = () => { setFichaAberta(false); setFichaSel(null); setBuscaFicha('') }
