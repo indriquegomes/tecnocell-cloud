@@ -39,7 +39,7 @@ export default async function PDVPage() {
 
   // produtos/pessoas/itens passam de 1000 → paginar (PostgREST capa em 1000 por request)
   const [produtos, pessoas, itensTabela, { data: formas }, { data: depositos }, { data: tabelas }, { data: seriesEmEstoque }, { data: lojas }, { data: maquinas }] = await Promise.all([
-    fetchAll((from, to) => supabase.from('produtos').select('id, nome, preco, codigo, marca, categoria, descricao, imagem_url, controla_serie, estoque(deposito_id, quantidade)').eq('ativo', true).order('nome').range(from, to)),
+    fetchAll((from, to) => supabase.from('produtos').select('id, nome, preco, codigo, marca, categoria, descricao, imagem_url, controla_serie, prateleira, estoque(deposito_id, quantidade)').eq('ativo', true).order('nome').range(from, to)),
     fetchAll((from, to) => supabase.from('pessoas').select('id, nome, cpf_cnpj, telefone, endereco, bairro, cidade, estado, cep, tabela_preco_id').eq('ativo', true).in('tipo', ['cliente', 'ambos']).order('nome').range(from, to)),
     fetchAll((from, to) => supabase.from('itens_tabela_preco').select('tabela_id, produto_id, preco, quantidade_minima').range(from, to)),
     supabase.from('formas_pagamento').select('id, nome, tipo, maquina_id, prazo_recebimento').eq('ativo', true),
@@ -149,7 +149,7 @@ export default async function PDVPage() {
           for (const e of linhas) {
             estoquePorDeposito[e.deposito_id] = (estoquePorDeposito[e.deposito_id] ?? 0) + e.quantidade
           }
-          return { id: p.id, nome: p.nome, preco: p.preco, codigo: p.codigo, marca: p.marca, categoria: (p as Record<string, unknown>).categoria as string | null ?? null, descricao: (p as Record<string, unknown>).descricao as string | null ?? null, imagem_url: (p as Record<string, unknown>).imagem_url as string | null ?? null, controla_serie: (p as Record<string, unknown>).controla_serie as boolean | null ?? false, estoquePorDeposito }
+          return { id: p.id, nome: p.nome, preco: p.preco, codigo: p.codigo, marca: p.marca, categoria: (p as Record<string, unknown>).categoria as string | null ?? null, descricao: (p as Record<string, unknown>).descricao as string | null ?? null, imagem_url: (p as Record<string, unknown>).imagem_url as string | null ?? null, controla_serie: (p as Record<string, unknown>).controla_serie as boolean | null ?? false, prateleira: (p as Record<string, unknown>).prateleira as string | null ?? null, estoquePorDeposito }
         })}
         formas={formasOrdenadas}
         pessoas={pessoas ?? []}

@@ -59,6 +59,7 @@ interface Produto {
   descricao: string | null
   imagem_url: string | null
   controla_serie: boolean
+  prateleira: string | null
   estoquePorDeposito: Record<string, number>
 }
 
@@ -134,6 +135,7 @@ interface ItemCarrinho {
   promoSel: string         // 'auto' = melhor desconto | '' = sem promoção | <id> = promoção fixa
   serializado?: boolean    // produto controla IMEI/número de série
   series?: string[]        // IMEIs escolhidos (serializado: quantidade = series.length)
+  prateleira?: string | null  // gaveta/prateleira onde a peça está guardada
 }
 
 interface PagamentoItem {
@@ -378,6 +380,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
         promoSel: 'auto',
         serializado: p.controla_serie,
         series: p.controla_serie ? [] : undefined,
+        prateleira: p.prateleira,
       }]
     })
     setBusca('')
@@ -1319,6 +1322,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                         {disp > 0
                           ? <span className="text-green-600">{disp} em {nomeDeposito}</span>
                           : <span className="text-red-500">Sem estoque em {nomeDeposito}</span>}
+                        {p.prateleira && <span className="text-blue-600 font-medium"> · 📦 {p.prateleira}</span>}
                       </p>
                     </div>
                     <span className={`font-semibold ml-4 shrink-0 ${disp <= 0 ? 'text-gray-300' : 'text-green-600'}`}>
@@ -1363,7 +1367,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                       <p className="text-sm font-medium text-gray-800">
                         {item.codigo && <span className="text-gray-400 font-normal">{item.codigo} · </span>}{item.nome}
                       </p>
-                      <p className="text-xs text-gray-400">Disponível: {item.estoque_disponivel}</p>
+                      <p className="text-xs text-gray-400">
+                        Disponível: {item.estoque_disponivel}
+                        {item.prateleira && <span className="text-blue-600 font-medium"> · 📦 {item.prateleira}</span>}
+                      </p>
                       {(promosPorProduto[item.produto_id]?.length ?? 0) > 0 && (() => {
                         const promoAtual = promoEfetiva(item)
                         return (
