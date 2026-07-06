@@ -4,6 +4,21 @@ import { temPermissao } from '@/lib/permissoes'
 
 export type Efetivas = { permissoes: string[]; isMaster: boolean; ativo: boolean }
 
+// Busca TODAS as linhas driblando o limite fixo de 1000 do PostgREST (pagina de 1000 em 1000).
+// Uso: fetchAll((from, to) => supabase.from('produtos').select('...').order('nome').range(from, to))
+export async function fetchAll<T>(
+  make: (from: number, to: number) => PromiseLike<{ data: T[] | null }>,
+): Promise<T[]> {
+  const out: T[] = []
+  for (let from = 0; from < 500000; from += 1000) {
+    const { data } = await make(from, from + 999)
+    if (!data || data.length === 0) break
+    out.push(...data)
+    if (data.length < 1000) break
+  }
+  return out
+}
+
 export async function createClient() {
   const cookieStore = await cookies()
   return createServerClient(

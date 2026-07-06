@@ -1,4 +1,4 @@
-import { createServiceClient, permissoesUsuarioAtual } from '@/lib/supabase/server'
+import { createServiceClient, permissoesUsuarioAtual, fetchAll } from '@/lib/supabase/server'
 import { temPermissao } from '@/lib/permissoes'
 import { formatBRL, formatDate } from '@/lib/utils'
 import Link from 'next/link'
@@ -12,7 +12,7 @@ export default async function DashboardPage() {
   const [
     { count: totalProdutos },
     { count: totalClientes },
-    { data: estoqueItems },
+    estoqueItems,
     { data: lancamentosRecentes },
     { data: vendasHoje },
     { data: pendentesReceber },
@@ -20,7 +20,7 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     supabase.from('produtos').select('*', { count: 'exact', head: true }).eq('ativo', true),
     supabase.from('pessoas').select('*', { count: 'exact', head: true }).eq('tipo', 'cliente'),
-    supabase.from('estoque').select('produto_id, quantidade').gt('quantidade', 0),
+    fetchAll<{ produto_id: string; quantidade: number }>((from, to) => supabase.from('estoque').select('produto_id, quantidade').gt('quantidade', 0).range(from, to)),
     supabase
       .from('lancamentos')
       .select('id, descricao, valor, tipo, status, data_vencimento, pessoa_nome')

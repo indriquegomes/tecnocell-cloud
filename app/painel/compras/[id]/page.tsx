@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { receberNota, estornarNota, editarNota, removerItemNota } from '../actions'
 import { ConfirmButton } from '@/components/ConfirmButton'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
@@ -17,7 +17,7 @@ export default async function NotaEntradaDetalhe({
   const { erro } = await searchParams
   const supabase = await createServiceClient()
 
-  const [{ data: nota }, { data: itens }, { data: produtos }, { data: depositos }, { data: fornecedores }, { data: lojas }] = await Promise.all([
+  const [{ data: nota }, { data: itens }, produtos, { data: depositos }, { data: fornecedores }, { data: lojas }] = await Promise.all([
     supabase
       .from('notas_entrada')
       .select('*, pessoas(nome)')
@@ -28,7 +28,7 @@ export default async function NotaEntradaDetalhe({
       .select('*')
       .eq('nota_id', id)
       .order('id'),
-    supabase.from('produtos').select('id, nome, preco_custo').eq('ativo', true).order('nome'),
+    fetchAll((from, to) => supabase.from('produtos').select('id, nome, preco_custo').eq('ativo', true).order('nome').range(from, to)),
     supabase.from('depositos').select('id, nome, loja_id').order('nome'),
     supabase.from('pessoas').select('id, nome, tipo').in('tipo', ['fornecedor', 'ambos']).eq('ativo', true).order('nome'),
     supabase.from('lojas').select('id, nome'),

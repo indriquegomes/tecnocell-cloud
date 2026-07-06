@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { registrarMovimento } from '../actions'
 import Link from 'next/link'
 
@@ -9,8 +9,8 @@ export default async function MovimentarEstoquePage({
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
-  const [{ data: produtos }, { data: depositos }] = await Promise.all([
-    supabase.from('produtos').select('id, nome, codigo').eq('ativo', true).order('nome'),
+  const [produtos, { data: depositos }] = await Promise.all([
+    fetchAll((from, to) => supabase.from('produtos').select('id, nome, codigo').eq('ativo', true).order('nome').range(from, to)),
     supabase.from('depositos').select('id, nome').order('nome'),
   ])
 

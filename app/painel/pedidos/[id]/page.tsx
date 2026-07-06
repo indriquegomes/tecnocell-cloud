@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { PedidoDetalheClient } from './PedidoDetalheClient'
@@ -11,7 +11,7 @@ export default async function PedidoDetalhePage({
   const { id } = await params
   const supabase = await createServiceClient()
 
-  const [{ data: pedido }, { data: itens }, { data: produtos }, { data: depositos }, { data: formas }] = await Promise.all([
+  const [{ data: pedido }, { data: itens }, produtos, { data: depositos }, { data: formas }] = await Promise.all([
     supabase
       .from('pedidos')
       .select('id, numero, tipo, status, total, desconto, frete, data_validade, observacoes, termos_condicoes, motivo_cancelamento, referencia_cliente, created_at, pessoa_id, deposito_id, tabela_preco_id, forma_pagamento_id, vendedor_nome, origem')
@@ -21,7 +21,7 @@ export default async function PedidoDetalhePage({
       .from('itens_pedido')
       .select('id, produto_id, quantidade, preco_unitario, total_item')
       .eq('pedido_id', id),
-    supabase.from('produtos').select('id, nome, preco').eq('ativo', true).order('nome'),
+    fetchAll((from, to) => supabase.from('produtos').select('id, nome, preco').eq('ativo', true).order('nome').range(from, to)),
     supabase.from('depositos').select('id, nome').order('nome'),
     supabase.from('formas_pagamento').select('id, nome').eq('ativo', true).order('nome'),
   ])
@@ -38,11 +38,12 @@ export default async function PedidoDetalhePage({
   // Tabela de preços — mapa produto_id → preco
   let precoTabela: Record<string, number> = {}
   if (pedido.tabela_preco_id) {
-    const { data: itensTp } = await supabase
+    const itensTp = await fetchAll<{ produto_id: string; preco: number }>((from, to) => supabase
       .from('itens_tabela_preco')
       .select('produto_id, preco')
-      .eq('tabela_id', pedido.tabela_preco_id)
-    precoTabela = Object.fromEntries((itensTp ?? []).map(i => [i.produto_id, i.preco]))
+      .eq('tabela_id', pedido.tabela_preco_id!)
+      .range(from, to))
+    precoTabela = Object.fromEntries(itensTp.map(i => [i.produto_id, i.preco]))
   }
 
   const depositoMap = Object.fromEntries((depositos ?? []).map(d => [d.id, d.nome]))

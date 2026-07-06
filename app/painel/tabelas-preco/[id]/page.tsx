@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { TabelaDetalheClient } from './TabelaDetalheClient'
@@ -12,14 +12,15 @@ export default async function TabelaPrecoDetalhe({
   const { id } = await params
   const supabase = await createServiceClient()
 
-  const [{ data: tabela }, { data: itens }, { data: produtos }] = await Promise.all([
+  const [{ data: tabela }, itens, produtos] = await Promise.all([
     supabase.from('tabelas_preco').select('id, nome, descricao, ativa, data_inicio, data_fim').eq('id', id).single(),
-    supabase
+    fetchAll((from, to) => supabase
       .from('itens_tabela_preco')
       .select('id, produto_id, preco, quantidade_minima, produtos(id, nome, preco)')
       .eq('tabela_id', id)
-      .order('quantidade_minima'),
-    supabase.from('produtos').select('id, nome, preco').order('nome'),
+      .order('quantidade_minima')
+      .range(from, to)),
+    fetchAll((from, to) => supabase.from('produtos').select('id, nome, preco').order('nome').range(from, to)),
   ])
 
   if (!tabela) notFound()

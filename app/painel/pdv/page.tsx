@@ -1,5 +1,5 @@
 import { headers } from 'next/headers'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { PDVClient } from './PDVClient'
 
 // Config de PDV do usuário logado (lojas permitidas + padrão). Tolerante:
@@ -37,13 +37,14 @@ export default async function PDVPage() {
 
   const hoje = new Date().toISOString().split('T')[0]
 
-  const [{ data: produtos }, { data: formas }, { data: pessoas }, { data: depositos }, { data: tabelas }, { data: itensTabela }, { data: seriesEmEstoque }, { data: lojas }, { data: maquinas }] = await Promise.all([
-    supabase.from('produtos').select('id, nome, preco, codigo, marca, categoria, descricao, imagem_url, controla_serie, estoque(deposito_id, quantidade)').eq('ativo', true).order('nome'),
+  // produtos/pessoas/itens passam de 1000 → paginar (PostgREST capa em 1000 por request)
+  const [produtos, pessoas, itensTabela, { data: formas }, { data: depositos }, { data: tabelas }, { data: seriesEmEstoque }, { data: lojas }, { data: maquinas }] = await Promise.all([
+    fetchAll((from, to) => supabase.from('produtos').select('id, nome, preco, codigo, marca, categoria, descricao, imagem_url, controla_serie, estoque(deposito_id, quantidade)').eq('ativo', true).order('nome').range(from, to)),
+    fetchAll((from, to) => supabase.from('pessoas').select('id, nome, cpf_cnpj, telefone, endereco, bairro, cidade, estado, cep, tabela_preco_id').eq('ativo', true).in('tipo', ['cliente', 'ambos']).order('nome').range(from, to)),
+    fetchAll((from, to) => supabase.from('itens_tabela_preco').select('tabela_id, produto_id, preco, quantidade_minima').range(from, to)),
     supabase.from('formas_pagamento').select('id, nome, tipo, maquina_id, prazo_recebimento').eq('ativo', true),
-    supabase.from('pessoas').select('id, nome, cpf_cnpj, telefone, endereco, bairro, cidade, estado, cep, tabela_preco_id').eq('ativo', true).in('tipo', ['cliente', 'ambos']).order('nome'),
     supabase.from('depositos').select('id, nome, loja_id').order('nome'),
     supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).or(`data_inicio.is.null,data_inicio.lte.${hoje}`).or(`data_fim.is.null,data_fim.gte.${hoje}`).order('nome'),
-    supabase.from('itens_tabela_preco').select('tabela_id, produto_id, preco, quantidade_minima'),
     supabase.from('numeros_serie').select('produto_id, deposito_id, serie').eq('status', 'em_estoque').order('serie'),
     supabase.from('lojas').select('id, nome, razao_social, cnpj, inscricao_estadual, telefone, whatsapp, cep, endereco, numero, complemento, bairro, cidade, uf, deposito_padrao_id, tabela_padrao_id, senha_desconto, logo_url, termos_venda').eq('ativa', true).order('nome'),
     supabase.from('maquinas_cartao').select('id, nome, taxa_debito, taxas_credito, max_parcelas').eq('ativo', true).order('nome'),

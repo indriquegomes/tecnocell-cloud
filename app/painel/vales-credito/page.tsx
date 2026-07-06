@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { CreditosClient } from './CreditosClient'
 
 export default async function CreditosClientePage({
@@ -9,12 +9,12 @@ export default async function CreditosClientePage({
   const { cliente: clienteFiltro, erro, ok } = await searchParams
   const supabase = await createServiceClient()
 
-  const [{ data: movimentos }, { data: pessoas }] = await Promise.all([
+  const [{ data: movimentos }, pessoas] = await Promise.all([
     supabase
       .from('creditos_clientes')
       .select('id, pessoa_id, pessoa_nome, valor, tipo, descricao, devolucao_id, created_at')
       .order('created_at', { ascending: false }),
-    supabase.from('pessoas').select('id, nome').in('tipo', ['cliente', 'ambos']).order('nome'),
+    fetchAll((from, to) => supabase.from('pessoas').select('id, nome').in('tipo', ['cliente', 'ambos']).order('nome').range(from, to)),
   ])
 
   // Busca detalhes das devoluções referenciadas

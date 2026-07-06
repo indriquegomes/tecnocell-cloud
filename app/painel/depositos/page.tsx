@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { criarDeposito, editarDeposito, deletarDeposito } from './actions'
 import { Dica } from '@/components/Dica'
@@ -20,9 +20,9 @@ export default async function DepositosPage({
   if (busca) qDepositos = qDepositos.ilike('nome', `%${busca}%`)
   if (so_inativos === '1') qDepositos = qDepositos.eq('ativo', false)
 
-  const [{ data: depositos }, { data: estoqueRaw }, { data: lojas }] = await Promise.all([
+  const [{ data: depositos }, estoqueRaw, { data: lojas }] = await Promise.all([
     qDepositos,
-    supabase.from('estoque').select('deposito_id, quantidade, produto_id'),
+    fetchAll<{ deposito_id: string; quantidade: number; produto_id: string }>((from, to) => supabase.from('estoque').select('deposito_id, quantidade, produto_id').range(from, to)),
     supabase.from('lojas').select('id, nome').eq('ativa', true).order('nome'),
   ])
 
