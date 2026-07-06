@@ -16,6 +16,7 @@ export function BuscaPessoas() {
       const val = v.trim()
       if (val) params.set('busca', val)
       else params.delete('busca')
+      params.delete('pagina') // nova busca volta pra página 1
       const qs = params.toString()
       router.replace('/painel/clientes' + (qs ? '?' + qs : ''))
     }, 350)

@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { BuscaPessoas } from './BuscaPessoas'
+import { Paginacao } from '@/components/Paginacao'
 import { Badge } from '@/components/ui/badge'
 import { deletarPessoa, inativarPessoa, reativarPessoa } from './actions'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
@@ -9,7 +10,7 @@ import { Dica } from '@/components/Dica'
 export default async function ClientesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ busca?: string; tipo?: string; ordem?: string; dir?: string; status?: string; erro?: string }>
+  searchParams: Promise<{ busca?: string; tipo?: string; ordem?: string; dir?: string; status?: string; pagina?: string; erro?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
@@ -33,12 +34,14 @@ export default async function ClientesPage({
     return { href: `/painel/clientes?${qs}`, arrow, ativo }
   }
 
+  const porPagina = 50
+  const pagina = Math.max(1, parseInt(params.pagina ?? '1', 10) || 1)
+
   let query = supabase
     .from('pessoas')
-    .select('id, nome, tipo, pessoa_fisica, cpf_cnpj, email, telefone, cidade, estado, ativo')
+    .select('id, nome, tipo, pessoa_fisica, cpf_cnpj, email, telefone, cidade, estado, ativo', { count: 'exact' })
     .eq('ativo', !verInativos)
     .order(ordemCampo, { ascending: !ordemDir })
-    .limit(500)
 
   if (params.busca) {
     const raw = params.busca.trim()
@@ -56,7 +59,10 @@ export default async function ClientesPage({
   }
   if (params.tipo) query = query.eq('tipo', params.tipo)
 
-  const { data: pessoas } = await query
+  query = query.range((pagina - 1) * porPagina, pagina * porPagina - 1)
+  const { data: pessoas, count } = await query
+  const total = count ?? 0
+  const totalPaginas = Math.max(1, Math.ceil(total / porPagina))
 
   return (
     <div className="space-y-6">
@@ -96,7 +102,7 @@ export default async function ClientesPage({
           className={`rounded-lg border px-4 py-2 text-sm transition ${verInativos ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
           {verInativos ? '← Voltar aos ativos' : 'Ver inativos'}
         </Link>
-        <span className="ml-auto self-center text-sm text-gray-400">{pessoas?.length ?? 0} registros</span>
+        <span className="ml-auto self-center text-sm text-gray-400">{total} registro{total === 1 ? '' : 's'}</span>
       </div>
 
       {/* Tabela */}
@@ -174,6 +180,7 @@ export default async function ClientesPage({
             )}
           </tbody>
         </table>
+        <Paginacao pagina={pagina} totalPaginas={totalPaginas} total={total} params={baseParams} basePath="/painel/clientes" />
       </div>
     </div>
   )
