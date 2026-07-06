@@ -31,6 +31,23 @@ export default async function EditarClientePage({
     ? await supabase.from('lancamentos').select('valor, valor_pago').in('venda_id', vendaIds).eq('tipo', 'receber').eq('status', 'pendente')
     : { data: [] as { valor: number | null; valor_pago: number | null }[] }
 
+  // Histórico de compras importado do SIGE (casado pelo nome do cliente)
+  const mesAtras = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
+  const [{ data: histSige }, { data: histMes }] = await Promise.all([
+    supabase.from('historico_vendas').select('codigo, data, loja, valor_final, vendedor').ilike('cliente', pessoa.nome).order('data', { ascending: false }).limit(60),
+    supabase.from('historico_vendas').select('valor_final').ilike('cliente', pessoa.nome).gte('data', mesAtras).limit(1000),
+  ])
+  const qtdMes = (histMes ?? []).length
+  const totalMes = (histMes ?? []).reduce((s, v) => s + (v.valor_final ?? 0), 0)
+  const comprasSige = (histSige ?? []).map((v) => ({
+    key: 'sige-' + v.codigo, data: v.data ?? '', ref: v.codigo ? `#${v.codigo}` : '—',
+    info: [v.loja, v.vendedor].filter(Boolean).join(' · '), total: v.valor_final ?? 0,
+  }))
+  const comprasApp = (vendas ?? []).map((v) => ({
+    key: 'app-' + v.id, data: v.created_at, ref: v.numero ? `#${v.numero}` : '—', info: v.status ?? '', total: v.total ?? 0,
+  }))
+  const compras = [...comprasApp, ...comprasSige].sort((a, b) => (b.data || '').localeCompare(a.data || ''))
+
   const fiadoPendente = (lancs ?? []).reduce((s, l) => s + ((l.valor ?? 0) - (l.valor_pago ?? 0)), 0)
   const saldoCredito = (creds ?? []).reduce((s, c) => (c.tipo === 'uso' ? s - (c.valor ?? 0) : s + (c.valor ?? 0)), 0)
   const totalComprado = (vendas ?? []).reduce((s, v) => s + (v.total ?? 0), 0)
@@ -52,9 +69,9 @@ export default async function EditarClientePage({
       {/* Cards de resumo */}
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <p className="text-xs text-gray-500">Total já comprado</p>
-          <p className="text-xl font-bold text-gray-900">{formatBRL(totalComprado)}</p>
-          <p className="text-[11px] text-gray-400">{(vendas ?? []).length} compra(s)</p>
+          <p className="text-xs text-gray-500">Comprou (últ. mês)</p>
+          <p className="text-xl font-bold text-gray-900">{formatBRL(totalMes)}</p>
+          <p className="text-[11px] text-gray-400">{qtdMes} compra(s){totalComprado > 0 ? ` · ${formatBRL(totalComprado)} no app` : ''}</p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <p className="text-xs text-gray-500">Fiado em aberto</p>
@@ -72,28 +89,31 @@ export default async function EditarClientePage({
       {/* Cadastro */}
       <PessoaForm tabelas={tabelas ?? []} vendedores={vendedores ?? []} editando={pessoa as PessoaEdit} podeCredito={podeCredito} />
 
-      {/* Histórico de compras */}
+      {/* Histórico de compras (app + importado do SIGE) */}
       <div>
-        <h3 className="mb-2 text-sm font-semibold text-gray-500 uppercase tracking-wide">Histórico de compras</h3>
+        <h3 className="mb-2 text-sm font-semibold text-gray-500 uppercase tracking-wide">
+          Histórico de compras
+          {comprasSige.length > 0 && <span className="ml-2 normal-case font-normal text-gray-400">· últimas {compras.length} (SIGE importado)</span>}
+        </h3>
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
           <table className="min-w-full divide-y divide-gray-100">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Data</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Venda</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Loja / Vendedor</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Total</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {(vendas ?? []).length === 0 ? (
+              {compras.length === 0 ? (
                 <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">Nenhuma compra ainda.</td></tr>
-              ) : (vendas ?? []).map((v) => (
-                <tr key={v.id} className="hover:bg-gray-50 transition">
-                  <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{formatDate(v.created_at)}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-800">{v.numero ? `#${v.numero}` : '—'}</td>
-                  <td className="px-4 py-3 text-center text-sm text-gray-500">{v.status}</td>
-                  <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">{formatBRL(v.total ?? 0)}</td>
+              ) : compras.map((c) => (
+                <tr key={c.key} className="hover:bg-gray-50 transition">
+                  <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{formatDate(c.data)}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.ref}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">{c.info || '—'}</td>
+                  <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">{formatBRL(c.total)}</td>
                 </tr>
               ))}
             </tbody>
