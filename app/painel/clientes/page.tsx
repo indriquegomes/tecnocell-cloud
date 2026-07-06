@@ -41,11 +41,17 @@ export default async function ClientesPage({
     .limit(500)
 
   if (params.busca) {
-    const termo = params.busca.replace(/[,()]/g, ' ').trim()
+    const raw = params.busca.trim()
     const digitos = params.busca.replace(/\D/g, '')
-    const ors = [`nome.ilike.%${termo}%`]
-    if (digitos.length >= 3) ors.push(`cpf_cnpj.ilike.%${digitos}%`, `telefone.ilike.%${digitos}%`, `celular.ilike.%${digitos}%`)
-    query = query.or(ors.join(','))
+    const soDigitos = digitos.length >= 4 && /^[\d.\-/()\s]+$/.test(raw)
+    if (soDigitos) {
+      // busca numérica → CPF/CNPJ ou telefone
+      query = query.or(`cpf_cnpj.ilike.%${digitos}%,telefone.ilike.%${digitos}%,celular.ilike.%${digitos}%`)
+    } else {
+      // busca textual → cada palavra tem que aparecer no nome (qualquer ordem)
+      const palavras = raw.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
+      for (const w of palavras) query = query.ilike('nome', `%${w}%`)
+    }
   }
   if (params.tipo) query = query.eq('tipo', params.tipo)
 
