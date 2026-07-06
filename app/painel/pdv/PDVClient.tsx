@@ -163,6 +163,7 @@ interface Props {
 export function PDVClient({ produtos: produtosIniciais, formas, pessoas, depositos, lojas, maquinas, tabelas, precosPorTabela, promosPorProduto, seriesPorProduto, depositoInicial }: Props) {
   const [produtos, setProdutos] = useState(produtosIniciais)
   const [busca, setBusca] = useState('')
+  const [copiado, setCopiado] = useState(false)
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([])
   const [pagamentos, setPagamentos] = useState<PagamentoItem[]>([
     { uid: '1', forma_id: formas[0]?.id ?? '', valor: '', maquina: formas[0]?.maquina_id ?? '', parcelas: 1 },
@@ -349,6 +350,17 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const fichaFiltrados = buscaFicha.trim().length >= 1
     ? produtos.filter((p) => casaBusca(textoProduto(p), buscaFicha)).slice(0, 20)
     : []
+
+  // Copiar a lista de preços que casou a busca (pra mandar orçamento pro cliente no WhatsApp)
+  const copiarPrecos = async () => {
+    const todos = produtos.filter((p) => casaBusca(textoProduto(p), busca)).slice(0, 50)
+    const txt = todos.map((p) => `${p.nome} — ${formatBRL(precoDoProduto(p))}`).join('\n')
+    try {
+      await navigator.clipboard.writeText(txt)
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 1800)
+    } catch { /* clipboard bloqueado */ }
+  }
 
   const fecharFicha = () => { setFichaAberta(false); setFichaSel(null); setBuscaFicha('') }
 
@@ -1340,6 +1352,13 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                 </div>
                 )
               })}
+              <button
+                type="button"
+                onClick={copiarPrecos}
+                className="flex w-full items-center justify-center gap-2 border-t border-gray-100 bg-gray-50 px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100 transition"
+              >
+                {copiado ? '✓ Copiado!' : '📋 Copiar lista de preços (mandar pro cliente)'}
+              </button>
             </div>
           )}
         </div>
