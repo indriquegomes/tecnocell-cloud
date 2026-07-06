@@ -1,5 +1,6 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { formatBRL } from '@/lib/utils'
+import { Paginacao } from '@/components/Paginacao'
 import { Badge } from '@/components/ui/badge'
 import { deletarProduto } from './actions'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
@@ -13,7 +14,7 @@ export default async function ProdutosPage({
     busca?: string; categoria?: string; marca?: string
     ordem?: string; dir?: string
     preco_min?: string; preco_max?: string; prateleira?: string
-    com_estoque?: string; so_inativos?: string
+    com_estoque?: string; so_inativos?: string; pagina?: string
   }>
 }) {
   const params = await searchParams
@@ -32,49 +33,59 @@ export default async function ProdutosPage({
 
   const ordemEstoque = ordemAtual === 'estoque'
 
-  let query = supabase
-    .from('produtos')
-    .select(`
-      id, nome, descricao, preco, preco_custo, marca, categoria, ativo, codigo, imagem_url,
-      estoque_minimo,
-      cat:categorias!categoria ( nome ),
-      estoque ( quantidade )
-    `)
-    .order(ordemCampo, { ascending: !ordemDir })
-    .limit(200)
-
-  if (ordemAtual !== 'nome' && !ordemEstoque) query = query.order('nome')
-
-  if (params.busca) {
-    const termo = params.busca.replace(/[,()]/g, ' ').trim()
-    query = query.or(`nome.ilike.%${termo}%,codigo.ilike.%${termo}%,ean.ilike.%${termo}%,modelo.ilike.%${termo}%`)
-  }
-  if (params.categoria)  query = query.eq('categoria', params.categoria)
-  if (params.marca)      query = query.eq('marca', params.marca)
-  if (params.prateleira) query = query.ilike('prateleira', `%${params.prateleira}%`)
-  if (params.preco_min)  query = query.gte('preco', parseFloat(params.preco_min))
-  if (params.preco_max)  query = query.lte('preco', parseFloat(params.preco_max))
-  if (params.so_inativos) query = query.eq('ativo', false)
-
-  const [{ data: produtosRaw }, { data: categorias }, { data: marcas }] = await Promise.all([
-    query,
-    supabase.from('categorias').select('hierarquia, nome').order('nome'),
-    supabase.from('marcas').select('nome').order('nome'),
-  ])
+  const porPagina = 50
+  const pagina = Math.max(1, parseInt(params.pagina ?? '1', 10) || 1)
+  // ordenar por estoque ou filtrar "só com estoque" precisa de todos os itens (agregado do join, feito em JS)
+  const precisaTudo = ordemEstoque || !!params.com_estoque
 
   const getEstoque = (p: Record<string, unknown>) =>
     ((p.estoque as { quantidade: number }[]) ?? []).reduce((s, e) => s + (e.quantidade ?? 0), 0)
 
-  let produtos = ordemEstoque
-    ? [...(produtosRaw ?? [])].sort((a, b) => {
-        const diff = getEstoque(a as Record<string, unknown>) - getEstoque(b as Record<string, unknown>)
-        return ordemDir ? -diff : diff
-      })
-    : (produtosRaw ?? [])
-
-  if (params.com_estoque) {
-    produtos = produtos.filter((p) => getEstoque(p as Record<string, unknown>) > 0)
+  const buildQ = (withCount: boolean) => {
+    let q = supabase
+      .from('produtos')
+      .select(`
+        id, nome, descricao, preco, preco_custo, marca, categoria, ativo, codigo, imagem_url,
+        estoque_minimo,
+        cat:categorias!categoria ( nome ),
+        estoque ( quantidade )
+      `, withCount ? { count: 'exact' as const } : undefined)
+      .order(ordemCampo, { ascending: !ordemDir })
+    if (ordemAtual !== 'nome' && !ordemEstoque) q = q.order('nome')
+    if (params.busca) {
+      const termo = params.busca.replace(/[,()]/g, ' ').trim()
+      q = q.or(`nome.ilike.%${termo}%,codigo.ilike.%${termo}%,ean.ilike.%${termo}%,modelo.ilike.%${termo}%`)
+    }
+    if (params.categoria)  q = q.eq('categoria', params.categoria)
+    if (params.marca)      q = q.eq('marca', params.marca)
+    if (params.prateleira) q = q.ilike('prateleira', `%${params.prateleira}%`)
+    if (params.preco_min)  q = q.gte('preco', parseFloat(params.preco_min))
+    if (params.preco_max)  q = q.lte('preco', parseFloat(params.preco_max))
+    if (params.so_inativos) q = q.eq('ativo', false)
+    return q
   }
+
+  const [{ data: categorias }, { data: marcas }] = await Promise.all([
+    supabase.from('categorias').select('hierarquia, nome').order('nome'),
+    supabase.from('marcas').select('nome').order('nome'),
+  ])
+
+  let produtos: Record<string, unknown>[]
+  let total: number
+  if (precisaTudo) {
+    const todos = await fetchAll<Record<string, unknown>>(
+      (from, to) => buildQ(false).range(from, to) as unknown as PromiseLike<{ data: Record<string, unknown>[] | null }>,
+    )
+    let arr = params.com_estoque ? todos.filter((p) => getEstoque(p) > 0) : todos
+    if (ordemEstoque) arr = [...arr].sort((a, b) => { const d = getEstoque(a) - getEstoque(b); return ordemDir ? -d : d })
+    total = arr.length
+    produtos = arr.slice((pagina - 1) * porPagina, pagina * porPagina)
+  } else {
+    const { data, count } = await buildQ(true).range((pagina - 1) * porPagina, pagina * porPagina - 1)
+    produtos = (data ?? []) as unknown as Record<string, unknown>[]
+    total = count ?? 0
+  }
+  const totalPaginas = Math.max(1, Math.ceil(total / porPagina))
 
   // Params base pra preservar filtros nos links de ordenação
   const baseParams = {
@@ -284,6 +295,7 @@ export default async function ProdutosPage({
             )}
           </tbody>
         </table>
+        <Paginacao pagina={pagina} totalPaginas={totalPaginas} total={total} params={baseParams} basePath="/painel/produtos" />
       </div>
     </div>
   )
