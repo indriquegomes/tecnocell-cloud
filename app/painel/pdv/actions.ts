@@ -1,7 +1,118 @@
 'use server'
 
-import { createServiceClient, requirePermissao, permissoesEfetivas } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll, requirePermissao, permissoesEfetivas } from '@/lib/supabase/server'
 import { temPermissao } from '@/lib/permissoes'
+
+// Itens de UMA tabela de preço, sob demanda (o PDV não embute mais os 45k itens
+// de todas as tabelas — carrega só a escolhida). Ordena por id p/ paginação estável.
+export async function buscarItensTabela(
+  accessToken: string,
+  tabelaId: string,
+): Promise<{ produto_id: string; preco: number; quantidade_minima: number | null }[]> {
+  await requirePermissao('pdv', accessToken)
+  const supabase = await createServiceClient()
+  return fetchAll<{ produto_id: string; preco: number; quantidade_minima: number | null }>(
+    (from, to) => supabase.from('itens_tabela_preco')
+      .select('produto_id, preco, quantidade_minima')
+      .eq('tabela_id', tabelaId).order('id').range(from, to),
+  )
+}
+
+// tira acento + minúscula (igual ao casaBusca do client) pra bater com busca_norm/nome_norm
+function semAcentoServ(s: string): string {
+  return s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
+}
+
+export type ProdutoPDV = {
+  id: string; nome: string; preco: number; codigo: string | null; marca: string | null
+  categoria: string | null; descricao: string | null; imagem_url: string | null
+  controla_serie: boolean; prateleira: string | null; estoquePorDeposito: Record<string, number>
+}
+
+// Busca de produto SOB DEMANDA (o PDV não embute mais os 7.983 produtos no HTML).
+// Cada palavra do termo tem que aparecer em busca_norm (nome+código+marca, sem acento).
+// Retorna também os IMEIs em estoque dos produtos serializados encontrados.
+export async function buscarProdutosPDV(
+  accessToken: string,
+  termo: string,
+): Promise<{ produtos: ProdutoPDV[]; series: Record<string, Record<string, string[]>> }> {
+  await requirePermissao('pdv', accessToken)
+  const t = termo.trim()
+  if (t.length < 1) return { produtos: [], series: {} }
+  const supabase = await createServiceClient()
+  const palavras = semAcentoServ(t).replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
+  if (palavras.length === 0) return { produtos: [], series: {} }
+
+  const sel = 'id, nome, preco, codigo, marca, categoria, descricao, imagem_url, controla_serie, prateleira, estoque(deposito_id, quantidade)'
+  let q = supabase.from('produtos').select(sel).eq('ativo', true)
+  for (const w of palavras) q = q.ilike('busca_norm', `%${w}%`)
+  let { data, error } = await q.order('nome').limit(60)
+  // Fallback se a migration do busca_norm ainda não rodou: busca por nome/código/marca
+  // (com acento). Depois de rodar a migration, o caminho de cima (sem acento) assume.
+  if (error && (error.code === '42703' || error.message?.includes('busca_norm'))) {
+    let f = supabase.from('produtos').select(sel).eq('ativo', true)
+    for (const w of palavras) f = f.or(`nome.ilike.%${w}%,codigo.ilike.%${w}%,marca.ilike.%${w}%`)
+    ;({ data } = await f.order('nome').limit(60))
+  }
+
+  const produtos: ProdutoPDV[] = (data ?? []).map((p) => {
+    const linhas = (p.estoque as { deposito_id: string; quantidade: number }[] | null) ?? []
+    const estoquePorDeposito: Record<string, number> = {}
+    for (const e of linhas) estoquePorDeposito[e.deposito_id] = (estoquePorDeposito[e.deposito_id] ?? 0) + e.quantidade
+    return {
+      id: p.id, nome: p.nome, preco: p.preco, codigo: p.codigo, marca: p.marca,
+      categoria: (p as Record<string, unknown>).categoria as string | null ?? null,
+      descricao: (p as Record<string, unknown>).descricao as string | null ?? null,
+      imagem_url: (p as Record<string, unknown>).imagem_url as string | null ?? null,
+      controla_serie: (p as Record<string, unknown>).controla_serie as boolean | null ?? false,
+      prateleira: (p as Record<string, unknown>).prateleira as string | null ?? null,
+      estoquePorDeposito,
+    }
+  })
+
+  // IMEIs em estoque só dos serializados encontrados: { produto_id: { deposito_id: [serie] } }
+  const series: Record<string, Record<string, string[]>> = {}
+  const idsSerie = produtos.filter((p) => p.controla_serie).map((p) => p.id)
+  if (idsSerie.length > 0) {
+    const { data: ser } = await supabase.from('numeros_serie')
+      .select('produto_id, deposito_id, serie').eq('status', 'em_estoque').in('produto_id', idsSerie).order('serie')
+    for (const s of (ser ?? []) as { produto_id: string; deposito_id: string; serie: string }[]) {
+      if (!s.produto_id || !s.deposito_id) continue
+      ;(series[s.produto_id] ??= {})[s.deposito_id] ??= []
+      series[s.produto_id][s.deposito_id].push(s.serie)
+    }
+  }
+  return { produtos, series }
+}
+
+export type PessoaPDV = {
+  id: string; nome: string; cpf_cnpj: string | null; telefone: string | null
+  endereco: string | null; bairro: string | null; cidade: string | null
+  estado: string | null; cep: string | null; tabela_preco_id: string | null
+}
+
+// Busca de cliente SOB DEMANDA (não embute mais as 2.397 pessoas no HTML).
+// Só dígitos → CPF/CNPJ/telefone; senão cada palavra em nome_norm (sem acento).
+export async function buscarClientesPDV(accessToken: string, termo: string): Promise<PessoaPDV[]> {
+  await requirePermissao('pdv', accessToken)
+  const raw = termo.trim()
+  if (raw.length < 1) return []
+  const supabase = await createServiceClient()
+  let q = supabase.from('pessoas')
+    .select('id, nome, cpf_cnpj, telefone, endereco, bairro, cidade, estado, cep, tabela_preco_id')
+    .eq('ativo', true).in('tipo', ['cliente', 'ambos'])
+  const digitos = raw.replace(/\D/g, '')
+  const soDigitos = digitos.length >= 4 && /^[\d.\-/()\s]+$/.test(raw)
+  if (soDigitos) {
+    q = q.or(`cpf_cnpj.ilike.%${digitos}%,telefone.ilike.%${digitos}%,celular.ilike.%${digitos}%`)
+  } else {
+    const palavras = semAcentoServ(raw).replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
+    if (palavras.length === 0) return []
+    for (const w of palavras) q = q.ilike('nome_norm', `%${w}%`)
+  }
+  const { data } = await q.order('nome').limit(30)
+  return (data ?? []) as PessoaPDV[]
+}
 
 // Confere a senha de desconto da loja no servidor (a senha nunca vai pro cliente)
 export async function validarSenhaDesconto(lojaId: string, senha: string): Promise<boolean> {

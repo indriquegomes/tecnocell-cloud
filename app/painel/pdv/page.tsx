@@ -1,5 +1,5 @@
 import { headers } from 'next/headers'
-import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { PDVClient } from './PDVClient'
 
 // Config de PDV do usuário logado (lojas permitidas + padrão). Tolerante:
@@ -38,39 +38,24 @@ export default async function PDVPage() {
 
   const hoje = new Date().toISOString().split('T')[0]
 
-  // produtos/pessoas/itens passam de 1000 → paginar (PostgREST capa em 1000 por request)
-  const [produtos, pessoas, itensTabela, { data: formas }, { data: depositos }, { data: tabelas }, { data: seriesEmEstoque }, { data: lojas }, { data: maquinas }] = await Promise.all([
-    fetchAll((from, to) => supabase.from('produtos').select('id, nome, preco, codigo, marca, categoria, descricao, imagem_url, controla_serie, prateleira, estoque(deposito_id, quantidade)').eq('ativo', true).order('nome').range(from, to)),
-    fetchAll((from, to) => supabase.from('pessoas').select('id, nome, cpf_cnpj, telefone, endereco, bairro, cidade, estado, cep, tabela_preco_id').eq('ativo', true).in('tipo', ['cliente', 'ambos']).order('nome').range(from, to)),
-    fetchAll((from, to) => supabase.from('itens_tabela_preco').select('tabela_id, produto_id, preco, quantidade_minima').range(from, to)),
+  // Produtos (7.983) e clientes (2.397) NÃO são mais embutidos no HTML — o PDV busca
+  // sob demanda no servidor conforme digita (buscarProdutosPDV/buscarClientesPDV). Idem
+  // os itens de tabela de preço (45k, buscarItensTabela). Isso derruba o payload do PDV.
+  const [{ count: totalProdutos }, { data: formas }, { data: depositos }, { data: tabelas }, { data: lojas }, { data: maquinas }] = await Promise.all([
+    supabase.from('produtos').select('id', { count: 'exact', head: true }).eq('ativo', true),
     supabase.from('formas_pagamento').select('id, nome, tipo, maquina_id, prazo_recebimento').eq('ativo', true),
     supabase.from('depositos').select('id, nome, loja_id').order('nome'),
     supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).or(`data_inicio.is.null,data_inicio.lte.${hoje}`).or(`data_fim.is.null,data_fim.gte.${hoje}`).order('nome'),
-    supabase.from('numeros_serie').select('produto_id, deposito_id, serie').eq('status', 'em_estoque').order('serie'),
     supabase.from('lojas').select('id, nome, razao_social, cnpj, inscricao_estadual, telefone, whatsapp, cep, endereco, numero, complemento, bairro, cidade, uf, deposito_padrao_id, tabela_padrao_id, senha_desconto, logo_url, termos_venda').eq('ativa', true).order('nome'),
     supabase.from('maquinas_cartao').select('id, nome, taxa_debito, taxas_credito, max_parcelas').eq('ativo', true).order('nome'),
   ])
 
-  // IMEIs disponíveis: { produto_id: { deposito_id: [serie, ...] } }
+  // IMEIs vêm junto do resultado da busca de produto (buscarProdutosPDV) — começa vazio.
   const seriesPorProduto: Record<string, Record<string, string[]>> = {}
-  for (const s of (seriesEmEstoque ?? []) as { produto_id: string; deposito_id: string; serie: string }[]) {
-    if (!s.produto_id || !s.deposito_id) continue
-    if (!seriesPorProduto[s.produto_id]) seriesPorProduto[s.produto_id] = {}
-    if (!seriesPorProduto[s.produto_id][s.deposito_id]) seriesPorProduto[s.produto_id][s.deposito_id] = []
-    seriesPorProduto[s.produto_id][s.deposito_id].push(s.serie)
-  }
 
-  // Mapa de preços por tabela com faixas: { tabela_id: { produto_id: [{qtd_min, preco}] } }
-  // As faixas ficam ordenadas do maior qtd_min pro menor (o PDV pega a 1ª que couber).
+  // Preços por tabela começam VAZIOS — o PDV carrega os itens da tabela escolhida
+  // sob demanda (buscarItensTabela). "Preço Padrão" (default) nem precisa disso.
   const precosPorTabela: Record<string, Record<string, { qtd_min: number; preco: number }[]>> = {}
-  for (const it of (itensTabela ?? []) as { tabela_id: string; produto_id: string; preco: number; quantidade_minima: number | null }[]) {
-    if (!precosPorTabela[it.tabela_id]) precosPorTabela[it.tabela_id] = {}
-    if (!precosPorTabela[it.tabela_id][it.produto_id]) precosPorTabela[it.tabela_id][it.produto_id] = []
-    precosPorTabela[it.tabela_id][it.produto_id].push({ qtd_min: it.quantidade_minima ?? 1, preco: it.preco })
-  }
-  for (const tab of Object.values(precosPorTabela)) {
-    for (const faixas of Object.values(tab)) faixas.sort((a, b) => b.qtd_min - a.qtd_min)
-  }
 
   // Busca promoções ativas hoje (todos os tipos de uma vez)
   const { data: promocoesAtivas } = await supabase
@@ -154,21 +139,14 @@ export default async function PDVPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">PDV — Frente de Caixa</h2>
-          <p className="text-sm text-gray-400 mt-0.5">{produtos?.length ?? 0} produtos disponíveis</p>
+          <p className="text-sm text-gray-400 mt-0.5">{totalProdutos ?? 0} produtos disponíveis</p>
         </div>
       </div>
 
       <PDVClient
-        produtos={(produtos ?? []).map((p) => {
-          const linhas = (p.estoque as { deposito_id: string; quantidade: number }[] | null) ?? []
-          const estoquePorDeposito: Record<string, number> = {}
-          for (const e of linhas) {
-            estoquePorDeposito[e.deposito_id] = (estoquePorDeposito[e.deposito_id] ?? 0) + e.quantidade
-          }
-          return { id: p.id, nome: p.nome, preco: p.preco, codigo: p.codigo, marca: p.marca, categoria: (p as Record<string, unknown>).categoria as string | null ?? null, descricao: (p as Record<string, unknown>).descricao as string | null ?? null, imagem_url: (p as Record<string, unknown>).imagem_url as string | null ?? null, controla_serie: (p as Record<string, unknown>).controla_serie as boolean | null ?? false, prateleira: (p as Record<string, unknown>).prateleira as string | null ?? null, estoquePorDeposito }
-        })}
+        produtos={[]}
         formas={formasOrdenadas}
-        pessoas={pessoas ?? []}
+        pessoas={[]}
         depositos={depositosVisiveis}
         lojas={lojasVisiveis.map(({ senha_desconto, ...l }) => ({ ...l, exige_senha_desconto: !!senha_desconto }))}
         depositoInicial={cfg?.pdvDepositoId ?? undefined}

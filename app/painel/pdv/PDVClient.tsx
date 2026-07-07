@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { formatBRL } from '@/lib/utils'
 import { labelPrazo } from '@/lib/formas-pagamento'
 import { createClient } from '@/lib/supabase/client'
-import { finalizarVenda, salvarOrcamentoPDV, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, buscarPedidosAbertos, buscarDetalheVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
+import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, buscarClientesPDV, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, buscarPedidosAbertos, buscarDetalheVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
 import { buscarSaldoCredito } from '@/app/painel/creditos/actions'
 import type { PromoInfo } from './page'
 
@@ -177,8 +177,15 @@ interface Props {
   depositoInicial?: string   // depósito padrão do usuário (config PDV do perfil)
 }
 
-export function PDVClient({ produtos: produtosIniciais, formas, pessoas, depositos, lojas, maquinas, tabelas, precosPorTabela, promosPorProduto, seriesPorProduto, depositoInicial }: Props) {
+export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoasIniciais, depositos, lojas, maquinas, tabelas, precosPorTabela, promosPorProduto, seriesPorProduto: seriesIniciais, depositoInicial }: Props) {
+  // produtos/pessoas/IMEIs viram CACHE acumulável: começam vazios (não vêm mais no HTML)
+  // e vão sendo preenchidos pela busca sob demanda. Os `.find()` do carrinho leem daqui,
+  // e como só entra no carrinho o que veio da busca, o item sempre está no cache.
   const [produtos, setProdutos] = useState(produtosIniciais)
+  const [pessoas, setPessoas] = useState(pessoasIniciais)
+  const [seriesPorProduto, setSeriesPorProduto] = useState(seriesIniciais)
+  const [buscandoProdutos, setBuscandoProdutos] = useState(false)
+  const [buscandoClientes, setBuscandoClientes] = useState(false)
   const [busca, setBusca] = useState('')
   const [copiado, setCopiado] = useState(false)
   const [selCopia, setSelCopia] = useState<Set<string>>(new Set())  // peças marcadas pra copiar preço
@@ -251,6 +258,54 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     const t = setTimeout(() => setErro(null), 4000)
     return () => clearTimeout(t)
   }, [erro])
+
+  // Junta resultados da busca no cache de produtos (dedupe por id) + IMEIs encontrados
+  const mesclarProdutos = useCallback((novos: Produto[], series: Record<string, Record<string, string[]>>) => {
+    if (novos.length) setProdutos((prev) => {
+      const map = new Map(prev.map((p) => [p.id, p]))
+      for (const p of novos) map.set(p.id, p)   // versão nova sobrescreve (estoque fresco)
+      return Array.from(map.values())
+    })
+    if (Object.keys(series).length) setSeriesPorProduto((prev) => ({ ...prev, ...series }))
+  }, [])
+
+  // Busca de produto SOB DEMANDA (debounce 250ms) — alimenta o cache; a vitrine
+  // (produtosFiltrados) continua filtrando o cache pelo termo. Vale pra busca principal e a do F1.
+  useEffect(() => {
+    // modal F1 aberto usa a busca dele; senão a busca principal
+    const termo = (fichaAberta ? buscaFicha : busca).trim()
+    if (termo.length < 1) { setBuscandoProdutos(false); return }
+    setBuscandoProdutos(true)
+    let vivo = true
+    const t = setTimeout(async () => {
+      try {
+        const { produtos: achados, series } = await buscarProdutosPDV(await authToken(), termo)
+        if (vivo) mesclarProdutos(achados, series)
+      } catch { /* silencioso */ }
+      finally { if (vivo) setBuscandoProdutos(false) }
+    }, 250)
+    return () => { vivo = false; clearTimeout(t) }
+  }, [busca, buscaFicha, fichaAberta, mesclarProdutos])
+
+  // Busca de cliente SOB DEMANDA (debounce 250ms) — alimenta o cache de pessoas
+  useEffect(() => {
+    const termo = buscaCliente.trim()
+    if (termo.length < 1) { setBuscandoClientes(false); return }
+    setBuscandoClientes(true)
+    let vivo = true
+    const t = setTimeout(async () => {
+      try {
+        const achados = await buscarClientesPDV(await authToken(), termo)
+        if (vivo && achados.length) setPessoas((prev) => {
+          const map = new Map(prev.map((p) => [p.id, p]))
+          for (const p of achados) map.set(p.id, p)
+          return Array.from(map.values())
+        })
+      } catch { /* silencioso */ }
+      finally { if (vivo) setBuscandoClientes(false) }
+    }, 250)
+    return () => { vivo = false; clearTimeout(t) }
+  }, [buscaCliente])
 
   // Atalhos de teclado (F8 finalizar, F2 busca, Esc fecha) — refs evitam closure stale
   const buscaRef = useRef<HTMLInputElement>(null)
@@ -337,9 +392,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
 
   const clienteSelecionado = pessoas.find((p) => p.id === pessoaId)
   const soDigitos = (s: string) => s.replace(/\D/g, '')
+  // sem acento (igual ao servidor) — senão "jose" não casaria "José" que a busca trouxe
+  const semAcento = (s: string) => s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
   const clientesFiltrados = buscaCliente.length >= 1
     ? pessoas.filter((p) => {
-        const nomeMatch = p.nome.toLowerCase().includes(buscaCliente.toLowerCase())
+        const nomeMatch = semAcento(p.nome).includes(semAcento(buscaCliente))
         const cpfMatch = soDigitos(buscaCliente).length >= 1 &&
           soDigitos(p.cpf_cnpj ?? '').includes(soDigitos(buscaCliente))
         return nomeMatch || cpfMatch
@@ -348,20 +405,24 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
 
   const nomeDeposito = depositos.find((d) => d.id === depositoId)?.nome ?? ''
   const saldoNoDeposito = (p: Produto) => p.estoquePorDeposito[depositoId] ?? 0
+  // Preços por tabela carregados sob demanda (começam vazios; carrega ao escolher a tabela)
+  const [precos, setPrecos] = useState(precosPorTabela)
+  const [carregandoTabela, setCarregandoTabela] = useState(false)
+
   // Preço na tabela conforme a quantidade (faixa/atacado): pega a 1ª faixa que cabe
   // (as faixas já vêm ordenadas do maior qtd_min pro menor). null = tabela não cobre o produto.
-  const precoTabela = (tab: string, produtoId: string, qtd: number): number | null => {
-    const faixas = precosPorTabela[tab]?.[produtoId]
+  const precoNoMapa = (mapa: typeof precos, tab: string, produtoId: string, qtd: number): number | null => {
+    const faixas = mapa[tab]?.[produtoId]
     if (!faixas || faixas.length === 0) return null
     const faixa = faixas.find((f) => qtd >= f.qtd_min)
     return faixa ? faixa.preco : null
   }
+  const precoTabela = (tab: string, produtoId: string, qtd: number): number | null => precoNoMapa(precos, tab, produtoId, qtd)
   // Preço do produto na tabela selecionada (qtd 1 pra vitrine; cai no padrão se não houver)
   const precoDoProduto = (p: Produto) => precoTabela(tabelaId, p.id, 1) ?? p.preco
 
   // Busca esperta: tira acento e casa cada palavra em qualquer ordem/posição
   // ("fr a11" acha "FRONTAL ... A11"; "tam" acha "TAMPA"). Procura em nome + código + marca.
-  const semAcento = (s: string) => s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
   const casaBusca = (texto: string, termo: string) => {
     const alvo = semAcento(texto)
     return semAcento(termo).split(/\s+/).filter(Boolean).every((w) => alvo.includes(w))
@@ -432,7 +493,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
       }]
     })
     setBusca('')
-  }, [depositoId, nomeDeposito, tabelaId, precosPorTabela])
+  }, [depositoId, nomeDeposito, tabelaId, precos])
 
   // IMEIs disponíveis (em_estoque) do produto no depósito atual
   const seriesDisponiveis = useCallback(
@@ -511,15 +572,38 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     }))
   }
 
-  // Trocar de tabela: recalcula o preço dos itens já no carrinho
-  const trocarTabela = (novaTabela: string) => {
+  // Trocar de tabela: carrega os itens da tabela sob demanda (se ainda não carregou) e
+  // recalcula o preço dos itens do carrinho com o mapa já atualizado.
+  const trocarTabela = async (novaTabela: string) => {
     setTabelaId(novaTabela)
+    let mapa = precos
+    if (novaTabela && !precos[novaTabela]) {
+      setCarregandoTabela(true)
+      try {
+        const itens = await buscarItensTabela(await authToken(), novaTabela)
+        const m: Record<string, { qtd_min: number; preco: number }[]> = {}
+        for (const it of itens) {
+          ;(m[it.produto_id] ??= []).push({ qtd_min: it.quantidade_minima ?? 1, preco: it.preco })
+        }
+        for (const pid in m) m[pid].sort((a, b) => b.qtd_min - a.qtd_min)
+        mapa = { ...precos, [novaTabela]: m }
+        setPrecos(mapa)
+      } catch { setErro('Não consegui carregar a tabela de preço. Tenta de novo.') }
+      setCarregandoTabela(false)
+    }
     setCarrinho((prev) => prev.map((item) => {
       const prod = produtos.find((p) => p.id === item.produto_id)
-      const novoPreco = precoTabela(novaTabela, item.produto_id, item.quantidade) ?? prod?.preco ?? item.preco_unitario
+      const novoPreco = precoNoMapa(mapa, novaTabela, item.produto_id, item.quantidade) ?? prod?.preco ?? item.preco_unitario
       return { ...item, preco_unitario: novoPreco }
     }))
   }
+
+  // Se a loja abre com uma tabela padrão (não "Preço Padrão"), carrega os itens dela
+  // no início pra os preços já saírem certos.
+  useEffect(() => {
+    if (tabelaId && !precos[tabelaId]) trocarTabela(tabelaId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Trocar de depósito: revalida o carrinho contra o saldo do novo local
   const trocarDeposito = (novoId: string) => {
@@ -1383,6 +1467,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
               ))}
             </div>
           )}
+          {buscaCliente.trim().length >= 1 && clientesFiltrados.length === 0 && (
+            <div className="absolute top-full left-0 right-0 z-20 mt-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs text-gray-400 shadow-lg">
+              {buscandoClientes ? 'Buscando…' : 'Nenhum cliente encontrado.'}
+            </div>
+          )}
         </div>
 
         <div className="relative">
@@ -1457,6 +1546,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
               >
                 {copiado ? '✓ Copiado!' : selCopia.size > 0 ? `📋 Copiar ${selCopia.size} marcada${selCopia.size > 1 ? 's' : ''}` : '📋 Copiar todas (ou marque algumas acima)'}
               </button>
+            </div>
+          )}
+          {busca.trim().length >= 1 && produtosFiltrados.length === 0 && (
+            <div className="absolute top-full left-0 right-0 z-10 mt-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-400 shadow-lg">
+              {buscandoProdutos ? 'Buscando…' : 'Nenhum produto encontrado.'}
             </div>
           )}
         </div>
