@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { criarCategoria, editarCategoria, deletarCategoria } from './actions'
+import { SubmitButton } from '@/components/SubmitButton'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 
@@ -75,10 +76,10 @@ export default async function CategoriasPage({
             <label className="mb-1.5 block text-xs font-medium text-gray-600">Descrição</label>
             <input name="descricao" defaultValue={editando?.descricao ?? ''} className="field" placeholder="Opcional" />
           </div>
-          <button type="submit"
-            className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
+          <SubmitButton pendingText={editando ? 'Salvando...' : 'Adicionando...'}
+            className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition">
             {editando ? 'Salvar' : 'Adicionar'}
-          </button>
+          </SubmitButton>
           {editando && (
             <Link href="/painel/categorias"
               className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">

@@ -25,11 +25,12 @@ async function configPdvUsuario(supabase: Awaited<ReturnType<typeof createServic
 export type PromoInfo = {
   id: string
   nome: string
-  tipo: 'valor_direto' | 'leve_x_pague_y' | 'acima_x_pague_y'
+  tipo: 'valor_direto' | 'progressivo' | 'leve_x_pague_y' | 'acima_x_pague_y'
   preco_promocional: number | null
   x: number | null
   y: number | null
   valor: number | null
+  faixas?: { quantidade_minima: number; preco: number }[]  // tipo progressivo
 }
 
 export default async function PDVPage() {
@@ -76,11 +77,25 @@ export default async function PDVPage() {
     .from('promocoes')
     .select('id, nome, tipo, quantidade_x, quantidade_y, valor')
     .eq('ativa', true)
-    .lte('data_inicio', hoje)
-    .gte('data_fim', hoje)
+    .or(`data_inicio.is.null,data_inicio.lte.${hoje}`)
+    .or(`data_fim.is.null,data_fim.gte.${hoje}`)
 
   const promosAtivas = promocoesAtivas ?? []
   const promoById = new Map(promosAtivas.map(p => [p.id, p]))
+
+  // Faixas das promoções progressivas ativas → mapa promo_id → faixas[]
+  const faixasPorPromo: Record<string, { quantidade_minima: number; preco: number }[]> = {}
+  const idsProgressivas = promosAtivas.filter(p => p.tipo === 'progressivo').map(p => p.id)
+  if (idsProgressivas.length > 0) {
+    const { data: faixas } = await supabase
+      .from('faixas_promocao')
+      .select('promocao_id, quantidade_minima, preco')
+      .in('promocao_id', idsProgressivas)
+      .order('quantidade_minima')
+    for (const f of (faixas ?? []) as { promocao_id: string; quantidade_minima: number; preco: number }[]) {
+      ;(faixasPorPromo[f.promocao_id] ??= []).push({ quantidade_minima: f.quantidade_minima, preco: f.preco })
+    }
+  }
 
   // Mapa unificado: produto_id → todas as promoções ativas que o incluem
   const promosPorProduto: Record<string, PromoInfo[]> = {}
@@ -102,6 +117,7 @@ export default async function PDVPage() {
         x: promo.quantidade_x,
         y: promo.quantidade_y,
         valor: promo.valor,
+        faixas: promo.tipo === 'progressivo' ? (faixasPorPromo[promo.id] ?? []) : undefined,
       })
     }
   }

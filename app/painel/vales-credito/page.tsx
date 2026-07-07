@@ -66,7 +66,8 @@ export default async function CreditosClientePage({
     if (!mapaPessoa[m.pessoa_id]) {
       mapaPessoa[m.pessoa_id] = { id: m.pessoa_id, nome: m.pessoa_nome ?? '—', saldo: 0, movimentos: [] }
     }
-    if (m.tipo === 'uso') mapaPessoa[m.pessoa_id].saldo -= m.valor ?? 0
+    // 'uso' e 'estorno' saem (−); 'credito' entra (+). Estorno cancela um crédito.
+    if (m.tipo === 'uso' || m.tipo === 'estorno') mapaPessoa[m.pessoa_id].saldo -= m.valor ?? 0
     else mapaPessoa[m.pessoa_id].saldo += m.valor ?? 0
     mapaPessoa[m.pessoa_id].movimentos.push(m)
   }

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { criarFormaPagamento, editarFormaPagamento } from './actions'
 import { TIPOS_PAGAMENTO, PRAZOS_RECEBIMENTO, tipoUsaMaquina } from '@/lib/formas-pagamento'
+import { SubmitButton } from '@/components/SubmitButton'
 
 type Maquina = { id: string; nome: string; taxa_debito: number; taxas_credito: number[]; max_parcelas: number }
 type Conta = { id: string; nome: string; tipo: string }
@@ -138,9 +139,9 @@ export function FormaForm({ maquinas, contas, editando, lockTipo }: { maquinas: 
         </div>
 
         <div className="flex gap-3">
-          <button type="submit" className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
+          <SubmitButton pendingText={editando ? 'Salvando...' : 'Adicionando...'} className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition">
             {editando ? 'Salvar' : 'Adicionar'}
-          </button>
+          </SubmitButton>
           {editando && (
             <Link href="/painel/formas-pagamento" className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
               Cancelar

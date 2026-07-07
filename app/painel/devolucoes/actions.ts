@@ -23,6 +23,7 @@ export interface VendaParaDevolucao {
   deposito_nome: string | null
   forma_pagamento_nome: string | null
   lancamento_pendente: boolean
+  fiado_restante: number   // quanto da venda ainda é dívida (fiado em aberto)
   itens: ItemVendaParaDevolucao[]
 }
 
@@ -64,7 +65,7 @@ export async function buscarVendaParaDevolucao(
       .eq('venda_id', vendaId),
     supabase
       .from('lancamentos')
-      .select('id, status')
+      .select('id, status, valor, valor_pago')
       .eq('tipo', 'receber')
       .eq('status', 'pendente')
       .eq('venda_id', vendaId),
@@ -107,6 +108,10 @@ export async function buscarVendaParaDevolucao(
     deposito_nome: (depositoRes as { data: { nome: string } | null }).data?.nome ?? null,
     forma_pagamento_nome: (formaRes as { data: { nome: string } | null }).data?.nome ?? null,
     lancamento_pendente: (lancRes.data ?? []).length > 0,
+    fiado_restante: (lancRes.data ?? []).reduce(
+      (s, l) => s + (((l as { valor: number | null }).valor ?? 0) - ((l as { valor_pago: number | null }).valor_pago ?? 0)),
+      0,
+    ),
     itens: ((itensRes.data ?? []) as unknown as {
       produto_id: string; quantidade: number; preco_unitario: number
       total_item: number; produtos: { nome: string } | null

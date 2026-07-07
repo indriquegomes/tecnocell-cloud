@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { criarConta, editarConta, deletarConta, criarTransferencia, deletarTransferencia } from './actions'
+import { SubmitButton } from '@/components/SubmitButton'
 import { Dica } from '@/components/Dica'
 import { formatBRL, formatDate } from '@/lib/utils'
 import Link from 'next/link'
@@ -110,9 +111,9 @@ export default async function ContasPage({
               </select>
             </div>
           )}
-          <button type="submit" className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
+          <SubmitButton pendingText={editando ? 'Salvando...' : 'Adicionando...'} className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition">
             {editando ? 'Salvar' : 'Adicionar'}
-          </button>
+          </SubmitButton>
           {editando && (
             <Link href="/painel/contas" className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">Cancelar</Link>
           )}
@@ -190,9 +191,9 @@ export default async function ContasPage({
             <label className="mb-1.5 block text-xs font-medium text-gray-600">Observação</label>
             <input name="observacao" className="field" placeholder="Opcional" />
           </div>
-          <button type="submit" className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
+          <SubmitButton pendingText="Transferindo..." className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition">
             Transferir
-          </button>
+          </SubmitButton>
         </form>
       </div>
 

@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { criarNotaEntrada } from '../actions'
+import { SubmitButton } from '@/components/SubmitButton'
 import Link from 'next/link'
 
 export default async function NovaNotaPage({ searchParams }: { searchParams: Promise<{ erro?: string }> }) {
@@ -47,9 +48,9 @@ export default async function NovaNotaPage({ searchParams }: { searchParams: Pro
           </div>
         </div>
         <div className="flex gap-3 pt-2">
-          <button type="submit" className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
+          <SubmitButton pendingText="Criando..." className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition">
             Criar Nota
-          </button>
+          </SubmitButton>
           <Link href="/painel/compras" className="rounded-xl border border-gray-200 px-6 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
             Cancelar
           </Link>

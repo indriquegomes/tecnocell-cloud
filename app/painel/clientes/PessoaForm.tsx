@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { criarPessoa, editarPessoa } from './actions'
+import { SubmitButton } from '@/components/SubmitButton'
 
 const ESTADOS = ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO']
 const TIPOS: [string, string][] = [
@@ -202,9 +203,9 @@ export function PessoaForm({ tabelas, vendedores, editando, podeCredito = true }
       </div>
 
       <div className="flex gap-3 pt-1">
-        <button type="submit" className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
+        <SubmitButton pendingText="Salvando..." className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition">
           {editando ? 'Salvar Alterações' : 'Salvar'}
-        </button>
+        </SubmitButton>
         <Link href="/painel/clientes" className="rounded-xl border border-gray-200 px-6 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
           Cancelar
         </Link>

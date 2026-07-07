@@ -5,7 +5,17 @@ import { useRouter } from 'next/navigation'
 import { adicionarItemNota } from '../actions'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-type Produto = { id: string; nome: string; preco_custo: number | null }
+
+// Busca inteligente (igual PDV): sem acento, multi-palavra, em nome + código + marca.
+// "fr a11" acha "FRONTAL ... A11"; "tam" acha "TAMPA".
+const semAcento = (s: string) =>
+  s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
+const casaBusca = (texto: string, busca: string) => {
+  const t = semAcento(texto)
+  return semAcento(busca).split(/\s+/).filter(Boolean).every((termo) => t.includes(termo))
+}
+
+type Produto = { id: string; nome: string; codigo: string | null; marca: string | null; preco_custo: number | null }
 type Deposito = { id: string; nome: string; loja_id: string | null }
 type Loja = { id: string; nome: string }
 
@@ -33,9 +43,9 @@ export function AddItemNota({ notaId, produtos, depositos, lojas }: {
   const [erro, setErro] = useState('')
 
   const filtrados = useMemo(() => {
-    const q = busca.toLowerCase().trim()
+    const q = busca.trim()
     if (!q || sel) return []
-    return produtos.filter((p) => p.nome.toLowerCase().includes(q)).slice(0, 8)
+    return produtos.filter((p) => casaBusca(`${p.nome} ${p.codigo ?? ''} ${p.marca ?? ''}`, q)).slice(0, 8)
   }, [busca, produtos, sel])
 
   const trocarLoja = (id: string) => {
@@ -66,14 +76,18 @@ export function AddItemNota({ notaId, produtos, depositos, lojas }: {
         <div className="relative flex-1 min-w-56">
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Produto</label>
           <input value={busca} onChange={(e) => { setBusca(e.target.value); setSel(null) }}
-            className="field w-full" placeholder="Digite o nome do produto..." />
+            className="field w-full" placeholder="Nome, código ou marca...  (ex: fr a11, pel samsung)" />
           {filtrados.length > 0 && (
             <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
               {filtrados.map((p) => (
                 <button key={p.id} type="button" onMouseDown={(e) => { e.preventDefault(); escolher(p) }}
-                  className="flex w-full items-center justify-between px-4 py-2.5 hover:bg-blue-50 text-left text-sm">
-                  <span className="font-medium text-gray-800">{p.nome}</span>
-                  <span className="text-gray-400 text-xs ml-2">último custo {fmt(p.preco_custo ?? 0)}</span>
+                  className="flex w-full items-center justify-between gap-2 px-4 py-2.5 hover:bg-blue-50 text-left text-sm">
+                  <span className="min-w-0 truncate font-medium text-gray-800">
+                    {p.codigo && <span className="mr-1.5 text-xs text-gray-400 tabular-nums">{p.codigo}</span>}
+                    {p.nome}
+                    {p.marca && <span className="ml-1.5 text-xs text-gray-400">· {p.marca}</span>}
+                  </span>
+                  <span className="shrink-0 text-gray-400 text-xs">custo {fmt(p.preco_custo ?? 0)}</span>
                 </button>
               ))}
             </div>

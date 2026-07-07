@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { criarTabela, deletarTabela } from './actions'
 import { ConfirmButton } from '@/components/ConfirmButton'
+import { SubmitButton } from '@/components/SubmitButton'
 import Link from 'next/link'
 
 export default async function TabelasPrecoPage({
@@ -46,10 +47,10 @@ export default async function TabelasPrecoPage({
             <label className="mb-1.5 block text-sm font-medium text-gray-700">até</label>
             <input name="data_fim" type="date" className="field" />
           </div>
-          <button type="submit"
-            className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
+          <SubmitButton pendingText="Criando..."
+            className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition">
             Criar Tabela
-          </button>
+          </SubmitButton>
         </form>
       </div>
 
@@ -71,7 +72,7 @@ export default async function TabelasPrecoPage({
               </span>
             </div>
             <p className="text-sm text-gray-500">
-              {Array.isArray(t.itens_tabela_preco) ? t.itens_tabela_preco.length : 0} produtos
+              {(Array.isArray(t.itens_tabela_preco) ? t.itens_tabela_preco[0]?.count : 0) ?? 0} produtos
             </p>
             {(t.data_inicio || t.data_fim) && (() => {
               const foraVigencia = (t.data_inicio && t.data_inicio > hoje) || (t.data_fim && t.data_fim < hoje)

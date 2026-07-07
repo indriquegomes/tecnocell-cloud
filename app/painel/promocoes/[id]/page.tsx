@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { PromoDetalheClient } from './PromoDetalheClient'
@@ -38,12 +38,31 @@ export default async function PromoDetalhe({ params }: { params: Promise<{ id: s
     quantidade_y: i.quantidade_y,
   }))
 
+  // catálogo pra o painel de adicionar em lote (busca + selecionar todos)
+  const catalogo = await fetchAll<{ id: string; nome: string; codigo: string | null; marca: string | null; preco: number | null; preco_custo: number | null }>(
+    (from, to) => supabase.from('produtos').select('id, nome, codigo, marca, preco, preco_custo').eq('ativo', true).order('nome').order('id').range(from, to),
+  )
+  const jaNaPromo = new Set((itensRaw ?? []).map(i => i.produto_id))
+
+  // faixas de quantidade (tipo progressivo)
+  const { data: faixas } = await supabase
+    .from('faixas_promocao')
+    .select('id, quantidade_minima, preco')
+    .eq('promocao_id', id)
+    .order('quantidade_minima')
+
   return (
     <div className="space-y-4">
       <Link href="/painel/promocoes" className="text-sm text-blue-600 hover:text-blue-800">
         ← Voltar para Promoções
       </Link>
-      <PromoDetalheClient promocao={promo} itens={itens} />
+      <PromoDetalheClient
+        promocao={promo}
+        itens={itens}
+        catalogo={catalogo.map(p => ({ id: p.id, nome: p.nome, codigo: p.codigo, marca: p.marca, preco: p.preco ?? 0, preco_custo: p.preco_custo ?? 0 }))}
+        jaNaPromo={[...jaNaPromo]}
+        faixas={(faixas ?? []) as { id: string; quantidade_minima: number; preco: number }[]}
+      />
     </div>
   )
 }

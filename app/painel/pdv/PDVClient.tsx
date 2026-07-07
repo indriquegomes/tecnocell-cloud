@@ -4,14 +4,30 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { formatBRL } from '@/lib/utils'
 import { labelPrazo } from '@/lib/formas-pagamento'
 import { createClient } from '@/lib/supabase/client'
-import { finalizarVenda, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, buscarPedidosAbertos, buscarDetalheVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
+import { finalizarVenda, salvarOrcamentoPDV, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, buscarPedidosAbertos, buscarDetalheVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
 import { buscarSaldoCredito } from '@/app/painel/creditos/actions'
 import type { PromoInfo } from './page'
 
-// Desconto que uma promoção dá para uma linha (preço base + quantidade)
-function descontoDaPromo(promo: PromoInfo, base: number, qtd: number): number {
+// Preço unitário de uma faixa progressiva conforme a quantidade TOTAL do grupo.
+// Pega a maior faixa cujo mínimo já foi atingido. Nenhuma atingida = sem desconto.
+function precoFaixa(faixas: { quantidade_minima: number; preco: number }[], totalQtd: number): number | null {
+  let melhor: number | null = null
+  let maiorMin = -1
+  for (const f of faixas) {
+    if (totalQtd >= f.quantidade_minima && f.quantidade_minima > maiorMin) { maiorMin = f.quantidade_minima; melhor = f.preco }
+  }
+  return melhor
+}
+
+// Desconto que uma promoção dá para uma linha (preço base + quantidade).
+// grupoQtd = quantidade total do grupo no carrinho (usado só no tipo progressivo).
+function descontoDaPromo(promo: PromoInfo, base: number, qtd: number, grupoQtd?: number): number {
   if (promo.tipo === 'valor_direto' && promo.preco_promocional != null && base > promo.preco_promocional) {
     return qtd * (base - promo.preco_promocional)
+  }
+  if (promo.tipo === 'progressivo' && promo.faixas && promo.faixas.length > 0) {
+    const preco = precoFaixa(promo.faixas, grupoQtd ?? qtd)
+    if (preco != null && base > preco) return qtd * (base - preco)
   }
   if (promo.tipo === 'leve_x_pague_y' && promo.x && promo.y) {
     const grupos = Math.floor(qtd / promo.x)
@@ -27,6 +43,7 @@ function descontoDaPromo(promo: PromoInfo, base: number, qtd: number): number {
 function labelPromo(p: PromoInfo): string {
   const brl = (v: number) => formatBRL(v)
   if (p.tipo === 'valor_direto' && p.preco_promocional != null) return `${p.nome} · ${brl(p.preco_promocional)}`
+  if (p.tipo === 'progressivo') return `${p.nome} · por quantidade`
   if (p.tipo === 'leve_x_pague_y') return `${p.nome} · Leve ${p.x} Pague ${p.y}`
   if (p.tipo === 'acima_x_pague_y') return `${p.nome} · ${p.x}+ a ${brl(p.valor ?? 0)}`
   return p.nome
@@ -169,6 +186,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const [pagamentos, setPagamentos] = useState<PagamentoItem[]>([
     { uid: '1', forma_id: formas[0]?.id ?? '', valor: '', maquina: formas[0]?.maquina_id ?? '', parcelas: 1 },
   ])
+  // enquanto true, o valor do pagamento único acompanha o total do carrinho sozinho;
+  // vira false quando o operador digita um valor à mão (pra dividir pagamento)
+  const [valorAuto, setValorAuto] = useState(true)
   const [pessoaId, setPessoaId] = useState('')
   const [desconto, setDesconto] = useState('')
   const [senhaDesconto, setSenhaDesconto] = useState('')
@@ -277,6 +297,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     horario: string
   } | null>(null)
   const [mostrarConfirmacao, setMostrarConfirmacao] = useState(false)
+  const [salvandoOrc, setSalvandoOrc] = useState(false)
+  const [msgOrc, setMsgOrc] = useState('')
   // Loja/depósito: lembrado por COMPUTADOR (localStorage) — as usuárias revezam
   // entre lojas, então cada PC fica na sua loja. Sem loja chumbada.
   // Depósito padrão vem da configuração da loja; senão cai no 1º dela.
@@ -304,6 +326,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   useEffect(() => { if (depositoId) localStorage.setItem('pdv_deposito', depositoId) }, [depositoId])
   const lojaSel = lojas.find((l) => l.id === lojaId) ?? null
   const depositosDaLoja = depositos.filter((d) => d.loja_id === lojaId)
+  // depósitos reais de todas as lojas (exclui órfãos tipo Estoque Geral) — pra mostrar
+  // o estoque em TODAS as lojas no resultado da busca (Isa)
+  const depositosReais = depositos.filter((d) => d.loja_id)
   // Tabela padrão só vale se o usuário pode vê-la (tabelas vem filtrada do servidor); senão Preço Padrão
   function tabelaVisivel(id: string | null | undefined): string {
     return id && tabelas.some((t) => t.id === id) ? id : ''
@@ -365,7 +390,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     const base = produtos.filter((p) => casaBusca(textoProduto(p), busca)).slice(0, 50)
     const marcadas = base.filter((p) => selCopia.has(p.id))
     const alvo = marcadas.length ? marcadas : base
-    const txt = alvo.map((p) => `${p.nome} — ${formatBRL(precoDoProduto(p))}`).join('\n')
+    const txt = alvo.map((p) => `${p.codigo ? p.codigo + ' - ' : ''}${p.nome} — ${formatBRL(precoDoProduto(p))}`).join('\n')
     try {
       await navigator.clipboard.writeText(txt)
       setCopiado(true)
@@ -450,6 +475,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     setCarrinho((prev) => prev.map((i) => i.produto_id === produto_id ? { ...i, promoSel: valor } : i))
   }
 
+  // Quantidade total de um grupo (promo progressiva) somando TODAS as linhas do
+  // carrinho cujo produto participa da promoção. É o que define a faixa de preço.
+  const grupoTotalProg = (promoId: string) =>
+    carrinho.reduce((s, i) => s + ((promosPorProduto[i.produto_id] ?? []).some((p) => p.id === promoId) ? i.quantidade : 0), 0)
+
   // Promoção efetiva de uma linha (resolve 'auto' = melhor desconto na quantidade atual)
   const promoEfetiva = (item: ItemCarrinho): PromoInfo | null => {
     const lista = promosPorProduto[item.produto_id] ?? []
@@ -458,7 +488,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     let melhor: PromoInfo | null = null
     let maior = 0
     for (const p of lista) {
-      const d = descontoDaPromo(p, item.preco_unitario, item.quantidade)
+      const d = descontoDaPromo(p, item.preco_unitario, item.quantidade, p.tipo === 'progressivo' ? grupoTotalProg(p.id) : undefined)
       if (d > maior) { maior = d; melhor = p }
     }
     return melhor
@@ -568,7 +598,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const descontoPromoDetalhes = carrinho.flatMap((item) => {
     const promo = promoEfetiva(item)
     if (!promo) return []
-    const valor = descontoDaPromo(promo, item.preco_unitario, item.quantidade)
+    const valor = descontoDaPromo(promo, item.preco_unitario, item.quantidade, promo.tipo === 'progressivo' ? grupoTotalProg(promo.id) : undefined)
     if (valor <= 0) return []
     return [{ label: `${promo.nome} (${item.nome})`, valor }]
   })
@@ -620,6 +650,14 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
   const trocoPg = temDinheiro && excessoPg > 0.005 ? excessoPg : 0
   const temFiado = pagamentos.some((p) => isFiadoForma(p.forma_id))
 
+  // Auto-preenche o valor do pagamento com o total do carrinho (Isa 15:44):
+  // enquanto for 1 forma só e o operador não digitou nada, o valor segue o total.
+  useEffect(() => {
+    if (!valorAuto || pagamentos.length !== 1) return
+    const alvo = total > 0.005 ? Math.max(0, total - creditoAplicado).toFixed(2) : ''
+    setPagamentos((prev) => (prev.length === 1 && prev[0].valor !== alvo ? [{ ...prev[0], valor: alvo }] : prev))
+  }, [total, creditoAplicado, valorAuto, pagamentos.length])
+
   const exigeSenhaDesconto = descontoNum > 0 && !!lojaSel?.exige_senha_desconto
 
   // Valida e abre o resumo de conferência antes de gravar
@@ -641,6 +679,34 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
     }
     setErro(null)
     setMostrarConfirmacao(true)
+  }
+
+  // Salvar o carrinho como orçamento (pré-venda) sem finalizar
+  const handleSalvarOrcamento = async () => {
+    if (carrinho.length === 0) { setErro('Adicione produtos ao carrinho.'); return }
+    setSalvandoOrc(true); setErro(null); setMsgOrc('')
+    try {
+      const token = await authToken()
+      if (!token) { setErro('Sessão não encontrada. Recarregue a página (F5).'); return }
+      await salvarOrcamentoPDV(token, {
+        itens: carrinho.map(({ produto_id, nome, quantidade, preco_unitario }) => ({ produto_id, nome, quantidade, preco_unitario })),
+        pessoa_id: pessoaId || null,
+        desconto: descontoNum,
+        observacoes,
+        deposito_id: depositoId,
+        tabela_preco_id: tabelas.some((t) => t.id === tabelaId) ? tabelaId : null,
+        forma_pagamento_id: pagamentos[0]?.forma_id || null,
+      })
+      setCarrinho([])
+      setPagamentos([{ uid: '1', forma_id: formas[0]?.id ?? '', valor: '', maquina: formas[0]?.maquina_id ?? '', parcelas: 1 }])
+      setValorAuto(true); setPessoaId(''); setDesconto(''); setSenhaDesconto(''); setObservacoes(''); setBuscaCliente(''); setDescontoTipo('valor'); setCreditoAplicado(0); setSaldoCredito(0)
+      setMsgOrc('✅ Orçamento salvo! Carregue de volta no F3 (Orçamento/Pedido) pra finalizar.')
+      setTimeout(() => setMsgOrc(''), 6000)
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Erro ao salvar orçamento.')
+    } finally {
+      setSalvandoOrc(false)
+    }
   }
 
   const handleFinalizar = async () => {
@@ -718,6 +784,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
       setMostrarConfirmacao(false)
       setCarrinho([])
       setPagamentos([{ uid: '1', forma_id: formas[0]?.id ?? '', valor: '', maquina: formas[0]?.maquina_id ?? '', parcelas: 1 }])
+      setValorAuto(true)
       setPessoaId('')
       setDesconto('')
       setSenhaDesconto('')
@@ -1351,11 +1418,20 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                   >
                     <div className="min-w-0">
                       <p className="font-medium text-gray-800 truncate">{p.nome}</p>
-                      <p className="text-xs text-gray-400">
+                      <p className="mt-0.5 text-xs text-gray-400">
                         {p.marca && <span>{p.marca} · </span>}
-                        {disp > 0
-                          ? <span className="text-green-600">{disp} em {nomeDeposito}</span>
-                          : <span className="text-red-500">Sem estoque em {nomeDeposito}</span>}
+                        {/* estoque em TODAS as lojas — o depósito atual fica sublinhado */}
+                        {depositosReais.map((d, i) => {
+                          const q = p.estoquePorDeposito[d.id] ?? 0
+                          return (
+                            <span key={d.id}>
+                              {i > 0 && ' · '}
+                              <span className={`${d.id === depositoId ? 'underline decoration-dotted underline-offset-2 ' : ''}${q > 0 ? 'text-green-600 font-medium' : 'text-gray-300'}`}>
+                                {d.nome} {q}
+                              </span>
+                            </span>
+                          )
+                        })}
                         {p.prateleira && <span className="text-blue-600 font-medium"> · 📦 {p.prateleira}</span>}
                       </p>
                     </div>
@@ -1589,9 +1665,22 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                     <div className="flex items-center gap-2">
                       <select
                         value={p.forma_id}
-                        onChange={(e) => setPagamentos((prev) => prev.map((x) =>
-                          x.uid === p.uid ? { ...x, forma_id: e.target.value, maquina: maquinaDaForma(e.target.value), parcelas: 1 } : x
-                        ))}
+                        onChange={(e) => setPagamentos((prev) => {
+                          // ao escolher a forma, já preenche o valor com o que falta (se estiver vazio)
+                          const outros = prev.filter((x) => x.uid !== p.uid).reduce((s, x) => s + (parseFloat(x.valor) || 0), 0)
+                          const restante = total - outros
+                          return prev.map((x) =>
+                            x.uid === p.uid
+                              ? {
+                                  ...x,
+                                  forma_id: e.target.value,
+                                  maquina: maquinaDaForma(e.target.value),
+                                  parcelas: 1,
+                                  valor: (!x.valor || parseFloat(x.valor) === 0) && restante > 0 ? restante.toFixed(2) : x.valor,
+                                }
+                              : x
+                          )
+                        })}
                         className="flex-1 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         {formas.map((f) => <option key={f.id} value={f.id}>{iconeForma(f.nome)} {f.nome}</option>)}
@@ -1603,9 +1692,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
                           min="0"
                           step="0.01"
                           value={p.valor}
-                          onChange={(e) => setPagamentos((prev) => prev.map((x) =>
+                          onChange={(e) => { setValorAuto(false); setPagamentos((prev) => prev.map((x) =>
                             x.uid === p.uid ? { ...x, valor: e.target.value } : x
-                          ))}
+                          )) }}
                           onFocus={() => {
                             if (!p.valor) {
                               const outros = pagamentos.filter((x) => x.uid !== p.uid).reduce((s, x) => s + (parseFloat(x.valor) || 0), 0)
@@ -1732,6 +1821,21 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas, deposit
           >
             Finalizar Venda — {formatBRL(totalCobrado)}
           </button>
+
+          {carrinho.length > 0 && (
+            <button
+              type="button"
+              onClick={handleSalvarOrcamento}
+              disabled={salvandoOrc}
+              className="w-full rounded-xl border-2 border-blue-200 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50 transition"
+            >
+              {salvandoOrc ? 'Salvando...' : '📋 Salvar como orçamento (finalizar depois)'}
+            </button>
+          )}
+
+          {msgOrc && (
+            <p className="rounded-xl bg-green-50 border border-green-200 px-3 py-2 text-center text-xs font-medium text-green-700">{msgOrc}</p>
+          )}
 
           {carrinho.length > 0 && (
             <button

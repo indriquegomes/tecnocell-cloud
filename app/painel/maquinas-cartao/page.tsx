@@ -31,55 +31,53 @@ export default async function MaquinasCartaoPage({
 
       <MaquinaForm maquina={editando} />
 
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-gray-100">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Máquina</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Débito</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">1x</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Máx.</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {(maquinas ?? []).length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-400">Nenhuma máquina cadastrada.</td></tr>
-            ) : (maquinas ?? []).map((m) => (
-              <tr key={m.id} className="hover:bg-gray-50 transition">
-                <td className="px-4 py-3 text-sm font-medium text-gray-800">{m.nome}</td>
-                <td className="px-4 py-3 text-center text-sm text-gray-600">{m.taxa_debito}%</td>
-                <td className="px-4 py-3 text-center text-sm text-gray-600">{(m.taxas_credito as number[])?.[0] ?? 0}%</td>
-                <td className="px-4 py-3 text-center text-sm text-gray-600">{m.max_parcelas}x</td>
-                <td className="px-4 py-3 text-center">
-                  <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${m.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                    {m.ativo ? 'Ativa' : 'Inativa'}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <div className="flex items-center justify-center gap-2">
-                    <Link href={`/painel/maquinas-cartao?editar=${m.id}`}
-                      className="rounded-lg px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 transition">
-                      Editar
-                    </Link>
+      {(maquinas ?? []).length === 0 ? (
+        <div className="rounded-2xl border border-gray-200 bg-white px-4 py-12 text-center text-sm text-gray-400 shadow-sm">
+          Nenhuma máquina cadastrada ainda. Use o formulário acima pra adicionar a primeira.
+        </div>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {(maquinas ?? []).map((m) => {
+            const taxas = (m.taxas_credito as number[]) ?? []
+            const fmt = (n: number) => `${String(n).replace('.', ',')}%`
+            return (
+              <div key={m.id} className={`rounded-2xl border bg-white p-5 shadow-sm transition ${m.ativo ? 'border-gray-200' : 'border-gray-200 opacity-70'}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#1B6CA8]/10 text-lg">💳</span>
+                    <div>
+                      <h3 className="text-base font-bold leading-tight text-gray-900">{m.nome}</h3>
+                      <span className={`text-xs font-medium ${m.ativo ? 'text-emerald-600' : 'text-gray-400'}`}>{m.ativo ? 'Ativa' : 'Inativa'} · até {m.max_parcelas}x</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Link href={`/painel/maquinas-cartao?editar=${m.id}`} className="rounded-lg px-2.5 py-1 text-xs font-medium text-[#1B6CA8] hover:bg-[#1B6CA8]/10 transition">Editar</Link>
                     {m.ativo ? (
-                      <form action={inativarMaquina.bind(null, m.id)}>
-                        <button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 transition">Inativar</button>
-                      </form>
+                      <form action={inativarMaquina.bind(null, m.id)}><button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 transition">Inativar</button></form>
                     ) : (
-                      <form action={reativarMaquina.bind(null, m.id)}>
-                        <button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-medium text-green-600 hover:bg-green-50 transition">Reativar</button>
-                      </form>
+                      <form action={reativarMaquina.bind(null, m.id)}><button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50 transition">Reativar</button></form>
                     )}
                     <BotaoExcluir action={deletarMaquina.bind(null, m.id)} mensagem="Excluir esta máquina? (só se não estiver em uso)" />
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-stretch gap-2">
+                  <div className="flex flex-col justify-center rounded-xl bg-[#1B6CA8] px-3 py-2 text-white">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide opacity-80">Débito</span>
+                    <span className="text-sm font-bold tabular-nums">{fmt(m.taxa_debito)}</span>
+                  </div>
+                  {taxas.map((t, i) => (
+                    <div key={i} className={`flex flex-col justify-center rounded-xl border px-3 py-2 text-center ${t > 0 ? 'border-gray-200 bg-gray-50' : 'border-dashed border-gray-200 bg-white'}`}>
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">{i + 1}x</span>
+                      <span className={`text-sm font-bold tabular-nums ${t > 0 ? 'text-gray-800' : 'text-gray-300'}`}>{t > 0 ? fmt(t) : '—'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

@@ -1,6 +1,10 @@
+import { Carregando } from '@/components/Carregando'
+
 export default function Loading() {
   return (
-    <div className="space-y-6 animate-pulse">
+    <div className="space-y-6">
+      <Carregando />
+      <div className="space-y-6 animate-pulse opacity-60">
       <div className="flex items-center justify-between">
         <div className="h-8 w-32 rounded-lg bg-gray-200" />
         <div className="h-9 w-32 rounded-xl bg-gray-200" />
@@ -23,6 +27,7 @@ export default function Loading() {
             <div className="h-4 w-16 rounded bg-gray-200" />
           </div>
         ))}
+      </div>
       </div>
     </div>
   )

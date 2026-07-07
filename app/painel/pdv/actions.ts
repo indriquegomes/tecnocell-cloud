@@ -27,6 +27,59 @@ export interface PagamentoInput {
   status: 'pago' | 'pendente'
 }
 
+// Salva o carrinho atual como ORÇAMENTO (pré-venda) sem finalizar. Aparece no F3
+// (buscarPedidosAbertos carrega status 'rascunho') e no módulo Pedidos p/ faturar depois.
+export async function salvarOrcamentoPDV(
+  accessToken: string,
+  input: {
+    itens: { produto_id: string; nome: string; quantidade: number; preco_unitario: number }[]
+    pessoa_id: string | null
+    desconto: number
+    observacoes: string
+    deposito_id: string | null
+    tabela_preco_id: string | null
+    forma_pagamento_id: string | null
+  },
+): Promise<{ id: string }> {
+  const usuario = await requirePermissao('pdv', accessToken)
+  const supabase = await createServiceClient()
+  if (input.itens.length === 0) throw new Error('Carrinho vazio.')
+
+  const { data: perfil } = await supabase.from('perfis').select('nome').eq('id', usuario.id).maybeSingle()
+  const vendedorNome = (perfil as { nome?: string } | null)?.nome ?? usuario.email ?? ''
+
+  const subtotal = input.itens.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0)
+  const total = Math.max(0, subtotal - (input.desconto || 0))
+
+  const { data: pedido, error } = await supabase.from('pedidos').insert({
+    tipo: 'orcamento',
+    pessoa_id: input.pessoa_id,
+    observacoes: input.observacoes || null,
+    deposito_id: input.deposito_id,
+    tabela_preco_id: input.tabela_preco_id,
+    forma_pagamento_id: input.forma_pagamento_id,
+    origem: 'pdv',
+    vendedor_id: usuario.id,
+    vendedor_nome: vendedorNome,
+    desconto: input.desconto || 0,
+    status: 'rascunho',
+    total,
+  }).select('id').single()
+  if (error) throw new Error(error.message)
+
+  const rows = input.itens.map((i) => ({
+    pedido_id: pedido!.id,
+    produto_id: i.produto_id,
+    quantidade: i.quantidade,
+    preco_unitario: i.preco_unitario,
+    total_item: i.quantidade * i.preco_unitario,
+  }))
+  const { error: eItens } = await supabase.from('itens_pedido').insert(rows)
+  if (eItens) throw new Error(eItens.message)
+
+  return { id: pedido!.id }
+}
+
 export async function finalizarVenda(
   accessToken: string,
   itens: ItemCarrinho[],

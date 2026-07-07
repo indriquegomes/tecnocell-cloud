@@ -7,20 +7,24 @@ import {
   removerItemTabela,
   atualizarPrecoItem,
   importarTodosComMultiplicador,
+  importarPlanilha,
   toggleTabela,
 } from '../actions'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+
+// margem sobre o preço de venda: (venda − custo) / venda
+const margemPct = (venda: number, custo: number) => (venda > 0 ? ((venda - custo) / venda) * 100 : 0)
 
 type Item = {
   id: string
   produto_id: string
   preco: number
   quantidade_minima: number
-  produtos: { id: string; nome: string; preco: number } | null
+  produtos: { id: string; nome: string; preco: number; preco_custo: number } | null
 }
 
-type Produto = { id: string; nome: string; preco: number }
+type Produto = { id: string; nome: string; preco: number; preco_custo: number }
 
 export function TabelaDetalheClient({
   tabela,
@@ -55,31 +59,38 @@ export function TabelaDetalheClient({
   const [importando, setImportando] = useState(false)
   const [importMsg, setImportMsg] = useState('')
 
-  // Exportar a tabela pra planilha (CSV, separador ; e vírgula decimal — Excel pt-BR)
-  const exportarCSV = () => {
-    const linhas: string[][] = [['Produto', 'Qtd mínima', 'Preço padrão', 'Preço tabela', 'Diferença']]
-    for (const i of itens) {
-      const padrao = i.produtos?.preco ?? 0
-      linhas.push([
-        i.produtos?.nome ?? '',
-        String(i.quantidade_minima),
-        padrao.toFixed(2).replace('.', ','),
-        i.preco.toFixed(2).replace('.', ','),
-        (i.preco - padrao).toFixed(2).replace('.', ','),
-      ])
+  // Importar planilha .xlsx (baixada em /exportar e editada no Excel)
+  const [mostrarImportPlan, setMostrarImportPlan] = useState(false)
+  const [arquivoPlan, setArquivoPlan] = useState<File | null>(null)
+  const [importandoPlan, setImportandoPlan] = useState(false)
+  const [importPlanMsg, setImportPlanMsg] = useState('')
+  const [importPlanErro, setImportPlanErro] = useState(false)
+  const handleImportarPlanilha = async () => {
+    if (!arquivoPlan) return
+    setImportandoPlan(true)
+    setImportPlanMsg('')
+    setImportPlanErro(false)
+    const fd = new FormData()
+    fd.set('arquivo', arquivoPlan)
+    const res = await importarPlanilha(tabela.id, fd)
+    if ('erro' in res && res.erro) {
+      setImportPlanErro(true)
+      setImportPlanMsg(res.erro)
+    } else if ('atualizados' in res) {
+      const partes = [`${res.atualizados} atualizado(s)`, `${res.adicionados} adicionado(s)`]
+      if (res.semProduto) partes.push(`${res.semProduto} sem produto correspondente`)
+      if (res.ignorados) partes.push(`${res.ignorados} sem preço (ignorado)`)
+      setImportPlanMsg(partes.join(' · '))
+      router.refresh()
     }
-    const csv = linhas.map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n')
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `tabela-${tabela.nome.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    setImportandoPlan(false)
   }
 
   // Busca nos itens da tabela
   const [buscaItens, setBuscaItens] = useState('')
+  // Paginação do render — sem isto o navegador trava tentando desenhar milhares de linhas
+  const POR_PAGINA = 100
+  const [pagina, setPagina] = useState(1)
 
   const produtosFiltrados = useMemo(() => {
     const q = buscaProd.toLowerCase().trim()
@@ -93,6 +104,13 @@ export function TabelaDetalheClient({
     if (!q) return itens
     return itens.filter((i) => i.produtos?.nome.toLowerCase().includes(q))
   }, [buscaItens, itens])
+
+  const totalPaginas = Math.max(1, Math.ceil(itensFiltrados.length / POR_PAGINA))
+  const paginaAtual = Math.min(pagina, totalPaginas)
+  const itensPagina = useMemo(
+    () => itensFiltrados.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA),
+    [itensFiltrados, paginaAtual],
+  )
 
   // Selecionar produto da busca
   const selecionarProduto = (p: Produto) => {
@@ -187,10 +205,15 @@ export function TabelaDetalheClient({
             className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
             {tabela.ativa ? 'Desativar' : 'Ativar'}
           </button>
-          <button
-            onClick={exportarCSV}
+          <a
+            href={`/painel/tabelas-preco/${tabela.id}/exportar`}
             className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
-            Exportar planilha
+            Baixar planilha
+          </a>
+          <button
+            onClick={() => { setMostrarImportPlan(true); setImportPlanMsg(''); setArquivoPlan(null) }}
+            className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+            Importar planilha
           </button>
           <button
             onClick={() => setMostrarImportar(true)}
@@ -267,7 +290,7 @@ export function TabelaDetalheClient({
           <p className="text-sm font-semibold text-gray-600">{itens.length} produto{itens.length !== 1 ? 's' : ''} na tabela</p>
           <input
             value={buscaItens}
-            onChange={(e) => setBuscaItens(e.target.value)}
+            onChange={(e) => { setBuscaItens(e.target.value); setPagina(1) }}
             placeholder="Filtrar produtos da tabela..."
             className="field py-1.5 text-sm w-64"
           />
@@ -277,24 +300,29 @@ export function TabelaDetalheClient({
             <tr>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Produto</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">A partir de</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Custo</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Preço Padrão</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Preço Tabela</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Margem</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Diferença</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {itensFiltrados.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-400">Nenhum produto encontrado.</td></tr>
-            ) : itensFiltrados.map((item) => {
+              <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-gray-400">Nenhum produto encontrado.</td></tr>
+            ) : itensPagina.map((item) => {
               const prod = item.produtos
               const precoPadrao = prod?.preco ?? 0
+              const custo = prod?.preco_custo ?? 0
               const diff = item.preco - precoPadrao
+              const margem = margemPct(item.preco, custo)
               const editando = editandoId === item.id
               return (
                 <tr key={item.id} className="hover:bg-gray-50 group">
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">{prod?.nome ?? '—'}</td>
                   <td className="px-4 py-3 text-center text-sm text-gray-500">{item.quantidade_minima}un+</td>
+                  <td className="px-4 py-3 text-sm text-right text-gray-400">{custo > 0 ? fmt(custo) : '—'}</td>
                   <td className="px-4 py-3 text-sm text-right text-gray-400">{fmt(precoPadrao)}</td>
                   <td className="px-4 py-3 text-right">
                     {editando ? (
@@ -324,6 +352,13 @@ export function TabelaDetalheClient({
                       </button>
                     )}
                   </td>
+                  <td className="px-4 py-3 text-sm text-right font-medium">
+                    {custo > 0 ? (
+                      <span className={margem < 0 ? 'text-red-600' : margem < 15 ? 'text-amber-600' : 'text-green-600'}>
+                        {margem.toFixed(0)}%
+                      </span>
+                    ) : <span className="text-gray-300">—</span>}
+                  </td>
                   <td className={`px-4 py-3 text-sm text-right font-medium ${diff < 0 ? 'text-red-500' : diff > 0 ? 'text-green-600' : 'text-gray-400'}`}>
                     {diff === 0 ? '—' : `${diff > 0 ? '+' : ''}${fmt(diff)}`}
                   </td>
@@ -339,7 +374,71 @@ export function TabelaDetalheClient({
             })}
           </tbody>
         </table>
+        {/* Paginação — desenha só 100 linhas por vez pra não travar o navegador */}
+        {itensFiltrados.length > POR_PAGINA && (
+          <div className="flex items-center justify-between gap-4 border-t border-gray-100 px-4 py-3">
+            <p className="text-xs text-gray-500">
+              {(paginaAtual - 1) * POR_PAGINA + 1}–{Math.min(paginaAtual * POR_PAGINA, itensFiltrados.length)} de {itensFiltrados.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPagina((p) => Math.max(1, p - 1))}
+                disabled={paginaAtual <= 1}
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition">
+                ← Anterior
+              </button>
+              <span className="text-sm text-gray-500">{paginaAtual} / {totalPaginas}</span>
+              <button
+                onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+                disabled={paginaAtual >= totalPaginas}
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition">
+                Próxima →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Modal importar planilha .xlsx */}
+      {mostrarImportPlan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
+            <div className="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-gray-900">Importar Planilha</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Atualiza os preços em massa a partir do .xlsx</p>
+              </div>
+              <button onClick={() => setMostrarImportPlan(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="p-6 space-y-4">
+              <ol className="list-decimal space-y-1 pl-4 text-xs text-gray-500">
+                <li>Clique em <strong>Baixar planilha</strong> pra pegar o modelo com todos os produtos.</li>
+                <li>No Excel, preencha a coluna <strong>&quot;Preço nesta tabela&quot;</strong>. Deixe em branco pra não mexer.</li>
+                <li>Salve e envie o arquivo aqui embaixo.</li>
+              </ol>
+              <input
+                type="file"
+                accept=".xlsx"
+                onChange={(e) => { setArquivoPlan(e.target.files?.[0] ?? null); setImportPlanMsg('') }}
+                className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
+              />
+              {importPlanMsg && (
+                <p className={`text-sm font-medium ${importPlanErro ? 'text-red-600' : 'text-green-600'}`}>{importPlanMsg}</p>
+              )}
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setMostrarImportPlan(false)}
+                  className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+                  Fechar
+                </button>
+                <button onClick={handleImportarPlanilha} disabled={!arquivoPlan || importandoPlan}
+                  className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
+                  {importandoPlan ? 'Importando...' : 'Importar preços'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal importar em lote */}
       {mostrarImportar && (

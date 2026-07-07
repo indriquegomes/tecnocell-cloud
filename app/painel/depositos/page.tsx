@@ -1,6 +1,7 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { criarDeposito, editarDeposito, deletarDeposito } from './actions'
+import { SubmitButton } from '@/components/SubmitButton'
 import { Dica } from '@/components/Dica'
 import Link from 'next/link'
 
@@ -147,10 +148,10 @@ export default async function DepositosPage({
           </div>
 
           <div className="flex gap-3 pt-1">
-            <button type="submit"
-              className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
+            <SubmitButton pendingText={editando ? 'Salvando...' : 'Adicionando...'}
+              className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition">
               {editando ? 'Salvar' : 'Adicionar'}
-            </button>
+            </SubmitButton>
             {editando && (
               <Link href="/painel/depositos"
                 className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">

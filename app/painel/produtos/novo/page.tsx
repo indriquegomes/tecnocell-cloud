@@ -3,6 +3,7 @@ import { temPermissao } from '@/lib/permissoes'
 import { criarProduto } from '../actions'
 import { ImageUpload } from '@/components/ImageUpload'
 import { PrecoFields } from '../PrecoFields'
+import { SubmitButton } from '@/components/SubmitButton'
 import Link from 'next/link'
 
 export default async function NovoProdutoPage() {
@@ -119,9 +120,9 @@ export default async function NovoProdutoPage() {
         </div>
 
         <div className="flex gap-3 pt-2">
-          <button type="submit" className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
+          <SubmitButton pendingText="Salvando..." className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition">
             Salvar Produto
-          </button>
+          </SubmitButton>
           <Link href="/painel/produtos" className="rounded-xl border border-gray-200 px-6 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
             Cancelar
           </Link>

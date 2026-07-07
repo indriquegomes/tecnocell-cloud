@@ -3,9 +3,12 @@
 import { useState } from 'react'
 import { emitirCredito, estornarCredito } from './actions'
 import { ConfirmButton } from '@/components/ConfirmButton'
+import { SubmitButton } from '@/components/SubmitButton'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtData = (d: string) => new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
+const semAcento = (s: string) =>
+  s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
 
 type Movimento = {
   id: string
@@ -52,8 +55,16 @@ export function CreditosClient({
   const [expandido, setExpandido] = useState<string | null>(null)
   const [mostrarEmitir, setMostrarEmitir] = useState(false)
 
+  // Busca de cliente no modal Emitir (sem precisar rolar a lista inteira)
+  const [buscaEmit, setBuscaEmit] = useState('')
+  const [clienteEmit, setClienteEmit] = useState<{ id: string; nome: string } | null>(null)
+  const abrirEmitir = () => { setClienteEmit(null); setBuscaEmit(''); setMostrarEmitir(true) }
+  const pessoasEmit = buscaEmit.trim() && !clienteEmit
+    ? pessoas.filter((p) => semAcento(p.nome).includes(semAcento(buscaEmit))).slice(0, 8)
+    : []
+
   const clientesFiltrados = busca.trim()
-    ? clientes.filter((c) => c.nome.toLowerCase().includes(busca.toLowerCase()))
+    ? clientes.filter((c) => semAcento(c.nome).includes(semAcento(busca)))
     : clientes
 
   return (
@@ -61,7 +72,7 @@ export function CreditosClient({
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900">Créditos de Clientes</h2>
         <button
-          onClick={() => setMostrarEmitir(true)}
+          onClick={abrirEmitir}
           className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
           + Emitir Crédito
         </button>
@@ -213,14 +224,40 @@ export function CreditosClient({
               <button onClick={() => setMostrarEmitir(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
             <form action={async (fd) => { await emitirCredito(fd); setMostrarEmitir(false) }} className="p-6 space-y-4">
-              <div>
+              <div className="relative">
                 <label className="mb-1.5 block text-sm font-medium text-gray-700">Cliente <span className="text-red-500">*</span></label>
-                <select name="pessoa_id" required className="field w-full">
-                  <option value="">Selecione...</option>
-                  {pessoas.map((p) => (
-                    <option key={p.id} value={p.id}>{p.nome}</option>
-                  ))}
-                </select>
+                <input type="hidden" name="pessoa_id" value={clienteEmit?.id ?? ''} />
+                {clienteEmit ? (
+                  <div className="flex items-center justify-between rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5">
+                    <span className="text-sm font-medium text-gray-800">{clienteEmit.nome}</span>
+                    <button type="button" onClick={() => { setClienteEmit(null); setBuscaEmit('') }}
+                      className="text-xs font-medium text-blue-600 hover:text-blue-800">trocar</button>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      autoFocus
+                      value={buscaEmit}
+                      onChange={(e) => setBuscaEmit(e.target.value)}
+                      className="field w-full"
+                      placeholder="Digite o nome do cliente..."
+                    />
+                    {pessoasEmit.length > 0 && (
+                      <div className="absolute z-10 left-0 right-0 mt-1 max-h-60 overflow-auto rounded-xl border border-gray-200 bg-white shadow-lg">
+                        {pessoasEmit.map((p) => (
+                          <button key={p.id} type="button"
+                            onMouseDown={(e) => { e.preventDefault(); setClienteEmit({ id: p.id, nome: p.nome }); setBuscaEmit('') }}
+                            className="block w-full px-4 py-2.5 text-left text-sm text-gray-800 hover:bg-blue-50 transition">
+                            {p.nome}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {buscaEmit.trim() && pessoasEmit.length === 0 && (
+                      <p className="mt-1 text-xs text-gray-400">Nenhum cliente encontrado.</p>
+                    )}
+                  </>
+                )}
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700">Valor (R$) <span className="text-red-500">*</span></label>
@@ -235,10 +272,10 @@ export function CreditosClient({
                   className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
                   Cancelar
                 </button>
-                <button type="submit"
-                  className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
+                <SubmitButton disabled={!clienteEmit} pendingText="Emitindo..."
+                  className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40 transition">
                   Emitir
-                </button>
+                </SubmitButton>
               </div>
             </form>
           </div>

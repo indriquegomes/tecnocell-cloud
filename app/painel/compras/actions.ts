@@ -7,8 +7,12 @@ import { redirect } from 'next/navigation'
 export async function criarNotaEntrada(formData: FormData) {
   await requirePermissao('compras')
   const supabase = await createServiceClient()
+  // NF é opcional: se vier vazio, gera um número aleatório de 6 dígitos
+  // (pra não precisar digitar quando a mercadoria chega sem nota).
+  const numeroInformado = ((formData.get('numero') as string) || '').trim()
+  const numeroNota = numeroInformado || String(Math.floor(100000 + Math.random() * 900000))
   const { data: nota, error } = await supabase.from('notas_entrada').insert({
-    numero: (formData.get('numero') as string) || null,
+    numero: numeroNota,
     fornecedor_id: (formData.get('fornecedor_id') as string) || null,
     data_emissao: (formData.get('data_emissao') as string) || null,
     data_entrada: (formData.get('data_entrada') as string) || new Date().toISOString().split('T')[0],

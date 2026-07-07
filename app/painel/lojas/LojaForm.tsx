@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { criarLoja, editarLoja } from './actions'
+import { SubmitButton } from '@/components/SubmitButton'
 
 const UFS = ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO']
 
@@ -190,7 +191,8 @@ export function LojaForm({ editando, depositos = [], contas = [], tabelas = [], 
           </div>
           <div className="sm:col-span-3">
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Termos / garantia (rodapé do cupom)</label>
-            <textarea name="termos_venda" rows={2} defaultValue={editando?.termos_venda ?? ''} className="field" placeholder="Garantia de 90 dias. Troca em até X dias com nota…" />
+            <textarea name="termos_venda" rows={8} defaultValue={editando?.termos_venda ?? ''} className="field font-mono text-xs" placeholder="ATENÇÃO: Confira os produtos no ato da compra/entrega.&#10;Prazos de garantia: Frontal/LCD/Touch 90 dias…" />
+            <p className="mt-1 text-[11px] text-gray-400">Esse texto sai impresso no fim de todo cupom desta loja.</p>
           </div>
           <div className="sm:col-span-3">
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Informativo padrão da OS</label>
@@ -207,9 +209,9 @@ export function LojaForm({ editando, depositos = [], contas = [], tabelas = [], 
       )}
 
       <div className="flex gap-3 pt-1">
-        <button type="submit" className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
+        <SubmitButton pendingText="Salvando..." className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition">
           {editando ? 'Salvar Alterações' : 'Salvar'}
-        </button>
+        </SubmitButton>
         <Link href="/painel/lojas" className="rounded-xl border border-gray-200 px-6 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
           Cancelar
         </Link>

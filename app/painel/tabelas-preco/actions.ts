@@ -1,8 +1,9 @@
 'use server'
 
-import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import ExcelJS from 'exceljs'
 
 export async function criarTabela(formData: FormData) {
   await requirePermissao('produtos')
@@ -92,9 +93,9 @@ export async function importarTodosComMultiplicador(
   await requirePermissao('produtos')
   const supabase = await createServiceClient()
 
-  const [{ data: produtos }, { data: jaExistem }] = await Promise.all([
-    supabase.from('produtos').select('id, preco, preco_custo'),
-    supabase.from('itens_tabela_preco').select('id, produto_id').eq('tabela_id', tabelaId).eq('quantidade_minima', 1),
+  const [produtos, jaExistem] = await Promise.all([
+    fetchAll<{ id: string; preco: number | null; preco_custo: number | null }>((from, to) => supabase.from('produtos').select('id, preco, preco_custo').order('id').range(from, to)),
+    fetchAll<{ id: string; produto_id: string }>((from, to) => supabase.from('itens_tabela_preco').select('id, produto_id').eq('tabela_id', tabelaId).eq('quantidade_minima', 1).order('id').range(from, to)),
   ])
 
   const existente = new Map((jaExistem ?? []).map((i) => [i.produto_id, i.id]))
@@ -138,4 +139,77 @@ export async function toggleTabela(id: string, ativa: boolean) {
   await supabase.from('tabelas_preco').update({ ativa }).eq('id', id)
   revalidatePath(`/painel/tabelas-preco/${id}`)
   revalidatePath('/painel/tabelas-preco')
+}
+
+// aceita número (célula numérica) ou texto tipo "R$ 1,80" / "1.80"
+function parsePreco(v: unknown): number | null {
+  if (v == null || v === '') return null
+  if (typeof v === 'number') return v
+  const s = String(v).replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(',', '.')
+  const n = parseFloat(s)
+  return isNaN(n) ? null : n
+}
+
+// Importa uma planilha .xlsx (baixada por /exportar e editada) e atualiza os
+// preços da tabela em massa. Casa pela coluna "Código". Preço vazio = ignora.
+export async function importarPlanilha(tabelaId: string, formData: FormData) {
+  await requirePermissao('produtos')
+  const file = formData.get('arquivo') as File | null
+  if (!file || file.size === 0) return { erro: 'Nenhum arquivo enviado.' }
+
+  const wb = new ExcelJS.Workbook()
+  try {
+    await wb.xlsx.load(await file.arrayBuffer())
+  } catch {
+    return { erro: 'Arquivo inválido. Envie o .xlsx baixado do sistema.' }
+  }
+  const ws = wb.worksheets[0]
+  if (!ws) return { erro: 'Planilha vazia.' }
+
+  // acha as colunas pelo cabeçalho (linha 1)
+  const header = ws.getRow(1)
+  let colCod = 0, colPreco = 0
+  header.eachCell((cell, col) => {
+    const t = String(cell.value ?? '').toLowerCase().trim()
+    if (t.startsWith('cód') || t.startsWith('cod')) colCod = col
+    if (t.includes('nesta tabela') || t === 'preço' || t === 'preco') colPreco = col
+  })
+  if (!colCod || !colPreco) return { erro: 'Não achei as colunas "Código" e "Preço nesta tabela" no cabeçalho.' }
+
+  const supabase = await createServiceClient()
+  const [produtos, jaExistem] = await Promise.all([
+    fetchAll<{ id: string; codigo: string | null }>((from, to) => supabase.from('produtos').select('id, codigo').order('id').range(from, to)),
+    fetchAll<{ id: string; produto_id: string }>((from, to) => supabase.from('itens_tabela_preco').select('id, produto_id').eq('tabela_id', tabelaId).eq('quantidade_minima', 1).order('id').range(from, to)),
+  ])
+  const porCodigo = new Map(produtos.filter((p) => p.codigo).map((p) => [String(p.codigo).trim(), p.id]))
+  const itemExistente = new Map(jaExistem.map((i) => [i.produto_id, i.id]))
+
+  let atualizados = 0, adicionados = 0, ignorados = 0, semProduto = 0
+  const novos: { tabela_id: string; produto_id: string; preco: number; quantidade_minima: number }[] = []
+
+  for (let r = 2; r <= ws.rowCount; r++) {
+    const row = ws.getRow(r)
+    const cod = String(row.getCell(colCod).value ?? '').trim()
+    if (!cod) continue
+    const preco = parsePreco(row.getCell(colPreco).value)
+    if (preco == null || preco <= 0) { ignorados++; continue }
+    const produtoId = porCodigo.get(cod)
+    if (!produtoId) { semProduto++; continue }
+    const itemId = itemExistente.get(produtoId)
+    if (itemId) {
+      await supabase.from('itens_tabela_preco').update({ preco }).eq('id', itemId)
+      atualizados++
+    } else {
+      novos.push({ tabela_id: tabelaId, produto_id: produtoId, preco, quantidade_minima: 1 })
+      itemExistente.set(produtoId, 'novo') // evita duplicar se o código repetir na planilha
+      adicionados++
+    }
+  }
+  for (let i = 0; i < novos.length; i += 500) {
+    const { error } = await supabase.from('itens_tabela_preco').insert(novos.slice(i, i + 500))
+    if (error) return { erro: `Erro ao gravar: ${error.message}` }
+  }
+
+  revalidatePath(`/painel/tabelas-preco/${tabelaId}`)
+  return { atualizados, adicionados, ignorados, semProduto }
 }

@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { criarMarca, editarMarca, deletarMarca } from './actions'
+import { SubmitButton } from '@/components/SubmitButton'
 import { Dica } from '@/components/Dica'
 import Link from 'next/link'
 
@@ -41,9 +42,9 @@ export default async function MarcasPage({
             <label className="mb-1.5 block text-xs font-medium text-gray-600">Nome *</label>
             <input name="nome" required defaultValue={editando?.nome ?? ''} className="field" placeholder="Ex: Apple, Samsung, Motorola" />
           </div>
-          <button type="submit" className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
+          <SubmitButton pendingText={editando ? 'Salvando...' : 'Adicionando...'} className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition">
             {editando ? 'Salvar' : 'Adicionar'}
-          </button>
+          </SubmitButton>
           {editando && (
             <Link href="/painel/marcas" className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">Cancelar</Link>
           )}

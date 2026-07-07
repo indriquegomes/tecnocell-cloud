@@ -22,11 +22,11 @@ const navCompleto: NavGroup[] = [
       { href: '/painel/pdv',            label: 'PDV / Caixa',           permissao: 'pdv' },
       { href: '/painel/pdv/operacao',   label: 'Operação do PDV',       permissao: 'pdv' },
       { href: '/painel/vendas',         label: 'Painel de Vendas',      permissao: 'vendas' },
-      { href: '/painel/vales-credito',  label: 'Créditos de Clientes',  permissao: 'financeiro' },
       { href: '/painel/pedidos',        label: 'Pedidos e Orçamentos',  permissao: 'pedidos' },
       { href: '/painel/devolucoes',     label: 'Devoluções',            permissao: 'devolucoes' },
       { href: '/painel/painel-vendedor', label: 'Painel Vendedor',      permissao: 'relatorios' },
       { href: '/painel/promocoes',      label: 'Promoções',             permissao: 'produtos' },
+      { href: '/painel/tabelas-preco',  label: 'Tabelas de Preço',      permissao: 'produtos' },
     ],
   },
   {
@@ -42,13 +42,16 @@ const navCompleto: NavGroup[] = [
       { href: '/painel/estoque',           label: 'Estoque',        permissao: 'estoque' },
       { href: '/painel/estoque/historico', label: 'Movimentações',  permissao: 'estoque' },
       { href: '/painel/depositos',         label: 'Depósitos',      permissao: 'estoque' },
+      { href: '/painel/compras',           label: 'Notas de Entrada', permissao: 'compras' },
     ],
   },
   {
     group: 'Financeiro',
     items: [
-      { href: '/painel/financeiro', label: 'Financeiro', permissao: 'financeiro' },
-      { href: '/painel/contas',     label: 'Contas',     permissao: 'financeiro' },
+      { href: '/painel/financeiro',    label: 'Financeiro',           permissao: 'financeiro' },
+      { href: '/painel/fiados',        label: 'Fiados',               permissao: 'financeiro' },
+      { href: '/painel/vales-credito', label: 'Créditos de Clientes', permissao: 'financeiro' },
+      { href: '/painel/contas',        label: 'Contas',               permissao: 'financeiro' },
     ],
   },
   {
@@ -60,8 +63,6 @@ const navCompleto: NavGroup[] = [
       { href: '/painel/maquinas-cartao',  label: 'Máquinas de Cartão',   permissao: 'usuarios' },
       { href: '/painel/categorias',       label: 'Categorias',          permissao: 'produtos' },
       { href: '/painel/marcas',           label: 'Marcas',              permissao: 'produtos' },
-      { href: '/painel/tabelas-preco',    label: 'Tabelas de Preço',    permissao: 'produtos' },
-      { href: '/painel/compras',          label: 'Notas de Entrada',    permissao: 'compras' },
     ],
   },
   {
@@ -89,12 +90,10 @@ export function Sidebar({ permissoes, isMaster }: { permissoes: string[]; isMast
   return (
     <aside className="flex h-full w-60 flex-col border-r border-gray-200 bg-white">
       {/* Logo */}
-      <div className="flex h-16 items-center px-5 border-b border-gray-200">
+      <div className="flex h-16 items-center gap-2.5 border-b border-gray-200 px-4">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo-transparent.png" alt="TecnoCell Cloud" className="h-8 w-auto object-contain" />
-        <span className="ml-2 rounded px-1.5 py-0.5 text-xs font-medium" style={{ backgroundColor: '#eef4fb', color: '#4A7BA7' }}>
-          Cloud
-        </span>
+        <img src="/tecnocell-icon.png" alt="TecnoCell" className="h-11 w-11 object-contain" />
+        <span className="rounded-md bg-[#1B6CA8]/10 px-2 py-0.5 text-sm font-semibold tracking-wide text-[#1B6CA8]">Cloud</span>
       </div>
 
       {/* Nav */}

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { TODAS_PERMISSOES } from '@/lib/permissoes'
 import { criarCargo, editarCargo } from './actions'
+import { SubmitButton } from '@/components/SubmitButton'
 
 export type CargoEdit = { id: string; nome: string; permissoes: string[]; is_master: boolean; ativo: boolean }
 
@@ -69,9 +70,9 @@ export function CargoForm({ editando }: { editando?: CargoEdit }) {
       ))}
 
       <div className="flex gap-3 pt-1">
-        <button type="submit" className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
+        <SubmitButton pendingText={editando ? 'Salvando...' : 'Criando...'} className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition">
           {editando ? 'Salvar cargo' : 'Criar cargo'}
-        </button>
+        </SubmitButton>
         {editando && <Link href="/painel/cargos" className="rounded-xl border border-gray-200 px-6 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">Cancelar</Link>}
       </div>
     </form>

@@ -1,6 +1,7 @@
 'use server'
 
-import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { createServiceClient, requireAuth, permissoesEfetivas, requirePermissao } from '@/lib/supabase/server'
+import { temPermissao } from '@/lib/permissoes'
 
 export interface MovimentoCredito {
   id: string
@@ -14,7 +15,14 @@ export async function buscarSaldoCredito(
   accessToken: string,
   pessoaId: string,
 ): Promise<{ saldo: number; movimentos: MovimentoCredito[] }> {
-  await requirePermissao('financeiro', accessToken)
+  // Ler o saldo pra aplicar numa venda faz parte de operar o caixa — quem tem
+  // 'pdv' pode ver (a vendedora não tem 'financeiro'). Antes exigia 'financeiro'
+  // e o erro era engolido no PDV → o crédito nunca aparecia pra elas.
+  const u = await requireAuth(accessToken)
+  const { permissoes, isMaster } = await permissoesEfetivas(u.id)
+  if (!temPermissao(permissoes, 'pdv', isMaster) && !temPermissao(permissoes, 'financeiro', isMaster)) {
+    throw new Error('Sem permissão para ver crédito do cliente.')
+  }
   const supabase = await createServiceClient()
 
   const { data } = await supabase
@@ -25,8 +33,10 @@ export async function buscarSaldoCredito(
     .limit(50)
 
   const movimentos = (data ?? []) as MovimentoCredito[]
+  // 'credito' entra (+); 'uso' e 'estorno' saem (−). O estorno CANCELA um crédito,
+  // então subtrai — antes somava, o que dobrava o saldo ao estornar.
   const saldo = movimentos.reduce((s, m) => {
-    if (m.tipo === 'uso') return s - m.valor
+    if (m.tipo === 'uso' || m.tipo === 'estorno') return s - m.valor
     return s + m.valor
   }, 0)
 

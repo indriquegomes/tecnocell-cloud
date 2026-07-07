@@ -35,15 +35,16 @@ export interface ItemDevolucaoLinha {
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 const STATUS_PRODUTO = [
-  { key: 'ok',      label: 'OK',       cor: 'bg-green-50 text-green-700 border-green-200' },
-  { key: 'defeito', label: 'Defeito',  cor: 'bg-red-50 text-red-700 border-red-200' },
-  { key: 'troca',   label: 'Troca',    cor: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
-  { key: 'avaria',  label: 'Avaria',   cor: 'bg-orange-50 text-orange-700 border-orange-200' },
+  { key: 'ok',    label: 'OK',    cor: 'bg-green-50 text-green-700 border-green-200' },
+  { key: 'troca', label: 'Troca', cor: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
 ]
+// rótulo dos status antigos (defeito/avaria) que ainda existam no histórico
+const LABEL_ANTIGO: Record<string, string> = { defeito: 'Defeito', avaria: 'Avaria', troca: 'Troca', ok: 'OK' }
 const statusCor = (s?: string) =>
-  STATUS_PRODUTO.find(x => x.key === (s ?? 'ok'))?.cor ?? 'bg-gray-100 text-gray-500 border-gray-200'
+  STATUS_PRODUTO.find(x => x.key === (s ?? 'ok'))?.cor
+  ?? (s === 'ok' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200')
 const statusLabel = (s?: string) =>
-  STATUS_PRODUTO.find(x => x.key === (s ?? 'ok'))?.label ?? 'OK'
+  STATUS_PRODUTO.find(x => x.key === (s ?? 'ok'))?.label ?? LABEL_ANTIGO[s ?? 'ok'] ?? (s ?? 'OK')
 
 const CREDITO_LABEL: Record<string, string> = {
   credito_conta: 'Crédito conta', dinheiro: 'Dinheiro', pix: 'PIX',
@@ -175,7 +176,8 @@ export function DevolucoesClient({
       // serializado começa sem nada marcado (operador escolhe os IMEIs); demais, quantidade cheia
       v.itens.forEach((i) => { m.set(i.produto_id, i.series.length > 0 ? 0 : i.quantidade); sp.set(i.produto_id, 'ok') })
       setItens(m); setStatusProduto(sp); setSeriesSel(new Map())
-      setTipoCredito(v.lancamento_pendente ? 'cancelamento_fiado' : 'dinheiro')
+      // reembolso (parte paga) usa forma real; se for só fiado, o confirmar troca p/ cancelamento_fiado
+      setTipoCredito('dinheiro')
       setStep('itens')
     } catch (e) { setErro(e instanceof Error ? e.message : 'Erro ao carregar venda.') }
     finally { setCarregandoVenda(false) }
@@ -184,6 +186,10 @@ export function DevolucoesClient({
   const totalSelecionado = venda
     ? venda.itens.reduce((s, i) => s + (itens.get(i.produto_id) ?? 0) * i.preco_unitario, 0)
     : 0
+
+  // Split da devolução: abate a dívida (fiado) primeiro; o resto foi pago → reembolso
+  const abateFiado = venda ? Math.min(totalSelecionado, venda.fiado_restante) : 0
+  const reembolso = Math.max(0, totalSelecionado - abateFiado)
 
   // Serializado: marca/desmarca IMEIs (quantidade = nº de IMEIs escolhidos)
   const toggleSerie = (produtoId: string, serie: string) => {
@@ -220,7 +226,9 @@ export function DevolucoesClient({
       await registrarDevolucao(t, {
         venda_id: venda.id, deposito_id: venda.deposito_id,
         pessoa_id: venda.pessoa_id, pessoa_nome: venda.pessoa_nome,
-        vendedor_nome: venda.vendedor_nome, motivo, tipo_credito: tipoCredito,
+        vendedor_nome: venda.vendedor_nome, motivo,
+        // se não sobra reembolso (devolução só de fiado), registra como cancelamento de fiado
+        tipo_credito: reembolso > 0.01 ? tipoCredito : 'cancelamento_fiado',
         itens: itensDev, lancamento_pendente: venda.lancamento_pendente,
       })
       fechar(); setSucesso(true)
@@ -517,9 +525,9 @@ export function DevolucoesClient({
                         <span className="font-semibold text-gray-700">{venda.forma_pagamento_nome}</span>
                       </p>
                     )}
-                    {venda.lancamento_pendente && (
+                    {venda.fiado_restante > 0.01 && (
                       <p className="mt-2 text-xs font-semibold text-orange-600 bg-orange-50 rounded-lg px-2 py-1">
-                        ⚠️ Fiado não pago — devolução cancela o débito, sem reembolso em dinheiro
+                        ⚠️ Fiado em aberto: {fmt(venda.fiado_restante)} — a devolução abate essa dívida primeiro
                       </p>
                     )}
                   </div>
@@ -619,6 +627,10 @@ export function DevolucoesClient({
                     </table>
                   </div>
 
+                  <p className="text-[11px] text-gray-400 px-1">
+                    <b className="text-green-600">OK</b> = volta pro estoque · <b className="text-yellow-600">Troca</b> = sai pro fornecedor (não volta ao estoque)
+                  </p>
+
                   <div className="flex justify-between rounded-xl bg-gray-50 px-4 py-3 text-sm font-bold">
                     <span className="text-gray-600">Valor a devolver</span>
                     <span className={totalSelecionado > 0 ? 'text-red-600' : 'text-gray-400'}>
@@ -671,12 +683,26 @@ export function DevolucoesClient({
                       className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
 
-                  {/* Como devolver */}
+                  {/* Split: abate dívida × reembolso */}
+                  {(abateFiado > 0.01 || reembolso > 0.01) && (
+                    <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm space-y-1">
+                      {abateFiado > 0.01 && (
+                        <div className="flex justify-between"><span className="text-gray-600">🤝 Abate da dívida (fiado)</span><span className="font-semibold text-orange-600">{fmt(abateFiado)}</span></div>
+                      )}
+                      {reembolso > 0.01 && (
+                        <div className="flex justify-between"><span className="text-gray-600">💵 Reembolso (parte que o cliente pagou)</span><span className="font-semibold text-blue-600">{fmt(reembolso)}</span></div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Como reembolsar a parte paga */}
                   <div>
-                    <label className="block text-xs font-semibold uppercase text-gray-500 mb-2">Como devolver?</label>
-                    {venda.lancamento_pendente ? (
-                      <div className="rounded-xl border-2 border-orange-300 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-700">
-                        🚫 Cancelar fiado — débito cancelado, sem reembolso em dinheiro
+                    <label className="block text-xs font-semibold uppercase text-gray-500 mb-2">
+                      {reembolso > 0.01 ? `Reembolsar ${fmt(reembolso)} como?` : 'Como devolver?'}
+                    </label>
+                    {reembolso <= 0.01 ? (
+                      <div className="rounded-xl border-2 border-orange-200 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-700">
+                        🤝 Só abate a dívida do cliente — sem reembolso (nada foi pago por esses itens).
                       </div>
                     ) : (
                       <div className="space-y-2">

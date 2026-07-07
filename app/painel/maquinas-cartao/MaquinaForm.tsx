@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { criarMaquina, editarMaquina } from './actions'
+import { SubmitButton } from '@/components/SubmitButton'
 
 type Maquina = {
   id: string
@@ -79,9 +80,9 @@ export function MaquinaForm({ maquina }: { maquina?: Maquina }) {
       <input type="hidden" name="taxas_credito" value={JSON.stringify(taxas)} />
 
       <div className="flex gap-3 pt-1">
-        <button type="submit" className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
+        <SubmitButton pendingText={editando ? 'Salvando...' : 'Adicionando...'} className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition">
           {editando ? 'Salvar' : 'Adicionar'}
-        </button>
+        </SubmitButton>
         {editando && (
           <Link href="/painel/maquinas-cartao" className="rounded-xl border border-gray-200 px-6 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
             Cancelar

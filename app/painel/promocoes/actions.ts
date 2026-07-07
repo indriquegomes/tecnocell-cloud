@@ -29,6 +29,24 @@ export async function criarPromocao(formData: FormData) {
   redirect(`/painel/promocoes/${data!.id}`)
 }
 
+// ===== Faixas de quantidade (promoção "progressivo") =====
+export async function adicionarFaixa(promocaoId: string, quantidadeMinima: number, preco: number) {
+  await requirePermissao('produtos')
+  const supabase = await createServiceClient()
+  // substitui se já existir uma faixa com essa quantidade
+  await supabase.from('faixas_promocao').delete().eq('promocao_id', promocaoId).eq('quantidade_minima', quantidadeMinima)
+  const { error } = await supabase.from('faixas_promocao').insert({ promocao_id: promocaoId, quantidade_minima: quantidadeMinima, preco })
+  if (error) throw new Error(error.message)
+  revalidatePath(`/painel/promocoes/${promocaoId}`)
+}
+
+export async function removerFaixa(faixaId: string, promocaoId: string) {
+  await requirePermissao('produtos')
+  const supabase = await createServiceClient()
+  await supabase.from('faixas_promocao').delete().eq('id', faixaId)
+  revalidatePath(`/painel/promocoes/${promocaoId}`)
+}
+
 export async function togglePromocao(id: string, ativa: boolean) {
   await requirePermissao('produtos')
   const supabase = await createServiceClient()
@@ -40,6 +58,8 @@ export async function togglePromocao(id: string, ativa: boolean) {
 export async function deletarPromocao(id: string) {
   await requirePermissao('produtos')
   const supabase = await createServiceClient()
+  // apaga os produtos da promoção junto (senão ficam órfãos na tabela)
+  await supabase.from('itens_promocao').delete().eq('promocao_id', id)
   await supabase.from('promocoes').delete().eq('id', id)
   revalidatePath('/painel/promocoes')
   redirect('/painel/promocoes')
@@ -80,10 +100,45 @@ export async function adicionarItemPromocao(
   revalidatePath(`/painel/promocoes/${promocaoId}`)
 }
 
+// Adiciona vários produtos de uma vez (painel em lote). Substitui os que já existem.
+export async function adicionarItensLotePromocao(
+  promocaoId: string,
+  itens: { produto_id: string; preco: number }[],
+): Promise<number> {
+  await requirePermissao('produtos')
+  if (itens.length === 0) return 0
+  const supabase = await createServiceClient()
+  const ids = itens.map((i) => i.produto_id)
+  // remove os que já estavam (evita duplicata sem unique constraint)
+  await supabase.from('itens_promocao').delete().eq('promocao_id', promocaoId).in('produto_id', ids)
+  const rows = itens.map((i) => ({
+    promocao_id: promocaoId,
+    produto_id: i.produto_id,
+    preco_promocional: i.preco,
+    quantidade_x: null,
+    quantidade_y: null,
+  }))
+  for (let i = 0; i < rows.length; i += 500) {
+    const { error } = await supabase.from('itens_promocao').insert(rows.slice(i, i + 500))
+    if (error) throw new Error(error.message)
+  }
+  revalidatePath(`/painel/promocoes/${promocaoId}`)
+  return rows.length
+}
+
 export async function removerItemPromocao(itemId: string, promocaoId: string) {
   await requirePermissao('produtos')
   const supabase = await createServiceClient()
   await supabase.from('itens_promocao').delete().eq('id', itemId)
+  revalidatePath(`/painel/promocoes/${promocaoId}`)
+}
+
+// Remove vários itens da promoção de uma vez (checkbox + "remover selecionados")
+export async function removerItensLotePromocao(itemIds: string[], promocaoId: string) {
+  await requirePermissao('produtos')
+  if (itemIds.length === 0) return
+  const supabase = await createServiceClient()
+  await supabase.from('itens_promocao').delete().in('id', itemIds)
   revalidatePath(`/painel/promocoes/${promocaoId}`)
 }
 

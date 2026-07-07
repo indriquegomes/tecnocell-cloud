@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { criarPromocao } from './actions'
+import { SubmitButton } from '@/components/SubmitButton'
 
 export function NovaPromocaoForm({ hoje }: { hoje: string }) {
   const [tipo, setTipo] = useState('valor_direto')
@@ -19,6 +20,7 @@ export function NovaPromocaoForm({ hoje }: { hoje: string }) {
           <label className="mb-1.5 block text-xs font-semibold uppercase text-gray-500">Tipo</label>
           <select name="tipo" value={tipo} onChange={e => setTipo(e.target.value)} className="field w-full">
             <option value="valor_direto">Valor Direto (preço por produto)</option>
+            <option value="progressivo">Preço por Quantidade (faixas)</option>
             <option value="leve_x_pague_y">Leve X, Pague Y</option>
             <option value="acima_x_pague_y">Acima de X unidades, Pague Y</option>
           </select>
@@ -27,6 +29,15 @@ export function NovaPromocaoForm({ hoje }: { hoje: string }) {
         {tipo === 'valor_direto' && (
           <div className="flex items-end">
             <p className="text-xs text-gray-400 pb-2">O preço é definido por produto na próxima tela.</p>
+            <input name="valor" type="hidden" value="0" />
+            <input name="quantidade_x" type="hidden" value="" />
+            <input name="quantidade_y" type="hidden" value="" />
+          </div>
+        )}
+
+        {tipo === 'progressivo' && (
+          <div className="flex items-end">
+            <p className="text-xs text-gray-400 pb-2">Na próxima tela você define as <b>faixas</b> (10un = R$X, 100un = R$Y...) e adiciona os produtos do grupo. No PDV o preço cai conforme a quantidade total.</p>
             <input name="valor" type="hidden" value="0" />
             <input name="quantidade_x" type="hidden" value="" />
             <input name="quantidade_y" type="hidden" value="" />
@@ -67,17 +78,18 @@ export function NovaPromocaoForm({ hoje }: { hoje: string }) {
         </div>
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase text-gray-500">Fim</label>
-          <input name="data_fim" type="date" required className="field w-full" />
+          <input name="data_fim" type="date" className="field w-full" />
+          <p className="mt-1 text-[11px] text-gray-400">Vazio = promoção sem prazo (não expira)</p>
         </div>
         <div className="sm:col-span-2">
           <label className="mb-1.5 block text-xs font-semibold uppercase text-gray-500">Descrição (opcional)</label>
           <input name="descricao" className="field w-full" placeholder="Promoção de fim de mês..." />
         </div>
         <div className="sm:col-span-2 flex justify-end">
-          <button type="submit"
-            className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-blue-700 transition">
+          <SubmitButton pendingText="Criando..."
+            className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-60 transition">
             + Criar e Adicionar Produtos →
-          </button>
+          </SubmitButton>
         </div>
       </form>
     </div>

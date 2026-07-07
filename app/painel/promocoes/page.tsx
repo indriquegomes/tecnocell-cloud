@@ -26,8 +26,9 @@ export default async function PromocoesPage({
   const hoje = new Date().toISOString().split('T')[0]
   const lista = promocoes ?? []
 
-  const ativas = lista.filter(p => p.ativa && p.data_fim >= hoje).length
-  const expiradas = lista.filter(p => p.data_fim < hoje).length
+  // sem data_fim = não expira
+  const ativas = lista.filter(p => p.ativa && (!p.data_fim || p.data_fim >= hoje)).length
+  const expiradas = lista.filter(p => p.data_fim && p.data_fim < hoje).length
 
   const fmtDate = (d: string | null) =>
     d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '—'
@@ -80,7 +81,7 @@ export default async function PromocoesPage({
             </thead>
             <tbody className="divide-y divide-gray-50">
               {lista.map(p => {
-                const expirada = p.data_fim < hoje
+                const expirada = !!p.data_fim && p.data_fim < hoje
                 const ativa = p.ativa && !expirada
                 return (
                   <tr key={p.id} className="hover:bg-gray-50 transition">

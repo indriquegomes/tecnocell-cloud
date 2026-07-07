@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { TabelaDetalheClient } from './TabelaDetalheClient'
 import { atualizarVigencia } from '../actions'
+import { SubmitButton } from '@/components/SubmitButton'
 
 export default async function TabelaPrecoDetalhe({
   params,
@@ -16,11 +17,12 @@ export default async function TabelaPrecoDetalhe({
     supabase.from('tabelas_preco').select('id, nome, descricao, ativa, data_inicio, data_fim').eq('id', id).single(),
     fetchAll((from, to) => supabase
       .from('itens_tabela_preco')
-      .select('id, produto_id, preco, quantidade_minima, produtos(id, nome, preco)')
+      .select('id, produto_id, preco, quantidade_minima, produtos(id, nome, preco, preco_custo)')
       .eq('tabela_id', id)
       .order('quantidade_minima')
+      .order('id')
       .range(from, to)),
-    fetchAll((from, to) => supabase.from('produtos').select('id, nome, preco').order('nome').range(from, to)),
+    fetchAll((from, to) => supabase.from('produtos').select('id, nome, preco, preco_custo').order('nome').order('id').range(from, to)),
   ])
 
   if (!tabela) notFound()
@@ -45,7 +47,7 @@ export default async function TabelaPrecoDetalhe({
           <label className="mb-1 block text-[11px] text-gray-500">até</label>
           <input name="data_fim" type="date" defaultValue={(tabela as { data_fim: string | null }).data_fim ?? ''} className="field py-1.5 text-sm" />
         </div>
-        <button type="submit" className="rounded-lg border border-gray-200 px-4 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">Salvar vigência</button>
+        <SubmitButton pendingText="Salvando..." className="rounded-lg border border-gray-200 px-4 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60 transition">Salvar vigência</SubmitButton>
         <span className="ml-auto self-center text-[11px] text-gray-400">Vazio = sempre válida. Fora do período, o PDV não oferece a tabela.</span>
       </form>
 
@@ -56,9 +58,9 @@ export default async function TabelaPrecoDetalhe({
           produto_id: string
           preco: number
           quantidade_minima: number
-          produtos: { id: string; nome: string; preco: number } | null
+          produtos: { id: string; nome: string; preco: number; preco_custo: number } | null
         }[])}
-        produtos={(produtos ?? []).map((p) => ({ id: p.id, nome: p.nome, preco: p.preco ?? 0 }))}
+        produtos={(produtos ?? []).map((p) => ({ id: p.id, nome: p.nome, preco: p.preco ?? 0, preco_custo: (p as { preco_custo: number | null }).preco_custo ?? 0 }))}
       />
     </div>
   )
