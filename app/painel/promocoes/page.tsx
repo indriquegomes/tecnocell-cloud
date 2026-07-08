@@ -45,7 +45,7 @@ export default async function PromocoesPage({
 
       {/* Cards */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase text-gray-400">Total</p>
           <p className="mt-1 text-2xl font-bold text-gray-800">{lista.length}</p>
         </div>
@@ -53,7 +53,7 @@ export default async function PromocoesPage({
           <p className="text-xs font-semibold uppercase text-gray-400">Ativas agora</p>
           <p className="mt-1 text-2xl font-bold text-green-600">{ativas}</p>
         </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase text-gray-400">Expiradas</p>
           <p className="mt-1 text-2xl font-bold text-gray-400">{expiradas}</p>
         </div>

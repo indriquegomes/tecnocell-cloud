@@ -1682,7 +1682,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
       {/* Coluna direita — totais + pagamento */}
       <div className="space-y-4">
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
           <h3 className="font-semibold text-gray-800">Resumo da Venda</h3>
 
           <div className="space-y-2 text-sm">

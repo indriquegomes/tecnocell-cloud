@@ -1036,7 +1036,7 @@ export default async function RelatoriosPage({
       {aba === 'periodicidade' && (
         <div className="space-y-4">
           <p className="text-[11px] text-gray-400">Em que dia da semana a loja mais vende — útil pra escala e promoções.</p>
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-2">
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-2">
             {periodicidade.map((p) => (
               <div key={p.dia} className="flex items-center gap-3">
                 <span className="w-20 shrink-0 text-sm text-gray-600">{p.dia}</span>

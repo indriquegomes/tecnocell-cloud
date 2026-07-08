@@ -168,7 +168,7 @@ export function PainelVendedorClient({
           { label: 'Ticket médio', valor: fmt(ticketMedioGeral), cor: 'text-purple-600' },
           { label: 'Melhor vendedor', valor: melhor?.nome ?? '—', cor: 'text-orange-500' },
         ].map(({ label, valor, cor }) => (
-          <div key={label} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div key={label} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</p>
             <p className={`mt-1 text-xl font-bold truncate ${cor}`}>{valor}</p>
           </div>
@@ -178,7 +178,7 @@ export function PainelVendedorClient({
       {/* Gráfico + resumo pedidos */}
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Gráfico */}
-        <div className="lg:col-span-2 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="lg:col-span-2 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="font-semibold text-gray-800">Fluxo de Vendas</h3>
             <span className="text-xs text-gray-400">{filtros.de} → {filtros.ate}</span>
@@ -187,7 +187,7 @@ export function PainelVendedorClient({
         </div>
 
         {/* Resumo pedidos */}
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <h3 className="mb-4 font-semibold text-gray-800">Pedidos no período</h3>
           <div className="space-y-3">
             <div className="flex items-center justify-between rounded-lg bg-blue-50 px-4 py-3">

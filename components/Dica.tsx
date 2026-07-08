@@ -1,4 +1,4 @@
-export function Dica({ texto, lado = 'cima' }: { texto: string; lado?: 'cima' | 'baixo' | 'direita' | 'esquerda' }) {
+export function Dica({ texto, lado = 'baixo' }: { texto: string; lado?: 'cima' | 'baixo' | 'direita' | 'esquerda' }) {
   const posicao = {
     cima:     'bottom-full left-1/2 -translate-x-1/2 mb-2',
     baixo:    'top-full  left-1/2 -translate-x-1/2 mt-2',

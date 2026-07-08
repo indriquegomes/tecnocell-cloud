@@ -62,7 +62,7 @@ export default async function TabelasPrecoPage({
             Nenhuma tabela de preço cadastrada.
           </div>
         ) : (tabelas ?? []).map((t) => (
-          <div key={t.id} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-3">
+          <div key={t.id} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-3">
             <div className="flex items-start justify-between">
               <div>
                 <p className="font-semibold text-gray-800">{t.nome}</p>
