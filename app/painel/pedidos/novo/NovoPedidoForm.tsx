@@ -1,8 +1,11 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { criarPedido } from '../actions'
+import { createClient } from '@/lib/supabase/client'
+import { criarPedido, buscarClientesPedido } from '../actions'
+
+const supabaseBrowser = createClient()
 
 const hoje = new Date()
 const daqui30 = new Date(hoje)
@@ -23,13 +26,11 @@ type Tabela   = { id: string; nome: string }
 type Forma    = { id: string; nome: string }
 
 export function NovoPedidoForm({
-  pessoas,
   depositos,
   tabelas,
   formas,
   erro,
 }: {
-  pessoas:   Pessoa[]
   depositos: Deposito[]
   tabelas:   Tabela[]
   formas:    Forma[]
@@ -38,15 +39,23 @@ export function NovoPedidoForm({
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
 
-  // Autocomplete cliente
+  // Autocomplete cliente SOB DEMANDA (busca no servidor; antes filtrava 500 capados)
   const [buscaCliente, setBuscaCliente] = useState('')
   const [clienteSel, setClienteSel] = useState<Pessoa | null>(null)
-
-  const sugestoes = useMemo(() => {
-    const q = buscaCliente.toLowerCase().trim()
-    if (!q || clienteSel) return []
-    return pessoas.filter(p => p.nome.toLowerCase().includes(q)).slice(0, 8)
-  }, [buscaCliente, clienteSel, pessoas])
+  const [sugestoes, setSugestoes] = useState<Pessoa[]>([])
+  useEffect(() => {
+    const q = buscaCliente.trim()
+    if (!q || clienteSel) { setSugestoes([]); return }
+    let vivo = true
+    const t = setTimeout(async () => {
+      try {
+        const { data } = await supabaseBrowser.auth.getSession()
+        const achados = await buscarClientesPedido(data.session?.access_token ?? '', q)
+        if (vivo) setSugestoes(achados)
+      } catch { /* silencioso */ }
+    }, 300)
+    return () => { vivo = false; clearTimeout(t) }
+  }, [buscaCliente, clienteSel])
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()

@@ -6,14 +6,12 @@ export default async function NovoPedidoPage({ searchParams }: { searchParams: P
   const { erro } = await searchParams
   const supabase = await createServiceClient()
 
-  const [{ data: pessoasRaw }, { data: depositos }, { data: tabelas }, { data: formas }] = await Promise.all([
-    supabase.from('pessoas').select('id, nome, tipo').order('nome').limit(500),
+  // cliente é buscado sob demanda no form (buscarClientesPedido) — não embute mais
+  const [{ data: depositos }, { data: tabelas }, { data: formas }] = await Promise.all([
     supabase.from('depositos').select('id, nome').order('nome'),
     supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).order('nome'),
     supabase.from('formas_pagamento').select('id, nome').eq('ativo', true).order('nome'),
   ])
-
-  const clientes = (pessoasRaw ?? []).filter(p => p.tipo === 'cliente' || p.tipo === 'ambos')
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -27,7 +25,6 @@ export default async function NovoPedidoPage({ searchParams }: { searchParams: P
       </div>
 
       <NovoPedidoForm
-        pessoas={clientes as { id: string; nome: string }[]}
         depositos={(depositos ?? []) as { id: string; nome: string }[]}
         tabelas={(tabelas ?? []) as { id: string; nome: string }[]}
         formas={(formas ?? []) as { id: string; nome: string }[]}

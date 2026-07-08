@@ -4,6 +4,31 @@ import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
+// Busca de cliente SOB DEMANDA pro form de pedido (não embutir 2.397 num select
+// capado em 500 que sumia cliente). Só dígitos → CPF/telefone; senão nome_norm.
+export async function buscarClientesPedido(
+  accessToken: string,
+  termo: string,
+): Promise<{ id: string; nome: string }[]> {
+  await requirePermissao('pedidos', accessToken)
+  const raw = termo.trim()
+  if (raw.length < 1) return []
+  const supabase = await createServiceClient()
+  let q = supabase.from('pessoas').select('id, nome').eq('ativo', true).in('tipo', ['cliente', 'ambos'])
+  const digitos = raw.replace(/\D/g, '')
+  const soDigitos = digitos.length >= 4 && /^[\d.\-/()\s]+$/.test(raw)
+  if (soDigitos) {
+    q = q.or(`cpf_cnpj.ilike.%${digitos}%,telefone.ilike.%${digitos}%,celular.ilike.%${digitos}%`)
+  } else {
+    const semAcento = raw.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
+    const palavras = semAcento.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
+    if (palavras.length === 0) return []
+    for (const w of palavras) q = q.ilike('nome_norm', `%${w}%`)
+  }
+  const { data } = await q.order('nome').limit(15)
+  return data ?? []
+}
+
 export async function criarPedido(formData: FormData) {
   const usuario = await requirePermissao('pedidos')
   const supabase = await createServiceClient()
