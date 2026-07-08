@@ -582,9 +582,9 @@ export default async function RelatoriosPage({
   ]
 
   const Card = ({ label, valor, cor }: { label: string; valor: string; cor: string }) => (
-    <div className="rounded-xl border border-gray-200 bg-white p-4">
+    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
       <p className="text-xs text-gray-500">{label}</p>
-      <p className={`text-xl font-bold ${cor}`}>{valor}</p>
+      <p className={`text-xl font-bold tabular-nums ${cor}`}>{valor}</p>
     </div>
   )
   const badgeABC = (c: string) => c === 'A' ? 'bg-green-100 text-green-700' : c === 'B' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'
@@ -1376,8 +1376,8 @@ function RankSimples({ titulo, filename, rows, colLabel }: { titulo: string; fil
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-gray-200 bg-white p-4"><p className="text-xs text-gray-500">Total</p><p className="text-xl font-bold text-blue-600">{totalGeral.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p></div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4"><p className="text-xs text-gray-500">{colLabel}s</p><p className="text-xl font-bold text-gray-800">{rows.length}</p></div>
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"><p className="text-xs text-gray-500">Total</p><p className="text-xl font-bold text-blue-600 tabular-nums">{totalGeral.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p></div>
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"><p className="text-xs text-gray-500">{colLabel}s</p><p className="text-xl font-bold text-gray-800 tabular-nums">{rows.length}</p></div>
       </div>
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-gray-800">{titulo}</h3>

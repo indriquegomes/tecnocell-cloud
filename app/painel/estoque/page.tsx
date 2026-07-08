@@ -103,15 +103,15 @@ export default async function EstoquePage({
 
       {/* Cards resumo */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm text-center">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm text-center">
           <p className="text-sm text-gray-500">Em Estoque</p>
           <p className="text-3xl font-bold text-green-600 tabular-nums">{emEstoque}</p>
         </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm text-center">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm text-center">
           <p className="text-sm text-gray-500">Estoque Baixo (≤3)</p>
           <p className="text-3xl font-bold text-yellow-600 tabular-nums">{estoqueBaixo}</p>
         </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm text-center">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm text-center">
           <p className="text-sm text-gray-500">Sem Estoque</p>
           <p className="text-3xl font-bold text-red-600 tabular-nums">{semEstoque}</p>
         </div>
