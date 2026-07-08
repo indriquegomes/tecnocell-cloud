@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Spinner } from '@/components/Spinner'
 import { createClient } from '@/lib/supabase/client'
 import { buscarMeuPerfil, atualizarMeuNome, alterarMinhaSenha, type Res } from './actions'
 
@@ -72,7 +73,7 @@ export function MeuPerfilClient() {
         {msgNome && <div className={`rounded-lg border px-3 py-2 text-sm ${msgCls(msgNome)}`}>{msgNome.message}</div>}
         <button type="submit" disabled={salvandoNome}
           className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
-          {salvandoNome ? 'Salvando...' : 'Salvar'}
+          {salvandoNome ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Salvando...</span> : 'Salvar'}
         </button>
       </form>
 
@@ -96,7 +97,7 @@ export function MeuPerfilClient() {
         {msgSenha && <div className={`rounded-lg border px-3 py-2 text-sm ${msgCls(msgSenha)}`}>{msgSenha.message}</div>}
         <button type="submit" disabled={salvandoSenha}
           className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
-          {salvandoSenha ? 'Alterando...' : 'Alterar senha'}
+          {salvandoSenha ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Alterando...</span> : 'Alterar senha'}
         </button>
       </form>
     </div>

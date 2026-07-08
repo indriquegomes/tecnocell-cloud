@@ -1,5 +1,6 @@
 'use client'
 
+import { Spinner } from '@/components/Spinner'
 import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { adicionarItemPedido, removerItemPedido, atualizarStatusPedido, atualizarInfoPedido, atualizarDescontoFrete, atualizarObservacoesTermos, cancelarComMotivo, faturarPedido } from '../actions'
@@ -265,7 +266,7 @@ export function PedidoDetalheClient({
             <>
               <button onClick={handleFaturar} disabled={faturando}
                 className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50 transition">
-                {faturando ? 'Faturando...' : '💰 Faturar'}
+                {faturando ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Faturando...</span> : '💰 Faturar'}
               </button>
               <a href={`/painel/pdv?pedido=${pedido.id}`}
                 className="rounded-xl border border-green-200 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-50 transition">
@@ -275,7 +276,7 @@ export function PedidoDetalheClient({
           )}
           <button onClick={handleGerarOS} disabled={gerandoOS}
             className="rounded-xl border border-purple-200 px-4 py-2 text-sm font-semibold text-purple-600 hover:bg-purple-50 disabled:opacity-50 transition">
-            {gerandoOS ? 'Gerando...' : '🔧 Gerar OS'}
+            {gerandoOS ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Gerando...</span> : '🔧 Gerar OS'}
           </button>
           {pedido.status !== 'cancelado' && pedido.status !== 'faturado' && (
             <button onClick={() => setModalCancelar(true)}
@@ -327,7 +328,7 @@ export function PedidoDetalheClient({
             <div className="flex gap-2">
               <button onClick={handleSalvarInfo} disabled={salvandoInfo}
                 className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
-                {salvandoInfo ? 'Salvando...' : 'Salvar'}
+                {salvandoInfo ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Salvando...</span> : 'Salvar'}
               </button>
               <button onClick={cancelarInfo}
                 className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
@@ -413,7 +414,7 @@ export function PedidoDetalheClient({
             </div>
             <button onClick={handleAdicionar} disabled={!produtoSel || !precoUnit || adicionando}
               className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
-              {adicionando ? 'Adicionando...' : 'Adicionar'}
+              {adicionando ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Adicionando...</span> : 'Adicionar'}
             </button>
           </div>
           {erroAdd && <p className="text-sm text-red-600">{erroAdd}</p>}
@@ -498,7 +499,7 @@ export function PedidoDetalheClient({
               <div className="flex gap-2 pt-1">
                 <button onClick={handleSalvarTotal} disabled={salvandoTotal}
                   className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
-                  {salvandoTotal ? 'Salvando...' : 'Salvar'}
+                  {salvandoTotal ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Salvando...</span> : 'Salvar'}
                 </button>
                 <button onClick={() => { setDesconto(pedido.desconto); setFrete(pedido.frete); setEditandoTotal(false) }}
                   className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
@@ -563,7 +564,7 @@ export function PedidoDetalheClient({
                 <div className="flex gap-2">
                   <button onClick={handleSalvarObs} disabled={salvandoObs}
                     className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
-                    {salvandoObs ? 'Salvando...' : 'Salvar'}
+                    {salvandoObs ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Salvando...</span> : 'Salvar'}
                   </button>
                   <button onClick={() => { setObsTexto(pedido.observacoes ?? ''); setTermosTexto(pedido.termos_condicoes ?? ''); setEditandoObs(false) }}
                     className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
@@ -631,7 +632,7 @@ export function PedidoDetalheClient({
               </button>
               <button onClick={handleCancelarComMotivo} disabled={cancelando}
                 className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-bold text-white hover:bg-red-600 disabled:opacity-50 transition">
-                {cancelando ? 'Cancelando...' : 'Confirmar'}
+                {cancelando ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Cancelando...</span> : 'Confirmar'}
               </button>
             </div>
           </div>

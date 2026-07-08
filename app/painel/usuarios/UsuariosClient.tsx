@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useActionState } from 'react'
+import { Spinner } from '@/components/Spinner'
 import { createClient } from '@/lib/supabase/client'
 import { TODAS_PERMISSOES } from '@/lib/permissoes'
 import { criarUsuario, criarConvite, atualizarPerfil, alterarSenha, type ActionResult, type ConviteResult } from './actions'
@@ -309,7 +310,7 @@ function NovoUsuarioModal({ cargos, onClose }: { cargos: Cargo[]; onClose: () =>
               disabled={pending}
               className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50"
             >
-              {pending ? 'Criando...' : 'Criar Usuário'}
+              {pending ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Criando...</span> : 'Criar Usuário'}
             </button>
           </div>
         </form>
@@ -369,7 +370,7 @@ function ConvidarModal({ cargos, onClose }: { cargos: Cargo[]; onClose: () => vo
               {state && !state.ok ? <Feedback state={state} /> : <span />}
               <button type="submit" disabled={pending}
                 className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50">
-                {pending ? 'Gerando...' : 'Gerar convite'}
+                {pending ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Gerando...</span> : 'Gerar convite'}
               </button>
             </div>
           </form>
@@ -429,7 +430,7 @@ function EditarModal({ usuario, cargos, lojas, depositos, tabelas, onClose }: { 
                 disabled={pending}
                 className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50"
               >
-                {pending ? 'Salvando...' : 'Salvar'}
+                {pending ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Salvando...</span> : 'Salvar'}
               </button>
             </div>
           </form>

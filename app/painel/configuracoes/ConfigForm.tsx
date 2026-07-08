@@ -1,5 +1,6 @@
 'use client'
 
+import { Spinner } from '@/components/Spinner'
 import { useActionState } from 'react'
 import { salvarConfiguracoes } from './actions'
 
@@ -107,7 +108,7 @@ export function ConfigForm({ dados, dadosPdv }: { dados: Record<string, string>;
       <div className="pt-2">
         <button type="submit" disabled={pending}
           className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-60">
-          {pending ? 'Salvando...' : 'Salvar Configurações'}
+          {pending ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Salvando...</span> : 'Salvar Configurações'}
         </button>
       </div>
     </form>

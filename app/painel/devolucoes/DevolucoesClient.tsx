@@ -1,5 +1,6 @@
 'use client'
 
+import { Spinner } from '@/components/Spinner'
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -768,7 +769,7 @@ export function DevolucoesClient({
               {step === 'confirmar' && (
                 <button onClick={confirmar} disabled={salvando}
                   className="flex-1 rounded-xl bg-green-600 py-2.5 text-sm font-bold text-white hover:bg-green-700 transition disabled:opacity-50">
-                  {salvando ? 'Registrando...' : `✓ Confirmar — ${fmt(totalSelecionado)}`}
+                  {salvando ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Registrando...</span> : `✓ Confirmar — ${fmt(totalSelecionado)}`}
                 </button>
               )}
             </div>

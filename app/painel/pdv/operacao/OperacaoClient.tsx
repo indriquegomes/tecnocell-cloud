@@ -1,5 +1,6 @@
 'use client'
 
+import { Spinner } from '@/components/Spinner'
 import { useActionState, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -297,7 +298,7 @@ function FecharCaixaPanel({
             disabled={pending}
             className="flex-1 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50"
           >
-            {pending ? 'Fechando...' : 'Confirmar Fechamento'}
+            {pending ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Fechando...</span> : 'Confirmar Fechamento'}
           </button>
         </div>
         <FeedbackMsg state={state} />
@@ -342,7 +343,7 @@ function ReforcoPanel({
           disabled={pending}
           className="rounded-xl bg-green-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-green-700 transition disabled:opacity-50"
         >
-          {pending ? 'Salvando...' : 'Registrar Reforço'}
+          {pending ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Salvando...</span> : 'Registrar Reforço'}
         </button>
       </form>
       <FeedbackMsg state={state} />
@@ -404,7 +405,7 @@ function RetiradaPanel({
           disabled={pending}
           className="rounded-xl bg-red-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-red-700 transition disabled:opacity-50"
         >
-          {pending ? 'Salvando...' : 'Registrar Retirada'}
+          {pending ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Salvando...</span> : 'Registrar Retirada'}
         </button>
       </form>
       <FeedbackMsg state={state} />

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { Spinner } from '@/components/Spinner'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -278,7 +279,7 @@ export function PromoDetalheClient({
             </div>
             <button onClick={handleAddFaixa} disabled={salvandoFaixa || !faixaQtd || !faixaPreco}
               className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50 transition">
-              {salvandoFaixa ? 'Salvando...' : '+ Faixa'}
+              {salvandoFaixa ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Salvando...</span> : '+ Faixa'}
             </button>
           </div>
         </div>
@@ -362,7 +363,7 @@ export function PromoDetalheClient({
           <div className="flex items-center gap-3">
             <button onClick={handleAdicionarLote} disabled={sel.size === 0 || salvandoLote || (ehValorDireto && !valorModo)}
               className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50 transition">
-              {salvandoLote ? 'Adicionando...' : `+ Adicionar ${sel.size || ''} à promoção`}
+              {salvandoLote ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Adicionando...</span> : `+ Adicionar ${sel.size || ''} à promoção`}
             </button>
             {ehValorDireto && !valorModo && sel.size > 0 && <span className="text-xs text-amber-600">defina o preço em lote acima</span>}
             {msgLote && <span className={`text-sm font-medium ${msgLote.includes('Erro') ? 'text-red-600' : 'text-green-600'}`}>{msgLote}</span>}
@@ -378,7 +379,7 @@ export function PromoDetalheClient({
             {selRem.size > 0 && (
               <button onClick={handleRemoverLote} disabled={removendoLote}
                 className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50 transition">
-                {removendoLote ? 'Removendo...' : `Remover ${selRem.size} selecionado${selRem.size !== 1 ? 's' : ''}`}
+                {removendoLote ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Removendo...</span> : `Remover ${selRem.size} selecionado${selRem.size !== 1 ? 's' : ''}`}
               </button>
             )}
             <span className="text-xs text-gray-400">{itens.length} produto{itens.length !== 1 ? 's' : ''}</span>

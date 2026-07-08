@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
+import { Spinner } from '@/components/Spinner'
 import { useRouter } from 'next/navigation'
 import { criarOS, atualizarStatusOS, buscarClientesOS, type OrdemServico, type StatusOS } from './actions'
 
@@ -371,7 +372,7 @@ export function OSClient({ ordens, filtros }: { ordens: OrdemServico[]; filtros:
                 </button>
                 <button type="submit" disabled={salvando}
                   className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-bold text-white hover:bg-blue-700 transition disabled:opacity-50">
-                  {salvando ? 'Criando...' : '✓ Criar OS'}
+                  {salvando ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Criando...</span> : '✓ Criar OS'}
                 </button>
               </div>
             </form>

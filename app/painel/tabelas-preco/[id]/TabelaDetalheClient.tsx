@@ -303,7 +303,7 @@ export function TabelaDetalheClient({
             onClick={handleAdicionar}
             disabled={!produtoSelecionado || !novoPreco || adicionando}
             className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
-            {adicionando ? 'Adicionando...' : 'Adicionar'}
+            {adicionando ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Adicionando...</span> : 'Adicionar'}
           </button>
         </div>
         {erroAdicionar && <p className="text-sm text-red-600">{erroAdicionar}</p>}

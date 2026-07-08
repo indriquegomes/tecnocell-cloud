@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Spinner } from '@/components/Spinner'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { criarPedido, buscarClientesPedido } from '../actions'
@@ -160,7 +161,7 @@ export function NovoPedidoForm({
       <div className="flex gap-3 pt-2">
         <button type="submit" disabled={submitting}
           className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
-          {submitting ? 'Criando...' : 'Criar'}
+          {submitting ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Criando...</span> : 'Criar'}
         </button>
         <button type="button" onClick={() => router.push('/painel/pedidos')}
           className="rounded-xl border border-gray-200 px-6 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
