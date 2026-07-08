@@ -3,6 +3,7 @@
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { Spinner } from '@/components/Spinner'
 import {
   adicionarItemTabela,
   removerItemTabela,
@@ -455,8 +456,8 @@ export function TabelaDetalheClient({
                   Fechar
                 </button>
                 <button onClick={handleImportarPlanilha} disabled={!arquivoPlan || importandoPlan}
-                  className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
-                  {importandoPlan ? 'Importando...' : 'Importar preços'}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
+                  {importandoPlan && <Spinner />}{importandoPlan ? 'Importando...' : 'Importar preços'}
                 </button>
               </div>
             </div>
@@ -534,8 +535,8 @@ export function TabelaDetalheClient({
                   Cancelar
                 </button>
                 <button onClick={handleImportar} disabled={importando}
-                  className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
-                  {importando ? 'Importando...' : 'Importar'}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
+                  {importando && <Spinner />}{importando ? 'Importando...' : 'Importar'}
                 </button>
               </div>
             </div>

@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { formatBRL } from '@/lib/utils'
 import { labelPrazo } from '@/lib/formas-pagamento'
 import { createClient } from '@/lib/supabase/client'
+import { Spinner } from '@/components/Spinner'
 import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, buscarClientesPDV, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, buscarPedidosAbertos, buscarDetalheVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
 import { buscarSaldoCredito } from '@/app/painel/creditos/actions'
 import type { PromoInfo } from './page'
@@ -1933,9 +1934,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               type="button"
               onClick={handleSalvarOrcamento}
               disabled={salvandoOrc}
-              className="w-full rounded-xl border-2 border-blue-200 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50 transition"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-blue-200 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50 transition"
             >
-              {salvandoOrc ? 'Salvando...' : '📋 Salvar como orçamento (finalizar depois)'}
+              {salvandoOrc && <Spinner />}{salvandoOrc ? 'Salvando...' : '📋 Salvar como orçamento (finalizar depois)'}
             </button>
           )}
 
@@ -2044,8 +2045,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 Voltar
               </button>
               <button type="button" onClick={handleFinalizar} disabled={loading}
-                className="flex-1 rounded-xl bg-green-600 py-2.5 text-sm font-bold text-white hover:bg-green-700 transition disabled:opacity-50">
-                {loading ? 'Processando...' : 'Confirmar venda'}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-green-600 py-2.5 text-sm font-bold text-white hover:bg-green-700 transition disabled:opacity-50">
+                {loading && <Spinner />}{loading ? 'Processando...' : 'Confirmar venda'}
               </button>
             </div>
           </div>
@@ -2268,9 +2269,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 type="button"
                 disabled={pagandoCrediario}
                 onClick={handleConfirmarRecebimento}
-                className="w-full rounded-xl bg-green-600 py-3 text-sm font-bold text-white hover:bg-green-700 transition disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 py-3 text-sm font-bold text-white hover:bg-green-700 transition disabled:opacity-50"
               >
-                {pagandoCrediario
+                {pagandoCrediario && <Spinner />}{pagandoCrediario
                   ? 'Registrando...'
                   : `Confirmar — ${valorRecebido ? `R$ ${valorRecebido}` : formatBRL(recebendoItem.valor)}`}
               </button>
