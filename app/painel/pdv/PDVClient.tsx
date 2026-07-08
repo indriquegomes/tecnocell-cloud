@@ -1717,10 +1717,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 className="w-24 rounded-lg border border-gray-200 px-2 py-1 text-right text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            {descontoTipo === 'percent' && descontoNum > 0 && (
-              <div className="flex justify-between text-xs text-gray-400">
-                <span>Desconto aplicado</span>
-                <span>− {formatBRL(descontoNum)}</span>
+            {descontoNum > 0 && (
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>Desconto aplicado{descontoTipo === 'percent' ? ` (${parseFloat(desconto) || 0}%)` : ''}</span>
+                <span className="font-medium text-red-500">− {formatBRL(descontoNum)}</span>
               </div>
             )}
             {descontoNum > 0 && descontoNum >= subtotal * 0.5 && (
