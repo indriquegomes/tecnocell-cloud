@@ -3,6 +3,7 @@ import { temPermissao } from '@/lib/permissoes'
 import { editarProduto } from '../../actions'
 import { ImageUpload } from '@/components/ImageUpload'
 import { PrecoFields } from '../../PrecoFields'
+import { MovimentacoesProduto } from '../MovimentacoesProduto'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -136,6 +137,8 @@ export default async function EditarProdutoPage({ params }: { params: Promise<{ 
           </Link>
         </div>
       </form>
+
+      <MovimentacoesProduto produtoId={id} produtoNome={produto.nome} />
     </div>
   )
 }
