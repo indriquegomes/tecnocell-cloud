@@ -4,17 +4,42 @@ import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
+// Busca de produto SOB DEMANDA pro form de movimentação (não embutir os 7.983 num
+// datalist). Sem acento via produtos.busca_norm; fallback por nome/código.
+export async function buscarProdutosEstoque(
+  accessToken: string,
+  termo: string,
+): Promise<{ id: string; nome: string; codigo: string | null }[]> {
+  await requirePermissao('estoque', accessToken)
+  const t = termo.trim()
+  if (t.length < 1) return []
+  const supabase = await createServiceClient()
+  const semAcento = t.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
+  const palavras = semAcento.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
+  if (palavras.length === 0) return []
+  let q = supabase.from('produtos').select('id, nome, codigo').eq('ativo', true)
+  for (const w of palavras) q = q.ilike('busca_norm', `%${w}%`)
+  let { data, error } = await q.order('nome').limit(20)
+  if (error && (error.code === '42703' || error.message?.includes('busca_norm'))) {
+    let f = supabase.from('produtos').select('id, nome, codigo').eq('ativo', true)
+    for (const w of palavras) f = f.or(`nome.ilike.%${w}%,codigo.ilike.%${w}%`)
+    ;({ data } = await f.order('nome').limit(20))
+  }
+  return data ?? []
+}
+
 export async function registrarMovimento(formData: FormData) {
   const user = await requirePermissao('estoque')
   const supabase = await createServiceClient()
   const deposito_id = formData.get('deposito_id') as string
 
-  // Produto via datalist: "Nome (codigo)" → busca por nome exato, depois prefixo
+  // Produto: prefere o id da busca sob demanda (confiável); senão resolve por nome
+  const produtoIdDireto = (formData.get('produto_id') as string | null)?.trim() || null
   const produtoBusca = (formData.get('produto_busca') as string | null)?.trim() ?? ''
   const nomeBusca = produtoBusca.replace(/\s*\([^)]*\)$/, '').trim()
 
-  let produtoEncontrado: { id: string } | null = null
-  if (nomeBusca) {
+  let produtoEncontrado: { id: string } | null = produtoIdDireto ? { id: produtoIdDireto } : null
+  if (!produtoEncontrado && nomeBusca) {
     // 1. match exato (case-insensitive)
     const { data: exato } = await supabase
       .from('produtos').select('id').ilike('nome', nomeBusca).limit(1).maybeSingle()

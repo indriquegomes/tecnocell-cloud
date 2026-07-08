@@ -1,5 +1,6 @@
-import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { registrarMovimento } from '../actions'
+import { BuscaProdutoMov } from './BuscaProdutoMov'
 import Link from 'next/link'
 
 export default async function MovimentarEstoquePage({
@@ -9,10 +10,11 @@ export default async function MovimentarEstoquePage({
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
-  const [produtos, { data: depositos }] = await Promise.all([
-    fetchAll((from, to) => supabase.from('produtos').select('id, nome, codigo').eq('ativo', true).order('nome').range(from, to)),
-    supabase.from('depositos').select('id, nome').order('nome'),
-  ])
+  const { data: depositos } = await supabase.from('depositos').select('id, nome').order('nome')
+  // se veio ?produto_id= (do botão "Ajustar" do Estoque), busca só o nome desse 1 produto
+  const { data: produtoPre } = params.produto_id
+    ? await supabase.from('produtos').select('id, nome').eq('id', params.produto_id).maybeSingle()
+    : { data: null }
 
   const agoraBr = new Date().toLocaleString('sv', { timeZone: 'America/Sao_Paulo' })
   const dataHoje = agoraBr.slice(0, 10)
@@ -88,27 +90,7 @@ export default async function MovimentarEstoquePage({
           <div className="flex items-end gap-3">
             <div className="flex-1">
               <label className="mb-1.5 block text-sm font-medium text-gray-700">Nome do Produto *</label>
-              <input
-                list="produtos-list"
-                name="produto_busca"
-                required
-                placeholder="Pesquise pelo nome dos produtos cadastrados"
-                defaultValue={
-                  params.produto_id
-                    ? (produtos ?? []).find(p => p.id === params.produto_id)?.nome ?? ''
-                    : ''
-                }
-                className="field"
-                autoComplete="off"
-              />
-              <datalist id="produtos-list">
-                {(produtos ?? []).map((p) => (
-                  <option key={p.id} value={p.nome + (p.codigo ? ` (${p.codigo})` : '')} />
-                ))}
-              </datalist>
-              {params.produto_id && (
-                <input type="hidden" name="_produto_id_hint" value={params.produto_id} />
-              )}
+              <BuscaProdutoMov initialNome={produtoPre?.nome ?? ''} initialId={produtoPre?.id ?? ''} />
             </div>
             <div className="w-36">
               <label className="mb-1.5 block text-sm font-medium text-gray-700">Quantidade *</label>
