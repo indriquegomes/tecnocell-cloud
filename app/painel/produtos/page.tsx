@@ -277,16 +277,22 @@ export default async function ProdutosPage({
                       {(p.preco_custo as number) > 0 ? formatBRL(p.preco_custo as number) : '—'}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      {(() => { const ed = estoquePorDep(p); return (
-                        <>
-                          <span className={`text-sm font-bold tabular-nums ${abaixoMinimo ? 'text-red-600' : 'text-gray-800'}`}>{estoqueTotal}</span>
-                          {abaixoMinimo && <span className="ml-1 text-xs text-red-400">(mín {minimo})</span>}
-                          <div className="mt-0.5 text-[11px] text-gray-400">
-                            {depositosReais.map((d, i) => { const q = ed[d.id] ?? 0; return (
-                              <span key={d.id}>{i > 0 && ' · '}<span className={q > 0 ? 'text-green-600 font-medium' : 'text-gray-300'}>{d.nome} {q}</span></span>
+                      {(() => { const ed = estoquePorDep(p); const neg = estoqueTotal < 0; return (
+                        <details className="group inline-block">
+                          <summary className="flex cursor-pointer list-none items-center justify-center gap-1">
+                            <span className={`text-sm font-bold tabular-nums ${neg ? 'text-red-600' : abaixoMinimo ? 'text-amber-600' : 'text-gray-800'}`}>{estoqueTotal}</span>
+                            {abaixoMinimo && !neg && <span className="text-xs text-amber-500">mín {minimo}</span>}
+                            <svg className="h-3.5 w-3.5 text-gray-400 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                          </summary>
+                          <div className="mt-1.5 space-y-0.5 text-[11px] text-gray-500">
+                            {depositosReais.map((d) => { const q = ed[d.id] ?? 0; return (
+                              <div key={d.id} className="flex items-center justify-between gap-3">
+                                <span>{d.nome}</span>
+                                <span className={`tabular-nums font-medium ${q < 0 ? 'text-red-600' : q > 0 ? 'text-green-600' : 'text-gray-300'}`}>{q}</span>
+                              </div>
                             )})}
                           </div>
-                        </>
+                        </details>
                       )})()}
                     </td>
                     <td className="px-4 py-3 text-center">
