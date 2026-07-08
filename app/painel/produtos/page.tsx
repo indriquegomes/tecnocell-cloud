@@ -278,17 +278,20 @@ export default async function ProdutosPage({
                     </td>
                     <td className="px-4 py-3 text-center">
                       {(() => { const ed = estoquePorDep(p); const neg = estoqueTotal < 0; return (
-                        <details className="group inline-block">
-                          <summary className="flex cursor-pointer list-none items-center justify-center gap-1">
+                        <details className="group inline-block text-left">
+                          <summary className="mx-auto flex w-fit cursor-pointer list-none items-center justify-center gap-1.5 rounded-lg px-2 py-1 transition hover:bg-gray-100">
                             <span className={`text-sm font-bold tabular-nums ${neg ? 'text-red-600' : abaixoMinimo ? 'text-amber-600' : 'text-gray-800'}`}>{estoqueTotal}</span>
-                            {abaixoMinimo && !neg && <span className="text-xs text-amber-500">mín {minimo}</span>}
+                            {abaixoMinimo && !neg && <span className="rounded bg-amber-50 px-1 text-[10px] font-medium text-amber-600">mín {minimo}</span>}
                             <svg className="h-3.5 w-3.5 text-gray-400 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                           </summary>
-                          <div className="mt-1.5 space-y-0.5 text-[11px] text-gray-500">
+                          <div className="mt-1.5 min-w-[168px] space-y-1 rounded-xl border border-gray-100 bg-gray-50/80 p-2.5 shadow-sm">
                             {depositosReais.map((d) => { const q = ed[d.id] ?? 0; return (
-                              <div key={d.id} className="flex items-center justify-between gap-3">
-                                <span>{d.nome}</span>
-                                <span className={`tabular-nums font-medium ${q < 0 ? 'text-red-600' : q > 0 ? 'text-green-600' : 'text-gray-300'}`}>{q}</span>
+                              <div key={d.id} className="flex items-center justify-between gap-3 text-[11px]">
+                                <span className="flex items-center gap-1.5 text-gray-500">
+                                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${q < 0 ? 'bg-red-500' : q > 0 ? 'bg-green-500' : 'bg-gray-300'}`} />
+                                  {d.nome}
+                                </span>
+                                <span className={`tabular-nums font-bold ${q < 0 ? 'text-red-600' : q > 0 ? 'text-green-700' : 'text-gray-300'}`}>{q}</span>
                               </div>
                             )})}
                           </div>
