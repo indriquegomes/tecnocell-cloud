@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { Paginacao } from '@/components/Paginacao'
 import { toggleCatalogo, salvarDescricaoCatalogo } from './actions'
 import Link from 'next/link'
 
@@ -7,15 +8,19 @@ export default async function CatalogoPage({
 }: {
   searchParams: Promise<{
     erro?: string; ok?: string; editar?: string
-    busca?: string; categoria?: string; marca?: string; vis?: string
+    busca?: string; categoria?: string; marca?: string; vis?: string; pagina?: string
   }>
 }) {
-  const { erro, ok, editar, busca, categoria, marca, vis } = await searchParams
+  const { erro, ok, editar, busca, categoria, marca, vis, pagina: paginaRaw } = await searchParams
   const supabase = await createServiceClient()
 
+  const porPagina = 48
+  const pagina = Math.max(1, parseInt(paginaRaw ?? '1', 10) || 1)
+
+  // paginado — o catálogo tem ~8k produtos; não dá pra jogar tudo no HTML de uma vez
   let query = supabase
     .from('produtos')
-    .select('id, nome, descricao, preco, categoria, marca, ativo, visivel_catalogo, imagem_url, codigo')
+    .select('id, nome, descricao, preco, categoria, marca, ativo, visivel_catalogo, imagem_url, codigo', { count: 'exact' })
     .eq('ativo', true)
     .order('nome')
 
@@ -28,22 +33,33 @@ export default async function CatalogoPage({
   if (vis === 'visiveis') query = query.eq('visivel_catalogo', true)
   if (vis === 'ocultos') query = query.eq('visivel_catalogo', false)
 
-  const [{ data: produtos }, { data: categorias }, { data: marcas }] = await Promise.all([
-    query,
+  const [{ data: produtos, count }, { data: categorias }, { data: marcas }, { count: visiveis }, editRes] = await Promise.all([
+    query.range((pagina - 1) * porPagina, pagina * porPagina - 1),
     supabase.from('categorias').select('hierarquia, nome').order('nome'),
     supabase.from('marcas').select('nome').order('nome'),
+    supabase.from('produtos').select('id', { count: 'exact', head: true }).eq('ativo', true).eq('visivel_catalogo', true),
+    editar
+      ? supabase.from('produtos').select('id, nome, descricao, imagem_url').eq('id', editar).maybeSingle()
+      : Promise.resolve({ data: null }),
   ])
 
+  const total = count ?? 0
+  const totalPaginas = Math.max(1, Math.ceil(total / porPagina))
   const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-  const visiveis = (produtos ?? []).filter((p) => p.visivel_catalogo).length
-  const editarProduto = editar ? (produtos ?? []).find((p) => p.id === editar) : null
+  const editarProduto = (editRes as { data: { id: string; nome: string; descricao: string | null; imagem_url: string | null } | null }).data
+
+  const baseParams: Record<string, string> = {}
+  if (busca) baseParams.busca = busca
+  if (categoria) baseParams.categoria = categoria
+  if (marca) baseParams.marca = marca
+  if (vis) baseParams.vis = vis
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Catálogo de Produtos</h2>
-          <p className="text-sm text-gray-400 mt-0.5">{visiveis} produto{visiveis !== 1 ? 's' : ''} visíveis no catálogo online</p>
+          <p className="text-sm text-gray-400 mt-0.5">{visiveis ?? 0} produto{visiveis !== 1 ? 's' : ''} visíveis no catálogo online</p>
         </div>
       </div>
 
@@ -114,7 +130,7 @@ export default async function CatalogoPage({
         <Link href="/painel/catalogo" className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition">
           Limpar
         </Link>
-        <span className="ml-auto self-center text-sm text-gray-400">{produtos?.length ?? 0} produtos</span>
+        <span className="ml-auto self-center text-sm text-gray-400">{total} produtos</span>
       </form>
 
       {/* Grid de produtos */}
@@ -155,6 +171,8 @@ export default async function CatalogoPage({
           </div>
         ))}
       </div>
+
+      <Paginacao pagina={pagina} totalPaginas={totalPaginas} total={total} params={baseParams} basePath="/painel/catalogo" />
     </div>
   )
 }
