@@ -22,6 +22,7 @@ type Linha = {
   produtoId: string
   produto: string
   parte: string
+  deposito: string
   qtd: number
   valorUnitario: number | null
   valorTotal: number | null
@@ -136,7 +137,8 @@ export default async function MovimentacoesPage({
       tipo: m.operacao as Tipo,
       produtoId: m.produto_id,
       produto: p?.nome ?? m.produto_id,
-      parte: depMap[m.deposito_id] ?? '—',
+      parte: '—',
+      deposito: depMap[m.deposito_id] ?? '—',
       qtd: m.quantidade,
       valorUnitario: null,
       valorTotal: null,
@@ -156,6 +158,7 @@ export default async function MovimentacoesPage({
       produtoId: it.produto_id as string,
       produto: nome,
       parte: (v.pessoa_id ? pessoaMap[v.pessoa_id] : null) ?? 'Cliente Final',
+      deposito: depMap[(v.deposito_id as string) ?? ''] ?? '—',
       qtd: it.quantidade as number,
       valorUnitario: it.preco_unitario as number | null,
       valorTotal: it.total_item as number,
@@ -174,6 +177,7 @@ export default async function MovimentacoesPage({
       produtoId: it.produto_id as string,
       produto: (it.nome as string) ?? (it.produto_id as string),
       parte: d.pessoa_nome ?? 'Cliente Final',
+      deposito: depMap[(d.deposito_id as string) ?? ''] ?? '—',
       qtd: it.quantidade as number,
       valorUnitario: it.preco_unitario as number | null,
       valorTotal: it.total_item as number,
@@ -201,7 +205,8 @@ export default async function MovimentacoesPage({
     let vb: string | number = b.data
     if (ordemAtual === 'tipo')    { va = TIPO[a.tipo]?.label ?? ''; vb = TIPO[b.tipo]?.label ?? '' }
     if (ordemAtual === 'produto') { va = a.produto; vb = b.produto }
-    if (ordemAtual === 'cliente') { va = a.parte;   vb = b.parte }
+    if (ordemAtual === 'cliente')  { va = a.parte;    vb = b.parte }
+    if (ordemAtual === 'deposito') { va = a.deposito; vb = b.deposito }
     if (ordemAtual === 'qtd')     { va = a.qtd;     vb = b.qtd }
     if (va < vb) return ordemDesc ? 1 : -1
     if (va > vb) return ordemDesc ? -1 : 1
@@ -348,9 +353,10 @@ export default async function MovimentacoesPage({
               {[
                 { col: 'data',    label: 'Data/Hora',        align: 'text-left',   dataCol: 'data' },
                 { col: 'tipo',    label: 'Tipo',             align: 'text-center',  dataCol: 'tipo' },
-                { col: 'produto', label: 'Produto',          align: 'text-left',   dataCol: 'produto' },
-                { col: 'cliente', label: 'Cliente / Depósito', align: 'text-left', dataCol: 'cliente' },
-                { col: 'qtd',     label: 'Qtd',              align: 'text-center',  dataCol: 'qtd' },
+                { col: 'produto',  label: 'Produto',   align: 'text-left',   dataCol: 'produto' },
+                { col: 'deposito', label: 'Depósito',  align: 'text-left',   dataCol: 'deposito' },
+                { col: 'cliente',  label: 'Cliente',   align: 'text-left',   dataCol: 'cliente' },
+                { col: 'qtd',      label: 'Qtd',       align: 'text-center', dataCol: 'qtd' },
               ].map(({ col, label, align, dataCol }) => {
                 const { href, arrow, ativo } = sortLink(col)
                 return (
@@ -369,7 +375,7 @@ export default async function MovimentacoesPage({
           <tbody className="divide-y divide-gray-50">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center text-sm text-gray-400">
+                <td colSpan={9} className="px-4 py-12 text-center text-sm text-gray-400">
                   Nenhuma movimentação no período.
                 </td>
               </tr>
@@ -385,6 +391,7 @@ export default async function MovimentacoesPage({
                       </span>
                     </td>
                     <td data-col="produto"   className="px-4 py-3 text-sm font-medium text-gray-800">{r.produto}</td>
+                    <td data-col="deposito"  className="px-4 py-3 text-sm text-gray-600">{r.deposito}</td>
                     <td data-col="cliente"   className="px-4 py-3 text-sm text-gray-600">{r.parte}</td>
                     <td data-col="qtd"       className="px-4 py-3 text-center text-sm font-bold text-gray-900">
                       {t.sinal}{r.qtd}

@@ -6,6 +6,7 @@ const COLUNAS = [
   { key: 'data',      label: 'Data',              padrao: true },
   { key: 'tipo',      label: 'Movimentação',       padrao: true },
   { key: 'produto',   label: 'Produto',            padrao: true },
+  { key: 'deposito',  label: 'Depósito',           padrao: true },
   { key: 'cliente',   label: 'Cliente/Fornecedor', padrao: true },
   { key: 'qtd',       label: 'Quantidade',         padrao: true },
   { key: 'vlr_unit',  label: 'Valor Unitário',     padrao: true },
