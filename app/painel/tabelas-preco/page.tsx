@@ -12,10 +12,11 @@ export default async function TabelasPrecoPage({
   const { erro, ok } = await searchParams
   const supabase = await createServiceClient()
 
-  const { data: tabelas } = await supabase
-    .from('tabelas_preco')
-    .select('*, itens_tabela_preco(count)')
-    .order('nome')
+  const [{ data: tabelas }, { count: totalProdutos }] = await Promise.all([
+    supabase.from('tabelas_preco').select('*, itens_tabela_preco(count)').order('nome'),
+    supabase.from('produtos').select('id', { count: 'exact', head: true }).eq('ativo', true),
+  ])
+  const totalP = totalProdutos ?? 0
 
   const hoje = new Date().toISOString().slice(0, 10)
   const brDate = (d: string | null) => (d ? d.split('-').reverse().join('/') : null)
@@ -71,9 +72,18 @@ export default async function TabelasPrecoPage({
                 {t.ativa ? 'Ativa' : 'Inativa'}
               </span>
             </div>
-            <p className="text-sm text-gray-500">
-              {(Array.isArray(t.itens_tabela_preco) ? t.itens_tabela_preco[0]?.count : 0) ?? 0} produtos
-            </p>
+            {(() => {
+              const proprios = (Array.isArray(t.itens_tabela_preco) ? t.itens_tabela_preco[0]?.count : 0) ?? 0
+              const padrao = Math.max(0, totalP - proprios)
+              return (
+                <div>
+                  <p className="text-sm text-gray-500">{totalP.toLocaleString('pt-BR')} produtos</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    <span className="text-blue-600 font-medium">{proprios.toLocaleString('pt-BR')} com preço próprio</span> · {padrao.toLocaleString('pt-BR')} no Preço Padrão
+                  </p>
+                </div>
+              )
+            })()}
             {(t.data_inicio || t.data_fim) && (() => {
               const foraVigencia = (t.data_inicio && t.data_inicio > hoje) || (t.data_fim && t.data_fim < hoje)
               return (
