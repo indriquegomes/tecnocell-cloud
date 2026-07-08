@@ -1,19 +1,17 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import {
   adicionarItensLotePromocao, adicionarFaixa, removerFaixa,
   removerItemPromocao, removerItensLotePromocao, togglePromocao, deletarPromocao,
+  buscarCatalogoPromo,
 } from '../actions'
 
+const supabaseBrowser = createClient()
+
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const semAcento = (s: string) =>
-  s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
-const casaBusca = (texto: string, busca: string) => {
-  const t = semAcento(texto)
-  return semAcento(busca).split(/\s+/).filter(Boolean).every((termo) => t.includes(termo))
-}
 
 type ProdutoCat = { id: string; nome: string; codigo: string | null; marca: string | null; preco: number; preco_custo: number }
 
@@ -52,13 +50,11 @@ type Promocao = {
 export function PromoDetalheClient({
   promocao,
   itens,
-  catalogo,
   jaNaPromo,
   faixas,
 }: {
   promocao: Promocao
   itens: ItemPromo[]
-  catalogo: ProdutoCat[]
   jaNaPromo: string[]
   faixas: Faixa[]
 }) {
@@ -112,11 +108,30 @@ export function PromoDetalheClient({
   const [salvandoLote, setSalvandoLote] = useState(false)
   const [msgLote, setMsgLote] = useState('')
 
-  const matches = useMemo(() => {
+  // Catálogo SOB DEMANDA: busca no servidor ao digitar (não embute os 7.983).
+  // cacheRef acumula tudo que já apareceu (o sel persiste entre buscas → o byId
+  // do adicionar precisa resolver ids de buscas anteriores).
+  const [matches, setMatches] = useState<ProdutoCat[]>([])
+  const [buscandoLote, setBuscandoLote] = useState(false)
+  const cacheRef = useRef<Map<string, ProdutoCat>>(new Map())
+  useEffect(() => {
     const q = buscaLote.trim()
-    if (!q) return []
-    return catalogo.filter((p) => casaBusca(`${p.nome} ${p.codigo ?? ''} ${p.marca ?? ''}`, q))
-  }, [buscaLote, catalogo])
+    if (q.length < 1) { setMatches([]); setBuscandoLote(false); return }
+    setBuscandoLote(true)
+    let vivo = true
+    const t = setTimeout(async () => {
+      try {
+        const { data } = await supabaseBrowser.auth.getSession()
+        const achados = await buscarCatalogoPromo(data.session?.access_token ?? '', q)
+        if (vivo) {
+          for (const p of achados) cacheRef.current.set(p.id, p)
+          setMatches(achados)
+        }
+      } catch { /* silencioso */ }
+      finally { if (vivo) setBuscandoLote(false) }
+    }, 300)
+    return () => { vivo = false; clearTimeout(t) }
+  }, [buscaLote])
 
   // preço promocional calculado por produto conforme o modo
   const precoDe = (p: ProdutoCat): number => {
@@ -140,8 +155,8 @@ export function PromoDetalheClient({
   const handleAdicionarLote = async () => {
     if (sel.size === 0) return
     setSalvandoLote(true); setMsgLote('')
-    const byId = new Map(catalogo.map((p) => [p.id, p]))
-    const itensLote = [...sel].map((id) => {
+    const byId = cacheRef.current
+    const itensLote = [...sel].filter((id) => byId.has(id)).map((id) => {
       const p = byId.get(id)!
       return { produto_id: id, preco: ehValorDireto ? precoDe(p) : ehProgressivo ? 0 : p.preco }
     })
@@ -321,7 +336,7 @@ export function PromoDetalheClient({
               </div>
               <div className="max-h-72 overflow-auto divide-y divide-gray-50">
                 {matches.length === 0 ? (
-                  <p className="px-4 py-6 text-center text-sm text-gray-400">Nenhum produto encontrado.</p>
+                  <p className="px-4 py-6 text-center text-sm text-gray-400">{buscandoLote ? 'Buscando…' : 'Nenhum produto encontrado.'}</p>
                 ) : matches.slice(0, 100).map((p) => (
                   <label key={p.id} className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-blue-50/40 cursor-pointer">
                     <input type="checkbox" checked={sel.has(p.id)} onChange={() => toggleSel(p.id)}

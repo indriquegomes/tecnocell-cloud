@@ -4,6 +4,31 @@ import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
+// Busca de catálogo SOB DEMANDA pro painel "adicionar em lote" (não embutir os
+// 7.983 no HTML). Retorna TODOS os matches do termo (pro "selecionar todos"),
+// até 800. Sem acento via busca_norm; fallback por nome/código/marca.
+export async function buscarCatalogoPromo(
+  accessToken: string,
+  termo: string,
+): Promise<{ id: string; nome: string; codigo: string | null; marca: string | null; preco: number; preco_custo: number }[]> {
+  await requirePermissao('produtos', accessToken)
+  const t = termo.trim()
+  if (t.length < 1) return []
+  const supabase = await createServiceClient()
+  const semAcento = t.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
+  const palavras = semAcento.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
+  if (palavras.length === 0) return []
+  let q = supabase.from('produtos').select('id, nome, codigo, marca, preco, preco_custo').eq('ativo', true)
+  for (const w of palavras) q = q.ilike('busca_norm', `%${w}%`)
+  let { data, error } = await q.order('nome').limit(800)
+  if (error && (error.code === '42703' || error.message?.includes('busca_norm'))) {
+    let f = supabase.from('produtos').select('id, nome, codigo, marca, preco, preco_custo').eq('ativo', true)
+    for (const w of palavras) f = f.or(`nome.ilike.%${w}%,codigo.ilike.%${w}%,marca.ilike.%${w}%`)
+    ;({ data } = await f.order('nome').limit(800))
+  }
+  return (data ?? []).map((p) => ({ id: p.id, nome: p.nome, codigo: p.codigo, marca: p.marca, preco: p.preco ?? 0, preco_custo: (p as { preco_custo: number | null }).preco_custo ?? 0 }))
+}
+
 export async function criarPromocao(formData: FormData) {
   await requirePermissao('produtos')
   const supabase = await createServiceClient()
