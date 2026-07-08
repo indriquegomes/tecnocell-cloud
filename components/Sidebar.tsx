@@ -115,7 +115,7 @@ export function Sidebar({ permissoes, isMaster }: { permissoes: string[]; isMast
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   )}>
-                  <span className={cn('h-1.5 w-1.5 rounded-full', isActive(item.href) ? 'bg-blue-500' : 'bg-gray-300')} />
+                  <span className={cn('h-1.5 w-1.5 rounded-full', isActive(item.href) ? 'bg-accent-500' : 'bg-gray-300')} />
                   {item.label}
                 </Link>
               ))}

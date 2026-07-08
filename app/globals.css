@@ -1,5 +1,29 @@
 @import "tailwindcss";
 
+/* Brand TecnoCell — regra 60/30/10: branco domina, azul da marca é o 30%,
+   laranja é o acento de 10%. Aqui remapeamos a escala "blue-*" do Tailwind
+   pro azul da marca (#1B6CA8), então TODO `blue-600/700/...` já existente
+   passa a ser o azul da marca sem tocar em 200+ lugares. Reversível: é só
+   apagar este bloco. O laranja fica como `accent-*` pra acentos pontuais. */
+@theme {
+  --color-blue-50:  #eef5fb;
+  --color-blue-100: #d5e6f2;
+  --color-blue-200: #b9d6ea;
+  --color-blue-300: #8fbcdb;
+  --color-blue-400: #4f97c4;
+  --color-blue-500: #2a80b8;
+  --color-blue-600: #1b6ca8;
+  --color-blue-700: #155a8f;
+  --color-blue-800: #124b78;
+  --color-blue-900: #113f63;
+
+  --color-accent-50:  #fef3ea;
+  --color-accent-100: #fddcc2;
+  --color-accent-500: #f47920;
+  --color-accent-600: #e0670f;
+  --color-accent-700: #b8530c;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -22,6 +46,6 @@ body {
 }
 
 .field:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  border-color: #1b6ca8;
+  box-shadow: 0 0 0 2px rgba(27, 108, 168, 0.2);
 }
