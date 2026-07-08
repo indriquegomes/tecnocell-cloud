@@ -49,7 +49,7 @@ export default async function ProdutosPage({
         id, nome, descricao, preco, preco_custo, marca, categoria, ativo, codigo, imagem_url,
         estoque_minimo,
         cat:categorias!categoria ( nome ),
-        estoque ( quantidade )
+        estoque ( quantidade, deposito_id )
       `, withCount ? { count: 'exact' as const } : undefined)
       .order(ordemCampo, { ascending: !ordemDir })
     if (ordemAtual !== 'nome' && !ordemEstoque) q = q.order('nome')
@@ -68,10 +68,18 @@ export default async function ProdutosPage({
     return q
   }
 
-  const [{ data: categorias }, { data: marcas }] = await Promise.all([
+  const [{ data: categorias }, { data: marcas }, { data: depositos }] = await Promise.all([
     supabase.from('categorias').select('hierarquia, nome').order('nome'),
     supabase.from('marcas').select('nome').order('nome'),
+    supabase.from('depositos').select('id, nome, loja_id').order('nome'),
   ])
+  // depósitos reais (com loja) — mesmo critério do PDV pra mostrar saldo por depósito
+  const depositosReais = (depositos ?? []).filter((d) => d.loja_id)
+  const estoquePorDep = (p: Record<string, unknown>): Record<string, number> => {
+    const m: Record<string, number> = {}
+    for (const e of (p.estoque as { quantidade: number; deposito_id: string }[]) ?? []) m[e.deposito_id] = (m[e.deposito_id] ?? 0) + (e.quantidade ?? 0)
+    return m
+  }
 
   let produtos: Record<string, unknown>[]
   let total: number
@@ -268,9 +276,18 @@ export default async function ProdutosPage({
                     <td className="px-4 py-3 text-right text-sm text-gray-500">
                       {(p.preco_custo as number) > 0 ? formatBRL(p.preco_custo as number) : '—'}
                     </td>
-                    <td className={`px-4 py-3 text-center text-sm font-medium ${abaixoMinimo ? 'text-red-600' : 'text-gray-700'}`}>
-                      {estoqueTotal}
-                      {abaixoMinimo && <span className="ml-1 text-xs text-red-400">(mín {minimo})</span>}
+                    <td className="px-4 py-3 text-center">
+                      {(() => { const ed = estoquePorDep(p); return (
+                        <>
+                          <span className={`text-sm font-bold tabular-nums ${abaixoMinimo ? 'text-red-600' : 'text-gray-800'}`}>{estoqueTotal}</span>
+                          {abaixoMinimo && <span className="ml-1 text-xs text-red-400">(mín {minimo})</span>}
+                          <div className="mt-0.5 text-[11px] text-gray-400">
+                            {depositosReais.map((d, i) => { const q = ed[d.id] ?? 0; return (
+                              <span key={d.id}>{i > 0 && ' · '}<span className={q > 0 ? 'text-green-600 font-medium' : 'text-gray-300'}>{d.nome} {q}</span></span>
+                            )})}
+                          </div>
+                        </>
+                      )})()}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <Badge variant={p.ativo ? 'success' : 'danger'}>
