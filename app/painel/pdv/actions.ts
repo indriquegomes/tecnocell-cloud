@@ -191,6 +191,21 @@ export async function salvarOrcamentoPDV(
   return { id: pedido!.id }
 }
 
+// Caixa da loja está aberto? (pro PDV avisar/bloquear antes de vender). Por loja;
+// fallback global se a migração caixa-por-loja ainda não rodou.
+export async function caixaAbertoDaLoja(accessToken: string, lojaId: string): Promise<boolean> {
+  await requirePermissao('pdv', accessToken)
+  const supabase = await createServiceClient()
+  let q = supabase.from('caixas').select('id').eq('status', 'aberto').limit(1)
+  if (lojaId) q = q.eq('loja_id', lojaId)
+  const { data, error } = await q.maybeSingle()
+  if (error && error.message?.includes('loja_id')) {
+    const { data: g } = await supabase.from('caixas').select('id').eq('status', 'aberto').limit(1).maybeSingle()
+    return !!g
+  }
+  return !!data
+}
+
 export async function finalizarVenda(
   accessToken: string,
   itens: ItemCarrinho[],
@@ -252,6 +267,25 @@ export async function finalizarVenda(
     return { erro: 'Erro ao conectar ao banco: ' + String(e) }
   }
 
+  // TRAVA (Isa): o caixa DESTA LOJA precisa estar aberto pra vender. Escopo por
+  // loja (do depósito da venda); se a migração caixa-por-loja ainda não rodou,
+  // cai numa checagem global (qualquer caixa aberto).
+  let caixaId: string | null = null
+  try {
+    const { data: depo } = await supabase.from('depositos').select('loja_id').eq('id', deposito_id).maybeSingle()
+    const lojaVenda = (depo as { loja_id?: string | null } | null)?.loja_id ?? null
+    let q = supabase.from('caixas').select('id').eq('status', 'aberto').limit(1)
+    if (lojaVenda) q = q.eq('loja_id', lojaVenda)
+    const { data: cx, error: cxErr } = await q.maybeSingle()
+    if (cxErr && cxErr.message?.includes('loja_id')) {
+      const { data: cxG } = await supabase.from('caixas').select('id').eq('status', 'aberto').limit(1).maybeSingle()
+      caixaId = cxG?.id ?? null
+    } else {
+      caixaId = cx?.id ?? null
+    }
+  } catch { caixaId = null }
+  if (!caixaId) return { erro: 'O caixa desta loja está fechado. Abra o caixa em "Operação do PDV" antes de registrar vendas.' }
+
   // Busca nome do vendedor no perfil
   const { data: perfil } = await supabase
     .from('perfis')
@@ -275,6 +309,10 @@ export async function finalizarVenda(
 
   if (error) return { erro: error.message }
   if (!data) return { erro: 'RPC retornou vazio. Verifique o banco.' }
+
+  // Amarra a venda ao caixa aberto (pro fechamento X/Z reconciliar por caixa).
+  // Silencioso se a coluna caixa_id ainda não existe (pré-migração).
+  try { await supabase.from('vendas').update({ caixa_id: caixaId }).eq('id', data.venda_id as string) } catch { /* pré-migração */ }
 
   // Vendedor (rastreabilidade), fiado vinculado e baixa de IMEI já nascem
   // dentro do RPC finalizar_venda — sem escrita posterior nem race.

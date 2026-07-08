@@ -13,24 +13,23 @@ export async function abrirCaixa(
   try {
     await requirePermissao('pdv', formData.get('access_token') as string)
     const supabase = await createServiceClient()
+    const lojaId = (formData.get('loja_id') as string | null) || null
 
-    // Impede caixa duplo
-    const { data: existente } = await supabase
-      .from('caixas')
-      .select('id')
-      .eq('status', 'aberto')
-      .limit(1)
-      .maybeSingle()
-    if (existente) return { ok: false, message: 'Já existe um caixa aberto.' }
+    // Impede caixa duplo — agora POR LOJA (cada loja tem o seu caixa)
+    let qExist = supabase.from('caixas').select('id').eq('status', 'aberto').limit(1)
+    if (lojaId) qExist = qExist.eq('loja_id', lojaId)
+    const { data: existente } = await qExist.maybeSingle()
+    if (existente) return { ok: false, message: 'Já existe um caixa aberto nesta loja.' }
 
     const { error } = await supabase.from('caixas').insert({
       valor_abertura: parseFloat(formData.get('valor_abertura') as string) || 0,
       obs_abertura: (formData.get('obs_abertura') as string) || null,
       status: 'aberto',
+      loja_id: lojaId,
     })
     if (error) return { ok: false, message: error.message }
 
-    redirect('/painel/pdv/operacao?aberto=1')
+    redirect(`/painel/pdv/operacao?aberto=1${lojaId ? `&loja=${lojaId}` : ''}`)
   } catch (e: unknown) {
     if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e
     return { ok: false, message: 'Erro ao abrir caixa.' }

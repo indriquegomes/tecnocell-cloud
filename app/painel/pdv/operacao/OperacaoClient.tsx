@@ -76,6 +76,8 @@ interface ProdutoResumo {
 }
 
 interface Props {
+  lojas: { id: string; nome: string }[]
+  lojaAtual: string
   caixaAberto: CaixaAberto | null
   totalVendas: number
   totalCrediario: number
@@ -124,12 +126,13 @@ function FeedbackMsg({ state }: { state: ActionState }) {
 // Cada painel monta/desmonta quando o card é aberto/fechado.
 // O useActionState fica no sub-componente → state reseta ao reabrir.
 
-function AbrirCaixaPanel() {
+function AbrirCaixaPanel({ lojaId }: { lojaId: string }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(abrirCaixa, null)
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
       <h3 className="font-semibold text-gray-800">Abrir Caixa</h3>
       <form action={withToken(action)} className="flex flex-wrap gap-4 items-end">
+        <input type="hidden" name="loja_id" value={lojaId} />
         <div className="flex-1 min-w-48">
           <label className="mb-1.5 block text-sm font-medium text-gray-700">
             Valor de Abertura (R$)
@@ -150,9 +153,9 @@ function AbrirCaixaPanel() {
         <button
           type="submit"
           disabled={pending}
-          className="rounded-xl bg-green-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-green-700 transition disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-green-700 transition disabled:opacity-50"
         >
-          {pending ? 'Abrindo...' : 'Abrir Caixa'}
+          {pending && <Spinner />}{pending ? 'Abrindo...' : 'Abrir Caixa'}
         </button>
       </form>
       <FeedbackMsg state={state} />
@@ -897,6 +900,8 @@ function ZReportPanel({ z }: {
 
 // ─── Componente principal ────────────────────────────────────────────────────
 export function OperacaoClient({
+  lojas,
+  lojaAtual,
   caixaAberto,
   totalVendas,
   totalCrediario,
@@ -938,6 +943,16 @@ export function OperacaoClient({
           </svg>
         </Link>
         <h2 className="text-2xl font-bold text-gray-900">Operação do PDV</h2>
+        {lojas.length > 1 && (
+          <select
+            value={lojaAtual}
+            onChange={(e) => { window.location.href = `/painel/pdv/operacao?loja=${e.target.value}` }}
+            className="ml-auto rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            title="Caixa é por loja"
+          >
+            {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
+          </select>
+        )}
       </div>
 
       {fechado && !caixaAberto && (
@@ -1161,7 +1176,7 @@ export function OperacaoClient({
           )}
         </>
       ) : (
-        <AbrirCaixaPanel />
+        <AbrirCaixaPanel lojaId={lojaAtual} />
       )}
 
       {/* Histórico */}

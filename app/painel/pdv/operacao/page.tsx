@@ -4,23 +4,30 @@ import { OperacaoClient } from './OperacaoClient'
 export default async function OperacaoPDVPage({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string; fechado?: string; aberto?: string; esperado?: string; contado?: string }>
+  searchParams: Promise<{ erro?: string; fechado?: string; aberto?: string; esperado?: string; contado?: string; loja?: string }>
 }) {
-  const { erro, fechado, aberto, esperado, contado } = await searchParams
+  const { erro, fechado, aberto, esperado, contado, loja } = await searchParams
   const supabase = await createServiceClient()
 
-  // Caixa atual + histórico + formas em paralelo
+  // Loja atual (caixa é por loja): ?loja=<id> ou a 1ª loja ativa
+  const { data: lojasData } = await supabase.from('lojas').select('id, nome').eq('ativa', true).order('nome')
+  const lojas = lojasData ?? []
+  const lojaAtual = (loja && lojas.some((l) => l.id === loja)) ? loja : (lojas[0]?.id ?? '')
+
+  // Caixa atual (da loja) + histórico + formas em paralelo
   const [caixaResult, historicoResult, formasResult] = await Promise.all([
     supabase
       .from('caixas')
       .select('id, aberto_em, valor_abertura, status')
       .eq('status', 'aberto')
+      .eq('loja_id', lojaAtual)
       .order('aberto_em', { ascending: false })
       .limit(1)
       .maybeSingle(),
     supabase
       .from('caixas')
       .select('id, aberto_em, fechado_em, valor_abertura, valor_fechamento, status')
+      .eq('loja_id', lojaAtual)
       .order('aberto_em', { ascending: false })
       .limit(20),
     supabase
@@ -62,7 +69,7 @@ export default async function OperacaoPDVPage({
         .from('vendas')
         .select('id, total, created_at, forma_pagamento_id')
         .eq('status', 'concluida')
-        .gte('created_at', caixaAberto.aberto_em)
+        .eq('caixa_id', caixaAberto.id)
         .order('created_at', { ascending: false }),
       supabase
         .from('lancamentos')
@@ -142,6 +149,7 @@ export default async function OperacaoPDVPage({
         .from('caixas')
         .select('id, aberto_em, fechado_em, valor_abertura, obs_fechamento')
         .eq('status', 'fechado')
+        .eq('loja_id', lojaAtual)
         .order('fechado_em', { ascending: false })
         .limit(1)
         .maybeSingle(),
@@ -154,8 +162,7 @@ export default async function OperacaoPDVPage({
           .from('vendas')
           .select('id, total, forma_pagamento_id')
           .eq('status', 'concluida')
-          .gte('created_at', ultimoCaixa.aberto_em)
-          .lte('created_at', ultimoCaixa.fechado_em ?? new Date().toISOString()),
+          .eq('caixa_id', ultimoCaixa.id),
         supabase
           .from('movimentos_caixa')
           .select('tipo, motivo, forma_pagamento, valor, created_at')
@@ -200,6 +207,8 @@ export default async function OperacaoPDVPage({
 
   return (
     <OperacaoClient
+      lojas={lojas}
+      lojaAtual={lojaAtual}
       caixaAberto={caixaAberto as {
         id: string
         aberto_em: string

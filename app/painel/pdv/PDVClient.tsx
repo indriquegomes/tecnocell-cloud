@@ -5,7 +5,7 @@ import { formatBRL } from '@/lib/utils'
 import { labelPrazo } from '@/lib/formas-pagamento'
 import { createClient } from '@/lib/supabase/client'
 import { Spinner } from '@/components/Spinner'
-import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, buscarClientesPDV, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, buscarPedidosAbertos, buscarDetalheVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
+import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, buscarClientesPDV, caixaAbertoDaLoja, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, buscarPedidosAbertos, buscarDetalheVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
 import { buscarSaldoCredito } from '@/app/painel/creditos/actions'
 import type { PromoInfo } from './page'
 
@@ -380,6 +380,14 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   }, [])
   useEffect(() => { if (lojaId) localStorage.setItem('pdv_loja', lojaId) }, [lojaId])
   useEffect(() => { if (depositoId) localStorage.setItem('pdv_deposito', depositoId) }, [depositoId])
+  // Caixa da loja aberto? (Isa: só vender com caixa aberto) — re-checa ao trocar de loja
+  const [caixaAberto, setCaixaAberto] = useState(true)   // true até checar (evita piscar bloqueio)
+  useEffect(() => {
+    if (!lojaId) return
+    let vivo = true
+    authToken().then((t) => { if (t) caixaAbertoDaLoja(t, lojaId).then((ok) => { if (vivo) setCaixaAberto(ok) }).catch(() => {}) })
+    return () => { vivo = false }
+  }, [lojaId])
   const lojaSel = lojas.find((l) => l.id === lojaId) ?? null
   const depositosDaLoja = depositos.filter((d) => d.loja_id === lojaId)
   // depósitos reais de todas as lojas (exclui órfãos tipo Estoque Geral) — pra mostrar
@@ -1371,6 +1379,13 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       {/* Coluna esquerda — busca + carrinho */}
       <div className="space-y-4 min-w-0">
+        {/* Aviso: caixa da loja fechado — bloqueia a venda (Isa) */}
+        {!caixaAberto && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+            <span className="text-sm font-medium text-amber-800">🔒 O caixa desta loja está fechado — abra o caixa pra registrar vendas.</span>
+            <a href="/painel/pdv/operacao" className="rounded-lg bg-amber-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-amber-700 transition">Abrir caixa →</a>
+          </div>
+        )}
         {/* Barra de ações */}
         <div className="flex justify-end">
           <button
@@ -1923,10 +1938,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           <button
             type="button"
             onClick={abrirConfirmacao}
-            disabled={carrinho.length === 0 || loading}
+            disabled={carrinho.length === 0 || loading || !caixaAberto}
+            title={!caixaAberto ? 'Abra o caixa da loja pra vender' : undefined}
             className="w-full rounded-xl bg-green-600 py-3 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50 transition"
           >
-            Finalizar Venda — {formatBRL(totalCobrado)}
+            {!caixaAberto ? '🔒 Caixa fechado — abra pra vender' : `Finalizar Venda — ${formatBRL(totalCobrado)}`}
           </button>
 
           {carrinho.length > 0 && (
