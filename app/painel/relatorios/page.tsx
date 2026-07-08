@@ -3,7 +3,10 @@ import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 import { formatDate } from '@/lib/utils'
 import { ExportCsv } from './ExportCsv'
+import { ExportCsvLazy } from './ExportCsvLazy'
 import { FluxoChart, ParetoChart, Donut, Barra } from './Charts'
+
+const AMOSTRA = 200  // abas pesadas mostram só as primeiras N linhas; CSV sai completo
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const asRows = (a: unknown[]) => a as unknown as Record<string, unknown>[]
@@ -967,13 +970,13 @@ export default async function RelatoriosPage({
           <div>
             <div className="mb-2 flex items-center justify-between">
               <h3 className="font-semibold text-gray-800">Estoque atual</h3>
-              <ExportCsv filename={`estoque_${dataFim}.csv`}
-                cols={[{ key: 'nome', label: 'Produto' }, { key: 'deposito', label: 'Depósito' }, { key: 'quantidade', label: 'Qtd' }, { key: 'custo', label: 'Custo Unit', money: true }, { key: 'preco', label: 'Venda Unit', money: true }]}
-                rows={asRows(estoque)} />
+              <ExportCsvLazy aba="estoque" filename={`estoque_${dataFim}.csv`}
+                cols={[{ key: 'nome', label: 'Produto' }, { key: 'deposito', label: 'Depósito' }, { key: 'quantidade', label: 'Qtd' }, { key: 'custo', label: 'Custo Unit', money: true }, { key: 'preco', label: 'Venda Unit', money: true }]} />
             </div>
+            {estoque.length > AMOSTRA && <p className="mb-2 text-[11px] text-gray-400">Mostrando {AMOSTRA} de {estoque.length} — exporte o CSV pra lista completa.</p>}
             <Tabela vazio={estoque.length === 0} vazioMsg="Sem dados de estoque."
               head={['Produto', 'Depósito', 'Qtd', 'Total Custo', 'Total Venda']} alinhas={['l', 'l', 'r', 'r', 'r']}>
-              {estoque.slice(0, 200).map((e, i) => (
+              {estoque.slice(0, AMOSTRA).map((e, i) => (
                 <tr key={i} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">{e.nome}</td>
                   <td className="px-4 py-3 text-sm text-gray-500">{e.deposito}</td>
@@ -1195,11 +1198,12 @@ export default async function RelatoriosPage({
       {aba === 'precificacao' && (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <ExportCsv filename={`precificacao.csv`}
-              cols={[{ key: 'nome', label: 'Produto' }, { key: 'custo', label: 'Custo', money: true }, { key: 'preco', label: 'Preço', money: true }, { key: 'minimo', label: 'Mínimo', money: true }, { key: 'margem', label: 'Margem %' }]} rows={asRows(precos)} />
+            <ExportCsvLazy aba="precificacao" filename={`precificacao.csv`}
+              cols={[{ key: 'nome', label: 'Produto' }, { key: 'custo', label: 'Custo', money: true }, { key: 'preco', label: 'Preço', money: true }, { key: 'minimo', label: 'Mínimo', money: true }, { key: 'margem', label: 'Margem %' }]} />
           </div>
+          {precos.length > AMOSTRA && <p className="text-[11px] text-gray-400">Mostrando {AMOSTRA} de {precos.length} — exporte o CSV pra lista completa.</p>}
           <Tabela vazio={precos.length === 0} vazioMsg="Sem produtos." head={['Produto', 'Custo', 'Preço', 'Mínimo', 'Margem']} alinhas={['l', 'r', 'r', 'r', 'r']}>
-            {precos.map((p, i) => (
+            {precos.slice(0, AMOSTRA).map((p, i) => (
               <tr key={i} className="hover:bg-gray-50">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{p.nome}</td>
                 <td className="px-4 py-3 text-sm text-right text-orange-500">{fmt(p.custo)}</td>
@@ -1284,12 +1288,12 @@ export default async function RelatoriosPage({
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-[11px] text-gray-400">Folha pra contagem física. Exporte, conte, compare com o sistema.</p>
-            <ExportCsv filename={`inventario_${dataFim}.csv`}
-              cols={[{ key: 'nome', label: 'Produto' }, { key: 'deposito', label: 'Depósito' }, { key: 'sistema', label: 'Sistema' }, { key: 'contagem', label: 'Contagem' }, { key: 'custo', label: 'Custo Unit', money: true }]}
-              rows={inventario.map((i) => ({ ...i, contagem: '' }))} />
+            <ExportCsvLazy aba="inventario" filename={`inventario_${dataFim}.csv`}
+              cols={[{ key: 'nome', label: 'Produto' }, { key: 'deposito', label: 'Depósito' }, { key: 'sistema', label: 'Sistema' }, { key: 'contagem', label: 'Contagem' }, { key: 'custo', label: 'Custo Unit', money: true }]} />
           </div>
+          {inventario.length > AMOSTRA && <p className="text-[11px] text-gray-400">Mostrando {AMOSTRA} de {inventario.length} — exporte o CSV pra folha completa.</p>}
           <Tabela vazio={inventario.length === 0} vazioMsg="Sem estoque." head={['Produto', 'Depósito', 'Sistema', 'Contagem']} alinhas={['l', 'l', 'r', 'r']}>
-            {inventario.map((e, i) => (
+            {inventario.slice(0, AMOSTRA).map((e, i) => (
               <tr key={i} className="hover:bg-gray-50">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{e.nome}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">{e.deposito}</td>
@@ -1345,11 +1349,12 @@ export default async function RelatoriosPage({
       {aba === 'contatos' && (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <ExportCsv filename={`contatos.csv`}
-              cols={[{ key: 'nome', label: 'Nome' }, { key: 'telefone', label: 'Telefone' }, { key: 'cidade', label: 'Cidade' }, { key: 'tipo', label: 'Tipo' }]} rows={asRows(contatos)} />
+            <ExportCsvLazy aba="contatos" filename={`contatos.csv`}
+              cols={[{ key: 'nome', label: 'Nome' }, { key: 'telefone', label: 'Telefone' }, { key: 'cidade', label: 'Cidade' }, { key: 'tipo', label: 'Tipo' }]} />
           </div>
+          {contatos.length > AMOSTRA && <p className="text-[11px] text-gray-400">Mostrando {AMOSTRA} de {contatos.length} — exporte o CSV pra lista completa.</p>}
           <Tabela vazio={contatos.length === 0} vazioMsg="Sem contatos com telefone." head={['Nome', 'Telefone', 'Cidade', 'Tipo']} alinhas={['l', 'l', 'l', 'c']}>
-            {contatos.map((c, i) => (
+            {contatos.slice(0, AMOSTRA).map((c, i) => (
               <tr key={i} className="hover:bg-gray-50">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.nome}</td>
                 <td className="px-4 py-3 text-sm text-gray-700">{c.telefone}</td>
