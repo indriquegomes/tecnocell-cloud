@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { formatBRL, formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { BuscaLista } from '@/components/BuscaLista'
 import { marcarPago, deletarLancamento } from './actions'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import Link from 'next/link'
@@ -38,7 +39,9 @@ export default async function FinanceiroPage({
     query = query.eq('tipo', params.tipo)
   }
   if (params.busca) {
-    query = query.ilike('descricao', `%${params.busca}%`)
+    // multi-palavra: cada palavra tem que aparecer na descrição OU no nome da pessoa
+    const palavras = params.busca.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
+    for (const w of palavras) query = query.or(`descricao.ilike.%${w}%,pessoa_nome.ilike.%${w}%`)
   }
 
   const { data: lancamentos } = await query
@@ -93,12 +96,8 @@ export default async function FinanceiroPage({
 
       {/* Filtros */}
       <form method="GET" className="flex flex-wrap gap-3">
-        <input
-          name="busca"
-          defaultValue={params.busca}
-          placeholder="Buscar descrição..."
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        {params.busca && <input type="hidden" name="busca" value={params.busca} />}
+        <BuscaLista basePath="/painel/financeiro" placeholder="Buscar por descrição ou cliente..." />
         <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
           <Link href="/painel/financeiro"
             className={`px-4 py-2 transition ${!params.tipo ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>

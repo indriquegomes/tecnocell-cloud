@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { Paginacao } from '@/components/Paginacao'
+import { BuscaLista } from '@/components/BuscaLista'
 import { toggleCatalogo, salvarDescricaoCatalogo } from './actions'
 import Link from 'next/link'
 
@@ -25,8 +26,10 @@ export default async function CatalogoPage({
     .order('nome')
 
   if (busca) {
-    const termo = busca.replace(/[,()]/g, ' ').trim()
-    query = query.or(`nome.ilike.%${termo}%,codigo.ilike.%${termo}%`)
+    // multi-palavra + sem acento via produtos.busca_norm (nome+código+marca)
+    const semAcento = busca.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
+    const palavras = semAcento.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
+    for (const w of palavras) query = query.ilike('busca_norm', `%${w}%`)
   }
   if (categoria) query = query.eq('categoria', categoria)
   if (marca) query = query.eq('marca', marca)
@@ -98,12 +101,8 @@ export default async function CatalogoPage({
 
       {/* Filtros */}
       <form method="GET" className="flex flex-wrap gap-3">
-        <input
-          name="busca"
-          defaultValue={busca}
-          placeholder="Buscar por nome ou código..."
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        {busca && <input type="hidden" name="busca" value={busca} />}
+        <BuscaLista basePath="/painel/catalogo" placeholder="Buscar por nome, código ou marca..." />
         <select name="categoria" defaultValue={categoria ?? ''}
           className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="">Todas as categorias</option>
