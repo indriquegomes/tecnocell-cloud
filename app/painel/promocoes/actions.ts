@@ -91,6 +91,7 @@ export async function deletarPromocao(id: string) {
 }
 
 export async function buscarProdutosPromocao(busca: string) {
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
   const { data } = await supabase
     .from('produtos')
@@ -173,6 +174,7 @@ export async function buscarPromocaoAtivaPorProduto(produtoId: string): Promise<
   quantidade_x: number | null
   quantidade_y: number | null
 } | null> {
+  await requirePermissao('produtos')
   const supabase = await createServiceClient()
   const hoje = new Date().toISOString().split('T')[0]
 

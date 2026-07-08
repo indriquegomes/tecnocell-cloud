@@ -118,7 +118,7 @@ export async function faturarPedido(id: string): Promise<{ ok: boolean; msg: str
 export async function adicionarItemPedido(pedidoId: string, formData: FormData) {
   await requirePermissao('pedidos')
   const supabase = await createServiceClient()
-  const quantidade = parseFloat(formData.get('quantidade') as string) || 1
+  const quantidade = Math.round(parseFloat(formData.get('quantidade') as string)) || 1
   const preco = parseFloat(formData.get('preco_unitario') as string) || 0
   const total = quantidade * preco
 

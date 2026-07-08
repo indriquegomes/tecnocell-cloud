@@ -6,8 +6,9 @@ import Link from 'next/link'
 export default async function NovaNotaPage({ searchParams }: { searchParams: Promise<{ erro?: string }> }) {
   const { erro } = await searchParams
   const supabase = await createServiceClient()
-  const { data: pessoas } = await supabase.from('pessoas').select('id, nome, tipo').order('nome').limit(500)
-  const fornecedores = (pessoas ?? []).filter((p) => p.tipo === 'fornecedor' || p.tipo === 'ambos')
+  // só fornecedores (97), filtrado no servidor — antes pegava 500 pessoas e perdia o resto
+  const { data: fornecedoresRaw } = await supabase.from('pessoas').select('id, nome').in('tipo', ['fornecedor', 'ambos']).order('nome')
+  const fornecedores = fornecedoresRaw ?? []
 
   return (
     <div className="mx-auto max-w-xl space-y-6">

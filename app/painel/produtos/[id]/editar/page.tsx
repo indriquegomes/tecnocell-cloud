@@ -11,16 +11,17 @@ export default async function EditarProdutoPage({ params }: { params: Promise<{ 
   const { id } = await params
   const supabase = await createServiceClient()
 
-  const [{ data: produto }, { data: categorias }, { data: marcas }, { data: pessoas }] = await Promise.all([
+  const [{ data: produto }, { data: categorias }, { data: marcas }, { data: fornecedoresRaw }] = await Promise.all([
     supabase.from('produtos').select('*').eq('id', id).single(),
     supabase.from('categorias').select('hierarquia, nome').order('nome'),
     supabase.from('marcas').select('nome').order('nome'),
-    supabase.from('pessoas').select('id, nome, tipo').order('nome').limit(500),
+    // só fornecedores (97), filtrado no servidor — antes pegava 500 pessoas e perdia o resto
+    supabase.from('pessoas').select('id, nome').in('tipo', ['fornecedor', 'ambos']).order('nome'),
   ])
 
   if (!produto) notFound()
 
-  const fornecedores = (pessoas ?? []).filter((p) => p.tipo === 'fornecedor' || p.tipo === 'ambos')
+  const fornecedores = fornecedoresRaw ?? []
   const { permissoes, isMaster } = await permissoesUsuarioAtual()
   const podeCusto = temPermissao(permissoes, 'produto_custo', isMaster)
 

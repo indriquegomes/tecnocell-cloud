@@ -92,7 +92,7 @@ export async function removerItemNota(itemId: string, notaId: string) {
 export async function adicionarItemNota(notaId: string, formData: FormData) {
   await requirePermissao('compras')
   const supabase = await createServiceClient()
-  const quantidade = parseFloat(formData.get('quantidade') as string) || 1
+  const quantidade = Math.round(parseFloat(formData.get('quantidade') as string)) || 1
   const preco = parseFloat(formData.get('preco_unitario') as string) || 0
 
   await supabase.from('itens_nota_entrada').insert({

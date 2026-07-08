@@ -8,12 +8,14 @@ import Link from 'next/link'
 
 export default async function NovoProdutoPage() {
   const supabase = await createServiceClient()
-  const [{ data: categorias }, { data: marcas }, { data: pessoas }] = await Promise.all([
+  const [{ data: categorias }, { data: marcas }, { data: fornecedoresRaw }] = await Promise.all([
     supabase.from('categorias').select('hierarquia, nome').order('nome'),
     supabase.from('marcas').select('nome').order('nome'),
-    supabase.from('pessoas').select('id, nome, tipo').order('nome').limit(500),
+    // só fornecedores (97) — antes carregava 500 pessoas e filtrava, perdendo quem
+    // ficava além do 500º; agora filtra por tipo no servidor e traz todos.
+    supabase.from('pessoas').select('id, nome').in('tipo', ['fornecedor', 'ambos']).order('nome'),
   ])
-  const fornecedores = (pessoas ?? []).filter((p) => p.tipo === 'fornecedor' || p.tipo === 'ambos')
+  const fornecedores = fornecedoresRaw ?? []
   const { permissoes, isMaster } = await permissoesUsuarioAtual()
   const podeCusto = temPermissao(permissoes, 'produto_custo', isMaster)
 
