@@ -928,6 +928,15 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       })
     }
     setCarrinho(novosItens)
+    // traz o cliente do orçamento junto (antes só vinham os itens). Como pessoas é
+    // sob demanda, garante o cliente no cache pro nome aparecer no PDV.
+    if (pedido.pessoa_id) {
+      setPessoaId(pedido.pessoa_id)
+      setBuscaCliente('')
+      setPessoas((prev) => prev.some((p) => p.id === pedido.pessoa_id)
+        ? prev
+        : [...prev, { id: pedido.pessoa_id!, nome: pedido.pessoa_nome ?? 'Cliente' }])
+    }
     setMostrarOrcamentos(false)
     if (avisos.length > 0) setErro(`Sem estoque: ${avisos.join(', ')}`)
   }

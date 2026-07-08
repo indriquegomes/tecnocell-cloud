@@ -478,6 +478,7 @@ export interface PedidoResumo {
   status: string
   total: number
   created_at: string
+  pessoa_id: string | null
   pessoa_nome: string | null
   itens: ItemPedido[]
 }
@@ -488,7 +489,7 @@ export async function buscarPedidosAbertos(accessToken: string): Promise<PedidoR
   const { data, error } = await supabase
     .from('pedidos')
     .select(`
-      id, tipo, status, total, created_at,
+      id, tipo, status, total, created_at, pessoa_id,
       pessoa:pessoas(nome),
       itens:itens_pedido(produto_id, quantidade, preco_unitario, produto:produtos(nome, codigo))
     `)
@@ -503,6 +504,7 @@ export async function buscarPedidosAbertos(accessToken: string): Promise<PedidoR
     status: p.status,
     total: p.total ?? 0,
     created_at: p.created_at,
+    pessoa_id: p.pessoa_id ?? null,
     pessoa_nome: p.pessoa?.nome ?? null,
     itens: (p.itens ?? []).map((i: any) => ({
       produto_id: i.produto_id,
