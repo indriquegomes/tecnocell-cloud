@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useTransition, useMemo, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import {
   adicionarItemTabela,
   removerItemTabela,
@@ -9,7 +10,10 @@ import {
   importarTodosComMultiplicador,
   importarPlanilha,
   toggleTabela,
+  buscarProdutosParaTabela,
 } from '../actions'
+
+const supabaseBrowser = createClient()
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -29,11 +33,9 @@ type Produto = { id: string; nome: string; preco: number; preco_custo: number }
 export function TabelaDetalheClient({
   tabela,
   itens: itensIniciais,
-  produtos,
 }: {
   tabela: { id: string; nome: string; descricao: string | null; ativa: boolean }
   itens: Item[]
-  produtos: Produto[]
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -92,12 +94,27 @@ export function TabelaDetalheClient({
   const POR_PAGINA = 100
   const [pagina, setPagina] = useState(1)
 
-  const produtosFiltrados = useMemo(() => {
-    const q = buscaProd.toLowerCase().trim()
-    if (!q) return []
-    // não exclui produtos já na tabela — o mesmo produto pode ter várias faixas de qtd
-    return produtos.filter((p) => p.nome.toLowerCase().includes(q)).slice(0, 8)
-  }, [buscaProd, produtos])
+  // Picker de produto SOB DEMANDA (não embute os 7.983): busca no servidor ao digitar
+  const [produtosBuscados, setProdutosBuscados] = useState<Produto[]>([])
+  const [buscandoProd, setBuscandoProd] = useState(false)
+  const selecionouRef = useRef(false)
+  useEffect(() => {
+    if (selecionouRef.current) { selecionouRef.current = false; return }  // não busca após selecionar
+    const q = buscaProd.trim()
+    if (q.length < 1) { setProdutosBuscados([]); setBuscandoProd(false); return }
+    setBuscandoProd(true)
+    let vivo = true
+    const t = setTimeout(async () => {
+      try {
+        const { data } = await supabaseBrowser.auth.getSession()
+        const achados = await buscarProdutosParaTabela(data.session?.access_token ?? '', q)
+        if (vivo) setProdutosBuscados(achados)
+      } catch { /* silencioso */ }
+      finally { if (vivo) setBuscandoProd(false) }
+    }, 300)
+    return () => { vivo = false; clearTimeout(t) }
+  }, [buscaProd])
+  const produtosFiltrados = produtoSelecionado ? [] : produtosBuscados.slice(0, 8)
 
   const itensFiltrados = useMemo(() => {
     const q = buscaItens.toLowerCase().trim()
@@ -114,8 +131,10 @@ export function TabelaDetalheClient({
 
   // Selecionar produto da busca
   const selecionarProduto = (p: Produto) => {
+    selecionouRef.current = true   // evita re-buscar ao setar o nome no input
     setProdutoSelecionado(p)
     setBuscaProd(p.nome)
+    setProdutosBuscados([])
     setNovoPreco(p.preco?.toString() ?? '')
   }
 
@@ -247,6 +266,11 @@ export function TabelaDetalheClient({
                     <span className="text-gray-400 text-xs ml-2">{fmt(p.preco ?? 0)}</span>
                   </button>
                 ))}
+              </div>
+            )}
+            {!produtoSelecionado && buscaProd.trim().length >= 1 && produtosFiltrados.length === 0 && (
+              <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg px-4 py-2.5 text-sm text-gray-400">
+                {buscandoProd ? 'Buscando…' : 'Nenhum produto encontrado.'}
               </div>
             )}
           </div>

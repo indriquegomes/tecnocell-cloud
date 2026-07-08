@@ -13,7 +13,9 @@ export default async function TabelaPrecoDetalhe({
   const { id } = await params
   const supabase = await createServiceClient()
 
-  const [{ data: tabela }, itens, produtos] = await Promise.all([
+  // produtos (picker de adicionar) NÃO são mais embutidos — o client busca sob
+  // demanda (buscarProdutosParaTabela). Só os itens da tabela vêm no HTML.
+  const [{ data: tabela }, itens] = await Promise.all([
     supabase.from('tabelas_preco').select('id, nome, descricao, ativa, data_inicio, data_fim').eq('id', id).single(),
     fetchAll((from, to) => supabase
       .from('itens_tabela_preco')
@@ -22,7 +24,6 @@ export default async function TabelaPrecoDetalhe({
       .order('quantidade_minima')
       .order('id')
       .range(from, to)),
-    fetchAll((from, to) => supabase.from('produtos').select('id, nome, preco, preco_custo').order('nome').order('id').range(from, to)),
   ])
 
   if (!tabela) notFound()
@@ -60,7 +61,6 @@ export default async function TabelaPrecoDetalhe({
           quantidade_minima: number
           produtos: { id: string; nome: string; preco: number; preco_custo: number } | null
         }[])}
-        produtos={(produtos ?? []).map((p) => ({ id: p.id, nome: p.nome, preco: p.preco ?? 0, preco_custo: (p as { preco_custo: number | null }).preco_custo ?? 0 }))}
       />
     </div>
   )

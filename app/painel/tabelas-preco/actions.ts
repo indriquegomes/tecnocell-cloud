@@ -5,6 +5,30 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import ExcelJS from 'exceljs'
 
+// Busca de produto SOB DEMANDA pro picker "adicionar à tabela" (não embutir os
+// 7.983 no HTML). Sem acento via busca_norm; fallback por nome/código.
+export async function buscarProdutosParaTabela(
+  accessToken: string,
+  termo: string,
+): Promise<{ id: string; nome: string; preco: number; preco_custo: number }[]> {
+  await requirePermissao('produtos', accessToken)
+  const t = termo.trim()
+  if (t.length < 1) return []
+  const supabase = await createServiceClient()
+  const semAcento = t.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
+  const palavras = semAcento.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
+  if (palavras.length === 0) return []
+  let q = supabase.from('produtos').select('id, nome, preco, preco_custo').eq('ativo', true)
+  for (const w of palavras) q = q.ilike('busca_norm', `%${w}%`)
+  let { data, error } = await q.order('nome').limit(15)
+  if (error && (error.code === '42703' || error.message?.includes('busca_norm'))) {
+    let f = supabase.from('produtos').select('id, nome, preco, preco_custo').eq('ativo', true)
+    for (const w of palavras) f = f.or(`nome.ilike.%${w}%,codigo.ilike.%${w}%`)
+    ;({ data } = await f.order('nome').limit(15))
+  }
+  return (data ?? []).map((p) => ({ id: p.id, nome: p.nome, preco: p.preco ?? 0, preco_custo: (p as { preco_custo: number | null }).preco_custo ?? 0 }))
+}
+
 export async function criarTabela(formData: FormData) {
   await requirePermissao('produtos')
   const supabase = await createServiceClient()
