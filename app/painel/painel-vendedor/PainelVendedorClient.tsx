@@ -49,8 +49,8 @@ function GraficoDiario({ dados, mesAno }: { dados: DiaRow[]; mesAno: string }) {
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 320 }}>
         <defs>
           <linearGradient id="gradVendas" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.02" />
+            <stop offset="0%" stopColor="#1B6CA8" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#1B6CA8" stopOpacity="0.02" />
           </linearGradient>
         </defs>
         {/* grid lines */}
@@ -68,11 +68,11 @@ function GraficoDiario({ dados, mesAno }: { dados: DiaRow[]; mesAno: string }) {
         {/* area */}
         <path d={area} fill="url(#gradVendas)" />
         {/* line */}
-        <polyline points={pontos} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinejoin="round" />
+        <polyline points={pontos} fill="none" stroke="#1B6CA8" strokeWidth="2" strokeLinejoin="round" />
         {/* dots + labels */}
         {dados.map((d, i) => (
           <g key={d.dia}>
-            <circle cx={toX(i)} cy={toY(d.total)} r="3" fill="#3b82f6" />
+            <circle cx={toX(i)} cy={toY(d.total)} r="3" fill="#1B6CA8" />
             {i % step === 0 && (
               <text x={toX(i)} y={H - 4} textAnchor="middle" fontSize="9" fill="#94a3b8">
                 {fmtDia(d.dia)}
