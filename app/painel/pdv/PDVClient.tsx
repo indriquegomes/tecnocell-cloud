@@ -1506,7 +1506,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                     className="flex flex-1 items-center justify-between px-3 py-3 text-sm hover:bg-blue-50 transition text-left min-w-0"
                   >
                     <div className="min-w-0">
-                      <p className="font-medium text-gray-800 truncate">{p.nome}</p>
+                      <p className="font-medium text-gray-800 truncate">
+                        {p.codigo && <span className="mr-1.5 rounded bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-gray-500 tabular-nums align-middle">{p.codigo}</span>}
+                        {p.nome}
+                      </p>
                       <p className="mt-0.5 text-xs text-gray-400">
                         {p.marca && <span>{p.marca} · </span>}
                         {/* estoque em TODAS as lojas — o depósito atual fica sublinhado */}
