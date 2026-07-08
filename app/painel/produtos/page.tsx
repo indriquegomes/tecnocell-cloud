@@ -1,6 +1,7 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { formatBRL } from '@/lib/utils'
 import { Paginacao } from '@/components/Paginacao'
+import { BuscaProdutos } from './BuscaProdutos'
 import { Badge } from '@/components/ui/badge'
 import { deletarProduto } from './actions'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
@@ -53,8 +54,10 @@ export default async function ProdutosPage({
       .order(ordemCampo, { ascending: !ordemDir })
     if (ordemAtual !== 'nome' && !ordemEstoque) q = q.order('nome')
     if (params.busca) {
-      const termo = params.busca.replace(/[,()]/g, ' ').trim()
-      q = q.or(`nome.ilike.%${termo}%,codigo.ilike.%${termo}%,ean.ilike.%${termo}%,modelo.ilike.%${termo}%`)
+      // multi-palavra + sem acento: cada palavra tem que aparecer em busca_norm (nome+código+marca)
+      const semAcento = params.busca.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
+      const palavras = semAcento.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
+      for (const w of palavras) q = q.ilike('busca_norm', `%${w}%`)
     }
     if (params.categoria)  q = q.eq('categoria', params.categoria)
     if (params.marca)      q = q.eq('marca', params.marca)
@@ -116,15 +119,11 @@ export default async function ProdutosPage({
       <form method="GET" className="space-y-3">
         {params.ordem && <input type="hidden" name="ordem" value={params.ordem} />}
         {params.dir   && <input type="hidden" name="dir"   value={params.dir}   />}
+        {params.busca && <input type="hidden" name="busca" value={params.busca} />}
 
         {/* Filtros básicos */}
         <div className="flex flex-wrap gap-3">
-          <input
-            name="busca"
-            defaultValue={params.busca}
-            placeholder="Buscar por nome, código, EAN ou modelo..."
-            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <BuscaProdutos />
           <select name="categoria" defaultValue={params.categoria ?? ''}
             className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="">Todas as categorias</option>
