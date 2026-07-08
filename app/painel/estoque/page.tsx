@@ -1,65 +1,70 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { Badge } from '@/components/ui/badge'
+import { Paginacao } from '@/components/Paginacao'
+import { BuscaEstoque } from './BuscaEstoque'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 
 export default async function EstoquePage({
   searchParams,
 }: {
-  searchParams: Promise<{ deposito?: string; busca?: string; ordem?: string; dir?: string }>
+  searchParams: Promise<{ deposito?: string; busca?: string; dir?: string; pagina?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
 
-  const ordemAtual = params.ordem ?? 'quantidade'
+  // só Quantidade é ordenável (coluna direta, confiável com paginação). Produto/Marca/
+  // Depósito viram cabeçalho fixo — a busca no servidor é a navegação (acha em tudo).
   const ordemDir = params.dir === 'desc'
   const baseParams: Record<string, string> = {}
   if (params.deposito) baseParams.deposito = params.deposito
   if (params.busca)    baseParams.busca    = params.busca
-  const sortLink = (ordem: string) => {
-    const ativo = ordemAtual === ordem
-    const nextDir = ativo ? (ordemDir ? 'asc' : 'desc') : 'asc'
-    const arrow = ativo ? (ordemDir ? '↓' : '↑') : '↕'
-    const qs = new URLSearchParams({ ...baseParams, ordem, ...(nextDir === 'desc' ? { dir: 'desc' } : {}) }).toString()
-    return { href: `/painel/estoque?${qs}`, arrow, ativo }
-  }
+  const qtdSort = (() => {
+    const nextDir = ordemDir ? 'asc' : 'desc'
+    const arrow = ordemDir ? '↓' : '↑'
+    const qs = new URLSearchParams({ ...baseParams, ...(nextDir === 'desc' ? { dir: 'desc' } : {}) }).toString()
+    return { href: `/painel/estoque${qs ? '?' + qs : ''}`, arrow }
+  })()
+
+  const porPagina = 50
+  const pagina = Math.max(1, parseInt(params.pagina ?? '1', 10) || 1)
 
   const { data: depositos } = await supabase.from('depositos').select('id, nome').order('nome')
 
-  let query = supabase
-    .from('estoque')
-    .select(`
-      id, quantidade, updated_at,
-      produto:produtos ( id, nome, marca, categoria, preco ),
-      deposito:depositos ( id, nome )
-    `)
-    .limit(300)
+  // busca sem acento em produtos.busca_norm (cada palavra, qualquer ordem)
+  const semAcento = (s: string) => s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
+  const palavras = params.busca ? semAcento(params.busca.trim()).replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6) : []
 
+  let query = supabase.from('estoque')
+    .select('id, quantidade, produto:produtos!inner ( id, nome, marca, categoria, preco, busca_norm ), deposito:depositos ( id, nome )', { count: 'exact' })
+    .order('quantidade', { ascending: !ordemDir })
   if (params.deposito) query = query.eq('deposito_id', params.deposito)
+  for (const w of palavras) query = query.ilike('produto.busca_norm', `%${w}%`)
+  const { data: estoque, count } = await query.range((pagina - 1) * porPagina, pagina * porPagina - 1)
+  const total = count ?? 0
+  const totalPaginas = Math.max(1, Math.ceil(total / porPagina))
 
-  const { data: estoqueRaw } = await query
+  // Cards de resumo: contam TODO o estoque do depósito filtrado (não só a página).
+  const cardCount = async (faixa: (q: ReturnType<typeof baseCard>) => ReturnType<typeof baseCard>) => {
+    const { count: c } = await faixa(baseCard())
+    return c ?? 0
+  }
+  function baseCard() {
+    let q = supabase.from('estoque').select('id', { count: 'exact', head: true })
+    if (params.deposito) q = q.eq('deposito_id', params.deposito)
+    return q
+  }
+  const [emEstoque, estoqueBaixo, semEstoque] = await Promise.all([
+    cardCount((q) => q.gt('quantidade', 3)),
+    cardCount((q) => q.gt('quantidade', 0).lte('quantidade', 3)),
+    cardCount((q) => q.lte('quantidade', 0)),
+  ])
 
-  let estoque = (estoqueRaw ?? []).filter((e: Record<string, unknown>) => {
-    if (!params.busca) return true
-    const nome = ((e.produto as { nome: string } | null)?.nome ?? '').toLowerCase()
-    return nome.includes(params.busca.toLowerCase())
-  })
-
-  estoque = [...estoque].sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
-    let va: string | number = ''
-    let vb: string | number = ''
-    if (ordemAtual === 'produto') { va = ((a.produto as { nome: string } | null)?.nome ?? '').toLowerCase(); vb = ((b.produto as { nome: string } | null)?.nome ?? '').toLowerCase() }
-    else if (ordemAtual === 'marca') { va = ((a.produto as { marca: string } | null)?.marca ?? '').toLowerCase(); vb = ((b.produto as { marca: string } | null)?.marca ?? '').toLowerCase() }
-    else if (ordemAtual === 'deposito') { va = ((a.deposito as { nome: string } | null)?.nome ?? '').toLowerCase(); vb = ((b.deposito as { nome: string } | null)?.nome ?? '').toLowerCase() }
-    else { va = a.quantidade as number; vb = b.quantidade as number }
-    if (va < vb) return ordemDir ? 1 : -1
-    if (va > vb) return ordemDir ? -1 : 1
-    return 0
-  })
-
-  const semEstoque = estoque.filter((e: Record<string, unknown>) => (e.quantidade as number) <= 0).length
-  const estoqueBaixo = estoque.filter((e: Record<string, unknown>) => (e.quantidade as number) > 0 && (e.quantidade as number) <= 3).length
-  const emEstoque = estoque.filter((e: Record<string, unknown>) => (e.quantidade as number) > 3).length
+  const linhas = (estoque ?? []) as unknown as {
+    id: string; quantidade: number
+    produto: { id: string; nome: string; marca: string | null } | null
+    deposito: { nome: string } | null
+  }[]
 
   return (
     <div className="space-y-6">
@@ -100,63 +105,57 @@ export default async function EstoquePage({
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm text-center">
           <p className="text-sm text-gray-500">Em Estoque</p>
-          <p className="text-3xl font-bold text-green-600">{emEstoque}</p>
+          <p className="text-3xl font-bold text-green-600 tabular-nums">{emEstoque}</p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm text-center">
           <p className="text-sm text-gray-500">Estoque Baixo (≤3)</p>
-          <p className="text-3xl font-bold text-yellow-600">{estoqueBaixo}</p>
+          <p className="text-3xl font-bold text-yellow-600 tabular-nums">{estoqueBaixo}</p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm text-center">
           <p className="text-sm text-gray-500">Sem Estoque</p>
-          <p className="text-3xl font-bold text-red-600">{semEstoque}</p>
+          <p className="text-3xl font-bold text-red-600 tabular-nums">{semEstoque}</p>
         </div>
       </div>
 
       {/* Filtros */}
-      <form method="GET" className="flex flex-wrap gap-3">
-        <input
-          name="busca"
-          defaultValue={params.busca}
-          placeholder="Buscar produto..."
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <select
-          name="deposito"
-          defaultValue={params.deposito ?? ''}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">Todos os depósitos</option>
-          {(depositos ?? []).map((d) => (
-            <option key={d.id} value={d.id}>{d.nome}</option>
-          ))}
-        </select>
-        <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition">
-          Filtrar
-        </button>
-      </form>
+      <div className="flex flex-wrap gap-3">
+        <BuscaEstoque />
+        <form method="GET" className="flex gap-3">
+          {params.busca && <input type="hidden" name="busca" value={params.busca} />}
+          <select
+            name="deposito"
+            defaultValue={params.deposito ?? ''}
+            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Todos os depósitos</option>
+            {(depositos ?? []).map((d) => (
+              <option key={d.id} value={d.id}>{d.nome}</option>
+            ))}
+          </select>
+          <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition">
+            Filtrar
+          </button>
+        </form>
+        <span className="ml-auto self-center text-sm text-gray-400">{total} registro{total === 1 ? '' : 's'}</span>
+      </div>
 
       {/* Tabela */}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
             <tr>
-              {[
-                { o: 'produto',    l: 'Produto',    a: 'text-left' },
-                { o: 'marca',      l: 'Marca',      a: 'text-left' },
-                { o: 'deposito',   l: 'Depósito',   a: 'text-left' },
-                { o: 'quantidade', l: 'Quantidade',  a: 'text-right' },
-              ].map(({ o, l, a }) => {
-                const s = sortLink(o)
-                return <th key={o} className={`px-4 py-3 ${a} text-xs font-semibold text-gray-500 uppercase tracking-wide`}>
-                  <Link href={s.href} className={`inline-flex items-center gap-1 hover:text-gray-800 transition ${s.ativo ? 'text-blue-600' : ''}`}>{l} <span className="text-gray-400">{s.arrow}</span></Link>
-                </th>
-              })}
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Produto</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Marca</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Depósito</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                <Link href={qtdSort.href} className="inline-flex items-center gap-1 text-blue-600 hover:text-gray-800 transition">Quantidade <span className="text-gray-400">{qtdSort.arrow}</span></Link>
+              </th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {estoque.length === 0 ? (
+            {linhas.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-12 text-center text-sm text-gray-400">
                   Nenhum registro de estoque.{' '}
@@ -164,21 +163,15 @@ export default async function EstoquePage({
                 </td>
               </tr>
             ) : (
-              estoque.map((e: Record<string, unknown>) => {
-                const qtd = e.quantidade as number
-                const prodId = (e.produto as { id: string } | null)?.id
+              linhas.map((e) => {
+                const qtd = e.quantidade
+                const prodId = e.produto?.id
                 return (
-                  <tr key={e.id as string} className="hover:bg-gray-50 transition">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-800">
-                      {(e.produto as { nome: string } | null)?.nome ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {(e.produto as { marca: string } | null)?.marca ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {(e.deposito as { nome: string } | null)?.nome ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">{qtd}</td>
+                  <tr key={e.id} className="hover:bg-gray-50 transition">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-800">{e.produto?.nome ?? '—'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{e.produto?.marca ?? '—'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{e.deposito?.nome ?? '—'}</td>
+                    <td className="px-4 py-3 text-right text-sm font-bold text-gray-900 tabular-nums">{qtd}</td>
                     <td className="px-4 py-3 text-center">
                       {qtd <= 0 ? (
                         <Badge variant="danger">Esgotado</Badge>
@@ -204,6 +197,7 @@ export default async function EstoquePage({
             )}
           </tbody>
         </table>
+        <Paginacao pagina={pagina} totalPaginas={totalPaginas} total={total} params={baseParams} basePath="/painel/estoque" />
       </div>
     </div>
   )
