@@ -1367,9 +1367,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       {/* Coluna esquerda — busca + carrinho */}
-      <div className="space-y-4">
+      <div className="space-y-4 min-w-0">
         {/* Barra de ações */}
         <div className="flex justify-end">
           <button
@@ -1381,9 +1381,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           </button>
         </div>
 
-        {/* Seletores de loja, depósito e tabela de preço */}
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+        {/* Seletores de loja, depósito e tabela de preço — quebram fluido ao apertar */}
+        <div className="flex flex-wrap gap-3">
+          <div className="flex flex-1 basis-52 min-w-0 items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide shrink-0">Loja</label>
             <select
               value={lojaId}
@@ -1394,7 +1394,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
             </select>
           </div>
-          <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+          <div className="flex flex-1 basis-52 min-w-0 items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide shrink-0">Estoque</label>
             <select
               value={depositoId}
@@ -1405,7 +1405,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               {depositosDaLoja.map((d) => <option key={d.id} value={d.id}>{d.nome}</option>)}
             </select>
           </div>
-          <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+          <div className="flex flex-1 basis-52 min-w-0 items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide shrink-0">Tabela</label>
             <select
               value={tabelaId}
