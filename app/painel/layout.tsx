@@ -1,6 +1,5 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { PainelShell } from '@/components/PainelShell'
 import { createServiceClient, permissoesEfetivas, configAcesso } from '@/lib/supabase/server'
 import { permissaoPorRota, temPermissao } from '@/lib/permissoes'
@@ -42,9 +41,12 @@ export default async function PainelLayout({ children }: { children: React.React
           <div className="text-5xl">🔒</div>
           <h1 className="text-xl font-bold text-gray-800">Fora do horário de acesso</h1>
           <p className="max-w-sm text-sm text-gray-500">{motivo}</p>
-          <Link href="/api/auth/signout" className="rounded-xl bg-gray-800 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-900 transition">
-            Sair
-          </Link>
+          {/* logout via form POST (nunca <Link>/GET: o Next prefetcha e desloga sozinho) */}
+          <form action="/api/auth/signout" method="POST">
+            <button type="submit" className="rounded-xl bg-gray-800 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-900 transition">
+              Sair
+            </button>
+          </form>
         </div>
       )
     }
