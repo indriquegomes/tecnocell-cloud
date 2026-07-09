@@ -39,7 +39,9 @@ export async function salvarMeta(formData: FormData) {
 
   revalidatePath('/painel/metas')
   revalidatePath('/painel')
-  redirect('/painel/metas')
+  // redirect com query (URL diferente) força o router a buscar dados frescos —
+  // redirect pra mesma URL serviria a lista velha do cache do router
+  redirect('/painel/metas?ok=1')
 }
 
 export async function deletarMeta(id: string) {
