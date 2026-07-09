@@ -5,7 +5,7 @@ import { formatBRL } from '@/lib/utils'
 import { labelPrazo } from '@/lib/formas-pagamento'
 import { createClient } from '@/lib/supabase/client'
 import { Spinner } from '@/components/Spinner'
-import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, caixaAbertoDaLoja, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, buscarPedidosAbertos, buscarDetalheVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
+import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, buscarFiadoCliente, caixaAbertoDaLoja, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
 import { buscarSaldoCredito } from '@/app/painel/creditos/actions'
 import type { PromoInfo } from './page'
 
@@ -241,16 +241,17 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   // Crédito do cliente
   const [saldoCredito, setSaldoCredito] = useState(0)
   const [creditoAplicado, setCreditoAplicado] = useState(0)
-
+  const [fiadoCliente, setFiadoCliente] = useState<{ limite: number; devendo: number; disponivel: number } | null>(null)
 
   const qtdRefs = useRef<Map<string, HTMLInputElement>>(new Map())
 
   // Busca saldo de crédito ao selecionar cliente
   useEffect(() => {
-    if (!pessoaId) { setSaldoCredito(0); setCreditoAplicado(0); return }
+    if (!pessoaId) { setSaldoCredito(0); setCreditoAplicado(0); setFiadoCliente(null); return }
     authToken().then((t) => {
       if (!t) return
       buscarSaldoCredito(t, pessoaId).then(({ saldo }) => setSaldoCredito(saldo)).catch(() => {})
+      buscarFiadoCliente(t, pessoaId).then(setFiadoCliente).catch(() => {})
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pessoaId])
@@ -853,7 +854,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       })
       setCarrinho([])
       setPagamentos([{ uid: '1', forma_id: formas[0]?.id ?? '', valor: '', maquina: formas[0]?.maquina_id ?? '', parcelas: 1 }])
-      setValorAuto(true); setPessoaId(''); setDesconto(''); setSenhaDesconto(''); setObservacoes(''); setBuscaCliente(''); setDescontoTipo('valor'); setCreditoAplicado(0); setSaldoCredito(0)
+      setValorAuto(true); setPessoaId(''); setDesconto(''); setSenhaDesconto(''); setObservacoes(''); setBuscaCliente(''); setDescontoTipo('valor'); setCreditoAplicado(0); setSaldoCredito(0); setFiadoCliente(null)
       setMsgOrc('✅ Orçamento salvo! Carregue de volta no F3 (Orçamento/Pedido) pra finalizar.')
       setTimeout(() => setMsgOrc(''), 6000)
     } catch (e) {
@@ -1195,6 +1196,17 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     else if (mostrarCrediario) setMostrarCrediario(false)
   }
 
+  const [reimprimindo, setReimprimindo] = useState(false)
+  async function reimprimirCupom(vendaId: string) {
+    setReimprimindo(true)
+    try {
+      const c = await buscarCupomVenda(await authToken(), vendaId)
+      if (c) abrirCupom({ ...c, deposito: c.deposito ?? '' }, vendaId)
+    } finally {
+      setReimprimindo(false)
+    }
+  }
+
   function abrirCupom(snap: NonNullable<typeof vendaSnapshot>, vendaId: string) {
     const idCurto = vendaId.replace(/-/g, '').slice(0, 8).toUpperCase()
     const win = window.open('', '_blank', 'width=420,height=700')
@@ -1526,6 +1538,16 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                   {creditoAplicado > 0 && (
                     <button type="button" onClick={() => setCreditoAplicado(0)}
                       className="text-xs text-red-400 hover:text-red-600">✕</button>
+                  )}
+                </div>
+              )}
+              {fiadoCliente && fiadoCliente.devendo > 0.01 && (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-1.5">
+                  <span className="text-xs font-semibold text-amber-700">⚠️ Já deve {formatBRL(fiadoCliente.devendo)} em fiado</span>
+                  {fiadoCliente.limite > 0 && (
+                    <span className={`text-xs font-medium ${fiadoCliente.disponivel > 0 ? 'text-gray-500' : 'text-red-600 font-bold'}`}>
+                      · limite {formatBRL(fiadoCliente.limite)} · {fiadoCliente.disponivel > 0 ? `disponível ${formatBRL(fiadoCliente.disponivel)}` : 'LIMITE ESTOURADO'}
+                    </span>
                   )}
                 </div>
               )}
@@ -2528,6 +2550,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                     <p className="text-sm text-gray-700 italic">{detalheVenda.observacoes}</p>
                   </div>
                 )}
+                <button type="button" onClick={() => reimprimirCupom(detalheVenda.id)} disabled={reimprimindo}
+                  className="w-full rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition disabled:opacity-60">
+                  {reimprimindo ? 'Gerando…' : '🖨️ Imprimir 2ª via'}
+                </button>
               </div>
             )}
           </div>
@@ -2571,7 +2597,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {vendasFiltradas.map((v) => (
-                      <tr key={v.id} className="hover:bg-gray-50">
+                      <tr key={v.id} onClick={() => handleVerVenda(v.id)} className="cursor-pointer hover:bg-blue-50/60 transition">
                         <td className="py-2.5 pr-3 font-mono text-xs text-gray-500">{v.id.slice(0, 8).toUpperCase()}</td>
                         <td className="py-2.5 pr-3 text-gray-600">
                           {new Date(v.created_at).toLocaleDateString('pt-BR')}{' '}

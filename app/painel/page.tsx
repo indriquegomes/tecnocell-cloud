@@ -122,7 +122,6 @@ export default async function DashboardPage() {
   const meuNVendasHoje = minhasMes.filter((v) => (v.created_at ?? '').split('T')[0] === hoje).length
   const meuNVendas = minhasMes.length
   const meuTicket = meuNVendas ? meuFatMes / meuNVendas : 0
-  const metaPct = meta > 0 ? Math.min(100, Math.round((meuFatMes / meta) * 100)) : 0
 
   // ---- Dados do ESTOQUISTA (lista pra repor) ----
   let listaRepor: { nome: string; saldo: number; min: number }[] = []
@@ -233,6 +232,17 @@ export default async function DashboardPage() {
 
   // ============ VENDEDORA ============
   if (role === 'vendedora') {
+    // Meta efetiva: a pessoal (meta_venda_mensal) se houver; senão deriva da
+    // próxima faixa da loja ÷ pessoas (a "sua parte" que já aparece no widget).
+    const derivada = (() => {
+      if (meta > 0 || !minhaMeta) return 0
+      const fs = [...minhaMeta.faixas].sort((a, b) => a.valor - b.valor)
+      const prox = fs.find((f) => f.valor > minhaMeta.faturamento) ?? fs[fs.length - 1]
+      const pes = minhaMeta.pessoas ?? 1
+      return prox && pes > 0 ? prox.valor / pes : 0
+    })()
+    const metaEfetiva = meta > 0 ? meta : derivada
+    const metaEfetivaPct = metaEfetiva > 0 ? Math.min(100, Math.round((meuFatMes / metaEfetiva) * 100)) : 0
     return (
       <div className="space-y-6">
         <div>
@@ -249,15 +259,18 @@ export default async function DashboardPage() {
               <span><b className="font-bold text-white tabular-nums">{meuNVendas}</b> vendas</span>
               <span>ticket <b className="font-bold text-white">{formatBRL(meuTicket)}</b></span>
             </div>
-            {meta > 0 ? (
+            {metaEfetiva > 0 ? (
               <div className="relative mt-6">
                 <div className="flex items-center justify-between text-xs text-white/80">
-                  <span>Meta do mês · {formatBRL(meta)}</span>
-                  <span className="font-bold text-white tabular-nums">{metaPct}%</span>
+                  <span>{meta > 0 ? 'Meta do mês' : `Sua parte da meta (÷${minhaMeta?.pessoas ?? 1})`} · {formatBRL(metaEfetiva)}</span>
+                  <span className="font-bold text-white tabular-nums">{metaEfetivaPct}%</span>
                 </div>
                 <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-white/15">
-                  <div className="h-full rounded-full bg-white transition-all" style={{ width: `${metaPct}%` }} />
+                  <div className="h-full rounded-full bg-white transition-all" style={{ width: `${metaEfetivaPct}%` }} />
                 </div>
+                <p className="relative mt-1.5 text-[11px] text-white/60">
+                  {metaEfetivaPct >= 100 ? '🏆 bateu a meta!' : `faltam ${formatBRL(metaEfetiva - meuFatMes)}`}
+                </p>
               </div>
             ) : (
               <p className="relative mt-6 inline-flex rounded-lg bg-white/10 px-2.5 py-1.5 text-xs text-white/80">🎯 Sem meta definida — peça pro gerente configurar</p>
@@ -404,6 +417,37 @@ export default async function DashboardPage() {
       {metasWidgets.length > 0 && (
         <div className={`grid gap-4 ${metasWidgets.length > 1 ? 'lg:grid-cols-2' : ''}`}>
           {metasWidgets.map((m, i) => <MetaWidget key={i} meta={m} />)}
+        </div>
+      )}
+
+      {/* PRÊMIOS a pagar — comissão automática por faixa (só quem gerencia metas) */}
+      {pode('metas') && metasWidgets.length > 0 && (
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h3 className="text-sm font-semibold text-gray-800">🎁 Prêmios a pagar <span className="font-normal text-gray-400">· pelo faturamento atual</span></h3>
+          <div className="mt-3 space-y-2">
+            {metasWidgets.map((m, i) => {
+              const fs = [...m.faixas].sort((a, b) => a.valor - b.valor)
+              const idx = fs.reduce((acc, f, j) => (m.faturamento >= f.valor ? j : acc), -1)
+              const atingida = idx >= 0 ? fs[idx] : null
+              const prox = fs[idx + 1] ?? null
+              const pes = m.pessoas ?? 1
+              return (
+                <div key={i} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-100 bg-gray-50/60 px-3.5 py-2.5">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-800">{m.loja}</p>
+                    <p className="text-xs text-gray-500">
+                      {atingida ? <>faixa <b className="text-gray-700">{atingida.nome}</b> batida</> : <span className="text-gray-400">nenhuma faixa batida ainda</span>}
+                      {prox && <> · faltam {formatBRL(prox.valor - m.faturamento)} pra {prox.nome}</>}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-lg font-extrabold tabular-nums ${atingida ? 'text-emerald-600' : 'text-gray-300'}`}>{formatBRL(atingida?.premio ?? 0)}</p>
+                    {atingida && pes > 1 && <p className="text-[11px] text-gray-500">👤 {formatBRL(atingida.premio / pes)} por pessoa (÷{pes})</p>}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 

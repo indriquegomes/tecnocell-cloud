@@ -128,6 +128,25 @@ export async function buscarClientesPDV(accessToken: string, termo: string): Pro
   return (data ?? []) as PessoaPDV[]
 }
 
+// Situação de fiado do cliente: quanto já deve (lancamentos a receber pendentes,
+// ligados por NOME) e o limite cadastrado. Serve pro vendedor decidir se estende mais fiado.
+export async function buscarFiadoCliente(
+  accessToken: string,
+  pessoaId: string,
+): Promise<{ limite: number; devendo: number; disponivel: number }> {
+  await requirePermissao('pdv', accessToken)
+  const supabase = await createServiceClient()
+  const { data: pessoa } = await supabase
+    .from('pessoas').select('nome, limite_credito').eq('id', pessoaId).maybeSingle()
+  if (!pessoa) return { limite: 0, devendo: 0, disponivel: 0 }
+  const limite = Number(pessoa.limite_credito) || 0
+  const { data: lancs } = await supabase
+    .from('lancamentos').select('valor, valor_pago')
+    .eq('tipo', 'receber').eq('status', 'pendente').eq('pessoa_nome', pessoa.nome)
+  const devendo = (lancs ?? []).reduce((s, l) => s + ((Number(l.valor) || 0) - (Number(l.valor_pago) || 0)), 0)
+  return { limite, devendo, disponivel: limite > 0 ? limite - devendo : 0 }
+}
+
 // Confere a senha de desconto da loja no servidor (a senha nunca vai pro cliente)
 export async function validarSenhaDesconto(lojaId: string, senha: string): Promise<boolean> {
   const supabase = await createServiceClient()
@@ -444,6 +463,72 @@ export async function buscarDetalheVenda(accessToken: string, vendaId: string): 
       preco_unitario: i.preco_unitario,
       total_item: i.total_item,
     })),
+  }
+}
+
+// 2ª via: remonta o snapshot do cupom a partir de uma venda salva (mesma forma
+// que o snap gerado na finalização), pra reimprimir do modal de vendas.
+export interface CupomSnap {
+  numero: number | null
+  itens: { codigo: string | null; nome: string; quantidade: number; preco_unitario: number }[]
+  pagamentos: { forma_nome: string; valor: number; taxa: number; parcelas: number; status: string }[]
+  cliente: string | null; clienteTelefone: string | null; clienteEndereco: string | null
+  vendedor: string | null; deposito: string | null
+  loja: string | null; lojaRazao: string | null; lojaCnpj: string | null; lojaIE: string | null
+  lojaEndereco: string | null; lojaTelefone: string | null; lojaLogo: string | null; lojaTermos: string | null
+  desconto: number; horario: string
+}
+
+export async function buscarCupomVenda(accessToken: string, vendaId: string): Promise<CupomSnap | null> {
+  await requirePermissao('pdv', accessToken)
+  const supabase = await createServiceClient()
+  const { data: v } = await supabase
+    .from('vendas')
+    .select('numero, total, desconto, observacoes, created_at, vendedor_nome, pessoa_id, deposito_id')
+    .eq('id', vendaId).maybeSingle()
+  if (!v) return null
+
+  const [itensRes, pagsRes, depRes, cliRes] = await Promise.all([
+    supabase.from('itens_venda').select('quantidade, preco_unitario, produtos(nome, codigo)').eq('venda_id', vendaId),
+    supabase.from('pagamentos_venda').select('valor, taxa, parcelas, status, formas_pagamento(nome)').eq('venda_id', vendaId),
+    v.deposito_id ? supabase.from('depositos').select('nome, loja_id').eq('id', v.deposito_id).maybeSingle() : Promise.resolve({ data: null }),
+    v.pessoa_id ? supabase.from('pessoas').select('nome, telefone, endereco, bairro, cidade, estado, cep').eq('id', v.pessoa_id).maybeSingle() : Promise.resolve({ data: null }),
+  ])
+  const dep = (depRes as { data: { nome: string | null; loja_id: string | null } | null }).data
+  const { data: loja } = dep?.loja_id
+    ? await supabase.from('lojas').select('nome, razao_social, cnpj, inscricao_estadual, endereco, numero, complemento, bairro, cidade, uf, cep, whatsapp, telefone, logo_url, termos_venda').eq('id', dep.loja_id).maybeSingle()
+    : { data: null }
+
+  const cli = (cliRes as { data: { nome: string; telefone: string | null; endereco: string | null; bairro: string | null; cidade: string | null; estado: string | null; cep: string | null } | null }).data
+  const clienteEndereco = cli
+    ? ([cli.endereco, cli.bairro, cli.cidade && cli.estado ? `${cli.cidade}/${cli.estado}` : (cli.cidade ?? cli.estado), cli.cep].filter(Boolean).join(', ') || null)
+    : null
+  const lojaEndereco = loja
+    ? ([[loja.endereco, loja.numero].filter(Boolean).join(', '), loja.complemento, loja.bairro,
+        loja.cidade && loja.uf ? `${loja.cidade}/${loja.uf}` : (loja.cidade ?? loja.uf), loja.cep ? `CEP: ${loja.cep}` : null].filter(Boolean).join(' - ') || null)
+    : null
+
+  return {
+    numero: v.numero,
+    itens: ((itensRes.data ?? []) as unknown as { quantidade: number; preco_unitario: number; produtos: { nome: string; codigo: string | null } | null }[])
+      .map((i) => ({ codigo: i.produtos?.codigo ?? null, nome: i.produtos?.nome ?? '—', quantidade: i.quantidade, preco_unitario: i.preco_unitario })),
+    pagamentos: ((pagsRes.data ?? []) as unknown as { valor: number; taxa: number | null; parcelas: number | null; status: string | null; formas_pagamento: { nome: string } | null }[])
+      .map((p) => ({ forma_nome: p.formas_pagamento?.nome ?? '—', valor: Number(p.valor) || 0, taxa: Number(p.taxa) || 0, parcelas: p.parcelas ?? 1, status: p.status ?? 'pago' })),
+    cliente: cli?.nome ?? null,
+    clienteTelefone: cli?.telefone ?? null,
+    clienteEndereco,
+    vendedor: v.vendedor_nome ?? null,
+    deposito: dep?.nome ?? null,
+    loja: loja?.nome ?? null,
+    lojaRazao: loja?.razao_social ?? null,
+    lojaCnpj: loja?.cnpj ?? null,
+    lojaIE: loja?.inscricao_estadual ?? null,
+    lojaEndereco,
+    lojaTelefone: loja?.whatsapp ?? loja?.telefone ?? null,
+    lojaLogo: loja?.logo_url ?? null,
+    lojaTermos: loja?.termos_venda ?? null,
+    desconto: Number(v.desconto) || 0,
+    horario: new Date(v.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' }),
   }
 }
 
