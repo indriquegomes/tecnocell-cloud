@@ -188,6 +188,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [buscandoProdutos, setBuscandoProdutos] = useState(false)
   const [buscandoClientes, setBuscandoClientes] = useState(false)
   const [busca, setBusca] = useState('')
+  const [buscaSel, setBuscaSel] = useState(0)  // linha destacada no dropdown (teclado ↑↓)
   const [copiado, setCopiado] = useState(false)
   const [selCopia, setSelCopia] = useState<Set<string>>(new Set())  // peças marcadas pra copiar preço
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([])
@@ -458,7 +459,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     : []
 
   // trocar a busca zera as peças marcadas (evita marcar de uma busca e copiar de outra)
-  useEffect(() => { setSelCopia(new Set()) }, [busca])
+  // e volta o destaque do teclado pro topo
+  useEffect(() => { setSelCopia(new Set()); setBuscaSel(0) }, [busca])
+  // rola a linha destacada (↑↓) pra dentro da área visível do dropdown
+  const linhaAtivaRef = useRef<HTMLDivElement>(null)
+  useEffect(() => { linhaAtivaRef.current?.scrollIntoView({ block: 'nearest' }) }, [buscaSel])
   const marcarCopia = (id: string) => setSelCopia((s) => {
     const n = new Set(s)
     if (n.has(id)) n.delete(id); else n.add(id)
@@ -1524,17 +1529,45 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             ref={buscaRef}
             value={busca}
             onChange={(e) => { setBusca(e.target.value); setErro(null) }}
+            onKeyDown={(e) => {
+              if (produtosFiltrados.length === 0) return
+              if (e.key === 'ArrowDown') { e.preventDefault(); setBuscaSel((i) => Math.min(i + 1, produtosFiltrados.length - 1)) }
+              else if (e.key === 'ArrowUp') { e.preventDefault(); setBuscaSel((i) => Math.max(i - 1, 0)) }
+              else if (e.key === 'Enter') {
+                e.preventDefault()
+                const alvo = produtosFiltrados[buscaSel] ?? produtosFiltrados[0]
+                if (alvo) { adicionarAoCarrinho(alvo); setBusca(''); setBuscaSel(0); buscaRef.current?.focus() }
+              }
+            }}
+            onKeyDownCapture={(e) => {
+              // Esc com texto: limpa a busca aqui e não deixa o handler global fechar outra coisa
+              if (e.key === 'Escape' && busca.length > 0) { e.preventDefault(); e.stopPropagation(); setBusca(''); setBuscaSel(0) }
+            }}
             placeholder="Buscar produto por nome ou código...  (F2)"
-            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             autoFocus
           />
+          {/* spinner enquanto busca; ✕ pra limpar quando tem texto */}
+          {buscandoProdutos ? (
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"><Spinner /></span>
+          ) : busca.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => { setBusca(''); setBuscaSel(0); buscaRef.current?.focus() }}
+              title="Limpar busca (Esc)"
+              className="absolute right-2 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition"
+            >
+              ✕
+            </button>
+          ) : null}
           {produtosFiltrados.length > 0 && (
             <div className="absolute top-full left-0 right-0 z-10 mt-1 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
               <div className="max-h-[60vh] overflow-y-auto overscroll-contain">
-              {produtosFiltrados.map((p) => {
+              {produtosFiltrados.map((p, idx) => {
                 const disp = saldoNoDeposito(p)
+                const ativo = idx === buscaSel
                 return (
-                <div key={p.id} className="flex items-center border-b border-gray-50 last:border-b-0">
+                <div key={p.id} ref={ativo ? linhaAtivaRef : null} className={`flex items-center border-b border-gray-50 last:border-b-0 ${ativo ? 'bg-blue-50' : ''}`}>
                   <label
                     className="flex shrink-0 cursor-pointer items-center pl-3 pr-1"
                     title="Marcar pra copiar o preço"
