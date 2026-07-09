@@ -69,7 +69,11 @@ body {
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 .animate-pop-in { animation: tc-pop-in 0.14s ease-out; transform-origin: top; }
-.animate-fade-in-up { animation: tc-fade-in-up 0.28s ease-out both; }
+/* SEM 'both': o fill-mode deixaria um transform residual no wrapper de página
+   (template.tsx), e transform num ancestral quebra o position:fixed dos modais
+   (o header/× ficava atrás da barra de cima). O estado final = estado natural,
+   então visualmente é idêntico. */
+.animate-fade-in-up { animation: tc-fade-in-up 0.28s ease-out; }
 .animate-fade-in { animation: tc-fade-in 0.18s ease-out both; }
 /* Modal: backdrop faz fade; o painel interno (filho direto) entra com pop suave */
 .animate-fade-in > * { animation: tc-modal-in 0.2s ease-out both; }
