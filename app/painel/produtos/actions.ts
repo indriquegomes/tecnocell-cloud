@@ -22,6 +22,12 @@ export async function criarProduto(formData: FormData) {
   await requirePermissao('produtos')
   const podeCusto = await podeAcao('produto_custo')
   const supabase = await createServiceClient()
+  // evita cadastrar produto com código já existente (duplicidade)
+  const codigoNovo = (formData.get('codigo') as string)?.trim() || null
+  if (codigoNovo) {
+    const { data: dup } = await supabase.from('produtos').select('nome').eq('codigo', codigoNovo).eq('ativo', true).maybeSingle()
+    if (dup) throw new Error(`Já existe um produto ativo com o código "${codigoNovo}" (${dup.nome}).`)
+  }
   const id = crypto.randomUUID()
   const imagemFile = formData.get('imagem') as File | null
   const imagem_url = imagemFile ? await uploadImagem(supabase, imagemFile, id) : null

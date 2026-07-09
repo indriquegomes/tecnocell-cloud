@@ -35,7 +35,7 @@ export default async function DashboardPage() {
     : pode('pdv') ? 'vendedora'
     : 'gerente'
 
-  const hoje = new Date().toISOString().split('T')[0]
+  const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
   const de30 = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
 
   const [
@@ -148,12 +148,15 @@ export default async function DashboardPage() {
   // Fiado é dívida a receber — não conta como "entrou no caixa" (pedido do Vitor).
   const metaMin = (metasAtivas ?? []).reduce((a, m) => (m.data_inicio < a ? m.data_inicio : a), '9999-12-31')
   const metaMax = (metasAtivas ?? []).reduce((a, m) => (m.data_fim > a ? m.data_fim : a), '0000-01-01')
-  const { data: vendasPeriodo } = metaIds.length
-    ? await supabase.from('vendas').select('id, caixa_id, deposito_id, created_at').eq('status', 'concluida').gte('created_at', metaMin).lte('created_at', metaMax + 'T23:59:59')
-    : { data: [] as { id: string; caixa_id: string | null; deposito_id: string | null; created_at: string }[] }
-  const vendaIds = (vendasPeriodo ?? []).map((v) => v.id)
-  const [{ data: pagsV }, { data: formasFiado }, { data: caixasL }, { data: depsL }] = await Promise.all([
-    vendaIds.length ? supabase.from('pagamentos_venda').select('venda_id, valor, forma_pagamento_id').in('venda_id', vendaIds) : Promise.resolve({ data: [] as { venda_id: string; valor: number; forma_pagamento_id: string }[] }),
+  // fetchAll: pagina p/ não bater no cap de 1000 do PostgREST quando o volume crescer
+  const vendasPeriodo = metaIds.length
+    ? await fetchAll<{ id: string; caixa_id: string | null; deposito_id: string | null; created_at: string }>(
+        (from, to) => supabase.from('vendas').select('id, caixa_id, deposito_id, created_at').eq('status', 'concluida').gte('created_at', metaMin).lte('created_at', metaMax + 'T23:59:59').range(from, to))
+    : []
+  const vendaIds = vendasPeriodo.map((v) => v.id)
+  const [pagsV, { data: formasFiado }, { data: caixasL }, { data: depsL }] = await Promise.all([
+    vendaIds.length ? fetchAll<{ venda_id: string; valor: number; forma_pagamento_id: string }>(
+      (from, to) => supabase.from('pagamentos_venda').select('venda_id, valor, forma_pagamento_id').in('venda_id', vendaIds).range(from, to)) : Promise.resolve([] as { venda_id: string; valor: number; forma_pagamento_id: string }[]),
     supabase.from('formas_pagamento').select('id').eq('tipo', 'fiado'),
     supabase.from('caixas').select('id, loja_id'),
     supabase.from('depositos').select('id, loja_id'),

@@ -272,6 +272,14 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     if (Object.keys(series).length) setSeriesPorProduto((prev) => ({ ...prev, ...series }))
   }, [])
 
+  // Avisa antes de fechar/recarregar a aba se há venda em andamento (evita perder o carrinho)
+  useEffect(() => {
+    if (carrinho.length === 0) return
+    const h = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', h)
+    return () => window.removeEventListener('beforeunload', h)
+  }, [carrinho.length])
+
   // PRÉ-CARREGA o catálogo inteiro (leve) UMA vez ao abrir o PDV → busca 100% LOCAL,
   // instantânea, sem rede por tecla. A busca on-demand abaixo vira só reforço (séries/frescor).
   const [catalogoPronto, setCatalogoPronto] = useState(false)

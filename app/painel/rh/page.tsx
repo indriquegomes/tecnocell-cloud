@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { Dica } from '@/components/Dica'
 import { formatDate } from '@/lib/utils'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
@@ -33,10 +33,11 @@ const fmtHora = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString(
 export default async function RhPage() {
   const supabase = await createServiceClient()
   const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-  const [{ data: perfis }, { data: pontos }, { data: banco }] = await Promise.all([
+  const [{ data: perfis }, { data: pontos }, banco] = await Promise.all([
     supabase.from('perfis').select('id, nome, cargo').eq('ativo', true).order('nome'),
     supabase.from('pontos').select('usuario_id, tipo, criado_em').gte('criado_em', `${hoje}T00:00:00-03:00`).order('criado_em'),
-    supabase.from('banco_horas').select('id, usuario_id, horas, data, motivo, obs').order('data', { ascending: false }),
+    fetchAll<{ id: string; usuario_id: string; horas: number; data: string; motivo: string | null; obs: string | null }>(
+      (from, to) => supabase.from('banco_horas').select('id, usuario_id, horas, data, motivo, obs').order('data', { ascending: false }).range(from, to)),
   ])
   const porUser: Record<string, Ponto[]> = {}
   for (const p of (pontos ?? []) as Ponto[]) (porUser[p.usuario_id] ??= []).push(p)
