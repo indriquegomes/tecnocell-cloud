@@ -1,5 +1,6 @@
 import { createServiceClient, permissoesUsuarioAtual } from '@/lib/supabase/server'
 import { temPermissao } from '@/lib/permissoes'
+import { hojeSP } from '@/lib/utils'
 import { PessoaForm, type PessoaEdit } from '../../PessoaForm'
 import { formatBRL, formatDate } from '@/lib/utils'
 import Link from 'next/link'
@@ -32,7 +33,7 @@ export default async function EditarClientePage({
     : { data: [] as { valor: number | null; valor_pago: number | null }[] }
 
   // Histórico de compras importado do SIGE (casado pelo nome do cliente)
-  const mesAtras = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
+  const mesAtras = hojeSP(-30)
   const [{ data: histSige }, { data: histMes }] = await Promise.all([
     supabase.from('historico_vendas').select('codigo, data, loja, valor_final, vendedor').ilike('cliente', pessoa.nome).order('data', { ascending: false }).limit(60),
     supabase.from('historico_vendas').select('valor_final').ilike('cliente', pessoa.nome).gte('data', mesAtras).limit(1000),

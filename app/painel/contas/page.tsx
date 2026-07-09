@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { hojeSP } from '@/lib/utils'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { criarConta, editarConta, deletarConta, criarTransferencia, deletarTransferencia } from './actions'
 import { SubmitButton } from '@/components/SubmitButton'
@@ -67,7 +68,7 @@ export default async function ContasPage({
   const saldoTotal = contas.filter((c) => c.ativa).reduce((s, c) => s + (saldos[c.id] ?? 0), 0)
   const contasAtivas = contas.filter((c) => c.ativa)
   const nomeConta = (id: string) => contas.find((c) => c.id === id)?.nome ?? '—'
-  const hoje = new Date().toISOString().slice(0, 10)
+  const hoje = hojeSP()
 
   return (
     <div className="space-y-6">

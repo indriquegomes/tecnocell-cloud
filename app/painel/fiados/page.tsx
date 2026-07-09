@@ -1,4 +1,5 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { hojeSP } from '@/lib/utils'
 import { FiadosClient } from './FiadosClient'
 
 const semAcento = (s: string) =>
@@ -26,7 +27,7 @@ export default async function FiadosPage() {
     if (p.nome && p.telefone) telPorNome.set(semAcento(p.nome), p.telefone)
   }
 
-  const hoje = new Date().toISOString().slice(0, 10)
+  const hoje = hojeSP()
 
   // agrupa por cliente + guarda as notas (lançamentos) de cada um
   type Nota = { id: string; codigo: number | null; descricao: string | null; valor: number; vencimento: string | null; venda_id: string | null; vencida: boolean }

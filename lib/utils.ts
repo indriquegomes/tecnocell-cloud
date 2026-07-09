@@ -25,6 +25,13 @@ export function formatDate(iso: string): string {
   }).format(d)
 }
 
+// "hoje" em YYYY-MM-DD no fuso America/Sao_Paulo (NÃO usar toISOString, que é UTC
+// e vira o dia seguinte depois das 21h). Aceita offset em dias (ex: -30).
+export function hojeSP(offsetDias = 0): string {
+  const d = new Date(Date.now() + offsetDias * 86400000)
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+}
+
 export function slugify(text: string): string {
   return text
     .toLowerCase()

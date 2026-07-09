@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { hojeSP } from '@/lib/utils'
 import { DevolucoesClient, type ItemDevolucaoLinha } from './DevolucoesClient'
 
 export default async function DevolucoesPage({
@@ -9,8 +10,8 @@ export default async function DevolucoesPage({
   const { de, ate, q } = await searchParams
   const supabase = await createServiceClient()
 
-  const hoje = new Date().toISOString().split('T')[0]
-  const inicioMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+  const hoje = hojeSP()
+  const inicioMes = hoje.slice(0, 8) + '01'
   const dataInicio = de ?? inicioMes
   const dataFim = ate ?? hoje
 
