@@ -1640,8 +1640,16 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
         <div className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
           {carrinho.length === 0 ? (
-            <div className="px-6 py-16 text-center text-sm text-gray-400">
-              Nenhum item no carrinho.<br />Busque um produto acima.
+            <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-500">
+                <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.6} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <div className="text-sm text-gray-400">
+                <p className="font-medium text-gray-500">Nenhum item no carrinho</p>
+                <p>Busque um produto acima <span className="text-gray-300">(F2)</span></p>
+              </div>
             </div>
           ) : (
             <table className="min-w-full divide-y divide-gray-100">
@@ -1771,11 +1779,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           <div className="space-y-2 text-sm">
             <div className="flex justify-between text-gray-500">
               <span>Qtd. total de itens</span>
-              <span className="font-semibold">{totalItens}</span>
+              <span className="font-semibold tabular-nums">{totalItens}</span>
             </div>
             <div className="flex justify-between text-gray-600">
               <span>Subtotal</span>
-              <span>{formatBRL(subtotal)}</span>
+              <span className="tabular-nums">{formatBRL(subtotal)}</span>
             </div>
             <div className="flex items-center justify-between text-gray-600">
               <div className="flex items-center gap-2">
@@ -1825,9 +1833,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 <span>− {formatBRL(d.valor)}</span>
               </div>
             ))}
-            <div className="flex justify-between border-t border-gray-100 pt-2 text-lg font-bold text-gray-900">
-              <span>Total</span>
-              <span className="text-green-600">{formatBRL(totalCobrado)}</span>
+            <div className="mt-1 flex items-center justify-between rounded-xl bg-blue-50/70 px-3.5 py-3">
+              <span className="text-sm font-semibold uppercase tracking-wide text-gray-600">Total</span>
+              <span className="text-2xl font-bold tabular-nums text-blue-700">{formatBRL(totalCobrado)}</span>
             </div>
           </div>
 
