@@ -66,3 +66,28 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .animate-pop-in, .animate-fade-in-up { animation: none; }
 }
+
+/* Feedback universal de botão (o sistema quase não tinha estado :active).
+   - cursor de mãozinha em tudo que é clicável
+   - ao PASSAR: leve realce (só onde não há hover próprio muito forte, é sutil)
+   - ao APERTAR: micro-afundada — deixa CLARO que o clique pegou
+   Vale pra <button>, <a> e role=button. Desabilitado não reage.
+   Reversível: apagar este bloco. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+a[class*="rounded"] {
+  cursor: pointer;
+  transition: transform 0.06s ease, filter 0.12s ease;
+}
+button:not(:disabled):active,
+[role="button"]:not([aria-disabled="true"]):active,
+a[class*="rounded"]:active {
+  transform: translateY(0.5px) scale(0.985);
+  filter: brightness(0.97);
+}
+button:disabled,
+[aria-disabled="true"] { cursor: not-allowed; }
+
+@media (prefers-reduced-motion: reduce) {
+  button:active, [role="button"]:active, a[class*="rounded"]:active { transform: none; }
+}
