@@ -1199,15 +1199,13 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     const valorTotal = subtotal - snap.desconto + totalTaxas
     const numeroLabel = snap.numero != null ? String(snap.numero) : idCurto
 
+    // Item em BLOCO (bonito no 58mm): nome na linha inteira + "qtd x preço ... total"
     const rowItem = (i: typeof snap.itens[0]) => {
       const desc = i.codigo ? `${i.codigo} - ${i.nome}` : i.nome
-      return `<tr>
-        <td style="word-break:break-word;max-width:130px">${desc}</td>
-        <td style="text-align:right;white-space:nowrap">${brl(i.preco_unitario)}</td>
-        <td style="text-align:center">UN</td>
-        <td style="text-align:center">${i.quantidade}</td>
-        <td style="text-align:right;white-space:nowrap">${brl(i.quantidade * i.preco_unitario)}</td>
-      </tr>`
+      return `<div class="item">
+        <div class="item-nome">${desc}</div>
+        <div class="row"><span>${i.quantidade} x ${brl(i.preco_unitario)}</span><span class="bold">${brl(i.quantidade * i.preco_unitario)}</span></div>
+      </div>`
     }
 
     const rowPag = (p: typeof snap.pagamentos[0]) => {
@@ -1232,6 +1230,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       .bold { font-weight: bold; }
       .sep { border: none; border-top: 1px dashed #000; margin: 6px 0; }
       .row { display: flex; justify-content: space-between; margin: 2px 0; }
+      .item { margin: 4px 0; }
+      .item-nome { text-align: left; word-break: break-word; }
       table { width: 100%; border-collapse: collapse; font-size: 10px; }
       th { border-bottom: 1px dashed #000; padding: 2px 0; text-align: left; }
       td { padding: 2px 0; vertical-align: top; }
@@ -1254,18 +1254,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     <hr class="sep">
     <p class="bold">Itens da Venda</p>
     <hr class="sep">
-    <table>
-      <thead>
-        <tr>
-          <th>Descrição</th>
-          <th style="text-align:right">Vlr. Unit.</th>
-          <th style="text-align:center">Un.</th>
-          <th style="text-align:center">Qtd.</th>
-          <th style="text-align:right">Vlr. Total</th>
-        </tr>
-      </thead>
-      <tbody>${snap.itens.map(rowItem).join('')}</tbody>
-    </table>
+    ${snap.itens.map(rowItem).join('')}
 
     <hr class="sep">
     <div class="row"><span>QTD. TOTAL DE ITENS</span><span>${totalItens}</span></div>
