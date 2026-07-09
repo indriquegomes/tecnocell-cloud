@@ -1,6 +1,7 @@
 import { createServiceClient, permissoesUsuarioAtual, fetchAll } from '@/lib/supabase/server'
 import { temPermissao } from '@/lib/permissoes'
 import { formatBRL, formatDate } from '@/lib/utils'
+import { headers } from 'next/headers'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 
@@ -8,6 +9,30 @@ export default async function DashboardPage() {
   const supabase = await createServiceClient()
   const { permissoes, isMaster } = await permissoesUsuarioAtual()
   const pode = (k: string) => temPermissao(permissoes, k, isMaster)
+
+  // ---- Quem é / qual cargo → dashboard adaptativo ----
+  const userId = (await headers()).get('x-user-id')
+  const { data: meuPerfil } = userId
+    ? await supabase.from('perfis').select('nome, cargo, cargo_id, meta_venda_mensal').eq('id', userId).maybeSingle()
+    : { data: null }
+  let cargoNome = (meuPerfil?.cargo ?? '').toLowerCase()
+  const cgId = (meuPerfil as { cargo_id?: string | null } | null)?.cargo_id
+  if (cgId) {
+    const { data: cg } = await supabase.from('cargos').select('nome').eq('id', cgId).maybeSingle()
+    if (cg?.nome) cargoNome = cg.nome.toLowerCase()
+  }
+  const primeiroNome = (meuPerfil?.nome ?? '').trim().split(/\s+/)[0] || ''
+  const meta = Number((meuPerfil as { meta_venda_mensal?: number } | null)?.meta_venda_mensal ?? 0)
+  // classifica: cargo pelo nome; fallback por permissão
+  const role: 'dono' | 'gerente' | 'estoquista' | 'vendedora' =
+    isMaster ? 'dono'
+    : /gerente|gestor|admin|dono|dono/.test(cargoNome) ? 'gerente'
+    : /estoqu/.test(cargoNome) ? 'estoquista'
+    : /vend/.test(cargoNome) ? 'vendedora'
+    : pode('relatorios') || pode('financeiro') ? 'gerente'
+    : pode('estoque') && !pode('pdv') ? 'estoquista'
+    : pode('pdv') ? 'vendedora'
+    : 'gerente'
 
   const hoje = new Date().toISOString().split('T')[0]
   const de30 = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
@@ -71,9 +96,10 @@ export default async function DashboardPage() {
     if (c) valorEstoque += e.quantidade * (c.preco_custo ?? 0)
   }
   let abaixoMin = 0
+  const abaixoIds: string[] = []
   for (const p of produtosInfo) {
     const min = p.estoque_minimo ?? 0
-    if (min > 0 && (totalPorProduto[p.id] ?? 0) < min) abaixoMin++
+    if (min > 0 && (totalPorProduto[p.id] ?? 0) < min) { abaixoMin++; abaixoIds.push(p.id) }
   }
   const pecasComEstoque = Object.keys(totalPorProduto).length
 
@@ -83,6 +109,29 @@ export default async function DashboardPage() {
   const aReceber = somaPend(pendReceber)
   const aPagar = somaPend(pendPagar)
   const vendasHojeTotal = (vendasHoje ?? []).reduce((s, v) => s + (v.total ?? 0), 0)
+
+  // ---- Dados da VENDEDORA (minhas vendas do mês) ----
+  const inicioMes = (() => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0] })()
+  const { data: minhasVendasMes } = role === 'vendedora' && userId
+    ? await supabase.from('vendas').select('total, created_at, numero').eq('vendedor_id', userId).eq('status', 'concluida').gte('created_at', inicioMes).order('created_at', { ascending: false })
+    : { data: null }
+  const minhasMes = minhasVendasMes ?? []
+  const meuFatMes = minhasMes.reduce((s, v) => s + (v.total ?? 0), 0)
+  const meuHoje = minhasMes.filter((v) => (v.created_at ?? '').split('T')[0] === hoje).reduce((s, v) => s + (v.total ?? 0), 0)
+  const meuNVendasHoje = minhasMes.filter((v) => (v.created_at ?? '').split('T')[0] === hoje).length
+  const meuNVendas = minhasMes.length
+  const meuTicket = meuNVendas ? meuFatMes / meuNVendas : 0
+  const metaPct = meta > 0 ? Math.min(100, Math.round((meuFatMes / meta) * 100)) : 0
+
+  // ---- Dados do ESTOQUISTA (lista pra repor) ----
+  let listaRepor: { nome: string; saldo: number; min: number }[] = []
+  if (role === 'estoquista' && abaixoIds.length > 0) {
+    const { data: nomes } = await supabase.from('produtos').select('id, nome, estoque_minimo').in('id', abaixoIds.slice(0, 200))
+    listaRepor = (nomes ?? [])
+      .map((n) => ({ nome: n.nome as string, saldo: totalPorProduto[n.id] ?? 0, min: (n.estoque_minimo as number) ?? 0 }))
+      .sort((a, b) => (a.saldo - a.min) - (b.saldo - b.min))
+      .slice(0, 12)
+  }
 
   const cor = (i: number) => (i === 0 ? 'bg-white' : i === 1 ? 'bg-white/55' : 'bg-white/30')
 
@@ -118,6 +167,117 @@ export default async function DashboardPage() {
     </div>
   )
 
+  // ============ VENDEDORA ============
+  if (role === 'vendedora') {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Olá, {primeiroNome || 'vendedora'} 👋</h2>
+          <p className="mt-0.5 text-sm text-gray-400">Seu resumo de vendas — bora vender!</p>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="relative overflow-hidden rounded-2xl bg-[#1B6CA8] p-6 text-white shadow-sm lg:col-span-2">
+            <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/5" />
+            <p className="relative text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Minhas vendas · este mês</p>
+            <p className="relative mt-2.5 text-[38px] font-extrabold leading-none tabular-nums">{formatBRL(meuFatMes)}</p>
+            <div className="relative mt-2.5 flex flex-wrap gap-x-5 gap-y-1 text-sm text-white/75">
+              <span><b className="font-bold text-white tabular-nums">{meuNVendas}</b> vendas</span>
+              <span>ticket <b className="font-bold text-white">{formatBRL(meuTicket)}</b></span>
+            </div>
+            {meta > 0 ? (
+              <div className="relative mt-6">
+                <div className="flex items-center justify-between text-xs text-white/80">
+                  <span>Meta do mês · {formatBRL(meta)}</span>
+                  <span className="font-bold text-white tabular-nums">{metaPct}%</span>
+                </div>
+                <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-white/15">
+                  <div className="h-full rounded-full bg-white transition-all" style={{ width: `${metaPct}%` }} />
+                </div>
+              </div>
+            ) : (
+              <p className="relative mt-6 inline-flex rounded-lg bg-white/10 px-2.5 py-1.5 text-xs text-white/80">🎯 Sem meta definida — peça pro gerente configurar</p>
+            )}
+          </div>
+
+          <Stat icon="🛒" bg="bg-emerald-50" label="Vendas hoje" value={formatBRL(meuHoje)} sub={`${meuNVendasHoje} venda(s)`} href="/painel/pdv" />
+        </div>
+
+        <Link href="/painel/pdv" className="flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 p-5 text-lg font-bold text-white shadow-sm shadow-emerald-600/25 transition hover:from-emerald-700 hover:to-emerald-600">
+          🛒 Abrir o PDV
+        </Link>
+
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div className="border-b border-gray-100 px-5 py-3.5"><h3 className="text-sm font-semibold text-gray-800">Minhas últimas vendas <span className="font-normal text-gray-400">· este mês</span></h3></div>
+          <div className="divide-y divide-gray-50">
+            {minhasMes.length === 0 ? (
+              <p className="px-5 py-8 text-center text-sm text-gray-400">Nenhuma venda sua neste mês ainda. Bora! 💪</p>
+            ) : minhasMes.slice(0, 6).map((v, i) => (
+              <div key={i} className="flex items-center justify-between px-5 py-3">
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-xs font-semibold text-gray-400">#{v.numero ?? '—'}</span>
+                  <span className="text-sm text-gray-500">{v.created_at ? formatDate(v.created_at) : ''}</span>
+                </div>
+                <span className="text-sm font-bold tabular-nums text-gray-900">{formatBRL(v.total ?? 0)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ============ ESTOQUISTA ============
+  if (role === 'estoquista') {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Olá, {primeiroNome || 'estoquista'} 👋</h2>
+          <p className="mt-0.5 text-sm text-gray-400">Saúde do estoque num relance.</p>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="relative overflow-hidden rounded-2xl bg-[#1B6CA8] p-6 text-white shadow-sm lg:col-span-2">
+            <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/5" />
+            <p className="relative text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Valor em estoque · custo</p>
+            <p className="relative mt-2.5 text-[38px] font-extrabold leading-none tabular-nums">{formatBRL(valorEstoque)}</p>
+            <div className="relative mt-2.5 flex flex-wrap gap-x-5 gap-y-1 text-sm text-white/75">
+              <span><b className="font-bold text-white tabular-nums">{unidades.toLocaleString('pt-BR')}</b> unidades</span>
+              <span><b className="font-bold text-white tabular-nums">{pecasComEstoque.toLocaleString('pt-BR')}</b> peças</span>
+            </div>
+          </div>
+          <div className={`rounded-2xl border p-6 shadow-sm ${abaixoMin > 0 ? 'border-amber-200 bg-amber-50' : 'border-emerald-200 bg-emerald-50'}`}>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">Reposição</p>
+            <p className={`mt-2.5 text-4xl font-extrabold tabular-nums ${abaixoMin > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>{abaixoMin}</p>
+            <p className="mt-1 text-xs text-gray-500">{abaixoMin > 0 ? 'peças abaixo do mínimo' : 'tudo em dia ✓'}</p>
+            <Link href="/painel/estoque" className="mt-4 inline-flex rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 transition">Ver estoque →</Link>
+          </div>
+        </div>
+
+        {listaRepor.length > 0 && (
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div className="border-b border-gray-100 px-5 py-3.5"><h3 className="text-sm font-semibold text-gray-800">Repor com prioridade</h3></div>
+            <div className="divide-y divide-gray-50">
+              {listaRepor.map((p, i) => (
+                <div key={i} className="flex items-center justify-between px-5 py-3">
+                  <span className="truncate pr-3 text-sm text-gray-700">{p.nome}</span>
+                  <span className="shrink-0 text-xs"><b className={`tabular-nums ${p.saldo <= 0 ? 'text-rose-600' : 'text-amber-600'}`}>{p.saldo}</b> <span className="text-gray-400">/ mín {p.min}</span></span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Link href="/painel/estoque" className="flex items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-white p-4 text-sm font-medium text-gray-600 transition hover:border-[#1B6CA8] hover:text-[#1B6CA8]"><span className="text-xl">📦</span> Estoque</Link>
+          <Link href="/painel/estoque/movimentar" className="flex items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-white p-4 text-sm font-medium text-gray-600 transition hover:border-[#1B6CA8] hover:text-[#1B6CA8]"><span className="text-xl">🔄</span> Movimentar</Link>
+          <Link href="/painel/compras" className="flex items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-white p-4 text-sm font-medium text-gray-600 transition hover:border-[#1B6CA8] hover:text-[#1B6CA8]"><span className="text-xl">📥</span> Notas de Entrada</Link>
+        </div>
+      </div>
+    )
+  }
+
+  // ============ GERENTE / DONO (visão completa) ============
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
