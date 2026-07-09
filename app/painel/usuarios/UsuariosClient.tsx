@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useActionState } from 'react'
+import { useState, useActionState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Spinner } from '@/components/Spinner'
 import { createClient } from '@/lib/supabase/client'
 import { TODAS_PERMISSOES } from '@/lib/permissoes'
@@ -10,12 +11,6 @@ const supabaseBrowser = createClient()
 async function authToken() {
   const { data } = await supabaseBrowser.auth.getSession()
   return data.session?.access_token ?? ''
-}
-function withToken(action: (fd: FormData) => void) {
-  return async (fd: FormData) => {
-    fd.set('access_token', await authToken())
-    action(fd)
-  }
 }
 
 export interface Usuario {
@@ -275,6 +270,8 @@ function RestricaoAcesso({ usuario }: { usuario: Usuario }) {
 
 function NovoUsuarioModal({ cargos, onClose }: { cargos: Cargo[]; onClose: () => void }) {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(criarUsuario, null)
+  const [tk, setTk] = useState('')
+  useEffect(() => { authToken().then(setTk) }, [])
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -284,7 +281,8 @@ function NovoUsuarioModal({ cargos, onClose }: { cargos: Cargo[]; onClose: () =>
           <button onClick={onClose} className="text-xl leading-none text-gray-400 hover:text-gray-600">×</button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-          <form id="form-novo-user" action={withToken(action)} className="space-y-5">
+          <form id="form-novo-user" action={action} className="space-y-5">
+            <input type="hidden" name="access_token" value={tk} />
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Nome *</label>
@@ -310,7 +308,8 @@ function NovoUsuarioModal({ cargos, onClose }: { cargos: Cargo[]; onClose: () =>
           <Feedback state={state} />
           <div className="ml-auto flex gap-2">
             <button type="button" onClick={onClose} className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 transition">Cancelar</button>
-            <button type="submit" form="form-novo-user" disabled={pending}
+            <button type="button" disabled={pending}
+              onClick={() => (document.getElementById('form-novo-user') as HTMLFormElement | null)?.requestSubmit()}
               className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50">
               {pending ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Criando...</span> : 'Criar Usuário'}
             </button>
@@ -324,6 +323,8 @@ function NovoUsuarioModal({ cargos, onClose }: { cargos: Cargo[]; onClose: () =>
 function ConvidarModal({ cargos, onClose }: { cargos: Cargo[]; onClose: () => void }) {
   const [state, action, pending] = useActionState<ConviteResult | null, FormData>(criarConvite, null)
   const [copiado, setCopiado] = useState(false)
+  const [tk, setTk] = useState('')
+  useEffect(() => { authToken().then(setTk) }, [])
   const link = state && state.ok ? `${window.location.origin}${state.link}` : ''
 
   return (
@@ -354,7 +355,8 @@ function ConvidarModal({ cargos, onClose }: { cargos: Cargo[]; onClose: () => vo
             </div>
           </div>
         ) : (
-          <form action={withToken(action)} className="space-y-5 px-6 py-5">
+          <form action={action} className="space-y-5 px-6 py-5">
+            <input type="hidden" name="access_token" value={tk} />
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Nome *</label>
@@ -387,6 +389,11 @@ function ConvidarModal({ cargos, onClose }: { cargos: Cargo[]; onClose: () => vo
 function EditarModal({ usuario, cargos, lojas, depositos, tabelas, onClose }: { usuario: Usuario; cargos: Cargo[]; lojas: Loja[]; depositos: Deposito[]; tabelas: Tabela[]; onClose: () => void }) {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(atualizarPerfil, null)
   const [senhaState, senhaAction, senhaPending] = useActionState<ActionResult | null, FormData>(alterarSenha, null)
+  const router = useRouter()
+  const [tk, setTk] = useState('')
+  useEffect(() => { authToken().then(setTk) }, [])
+  // ao salvar, atualiza a lista (senão reabrir o modal mostra o cargo/dados velhos)
+  useEffect(() => { if (state?.ok) router.refresh() }, [state?.ok, router])
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -400,7 +407,8 @@ function EditarModal({ usuario, cargos, lojas, depositos, tabelas, onClose }: { 
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 space-y-5">
-          <form id="form-edit-user" action={withToken(action)} className="space-y-4">
+          <form id="form-edit-user" action={action} className="space-y-4">
+            <input type="hidden" name="access_token" value={tk} />
             <input type="hidden" name="user_id" value={usuario.id} />
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -431,7 +439,8 @@ function EditarModal({ usuario, cargos, lojas, depositos, tabelas, onClose }: { 
 
           <div className="border-t border-gray-100 pt-4">
             <p className="mb-2 text-sm font-medium text-gray-700">Alterar Senha</p>
-            <form action={withToken(senhaAction)} className="flex gap-3">
+            <form action={senhaAction} className="flex gap-3">
+              <input type="hidden" name="access_token" value={tk} />
               <input type="hidden" name="user_id" value={usuario.id} />
               <input name="senha" type="text" className="field flex-1" placeholder="Nova senha" />
               <button
@@ -451,7 +460,8 @@ function EditarModal({ usuario, cargos, lojas, depositos, tabelas, onClose }: { 
           <Feedback state={state} />
           <div className="ml-auto flex gap-2">
             <button type="button" onClick={onClose} className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 transition">Cancelar</button>
-            <button type="submit" form="form-edit-user" disabled={pending}
+            <button type="button" disabled={pending}
+              onClick={() => (document.getElementById('form-edit-user') as HTMLFormElement | null)?.requestSubmit()}
               className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50">
               {pending ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Salvando...</span> : 'Salvar alterações'}
             </button>
