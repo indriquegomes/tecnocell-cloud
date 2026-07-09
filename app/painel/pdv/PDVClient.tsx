@@ -223,7 +223,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [carregandoDetalhe, setCarregandoDetalhe] = useState(false)
   // Modal de recebimento por linha
   const [recebendoItem, setRecebendoItem] = useState<CrediarioItem | null>(null)
-  const [formaRecebimento, setFormaRecebimento] = useState<string>('dinheiro')
+  const [formaRecebimento, setFormaRecebimento] = useState<string>('')  // forma_id da forma escolhida
+  const [parcelasRecebimento, setParcelasRecebimento] = useState(1)
   const [valorRecebido, setValorRecebido] = useState<string>('')
   // F3 — Busca Orçamento/Pedido
   const [mostrarOrcamentos, setMostrarOrcamentos] = useState(false)
@@ -993,7 +994,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
   const handleAbrirRecebimento = (item: CrediarioItem) => {
     setRecebendoItem(item)
-    setFormaRecebimento('dinheiro')
+    // default: Dinheiro (ou 1ª forma não-fiado)
+    const dinheiro = formas.find((f) => f.tipo === 'dinheiro') ?? formas.find((f) => f.tipo !== 'fiado')
+    setFormaRecebimento(dinheiro?.id ?? '')
+    setParcelasRecebimento(1)
     const restante = item.valor - (item.valor_pago ?? 0)
     setValorRecebido(restante.toFixed(2).replace('.', ','))
   }
@@ -1006,7 +1010,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       let valorNum = parseFloat(valorRecebido.replace(',', '.'))
       if (isNaN(valorNum) || valorNum <= 0) { setErro('Valor inválido.'); return }
       if (valorNum > restante) valorNum = restante
-      const { quitado } = await registrarPagamentoParcial(await authToken(), recebendoItem.id, valorNum, formaRecebimento)
+      const fReceb = formas.find((f) => f.id === formaRecebimento)
+      const ehCredReceb = fReceb?.tipo === 'cartao_credito'
+      const formaTxt = (fReceb?.nome ?? 'Dinheiro') + (ehCredReceb && parcelasRecebimento > 1 ? ` ${parcelasRecebimento}x` : '')
+      const { quitado } = await registrarPagamentoParcial(await authToken(), recebendoItem.id, valorNum, formaTxt)
       if (quitado) {
         setCrediarioItens((prev) => prev.filter((i) => i.id !== recebendoItem.id))
       } else {
@@ -1017,8 +1024,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       setRecebendoItem(null)
       setPagoCrediarioOk(true)
       setTimeout(() => setPagoCrediarioOk(false), 3000)
-    } catch {
-      setErro('Erro ao registrar pagamento.')
+    } catch (e) {
+      // mostra o motivo real (ex: "Sem permissão…") em vez do genérico
+      setErro(e instanceof Error && e.message ? e.message : 'Erro ao registrar pagamento.')
     } finally {
       setPagandoCrediario(false)
     }
@@ -1165,7 +1173,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     <title>Comprovante #${numeroLabel}</title>
     <style>
       * { box-sizing: border-box; }
-      body { font-family: monospace; font-size: 11px; margin: 0; padding: 12px; max-width: 320px; }
+      /* térmica 80mm: define a página pro navegador não usar A4 (senão o rolo
+         imprime uma folha inteira de papel). auto = só a altura do conteúdo. */
+      @page { size: 80mm auto; margin: 0; }
+      body { font-family: monospace; font-size: 11px; margin: 0 auto; padding: 6px 7px; width: 80mm; }
       .bold { font-weight: bold; }
       .sep { border: none; border-top: 1px dashed #000; margin: 6px 0; }
       .row { display: flex; justify-content: space-between; margin: 2px 0; }
@@ -1173,7 +1184,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       th { border-bottom: 1px dashed #000; padding: 2px 0; text-align: left; }
       td { padding: 2px 0; vertical-align: top; }
       p { margin: 1px 0; text-align: center; }
-      @media print { body { padding: 0; } }
+      @media print { html, body { width: 80mm; margin: 0; padding: 4px 6px; } }
     </style></head><body>
 
     <div style="text-align:center;margin-bottom:4px">
@@ -2256,28 +2267,53 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 </div>
               </div>
 
-              {/* Forma de pagamento */}
+              {/* Forma de pagamento — formas reais (a máquina TON/PagBank vem na forma) */}
               <div>
                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
                   Forma de recebimento
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { v: 'dinheiro', l: '💵 Dinheiro' },
-                    { v: 'pix',      l: '💠 PIX' },
-                    { v: 'debito',   l: '💳 Débito' },
-                    { v: 'credito',  l: '💳 Crédito' },
-                  ].map((op) => (
+                  {formas.filter((f) => f.tipo !== 'fiado').map((f) => (
                     <button
-                      key={op.v}
+                      key={f.id}
                       type="button"
-                      onClick={() => setFormaRecebimento(op.v)}
-                      className={`rounded-xl border py-2.5 text-sm font-semibold transition ${formaRecebimento === op.v ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+                      onClick={() => { setFormaRecebimento(f.id); setParcelasRecebimento(1) }}
+                      className={`rounded-xl border py-2.5 text-sm font-semibold transition ${formaRecebimento === f.id ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
                     >
-                      {op.l}
+                      {iconeForma(f.nome)} {f.nome}
                     </button>
                   ))}
                 </div>
+                {(() => {
+                  const sel = formas.find((f) => f.id === formaRecebimento)
+                  const maq = maquinaById(maquinaDaForma(formaRecebimento))
+                  const ehDeb = sel?.tipo === 'cartao_debito'
+                  const ehCred = sel?.tipo === 'cartao_credito'
+                  const valorNum = parseFloat((valorRecebido || '').replace(',', '.')) || 0
+                  const pct = !maq ? 0 : ehDeb ? maq.taxa_debito : ehCred ? (maq.taxas_credito[parcelasRecebimento - 1] ?? 0) : 0
+                  const taxaV = Math.round(valorNum * pct) / 100
+                  return (
+                    <>
+                      {ehCred && maq && (
+                        <div className="mt-3">
+                          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">Parcelas</label>
+                          <select value={parcelasRecebimento} onChange={(e) => setParcelasRecebimento(Number(e.target.value))}
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            {Array.from({ length: maq.max_parcelas }, (_, i) => i + 1).map((n) => (
+                              <option key={n} value={n}>{n}x{n === 1 ? ' à vista' : ''}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      {(ehDeb || ehCred) && pct > 0 && valorNum > 0 && (
+                        <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                          Taxa {maq?.nome} {pct}% = −{formatBRL(taxaV)} · você recebe líquido <b className="tabular-nums">{formatBRL(valorNum - taxaV)}</b>
+                          <span className="mt-0.5 block text-[11px] text-amber-600/80">(a dívida abate o valor cheio; a taxa é o custo da maquininha)</span>
+                        </p>
+                      )}
+                    </>
+                  )
+                })()}
               </div>
 
               {/* Botão confirmar */}
