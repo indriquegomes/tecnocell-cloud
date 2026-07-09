@@ -24,9 +24,15 @@ export function MetasForm({ lojas, editando }: { lojas: Loja[]; editando?: MetaE
       ? editando.faixas.map((f) => ({ nome: f.nome, valor: String(f.valor), premio: String(f.premio) }))
       : FAIXAS_PADRAO,
   )
+  const [pessoas, setPessoas] = useState(4)
 
   const set = (i: number, campo: keyof FaixaEdit, v: string) =>
     setFaixas((prev) => prev.map((f, j) => (j === i ? { ...f, [campo]: v } : f)))
+  const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  const porPessoa = (valorStr: string) => {
+    const v = parseFloat(valorStr) || 0
+    return pessoas > 0 && v > 0 ? fmtBRL(v / pessoas) : '—'
+  }
 
   return (
     <form action={salvarMeta} className="space-y-5 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -57,6 +63,11 @@ export function MetasForm({ lojas, editando }: { lojas: Loja[]; editando?: MetaE
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Dias úteis no período</label>
           <input type="number" name="dias_uteis" min="1" max="31" defaultValue={editando?.dias_uteis ?? 26} className="field" required />
         </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Dividir entre (pessoas)</label>
+          <input type="number" min="1" max="20" value={pessoas} onChange={(e) => setPessoas(parseInt(e.target.value) || 1)} className="field" />
+          <p className="mt-1 text-xs text-gray-400">mostra quanto vai pra cada um</p>
+        </div>
         <label className="flex items-center gap-2 pt-7 text-sm font-medium text-gray-700">
           <input type="hidden" name="ativo" value="0" />
           <input type="checkbox" name="ativo" value="1" defaultChecked={editando ? editando.ativo : true} className="h-4 w-4 rounded" />
@@ -76,12 +87,17 @@ export function MetasForm({ lojas, editando }: { lojas: Loja[]; editando?: MetaE
             <span>Nome</span><span>Meta (R$)</span><span>Prêmio (R$)</span><span></span>
           </div>
           {faixas.map((f, i) => (
-            <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] items-center gap-2">
-              <input name="faixa_nome" value={f.nome} onChange={(e) => set(i, 'nome', e.target.value.toUpperCase())} placeholder="GRANADA" className="field" />
-              <input name="faixa_valor" value={f.valor} onChange={(e) => set(i, 'valor', e.target.value)} type="number" step="0.01" min="0" placeholder="250000" className="field" />
-              <input name="faixa_premio" value={f.premio} onChange={(e) => set(i, 'premio', e.target.value)} type="number" step="0.01" min="0" placeholder="250" className="field" />
-              <button type="button" onClick={() => setFaixas((p) => p.filter((_, j) => j !== i))}
-                className="px-2 text-gray-300 hover:text-red-500 transition" title="Remover">✕</button>
+            <div key={i}>
+              <div className="grid grid-cols-[1fr_1fr_1fr_auto] items-center gap-2">
+                <input name="faixa_nome" value={f.nome} onChange={(e) => set(i, 'nome', e.target.value.toUpperCase())} placeholder="GRANADA" className="field" />
+                <input name="faixa_valor" value={f.valor} onChange={(e) => set(i, 'valor', e.target.value)} type="number" step="0.01" min="0" placeholder="250000" className="field" />
+                <input name="faixa_premio" value={f.premio} onChange={(e) => set(i, 'premio', e.target.value)} type="number" step="0.01" min="0" placeholder="250" className="field" />
+                <button type="button" onClick={() => setFaixas((p) => p.filter((_, j) => j !== i))}
+                  className="px-2 text-gray-300 hover:text-red-500 transition" title="Remover">✕</button>
+              </div>
+              {parseFloat(f.valor) > 0 && (
+                <p className="mt-0.5 px-1 text-[11px] text-blue-600">👤 por pessoa (÷{pessoas}): <b>{porPessoa(f.valor)}</b> · prêmio/pessoa: <b>{porPessoa(f.premio)}</b></p>
+              )}
             </div>
           ))}
         </div>
