@@ -4,6 +4,7 @@ import { formatBRL, formatDate } from '@/lib/utils'
 import { headers } from 'next/headers'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
+import { MetaWidget, type MetaInput } from '@/components/MetaWidget'
 
 export default async function DashboardPage() {
   const supabase = await createServiceClient()
@@ -133,6 +134,23 @@ export default async function DashboardPage() {
       .slice(0, 12)
   }
 
+  // ---- META (protótipo com as faixas da arte; será editável na aba Metas) ----
+  const fatPetropolis = Object.entries(porLoja).find(([n]) => /petr/i.test(n))?.[1] ?? faturamento
+  const metaDemo: MetaInput = {
+    loja: 'Petrópolis',
+    rotulo: 'Metas de Julho',
+    diasUteis: 27,
+    diasDecorridos: Math.min(27, new Date().getDate()),
+    faturamento: fatPetropolis,          // Petrópolis, 30 dias (histórico) — proxy do mês
+    faturamentoHoje: vendasHojeTotal,    // vendas de hoje (PDV)
+    faixas: [
+      { nome: 'GRANADA', valor: 250000, premio: 250 },
+      { nome: 'ESMERALDA', valor: 275000, premio: 825 },
+      { nome: 'DIAMANTE', valor: 300000, premio: 1500 },
+      { nome: 'JOALHERIA', valor: 335000, premio: 3250 },
+    ],
+  }
+
   const cor = (i: number) => (i === 0 ? 'bg-white' : i === 1 ? 'bg-white/55' : 'bg-white/30')
 
   const Stat = ({ icon, bg, label, value, sub, href }: { icon: string; bg: string; label: string; value: string; sub?: string; href: string }) => (
@@ -202,6 +220,9 @@ export default async function DashboardPage() {
 
           <Stat icon="🛒" bg="bg-emerald-50" label="Vendas hoje" value={formatBRL(meuHoje)} sub={`${meuNVendasHoje} venda(s)`} href="/painel/pdv" />
         </div>
+
+        {/* Meta da loja — o time todo mira as faixas */}
+        <MetaWidget meta={metaDemo} />
 
         <Link href="/painel/pdv" className="flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 p-5 text-lg font-bold text-white shadow-sm shadow-emerald-600/25 transition hover:from-emerald-700 hover:to-emerald-600">
           🛒 Abrir o PDV
@@ -332,6 +353,9 @@ export default async function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* META da loja */}
+      <MetaWidget meta={metaDemo} />
 
       {/* AGORA */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
