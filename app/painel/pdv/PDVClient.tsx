@@ -1278,7 +1278,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     <p class="bold" style="font-size:13px">VENDA NÚMERO ${numeroLabel}</p>
     <p>EMISSÃO EM ${snap.horario}</p>
     ${snap.loja ? `<p class="bold">${snap.loja}</p>` : ''}
-    <p>${snap.deposito}</p>
+    ${snap.deposito && snap.deposito !== snap.loja && !(snap.loja && snap.deposito.toUpperCase().includes(snap.loja.toUpperCase())) ? `<p>${snap.deposito}</p>` : ''}
     ${snap.vendedor ? `<p>Vendedor(a): ${snap.vendedor}</p>` : ''}
     <p class="bold">CONSUMIDOR</p>
     ${snap.cliente ? `<p>${snap.cliente}</p>` : '<p>CONSUMIDOR FINAL</p>'}
