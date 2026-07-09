@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Spinner } from '@/components/Spinner'
 import { createClient } from '@/lib/supabase/client'
-import { buscarMeuPerfil, atualizarMeuNome, alterarMinhaSenha, atualizarMinhaFoto, baterPonto, buscarMeuPontoHoje, type Res, type Ponto } from './actions'
+import { buscarMeuPerfil, atualizarMeuNome, alterarMinhaSenha, atualizarMinhaFoto, baterPonto, buscarMeuPontoHoje, buscarMeuBanco, type Res, type Ponto, type BancoHora } from './actions'
 
 export function MeuPerfilClient() {
   const supabase = createClient()
@@ -27,6 +27,7 @@ export function MeuPerfilClient() {
 
   const [pontos, setPontos] = useState<Ponto[]>([])
   const [batendo, setBatendo] = useState(false)
+  const [banco, setBanco] = useState<{ saldo: number; itens: BancoHora[] }>({ saldo: 0, itens: [] })
 
   const token = async () => (await supabase.auth.getSession()).data.session?.access_token ?? ''
 
@@ -36,6 +37,7 @@ export function MeuPerfilClient() {
         const p = await buscarMeuPerfil(await token())
         setNome(p.nome); setEmail(p.email); setCargo(p.cargo); setAvatarUrl(p.avatarUrl)
         setPontos(await buscarMeuPontoHoje(await token()).catch(() => []))
+        setBanco(await buscarMeuBanco(await token()).catch(() => ({ saldo: 0, itens: [] })))
       } catch { /* sessão — o proxy redireciona */ }
       finally { setCarregando(false) }
     })()
@@ -168,6 +170,36 @@ export function MeuPerfilClient() {
                 {p.tipo === 'pausa' ? '⏸' : p.tipo === 'saida' ? '⏹' : '▶'} {p.tipo} <b className="tabular-nums text-gray-800">{fmtHora(p.criado_em)}</b>
               </span>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* Banco de horas (só leitura — o RH lança) */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-700">⏱️ Meu banco de horas</h3>
+          <span className={`text-lg font-bold tabular-nums ${banco.saldo < 0 ? 'text-rose-600' : banco.saldo >= 8 ? 'text-amber-600' : 'text-emerald-600'}`}>
+            {banco.saldo > 0 ? '+' : ''}{banco.saldo.toFixed(2).replace('.', ',')}h
+          </span>
+        </div>
+        {banco.itens.length === 0 ? (
+          <p className="mt-3 text-sm text-gray-400">Nenhum lançamento ainda. As horas extras aparecem aqui.</p>
+        ) : (
+          <div className="mt-3 divide-y divide-gray-50">
+            {banco.itens.slice(0, 10).map((b) => {
+              const rot: Record<string, string> = { solicitacao_loja: 'Solicitação da loja', cobrir_colega: 'Cobrir colega', atraso: 'Atraso', pagamento: 'Pagamento', folga: 'Folga', outro: 'Outro' }
+              return (
+                <div key={b.id} className="flex items-center justify-between py-2 text-sm">
+                  <div className="min-w-0">
+                    <span className="text-gray-700">{rot[b.motivo ?? ''] ?? b.motivo ?? '—'}</span>
+                    <span className="text-xs text-gray-400"> · {new Date(b.data + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
+                  </div>
+                  <span className={`shrink-0 font-bold tabular-nums ${Number(b.horas) < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                    {Number(b.horas) > 0 ? '+' : ''}{Number(b.horas).toFixed(2).replace('.', ',')}h
+                  </span>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>

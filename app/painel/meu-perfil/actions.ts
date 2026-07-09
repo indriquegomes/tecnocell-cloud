@@ -81,6 +81,21 @@ export async function buscarMeuPontoHoje(token: string): Promise<Ponto[]> {
   return (data ?? []) as Ponto[]
 }
 
+export type BancoHora = { id: string; horas: number; data: string; motivo: string | null; obs: string | null }
+
+// Banco de horas do usuário logado (saldo + últimos lançamentos).
+export async function buscarMeuBanco(token: string): Promise<{ saldo: number; itens: BancoHora[] }> {
+  const user = await requireAuth(token)
+  const s = await createServiceClient()
+  const { data } = await s.from('banco_horas')
+    .select('id, horas, data, motivo, obs')
+    .eq('usuario_id', user.id)
+    .order('data', { ascending: false })
+  const itens = (data ?? []) as BancoHora[]
+  const saldo = itens.reduce((acc, i) => acc + Number(i.horas), 0)
+  return { saldo, itens }
+}
+
 export async function alterarMinhaSenha(token: string, senhaAtual: string, senhaNova: string): Promise<Res> {
   const user = await requireAuth(token)
   if (senhaNova.trim().length < 4) return { ok: false, message: 'A nova senha deve ter ao menos 4 caracteres' }
