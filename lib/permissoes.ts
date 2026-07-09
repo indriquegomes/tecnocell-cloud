@@ -15,6 +15,7 @@ export const ROTAS_PERMISSAO: Record<string, string> = {
   '/painel/os':            'os',
   '/painel/relatorios':        'relatorios',
   '/painel/painel-vendedor':  'relatorios',
+  '/painel/metas':            'metas',
   '/painel/compras':       'compras',
   '/painel/pedidos':       'pedidos',
   '/painel/usuarios':      'usuarios',
@@ -40,6 +41,7 @@ export const TODAS_PERMISSOES = [
   { grupo: 'Módulos',  key: 'compras',    label: 'Compras',              desc: 'Notas de entrada' },
   { grupo: 'Módulos',  key: 'financeiro', label: 'Financeiro',           desc: 'A receber, a pagar e lançamentos' },
   { grupo: 'Módulos',  key: 'relatorios', label: 'Relatórios',           desc: 'Relatórios gerenciais e indicadores' },
+  { grupo: 'Módulos',  key: 'metas',      label: 'Metas',                desc: 'Configurar metas e faixas de premiação por loja' },
   { grupo: 'Módulos',  key: 'usuarios',   label: 'Usuários',             desc: 'Gerenciar contas e permissões' },
 
   // Limites de operação — o que pode FAZER dentro do módulo (segurança de balcão)
