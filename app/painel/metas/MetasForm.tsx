@@ -8,7 +8,7 @@ type Loja = { id: string; nome: string }
 type FaixaEdit = { nome: string; valor: string; premio: string }
 type MetaEdit = {
   id: string; loja_id: string | null; rotulo: string; data_inicio: string; data_fim: string
-  dias_uteis: number; ativo: boolean; faixas: { nome: string; valor: number; premio: number }[]
+  dias_uteis: number; ativo: boolean; pessoas?: number; faixas: { nome: string; valor: number; premio: number }[]
 }
 
 const FAIXAS_PADRAO: FaixaEdit[] = [
@@ -24,7 +24,7 @@ export function MetasForm({ lojas, editando }: { lojas: Loja[]; editando?: MetaE
       ? editando.faixas.map((f) => ({ nome: f.nome, valor: String(f.valor), premio: String(f.premio) }))
       : FAIXAS_PADRAO,
   )
-  const [pessoas, setPessoas] = useState(4)
+  const [pessoas, setPessoas] = useState(editando?.pessoas ?? 4)
 
   const set = (i: number, campo: keyof FaixaEdit, v: string) =>
     setFaixas((prev) => prev.map((f, j) => (j === i ? { ...f, [campo]: v } : f)))
@@ -65,7 +65,7 @@ export function MetasForm({ lojas, editando }: { lojas: Loja[]; editando?: MetaE
         </div>
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Dividir entre (pessoas)</label>
-          <input type="number" min="1" max="20" value={pessoas} onChange={(e) => setPessoas(parseInt(e.target.value) || 1)} className="field" />
+          <input type="number" name="pessoas" min="1" max="20" value={pessoas} onChange={(e) => setPessoas(parseInt(e.target.value) || 1)} className="field" />
           <p className="mt-1 text-xs text-gray-400">mostra quanto vai pra cada um</p>
         </div>
         <label className="flex items-center gap-2 pt-7 text-sm font-medium text-gray-700">

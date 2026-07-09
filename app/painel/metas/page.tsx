@@ -13,7 +13,7 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
 
   const [{ data: lojas }, { data: metas }, { data: faixas }] = await Promise.all([
     supabase.from('lojas').select('id, nome').order('nome'),
-    supabase.from('metas').select('id, loja_id, rotulo, data_inicio, data_fim, dias_uteis, ativo').order('data_inicio', { ascending: false }),
+    supabase.from('metas').select('id, loja_id, rotulo, data_inicio, data_fim, dias_uteis, ativo, pessoas').order('data_inicio', { ascending: false }),
     supabase.from('metas_faixas').select('meta_id, nome, valor, premio, ordem').order('ordem'),
   ])
   const nomeLoja = Object.fromEntries((lojas ?? []).map((l) => [l.id, l.nome]))

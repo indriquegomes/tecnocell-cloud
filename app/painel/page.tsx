@@ -136,7 +136,7 @@ export default async function DashboardPage() {
 
   // ---- METAS ativas (do banco), por loja ----
   const { data: metasAtivas } = await supabase.from('metas')
-    .select('id, loja_id, rotulo, data_inicio, data_fim, dias_uteis')
+    .select('id, loja_id, rotulo, data_inicio, data_fim, dias_uteis, pessoas')
     .eq('ativo', true).lte('data_inicio', hoje).gte('data_fim', hoje)
   const metaIds = (metasAtivas ?? []).map((m) => m.id)
   const { data: faixasAll } = metaIds.length
@@ -188,7 +188,7 @@ export default async function DashboardPage() {
     // dias trabalhados (seg–sáb) já decorridos, do início até hoje (sem passar do fim), limitado ao total
     const ateHoje = hoje < m.data_fim ? hoje : m.data_fim
     const diasCorridos = Math.max(1, Math.min(m.dias_uteis, diasTrabalhados(m.data_inicio, ateHoje)))
-    return { loja: nome, rotulo: m.rotulo, diasUteis: m.dias_uteis, diasDecorridos: diasCorridos, faturamento: fat, faturamentoHoje: fatHoje, faixas }
+    return { loja: nome, rotulo: m.rotulo, diasUteis: m.dias_uteis, diasDecorridos: diasCorridos, faturamento: fat, faturamentoHoje: fatHoje, pessoas: (m as { pessoas?: number }).pessoas ?? 4, faixas }
   }
   const metasWidgets = (metasAtivas ?? []).map(construirMeta).filter((m) => m.faixas.length > 0)
   const minhaLojaId = (meuPerfil as { pdv_loja_id?: string | null } | null)?.pdv_loja_id

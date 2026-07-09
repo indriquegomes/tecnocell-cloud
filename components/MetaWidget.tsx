@@ -8,6 +8,7 @@ export type MetaInput = {
   diasDecorridos: number
   faturamento: number       // faturamento real no período
   faturamentoHoje: number   // faturamento de hoje
+  pessoas?: number          // quantos dividem a meta (pra mostrar a parte de cada um)
   faixas: Faixa[]           // ordenadas asc por valor
 }
 
@@ -76,8 +77,15 @@ export function MetaWidget({ meta }: { meta: MetaInput }) {
                   </span>
                 )}
               </div>
-              <div className="mt-2.5 inline-flex items-center gap-2 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700">
-                🎁 Prêmio {proxima.nome}: {formatBRL(proxima.premio)}
+              <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-2 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700">
+                  🎁 Prêmio {proxima.nome}: {formatBRL(proxima.premio)}
+                </span>
+                {(meta.pessoas ?? 0) > 1 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700">
+                    👤 sua parte (÷{meta.pessoas}): {formatBRL(proxima.valor / (meta.pessoas ?? 1))}
+                  </span>
+                )}
               </div>
             </>
           ) : (

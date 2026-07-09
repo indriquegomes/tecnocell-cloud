@@ -14,6 +14,7 @@ export async function salvarMeta(formData: FormData) {
     data_inicio: formData.get('data_inicio') as string,
     data_fim: formData.get('data_fim') as string,
     dias_uteis: parseInt((formData.get('dias_uteis') as string) || '26', 10) || 26,
+    pessoas: parseInt((formData.get('pessoas') as string) || '4', 10) || 4,
     ativo: formData.getAll('ativo').includes('1'),
   }
 
