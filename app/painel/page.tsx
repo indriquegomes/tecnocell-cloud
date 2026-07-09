@@ -144,14 +144,40 @@ export default async function DashboardPage() {
     : { data: [] as { meta_id: string; nome: string; valor: number; premio: number; ordem: number }[] }
   const { data: lojasList } = await supabase.from('lojas').select('id, nome')
   const nomeLoja: Record<string, string> = Object.fromEntries((lojasList ?? []).map((l) => [l.id, l.nome]))
-  const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  // Cash-in REAL: soma de pagamentos_venda (dinheiro/PIX/cartão), EXCLUINDO fiado.
+  // Fiado é dívida a receber — não conta como "entrou no caixa" (pedido do Vitor).
+  const metaMin = (metasAtivas ?? []).reduce((a, m) => (m.data_inicio < a ? m.data_inicio : a), '9999-12-31')
+  const metaMax = (metasAtivas ?? []).reduce((a, m) => (m.data_fim > a ? m.data_fim : a), '0000-01-01')
+  const { data: vendasPeriodo } = metaIds.length
+    ? await supabase.from('vendas').select('id, caixa_id, deposito_id, created_at').eq('status', 'concluida').gte('created_at', metaMin).lte('created_at', metaMax + 'T23:59:59')
+    : { data: [] as { id: string; caixa_id: string | null; deposito_id: string | null; created_at: string }[] }
+  const vendaIds = (vendasPeriodo ?? []).map((v) => v.id)
+  const [{ data: pagsV }, { data: formasFiado }, { data: caixasL }, { data: depsL }] = await Promise.all([
+    vendaIds.length ? supabase.from('pagamentos_venda').select('venda_id, valor, forma_pagamento_id').in('venda_id', vendaIds) : Promise.resolve({ data: [] as { venda_id: string; valor: number; forma_pagamento_id: string }[] }),
+    supabase.from('formas_pagamento').select('id').eq('tipo', 'fiado'),
+    supabase.from('caixas').select('id, loja_id'),
+    supabase.from('depositos').select('id, loja_id'),
+  ])
+  const fiadoIds = new Set((formasFiado ?? []).map((f) => f.id))
+  const caixaLoja: Record<string, string | null> = Object.fromEntries((caixasL ?? []).map((c) => [c.id, c.loja_id]))
+  const depLoja: Record<string, string | null> = Object.fromEntries((depsL ?? []).map((d) => [d.id, d.loja_id]))
+  const cashPorVenda: Record<string, number> = {}
+  for (const p of pagsV ?? []) if (!fiadoIds.has(p.forma_pagamento_id)) cashPorVenda[p.venda_id] = (cashPorVenda[p.venda_id] ?? 0) + Number(p.valor)
+  const vendasCash = (vendasPeriodo ?? []).map((v) => ({
+    lojaId: caixaLoja[v.caixa_id ?? ''] ?? depLoja[v.deposito_id ?? ''] ?? null,
+    dia: (v.created_at ?? '').slice(0, 10),
+    cash: cashPorVenda[v.id] ?? 0,
+  }))
+
   const construirMeta = (m: NonNullable<typeof metasAtivas>[number]): MetaInput => {
     const nome = nomeLoja[m.loja_id ?? ''] ?? 'Loja'
-    const fat = Object.entries(porLoja).find(([n]) => norm(n).includes(norm(nome).slice(0, 5)))?.[1] ?? 0
+    const doPeriodo = vendasCash.filter((v) => v.lojaId === m.loja_id && v.dia >= m.data_inicio && v.dia <= m.data_fim)
+    const fat = doPeriodo.reduce((s, v) => s + v.cash, 0)
+    const fatHoje = doPeriodo.filter((v) => v.dia === hoje).reduce((s, v) => s + v.cash, 0)
     const faixas = (faixasAll ?? []).filter((f) => f.meta_id === m.id).map((f) => ({ nome: f.nome, valor: Number(f.valor), premio: Number(f.premio) }))
     const ini = new Date(m.data_inicio + 'T00:00:00')
     const diasCorridos = Math.max(1, Math.min(m.dias_uteis, Math.ceil((Date.now() - ini.getTime()) / 86400000)))
-    return { loja: nome, rotulo: m.rotulo, diasUteis: m.dias_uteis, diasDecorridos: diasCorridos, faturamento: fat, faturamentoHoje: vendasHojeTotal, faixas }
+    return { loja: nome, rotulo: m.rotulo, diasUteis: m.dias_uteis, diasDecorridos: diasCorridos, faturamento: fat, faturamentoHoje: fatHoje, faixas }
   }
   const metasWidgets = (metasAtivas ?? []).map(construirMeta).filter((m) => m.faixas.length > 0)
   const minhaLojaId = (meuPerfil as { pdv_loja_id?: string | null } | null)?.pdv_loja_id
