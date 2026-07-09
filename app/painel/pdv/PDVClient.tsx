@@ -2028,8 +2028,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           {carrinho.length > 0 && (
             <button
               type="button"
-              onClick={() => { setCarrinho([]); setErro(null) }}
-              className="w-full rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-50 transition"
+              onClick={() => { if (confirm(`Limpar o carrinho? ${totalItens} ${totalItens === 1 ? 'item será removido' : 'itens serão removidos'}.`)) { setCarrinho([]); setErro(null) } }}
+              className="w-full rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-red-500 hover:border-red-200 transition"
             >
               Limpar Carrinho
             </button>
