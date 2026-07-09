@@ -60,11 +60,23 @@ body {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+@keyframes tc-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes tc-modal-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
 .animate-pop-in { animation: tc-pop-in 0.14s ease-out; transform-origin: top; }
 .animate-fade-in-up { animation: tc-fade-in-up 0.28s ease-out both; }
+.animate-fade-in { animation: tc-fade-in 0.18s ease-out both; }
+/* Modal: backdrop faz fade; o painel interno (filho direto) entra com pop suave */
+.animate-fade-in > * { animation: tc-modal-in 0.2s ease-out both; }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-pop-in, .animate-fade-in-up { animation: none; }
+  .animate-pop-in, .animate-fade-in-up, .animate-fade-in,
+  .animate-fade-in > * { animation: none; }
 }
 
 /* Feedback universal de botão (o sistema quase não tinha estado :active).

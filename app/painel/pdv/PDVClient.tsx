@@ -2044,7 +2044,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
       {/* Modal de conferência da venda */}
       {mostrarConfirmacao && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
             <div className="border-b border-gray-100 px-6 py-4">
               <h3 className="text-lg font-bold text-gray-900">Confira a venda</h3>
@@ -2126,7 +2126,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
       {/* Modal Crediário (F9) */}
       {mostrarCrediario && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-xl">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
@@ -2277,7 +2277,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
       {/* Modal Receber Pagamento (por linha) */}
       {recebendoItem && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+        <div className="animate-fade-in fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
               <div>
@@ -2404,7 +2404,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
       {/* Modal Detalhe da Venda */}
       {(detalheVenda || carregandoDetalhe) && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+        <div className="animate-fade-in fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
           <div className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
               <h3 className="text-lg font-bold text-gray-900">
@@ -2485,7 +2485,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
       {/* Modal Buscar Vendas (#9) */}
       {mostrarVendas && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
               <h3 className="text-lg font-bold text-gray-900">Buscar Vendas</h3>
@@ -2548,7 +2548,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
       {/* Modal Consultar Produtos (F1 / botão ℹ) — busca própria + ficha rica */}
       {fichaAberta && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-16">
+        <div className="animate-fade-in fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-16">
           <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
               <h3 className="text-base font-bold text-gray-900">Consultar Produtos</h3>
@@ -2667,7 +2667,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
       {/* Modal F3 — Buscar Orçamentos e Pedidos */}
       {mostrarOrcamentos && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
               <h3 className="text-lg font-bold text-gray-900">Buscar Orçamentos e Pedidos</h3>
@@ -2740,7 +2740,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
       {/* Toast de aviso — discreto, canto inferior direito, some sozinho */}
       {erro && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-start gap-3 rounded-xl bg-red-600 px-4 py-3 shadow-lg max-w-xs">
+        <div className="animate-fade-in-up fixed bottom-6 right-6 z-50 flex items-start gap-3 rounded-xl bg-red-600 px-4 py-3 shadow-lg max-w-xs">
           <span className="text-sm font-medium text-white">{erro}</span>
           <button type="button" onClick={() => setErro(null)}
             className="ml-1 text-red-200 hover:text-white text-sm leading-none">✕</button>
