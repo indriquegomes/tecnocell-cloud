@@ -4,6 +4,7 @@ import { editarProduto } from '../../actions'
 import { ImageUpload } from '@/components/ImageUpload'
 import { PrecoFields } from '../../PrecoFields'
 import { MovimentacoesProduto } from '../MovimentacoesProduto'
+import { SubmitButton } from '@/components/SubmitButton'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -130,9 +131,9 @@ export default async function EditarProdutoPage({ params }: { params: Promise<{ 
         </div>
 
         <div className="flex gap-3 pt-2">
-          <button type="submit" className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
+          <SubmitButton pendingText="Salvando…" className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-60">
             Salvar Alterações
-          </button>
+          </SubmitButton>
           <Link href="/painel/produtos" className="rounded-xl border border-gray-200 px-6 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
             Cancelar
           </Link>

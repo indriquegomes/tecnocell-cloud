@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
+import { SubmitButton } from '@/components/SubmitButton'
 import { criarMarca, renomearMarca, excluirMarca } from './actions'
 
 export default async function MarcasPage({
@@ -47,9 +48,9 @@ export default async function MarcasPage({
       {/* Nova marca */}
       <form action={criarMarca} className="flex gap-2 max-w-md">
         <input name="nome" placeholder="Nova marca (ex: Apple)" className="field flex-1" autoComplete="off" required />
-        <button type="submit" className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition whitespace-nowrap">
+        <SubmitButton pendingText="Adicionando…" className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition whitespace-nowrap disabled:opacity-60">
           + Adicionar
-        </button>
+        </SubmitButton>
       </form>
 
       {/* Lista */}

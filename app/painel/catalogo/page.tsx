@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { Paginacao } from '@/components/Paginacao'
 import { BuscaLista } from '@/components/BuscaLista'
+import { SubmitButton } from '@/components/SubmitButton'
 import { toggleCatalogo, salvarDescricaoCatalogo } from './actions'
 import Link from 'next/link'
 
@@ -86,10 +87,10 @@ export default async function CatalogoPage({
                 placeholder="https://..." />
             </div>
             <div className="flex gap-3">
-              <button type="submit"
-                className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
+              <SubmitButton pendingText="Salvando…"
+                className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-60">
                 Salvar
-              </button>
+              </SubmitButton>
               <a href="/painel/catalogo"
                 className="rounded-xl border border-gray-200 px-6 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
                 Cancelar

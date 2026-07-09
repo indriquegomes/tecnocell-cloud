@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { SubmitButton } from '@/components/SubmitButton'
 import { transferirEstoque } from '../actions'
 
 type Deposito = { id: string; nome: string }
@@ -166,13 +167,13 @@ export function TransferenciaForm({
 
       <input type="hidden" name="series" value={JSON.stringify(series)} />
 
-      <button
-        type="submit"
+      <SubmitButton
         disabled={!podeEnviar}
+        pendingText="Transferindo…"
         className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
       >
         Transferir{serializado && series.length > 0 ? ` ${series.length} aparelho${series.length === 1 ? '' : 's'}` : ''}
-      </button>
+      </SubmitButton>
     </form>
   )
 }

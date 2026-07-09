@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { SubmitButton } from '@/components/SubmitButton'
 import { registrarMovimentos } from '../actions'
 
 type Deposito = { id: string; nome: string }
@@ -311,13 +312,13 @@ export function NovaMovimentacaoForm({
         </div>
 
         <div className="flex gap-3 pt-1">
-          <button
-            type="submit"
+          <SubmitButton
             disabled={itens.length === 0}
+            pendingText="Salvando…"
             className="rounded-lg bg-green-600 px-6 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
           >
             Salvar{itens.length > 0 ? ` (${itens.length} ${itens.length === 1 ? 'item' : 'itens'})` : ''}
-          </button>
+          </SubmitButton>
         </div>
       </form>
     </details>
