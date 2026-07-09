@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Spinner } from '@/components/Spinner'
 import { createClient } from '@/lib/supabase/client'
-import { buscarMeuPerfil, atualizarMeuNome, alterarMinhaSenha, atualizarMinhaFoto, type Res } from './actions'
+import { buscarMeuPerfil, atualizarMeuNome, alterarMinhaSenha, atualizarMinhaFoto, baterPonto, buscarMeuPontoHoje, type Res, type Ponto } from './actions'
 
 export function MeuPerfilClient() {
   const supabase = createClient()
@@ -25,6 +25,9 @@ export function MeuPerfilClient() {
   const [enviandoFoto, setEnviandoFoto] = useState(false)
   const fotoRef = useRef<HTMLInputElement>(null)
 
+  const [pontos, setPontos] = useState<Ponto[]>([])
+  const [batendo, setBatendo] = useState(false)
+
   const token = async () => (await supabase.auth.getSession()).data.session?.access_token ?? ''
 
   useEffect(() => {
@@ -32,11 +35,19 @@ export function MeuPerfilClient() {
       try {
         const p = await buscarMeuPerfil(await token())
         setNome(p.nome); setEmail(p.email); setCargo(p.cargo); setAvatarUrl(p.avatarUrl)
+        setPontos(await buscarMeuPontoHoje(await token()).catch(() => []))
       } catch { /* sessão — o proxy redireciona */ }
       finally { setCarregando(false) }
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  async function registrarPonto(tipo: string) {
+    setBatendo(true)
+    const r = await baterPonto(await token(), tipo)
+    if (r.ok) setPontos(await buscarMeuPontoHoje(await token()).catch(() => pontos))
+    setBatendo(false)
+  }
 
   async function salvarNome(e: React.FormEvent) {
     e.preventDefault(); setSalvandoNome(true); setMsgNome(null)
@@ -70,6 +81,23 @@ export function MeuPerfilClient() {
 
   const msgCls = (r: Res) => r.ok ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'
   const iniciais = nome.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?'
+
+  // ---- Ponto de hoje ----
+  const fmtHora = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
+  const ultimo = pontos[pontos.length - 1]?.tipo ?? null
+  const statusPonto = !ultimo ? 'fora' : ultimo === 'saida' ? 'encerrado' : ultimo === 'pausa' ? 'pausa' : 'trabalhando'
+  let trabMin = 0, aberto: number | null = null
+  for (const p of pontos) {
+    const t = new Date(p.criado_em).getTime()
+    if (p.tipo === 'entrada' || p.tipo === 'retorno') aberto = t
+    else if ((p.tipo === 'pausa' || p.tipo === 'saida') && aberto != null) { trabMin += (t - aberto) / 60000; aberto = null }
+  }
+  if (aberto != null) trabMin += (Date.now() - aberto) / 60000
+  const horasTxt = `${Math.floor(trabMin / 60)}h ${String(Math.round(trabMin % 60)).padStart(2, '0')}m`
+  const acoesPonto: [string, string, string][] =
+    !ultimo || ultimo === 'saida' ? [['entrada', '▶ Entrada', 'bg-emerald-600 hover:bg-emerald-700']]
+    : ultimo === 'pausa' ? [['retorno', '▶ Retornar', 'bg-emerald-600 hover:bg-emerald-700']]
+    : [['pausa', '⏸ Pausa', 'bg-amber-500 hover:bg-amber-600'], ['saida', '⏹ Saída', 'bg-gray-700 hover:bg-gray-800']]
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
@@ -114,6 +142,34 @@ export function MeuPerfilClient() {
           </div>
           {msgFoto && <div className={`mt-4 rounded-lg border px-3 py-2 text-sm ${msgCls(msgFoto)}`}>{msgFoto.message}</div>}
         </div>
+      </div>
+
+      {/* Ponto de hoje */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-700">🕐 Ponto de hoje</h3>
+          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusPonto === 'trabalhando' ? 'bg-emerald-50 text-emerald-700' : statusPonto === 'pausa' ? 'bg-amber-50 text-amber-700' : statusPonto === 'encerrado' ? 'bg-gray-100 text-gray-500' : 'bg-gray-100 text-gray-400'}`}>
+            {statusPonto === 'trabalhando' ? '🟢 Trabalhando' : statusPonto === 'pausa' ? '⏸ Em pausa' : statusPonto === 'encerrado' ? '✓ Encerrado' : 'Fora'}
+          </span>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {acoesPonto.map(([t, l, c]) => (
+            <button key={t} type="button" onClick={() => registrarPonto(t)} disabled={batendo}
+              className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition disabled:opacity-60 ${c}`}>
+              {batendo ? <Spinner className="h-3.5 w-3.5" /> : l}
+            </button>
+          ))}
+          <span className="ml-auto text-sm text-gray-500">Trabalhado hoje: <b className="tabular-nums text-gray-800">{horasTxt}</b></span>
+        </div>
+        {pontos.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {pontos.map((p) => (
+              <span key={p.id} className="inline-flex items-center gap-1 rounded-lg bg-gray-50 px-2.5 py-1 text-xs text-gray-600">
+                {p.tipo === 'pausa' ? '⏸' : p.tipo === 'saida' ? '⏹' : '▶'} {p.tipo} <b className="tabular-nums text-gray-800">{fmtHora(p.criado_em)}</b>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Nome */}

@@ -53,6 +53,34 @@ export async function atualizarMeuNome(token: string, nome: string): Promise<Res
   return { ok: true, message: 'Nome atualizado' }
 }
 
+export type Ponto = { id: string; tipo: string; criado_em: string }
+
+// Registra uma batida de ponto (entrada/pausa/retorno/saida) do usuário logado.
+export async function baterPonto(token: string, tipo: string): Promise<{ ok: boolean; message?: string; ponto?: Ponto }> {
+  const user = await requireAuth(token)
+  if (!['entrada', 'pausa', 'retorno', 'saida'].includes(tipo)) return { ok: false, message: 'Tipo inválido' }
+  const s = await createServiceClient()
+  const { data: perfil } = await s.from('perfis').select('pdv_loja_id').eq('id', user.id).maybeSingle()
+  const { data, error } = await s.from('pontos')
+    .insert({ usuario_id: user.id, tipo, loja_id: (perfil as { pdv_loja_id?: string | null } | null)?.pdv_loja_id ?? null })
+    .select('id, tipo, criado_em').single()
+  if (error) return { ok: false, message: error.message }
+  return { ok: true, ponto: data as Ponto }
+}
+
+// Batidas de HOJE do usuário logado (fuso America/Sao_Paulo).
+export async function buscarMeuPontoHoje(token: string): Promise<Ponto[]> {
+  const user = await requireAuth(token)
+  const s = await createServiceClient()
+  const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) // YYYY-MM-DD
+  const { data } = await s.from('pontos')
+    .select('id, tipo, criado_em')
+    .eq('usuario_id', user.id)
+    .gte('criado_em', `${hoje}T00:00:00-03:00`)
+    .order('criado_em')
+  return (data ?? []) as Ponto[]
+}
+
 export async function alterarMinhaSenha(token: string, senhaAtual: string, senhaNova: string): Promise<Res> {
   const user = await requireAuth(token)
   if (senhaNova.trim().length < 4) return { ok: false, message: 'A nova senha deve ter ao menos 4 caracteres' }

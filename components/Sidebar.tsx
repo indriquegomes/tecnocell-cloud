@@ -70,6 +70,7 @@ const navCompleto: NavGroup[] = [
     group: 'Admin',
     items: [
       { href: '/painel/relatorios',    label: 'Relatórios',    permissao: 'relatorios' },
+      { href: '/painel/rh',            label: 'RH / Equipe',   permissao: 'rh' },
       { href: '/painel/usuarios',      label: 'Usuários',      permissao: 'usuarios' },
       { href: '/painel/cargos',        label: 'Cargos',        permissao: 'usuarios' },
       { href: '/painel/configuracoes', label: 'Configurações', permissao: 'usuarios' },
