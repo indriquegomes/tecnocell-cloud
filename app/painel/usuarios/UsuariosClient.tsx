@@ -278,42 +278,44 @@ function NovoUsuarioModal({ cargos, onClose }: { cargos: Cargo[]; onClose: () =>
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-xl rounded-2xl bg-white shadow-xl overflow-hidden">
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+      <div className="flex w-full max-w-xl flex-col rounded-2xl bg-white shadow-xl overflow-hidden" style={{ maxHeight: '90vh' }}>
+        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-4">
           <h3 className="text-base font-semibold text-gray-800">Novo Usuário</h3>
           <button onClick={onClose} className="text-xl leading-none text-gray-400 hover:text-gray-600">×</button>
         </div>
-        <form action={withToken(action)} className="space-y-5 px-6 py-5">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Nome *</label>
-              <input name="nome" className="field" placeholder="Ex: Mariana" required />
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          <form id="form-novo-user" action={withToken(action)} className="space-y-5">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Nome *</label>
+                <input name="nome" className="field" placeholder="Ex: Mariana" required />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">E-mail *</label>
+                <input name="email" type="email" className="field" placeholder="mariana@tecnocell.com" required />
+              </div>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">E-mail *</label>
-              <input name="email" type="email" className="field" placeholder="mariana@tecnocell.com" required />
+              <label className="mb-1 block text-sm font-medium text-gray-700">Senha *</label>
+              <input name="senha" type="text" className="field" placeholder="Mínimo 4 caracteres" required />
+              <p className="mt-1 text-xs text-gray-400">Pode ser simples: nome + número</p>
             </div>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Senha *</label>
-            <input name="senha" type="text" className="field" placeholder="Mínimo 4 caracteres" required />
-            <p className="mt-1 text-xs text-gray-400">Pode ser simples: nome + número</p>
-          </div>
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">Cargo / Permissões</label>
-            <CargoOuPermissoes cargos={cargos} cargoId={null} permissoes={[]} isMaster={false} />
-          </div>
-          <div className="flex items-center justify-between border-t border-gray-100 pt-4">
-            <Feedback state={state} />
-            <button
-              type="submit"
-              disabled={pending}
-              className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50"
-            >
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">Cargo / Permissões</label>
+              <CargoOuPermissoes cargos={cargos} cargoId={null} permissoes={[]} isMaster={false} />
+            </div>
+          </form>
+        </div>
+        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-gray-100 bg-gray-50 px-6 py-3">
+          <Feedback state={state} />
+          <div className="ml-auto flex gap-2">
+            <button type="button" onClick={onClose} className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 transition">Cancelar</button>
+            <button type="submit" form="form-novo-user" disabled={pending}
+              className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50">
               {pending ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Criando...</span> : 'Criar Usuário'}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   )
@@ -326,12 +328,13 @@ function ConvidarModal({ cargos, onClose }: { cargos: Cargo[]; onClose: () => vo
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-xl rounded-2xl bg-white shadow-xl overflow-hidden">
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+      <div className="flex w-full max-w-xl flex-col rounded-2xl bg-white shadow-xl overflow-hidden" style={{ maxHeight: '90vh' }}>
+        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-4">
           <h3 className="text-base font-semibold text-gray-800">Convidar usuária</h3>
           <button onClick={onClose} className="text-xl leading-none text-gray-400 hover:text-gray-600">×</button>
         </div>
 
+        <div className="min-h-0 flex-1 overflow-y-auto">
         {state?.ok ? (
           <div className="space-y-4 px-6 py-5">
             <p className="text-sm text-green-700">✓ {state.message}</p>
@@ -375,6 +378,7 @@ function ConvidarModal({ cargos, onClose }: { cargos: Cargo[]; onClose: () => vo
             </div>
           </form>
         )}
+        </div>
       </div>
     </div>
   )
