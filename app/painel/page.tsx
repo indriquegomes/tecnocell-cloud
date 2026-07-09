@@ -169,14 +169,22 @@ export default async function DashboardPage() {
     cash: cashPorVenda[v.id] ?? 0,
   }))
 
+  // conta dias TRABALHADOS (segunda a sábado, pula domingo) entre duas datas
+  const diasTrabalhados = (a: string, b: string) => {
+    const ini = new Date(a + 'T00:00:00'), fim = new Date(b + 'T00:00:00')
+    let n = 0
+    for (const d = new Date(ini); d <= fim; d.setDate(d.getDate() + 1)) if (d.getDay() !== 0) n++
+    return n
+  }
   const construirMeta = (m: NonNullable<typeof metasAtivas>[number]): MetaInput => {
     const nome = nomeLoja[m.loja_id ?? ''] ?? 'Loja'
     const doPeriodo = vendasCash.filter((v) => v.lojaId === m.loja_id && v.dia >= m.data_inicio && v.dia <= m.data_fim)
     const fat = doPeriodo.reduce((s, v) => s + v.cash, 0)
     const fatHoje = doPeriodo.filter((v) => v.dia === hoje).reduce((s, v) => s + v.cash, 0)
     const faixas = (faixasAll ?? []).filter((f) => f.meta_id === m.id).map((f) => ({ nome: f.nome, valor: Number(f.valor), premio: Number(f.premio) }))
-    const ini = new Date(m.data_inicio + 'T00:00:00')
-    const diasCorridos = Math.max(1, Math.min(m.dias_uteis, Math.ceil((Date.now() - ini.getTime()) / 86400000)))
+    // dias trabalhados (seg–sáb) já decorridos, do início até hoje (sem passar do fim), limitado ao total
+    const ateHoje = hoje < m.data_fim ? hoje : m.data_fim
+    const diasCorridos = Math.max(1, Math.min(m.dias_uteis, diasTrabalhados(m.data_inicio, ateHoje)))
     return { loja: nome, rotulo: m.rotulo, diasUteis: m.dias_uteis, diasDecorridos: diasCorridos, faturamento: fat, faturamentoHoje: fatHoje, faixas }
   }
   const metasWidgets = (metasAtivas ?? []).map(construirMeta).filter((m) => m.faixas.length > 0)
