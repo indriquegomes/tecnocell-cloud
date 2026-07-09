@@ -1424,34 +1424,34 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
         {/* Seletores de loja, depósito e tabela de preço — quebram fluido ao apertar */}
         <div className="flex flex-wrap gap-3">
-          <div className="flex flex-1 basis-52 min-w-0 items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+          <div className="flex flex-1 basis-52 min-w-0 items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm transition focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500/40">
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide shrink-0">Loja</label>
             <select
               value={lojaId}
               onChange={(e) => trocarLoja(e.target.value)}
-              className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 min-w-0 cursor-pointer bg-transparent text-sm font-medium text-gray-800 focus:outline-none"
             >
               {lojas.length === 0 && <option value="">Nenhuma loja</option>}
               {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
             </select>
           </div>
-          <div className="flex flex-1 basis-52 min-w-0 items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+          <div className="flex flex-1 basis-52 min-w-0 items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm transition focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500/40">
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide shrink-0">Estoque</label>
             <select
               value={depositoId}
               onChange={(e) => trocarDeposito(e.target.value)}
-              className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 min-w-0 cursor-pointer bg-transparent text-sm font-medium text-gray-800 focus:outline-none"
             >
               {depositosDaLoja.length === 0 && <option value="">Sem depósito nesta loja</option>}
               {depositosDaLoja.map((d) => <option key={d.id} value={d.id}>{d.nome}</option>)}
             </select>
           </div>
-          <div className="flex flex-1 basis-52 min-w-0 items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+          <div className="flex flex-1 basis-52 min-w-0 items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm transition focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500/40">
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide shrink-0">Tabela</label>
             <select
               value={tabelaId}
               onChange={(e) => trocarTabela(e.target.value)}
-              className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 min-w-0 cursor-pointer bg-transparent text-sm font-medium text-gray-800 focus:outline-none"
             >
               <option value="">Preço Padrão</option>
               {tabelas.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
@@ -2003,9 +2003,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             onClick={abrirConfirmacao}
             disabled={carrinho.length === 0 || loading || !caixaAberto}
             title={!caixaAberto ? 'Abra o caixa da loja pra vender' : undefined}
-            className="w-full rounded-xl bg-green-600 py-3 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50 transition"
+            className="w-full rounded-xl bg-gradient-to-r from-green-600 to-green-500 py-3.5 text-sm font-bold text-white shadow-sm shadow-green-600/25 hover:from-green-700 hover:to-green-600 disabled:from-gray-300 disabled:to-gray-300 disabled:text-white disabled:shadow-none disabled:cursor-not-allowed transition"
           >
-            {!caixaAberto ? '🔒 Caixa fechado — abra pra vender' : `Finalizar Venda — ${formatBRL(totalCobrado)}`}
+            {loading ? <span className="inline-flex items-center gap-2"><Spinner />Finalizando…</span>
+              : !caixaAberto ? '🔒 Caixa fechado — abra pra vender'
+              : <span className="inline-flex items-center gap-2">Finalizar Venda <span className="tabular-nums">{formatBRL(totalCobrado)}</span></span>}
           </button>
 
           {carrinho.length > 0 && (
