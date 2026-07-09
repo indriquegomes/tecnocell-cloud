@@ -1412,7 +1412,13 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           </div>
         )}
         {/* Barra de ações */}
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          <a
+            href="/painel/pdv/operacao"
+            className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition shadow-sm"
+          >
+            🧾 Caixa / Operação
+          </a>
           <button
             type="button"
             onClick={abrirVendas}

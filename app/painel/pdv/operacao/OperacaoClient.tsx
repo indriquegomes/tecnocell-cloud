@@ -937,10 +937,11 @@ export function OperacaoClient({
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Link href="/painel/pdv" className="text-gray-400 hover:text-gray-600">
-          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <Link href="/painel/pdv" className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition">
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
+          Voltar ao PDV
         </Link>
         <h2 className="text-2xl font-bold text-gray-900">Operação do PDV</h2>
         {lojas.length > 1 && (
