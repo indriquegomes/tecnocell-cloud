@@ -1,7 +1,7 @@
 'use client'
 
 import { Spinner } from '@/components/Spinner'
-import { useActionState, useState } from 'react'
+import { useActionState, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -19,9 +19,13 @@ async function authToken(): Promise<string> {
   const { data } = await supabaseBrowser.auth.getSession()
   return data.session?.access_token ?? ''
 }
+// token carregado 1x no mount (ver useEffect no componente principal). withToken lê
+// SÍNCRONO (sem await) — o dispatch do useActionState precisa acontecer dentro da
+// transição do form; com await antes ele roda fora e a action NÃO salva.
+let tokenCache = ''
 function withToken(action: (fd: FormData) => void) {
-  return async (fd: FormData) => {
-    fd.set('access_token', await authToken())
+  return (fd: FormData) => {
+    fd.set('access_token', tokenCache)
     action(fd)
   }
 }
@@ -922,6 +926,8 @@ export function OperacaoClient({
 }: Props) {
   const [panel, setPanel] = useState<Panel>(null)
   const toggle = (p: Panel) => setPanel((prev) => (prev === p ? null : p))
+  // carrega o token do navegador 1x → o withToken usa ele síncrono no submit
+  useEffect(() => { authToken().then((t) => { tokenCache = t }) }, [])
 
   const formasFisicas = formas.filter((f) => !FORMAS_INVALIDAS.some((inv) => f.includes(inv)))
   const totalVendasReais = Math.max(0, totalVendas - totalCrediario)
