@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Spinner } from '@/components/Spinner'
 import { createClient } from '@/lib/supabase/client'
-import { buscarMeuPerfil, atualizarMeuNome, alterarMinhaSenha, type Res } from './actions'
+import { buscarMeuPerfil, atualizarMeuNome, alterarMinhaSenha, atualizarMinhaFoto, type Res } from './actions'
 
 export function MeuPerfilClient() {
   const supabase = createClient()
@@ -11,6 +11,7 @@ export function MeuPerfilClient() {
   const [email, setEmail] = useState<string | null>(null)
   const [cargo, setCargo] = useState<string | null>(null)
   const [nome, setNome] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
   const [senhaAtual, setSenhaAtual] = useState('')
   const [senhaNova, setSenhaNova] = useState('')
@@ -18,8 +19,11 @@ export function MeuPerfilClient() {
 
   const [msgNome, setMsgNome] = useState<Res | null>(null)
   const [msgSenha, setMsgSenha] = useState<Res | null>(null)
+  const [msgFoto, setMsgFoto] = useState<Res | null>(null)
   const [salvandoNome, setSalvandoNome] = useState(false)
   const [salvandoSenha, setSalvandoSenha] = useState(false)
+  const [enviandoFoto, setEnviandoFoto] = useState(false)
+  const fotoRef = useRef<HTMLInputElement>(null)
 
   const token = async () => (await supabase.auth.getSession()).data.session?.access_token ?? ''
 
@@ -27,7 +31,7 @@ export function MeuPerfilClient() {
     ;(async () => {
       try {
         const p = await buscarMeuPerfil(await token())
-        setNome(p.nome); setEmail(p.email); setCargo(p.cargo)
+        setNome(p.nome); setEmail(p.email); setCargo(p.cargo); setAvatarUrl(p.avatarUrl)
       } catch { /* sessão — o proxy redireciona */ }
       finally { setCarregando(false) }
     })()
@@ -50,17 +54,66 @@ export function MeuPerfilClient() {
     setSalvandoSenha(false)
   }
 
+  async function enviarFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setEnviandoFoto(true); setMsgFoto(null)
+    const fd = new FormData(); fd.set('imagem', file)
+    const r = await atualizarMinhaFoto(await token(), fd)
+    setMsgFoto(r)
+    if (r.ok) { const p = await buscarMeuPerfil(await token()); setAvatarUrl(p.avatarUrl) }
+    setEnviandoFoto(false)
+    if (fotoRef.current) fotoRef.current.value = ''
+  }
+
   if (carregando) return <p className="text-sm text-gray-400">Carregando...</p>
 
   const msgCls = (r: Res) => r.ok ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'
+  const iniciais = nome.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?'
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Meu Perfil</h2>
-        <p className="text-sm text-gray-400 mt-0.5">
-          {email}{cargo ? ` · ${cargo}` : ''}
-        </p>
+      {/* Hero com avatar */}
+      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="h-24 bg-gradient-to-r from-blue-700 to-blue-500" />
+        <div className="px-6 pb-6">
+          <div className="-mt-12 flex items-end gap-4">
+            <div className="relative shrink-0">
+              <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-blue-100 shadow-md">
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarUrl} alt={nome} className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-2xl font-bold text-blue-700">{iniciais}</span>
+                )}
+              </div>
+              {/* Botão da câmera pra trocar foto */}
+              <button
+                type="button"
+                onClick={() => fotoRef.current?.click()}
+                disabled={enviandoFoto}
+                title="Trocar foto"
+                className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-blue-600 text-white shadow hover:bg-blue-700 disabled:opacity-60 transition"
+              >
+                {enviandoFoto ? <Spinner className="h-3.5 w-3.5" /> : (
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 8a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h2l1.5-2h9L18 8h2a2 2 0 012 2v9a2 2 0 01-2 2H4a2 2 0 01-2-2v-9a2 2 0 012-2z" />
+                  </svg>
+                )}
+              </button>
+              <input ref={fotoRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={enviarFoto} className="hidden" />
+            </div>
+            <div className="min-w-0 pb-1">
+              <h2 className="truncate text-xl font-bold text-gray-900">{nome || 'Meu Perfil'}</h2>
+              <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                <span className="truncate text-sm text-gray-500">{email}</span>
+                {cargo && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">{cargo}</span>}
+              </div>
+            </div>
+          </div>
+          {msgFoto && <div className={`mt-4 rounded-lg border px-3 py-2 text-sm ${msgCls(msgFoto)}`}>{msgFoto.message}</div>}
+        </div>
       </div>
 
       {/* Nome */}
