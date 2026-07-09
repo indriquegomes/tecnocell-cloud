@@ -62,24 +62,30 @@ export function MetaWidget({ meta }: { meta: MetaInput }) {
           </div>
         </div>
 
-        {/* Faturamento + faltam + prêmio */}
+        {/* QUANTO FALTA é o número-herói (o faturamento vem do histórico e é secundário) */}
         <div className="min-w-0">
-          <p className="text-xs font-medium text-gray-400">Faturamento no período</p>
-          <p className="text-3xl font-extrabold tabular-nums text-gray-900">{formatBRL(fat)}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-            {atingida ? (
-              <span className="inline-flex items-center gap-1 font-semibold" style={{ color: GEMA[atingida.nome] ?? BLUE }}>
-                <span className="h-2 w-2 rounded-full" style={{ background: GEMA[atingida.nome] ?? BLUE }} /> {atingida.nome} batida
-              </span>
-            ) : <span className="text-gray-400">Rumo à {faixas[0]?.nome}</span>}
-            {proxima && (
-              <span className="text-gray-500">· faltam <b className="tabular-nums text-gray-800">{formatBRL(faltam)}</b> pra <b style={{ color: GEMA[proxima.nome] ?? BLUE }}>{proxima.nome}</b></span>
-            )}
-          </div>
-          {proxima && (
-            <div className="mt-2.5 inline-flex items-center gap-2 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700">
-              🎁 Prêmio {proxima.nome}: {formatBRL(proxima.premio)}
-            </div>
+          {proxima ? (
+            <>
+              <p className="text-xs font-medium text-gray-400">Faltam pra <span className="font-bold" style={{ color: GEMA[proxima.nome] ?? BLUE }}>{proxima.nome}</span></p>
+              <p className="text-3xl font-extrabold tabular-nums text-gray-900">{formatBRL(faltam)}</p>
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-gray-500">
+                <span>Faturado <b className="tabular-nums text-gray-700">{formatBRL(fat)}</b></span>
+                {atingida && (
+                  <span className="inline-flex items-center gap-1 font-semibold" style={{ color: GEMA[atingida.nome] ?? BLUE }}>
+                    · <span className="h-2 w-2 rounded-full" style={{ background: GEMA[atingida.nome] ?? BLUE }} /> {atingida.nome} batida
+                  </span>
+                )}
+              </div>
+              <div className="mt-2.5 inline-flex items-center gap-2 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700">
+                🎁 Prêmio {proxima.nome}: {formatBRL(proxima.premio)}
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-xs font-medium text-gray-400">🏆 Todas as faixas batidas!</p>
+              <p className="text-3xl font-extrabold tabular-nums text-gray-900">{formatBRL(fat)}</p>
+              <p className="mt-1 text-sm font-semibold" style={{ color: GEMA[faixas[faixas.length - 1]?.nome] ?? BLUE }}>{faixas[faixas.length - 1]?.nome} conquistada</p>
+            </>
           )}
         </div>
       </div>

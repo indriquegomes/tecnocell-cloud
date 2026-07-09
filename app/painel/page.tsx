@@ -156,7 +156,9 @@ export default async function DashboardPage() {
   const metasWidgets = (metasAtivas ?? []).map(construirMeta).filter((m) => m.faixas.length > 0)
   const minhaLojaId = (meuPerfil as { pdv_loja_id?: string | null } | null)?.pdv_loja_id
   const minhaMetaNome = minhaLojaId ? nomeLoja[minhaLojaId] : null
-  const minhaMeta = (minhaMetaNome && metasWidgets.find((m) => m.loja === minhaMetaNome)) || metasWidgets[0] || null
+  // só mostra "a meta dela" quando sabemos a loja (pdv_loja_id). Senão, mostra
+  // todas (não chuta Petrópolis pra quem pode ser de Teresópolis).
+  const minhaMeta = (minhaMetaNome && metasWidgets.find((m) => m.loja === minhaMetaNome)) || null
 
   const cor = (i: number) => (i === 0 ? 'bg-white' : i === 1 ? 'bg-white/55' : 'bg-white/30')
 
@@ -228,8 +230,8 @@ export default async function DashboardPage() {
           <Stat icon="🛒" bg="bg-emerald-50" label="Vendas hoje" value={formatBRL(meuHoje)} sub={`${meuNVendasHoje} venda(s)`} href="/painel/pdv" />
         </div>
 
-        {/* Meta da loja — o time todo mira as faixas */}
-        {minhaMeta && <MetaWidget meta={minhaMeta} />}
+        {/* Meta da loja — o time todo mira as faixas (sabendo a loja: só a dela; senão, todas) */}
+        {minhaMeta ? <MetaWidget meta={minhaMeta} /> : metasWidgets.map((m, i) => <MetaWidget key={i} meta={m} />)}
 
         <Link href="/painel/pdv" className="flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 p-5 text-lg font-bold text-white shadow-sm shadow-emerald-600/25 transition hover:from-emerald-700 hover:to-emerald-600">
           🛒 Abrir o PDV
