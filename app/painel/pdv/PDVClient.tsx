@@ -439,13 +439,22 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   }
   const textoProduto = (p: Produto) => `${p.nome} ${p.codigo ?? ''} ${p.marca ?? ''}`
 
+  // Prioridade de estoque na busca (pedido da Isa): 1º tem na loja atual,
+  // 2º não tem aqui mas tem na outra loja, 3º sem estoque em lugar nenhum.
+  const idsDepLojaAtual = depositosDaLoja.map((d) => d.id)
+  const saldoNaLojaAtual = (p: Produto) => idsDepLojaAtual.reduce((s, id) => s + (p.estoquePorDeposito[id] ?? 0), 0)
+  const saldoOutrasLojas = (p: Produto) => depositosReais.reduce((s, d) => s + (d.loja_id === lojaId ? 0 : (p.estoquePorDeposito[d.id] ?? 0)), 0)
+  const prioridadeEstoque = (p: Produto) => (saldoNaLojaAtual(p) > 0 ? 0 : saldoOutrasLojas(p) > 0 ? 1 : 2)
+  const ordenarPorEstoque = (lista: Produto[]) =>
+    [...lista].sort((a, b) => prioridadeEstoque(a) - prioridadeEstoque(b) || a.nome.localeCompare(b.nome))
+
   const produtosFiltrados = busca.trim().length >= 1
-    ? produtos.filter((p) => casaBusca(textoProduto(p), busca)).slice(0, 8)
+    ? ordenarPorEstoque(produtos.filter((p) => casaBusca(textoProduto(p), busca))).slice(0, 40)
     : []
 
   // Busca interna do modal Consultar Produtos (F1)
   const fichaFiltrados = buscaFicha.trim().length >= 1
-    ? produtos.filter((p) => casaBusca(textoProduto(p), buscaFicha)).slice(0, 20)
+    ? ordenarPorEstoque(produtos.filter((p) => casaBusca(textoProduto(p), buscaFicha))).slice(0, 40)
     : []
 
   // trocar a busca zera as peças marcadas (evita marcar de uma busca e copiar de outra)
@@ -1521,6 +1530,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           />
           {produtosFiltrados.length > 0 && (
             <div className="absolute top-full left-0 right-0 z-10 mt-1 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
+              <div className="max-h-[60vh] overflow-y-auto overscroll-contain">
               {produtosFiltrados.map((p) => {
                 const disp = saldoNoDeposito(p)
                 return (
@@ -1578,6 +1588,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 </div>
                 )
               })}
+              </div>
               <button
                 type="button"
                 onClick={copiarPrecos}
