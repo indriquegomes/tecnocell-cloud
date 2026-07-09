@@ -1502,7 +1502,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             </div>
           )}
           {clientesFiltrados.length > 0 && (
-            <div className="absolute top-full left-0 right-0 z-20 mt-1 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
+            <div className="animate-pop-in absolute top-full left-0 right-0 z-20 mt-1 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
               {clientesFiltrados.map((p) => (
                 <button key={p.id} type="button"
                   onClick={() => {
@@ -1561,7 +1561,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             </button>
           ) : null}
           {produtosFiltrados.length > 0 && (
-            <div className="absolute top-full left-0 right-0 z-10 mt-1 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
+            <div className="animate-pop-in absolute top-full left-0 right-0 z-10 mt-1 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
               <div className="max-h-[60vh] overflow-y-auto overscroll-contain">
               {produtosFiltrados.map((p, idx) => {
                 const disp = saldoNoDeposito(p)
@@ -1632,7 +1632,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             </div>
           )}
           {busca.trim().length >= 1 && produtosFiltrados.length === 0 && (
-            <div className="absolute top-full left-0 right-0 z-10 mt-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-400 shadow-lg">
+            <div className="animate-pop-in absolute top-full left-0 right-0 z-10 mt-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-400 shadow-lg">
               {buscandoProdutos ? 'Buscando…' : 'Nenhum produto encontrado.'}
             </div>
           )}

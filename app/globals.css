@@ -49,3 +49,20 @@ body {
   border-color: #1b6ca8;
   box-shadow: 0 0 0 2px rgba(27, 108, 168, 0.2);
 }
+
+/* Animações sutis (CSS puro, custo ~zero, sem lib). Reversível: apagar este
+   bloco. Respeita prefers-reduced-motion (acessibilidade). */
+@keyframes tc-pop-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes tc-fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-pop-in { animation: tc-pop-in 0.14s ease-out; transform-origin: top; }
+.animate-fade-in-up { animation: tc-fade-in-up 0.28s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pop-in, .animate-fade-in-up { animation: none; }
+}
