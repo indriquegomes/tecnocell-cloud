@@ -386,8 +386,8 @@ function EditarModal({ usuario, cargos, lojas, depositos, tabelas, onClose }: { 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-xl rounded-2xl bg-white shadow-xl overflow-hidden" style={{ maxHeight: '90vh' }}>
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+      <div className="flex w-full max-w-xl flex-col rounded-2xl bg-white shadow-xl overflow-hidden" style={{ maxHeight: '90vh' }}>
+        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-4">
           <div>
             <h3 className="text-base font-semibold text-gray-800">{usuario.nome}</h3>
             <p className="text-xs text-gray-400">{usuario.email}</p>
@@ -395,8 +395,8 @@ function EditarModal({ usuario, cargos, lojas, depositos, tabelas, onClose }: { 
           <button onClick={onClose} className="text-xl leading-none text-gray-400 hover:text-gray-600">×</button>
         </div>
 
-        <div className="overflow-y-auto px-6 py-5 space-y-5" style={{ maxHeight: 'calc(90vh - 72px)' }}>
-          <form action={withToken(action)} className="space-y-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          <form id="form-edit-user" action={withToken(action)} className="space-y-4">
             <input type="hidden" name="user_id" value={usuario.id} />
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -423,16 +423,6 @@ function EditarModal({ usuario, cargos, lojas, depositos, tabelas, onClose }: { 
             </div>
             <LojasPdvConfig lojas={lojas} depositos={depositos} tabelas={tabelas} usuario={usuario} />
             <RestricaoAcesso usuario={usuario} />
-            <div className="flex items-center justify-between pt-2">
-              <Feedback state={state} />
-              <button
-                type="submit"
-                disabled={pending}
-                className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50"
-              >
-                {pending ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Salvando...</span> : 'Salvar'}
-              </button>
-            </div>
           </form>
 
           <div className="border-t border-gray-100 pt-4">
@@ -449,6 +439,18 @@ function EditarModal({ usuario, cargos, lojas, depositos, tabelas, onClose }: { 
               </button>
             </form>
             <Feedback state={senhaState} />
+          </div>
+        </div>
+
+        {/* Rodapé fixo — Salvar/Cancelar sempre visíveis (sem rolar) */}
+        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-gray-100 bg-gray-50 px-6 py-3">
+          <Feedback state={state} />
+          <div className="ml-auto flex gap-2">
+            <button type="button" onClick={onClose} className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 transition">Cancelar</button>
+            <button type="submit" form="form-edit-user" disabled={pending}
+              className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50">
+              {pending ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Salvando...</span> : 'Salvar alterações'}
+            </button>
           </div>
         </div>
       </div>
