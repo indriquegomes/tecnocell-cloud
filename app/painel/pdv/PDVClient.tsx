@@ -1220,7 +1220,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       </tr>`
     }
 
-    const logoUrl = window.location.origin + '/logo-transparent.png'
+    const logoUrl = window.location.origin + '/tecnocell-icon.png'
     win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
     <title>Comprovante #${numeroLabel}</title>
     <style>
@@ -1239,8 +1239,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       @media print { html, body { width: 58mm; margin: 0; padding: 3px 4px; } }
     </style></head><body>
 
-    <div style="text-align:center;margin-bottom:4px">
-      <img src="${snap.lojaLogo || logoUrl}" style="max-width:130px;max-height:52px;object-fit:contain" />
+    <div style="text-align:center;margin-bottom:3px">
+      <img src="${snap.lojaLogo || logoUrl}" style="max-width:46px;max-height:46px;object-fit:contain" />
     </div>
     <p class="bold">${snap.lojaRazao || snap.loja || 'TecnoCell'}</p>
     ${snap.lojaCnpj || snap.lojaIE ? `<p>${snap.lojaCnpj ? `CNPJ: ${snap.lojaCnpj}` : ''}${snap.lojaCnpj && snap.lojaIE ? ' &nbsp; ' : ''}${snap.lojaIE ? `IE: ${snap.lojaIE}` : ''}</p>` : ''}
@@ -1293,10 +1293,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     ${snap.vendedor ? `<p>Vendedor(a): ${snap.vendedor}</p>` : ''}
     <p class="bold">CONSUMIDOR</p>
     ${snap.cliente ? `<p>${snap.cliente}</p>` : '<p>CONSUMIDOR FINAL</p>'}
-    ${snap.clienteEndereco ? `<p>${snap.clienteEndereco}</p>` : ''}
+    ${snap.clienteEndereco ? `<p style="text-align:left"><b>Entrega:</b> ${snap.clienteEndereco}</p>` : ''}
 
     <hr class="sep">
-    ${snap.lojaTermos ? `<p style="font-size:9px;text-align:center;white-space:pre-wrap">${snap.lojaTermos.replace(/</g, '&lt;')}</p><hr class="sep">` : ''}
+    ${snap.lojaTermos ? `<p style="font-size:9px;text-align:left;white-space:pre-wrap">${snap.lojaTermos.replace(/</g, '&lt;')}</p><hr class="sep">` : ''}
     <p>Obrigado pela preferência!</p>
     <p style="margin-top:4px">www.tecnocell.com.br</p>
 
