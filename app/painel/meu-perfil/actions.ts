@@ -2,6 +2,7 @@
 
 import { createServiceClient, requireAuth } from '@/lib/supabase/server'
 import { createServerClient } from '@supabase/ssr'
+import sharp from 'sharp'
 
 export type Res = { ok: true; message: string } | { ok: false; message: string }
 
@@ -28,10 +29,12 @@ export async function atualizarMinhaFoto(token: string, formData: FormData): Pro
   if (!file || file.size === 0) return { ok: false, message: 'Selecione uma imagem' }
   if (file.size > 5 * 1024 * 1024) return { ok: false, message: 'Imagem acima de 5MB' }
   const s = await createServiceClient()
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
-  const path = `avatars/${user.id}.${ext}`
-  const buffer = Buffer.from(await file.arrayBuffer())
-  const up = await s.storage.from('produtos').upload(path, buffer, { contentType: file.type, upsert: true })
+  // comprime no servidor: quadrado 256px em WebP (~15KB) — leve pra carregar em qualquer tela.
+  // .rotate() respeita a orientação EXIF (foto de celular deitada não vira de lado).
+  const raw = Buffer.from(await file.arrayBuffer())
+  const webp = await sharp(raw).rotate().resize(256, 256, { fit: 'cover' }).webp({ quality: 80 }).toBuffer()
+  const path = `avatars/${user.id}.webp`
+  const up = await s.storage.from('produtos').upload(path, webp, { contentType: 'image/webp', upsert: true })
   if (up.error) return { ok: false, message: 'Falha no upload da imagem' }
   const { data } = s.storage.from('produtos').getPublicUrl(path)
   const url = `${data.publicUrl}?v=${Date.now()}` // cache-buster pra foto nova aparecer na hora
