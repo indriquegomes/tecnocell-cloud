@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { formatBRL } from '@/lib/utils'
 import { labelPrazo } from '@/lib/formas-pagamento'
 import { createClient } from '@/lib/supabase/client'
 import { Spinner } from '@/components/Spinner'
-import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, buscarClientesPDV, caixaAbertoDaLoja, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, buscarPedidosAbertos, buscarDetalheVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
+import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, caixaAbertoDaLoja, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, buscarPedidosAbertos, buscarDetalheVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
 import { buscarSaldoCredito } from '@/app/painel/creditos/actions'
 import type { PromoInfo } from './page'
 
@@ -272,13 +272,39 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     if (Object.keys(series).length) setSeriesPorProduto((prev) => ({ ...prev, ...series }))
   }, [])
 
+  // PRÉ-CARREGA o catálogo inteiro (leve) UMA vez ao abrir o PDV → busca 100% LOCAL,
+  // instantânea, sem rede por tecla. A busca on-demand abaixo vira só reforço (séries/frescor).
+  const [catalogoPronto, setCatalogoPronto] = useState(false)
+  useEffect(() => {
+    let vivo = true
+    // 1) cache da sessão → busca instantânea já na reabertura (enquanto atualiza no fundo)
+    try {
+      const cache = sessionStorage.getItem('pdv_catalogo')
+      if (cache) { const arr = JSON.parse(cache); if (Array.isArray(arr) && arr.length) { mesclarProdutos(arr, {}); setCatalogoPronto(true) } }
+    } catch { /* ignore */ }
+    // 2) sempre traz o catálogo fresco em background e recacheia
+    ;(async () => {
+      try {
+        const cat = await carregarCatalogoPDV(await authToken())
+        if (vivo && cat.length) {
+          mesclarProdutos(cat, {}); setCatalogoPronto(true)
+          try { sessionStorage.setItem('pdv_catalogo', JSON.stringify(cat)) } catch { /* quota — segue sem cache */ }
+        }
+      } catch { /* silencioso — cai na busca on-demand */ }
+    })()
+    return () => { vivo = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Busca de produto SOB DEMANDA (debounce 250ms) — alimenta o cache; a vitrine
   // (produtosFiltrados) continua filtrando o cache pelo termo. Vale pra busca principal e a do F1.
   useEffect(() => {
     // modal F1 aberto usa a busca dele; senão a busca principal
     const termo = (fichaAberta ? buscaFicha : busca).trim()
     if (termo.length < 1) { setBuscandoProdutos(false); return }
-    setBuscandoProdutos(true)
+    // com o catálogo local, o resultado já é instantâneo — não mostra "buscando";
+    // o on-demand ainda roda só pra trazer as séries (IMEIs) dos serializados.
+    if (!catalogoPronto) setBuscandoProdutos(true)
     let vivo = true
     const t = setTimeout(async () => {
       try {
@@ -286,9 +312,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         if (vivo) mesclarProdutos(achados, series)
       } catch { /* silencioso */ }
       finally { if (vivo) setBuscandoProdutos(false) }
-    }, 250)
+    }, catalogoPronto ? 500 : 250)
     return () => { vivo = false; clearTimeout(t) }
-  }, [busca, buscaFicha, fichaAberta, mesclarProdutos])
+  }, [busca, buscaFicha, fichaAberta, mesclarProdutos, catalogoPronto])
 
   // Busca de cliente SOB DEMANDA (debounce 250ms) — alimenta o cache de pessoas
   useEffect(() => {
@@ -449,14 +475,26 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const ordenarPorEstoque = (lista: Produto[]) =>
     [...lista].sort((a, b) => prioridadeEstoque(a) - prioridadeEstoque(b) || a.nome.localeCompare(b.nome))
 
-  const produtosFiltrados = busca.trim().length >= 1
-    ? ordenarPorEstoque(produtos.filter((p) => casaBusca(textoProduto(p), busca))).slice(0, 40)
-    : []
+  // Índice de busca PRÉ-NORMALIZADO (sem acento), computado 1x quando o catálogo muda —
+  // evita recomputar a normalização de ~8 mil produtos a cada tecla (o que travava a busca).
+  const indiceNorm = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const p of produtos) m.set(p.id, semAcento(`${p.nome} ${p.codigo ?? ''} ${p.marca ?? ''}`))
+    return m
+  }, [produtos])
+  const filtrarProdutos = (termo: string, limite: number) => {
+    const palavras = semAcento(termo).split(/\s+/).filter(Boolean)
+    if (!palavras.length) return []
+    const achados = produtos.filter((p) => {
+      const alvo = indiceNorm.get(p.id) ?? ''
+      return palavras.every((w) => alvo.includes(w))
+    })
+    return ordenarPorEstoque(achados).slice(0, limite)
+  }
 
+  const produtosFiltrados = busca.trim().length >= 1 ? filtrarProdutos(busca, 40) : []
   // Busca interna do modal Consultar Produtos (F1)
-  const fichaFiltrados = buscaFicha.trim().length >= 1
-    ? ordenarPorEstoque(produtos.filter((p) => casaBusca(textoProduto(p), buscaFicha))).slice(0, 40)
-    : []
+  const fichaFiltrados = buscaFicha.trim().length >= 1 ? filtrarProdutos(buscaFicha, 40) : []
 
   // trocar a busca zera as peças marcadas (evita marcar de uma busca e copiar de outra)
   // e volta o destaque do teclado pro topo

@@ -32,6 +32,33 @@ export type ProdutoPDV = {
 // Busca de produto SOB DEMANDA (o PDV não embute mais os 7.983 produtos no HTML).
 // Cada palavra do termo tem que aparecer em busca_norm (nome+código+marca, sem acento).
 // Retorna também os IMEIs em estoque dos produtos serializados encontrados.
+// linha do supabase → ProdutoPDV (usado na busca e no catálogo completo)
+function mapRowToProdutoPDV(p: Record<string, unknown>): ProdutoPDV {
+  const linhas = (p.estoque as { deposito_id: string; quantidade: number }[] | null) ?? []
+  const estoquePorDeposito: Record<string, number> = {}
+  for (const e of linhas) estoquePorDeposito[e.deposito_id] = (estoquePorDeposito[e.deposito_id] ?? 0) + e.quantidade
+  return {
+    id: p.id as string, nome: p.nome as string, preco: p.preco as number, codigo: p.codigo as string | null,
+    marca: p.marca as string | null, categoria: (p.categoria as string | null) ?? null,
+    descricao: (p.descricao as string | null) ?? null, imagem_url: (p.imagem_url as string | null) ?? null,
+    controla_serie: (p.controla_serie as boolean | null) ?? false, prateleira: (p.prateleira as string | null) ?? null,
+    estoquePorDeposito,
+  }
+}
+
+const SEL_PRODUTO_PDV = 'id, nome, preco, codigo, marca, categoria, descricao, imagem_url, controla_serie, prateleira, estoque(deposito_id, quantidade)'
+
+// Catálogo completo, leve, pra busca 100% LOCAL no PDV (instantânea, sem rede por tecla).
+// Paginado com fetchAll pra não bater no cap de 1000 do PostgREST.
+export async function carregarCatalogoPDV(accessToken: string): Promise<ProdutoPDV[]> {
+  await requirePermissao('pdv', accessToken)
+  const supabase = await createServiceClient()
+  const rows = await fetchAll<Record<string, unknown>>(
+    (from, to) => supabase.from('produtos').select(SEL_PRODUTO_PDV).eq('ativo', true).order('nome').range(from, to),
+  )
+  return rows.map(mapRowToProdutoPDV)
+}
+
 export async function buscarProdutosPDV(
   accessToken: string,
   termo: string,
@@ -55,20 +82,7 @@ export async function buscarProdutosPDV(
     ;({ data } = await f.order('nome').limit(60))
   }
 
-  const produtos: ProdutoPDV[] = (data ?? []).map((p) => {
-    const linhas = (p.estoque as { deposito_id: string; quantidade: number }[] | null) ?? []
-    const estoquePorDeposito: Record<string, number> = {}
-    for (const e of linhas) estoquePorDeposito[e.deposito_id] = (estoquePorDeposito[e.deposito_id] ?? 0) + e.quantidade
-    return {
-      id: p.id, nome: p.nome, preco: p.preco, codigo: p.codigo, marca: p.marca,
-      categoria: (p as Record<string, unknown>).categoria as string | null ?? null,
-      descricao: (p as Record<string, unknown>).descricao as string | null ?? null,
-      imagem_url: (p as Record<string, unknown>).imagem_url as string | null ?? null,
-      controla_serie: (p as Record<string, unknown>).controla_serie as boolean | null ?? false,
-      prateleira: (p as Record<string, unknown>).prateleira as string | null ?? null,
-      estoquePorDeposito,
-    }
-  })
+  const produtos: ProdutoPDV[] = (data ?? []).map(mapRowToProdutoPDV)
 
   // IMEIs em estoque só dos serializados encontrados: { produto_id: { deposito_id: [serie] } }
   const series: Record<string, Record<string, string[]>> = {}
