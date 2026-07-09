@@ -1239,10 +1239,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       @media print { html, body { width: 58mm; margin: 0; padding: 3px 4px; } }
     </style></head><body>
 
-    <div style="text-align:center;margin-bottom:3px">
-      <img src="${snap.lojaLogo || logoUrl}" style="max-width:46px;max-height:46px;object-fit:contain" />
+    <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:4px">
+      <img src="${snap.lojaLogo || logoUrl}" style="width:36px;height:36px;object-fit:contain;flex-shrink:0" />
+      <span class="bold" style="text-align:left;font-size:11px;line-height:1.15">${snap.lojaRazao || snap.loja || 'TecnoCell'}</span>
     </div>
-    <p class="bold">${snap.lojaRazao || snap.loja || 'TecnoCell'}</p>
     ${snap.lojaCnpj || snap.lojaIE ? `<p>${snap.lojaCnpj ? `CNPJ: ${snap.lojaCnpj}` : ''}${snap.lojaCnpj && snap.lojaIE ? ' &nbsp; ' : ''}${snap.lojaIE ? `IE: ${snap.lojaIE}` : ''}</p>` : ''}
     ${snap.lojaEndereco ? `<p>${snap.lojaEndereco}</p>` : ''}
     ${snap.lojaTelefone ? `<p>Tel: ${snap.lojaTelefone}</p>` : ''}
