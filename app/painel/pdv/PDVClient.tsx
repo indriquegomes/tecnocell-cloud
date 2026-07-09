@@ -1187,10 +1187,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     <title>Comprovante #${numeroLabel}</title>
     <style>
       * { box-sizing: border-box; }
-      /* térmica 80mm: define a página pro navegador não usar A4 (senão o rolo
+      /* térmica 58mm: define a página pro navegador não usar A4 (senão o rolo
          imprime uma folha inteira de papel). auto = só a altura do conteúdo. */
-      @page { size: 80mm auto; margin: 0; }
-      body { font-family: monospace; font-size: 11px; margin: 0 auto; padding: 6px 7px; width: 80mm; }
+      @page { size: 58mm auto; margin: 0; }
+      body { font-family: monospace; font-size: 10px; margin: 0 auto; padding: 5px 4px; width: 58mm; }
       .bold { font-weight: bold; }
       .sep { border: none; border-top: 1px dashed #000; margin: 6px 0; }
       .row { display: flex; justify-content: space-between; margin: 2px 0; }
@@ -1198,11 +1198,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       th { border-bottom: 1px dashed #000; padding: 2px 0; text-align: left; }
       td { padding: 2px 0; vertical-align: top; }
       p { margin: 1px 0; text-align: center; }
-      @media print { html, body { width: 80mm; margin: 0; padding: 4px 6px; } }
+      @media print { html, body { width: 58mm; margin: 0; padding: 3px 4px; } }
     </style></head><body>
 
     <div style="text-align:center;margin-bottom:4px">
-      <img src="${snap.lojaLogo || logoUrl}" style="max-width:160px;max-height:60px;object-fit:contain" />
+      <img src="${snap.lojaLogo || logoUrl}" style="max-width:130px;max-height:52px;object-fit:contain" />
     </div>
     <p class="bold">${snap.lojaRazao || snap.loja || 'TecnoCell'}</p>
     ${snap.lojaCnpj || snap.lojaIE ? `<p>${snap.lojaCnpj ? `CNPJ: ${snap.lojaCnpj}` : ''}${snap.lojaCnpj && snap.lojaIE ? ' &nbsp; ' : ''}${snap.lojaIE ? `IE: ${snap.lojaIE}` : ''}</p>` : ''}
