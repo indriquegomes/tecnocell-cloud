@@ -14,7 +14,7 @@ export default async function DashboardPage() {
   // ---- Quem é / qual cargo → dashboard adaptativo ----
   const userId = (await headers()).get('x-user-id')
   const { data: meuPerfil } = userId
-    ? await supabase.from('perfis').select('nome, cargo, cargo_id, meta_venda_mensal').eq('id', userId).maybeSingle()
+    ? await supabase.from('perfis').select('nome, cargo, cargo_id, meta_venda_mensal, pdv_loja_id').eq('id', userId).maybeSingle()
     : { data: null }
   let cargoNome = (meuPerfil?.cargo ?? '').toLowerCase()
   const cgId = (meuPerfil as { cargo_id?: string | null } | null)?.cargo_id
@@ -134,22 +134,29 @@ export default async function DashboardPage() {
       .slice(0, 12)
   }
 
-  // ---- META (protótipo com as faixas da arte; será editável na aba Metas) ----
-  const fatPetropolis = Object.entries(porLoja).find(([n]) => /petr/i.test(n))?.[1] ?? faturamento
-  const metaDemo: MetaInput = {
-    loja: 'Petrópolis',
-    rotulo: 'Metas de Julho',
-    diasUteis: 27,
-    diasDecorridos: Math.min(27, new Date().getDate()),
-    faturamento: fatPetropolis,          // Petrópolis, 30 dias (histórico) — proxy do mês
-    faturamentoHoje: vendasHojeTotal,    // vendas de hoje (PDV)
-    faixas: [
-      { nome: 'GRANADA', valor: 250000, premio: 250 },
-      { nome: 'ESMERALDA', valor: 275000, premio: 825 },
-      { nome: 'DIAMANTE', valor: 300000, premio: 1500 },
-      { nome: 'JOALHERIA', valor: 335000, premio: 3250 },
-    ],
+  // ---- METAS ativas (do banco), por loja ----
+  const { data: metasAtivas } = await supabase.from('metas')
+    .select('id, loja_id, rotulo, data_inicio, data_fim, dias_uteis')
+    .eq('ativo', true).lte('data_inicio', hoje).gte('data_fim', hoje)
+  const metaIds = (metasAtivas ?? []).map((m) => m.id)
+  const { data: faixasAll } = metaIds.length
+    ? await supabase.from('metas_faixas').select('meta_id, nome, valor, premio, ordem').in('meta_id', metaIds).order('ordem')
+    : { data: [] as { meta_id: string; nome: string; valor: number; premio: number; ordem: number }[] }
+  const { data: lojasList } = await supabase.from('lojas').select('id, nome')
+  const nomeLoja: Record<string, string> = Object.fromEntries((lojasList ?? []).map((l) => [l.id, l.nome]))
+  const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  const construirMeta = (m: NonNullable<typeof metasAtivas>[number]): MetaInput => {
+    const nome = nomeLoja[m.loja_id ?? ''] ?? 'Loja'
+    const fat = Object.entries(porLoja).find(([n]) => norm(n).includes(norm(nome).slice(0, 5)))?.[1] ?? 0
+    const faixas = (faixasAll ?? []).filter((f) => f.meta_id === m.id).map((f) => ({ nome: f.nome, valor: Number(f.valor), premio: Number(f.premio) }))
+    const ini = new Date(m.data_inicio + 'T00:00:00')
+    const diasCorridos = Math.max(1, Math.min(m.dias_uteis, Math.ceil((Date.now() - ini.getTime()) / 86400000)))
+    return { loja: nome, rotulo: m.rotulo, diasUteis: m.dias_uteis, diasDecorridos: diasCorridos, faturamento: fat, faturamentoHoje: vendasHojeTotal, faixas }
   }
+  const metasWidgets = (metasAtivas ?? []).map(construirMeta).filter((m) => m.faixas.length > 0)
+  const minhaLojaId = (meuPerfil as { pdv_loja_id?: string | null } | null)?.pdv_loja_id
+  const minhaMetaNome = minhaLojaId ? nomeLoja[minhaLojaId] : null
+  const minhaMeta = (minhaMetaNome && metasWidgets.find((m) => m.loja === minhaMetaNome)) || metasWidgets[0] || null
 
   const cor = (i: number) => (i === 0 ? 'bg-white' : i === 1 ? 'bg-white/55' : 'bg-white/30')
 
@@ -222,7 +229,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Meta da loja — o time todo mira as faixas */}
-        <MetaWidget meta={metaDemo} />
+        {minhaMeta && <MetaWidget meta={minhaMeta} />}
 
         <Link href="/painel/pdv" className="flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 p-5 text-lg font-bold text-white shadow-sm shadow-emerald-600/25 transition hover:from-emerald-700 hover:to-emerald-600">
           🛒 Abrir o PDV
@@ -354,8 +361,12 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      {/* META da loja */}
-      <MetaWidget meta={metaDemo} />
+      {/* METAS das lojas */}
+      {metasWidgets.length > 0 && (
+        <div className={`grid gap-4 ${metasWidgets.length > 1 ? 'lg:grid-cols-2' : ''}`}>
+          {metasWidgets.map((m, i) => <MetaWidget key={i} meta={m} />)}
+        </div>
+      )}
 
       {/* AGORA */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
