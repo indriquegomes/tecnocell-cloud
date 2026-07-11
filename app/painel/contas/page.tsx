@@ -67,19 +67,27 @@ export default async function ContasPage({
   const saldos = await calcularSaldos(supabase, contas)
   const saldoTotal = contas.filter((c) => c.ativa).reduce((s, c) => s + (saldos[c.id] ?? 0), 0)
   const contasAtivas = contas.filter((c) => c.ativa)
+  const caixaTotal = contasAtivas.filter((c) => c.tipo === 'caixa').reduce((s, c) => s + (saldos[c.id] ?? 0), 0)
+  const bancoTotal = contasAtivas.filter((c) => c.tipo === 'banco').reduce((s, c) => s + (saldos[c.id] ?? 0), 0)
   const nomeConta = (id: string) => contas.find((c) => c.id === id)?.nome ?? '—'
   const hoje = hojeSP()
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <h2 className="text-2xl font-bold text-gray-900">Contas</h2>
-          <Dica texto="Onde o dinheiro fica de verdade: Caixa (gaveta) e contas de banco. O saldo de cada uma é calculado sozinho: saldo inicial + vendas que caem nela + lançamentos pagos + transferências." />
-        </div>
-        <div className="rounded-2xl border border-blue-200 bg-blue-50 px-5 py-2.5 text-right">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-400">Saldo total</p>
-          <p className={`text-2xl font-bold ${saldoTotal >= 0 ? 'text-blue-700' : 'text-red-600'}`}>{formatBRL(saldoTotal)}</p>
+      <div className="flex items-center gap-2">
+        <h2 className="text-2xl font-bold text-gray-900">Contas</h2>
+        <Dica texto="Onde o dinheiro fica de verdade: Caixa (gaveta) e contas de banco. O saldo de cada uma é calculado sozinho: saldo inicial + vendas que caem nela + lançamentos pagos + transferências." />
+      </div>
+
+      {/* Herói: saldo total consolidado (número-chave da tela) */}
+      <div className="relative overflow-hidden rounded-2xl bg-[#1B6CA8] p-6 text-white shadow-sm">
+        <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/5" />
+        <div className="pointer-events-none absolute -right-24 top-16 h-48 w-48 rounded-full bg-white/5" />
+        <p className="relative text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Saldo total · {contasAtivas.length} conta{contasAtivas.length === 1 ? '' : 's'} ativa{contasAtivas.length === 1 ? '' : 's'}</p>
+        <p className={`relative mt-2.5 text-[38px] font-extrabold leading-none tabular-nums ${saldoTotal < 0 ? 'text-rose-200' : ''}`}>{formatBRL(saldoTotal)}</p>
+        <div className="relative mt-4 flex flex-wrap gap-x-7 gap-y-2 text-sm text-white/80">
+          <span className="inline-flex items-center gap-1.5">💵 Caixa <b className="font-bold text-white tabular-nums">{formatBRL(caixaTotal)}</b></span>
+          <span className="inline-flex items-center gap-1.5">🏦 Banco <b className="font-bold text-white tabular-nums">{formatBRL(bancoTotal)}</b></span>
         </div>
       </div>
 
@@ -139,7 +147,7 @@ export default async function ContasPage({
               <tr key={c.id} className="hover:bg-gray-50 transition">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.tipo === 'caixa' ? '💵' : '🏦'} {c.nome}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">{c.tipo === 'caixa' ? 'Caixa' : 'Banco'}</td>
-                <td className={`px-4 py-3 text-right text-sm font-bold ${(saldos[c.id] ?? 0) >= 0 ? 'text-gray-900' : 'text-red-600'}`}>{formatBRL(saldos[c.id] ?? 0)}</td>
+                <td className={`px-4 py-3 text-right text-sm font-bold tabular-nums ${(saldos[c.id] ?? 0) >= 0 ? 'text-gray-900' : 'text-red-600'}`}>{formatBRL(saldos[c.id] ?? 0)}</td>
                 <td className="px-4 py-3 text-center">
                   <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${c.ativa ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                     {c.ativa ? 'Ativa' : 'Inativa'}
