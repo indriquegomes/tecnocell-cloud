@@ -1,6 +1,7 @@
 'use server'
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { hojeSP } from '@/lib/utils'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -40,7 +41,7 @@ export async function criarTransferencia(formData: FormData) {
   const origem = formData.get('conta_origem_id') as string
   const destino = formData.get('conta_destino_id') as string
   const valor = parseFloat(formData.get('valor') as string) || 0
-  const data = (formData.get('data') as string) || new Date().toISOString().slice(0, 10)
+  const data = (formData.get('data') as string) || hojeSP()
   const observacao = ((formData.get('observacao') as string) || '').trim() || null
   const err = (m: string) => redirect(`/painel/contas?erro=${encodeURIComponent(m)}`)
   if (!origem || !destino) err('Escolha a conta de origem e a de destino.')

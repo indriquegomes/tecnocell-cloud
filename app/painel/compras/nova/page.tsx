@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { hojeSP } from '@/lib/utils'
 import { criarNotaEntrada } from '../actions'
 import { SubmitButton } from '@/components/SubmitButton'
 import Link from 'next/link'
@@ -30,7 +31,7 @@ export default async function NovaNotaPage({ searchParams }: { searchParams: Pro
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Data de Entrada</label>
             <input name="data_entrada" type="date" className="field"
-              defaultValue={new Date().toISOString().split('T')[0]} />
+              defaultValue={hojeSP()} />
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Data de Emissão</label>

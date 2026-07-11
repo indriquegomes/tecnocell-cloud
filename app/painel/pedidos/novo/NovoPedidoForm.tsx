@@ -5,13 +5,11 @@ import { Spinner } from '@/components/Spinner'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { criarPedido, buscarClientesPedido } from '../actions'
+import { hojeSP } from '@/lib/utils'
 
 const supabaseBrowser = createClient()
 
-const hoje = new Date()
-const daqui30 = new Date(hoje)
-daqui30.setDate(hoje.getDate() + 30)
-const DEFAULT_VALIDADE = daqui30.toISOString().split('T')[0]
+const DEFAULT_VALIDADE = hojeSP(30)
 
 const ORIGENS = [
   { value: 'balcao',    label: 'Balcão' },

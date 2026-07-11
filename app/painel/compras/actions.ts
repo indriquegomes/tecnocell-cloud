@@ -1,6 +1,7 @@
 'use server'
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { hojeSP } from '@/lib/utils'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -15,7 +16,7 @@ export async function criarNotaEntrada(formData: FormData) {
     numero: numeroNota,
     fornecedor_id: (formData.get('fornecedor_id') as string) || null,
     data_emissao: (formData.get('data_emissao') as string) || null,
-    data_entrada: (formData.get('data_entrada') as string) || new Date().toISOString().split('T')[0],
+    data_entrada: (formData.get('data_entrada') as string) || hojeSP(),
     observacoes: (formData.get('observacoes') as string) || null,
     status: 'pendente',
     valor_total: 0,
@@ -72,7 +73,7 @@ export async function editarNota(id: string, formData: FormData) {
     numero: (formData.get('numero') as string)?.trim() || null,
     fornecedor_id: (formData.get('fornecedor_id') as string) || null,
     data_emissao: (formData.get('data_emissao') as string) || null,
-    data_entrada: (formData.get('data_entrada') as string) || new Date().toISOString().split('T')[0],
+    data_entrada: (formData.get('data_entrada') as string) || hojeSP(),
     observacoes: (formData.get('observacoes') as string)?.trim() || null,
   }).eq('id', id)
   revalidatePath(`/painel/compras/${id}`)

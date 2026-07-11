@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { hojeSP } from '@/lib/utils'
 import { criarLancamento } from '../actions'
 import { SubmitButton } from '@/components/SubmitButton'
 import Link from 'next/link'
@@ -18,7 +19,7 @@ export default async function NovoLancamentoPage({
     const ib = ORDEM_FORMAS.indexOf(b.nome)
     return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib) || a.nome.localeCompare(b.nome)
   })
-  const hoje = new Date().toISOString().split('T')[0]
+  const hoje = hojeSP()
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
