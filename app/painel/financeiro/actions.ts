@@ -1,6 +1,7 @@
 'use server'
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { hojeSP } from '@/lib/utils'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -18,7 +19,7 @@ export async function criarLancamento(formData: FormData) {
   const supabase = await createServiceClient()
   const quitado = formData.getAll('quitado').includes('1')
   const valorTotal = parseFloat((formData.get('valor') as string) || '0')
-  const hoje = new Date().toISOString().slice(0, 10)
+  const hoje = hojeSP()
   const descricao = formData.get('descricao') as string
   const tipo = formData.get('tipo') as string
   const competencia = (formData.get('data_competencia') as string) || null
@@ -79,7 +80,7 @@ export async function marcarPago(id: string) {
   const supabase = await createServiceClient()
   const { error } = await supabase.from('lancamentos').update({
     status: 'pago',
-    data_pagamento: new Date().toISOString().split('T')[0],
+    data_pagamento: hojeSP(),
   }).eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/painel/financeiro')

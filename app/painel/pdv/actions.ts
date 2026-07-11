@@ -2,6 +2,7 @@
 
 import { createServiceClient, fetchAll, requirePermissao, permissoesEfetivas } from '@/lib/supabase/server'
 import { temPermissao } from '@/lib/permissoes'
+import { hojeSP } from '@/lib/utils'
 
 // Itens de UMA tabela de preço, sob demanda (o PDV não embute mais os 45k itens
 // de todas as tabelas — carrega só a escolhida). Ordena por id p/ paginação estável.
@@ -546,7 +547,7 @@ export async function pagarLancamentos(accessToken: string, ids: string[], forma
   if (ids.length === 0) return
   await requirePermissao('crediario_receber', accessToken)
   const supabase = await createServiceClient()
-  const today = new Date().toISOString().split('T')[0]
+  const today = hojeSP()
   const contaId = await contaDaFormaTexto(supabase, formaPagamento)
   const { data, error } = await supabase
     .from('lancamentos')
@@ -575,7 +576,7 @@ export async function registrarPagamentoParcial(
 
   const totalPagoAtualizado = (lanc.valor_pago ?? 0) + valorPago
   const quitado = totalPagoAtualizado >= lanc.valor
-  const today = new Date().toISOString().split('T')[0]
+  const today = hojeSP()
 
   const novoRegistro: PagamentoHistorico = {
     valor: valorPago,
