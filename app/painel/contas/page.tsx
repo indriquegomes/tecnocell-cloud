@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { criarConta, editarConta, deletarConta, criarTransferencia, deletarTransferencia } from './actions'
@@ -30,11 +30,11 @@ async function calcularSaldos(
   const saldo: Record<string, number> = {}
   for (const c of contas) saldo[c.id] = Number(c.saldo_inicial ?? 0)
   try {
-    const [{ data: formas }, { data: pv }, { data: tr }, { data: lc }] = await Promise.all([
+    const [{ data: formas }, pv, tr, lc] = await Promise.all([
       supabase.from('formas_pagamento').select('id, conta_destino_id'),
-      supabase.from('pagamentos_venda').select('valor, taxa, forma_pagamento_id').eq('status', 'pago'),
-      supabase.from('transferencias').select('conta_origem_id, conta_destino_id, valor'),
-      supabase.from('lancamentos').select('tipo, valor, conta_id, status').eq('status', 'pago').not('conta_id', 'is', null),
+      fetchAll<{ valor: number; taxa: number | null; forma_pagamento_id: string | null }>((from, to) => supabase.from('pagamentos_venda').select('valor, taxa, forma_pagamento_id').eq('status', 'pago').range(from, to)),
+      fetchAll<{ conta_origem_id: string; conta_destino_id: string; valor: number }>((from, to) => supabase.from('transferencias').select('conta_origem_id, conta_destino_id, valor').range(from, to)),
+      fetchAll<{ tipo: string; valor: number; conta_id: string; status: string }>((from, to) => supabase.from('lancamentos').select('tipo, valor, conta_id, status').eq('status', 'pago').not('conta_id', 'is', null).range(from, to)),
     ])
     const contaDaForma = Object.fromEntries((formas ?? []).map((f) => [f.id, (f as { conta_destino_id: string | null }).conta_destino_id]))
     for (const p of (pv ?? []) as { valor: number; taxa: number | null; forma_pagamento_id: string | null }[]) {
