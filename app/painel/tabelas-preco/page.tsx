@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { hojeSP } from '@/lib/utils'
 import { criarTabela, deletarTabela } from './actions'
 import { ConfirmButton } from '@/components/ConfirmButton'
 import { SubmitButton } from '@/components/SubmitButton'
@@ -18,7 +19,7 @@ export default async function TabelasPrecoPage({
   ])
   const totalP = totalProdutos ?? 0
 
-  const hoje = new Date().toISOString().slice(0, 10)
+  const hoje = hojeSP()
   const brDate = (d: string | null) => (d ? d.split('-').reverse().join('/') : null)
 
   return (

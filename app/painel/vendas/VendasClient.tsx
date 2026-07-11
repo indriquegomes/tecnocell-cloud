@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition, useCallback } from 'react'
+import { hojeSP } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import { buscarDetalheVendaPublic, type DetalheVendaCompleto } from './actions'
 import { Dica } from '@/components/Dica'
@@ -152,7 +153,7 @@ export function VendasClient({
           </button>
           <button onClick={() => {
             const ini = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
-            const hj = new Date().toISOString().split('T')[0]
+            const hj = hojeSP()
             setDe(ini); setAte(hj); setBusca(''); setForma(''); setStatus('')
             startTransition(() => router.push('/painel/vendas'))
           }} className="rounded-xl border border-gray-200 px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 transition">

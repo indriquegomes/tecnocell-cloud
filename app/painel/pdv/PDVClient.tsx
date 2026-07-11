@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
-import { formatBRL } from '@/lib/utils'
+import { formatBRL, hojeSP } from '@/lib/utils'
 import { labelPrazo } from '@/lib/formas-pagamento'
 import { createClient } from '@/lib/supabase/client'
 import { Spinner } from '@/components/Spinner'
@@ -1106,7 +1106,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     }
   }
 
-  const hoje = new Date().toISOString().split('T')[0]
+  const hoje = hojeSP()
   const codCrediario = (item: CrediarioItem) => {
     if (item.codigo) return `#${item.codigo}`
     if (item.venda_id) return `#${item.venda_id.slice(-6).toUpperCase()}`

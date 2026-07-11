@@ -1,7 +1,7 @@
 import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
-import { formatDate } from '@/lib/utils'
+import { formatDate, hojeSP } from '@/lib/utils'
 import { ExportCsv } from './ExportCsv'
 import { ExportCsvLazy } from './ExportCsvLazy'
 import { FluxoChart, ParetoChart, Donut, Barra } from './Charts'
@@ -28,7 +28,7 @@ export default async function RelatoriosPage({
   const { aba = 'financeiro', de, ate } = await searchParams
   const supabase = await createServiceClient()
 
-  const hoje = new Date().toISOString().split('T')[0]
+  const hoje = hojeSP()
   const inicioMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
   const dataInicio = de ?? inicioMes
   const dataFim = ate ?? hoje

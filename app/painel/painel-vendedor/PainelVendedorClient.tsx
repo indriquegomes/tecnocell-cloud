@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { hojeSP } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -152,7 +153,7 @@ export function PainelVendedorClient({
         </button>
         <button onClick={() => {
           const ini = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
-          const hj = new Date().toISOString().split('T')[0]
+          const hj = hojeSP()
           setDe(ini); setAte(hj); setVendedorSelecionado('')
           startTransition(() => router.push('/painel/painel-vendedor'))
         }} className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 transition">

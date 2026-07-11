@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { hojeSP } from '@/lib/utils'
 import { PainelVendedorClient } from './PainelVendedorClient'
 
 export default async function PainelVendedorPage({
@@ -9,7 +10,7 @@ export default async function PainelVendedorPage({
   const { de, ate, vendedor: vendedorFiltro } = await searchParams
   const supabase = await createServiceClient()
 
-  const hoje = new Date().toISOString().split('T')[0]
+  const hoje = hojeSP()
   const inicioMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
   const dataInicio = de ?? inicioMes
   const dataFim = ate ?? hoje
