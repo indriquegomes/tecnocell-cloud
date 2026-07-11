@@ -40,11 +40,10 @@ export default async function RelatoriosPage({
   // ---------- Financeiro (lançamentos por vencimento) ----------
   let lancamentos: { tipo: string; status: string; valor: number; data_vencimento: string; descricao: string; pessoa_nome: string }[] = []
   if (aba === 'financeiro') {
-    const { data } = await supabase.from('lancamentos')
+    lancamentos = await fetchAll<{ tipo: string; status: string; valor: number; data_vencimento: string; descricao: string; pessoa_nome: string }>((from, to) => supabase.from('lancamentos')
       .select('tipo, status, valor, data_vencimento, descricao, pessoa_nome')
       .gte('data_vencimento', dataInicio).lte('data_vencimento', dataFim + 'T23:59:59')
-      .order('data_vencimento')
-    lancamentos = data ?? []
+      .order('data_vencimento').range(from, to))
   }
   const totalReceber = lancamentos.filter((l) => l.tipo === 'receber').reduce((s, l) => s + l.valor, 0)
   const totalPagar = lancamentos.filter((l) => l.tipo === 'pagar').reduce((s, l) => s + l.valor, 0)
@@ -52,11 +51,10 @@ export default async function RelatoriosPage({
   // ---------- Vendas (lista) ----------
   let vendasLista: { id: string; total: number; desconto: number; created_at: string; status: string }[] = []
   if (aba === 'vendas') {
-    const { data } = await supabase.from('vendas')
+    vendasLista = await fetchAll<{ id: string; total: number; desconto: number; created_at: string; status: string }>((from, to) => supabase.from('vendas')
       .select('id, total, desconto, created_at, status')
       .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
-      .order('created_at', { ascending: false })
-    vendasLista = data ?? []
+      .order('created_at', { ascending: false }).range(from, to))
   }
   const totalVendasLista = vendasLista.reduce((s, v) => s + v.total, 0)
 
@@ -65,10 +63,10 @@ export default async function RelatoriosPage({
   const porProduto: Record<string, ProdAgg> = {}
   let totalVendidoItens = 0, totalCustoItens = 0
   if (precisaItens) {
-    const { data } = await supabase.from('itens_venda')
+    const data = await fetchAll((from, to) => supabase.from('itens_venda')
       .select('quantidade, preco_unitario, total_item, produto_id, produtos(nome, preco_custo), vendas!inner(created_at, status, pessoa_id)')
       .eq('vendas.status', 'concluida')
-      .gte('vendas.created_at', periodo.inicio).lte('vendas.created_at', periodo.fim)
+      .gte('vendas.created_at', periodo.inicio).lte('vendas.created_at', periodo.fim).range(from, to))
     for (const it of (data ?? []) as unknown as ItemVenda[]) {
       const nome = it.produtos?.nome ?? '—'
       const custoLinha = (it.produtos?.preco_custo ?? 0) * it.quantidade
@@ -93,9 +91,9 @@ export default async function RelatoriosPage({
   type CliAgg = { nome: string; qtd: number; total: number }
   const porCliente: Record<string, CliAgg> = {}
   if (precisaClientes) {
-    const { data } = await supabase.from('vendas')
+    const data = await fetchAll((from, to) => supabase.from('vendas')
       .select('total, pessoa_id, pessoas(nome)').eq('status', 'concluida')
-      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to))
     for (const v of (data ?? []) as unknown as { total: number; pessoa_id: string | null; pessoas: { nome: string } | null }[]) {
       const key = v.pessoa_id ?? 'sem'
       const nome = v.pessoas?.nome ?? 'Sem cliente'
@@ -166,11 +164,11 @@ export default async function RelatoriosPage({
   let dreReceita = 0, dreDespesas = 0
   let despesasPorCategoria: { categoria: string; valor: number }[] = []
   if (aba === 'dre') {
-    const { data: vs } = await supabase.from('vendas').select('total').eq('status', 'concluida')
-      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+    const vs = await fetchAll<{ total: number | null }>((from, to) => supabase.from('vendas').select('total').eq('status', 'concluida')
+      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to))
     dreReceita = (vs ?? []).reduce((s, v) => s + (v.total ?? 0), 0)
-    const { data: ds } = await supabase.from('lancamentos').select('valor, categoria')
-      .eq('tipo', 'pagar').gte('data_vencimento', dataInicio).lte('data_vencimento', dataFim + 'T23:59:59')
+    const ds = await fetchAll<{ valor: number; categoria: string | null }>((from, to) => supabase.from('lancamentos').select('valor, categoria')
+      .eq('tipo', 'pagar').gte('data_vencimento', dataInicio).lte('data_vencimento', dataFim + 'T23:59:59').range(from, to))
     const catMap: Record<string, number> = {}
     for (const l of (ds ?? []) as { valor: number; categoria: string | null }[]) {
       dreDespesas += l.valor ?? 0
@@ -188,11 +186,11 @@ export default async function RelatoriosPage({
   let fluxo: DiaFluxo[] = []
   let fluxoEntradas = 0, fluxoSaidas = 0
   if (aba === 'fluxo') {
-    const [{ data: vs }, { data: ps }] = await Promise.all([
-      supabase.from('vendas').select('total, created_at').eq('status', 'concluida')
-        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim),
-      supabase.from('lancamentos').select('valor, data_pagamento').eq('tipo', 'pagar').eq('status', 'pago')
-        .gte('data_pagamento', dataInicio).lte('data_pagamento', dataFim + 'T23:59:59'),
+    const [vs, ps] = await Promise.all([
+      fetchAll<{ total: number; created_at: string }>((from, to) => supabase.from('vendas').select('total, created_at').eq('status', 'concluida')
+        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to)),
+      fetchAll<{ valor: number; data_pagamento: string | null }>((from, to) => supabase.from('lancamentos').select('valor, data_pagamento').eq('tipo', 'pagar').eq('status', 'pago')
+        .gte('data_pagamento', dataInicio).lte('data_pagamento', dataFim + 'T23:59:59').range(from, to)),
     ])
     const dias: Record<string, { entrada: number; saida: number }> = {}
     for (const v of (vs ?? []) as { total: number; created_at: string }[]) {
@@ -247,9 +245,9 @@ export default async function RelatoriosPage({
 
     // Previsão de compra: vendas dos últimos 30 dias × estoque atual
     const limite30 = new Date(Date.now() - 30 * 86400000).toISOString()
-    const { data: v30 } = await supabase.from('itens_venda')
+    const v30 = await fetchAll((from, to) => supabase.from('itens_venda')
       .select('quantidade, produto_id, vendas!inner(created_at, status)')
-      .eq('vendas.status', 'concluida').gte('vendas.created_at', limite30)
+      .eq('vendas.status', 'concluida').gte('vendas.created_at', limite30).range(from, to))
     const vendido30: Record<string, number> = {}
     for (const it of (v30 ?? []) as unknown as { quantidade: number; produto_id: string }[]) {
       vendido30[it.produto_id] = (vendido30[it.produto_id] ?? 0) + it.quantidade
@@ -265,12 +263,12 @@ export default async function RelatoriosPage({
   let rankFormas: { nome: string; total: number; qtd: number }[] = []
   let totalFormas = 0
   if (aba === 'formas') {
-    const { data: vs } = await supabase.from('vendas').select('id').eq('status', 'concluida')
-      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+    const vs = await fetchAll<{ id: string }>((from, to) => supabase.from('vendas').select('id').eq('status', 'concluida')
+      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to))
     const ids = (vs ?? []).map((v) => v.id)
     if (ids.length) {
-      const [{ data: pgs }, { data: formas }] = await Promise.all([
-        supabase.from('pagamentos_venda').select('valor, forma_pagamento_id').in('venda_id', ids),
+      const [pgs, { data: formas }] = await Promise.all([
+        fetchAll<{ valor: number; forma_pagamento_id: string | null }>((from, to) => supabase.from('pagamentos_venda').select('valor, forma_pagamento_id').in('venda_id', ids).range(from, to)),
         supabase.from('formas_pagamento').select('id, nome'),
       ])
       const nomeF = Object.fromEntries((formas ?? []).map((f) => [f.id, f.nome]))
@@ -288,9 +286,9 @@ export default async function RelatoriosPage({
   // ---------- Vendas por loja ----------
   let rankLojas: { nome: string; total: number; qtd: number }[] = []
   if (aba === 'porloja') {
-    const [{ data: vs }, { data: lojasData }] = await Promise.all([
-      supabase.from('vendas').select('total, deposito_id, depositos(nome, loja_id)').eq('status', 'concluida')
-        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim),
+    const [vs, { data: lojasData }] = await Promise.all([
+      fetchAll((from, to) => supabase.from('vendas').select('total, deposito_id, depositos(nome, loja_id)').eq('status', 'concluida')
+        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to)),
       supabase.from('lojas').select('id, nome'),
     ])
     const nomeLoja = Object.fromEntries((lojasData ?? []).map((l) => [l.id, l.nome]))
@@ -306,8 +304,8 @@ export default async function RelatoriosPage({
   // ---------- Vendas por vendedor ----------
   let rankVendedores: { nome: string; total: number; qtd: number }[] = []
   if (aba === 'porvendedor') {
-    const { data } = await supabase.from('vendas').select('total, vendedor_nome').eq('status', 'concluida')
-      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+    const data = await fetchAll<{ total: number; vendedor_nome: string | null }>((from, to) => supabase.from('vendas').select('total, vendedor_nome').eq('status', 'concluida')
+      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to))
     const mapa: Record<string, { total: number; qtd: number }> = {}
     for (const v of (data ?? []) as { total: number; vendedor_nome: string | null }[]) {
       const nome = v.vendedor_nome || 'Sem vendedor'
@@ -321,8 +319,8 @@ export default async function RelatoriosPage({
   const DIAS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
   let periodicidade: { dia: string; total: number; qtd: number }[] = []
   if (aba === 'periodicidade') {
-    const { data } = await supabase.from('vendas').select('total, created_at').eq('status', 'concluida')
-      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+    const data = await fetchAll<{ total: number; created_at: string }>((from, to) => supabase.from('vendas').select('total, created_at').eq('status', 'concluida')
+      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to))
     const buckets = DIAS.map((dia) => ({ dia, total: 0, qtd: 0 }))
     for (const v of (data ?? []) as { total: number; created_at: string }[]) {
       const wd = new Date(new Date(v.created_at).toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })).getDay()
@@ -336,8 +334,8 @@ export default async function RelatoriosPage({
   // ---------- Clientes inativos (compraram mas sumiram há 60+ dias) ----------
   let inativos: { nome: string; ultima: string; dias: number }[] = []
   if (aba === 'inativos') {
-    const [{ data: vs }, ps] = await Promise.all([
-      supabase.from('vendas').select('pessoa_id, created_at').eq('status', 'concluida').not('pessoa_id', 'is', null),
+    const [vs, ps] = await Promise.all([
+      fetchAll<{ pessoa_id: string; created_at: string }>((from, to) => supabase.from('vendas').select('pessoa_id, created_at').eq('status', 'concluida').not('pessoa_id', 'is', null).range(from, to)),
       fetchAll((from, to) => supabase.from('pessoas').select('id, nome').in('tipo', ['cliente', 'ambos']).eq('ativo', true).range(from, to)),
     ])
     const ultimaPorPessoa: Record<string, string> = {}
@@ -370,10 +368,10 @@ export default async function RelatoriosPage({
   let comissoes: { nome: string; vendido: number; comissao: number }[] = []
   let comissaoPctG = 0, totalComissao = 0
   if (aba === 'comissoes') {
-    const [{ data: cfg }, { data: vs }] = await Promise.all([
+    const [{ data: cfg }, vs] = await Promise.all([
       supabase.from('configuracoes').select('valor').eq('chave', 'pdv').maybeSingle(),
-      supabase.from('vendas').select('total, vendedor_nome').eq('status', 'concluida')
-        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim),
+      fetchAll<{ total: number; vendedor_nome: string | null }>((from, to) => supabase.from('vendas').select('total, vendedor_nome').eq('status', 'concluida')
+        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to)),
     ])
     comissaoPctG = Number((cfg?.valor as Record<string, number> | null)?.comissao_percentual ?? 0)
     const mapa: Record<string, number> = {}
@@ -389,9 +387,9 @@ export default async function RelatoriosPage({
   let prevCaixa: { data: string; descricao: string; tipo: string; valor: number; saldo: number }[] = []
   let prevReceber = 0, prevPagar = 0
   if (aba === 'previsaocaixa') {
-    const { data } = await supabase.from('lancamentos')
+    const data = await fetchAll<{ descricao: string | null; valor: number | null; valor_pago: number | null; tipo: string; data_vencimento: string }>((from, to) => supabase.from('lancamentos')
       .select('descricao, valor, valor_pago, tipo, data_vencimento')
-      .eq('status', 'pendente').gte('data_vencimento', hoje).order('data_vencimento')
+      .eq('status', 'pendente').gte('data_vencimento', hoje).order('data_vencimento').range(from, to))
     let saldo = 0
     prevCaixa = (data ?? []).map((l) => {
       const rest = (l.valor ?? 0) - (l.valor_pago ?? 0)
@@ -411,9 +409,9 @@ export default async function RelatoriosPage({
     const prevFim = new Date(new Date(dataInicio + 'T00:00:00').getTime() - 1)
     const prevIni = new Date(prevFim.getTime() - msLen)
     const janela = async (ini: string, fim: string): Promise<Comp> => {
-      const [{ data: vs }, { data: ds }] = await Promise.all([
-        supabase.from('vendas').select('total').eq('status', 'concluida').gte('created_at', ini).lte('created_at', fim),
-        supabase.from('lancamentos').select('valor').eq('tipo', 'pagar').gte('data_vencimento', ini.slice(0, 10)).lte('data_vencimento', fim.slice(0, 10) + 'T23:59:59'),
+      const [vs, ds] = await Promise.all([
+        fetchAll<{ total: number | null }>((from, to) => supabase.from('vendas').select('total').eq('status', 'concluida').gte('created_at', ini).lte('created_at', fim).range(from, to)),
+        fetchAll<{ valor: number | null }>((from, to) => supabase.from('lancamentos').select('valor').eq('tipo', 'pagar').gte('data_vencimento', ini.slice(0, 10)).lte('data_vencimento', fim.slice(0, 10) + 'T23:59:59').range(from, to)),
       ])
       return { receita: (vs ?? []).reduce((s, v) => s + (v.total ?? 0), 0), despesas: (ds ?? []).reduce((s, l) => s + (l.valor ?? 0), 0), nvendas: (vs ?? []).length }
     }
@@ -425,9 +423,9 @@ export default async function RelatoriosPage({
   // ---------- Itens por vendedor ----------
   let itensVendedor: { vendedor: string; itens: { nome: string; qtd: number; valor: number }[] }[] = []
   if (aba === 'itensvendedor') {
-    const { data } = await supabase.from('itens_venda')
+    const data = await fetchAll((from, to) => supabase.from('itens_venda')
       .select('quantidade, total_item, produtos(nome), vendas!inner(vendedor_nome, status, created_at)')
-      .eq('vendas.status', 'concluida').gte('vendas.created_at', periodo.inicio).lte('vendas.created_at', periodo.fim)
+      .eq('vendas.status', 'concluida').gte('vendas.created_at', periodo.inicio).lte('vendas.created_at', periodo.fim).range(from, to))
     const mapa: Record<string, Record<string, { nome: string; qtd: number; valor: number }>> = {}
     for (const it of (data ?? []) as unknown as { quantidade: number; total_item: number; produtos: { nome: string } | null; vendas: { vendedor_nome: string | null } | null }[]) {
       const vend = it.vendas?.vendedor_nome || 'Sem vendedor'
