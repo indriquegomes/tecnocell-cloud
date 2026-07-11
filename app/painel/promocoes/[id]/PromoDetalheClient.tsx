@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { hojeSP } from '@/lib/utils'
 import { Spinner } from '@/components/Spinner'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -60,7 +61,7 @@ export function PromoDetalheClient({
   faixas: Faixa[]
 }) {
   const router = useRouter()
-  const hoje = new Date().toISOString().split('T')[0]
+  const hoje = hojeSP()
   const expirada = !!promocao.data_fim && promocao.data_fim < hoje  // sem data_fim = nunca expira
   const ativa = promocao.ativa && !expirada
   const ehValorDireto = promocao.tipo === 'valor_direto'

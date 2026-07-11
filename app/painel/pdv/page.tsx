@@ -1,5 +1,6 @@
 import { headers } from 'next/headers'
 import { createServiceClient } from '@/lib/supabase/server'
+import { hojeSP } from '@/lib/utils'
 import { PDVClient } from './PDVClient'
 
 // Config de PDV do usuário logado (lojas permitidas + padrão). Tolerante:
@@ -36,7 +37,7 @@ export type PromoInfo = {
 export default async function PDVPage() {
   const supabase = await createServiceClient()
 
-  const hoje = new Date().toISOString().split('T')[0]
+  const hoje = hojeSP()
 
   // Produtos (7.983) e clientes (2.397) NÃO são mais embutidos no HTML — o PDV busca
   // sob demanda no servidor conforme digita (buscarProdutosPDV/buscarClientesPDV). Idem

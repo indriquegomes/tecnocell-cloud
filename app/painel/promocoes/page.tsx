@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { hojeSP } from '@/lib/utils'
 import Link from 'next/link'
 import { NovaPromocaoForm } from './NovaPromocaoForm'
 
@@ -23,7 +24,7 @@ export default async function PromocoesPage({
     .select('*')
     .order('created_at', { ascending: false })
 
-  const hoje = new Date().toISOString().split('T')[0]
+  const hoje = hojeSP()
   const lista = promocoes ?? []
 
   // sem data_fim = não expira

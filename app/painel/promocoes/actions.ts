@@ -1,6 +1,7 @@
 'use server'
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { hojeSP } from '@/lib/utils'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -176,7 +177,7 @@ export async function buscarPromocaoAtivaPorProduto(produtoId: string): Promise<
 } | null> {
   await requirePermissao('produtos')
   const supabase = await createServiceClient()
-  const hoje = new Date().toISOString().split('T')[0]
+  const hoje = hojeSP()
 
   const { data } = await supabase
     .from('itens_promocao')
