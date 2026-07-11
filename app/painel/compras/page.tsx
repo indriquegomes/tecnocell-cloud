@@ -1,4 +1,5 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { formatBRL } from '@/lib/utils'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { deletarNota } from './actions'
 import Link from 'next/link'
@@ -35,6 +36,13 @@ export default async function ComprasPage({
     .order(camposDB[ordemAtual] ?? 'created_at', { ascending: !ordemDir })
     .limit(200)
 
+  // Resumo do topo — via fetchAll pra contar/somar TODAS as notas (não só as 200 exibidas)
+  const resumo = await fetchAll<{ status: string; valor_total: number | null }>((from, to) =>
+    supabase.from('notas_entrada').select('status, valor_total').range(from, to))
+  const totalNotas = resumo.length
+  const totalRecebido = resumo.filter((n) => n.status === 'recebida').reduce((s, n) => s + (Number(n.valor_total) || 0), 0)
+  const totalPendentes = resumo.filter((n) => n.status === 'pendente').length
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -52,7 +60,23 @@ export default async function ComprasPage({
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{params.erro}</div>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      {/* Resumo */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Notas</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums text-gray-900">{totalNotas}</p>
+        </div>
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Recebido</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-600">{formatBRL(totalRecebido)}</p>
+        </div>
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Pendentes</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums text-amber-600">{totalPendentes}</p>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
             <tr>
@@ -82,8 +106,8 @@ export default async function ComprasPage({
                 <td className="px-4 py-3 text-sm text-gray-500">
                   {n.data_entrada ? new Date(n.data_entrada + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}
                 </td>
-                <td className="px-4 py-3 text-sm font-semibold text-gray-800">
-                  {Number(n.valor_total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                <td className="px-4 py-3 text-sm font-semibold tabular-nums text-gray-800">
+                  {formatBRL(Number(n.valor_total) || 0)}
                 </td>
                 <td className="px-4 py-3 text-center">
                   <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLOR[n.status] ?? 'bg-gray-100 text-gray-500'}`}>
