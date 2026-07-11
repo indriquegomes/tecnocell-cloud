@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAllIn } from '@/lib/supabase/server'
 import { formatBRL } from '@/lib/utils'
 import Link from 'next/link'
 import { ColunasToggler } from './ColunasToggler'
@@ -99,13 +99,13 @@ export default async function MovimentacoesPage({
   const devolucaoIds = (devolucoes ?? []).map((d) => d.id)
 
   // 2. Itens + mapas
-  const [{ data: itensVenda }, { data: itensDev }] = await Promise.all([
+  const [itensVenda, itensDev] = await Promise.all([
     vendaIds.length
-      ? supabase.from('itens_venda').select('venda_id, produto_id, quantidade, preco_unitario, total_item, produtos(nome)').in('venda_id', vendaIds)
-      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+      ? fetchAllIn<Record<string, unknown>>(vendaIds, (chunk, from, to) => supabase.from('itens_venda').select('venda_id, produto_id, quantidade, preco_unitario, total_item, produtos(nome)').in('venda_id', chunk).range(from, to))
+      : Promise.resolve([] as Record<string, unknown>[]),
     devolucaoIds.length
-      ? supabase.from('itens_devolucao').select('devolucao_id, produto_id, nome, quantidade, preco_unitario, total_item').in('devolucao_id', devolucaoIds)
-      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+      ? fetchAllIn<Record<string, unknown>>(devolucaoIds, (chunk, from, to) => supabase.from('itens_devolucao').select('devolucao_id, produto_id, nome, quantidade, preco_unitario, total_item').in('devolucao_id', chunk).range(from, to))
+      : Promise.resolve([] as Record<string, unknown>[]),
   ])
 
   // 3. Nomes de produtos (manuais) e pessoas (vendas)

@@ -19,6 +19,23 @@ export async function fetchAll<T>(
   return out
 }
 
+// Como fetchAll, mas fatiando uma lista grande de ids passada a um filtro .in()
+// — evita estourar o limite de URL do PostgREST quando são muitos ids (ex: milhares
+// de venda_id). Cada lote ainda é paginado por fetchAll. chunkSize conservador p/ UUID.
+export async function fetchAllIn<T>(
+  ids: string[],
+  make: (chunk: string[], from: number, to: number) => PromiseLike<{ data: T[] | null }>,
+  chunkSize = 100,
+): Promise<T[]> {
+  const out: T[] = []
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const chunk = ids.slice(i, i + chunkSize)
+    const rows = await fetchAll<T>((from, to) => make(chunk, from, to))
+    out.push(...rows)
+  }
+  return out
+}
+
 export async function createClient() {
   const cookieStore = await cookies()
   return createServerClient(

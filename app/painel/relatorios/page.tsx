@@ -1,4 +1,4 @@
-import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 import { formatDate } from '@/lib/utils'
@@ -268,7 +268,7 @@ export default async function RelatoriosPage({
     const ids = (vs ?? []).map((v) => v.id)
     if (ids.length) {
       const [pgs, { data: formas }] = await Promise.all([
-        fetchAll<{ valor: number; forma_pagamento_id: string | null }>((from, to) => supabase.from('pagamentos_venda').select('valor, forma_pagamento_id').in('venda_id', ids).range(from, to)),
+        fetchAllIn<{ valor: number; forma_pagamento_id: string | null }>(ids, (chunk, from, to) => supabase.from('pagamentos_venda').select('valor, forma_pagamento_id').in('venda_id', chunk).range(from, to)),
         supabase.from('formas_pagamento').select('id, nome'),
       ])
       const nomeF = Object.fromEntries((formas ?? []).map((f) => [f.id, f.nome]))
