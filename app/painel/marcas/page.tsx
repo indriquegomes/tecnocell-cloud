@@ -66,7 +66,7 @@ export default async function MarcasPage({
             {marcas.length === 0 ? (
               <tr><td colSpan={3} className="px-4 py-10 text-center text-sm text-gray-400">Nenhuma marca.</td></tr>
             ) : marcas.map((m) => (
-              <tr key={m.nome} className="hover:bg-gray-50 transition">
+              <tr key={m.nome} className="hover:bg-blue-50/60 transition">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{m.nome}</td>
                 <td className="px-4 py-3 text-center text-sm text-gray-600">{contagem[m.nome] ?? 0}</td>
                 <td className="px-4 py-3 text-center">

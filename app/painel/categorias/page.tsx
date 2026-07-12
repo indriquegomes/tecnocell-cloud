@@ -128,7 +128,7 @@ export default async function CategoriasPage({
             {filtradas.length === 0 ? (
               <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">Nenhuma categoria encontrada.</td></tr>
             ) : filtradas.map((c) => (
-              <tr key={c.hierarquia} className="hover:bg-gray-50 transition">
+              <tr key={c.hierarquia} className="hover:bg-blue-50/60 transition">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.nome}</td>
                 <td className="px-4 py-3 text-center text-sm text-gray-600">{c.total}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">{c.descricao || '—'}</td>

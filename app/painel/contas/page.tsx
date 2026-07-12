@@ -146,7 +146,7 @@ export default async function ContasPage({
             {contas.length === 0 ? (
               <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">Nenhuma conta.</td></tr>
             ) : contas.map((c) => (
-              <tr key={c.id} className="hover:bg-gray-50 transition">
+              <tr key={c.id} className="hover:bg-blue-50/60 transition">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.tipo === 'caixa' ? '💵' : '🏦'} {c.nome}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">{c.tipo === 'caixa' ? 'Caixa' : 'Banco'}</td>
                 <td className={`px-4 py-3 text-right text-sm font-bold tabular-nums ${(saldos[c.id] ?? 0) >= 0 ? 'text-gray-900' : 'text-red-600'}`}>{formatBRL(saldos[c.id] ?? 0)}</td>
@@ -224,7 +224,7 @@ export default async function ContasPage({
             {transferencias.length === 0 ? (
               <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-400">Nenhuma transferência ainda.</td></tr>
             ) : transferencias.map((t) => (
-              <tr key={t.id} className="hover:bg-gray-50 transition">
+              <tr key={t.id} className="hover:bg-blue-50/60 transition">
                 <td className="px-4 py-3 text-sm text-gray-600">{formatDate(t.data)}</td>
                 <td className="px-4 py-3 text-sm text-gray-700">{nomeConta(t.conta_origem_id)}</td>
                 <td className="px-4 py-3 text-sm text-gray-700">{nomeConta(t.conta_destino_id)} <span className="text-gray-300">←</span></td>

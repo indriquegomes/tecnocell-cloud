@@ -89,7 +89,7 @@ export default async function PromocoesPage({
                 const expirada = !!p.data_fim && p.data_fim < hoje
                 const ativa = p.ativa && !expirada
                 return (
-                  <tr key={p.id} className="hover:bg-gray-50 transition">
+                  <tr key={p.id} className="hover:bg-blue-50/60 transition">
                     <td className="px-6 py-3 font-medium text-gray-800">{p.nome}</td>
                     <td className="px-6 py-3 text-gray-500">{TIPO_LABEL[p.tipo] ?? p.tipo}</td>
                     <td className="px-6 py-3 text-gray-500">{fmtDate(p.data_inicio)} → {fmtDate(p.data_fim)}</td>

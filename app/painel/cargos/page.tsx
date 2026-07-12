@@ -53,7 +53,7 @@ export default async function CargosPage({
             {cargos.length === 0 ? (
               <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">Nenhum cargo. Crie o primeiro acima.</td></tr>
             ) : cargos.map((c) => (
-              <tr key={c.id} className={`hover:bg-gray-50 transition ${!c.ativo ? 'opacity-60' : ''}`}>
+              <tr key={c.id} className={`hover:bg-blue-50/60 transition ${!c.ativo ? 'opacity-60' : ''}`}>
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">
                   {c.nome}{!c.ativo && <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">inativo</span>}
                 </td>

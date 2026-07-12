@@ -154,7 +154,7 @@ export function CreditosClient({
                     </thead>
                     <tbody className="divide-y divide-gray-50">
                       {c.movimentos.map((m) => (
-                        <tr key={m.id} className="hover:bg-gray-50">
+                        <tr key={m.id} className="hover:bg-blue-50/60">
                           <td className="px-5 py-2.5 text-xs text-gray-400 whitespace-nowrap">{fmtData(m.created_at)}</td>
                           <td className="px-5 py-2.5 text-gray-600">
                             <div>

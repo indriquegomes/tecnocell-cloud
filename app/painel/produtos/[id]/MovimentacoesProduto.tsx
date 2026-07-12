@@ -79,7 +79,7 @@ export async function MovimentacoesProduto({ produtoId, produtoNome }: { produto
             </thead>
             <tbody className="divide-y divide-gray-50">
               {rows.map((r) => (
-                <tr key={r.key} className="hover:bg-gray-50">
+                <tr key={r.key} className="hover:bg-blue-50/60">
                   <td className="px-3 py-2">
                     <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${BADGE[r.sinal]}`}>{r.label}</span>
                   </td>

@@ -171,7 +171,7 @@ export default async function FormasPagamentoPage({
                   const d = descricao(f, f.maquina_id ? maqById.get(f.maquina_id) : undefined)
                   const conta = f.tipo === 'fiado' ? null : (f.conta_destino_id ? contaById.get(f.conta_destino_id) : undefined)
                   return (
-                    <tr key={f.id} className="hover:bg-gray-50 transition">
+                    <tr key={f.id} className="hover:bg-blue-50/60 transition">
                       <td className="px-4 py-3 text-sm font-medium text-gray-800">{f.nome}</td>
                       <td className="px-4 py-3 text-sm text-gray-500">{labelTipoPagamento(f.tipo)}</td>
                       <td className={`px-4 py-3 text-sm ${d.alerta ? 'text-amber-600' : 'text-gray-500'}`}>{d.texto}</td>

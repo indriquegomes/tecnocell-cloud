@@ -644,7 +644,7 @@ export default async function RelatoriosPage({
           <Tabela vazio={lancamentos.length === 0} vazioMsg="Nenhum lançamento no período."
             head={['Descrição', 'Pessoa', 'Vencimento', 'Valor', 'Tipo', 'Status']} alinhas={['l', 'l', 'l', 'r', 'c', 'c']}>
             {lancamentos.map((l, i) => (
-              <tr key={i} className="hover:bg-gray-50">
+              <tr key={i} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-sm text-gray-800">{l.descricao || '—'}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">{l.pessoa_nome || '—'}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">{l.data_vencimento ? formatDate(l.data_vencimento) : '—'}</td>
@@ -675,7 +675,7 @@ export default async function RelatoriosPage({
           <Tabela vazio={fluxo.length === 0} vazioMsg="Sem movimento no período."
             head={['Dia', 'Entradas', 'Saídas', 'Saldo', 'Acumulado']} alinhas={['l', 'r', 'r', 'r', 'r']}>
             {fluxo.map((f) => (
-              <tr key={f.dia} className="hover:bg-gray-50">
+              <tr key={f.dia} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-sm text-gray-600">{formatDate(f.dia)}</td>
                 <td className="px-4 py-3 text-sm text-right text-green-600">{fmt(f.entrada)}</td>
                 <td className="px-4 py-3 text-sm text-right text-red-500">{fmt(f.saida)}</td>
@@ -721,7 +721,7 @@ export default async function RelatoriosPage({
             <h3 className="mb-2 font-semibold text-gray-800">Despesas por categoria</h3>
             <Tabela vazio={false} head={['Categoria', 'Valor', '%']} alinhas={['l', 'r', 'r']}>
               {despesasPorCategoria.map((d, i) => (
-                <tr key={i} className="hover:bg-gray-50">
+                <tr key={i} className="hover:bg-blue-50/60">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <div className="w-24 shrink-0"><Barra frac={dreDespesas > 0 ? d.valor / dreDespesas : 0} cor="#ef4444" /></div>
@@ -758,7 +758,7 @@ export default async function RelatoriosPage({
               const zap = (c.telefone || '').replace(/\D/g, '')
               const zapLink = zap.length >= 10 ? `https://wa.me/55${zap}?text=${encodeURIComponent(`Oi ${c.pessoa}, tudo bem? Passando pra lembrar do seu fiado na TecnoCell: ${fmt(c.emAberto)} em aberto. Quando puder acertar, agradeço! 😊`)}` : null
               return (
-                <tr key={i} className="hover:bg-gray-50">
+                <tr key={i} className="hover:bg-blue-50/60">
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.pessoa}</td>
                   <td className="px-4 py-3 text-sm">
                     {c.telefone ? (
@@ -793,7 +793,7 @@ export default async function RelatoriosPage({
           <Tabela vazio={vendasLista.length === 0} vazioMsg="Nenhuma venda no período."
             head={['Data', 'Total', 'Desconto', 'Status']} alinhas={['l', 'r', 'r', 'c']}>
             {vendasLista.map((v) => (
-              <tr key={v.id} className="hover:bg-gray-50">
+              <tr key={v.id} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-sm text-gray-600">{new Date(v.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</td>
                 <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{fmt(v.total)}</td>
                 <td className="px-4 py-3 text-sm text-right text-red-500">{fmt(v.desconto ?? 0)}</td>
@@ -822,7 +822,7 @@ export default async function RelatoriosPage({
           <Tabela vazio={rankLucro.length === 0} vazioMsg="Sem vendas concluídas no período."
             head={['Produto', 'Qtd', 'Vendido', 'Custo', 'Lucro', 'Margem']} alinhas={['l', 'r', 'r', 'r', 'r', 'r']}>
             {rankLucro.map((p, i) => (
-              <tr key={i} className="hover:bg-gray-50">
+              <tr key={i} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{p.nome}</td>
                 <td className="px-4 py-3 text-sm text-right text-gray-600">{p.qtd}</td>
                 <td className="px-4 py-3 text-sm text-right text-gray-700">{fmt(p.vendido)}</td>
@@ -847,7 +847,7 @@ export default async function RelatoriosPage({
             cols={[{ key: 'nome', label: 'Produto' }, { key: 'qtd', label: 'Qtd' }, { key: 'vendido', label: 'Valor', money: true }]}
             rows={asRows(rankQtd)} head={['Produto', 'Qtd', 'Valor']}>
             {rankQtd.slice(0, 20).map((p, i) => (
-              <tr key={i} className="hover:bg-gray-50">
+              <tr key={i} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{p.nome}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-2">
@@ -863,7 +863,7 @@ export default async function RelatoriosPage({
             cols={[{ key: 'nome', label: 'Cliente' }, { key: 'qtd', label: 'Compras' }, { key: 'total', label: 'Total', money: true }]}
             rows={asRows(rankClientes)} head={['Cliente', 'Compras', 'Total']}>
             {rankClientes.slice(0, 20).map((c, i) => (
-              <tr key={i} className="hover:bg-gray-50">
+              <tr key={i} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.nome}</td>
                 <td className="px-4 py-3 text-sm text-right text-gray-600">{c.qtd}</td>
                 <td className="px-4 py-3">
@@ -893,7 +893,7 @@ export default async function RelatoriosPage({
               </div>
               <Tabela vazio={abcProdutos.length === 0} vazioMsg="Sem vendas no período." head={['', 'Produto', 'Faturamento', '% Acum']} alinhas={['c', 'l', 'r', 'r']}>
                 {abcProdutos.map((p, i) => (
-                  <tr key={i} className="hover:bg-gray-50">
+                  <tr key={i} className="hover:bg-blue-50/60">
                     <td className="px-4 py-3 text-center"><span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${badgeABC(p.classe)}`}>{p.classe}</span></td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">{p.nome}</td>
                     <td className="px-4 py-3 text-sm text-right text-gray-700">{fmt(p.valor)}</td>
@@ -911,7 +911,7 @@ export default async function RelatoriosPage({
               </div>
               <Tabela vazio={abcClientes.length === 0} vazioMsg="Sem vendas no período." head={['', 'Cliente', 'Faturamento', '% Acum']} alinhas={['c', 'l', 'r', 'r']}>
                 {abcClientes.map((c, i) => (
-                  <tr key={i} className="hover:bg-gray-50">
+                  <tr key={i} className="hover:bg-blue-50/60">
                     <td className="px-4 py-3 text-center"><span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${badgeABC(c.classe)}`}>{c.classe}</span></td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.nome}</td>
                     <td className="px-4 py-3 text-sm text-right text-gray-700">{fmt(c.valor)}</td>
@@ -939,7 +939,7 @@ export default async function RelatoriosPage({
               <h3 className="mb-2 font-semibold text-gray-800">⚠️ Estoque crítico (no/abaixo do mínimo)</h3>
               <Tabela vazio={false} head={['Produto', 'Em estoque', 'Mínimo']} alinhas={['l', 'r', 'r']}>
                 {criticos.map((c, i) => (
-                  <tr key={i} className="hover:bg-gray-50">
+                  <tr key={i} className="hover:bg-blue-50/60">
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.nome}</td>
                     <td className="px-4 py-3 text-sm text-right font-semibold text-red-600">{c.qtd}</td>
                     <td className="px-4 py-3 text-sm text-right text-gray-500">{c.minimo}</td>
@@ -959,7 +959,7 @@ export default async function RelatoriosPage({
               </div>
               <Tabela vazio={false} head={['Produto', 'Estoque', 'Vendido 30d', 'Sugestão']} alinhas={['l', 'r', 'r', 'r']}>
                 {previsao.map((p, i) => (
-                  <tr key={i} className="hover:bg-gray-50">
+                  <tr key={i} className="hover:bg-blue-50/60">
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">{p.nome}</td>
                     <td className="px-4 py-3 text-sm text-right text-gray-600">{p.estoque}</td>
                     <td className="px-4 py-3 text-sm text-right text-gray-600">{p.vendido30}</td>
@@ -980,7 +980,7 @@ export default async function RelatoriosPage({
             <Tabela vazio={estoque.length === 0} vazioMsg="Sem dados de estoque."
               head={['Produto', 'Depósito', 'Qtd', 'Total Custo', 'Total Venda']} alinhas={['l', 'l', 'r', 'r', 'r']}>
               {estoque.slice(0, AMOSTRA).map((e, i) => (
-                <tr key={i} className="hover:bg-gray-50">
+                <tr key={i} className="hover:bg-blue-50/60">
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">{e.nome}</td>
                   <td className="px-4 py-3 text-sm text-gray-500">{e.deposito}</td>
                   <td className="px-4 py-3 text-sm text-right text-gray-700">{e.quantidade}</td>
@@ -1010,7 +1010,7 @@ export default async function RelatoriosPage({
               </div>
               <Tabela vazio={rankFormas.length === 0} vazioMsg="Sem pagamentos no período." head={['Forma', 'Qtd', 'Total', '%']} alinhas={['l', 'r', 'r', 'r']}>
                 {rankFormas.map((f, i) => (
-                  <tr key={i} className="hover:bg-gray-50">
+                  <tr key={i} className="hover:bg-blue-50/60">
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">{f.nome}</td>
                     <td className="px-4 py-3 text-sm text-right text-gray-600">{f.qtd}</td>
                     <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{fmt(f.total)}</td>
@@ -1062,7 +1062,7 @@ export default async function RelatoriosPage({
           </div>
           <Tabela vazio={inativos.length === 0} vazioMsg="Nenhum cliente inativo. 👏" head={['Cliente', 'Última compra', 'Dias sem comprar']} alinhas={['l', 'l', 'r']}>
             {inativos.map((c, i) => (
-              <tr key={i} className="hover:bg-gray-50">
+              <tr key={i} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.nome}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">{formatDate(c.ultima)}</td>
                 <td className={`px-4 py-3 text-sm text-right font-medium ${c.dias > 120 ? 'text-red-600' : 'text-orange-500'}`}>{c.dias}</td>
@@ -1082,7 +1082,7 @@ export default async function RelatoriosPage({
           </div>
           <Tabela vazio={aniversariantes.length === 0} vazioMsg="Ninguém faz aniversário este mês (ou faltam datas nos cadastros)." head={['Dia', 'Cliente', 'Telefone']} alinhas={['c', 'l', 'l']}>
             {aniversariantes.map((a, i) => (
-              <tr key={i} className="hover:bg-gray-50">
+              <tr key={i} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-center"><span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-pink-100 text-xs font-bold text-pink-700">{a.dia}</span></td>
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">🎂 {a.nome}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">{a.telefone || '—'}</td>
@@ -1107,7 +1107,7 @@ export default async function RelatoriosPage({
           </div>
           <Tabela vazio={comissoes.length === 0} vazioMsg="Sem vendas no período." head={['Vendedor', 'Vendido', 'Comissão']} alinhas={['l', 'r', 'r']}>
             {comissoes.map((c, i) => (
-              <tr key={i} className="hover:bg-gray-50">
+              <tr key={i} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.nome}</td>
                 <td className="px-4 py-3 text-sm text-right text-gray-700">{fmt(c.vendido)}</td>
                 <td className="px-4 py-3 text-sm text-right font-semibold text-green-600">{fmt(c.comissao)}</td>
@@ -1128,7 +1128,7 @@ export default async function RelatoriosPage({
           <p className="text-[11px] text-gray-400">Lançamentos pendentes com vencimento a partir de hoje. Independe do filtro de período.</p>
           <Tabela vazio={prevCaixa.length === 0} vazioMsg="Nada pendente pra frente." head={['Vencimento', 'Descrição', 'Valor', 'Saldo projetado']} alinhas={['l', 'l', 'r', 'r']}>
             {prevCaixa.map((l, i) => (
-              <tr key={i} className="hover:bg-gray-50">
+              <tr key={i} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-sm text-gray-600">{formatDate(l.data)}</td>
                 <td className="px-4 py-3 text-sm text-gray-700">{l.descricao}</td>
                 <td className={`px-4 py-3 text-sm text-right font-medium ${l.valor >= 0 ? 'text-green-600' : 'text-red-500'}`}>{fmt(l.valor)}</td>
@@ -1162,7 +1162,7 @@ export default async function RelatoriosPage({
                   // pra despesas, subir é ruim (vermelho); pro resto, subir é bom (verde)
                   const bom = r.inv ? v <= 0 : v >= 0
                   return (
-                    <tr key={i} className="hover:bg-gray-50">
+                    <tr key={i} className="hover:bg-blue-50/60">
                       <td className="px-4 py-3 text-sm font-medium text-gray-800">{r.l}</td>
                       <td className="px-4 py-3 text-sm text-right text-gray-500">{r.money ? fmt(r.b) : r.b}</td>
                       <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{r.money ? fmt(r.a) : r.a}</td>
@@ -1185,7 +1185,7 @@ export default async function RelatoriosPage({
               <h3 className="mb-2 font-semibold text-gray-800">{v.vendedor}</h3>
               <Tabela vazio={false} head={['Produto', 'Qtd', 'Valor']} alinhas={['l', 'r', 'r']}>
                 {v.itens.map((it, i) => (
-                  <tr key={i} className="hover:bg-gray-50">
+                  <tr key={i} className="hover:bg-blue-50/60">
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">{it.nome}</td>
                     <td className="px-4 py-3 text-sm text-right font-semibold text-blue-600">{it.qtd}</td>
                     <td className="px-4 py-3 text-sm text-right text-gray-600">{fmt(it.valor)}</td>
@@ -1207,7 +1207,7 @@ export default async function RelatoriosPage({
           {precos.length > AMOSTRA && <p className="text-[11px] text-gray-400">Mostrando {AMOSTRA} de {precos.length} — exporte o CSV pra lista completa.</p>}
           <Tabela vazio={precos.length === 0} vazioMsg="Sem produtos." head={['Produto', 'Custo', 'Preço', 'Mínimo', 'Margem']} alinhas={['l', 'r', 'r', 'r', 'r']}>
             {precos.slice(0, AMOSTRA).map((p, i) => (
-              <tr key={i} className="hover:bg-gray-50">
+              <tr key={i} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{p.nome}</td>
                 <td className="px-4 py-3 text-sm text-right text-orange-500">{fmt(p.custo)}</td>
                 <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{fmt(p.preco)}</td>
@@ -1233,7 +1233,7 @@ export default async function RelatoriosPage({
           </div>
           <Tabela vazio={pedidosLista.length === 0} vazioMsg="Nenhum pedido no período." head={['Nº', 'Tipo', 'Cliente', 'Status', 'Total']} alinhas={['l', 'l', 'l', 'c', 'r']}>
             {pedidosLista.map((p, i) => (
-              <tr key={i} className="hover:bg-gray-50">
+              <tr key={i} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{p.numero ? `#${p.numero}` : '—'}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">{p.tipo}</td>
                 <td className="px-4 py-3 text-sm text-gray-700">{p.cliente}</td>
@@ -1258,7 +1258,7 @@ export default async function RelatoriosPage({
           </div>
           <Tabela vazio={entradas.length === 0} vazioMsg="Nenhuma nota de entrada recebida no período." head={['Produto', 'Qtd', 'Custo total']} alinhas={['l', 'r', 'r']}>
             {entradas.map((e, i) => (
-              <tr key={i} className="hover:bg-gray-50">
+              <tr key={i} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{e.nome}</td>
                 <td className="px-4 py-3 text-sm text-right font-semibold text-blue-600">{e.qtd}</td>
                 <td className="px-4 py-3 text-sm text-right text-gray-700">{fmt(e.valor)}</td>
@@ -1277,7 +1277,7 @@ export default async function RelatoriosPage({
           </div>
           <Tabela vazio={porFornecedor.length === 0} vazioMsg="Sem produtos." head={['Fornecedor', 'Nº de produtos']} alinhas={['l', 'r']}>
             {porFornecedor.map((f, i) => (
-              <tr key={i} className="hover:bg-gray-50">
+              <tr key={i} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{f.fornecedor}</td>
                 <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{f.produtos}</td>
               </tr>
@@ -1297,7 +1297,7 @@ export default async function RelatoriosPage({
           {inventario.length > AMOSTRA && <p className="text-[11px] text-gray-400">Mostrando {AMOSTRA} de {inventario.length} — exporte o CSV pra folha completa.</p>}
           <Tabela vazio={inventario.length === 0} vazioMsg="Sem estoque." head={['Produto', 'Depósito', 'Sistema', 'Contagem']} alinhas={['l', 'l', 'r', 'r']}>
             {inventario.slice(0, AMOSTRA).map((e, i) => (
-              <tr key={i} className="hover:bg-gray-50">
+              <tr key={i} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{e.nome}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">{e.deposito}</td>
                 <td className="px-4 py-3 text-sm text-right text-gray-700">{e.sistema}</td>
@@ -1317,7 +1317,7 @@ export default async function RelatoriosPage({
           </div>
           <Tabela vazio={movSaldo.length === 0} vazioMsg="Sem movimentações no período." head={['Produto', 'Entradas', 'Saídas', 'Saldo atual']} alinhas={['l', 'r', 'r', 'r']}>
             {movSaldo.map((m, i) => (
-              <tr key={i} className="hover:bg-gray-50">
+              <tr key={i} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{m.nome}</td>
                 <td className="px-4 py-3 text-sm text-right text-green-600">+{m.entradas}</td>
                 <td className="px-4 py-3 text-sm text-right text-red-500">−{m.saidas}</td>
@@ -1337,7 +1337,7 @@ export default async function RelatoriosPage({
           </div>
           <Tabela vazio={tecnicos.length === 0} vazioMsg="Nenhuma OS no período." head={['Técnico', 'OS', 'Concluídas', 'Faturado']} alinhas={['l', 'r', 'r', 'r']}>
             {tecnicos.map((t, i) => (
-              <tr key={i} className="hover:bg-gray-50">
+              <tr key={i} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{t.nome}</td>
                 <td className="px-4 py-3 text-sm text-right text-gray-700">{t.os}</td>
                 <td className="px-4 py-3 text-sm text-right text-green-600">{t.concluidas}</td>
@@ -1358,7 +1358,7 @@ export default async function RelatoriosPage({
           {contatos.length > AMOSTRA && <p className="text-[11px] text-gray-400">Mostrando {AMOSTRA} de {contatos.length} — exporte o CSV pra lista completa.</p>}
           <Tabela vazio={contatos.length === 0} vazioMsg="Sem contatos com telefone." head={['Nome', 'Telefone', 'Cidade', 'Tipo']} alinhas={['l', 'l', 'l', 'c']}>
             {contatos.slice(0, AMOSTRA).map((c, i) => (
-              <tr key={i} className="hover:bg-gray-50">
+              <tr key={i} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.nome}</td>
                 <td className="px-4 py-3 text-sm text-gray-700">{c.telefone}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">{c.cidade}</td>
@@ -1388,7 +1388,7 @@ function RankSimples({ titulo, filename, rows, colLabel }: { titulo: string; fil
       </div>
       <Tabela vazio={rows.length === 0} vazioMsg="Sem vendas no período." head={[colLabel, 'Vendas', 'Total']} alinhas={['l', 'r', 'r']}>
         {rows.map((r, i) => (
-          <tr key={i} className="hover:bg-gray-50">
+          <tr key={i} className="hover:bg-blue-50/60">
             <td className="px-4 py-3 text-sm font-medium text-gray-800">{r.nome}</td>
             <td className="px-4 py-3 text-sm text-right text-gray-600">{r.qtd}</td>
             <td className="px-4 py-3">

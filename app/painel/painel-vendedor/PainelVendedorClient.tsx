@@ -319,7 +319,7 @@ export function PainelVendedorClient({
             </thead>
             <tbody className="divide-y divide-gray-50">
               {vendasVendedor.map((v) => (
-                <tr key={v.id} className="hover:bg-gray-50">
+                <tr key={v.id} className="hover:bg-blue-50/60">
                   <td className="px-5 py-2.5 text-gray-600">{fmtData(v.created_at)}</td>
                   <td className="px-5 py-2.5 text-right text-orange-500">
                     {(v.desconto ?? 0) > 0 ? `-${fmt(v.desconto ?? 0)}` : '—'}

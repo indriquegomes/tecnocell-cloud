@@ -84,7 +84,7 @@ export default async function TransferenciasPage({
                 <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">Nenhuma transferência ainda.</td></tr>
               ) : (
                 (movs ?? []).map((m) => (
-                  <tr key={m.id} className="hover:bg-gray-50 transition">
+                  <tr key={m.id} className="hover:bg-blue-50/60 transition">
                     <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{fmtDate(m.created_at)}</td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">{nomeProd[m.produto_id] ?? m.produto_id}</td>
                     <td className="px-4 py-3 text-center text-sm font-bold text-gray-900">{m.quantidade}</td>

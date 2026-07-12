@@ -250,7 +250,7 @@ export default async function ProdutosPage({
                 const minimo       = (p.estoque_minimo as number) ?? 0
                 const abaixoMinimo = minimo > 0 && estoqueTotal < minimo
                 return (
-                  <tr key={p.id as string} className="hover:bg-gray-50 transition">
+                  <tr key={p.id as string} className="hover:bg-blue-50/60 transition">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {p.imagem_url ? (

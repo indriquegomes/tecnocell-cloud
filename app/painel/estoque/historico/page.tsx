@@ -387,7 +387,7 @@ export default async function MovimentacoesPage({
               rows.map((r) => {
                 const t = TIPO[r.tipo] ?? { label: r.tipo, cls: 'text-gray-700 bg-gray-50 border-gray-200', sinal: '' }
                 return (
-                  <tr key={r.key} className="hover:bg-gray-50 transition">
+                  <tr key={r.key} className="hover:bg-blue-50/60 transition">
                     <td data-col="data"      className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{fmtDate(r.data)}</td>
                     <td data-col="tipo"      className="px-4 py-3 text-center">
                       <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${t.cls}`}>

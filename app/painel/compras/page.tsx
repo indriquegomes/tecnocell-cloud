@@ -103,7 +103,7 @@ export default async function ComprasPage({
                 Nenhuma nota. <Link href="/painel/compras/nova" className="text-blue-500 hover:underline">Cadastrar</Link>.
               </td></tr>
             ) : (notas ?? []).map((n) => (
-              <tr key={n.id} className="hover:bg-gray-50 transition">
+              <tr key={n.id} className="hover:bg-blue-50/60 transition">
                 <td className="px-4 py-3 text-sm font-mono text-gray-600">{n.numero || '—'}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">
                   {n.data_entrada ? new Date(n.data_entrada + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}

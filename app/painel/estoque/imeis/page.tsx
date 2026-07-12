@@ -146,7 +146,7 @@ export default async function ImeisPage({
                 const st = ST[l.status] ?? { label: l.status, cls: 'text-gray-600 bg-gray-100 border-gray-200' }
                 const num = l.venda_id ? vendaNum[l.venda_id] : null
                 return (
-                  <tr key={l.id} className="hover:bg-gray-50 transition">
+                  <tr key={l.id} className="hover:bg-blue-50/60 transition">
                     <td className="px-4 py-3 text-sm font-mono text-gray-800">{l.serie}</td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-700">
                       {l.produtos?.nome ?? '—'}

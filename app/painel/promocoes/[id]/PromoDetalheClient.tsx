@@ -257,7 +257,7 @@ export function PromoDetalheClient({
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {faixas.map((f) => (
-                    <tr key={f.id} className="hover:bg-gray-50">
+                    <tr key={f.id} className="hover:bg-blue-50/60">
                       <td className="px-4 py-2.5 font-medium text-gray-800">{f.quantidade_minima} un+</td>
                       <td className="px-4 py-2.5 text-right font-semibold text-green-600">{fmt(f.preco)}</td>
                       <td className="px-4 py-2.5 text-right">
@@ -410,7 +410,7 @@ export function PromoDetalheClient({
                   ? ((item.preco_padrao - item.preco_promocional) / item.preco_padrao * 100)
                   : 0
                 return (
-                  <tr key={item.id} className={`hover:bg-gray-50 ${selRem.has(item.id) ? 'bg-blue-50/40' : ''}`}>
+                  <tr key={item.id} className={`hover:bg-blue-50/60 ${selRem.has(item.id) ? 'bg-blue-50/40' : ''}`}>
                     <td className="px-6 py-3">
                       <input type="checkbox" checked={selRem.has(item.id)} onChange={() => toggleRem(item.id)}
                         className="h-4 w-4 rounded border-gray-300 text-blue-600" />

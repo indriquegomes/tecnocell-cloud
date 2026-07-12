@@ -344,7 +344,7 @@ export function TabelaDetalheClient({
               const margem = margemPct(item.preco, custo)
               const editando = editandoId === item.id
               return (
-                <tr key={item.id} className="hover:bg-gray-50 group">
+                <tr key={item.id} className="hover:bg-blue-50/60 group">
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">{prod?.nome ?? '—'}</td>
                   <td className="px-4 py-3 text-center text-sm text-gray-500">{item.quantidade_minima}un+</td>
                   <td className="px-4 py-3 text-sm text-right text-gray-400">{custo > 0 ? fmt(custo) : '—'}</td>

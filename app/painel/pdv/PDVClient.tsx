@@ -1738,7 +1738,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {carrinho.map((item) => (
-                  <tr key={item.produto_id} className="hover:bg-gray-50">
+                  <tr key={item.produto_id} className="hover:bg-blue-50/60">
                     <td className="px-4 py-3">
                       <p className="text-sm font-medium text-gray-800">
                         {item.codigo && <span className="text-gray-400 font-normal">{item.codigo} · </span>}{item.nome}
@@ -2293,7 +2293,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                       const st = statusCrediario(item.data_vencimento)
                       const sel = selecionados.has(item.id)
                       return (
-                        <tr key={item.id} className={`hover:bg-gray-50 ${sel ? 'bg-blue-50' : ''}`}>
+                        <tr key={item.id} className={`hover:bg-blue-50/60 ${sel ? 'bg-blue-50' : ''}`}>
                           <td className="px-4 py-3">
                             <input type="checkbox" checked={sel}
                               onChange={(e) => setSelecionados((prev) => {

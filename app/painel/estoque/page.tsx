@@ -169,7 +169,7 @@ export default async function EstoquePage({
                 const qtd = e.quantidade
                 const prodId = e.produto?.id
                 return (
-                  <tr key={e.id} className="hover:bg-gray-50 transition">
+                  <tr key={e.id} className="hover:bg-blue-50/60 transition">
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">{e.produto?.nome ?? '—'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">{e.produto?.marca ?? '—'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">{e.deposito?.nome ?? '—'}</td>

@@ -70,7 +70,7 @@ export default async function MarcasPage({
               lista.map((m) => {
                 const n = contagem[m.nome] ?? 0
                 return (
-                  <tr key={m.nome} className="hover:bg-gray-50 transition">
+                  <tr key={m.nome} className="hover:bg-blue-50/60 transition">
                     <td className="px-4 py-2.5">
                       <form action={renomearMarca} className="flex items-center gap-2">
                         <input type="hidden" name="nome_antigo" value={m.nome} />

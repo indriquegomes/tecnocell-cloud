@@ -110,7 +110,7 @@ export default async function EditarClientePage({
               {compras.length === 0 ? (
                 <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">Nenhuma compra ainda.</td></tr>
               ) : compras.map((c) => (
-                <tr key={c.key} className="hover:bg-gray-50 transition">
+                <tr key={c.key} className="hover:bg-blue-50/60 transition">
                   <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{formatDate(c.data)}</td>
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.ref}</td>
                   <td className="px-4 py-3 text-sm text-gray-600">{c.info || '—'}</td>
@@ -140,7 +140,7 @@ export default async function EditarClientePage({
               {(oss ?? []).length === 0 ? (
                 <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">Nenhuma ordem de serviço.</td></tr>
               ) : (oss ?? []).map((o) => (
-                <tr key={o.id} className="hover:bg-gray-50 transition">
+                <tr key={o.id} className="hover:bg-blue-50/60 transition">
                   <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{formatDate(o.created_at)}</td>
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">{o.numero ? `#${o.numero}` : '—'}</td>
                   <td className="px-4 py-3 text-sm text-gray-600">{[o.aparelho, o.modelo].filter(Boolean).join(' ') || '—'}</td>

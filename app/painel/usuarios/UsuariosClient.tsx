@@ -535,7 +535,7 @@ export function UsuariosClient({ usuarios, cargos, lojas, depositos, tabelas }: 
               </tr>
             )}
             {usuarios.map((u) => (
-              <tr key={u.id} className="hover:bg-gray-50 transition">
+              <tr key={u.id} className="hover:bg-blue-50/60 transition">
                 <td className="px-6 py-3">
                   <div className="flex items-center gap-2">
                     <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">

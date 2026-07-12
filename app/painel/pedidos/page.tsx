@@ -120,7 +120,7 @@ export default async function PedidosPage({
             ) : lista.map((p) => {
               const cliente = (p.pessoas as unknown as { nome: string } | null)?.nome
               return (
-                <tr key={p.id} className="hover:bg-gray-50 transition">
+                <tr key={p.id} className="hover:bg-blue-50/60 transition">
                   <td className="px-4 py-3 text-sm font-mono text-gray-500">#{p.numero ?? '—'}</td>
                   <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{fmtDt(p.created_at)}</td>
                   <td className="px-4 py-3 text-sm text-gray-600 capitalize">

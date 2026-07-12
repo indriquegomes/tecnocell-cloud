@@ -60,7 +60,7 @@ export default async function LojasPage({
                 Nenhuma loja. <Link href="/painel/lojas/nova" className="text-blue-500 hover:underline">Cadastrar</Link>.
               </td></tr>
             ) : (lojas ?? []).map((l) => (
-              <tr key={l.id} className="hover:bg-gray-50 transition">
+              <tr key={l.id} className="hover:bg-blue-50/60 transition">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{l.nome}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">{l.cidade ? `${l.cidade}${l.uf ? `/${l.uf}` : ''}` : '—'}</td>
                 <td className="px-4 py-3 text-center text-sm text-gray-600">{nDeps[l.id] ?? 0}</td>

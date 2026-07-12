@@ -148,7 +148,7 @@ export default async function FinanceiroPage({
               todos.map((l) => {
                 const pago = (l.status ?? '').toLowerCase().includes('pago')
                 return (
-                  <tr key={l.id} className="hover:bg-gray-50 transition">
+                  <tr key={l.id} className="hover:bg-blue-50/60 transition">
                     <td className="px-4 py-3 text-sm text-gray-800">{l.descricao || '—'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">{l.pessoa_nome || '—'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">

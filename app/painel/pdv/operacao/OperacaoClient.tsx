@@ -592,7 +592,7 @@ function XReportPanel({
                       const ehCrediario = (v.forma_pagamento ?? '').toLowerCase().includes('credi') || (v.forma_pagamento ?? '').toLowerCase().includes('fiado')
                       if (!ehCrediario) saldo += v.total
                       return (
-                        <tr key={v.id} className="hover:bg-gray-50">
+                        <tr key={v.id} className="hover:bg-blue-50/60">
                           <td className="py-1.5 pr-3 font-mono text-gray-500 text-xs">{v.id.slice(-6).toUpperCase()}</td>
                           <td className="py-1.5 pr-3 text-gray-500">{fmtHora(v.created_at)}</td>
                           <td className="py-1.5 pr-3 text-gray-700">{v.forma_pagamento ?? '—'}</td>
@@ -1203,7 +1203,7 @@ export function OperacaoClient({
           </thead>
           <tbody className="divide-y divide-gray-50">
             {historico.map((c) => (
-              <tr key={c.id} className="hover:bg-gray-50 transition">
+              <tr key={c.id} className="hover:bg-blue-50/60 transition">
                 <td className="px-4 py-3 text-sm text-gray-600">{fmtDate(c.aberto_em)}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">
                   {c.fechado_em ? fmtDate(c.fechado_em) : '—'}

@@ -439,7 +439,7 @@ export function PedidoDetalheClient({
                 Nenhum item adicionado.
               </td></tr>
             ) : itens.map(item => (
-              <tr key={item.id} className="hover:bg-gray-50 group">
+              <tr key={item.id} className="hover:bg-blue-50/60 group">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{item.produtos?.nome ?? '—'}</td>
                 <td className="px-4 py-3 text-sm text-right text-gray-600">{item.quantidade}</td>
                 <td className="px-4 py-3 text-sm text-right text-gray-600">{fmt(item.preco_unitario ?? 0)}</td>

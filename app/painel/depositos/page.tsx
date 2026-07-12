@@ -182,7 +182,7 @@ export default async function DepositosPage({
             {comContagem.length === 0 ? (
               <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-gray-400">Nenhum depósito cadastrado.</td></tr>
             ) : comContagem.map((d) => (
-              <tr key={d.id} className="hover:bg-gray-50 transition">
+              <tr key={d.id} className="hover:bg-blue-50/60 transition">
                 <td className="px-4 py-3">
                   <p className="text-sm font-medium text-gray-800">{d.nome}</p>
                   {d.descricao && <p className="text-xs text-gray-400">{d.descricao}</p>}

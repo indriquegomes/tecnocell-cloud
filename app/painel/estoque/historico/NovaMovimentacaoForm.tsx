@@ -264,7 +264,7 @@ export function NovaMovimentacaoForm({
               </thead>
               <tbody className="divide-y divide-gray-50 bg-white">
                 {itens.map((item, i) => (
-                  <tr key={i} className="hover:bg-gray-50 transition">
+                  <tr key={i} className="hover:bg-blue-50/60 transition">
                     <td className="px-4 py-2.5 text-sm text-gray-400 align-top">{i + 1}</td>
                     <td className="px-4 py-2.5 text-sm font-medium text-gray-800">
                       {item.produtoBusca.replace(/\s*\([^)]*\)$/, '').trim()}

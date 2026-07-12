@@ -146,7 +146,7 @@ export default async function NotaEntradaDetalhe({
             ) : (itens ?? []).map((item) => {
               const dep = depMap.get(item.deposito_id)
               return (
-                <tr key={item.id} className="hover:bg-gray-50">
+                <tr key={item.id} className="hover:bg-blue-50/60">
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">{prodNome.get(item.produto_id) ?? '—'}</td>
                   <td className="px-4 py-3 text-sm text-gray-500">{dep ? `${dep.loja ? dep.loja + ' · ' : ''}${dep.nome}` : '—'}</td>
                   <td className="px-4 py-3 text-sm text-right text-gray-600">{item.quantidade}</td>

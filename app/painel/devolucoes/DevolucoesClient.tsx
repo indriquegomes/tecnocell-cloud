@@ -380,7 +380,7 @@ export function DevolucoesClient({
                   </td>
                 </tr>
               ) : linhasFiltradas.map((l) => (
-                <tr key={l.item_id} className="hover:bg-gray-50/60 transition group">
+                <tr key={l.item_id} className="hover:bg-blue-50/60/60 transition group">
                   <td className="px-4 py-3 whitespace-nowrap">
                     <span className="font-mono text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded px-1.5 py-0.5">
                       {l.venda_id ? l.venda_id.slice(0, 8).toUpperCase() : '—'}

@@ -132,7 +132,7 @@ export default async function ClientesPage({
               </tr>
             ) : (
               (pessoas ?? []).map((p) => (
-                <tr key={p.id} className="hover:bg-gray-50 transition">
+                <tr key={p.id} className="hover:bg-blue-50/60 transition">
                   <td className="px-4 py-3">
                     <p className="text-sm font-medium text-gray-800">{p.nome}</p>
                     <p className="text-xs text-gray-400">{p.pessoa_fisica ? 'Pessoa Física' : 'Pessoa Jurídica'}</p>
