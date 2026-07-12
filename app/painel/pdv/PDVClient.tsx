@@ -286,18 +286,29 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [catalogoPronto, setCatalogoPronto] = useState(false)
   useEffect(() => {
     let vivo = true
-    // 1) cache da sessão → busca instantânea já na reabertura (enquanto atualiza no fundo)
+    // Cache do catálogo no PRÓPRIO PC (localStorage, sobrevive a fechar o navegador/PC).
+    // São sempre as mesmas máquinas → o PDV reabre instantâneo. O estoque continua
+    // sendo revalidado em background (e o finalizar_venda valida no servidor), então
+    // não há risco de vender item errado — o cache é só pra vitrine/busca instantânea.
+    const CHAVE = 'pdv_catalogo_v1'
+    const VALIDADE = 7 * 24 * 3600 * 1000 // ignora cache com +7 dias (evita 1º paint super velho)
+    // 1) cache local → busca instantânea já na abertura (enquanto atualiza no fundo)
     try {
-      const cache = sessionStorage.getItem('pdv_catalogo')
-      if (cache) { const arr = JSON.parse(cache); if (Array.isArray(arr) && arr.length) { mesclarProdutos(arr, {}); setCatalogoPronto(true) } }
+      const bruto = localStorage.getItem(CHAVE)
+      if (bruto) {
+        const { t, produtos } = JSON.parse(bruto) as { t: number; produtos: unknown[] }
+        if (Array.isArray(produtos) && produtos.length && Date.now() - (t || 0) < VALIDADE) {
+          mesclarProdutos(produtos as Parameters<typeof mesclarProdutos>[0], {}); setCatalogoPronto(true)
+        }
+      }
     } catch { /* ignore */ }
-    // 2) sempre traz o catálogo fresco em background e recacheia
+    // 2) sempre traz o catálogo fresco em background e recacheia (frescor do estoque)
     ;(async () => {
       try {
         const cat = await carregarCatalogoPDV(await authToken())
         if (vivo && cat.length) {
           mesclarProdutos(cat, {}); setCatalogoPronto(true)
-          try { sessionStorage.setItem('pdv_catalogo', JSON.stringify(cat)) } catch { /* quota — segue sem cache */ }
+          try { localStorage.setItem(CHAVE, JSON.stringify({ t: Date.now(), produtos: cat })) } catch { /* quota — segue sem cache */ }
         }
       } catch { /* silencioso — cai na busca on-demand */ }
     })()
