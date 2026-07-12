@@ -600,7 +600,10 @@ export default async function RelatoriosPage({
           <div key={c.cat} className="flex flex-wrap items-center gap-1.5">
             <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{c.cat}</span>
             {c.abas.map((a) => (
-              <Link key={a.id} href={`/painel/relatorios?aba=${a.id}&de=${dataInicio}&ate=${dataFim}`}
+              // prefetch={false}: são ~25 abas do mesmo relatório; pré-carregar todas
+              // no load disparava ~25 requests RSC à toa. A troca de aba já tem skeleton
+              // + barra de progresso, então continua fluida sem o prefetch em massa.
+              <Link key={a.id} prefetch={false} href={`/painel/relatorios?aba=${a.id}&de=${dataInicio}&ate=${dataFim}`}
                 className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${aba === a.id ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}>
                 {a.label}
               </Link>
