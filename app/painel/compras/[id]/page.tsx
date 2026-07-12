@@ -1,6 +1,7 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { receberNota, estornarNota, editarNota, removerItemNota } from '../actions'
 import { ConfirmButton } from '@/components/ConfirmButton'
+import { SubmitButton } from '@/components/SubmitButton'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { AddItemNota } from './AddItemNota'
 import Link from 'next/link'
@@ -115,7 +116,7 @@ export default async function NotaEntradaDetalhe({
               <textarea name="observacoes" rows={2} defaultValue={nota.observacoes ?? ''} className="field" />
             </div>
             <div className="sm:col-span-2">
-              <button type="submit" className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">Salvar dados</button>
+              <SubmitButton pendingText="Salvando…" className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-60">Salvar dados</SubmitButton>
             </div>
           </form>
         </details>
