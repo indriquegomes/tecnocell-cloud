@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { PainelShell } from '@/components/PainelShell'
+import { NavProgress } from '@/components/NavProgress'
 import { createServiceClient, permissoesEfetivas, configAcesso } from '@/lib/supabase/server'
 import { permissaoPorRota, temPermissao } from '@/lib/permissoes'
 import { acessoBloqueado } from '@/lib/acesso'
@@ -59,13 +60,16 @@ export default async function PainelLayout({ children }: { children: React.React
   }
 
   return (
-    <PainelShell
-      email={email}
-      nome={nome}
-      permissoes={permissoes}
-      isMaster={isMaster}
-    >
-      {children}
-    </PainelShell>
+    <>
+      <NavProgress />
+      <PainelShell
+        email={email}
+        nome={nome}
+        permissoes={permissoes}
+        isMaster={isMaster}
+      >
+        {children}
+      </PainelShell>
+    </>
   )
 }
