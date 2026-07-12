@@ -3,6 +3,8 @@ import { formatBRL, formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { Dica } from '@/components/Dica'
+import { EmptyState } from '@/components/ui/empty-state'
+import { IconTarget } from '@/components/icons'
 import Link from 'next/link'
 import { MetasForm } from './MetasForm'
 import { deletarMeta } from './actions'
@@ -34,9 +36,8 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
       {/* Lista */}
       <div className="space-y-3">
         {(metas ?? []).length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-400">
-            Nenhuma meta ainda. Crie a primeira abaixo. 🎯
-          </p>
+          <EmptyState icon={<IconTarget className="h-6 w-6" />} title="Nenhuma meta ainda"
+            description="Crie a primeira meta abaixo pra aparecer no dashboard das meninas." />
         ) : (metas ?? []).map((m) => (
           <div key={m.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
             <div className="min-w-0">
