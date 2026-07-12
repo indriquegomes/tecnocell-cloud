@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { IconPlus } from '@/components/icons'
 import { deletarPedido } from './actions'
 import { ConfirmButton } from '@/components/ConfirmButton'
 import Link from 'next/link'
@@ -73,8 +74,8 @@ export default async function PedidosPage({
           <Dica texto="Crie orçamentos para clientes ou registre pedidos. Pedidos aprovados podem ser faturados no PDV." />
         </div>
         <Link href="/painel/pedidos/novo"
-          className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
-          + Novo
+          className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
+          <IconPlus className="h-4 w-4" /> Novo
         </Link>
       </div>
 

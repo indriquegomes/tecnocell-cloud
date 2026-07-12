@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { IconPlus } from '@/components/icons'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { deletarLoja } from './actions'
 import Link from 'next/link'
@@ -30,8 +31,8 @@ export default async function LojasPage({
           <Dica texto="As unidades da sua rede (ex: Teresópolis, Petrópolis). Cada loja agrupa seus próprios depósitos. Não confundir com Empresas (fornecedores)." />
         </div>
         <Link href="/painel/lojas/nova"
-          className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
-          + Nova Loja
+          className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
+          <IconPlus className="h-4 w-4" /> Nova Loja
         </Link>
       </div>
 
