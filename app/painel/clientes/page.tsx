@@ -1,5 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import { IconPlus } from '@/components/icons'
+import { IconPlus, IconUsers } from '@/components/icons'
 import { BuscaPessoas } from './BuscaPessoas'
 import { Paginacao } from '@/components/Paginacao'
 import { Badge } from '@/components/ui/badge'
@@ -69,6 +69,7 @@ export default async function ClientesPage({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
+          <IconUsers className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
           <h2 className="text-2xl font-bold text-gray-900">Clientes e Fornecedores</h2>
           <Dica texto="Cadastro de pessoas físicas e jurídicas: clientes, fornecedores ou ambos. Usado no PDV, pedidos e financeiro." />
         </div>

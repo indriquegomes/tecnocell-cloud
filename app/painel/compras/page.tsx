@@ -1,5 +1,5 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
-import { IconPlus } from '@/components/icons'
+import { IconPlus, IconFile } from '@/components/icons'
 import { formatBRL } from '@/lib/utils'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { deletarNota } from './actions'
@@ -48,6 +48,7 @@ export default async function ComprasPage({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
+          <IconFile className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
           <h2 className="text-2xl font-bold text-gray-900">Notas de Entrada</h2>
           <Dica texto="Registro de compras de fornecedores. Ao finalizar uma nota, o estoque dos produtos é atualizado automaticamente." />
         </div>

@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { IconWallet } from '@/components/icons'
 import { formatBRL, formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { BuscaLista } from '@/components/BuscaLista'
@@ -63,6 +64,7 @@ export default async function FinanceiroPage({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
+          <IconWallet className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
           <h2 className="text-2xl font-bold text-gray-900">Financeiro</h2>
           <Dica texto="Controle de contas a pagar e a receber. Registre despesas, receitas e acompanhe o saldo pendente." />
         </div>

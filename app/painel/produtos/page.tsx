@@ -1,5 +1,5 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
-import { IconPlus } from '@/components/icons'
+import { IconPlus, IconPackage } from '@/components/icons'
 import { formatBRL } from '@/lib/utils'
 import { Paginacao } from '@/components/Paginacao'
 import { BuscaProdutos } from './BuscaProdutos'
@@ -115,6 +115,7 @@ export default async function ProdutosPage({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
+          <IconPackage className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
           <h2 className="text-2xl font-bold text-gray-900">Produtos</h2>
           <Dica texto="Catálogo completo de produtos para venda. Configure preço, custo, categoria, marca e controle de estoque mínimo." />
         </div>
