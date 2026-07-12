@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { IconTag } from '@/components/icons'
 import { hojeSP } from '@/lib/utils'
 import Link from 'next/link'
 import { NovaPromocaoForm } from './NovaPromocaoForm'
@@ -37,7 +38,10 @@ export default async function PromocoesPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Promoções</h2>
+        <div className="flex items-center gap-2">
+          <IconTag className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
+          <h2 className="text-2xl font-bold text-gray-900">Promoções</h2>
+        </div>
       </div>
 
       {erro && (

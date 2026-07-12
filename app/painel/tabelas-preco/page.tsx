@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { IconTag } from '@/components/icons'
 import { hojeSP } from '@/lib/utils'
 import { criarTabela, deletarTabela } from './actions'
 import { ConfirmButton } from '@/components/ConfirmButton'
@@ -24,7 +25,10 @@ export default async function TabelasPrecoPage({
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Tabelas de Preço</h2>
+      <div className="flex items-center gap-2">
+        <IconTag className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
+        <h2 className="text-2xl font-bold text-gray-900">Tabelas de Preço</h2>
+      </div>
 
       {erro && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
       {ok && <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">Tabela criada com sucesso!</div>}

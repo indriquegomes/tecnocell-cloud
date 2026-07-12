@@ -29,6 +29,7 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
+        <IconTarget className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
         <h2 className="text-2xl font-bold text-gray-900">Metas</h2>
         <Dica texto="Metas de faturamento por loja e período, em faixas com prêmio (aparecem no dashboard das meninas)." />
       </div>

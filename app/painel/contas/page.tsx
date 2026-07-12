@@ -1,4 +1,5 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { IconBank } from '@/components/icons'
 import { hojeSP } from '@/lib/utils'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { criarConta, editarConta, deletarConta, criarTransferencia, deletarTransferencia } from './actions'
@@ -75,6 +76,7 @@ export default async function ContasPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
+        <IconBank className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
         <h2 className="text-2xl font-bold text-gray-900">Contas</h2>
         <Dica texto="Onde o dinheiro fica de verdade: Caixa (gaveta) e contas de banco. O saldo de cada uma é calculado sozinho: saldo inicial + vendas que caem nela + lançamentos pagos + transferências." />
       </div>
