@@ -1,3 +1,4 @@
+import { IconPackage } from '@/components/icons'
 import { createServiceClient } from '@/lib/supabase/server'
 import { Badge } from '@/components/ui/badge'
 import { Paginacao } from '@/components/Paginacao'
@@ -70,6 +71,7 @@ export default async function EstoquePage({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
+          <IconPackage className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
           <h2 className="text-2xl font-bold text-gray-900">Estoque</h2>
           <Dica texto="Quantidade atual de cada produto por depósito. Atualizado automaticamente após vendas, compras e movimentações manuais." />
         </div>

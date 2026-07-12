@@ -1,3 +1,4 @@
+import { IconShield } from '@/components/icons'
 import { createServiceClient } from '@/lib/supabase/server'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { TODAS_PERMISSOES } from '@/lib/permissoes'
@@ -29,6 +30,7 @@ export default async function CargosPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
+        <IconShield className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
         <h2 className="text-2xl font-bold text-gray-900">Cargos</h2>
         <Dica texto="Modelo Discord: cada cargo tem um conjunto de permissões. Mudou o cargo, muda pra todo mundo que tem ele. No usuário, você só escolhe o cargo." />
       </div>

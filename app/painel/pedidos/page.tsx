@@ -1,5 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import { IconPlus } from '@/components/icons'
+import { IconPlus, IconClipboard } from '@/components/icons'
 import { deletarPedido } from './actions'
 import { ConfirmButton } from '@/components/ConfirmButton'
 import Link from 'next/link'
@@ -70,6 +70,7 @@ export default async function PedidosPage({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
+          <IconClipboard className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
           <h2 className="text-2xl font-bold text-gray-900">Pedidos e Orçamentos</h2>
           <Dica texto="Crie orçamentos para clientes ou registre pedidos. Pedidos aprovados podem ser faturados no PDV." />
         </div>

@@ -1,3 +1,4 @@
+import { IconUsers } from '@/components/icons'
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { Dica } from '@/components/Dica'
 import { formatDate } from '@/lib/utils'
@@ -60,6 +61,7 @@ export default async function RhPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
+        <IconUsers className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
         <h2 className="text-2xl font-bold text-gray-900">RH / Equipe</h2>
         <Dica texto="Espelho de ponto do dia: quem está trabalhando, horas e batidas. As pessoas batem o ponto no Meu Perfil." />
       </div>

@@ -1,5 +1,6 @@
 'use client'
 
+import { IconChart } from '@/components/icons'
 import { useState, useTransition } from 'react'
 import { hojeSP } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
@@ -133,7 +134,10 @@ export function PainelVendedorClient({
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Painel Vendedor</h2>
+      <div className="flex items-center gap-2">
+        <IconChart className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
+        <h2 className="text-2xl font-bold text-gray-900">Painel Vendedor</h2>
+      </div>
 
       {/* Filtro */}
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">

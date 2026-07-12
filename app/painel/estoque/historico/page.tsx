@@ -1,3 +1,4 @@
+import { IconSwap } from '@/components/icons'
 import { createServiceClient, fetchAllIn } from '@/lib/supabase/server'
 import { formatBRL } from '@/lib/utils'
 import Link from 'next/link'
@@ -248,7 +249,10 @@ export default async function MovimentacoesPage({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </Link>
-        <h2 className="text-2xl font-bold text-gray-900">Movimentações</h2>
+        <div className="flex items-center gap-2">
+          <IconSwap className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
+          <h2 className="text-2xl font-bold text-gray-900">Movimentações</h2>
+        </div>
         <Dica texto="Histórico completo de entradas, saídas e ajustes. Use 'Nova Movimentação' para registrar compras ou corrigir quantidades em lote." lado="baixo" />
         <span className="ml-auto text-sm text-gray-400">{rows.length} registros</span>
         <ColunasToggler />

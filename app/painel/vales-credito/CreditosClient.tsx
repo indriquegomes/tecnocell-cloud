@@ -1,5 +1,6 @@
 'use client'
 
+import { IconCard } from '@/components/icons'
 import { useState } from 'react'
 import { emitirCredito, estornarCredito } from './actions'
 import { ConfirmButton } from '@/components/ConfirmButton'
@@ -70,6 +71,7 @@ export function CreditosClient({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
+        <IconCard className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
         <h2 className="text-2xl font-bold text-gray-900">Créditos de Clientes</h2>
         <button
           onClick={abrirEmitir}

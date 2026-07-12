@@ -1,5 +1,6 @@
 'use client'
 
+import { IconUser } from '@/components/icons'
 import { useState, useActionState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Spinner } from '@/components/Spinner'
@@ -492,7 +493,10 @@ export function UsuariosClient({ usuarios, cargos, lojas, depositos, tabelas }: 
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Usuários</h2>
+          <div className="flex items-center gap-2">
+            <IconUser className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
+            <h2 className="text-2xl font-bold text-gray-900">Usuários</h2>
+          </div>
           <p className="mt-0.5 text-sm text-gray-500">Gerencie os acessos da equipe</p>
         </div>
         <div className="flex gap-2">

@@ -1,3 +1,4 @@
+import { IconChart } from '@/components/icons'
 import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
@@ -590,6 +591,7 @@ export default async function RelatoriosPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
+        <IconChart className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
         <h2 className="text-2xl font-bold text-gray-900">Relatórios</h2>
         <Dica texto="Análises por período. Cada aba exporta CSV. Financeiro, fluxo de caixa, DRE, inadimplência, vendas, lucro, produtos, curva ABC e estoque." />
       </div>

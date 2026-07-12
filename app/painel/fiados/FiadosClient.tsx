@@ -1,5 +1,6 @@
 'use client'
 
+import { IconCard } from '@/components/icons'
 import { useState } from 'react'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -51,7 +52,10 @@ export function FiadosClient({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Fiados</h2>
+        <div className="flex items-center gap-2">
+          <IconCard className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
+          <h2 className="text-2xl font-bold text-gray-900">Fiados</h2>
+        </div>
         <p className="text-sm text-gray-400 mt-0.5">Quanto cada cliente deve — com cobrança pronta pro WhatsApp</p>
       </div>
 
