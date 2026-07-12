@@ -133,11 +133,14 @@ export function Sidebar({ permissoes, isMaster }: { permissoes: string[]; isMast
 
   return (
     <aside className="flex h-full w-60 flex-col border-r border-gray-200 bg-white">
-      {/* Logo */}
-      <div className="flex h-16 items-center gap-2.5 border-b border-gray-200 px-4">
+      {/* Logo — marca em destaque no topo */}
+      <div className="flex h-[72px] items-center gap-2.5 border-b border-gray-200 px-4">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/tecnocell-icon.png" alt="TecnoCell" className="h-11 w-11 object-contain" />
-        <span className="rounded-md bg-[#1B6CA8]/10 px-2 py-0.5 text-sm font-semibold tracking-wide text-[#1B6CA8]">Cloud</span>
+        <img src="/tecnocell-icon.png" alt="TecnoCell" className="h-14 w-14 shrink-0 object-contain" />
+        <div className="flex flex-col leading-none">
+          <span className="text-[18px] font-extrabold tracking-tight text-gray-900">TecnoCell</span>
+          <span className="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#1B6CA8]">Cloud</span>
+        </div>
       </div>
 
       {/* Nav */}
