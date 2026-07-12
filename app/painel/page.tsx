@@ -5,6 +5,8 @@ import { headers } from 'next/headers'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 import { MetaWidget, type MetaInput } from '@/components/MetaWidget'
+import { IconCart, IconPackage, IconUsers, IconWallet } from '@/components/icons'
+import type { ReactNode } from 'react'
 
 export default async function DashboardPage() {
   const supabase = await createServiceClient()
@@ -198,10 +200,10 @@ export default async function DashboardPage() {
 
   const cor = (i: number) => (i === 0 ? 'bg-white' : i === 1 ? 'bg-white/55' : 'bg-white/30')
 
-  const Stat = ({ icon, bg, label, value, sub, href }: { icon: string; bg: string; label: string; value: string; sub?: string; href: string }) => (
+  const Stat = ({ icon, bg, label, value, sub, href }: { icon: ReactNode; bg: string; label: string; value: string; sub?: string; href: string }) => (
     <Link href={href} className="group rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-[#1B6CA8]/40 hover:shadow-md">
       <div className="flex items-center gap-3.5">
-        <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl text-xl ${bg}`}>{icon}</span>
+        <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${bg}`}>{icon}</span>
         <div className="min-w-0">
           <p className="truncate text-xs font-medium text-gray-400">{label}</p>
           <p className="truncate text-xl font-bold tabular-nums leading-tight text-gray-900">{value}</p>
@@ -277,7 +279,7 @@ export default async function DashboardPage() {
             )}
           </div>
 
-          <Stat icon="🛒" bg="bg-emerald-50" label="Vendas hoje" value={formatBRL(meuHoje)} sub={`${meuNVendasHoje} venda(s)`} href="/painel/pdv" />
+          <Stat icon={<IconCart className="h-5 w-5 text-emerald-600" />} bg="bg-emerald-50" label="Vendas hoje" value={formatBRL(meuHoje)} sub={`${meuNVendasHoje} venda(s)`} href="/painel/pdv" />
         </div>
 
         {/* Meta da loja — o time todo mira as faixas (sabendo a loja: só a dela; senão, todas) */}
@@ -453,10 +455,10 @@ export default async function DashboardPage() {
 
       {/* AGORA */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {pode('vendas') && <Stat icon="🛒" bg="bg-emerald-50" label="Vendas hoje (PDV)" value={formatBRL(vendasHojeTotal)} sub={`${(vendasHoje ?? []).length} venda(s)`} href="/painel/pdv" />}
-        {pode('produtos') && <Stat icon="📦" bg="bg-[#1B6CA8]/10" label="Produtos ativos" value={(totalProdutos ?? 0).toLocaleString('pt-BR')} href="/painel/produtos" />}
-        {pode('clientes') && <Stat icon="👥" bg="bg-violet-50" label="Clientes" value={(totalClientes ?? 0).toLocaleString('pt-BR')} href="/painel/clientes" />}
-        {pode('financeiro') && <Stat icon="💰" bg="bg-amber-50" label="A receber · a pagar" value={formatBRL(aReceber)} sub={`a pagar ${formatBRL(aPagar)}`} href="/painel/financeiro" />}
+        {pode('vendas') && <Stat icon={<IconCart className="h-5 w-5 text-emerald-600" />} bg="bg-emerald-50" label="Vendas hoje (PDV)" value={formatBRL(vendasHojeTotal)} sub={`${(vendasHoje ?? []).length} venda(s)`} href="/painel/pdv" />}
+        {pode('produtos') && <Stat icon={<IconPackage className="h-5 w-5 text-[#1B6CA8]" />} bg="bg-[#1B6CA8]/10" label="Produtos ativos" value={(totalProdutos ?? 0).toLocaleString('pt-BR')} href="/painel/produtos" />}
+        {pode('clientes') && <Stat icon={<IconUsers className="h-5 w-5 text-violet-600" />} bg="bg-violet-50" label="Clientes" value={(totalClientes ?? 0).toLocaleString('pt-BR')} href="/painel/clientes" />}
+        {pode('financeiro') && <Stat icon={<IconWallet className="h-5 w-5 text-amber-600" />} bg="bg-amber-50" label="A receber · a pagar" value={formatBRL(aReceber)} sub={`a pagar ${formatBRL(aPagar)}`} href="/painel/financeiro" />}
       </div>
 
       {/* TOP clientes + vendedores */}
