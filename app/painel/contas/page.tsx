@@ -1,5 +1,5 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
-import { IconBank } from '@/components/icons'
+import { IconBank, IconWallet } from '@/components/icons'
 import { hojeSP } from '@/lib/utils'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { criarConta, editarConta, deletarConta, criarTransferencia, deletarTransferencia } from './actions'
@@ -88,8 +88,8 @@ export default async function ContasPage({
         <p className="relative text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Saldo total · {contasAtivas.length} conta{contasAtivas.length === 1 ? '' : 's'} ativa{contasAtivas.length === 1 ? '' : 's'}</p>
         <p className={`relative mt-2.5 text-[38px] font-extrabold leading-none tabular-nums ${saldoTotal < 0 ? 'text-rose-200' : ''}`}>{formatBRL(saldoTotal)}</p>
         <div className="relative mt-4 flex flex-wrap gap-x-7 gap-y-2 text-sm text-white/80">
-          <span className="inline-flex items-center gap-1.5">💵 Caixa <b className="font-bold text-white tabular-nums">{formatBRL(caixaTotal)}</b></span>
-          <span className="inline-flex items-center gap-1.5">🏦 Banco <b className="font-bold text-white tabular-nums">{formatBRL(bancoTotal)}</b></span>
+          <span className="inline-flex items-center gap-1.5"><IconWallet className="h-4 w-4 text-white/70" /> Caixa <b className="font-bold text-white tabular-nums">{formatBRL(caixaTotal)}</b></span>
+          <span className="inline-flex items-center gap-1.5"><IconBank className="h-4 w-4 text-white/70" /> Banco <b className="font-bold text-white tabular-nums">{formatBRL(bancoTotal)}</b></span>
         </div>
       </div>
 
