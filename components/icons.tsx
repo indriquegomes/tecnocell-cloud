@@ -77,3 +77,6 @@ export const IconSettings = (p: SVGProps<SVGSVGElement>) => (
 export const IconStore = (p: SVGProps<SVGSVGElement>) => (
   <Base {...p}><path d="M2 7l1.5-4.5A1 1 0 0 1 4.44 2h15.12a1 1 0 0 1 .94.66L22 7" /><path d="M4 7v13a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7" /><path d="M2 7h20" /><path d="M9 21v-6h6v6" /></Base>
 )
+export const IconPlus = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}><path d="M5 12h14" /><path d="M12 5v14" /></Base>
+)

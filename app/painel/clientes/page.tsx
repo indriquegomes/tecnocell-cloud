@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { IconPlus } from '@/components/icons'
 import { BuscaPessoas } from './BuscaPessoas'
 import { Paginacao } from '@/components/Paginacao'
 import { Badge } from '@/components/ui/badge'
@@ -72,8 +73,8 @@ export default async function ClientesPage({
           <Dica texto="Cadastro de pessoas físicas e jurídicas: clientes, fornecedores ou ambos. Usado no PDV, pedidos e financeiro." />
         </div>
         <Link href="/painel/clientes/novo"
-          className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
-          + Novo Cadastro
+          className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
+          <IconPlus className="h-4 w-4" /> Novo Cadastro
         </Link>
       </div>
 

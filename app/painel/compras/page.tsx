@@ -1,4 +1,5 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { IconPlus } from '@/components/icons'
 import { formatBRL } from '@/lib/utils'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { deletarNota } from './actions'
@@ -51,8 +52,8 @@ export default async function ComprasPage({
           <Dica texto="Registro de compras de fornecedores. Ao finalizar uma nota, o estoque dos produtos é atualizado automaticamente." />
         </div>
         <Link href="/painel/compras/nova"
-          className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
-          + Nova Nota
+          className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
+          <IconPlus className="h-4 w-4" /> Nova Nota
         </Link>
       </div>
 

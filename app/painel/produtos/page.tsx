@@ -1,4 +1,5 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { IconPlus } from '@/components/icons'
 import { formatBRL } from '@/lib/utils'
 import { Paginacao } from '@/components/Paginacao'
 import { BuscaProdutos } from './BuscaProdutos'
@@ -118,8 +119,8 @@ export default async function ProdutosPage({
           <Dica texto="Catálogo completo de produtos para venda. Configure preço, custo, categoria, marca e controle de estoque mínimo." />
         </div>
         <Link href="/painel/produtos/novo"
-          className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
-          + Novo Produto
+          className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
+          <IconPlus className="h-4 w-4" /> Novo Produto
         </Link>
       </div>
 
