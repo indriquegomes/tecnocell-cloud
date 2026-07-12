@@ -2,8 +2,50 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import type { SVGProps, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { temPermissao } from '@/lib/permissoes'
+import {
+  IconDashboard, IconUser, IconCart, IconCalculator, IconChart, IconClipboard,
+  IconReturn, IconTarget, IconTag, IconWrench, IconPackage, IconSwap, IconBank,
+  IconFile, IconWallet, IconCard, IconUsers, IconShield, IconSettings, IconStore,
+} from '@/components/icons'
+
+type IconComp = (p: SVGProps<SVGSVGElement>) => ReactNode
+const ICONS: Record<string, IconComp> = {
+  '/painel': IconDashboard,
+  '/painel/meu-perfil': IconUser,
+  '/painel/pdv': IconCart,
+  '/painel/pdv/operacao': IconCalculator,
+  '/painel/vendas': IconChart,
+  '/painel/pedidos': IconClipboard,
+  '/painel/devolucoes': IconReturn,
+  '/painel/painel-vendedor': IconChart,
+  '/painel/metas': IconTarget,
+  '/painel/promocoes': IconTag,
+  '/painel/tabelas-preco': IconTag,
+  '/painel/os': IconWrench,
+  '/painel/produtos': IconPackage,
+  '/painel/estoque': IconPackage,
+  '/painel/estoque/historico': IconSwap,
+  '/painel/depositos': IconBank,
+  '/painel/compras': IconFile,
+  '/painel/financeiro': IconWallet,
+  '/painel/fiados': IconCard,
+  '/painel/vales-credito': IconCard,
+  '/painel/contas': IconBank,
+  '/painel/clientes': IconUsers,
+  '/painel/lojas': IconStore,
+  '/painel/formas-pagamento': IconCard,
+  '/painel/maquinas-cartao': IconCard,
+  '/painel/categorias': IconTag,
+  '/painel/marcas': IconTag,
+  '/painel/relatorios': IconChart,
+  '/painel/rh': IconUsers,
+  '/painel/usuarios': IconUser,
+  '/painel/cargos': IconShield,
+  '/painel/configuracoes': IconSettings,
+}
 
 type NavItem = { href: string; label: string; permissao?: string }
 type NavGroup = { group: string; items: NavItem[] }
@@ -109,18 +151,23 @@ export function Sidebar({ permissoes, isMaster }: { permissoes: string[]; isMast
               <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
                 {section.group}
               </p>
-              {itensVisiveis.map((item) => (
-                <Link key={item.href} href={item.href}
-                  className={cn(
-                    'flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors',
-                    isActive(item.href)
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  )}>
-                  <span className={cn('h-1.5 w-1.5 rounded-full', isActive(item.href) ? 'bg-accent-500' : 'bg-gray-300')} />
-                  {item.label}
-                </Link>
-              ))}
+              {itensVisiveis.map((item) => {
+                const Ic = ICONS[item.href]
+                return (
+                  <Link key={item.href} href={item.href}
+                    className={cn(
+                      'flex items-center gap-2.5 px-4 py-2 text-sm font-medium transition-colors',
+                      isActive(item.href)
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                    )}>
+                    {Ic
+                      ? <Ic className={cn('h-[18px] w-[18px] shrink-0', isActive(item.href) ? 'text-[#1B6CA8]' : 'text-gray-400')} />
+                      : <span className={cn('h-1.5 w-1.5 rounded-full', isActive(item.href) ? 'bg-accent-500' : 'bg-gray-300')} />}
+                    {item.label}
+                  </Link>
+                )
+              })}
             </div>
           )
         })}
