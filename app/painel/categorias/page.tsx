@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { IconTag } from '@/components/icons'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { criarCategoria, editarCategoria, deletarCategoria } from './actions'
 import { SubmitButton } from '@/components/SubmitButton'
@@ -53,6 +54,7 @@ export default async function CategoriasPage({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
+          <IconTag className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
           <h2 className="text-2xl font-bold text-gray-900">Categorias de Produtos</h2>
           <Dica texto="Agrupe produtos por tipo (ex: Baterias, Telas, Carregadores). Facilita filtros e organização no catálogo." />
         </div>

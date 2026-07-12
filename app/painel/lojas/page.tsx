@@ -1,5 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import { IconPlus } from '@/components/icons'
+import { IconPlus, IconStore } from '@/components/icons'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { deletarLoja } from './actions'
 import Link from 'next/link'
@@ -27,6 +27,7 @@ export default async function LojasPage({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
+          <IconStore className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
           <h2 className="text-2xl font-bold text-gray-900">Lojas</h2>
           <Dica texto="As unidades da sua rede (ex: Teresópolis, Petrópolis). Cada loja agrupa seus próprios depósitos. Não confundir com Empresas (fornecedores)." />
         </div>

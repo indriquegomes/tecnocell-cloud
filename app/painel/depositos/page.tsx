@@ -1,4 +1,5 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { IconBank } from '@/components/icons'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { criarDeposito, editarDeposito, deletarDeposito } from './actions'
 import { SubmitButton } from '@/components/SubmitButton'
@@ -45,6 +46,7 @@ export default async function DepositosPage({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
+          <IconBank className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
           <h2 className="text-2xl font-bold text-gray-900">Depósitos</h2>
           <Dica texto="Locais físicos de armazenamento de estoque (ex: Loja Petrópolis, Depósito Central). O estoque é separado por depósito." />
         </div>

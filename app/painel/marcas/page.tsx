@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { IconTag } from '@/components/icons'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { criarMarca, editarMarca, deletarMarca } from './actions'
 import { SubmitButton } from '@/components/SubmitButton'
@@ -29,6 +30,7 @@ export default async function MarcasPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
+        <IconTag className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
         <h2 className="text-2xl font-bold text-gray-900">Marcas</h2>
         <Dica texto="Fabricantes/marcas dos produtos. Vira registro pra padronizar e filtrar. Renomear aqui atualiza os produtos junto." />
       </div>

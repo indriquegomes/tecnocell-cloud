@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { IconCard } from '@/components/icons'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { deletarFormaPagamento } from './actions'
 import { labelTipoPagamento, labelPrazo } from '@/lib/formas-pagamento'
@@ -71,6 +72,7 @@ export default async function FormasPagamentoPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
+        <IconCard className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
         <h2 className="text-2xl font-bold text-gray-900">Formas de Pagamento</h2>
         <Dica texto="Recebimentos trazem dinheiro e caem numa Conta (Caixa ou banco). Fiado é diferente: não entra dinheiro, vira 'a receber' do cliente. Variações extras (ex: 2º PIX) você adiciona embaixo." />
       </div>

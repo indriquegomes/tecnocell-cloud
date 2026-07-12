@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { IconCard } from '@/components/icons'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { deletarMaquina, inativarMaquina, reativarMaquina } from './actions'
 import { MaquinaForm } from './MaquinaForm'
@@ -23,6 +24,7 @@ export default async function MaquinasCartaoPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
+        <IconCard className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
         <h2 className="text-2xl font-bold text-gray-900">Máquinas de Cartão</h2>
         <Dica texto="Cadastre suas maquininhas e as taxas por parcela. O PDV usa essas taxas pra calcular quanto cai de cada venda no cartão. Sem mexer no código." />
       </div>
