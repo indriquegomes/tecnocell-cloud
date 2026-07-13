@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
 import { DevolucoesClient, type ItemDevolucaoLinha } from './DevolucoesClient'
 
@@ -15,21 +15,24 @@ export default async function DevolucoesPage({
   const dataInicio = de ?? inicioMes
   const dataFim = ate ?? hoje
 
-  const { data: devRaw } = await supabase
-    .from('devolucoes')
-    .select(`
-      id, venda_id, pessoa_nome, vendedor_nome,
-      tipo_credito, motivo, valor_total, created_at,
-      itens_devolucao ( id, nome, quantidade, preco_unitario, total_item, status_produto )
-    `)
-    .gte('created_at', dataInicio + 'T00:00:00')
-    .lte('created_at', dataFim + 'T23:59:59')
-    .order('created_at', { ascending: false })
-    .limit(300)
+  // fetchAll: antes capava em 300 e os totais (itens/valor/nº devoluções) subcontavam
+  // quando o período passava disso.
+  const devRaw = await fetchAll<unknown>((from, to) =>
+    supabase
+      .from('devolucoes')
+      .select(`
+        id, venda_id, pessoa_nome, vendedor_nome,
+        tipo_credito, motivo, valor_total, created_at,
+        itens_devolucao ( id, nome, quantidade, preco_unitario, total_item, status_produto )
+      `)
+      .gte('created_at', dataInicio + 'T00:00:00')
+      .lte('created_at', dataFim + 'T23:59:59')
+      .order('created_at', { ascending: false })
+      .range(from, to))
 
   // Flatten: uma linha por item devolvido (padrão SIGE)
   const linhas: ItemDevolucaoLinha[] = []
-  for (const dev of (devRaw ?? []) as never[]) {
+  for (const dev of devRaw as never[]) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const d = dev as any
     const itens = d.itens_devolucao ?? []

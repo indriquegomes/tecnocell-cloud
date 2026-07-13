@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
 import { PainelVendedorClient } from './PainelVendedorClient'
 
@@ -15,18 +15,26 @@ export default async function PainelVendedorPage({
   const dataInicio = de ?? inicioMes
   const dataFim = ate ?? hoje
 
-  const [{ data: vendas }, { data: pedidos }, { data: configPdv }] = await Promise.all([
-    supabase
-      .from('vendas')
-      .select('id, total, desconto, vendedor_nome, created_at')
-      .eq('status', 'concluida')
-      .gte('created_at', dataInicio + 'T00:00:00')
-      .lte('created_at', dataFim + 'T23:59:59'),
-    supabase
-      .from('pedidos')
-      .select('id, tipo, status')
-      .gte('created_at', dataInicio + 'T00:00:00')
-      .lte('created_at', dataFim + 'T23:59:59'),
+  // fetchAll: sem isso o cap de 1000 do PostgREST subcontaria totalGeral/ranking/gráfico
+  // quando o período tivesse >1000 vendas.
+  type VVenda = { id: string; total: number; desconto: number; vendedor_nome: string | null; created_at: string }
+  type VPedido = { id: string; tipo: string; status: string }
+  const [vendas, pedidos, { data: configPdv }] = await Promise.all([
+    fetchAll<VVenda>((from, to) =>
+      supabase
+        .from('vendas')
+        .select('id, total, desconto, vendedor_nome, created_at')
+        .eq('status', 'concluida')
+        .gte('created_at', dataInicio + 'T00:00:00')
+        .lte('created_at', dataFim + 'T23:59:59')
+        .range(from, to)),
+    fetchAll<VPedido>((from, to) =>
+      supabase
+        .from('pedidos')
+        .select('id, tipo, status')
+        .gte('created_at', dataInicio + 'T00:00:00')
+        .lte('created_at', dataFim + 'T23:59:59')
+        .range(from, to)),
     supabase.from('configuracoes').select('valor').eq('chave', 'pdv').maybeSingle(),
   ])
 
