@@ -5,6 +5,7 @@ import { headers } from 'next/headers'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 import { MetaWidget, type MetaInput } from '@/components/MetaWidget'
+import { FluxoDiario, StatusPedidos } from '@/components/GraficosVendas'
 import { IconCart, IconPackage, IconUsers, IconWallet } from '@/components/icons'
 import type { ReactNode } from 'react'
 
@@ -79,6 +80,9 @@ export default async function DashboardPage() {
     unidades: number; pecas_com_estoque: number; valor_estoque: number; abaixo_min: number
     top_clientes: [string, number][]; top_vendedores: [string, number][]; lojas: [string, number][]
     lista_repor: { nome: string; saldo: number; min: number }[]
+    fluxo_diario: { dia: string; valor: number; n: number }[]
+    fluxo_total: number
+    status_pedidos: { faturados: number; cancelados: number; aprovados: number; abertos: number }
   }
   const R = (resumo ?? {}) as Partial<ResumoDash>
 
@@ -92,6 +96,12 @@ export default async function DashboardPage() {
   const totalLojas = lojas.reduce((s, [, v]) => s + v, 0) || 1
   const maxCli = topClientes[0]?.[1] ?? 1
   const maxVend = topVendedores[0]?.[1] ?? 1
+
+  // ---- Gráficos (SIGE + TecnoCell somados; vêm no mesmo RPC, sem custo extra) ----
+  const fluxoDiario = (R.fluxo_diario ?? []).map((d) => ({ dia: d.dia, valor: Number(d.valor) || 0, n: Number(d.n) || 0 }))
+  const fluxoTotal = Number(R.fluxo_total) || 0
+  const statusPedidos = R.status_pedidos ?? { faturados: 0, cancelados: 0, aprovados: 0, abertos: 0 }
+  const mesLabel = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo' })
 
   // ---- Estoque ----
   const unidades = Number(R.unidades) || 0
@@ -443,6 +453,14 @@ export default async function DashboardPage() {
         {pode('clientes') && <Stat icon={<IconUsers className="h-5 w-5 text-violet-600" />} bg="bg-violet-50" label="Clientes" value={(totalClientes ?? 0).toLocaleString('pt-BR')} href="/painel/clientes" />}
         {pode('financeiro') && <Stat icon={<IconWallet className="h-5 w-5 text-amber-600" />} bg="bg-amber-50" label="A receber · a pagar" value={formatBRL(aReceber)} sub={`a pagar ${formatBRL(aPagar)}`} href="/painel/financeiro" />}
       </div>
+
+      {/* Fluxo diário + visão geral dos pedidos (os dois gráficos do SIGE) */}
+      {fluxoDiario.length > 0 && (
+        <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+          <FluxoDiario dias={fluxoDiario} total={fluxoTotal} mes={mesLabel} />
+          <StatusPedidos status={statusPedidos} mes={mesLabel} />
+        </div>
+      )}
 
       {/* TOP clientes + vendedores */}
       <div className="grid gap-4 lg:grid-cols-2">
