@@ -3,6 +3,7 @@
 import { useState, useTransition, useCallback } from 'react'
 import { hojeSP } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { buscarDetalheVendaPublic, cancelarVenda, type DetalheVendaCompleto } from './actions'
 import { Dica } from '@/components/Dica'
 
@@ -269,11 +270,15 @@ export function VendasClient({
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   {[
                     { label: 'Vendedor', valor: detalhe.vendedor_nome ?? '—' },
-                    { label: 'Cliente', valor: detalhe.pessoa_nome ?? 'Cliente final' },
-                  ].map(({ label, valor }) => (
+                    { label: 'Cliente', valor: detalhe.pessoa_nome ?? 'Cliente final', href: detalhe.pessoa_id ? `/painel/clientes/${detalhe.pessoa_id}/editar` : null },
+                  ].map(({ label, valor, href }: { label: string; valor: string; href?: string | null }) => (
                     <div key={label}>
                       <p className="text-xs font-semibold uppercase text-gray-400">{label}</p>
-                      <p className="text-gray-800 mt-0.5">{valor}</p>
+                      {href ? (
+                        <Link href={href} className="mt-0.5 block text-blue-600 hover:underline">{valor}</Link>
+                      ) : (
+                        <p className="text-gray-800 mt-0.5">{valor}</p>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -302,7 +307,12 @@ export function VendasClient({
                       <tbody className="divide-y divide-gray-50">
                         {detalhe.itens.map((i, idx) => (
                           <tr key={idx}>
-                            <td className="px-3 py-2 text-gray-800">{i.nome}</td>
+                            <td className="px-3 py-2">
+                              <Link href={`/painel/produtos/${i.produto_id}/editar`}
+                                className="text-gray-800 hover:text-blue-600 hover:underline transition">
+                                {i.nome}
+                              </Link>
+                            </td>
                             <td className="px-3 py-2 text-right text-gray-600">{i.quantidade}</td>
                             <td className="px-3 py-2 text-right text-gray-600">{fmt(i.preco_unitario)}</td>
                             <td className="px-3 py-2 text-right text-orange-400">
@@ -351,6 +361,22 @@ export function VendasClient({
                     <span>Total</span>
                     <span>{fmt(detalhe.total)}</span>
                   </div>
+                </div>
+
+                {/* Ações da venda — o modal era só leitura; agora leva pra onde precisa */}
+                <div className="grid grid-cols-2 gap-2 border-t border-gray-100 pt-3">
+                  {detalhe.status !== 'cancelada' && (
+                    <Link href={`/painel/devolucoes?venda=${detalhe.id}`}
+                      className="rounded-xl border border-gray-200 px-4 py-2 text-center text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+                      Devolver produto
+                    </Link>
+                  )}
+                  {detalhe.pessoa_nome && (
+                    <Link href={`/painel/vendas?busca=${encodeURIComponent(detalhe.pessoa_nome)}`}
+                      className="rounded-xl border border-gray-200 px-4 py-2 text-center text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+                      Compras deste cliente
+                    </Link>
+                  )}
                 </div>
 
                 {/* Cancelar venda — devolve estoque/IMEI, tira do financeiro e estorna

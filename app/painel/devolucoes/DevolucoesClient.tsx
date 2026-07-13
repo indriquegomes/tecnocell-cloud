@@ -75,13 +75,15 @@ type Step = 'buscar' | 'itens' | 'confirmar'
 
 // ── Componente principal ───────────────────────────────────────────────────────
 export function DevolucoesClient({
-  linhas, totalItens, totalValor, nDevolucoes, filtros,
+  linhas, totalItens, totalValor, nDevolucoes, filtros, vendaInicial = null,
 }: {
   linhas: ItemDevolucaoLinha[]
   totalItens: number
   totalValor: number
   nDevolucoes: number
   filtros: { de: string; ate: string; q: string }
+  /** ?venda=<id> — veio do botão "Devolver produto" no detalhe da venda: já abre nela. */
+  vendaInicial?: string | null
 }) {
   const router = useRouter()
 
@@ -184,6 +186,17 @@ export function DevolucoesClient({
     } catch (e) { setErro(e instanceof Error ? e.message : 'Erro ao carregar venda.') }
     finally { setCarregandoVenda(false) }
   }
+
+  // Veio do botão "Devolver produto" no detalhe da venda (?venda=<id>): já abre nela,
+  // sem a operadora ter que procurar a venda de novo.
+  const jaAbriu = useRef(false)
+  useEffect(() => {
+    if (!vendaInicial || jaAbriu.current) return
+    jaAbriu.current = true
+    setOpen(true)                    // abre o modal de Nova Devolução
+    selecionarVenda(vendaInicial)    // e já carrega os itens da venda
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendaInicial])
 
   const totalSelecionado = venda
     ? venda.itens.reduce((s, i) => s + (itens.get(i.produto_id) ?? 0) * i.preco_unitario, 0)

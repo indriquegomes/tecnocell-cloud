@@ -5,9 +5,9 @@ import { DevolucoesClient, type ItemDevolucaoLinha } from './DevolucoesClient'
 export default async function DevolucoesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ de?: string; ate?: string; q?: string }>
+  searchParams: Promise<{ de?: string; ate?: string; q?: string; venda?: string }>
 }) {
-  const { de, ate, q } = await searchParams
+  const { de, ate, q, venda } = await searchParams
   const supabase = await createServiceClient()
 
   const hoje = hojeSP()
@@ -66,6 +66,7 @@ export default async function DevolucoesPage({
       totalValor={totalValor}
       nDevolucoes={nDevolucoes}
       filtros={{ de: dataInicio, ate: dataFim, q: q ?? '' }}
+      vendaInicial={venda ?? null}
     />
   )
 }

@@ -19,9 +19,10 @@ export type DetalheVendaCompleto = {
   status: string
   observacoes: string | null
   vendedor_nome: string | null
+  pessoa_id: string | null
   pessoa_nome: string | null
   pagamentos: PagamentoDetalhe[]
-  itens: { nome: string; quantidade: number; preco_unitario: number; desconto_item: number; total_item: number }[]
+  itens: { produto_id: string; nome: string; quantidade: number; preco_unitario: number; desconto_item: number; total_item: number }[]
 }
 
 export async function buscarDetalheVendaPublic(vendaId: string): Promise<DetalheVendaCompleto | null> {
@@ -83,6 +84,7 @@ export async function buscarDetalheVendaPublic(vendaId: string): Promise<Detalhe
     status: v.status,
     observacoes: v.observacoes,
     vendedor_nome: v.vendedor_nome,
+    pessoa_id: v.pessoa_id,
     pessoa_nome: pessoaNome,
     pagamentos: (pagamentosRes.data ?? []).map((p: { forma_pagamento_id: string; valor: number; parcelas: number; maquina: string | null }) => ({
       forma_nome: formaMap[p.forma_pagamento_id] ?? p.forma_pagamento_id,
@@ -91,6 +93,7 @@ export async function buscarDetalheVendaPublic(vendaId: string): Promise<Detalhe
       maquina: p.maquina,
     })),
     itens: (itensRes.data ?? []).map((i: { produto_id: string; quantidade: number; preco_unitario: number; desconto_item: number; total_item: number }) => ({
+      produto_id: i.produto_id,
       nome: produtoMap[i.produto_id] ?? '—',
       quantidade: i.quantidade,
       preco_unitario: i.preco_unitario,
