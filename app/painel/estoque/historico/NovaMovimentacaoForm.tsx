@@ -1,8 +1,11 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { SubmitButton } from '@/components/SubmitButton'
-import { registrarMovimentos } from '../actions'
+import { createClient } from '@/lib/supabase/client'
+import { registrarMovimentos, buscarProdutosEstoque } from '../actions'
+
+const supabaseBrowser = createClient()
 
 type Deposito = { id: string; nome: string }
 type Produto = { id: string; nome: string; codigo: string | null; controla_serie: boolean | null }
@@ -50,7 +53,34 @@ export function NovaMovimentacaoForm({
   const prodInputRef = useRef<HTMLInputElement>(null)
   const imeiInputRef = useRef<HTMLInputElement>(null)
 
-  const prodMatch = acharProduto(produtos, produtoBusca)
+  // Busca SOB DEMANDA (igual à do PDV). Antes isto era um <datalist> montado com os
+  // 500 primeiros produtos em ordem alfabética — por isso "frontal"/"pelicula" não
+  // apareciam nunca: eles nem estavam na lista (são 8.034 produtos).
+  const [achados, setAchados] = useState<Produto[]>([])
+  const [aberto, setAberto] = useState(false)
+  const [buscando, setBuscando] = useState(false)
+  const digitou = useRef(false)
+
+  useEffect(() => {
+    if (!digitou.current) return
+    const termo = produtoBusca.trim()
+    if (termo.length < 1) { setAchados([]); setBuscando(false); return }
+    setBuscando(true)
+    let vivo = true
+    const t = setTimeout(async () => {
+      try {
+        const { data } = await supabaseBrowser.auth.getSession()
+        const res = await buscarProdutosEstoque(data.session?.access_token ?? '', termo)
+        if (vivo) { setAchados(res); setAberto(true) }
+      } catch { if (vivo) setAchados([]) }
+      finally { if (vivo) setBuscando(false) }
+    }, 300)
+    return () => { vivo = false; clearTimeout(t) }
+  }, [produtoBusca])
+
+  // acharProduto olha os resultados da busca primeiro (é onde está o produto escolhido),
+  // e depois a lista inicial — assim o controla_serie/IMEI continua funcionando.
+  const prodMatch = acharProduto([...achados, ...produtos], produtoBusca)
   const controlaSerie = !!prodMatch?.controla_serie
   const serialEntrada = controlaSerie && operacao === 'entrada'
   const serialSaida = controlaSerie && operacao === 'saida'
@@ -127,23 +157,44 @@ export function NovaMovimentacaoForm({
 
         {/* Input de item: Produto | Qtd | Tipo | + Adicionar */}
         <div className="grid grid-cols-[1fr_100px_140px_auto] gap-2 items-end">
-          <div>
+          <div className="relative">
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Nome do Produto</label>
             <input
               ref={prodInputRef}
-              list="mov-produtos-list"
               value={produtoBusca}
-              onChange={e => { setProdutoBusca(e.target.value); resetImeis() }}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); serialImei ? imeiInputRef.current?.focus() : adicionar() } }}
-              placeholder="Pesquise pelo nome dos produtos cadastrados"
+              onChange={e => { digitou.current = true; setProdutoBusca(e.target.value); resetImeis() }}
+              onFocus={() => achados.length && setAberto(true)}
+              onBlur={() => setTimeout(() => setAberto(false), 150)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setAberto(false); serialImei ? imeiInputRef.current?.focus() : adicionar() } }}
+              placeholder="Pesquise por nome ou código (ex: pelicula a15, frontal iphone 11)"
               className="field"
               autoComplete="off"
             />
-            <datalist id="mov-produtos-list">
-              {produtos.map(p => (
-                <option key={p.id} value={p.nome + (p.codigo ? ` (${p.codigo})` : '')} />
-              ))}
-            </datalist>
+            {aberto && produtoBusca.trim().length >= 1 && (
+              <div className="absolute z-20 mt-1 w-full rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden max-h-72 overflow-y-auto">
+                {buscando && achados.length === 0 ? (
+                  <div className="px-4 py-3 text-sm text-gray-400">Buscando…</div>
+                ) : achados.length === 0 ? (
+                  <div className="px-4 py-3 text-sm text-gray-400">Nenhum produto encontrado.</div>
+                ) : achados.map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onMouseDown={e => {
+                      e.preventDefault()
+                      digitou.current = false
+                      setProdutoBusca(p.nome + (p.codigo ? ` (${p.codigo})` : ''))
+                      setAberto(false)
+                      resetImeis()
+                    }}
+                    className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm hover:bg-blue-50 transition"
+                  >
+                    <span className="font-medium text-gray-800">{p.nome}</span>
+                    {p.codigo && <span className="shrink-0 text-xs text-gray-400">{p.codigo}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Qtd</label>

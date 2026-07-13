@@ -9,7 +9,7 @@ import { redirect } from 'next/navigation'
 export async function buscarProdutosEstoque(
   accessToken: string,
   termo: string,
-): Promise<{ id: string; nome: string; codigo: string | null }[]> {
+): Promise<{ id: string; nome: string; codigo: string | null; controla_serie: boolean }[]> {
   await requirePermissao('estoque', accessToken)
   const t = termo.trim()
   if (t.length < 1) return []
@@ -17,15 +17,17 @@ export async function buscarProdutosEstoque(
   const semAcento = t.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
   const palavras = semAcento.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
   if (palavras.length === 0) return []
-  let q = supabase.from('produtos').select('id, nome, codigo').eq('ativo', true)
+  const sel = 'id, nome, codigo, controla_serie'
+  let q = supabase.from('produtos').select(sel).eq('ativo', true)
   for (const w of palavras) q = q.ilike('busca_norm', `%${w}%`)
   let { data, error } = await q.order('nome').limit(20)
   if (error && (error.code === '42703' || error.message?.includes('busca_norm'))) {
-    let f = supabase.from('produtos').select('id, nome, codigo').eq('ativo', true)
+    let f = supabase.from('produtos').select(sel).eq('ativo', true)
     for (const w of palavras) f = f.or(`nome.ilike.%${w}%,codigo.ilike.%${w}%`)
     ;({ data } = await f.order('nome').limit(20))
   }
-  return data ?? []
+  return ((data ?? []) as { id: string; nome: string; codigo: string | null; controla_serie: boolean | null }[])
+    .map((p) => ({ ...p, controla_serie: p.controla_serie ?? false }))
 }
 
 export async function registrarMovimento(formData: FormData) {
