@@ -1,5 +1,6 @@
 'use client'
 
+import { BuscaProduto, type ProdutoBusca } from '@/components/BuscaProduto'
 import { useState, useRef } from 'react'
 import { SubmitButton } from '@/components/SubmitButton'
 import { transferirEstoque } from '../actions'
@@ -31,13 +32,15 @@ export function TransferenciaForm({
   const [origem, setOrigem] = useState('')
   const [destino, setDestino] = useState('')
   const [produtoBusca, setProdutoBusca] = useState('')
+  // resultados da busca sob demanda (o produto escolhido está aqui, não na lista capada)
+  const [achados, setAchados] = useState<ProdutoBusca[]>([])
   const [quantidade, setQuantidade] = useState('1')
   const [series, setSeries] = useState<string[]>([])
   const [imeiInput, setImeiInput] = useState('')
   const [imeiErro, setImeiErro] = useState('')
   const imeiRef = useRef<HTMLInputElement>(null)
 
-  const prodMatch = acharProduto(produtos, produtoBusca)
+  const prodMatch = acharProduto([...achados, ...produtos], produtoBusca)
   const serializado = !!prodMatch?.controla_serie
   const disponiveis = serializado && prodMatch && origem ? (seriesPorProduto[prodMatch.id]?.[origem] ?? []) : []
 
@@ -85,19 +88,14 @@ export function TransferenciaForm({
       <div className="grid grid-cols-[1fr_120px] gap-3 items-end">
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Produto *</label>
-          <input
-            list="transf-produtos"
+          <BuscaProduto
             name="produto_busca"
-            value={produtoBusca}
-            onChange={e => { setProdutoBusca(e.target.value); setSeries([]) }}
-            placeholder="Pesquise pelo nome do produto"
-            className="field"
-            autoComplete="off"
             required
+            valor={produtoBusca}
+            onChange={(t) => { setProdutoBusca(t); setSeries([]) }}
+            onSelecionar={() => setSeries([])}
+            onAchados={setAchados}
           />
-          <datalist id="transf-produtos">
-            {produtos.map(p => <option key={p.id} value={p.nome + (p.codigo ? ` (${p.codigo})` : '')} />)}
-          </datalist>
         </div>
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Qtd</label>

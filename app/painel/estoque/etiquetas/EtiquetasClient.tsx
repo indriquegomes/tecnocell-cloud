@@ -1,5 +1,7 @@
 'use client'
 
+import { BuscaProduto, type ProdutoBusca } from '@/components/BuscaProduto'
+
 import { useState, useEffect, useRef } from 'react'
 import JsBarcode from 'jsbarcode'
 import { formatBRL } from '@/lib/utils'
@@ -34,8 +36,10 @@ function Barcode({ value }: { value: string }) {
 export function EtiquetasClient({ produtos }: { produtos: Produto[] }) {
   const [fila, setFila] = useState<ItemFila[]>([])
   const [busca, setBusca] = useState('')
+  // busca sob demanda (padrão do sistema) — a lista `produtos` vinha capada em 1000
+  const [achados, setAchados] = useState<ProdutoBusca[]>([])
 
-  const match = acharProduto(produtos, busca)
+  const match = acharProduto([...achados, ...produtos], busca)
 
   function adicionar() {
     if (!match) return
@@ -70,18 +74,13 @@ export function EtiquetasClient({ produtos }: { produtos: Produto[] }) {
       {/* Controles */}
       <div className="no-print space-y-4">
         <div className="grid grid-cols-[1fr_auto] gap-2 max-w-xl">
-          <input
-            list="etiq-produtos"
-            value={busca}
-            onChange={e => setBusca(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); adicionar() } }}
-            placeholder="Pesquise o produto e Enter"
-            className="field"
-            autoComplete="off"
+          <BuscaProduto
+            valor={busca}
+            onChange={setBusca}
+            onAchados={setAchados}
+            onEnter={adicionar}
+            placeholder="Pesquise o produto e Enter (ex: pel a15)"
           />
-          <datalist id="etiq-produtos">
-            {produtos.map(p => <option key={p.id} value={p.nome + (p.codigo ? ` (${p.codigo})` : '')} />)}
-          </datalist>
           <button type="button" onClick={adicionar} disabled={!match}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40 transition whitespace-nowrap">
             + Adicionar
