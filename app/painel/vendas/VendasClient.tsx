@@ -3,7 +3,7 @@
 import { useState, useTransition, useCallback } from 'react'
 import { hojeSP } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
-import { buscarDetalheVendaPublic, type DetalheVendaCompleto } from './actions'
+import { buscarDetalheVendaPublic, cancelarVenda, type DetalheVendaCompleto } from './actions'
 import { Dica } from '@/components/Dica'
 
 type Venda = {
@@ -54,6 +54,22 @@ export function VendasClient({
   filtros: { de: string; ate: string; busca: string; forma: string; status: string }
 }) {
   const router = useRouter()
+
+  // Cancelar venda (feature nova): devolve estoque/IMEI, tira do financeiro,
+  // estorna o crédito. A venda vira 'cancelada' e some dos totais, sem perder o rastro.
+  const [confCancelar, setConfCancelar] = useState(false)
+  const [motivoCancel, setMotivoCancel] = useState('')
+  const [cancelando, setCancelando] = useState(false)
+  const [erroCancel, setErroCancel] = useState('')
+
+  const handleCancelar = async (vendaId: string) => {
+    setCancelando(true); setErroCancel('')
+    const r = await cancelarVenda(vendaId, motivoCancel)
+    setCancelando(false)
+    if (!r.ok) { setErroCancel(r.erro); return }
+    setConfCancelar(false); setMotivoCancel(''); setDetalhe(null)
+    router.refresh()
+  }
   const [, startTransition] = useTransition()
 
   const [de, setDe] = useState(filtros.de)
@@ -336,6 +352,44 @@ export function VendasClient({
                     <span>{fmt(detalhe.total)}</span>
                   </div>
                 </div>
+
+                {/* Cancelar venda — devolve estoque/IMEI, tira do financeiro e estorna
+                    o crédito usado. A venda fica no histórico como 'cancelada'. */}
+                {detalhe.status !== 'cancelada' && (
+                  <div className="border-t border-gray-100 pt-3">
+                    {!confCancelar ? (
+                      <button type="button" onClick={() => setConfCancelar(true)}
+                        className="w-full rounded-xl border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition">
+                        Cancelar esta venda
+                      </button>
+                    ) : (
+                      <div className="space-y-2 rounded-xl border border-red-200 bg-red-50 p-3">
+                        <p className="text-xs text-red-700">
+                          Isso devolve o estoque, tira os lançamentos do financeiro e estorna o crédito usado.
+                          A venda fica no histórico como <b>cancelada</b> (não some).
+                        </p>
+                        <input
+                          value={motivoCancel}
+                          onChange={(e) => setMotivoCancel(e.target.value)}
+                          placeholder="Motivo (ex: venda de teste, erro de digitação)"
+                          className="field"
+                          autoFocus
+                        />
+                        {erroCancel && <p className="text-xs font-medium text-red-700">{erroCancel}</p>}
+                        <div className="flex gap-2">
+                          <button type="button" disabled={cancelando} onClick={() => handleCancelar(detalhe.id)}
+                            className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60 transition">
+                            {cancelando ? 'Cancelando…' : 'Confirmar cancelamento'}
+                          </button>
+                          <button type="button" disabled={cancelando} onClick={() => { setConfCancelar(false); setErroCancel(''); setMotivoCancel('') }}
+                            className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+                            Voltar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ) : null}
           </div>

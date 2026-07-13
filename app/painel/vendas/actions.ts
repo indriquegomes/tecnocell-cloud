@@ -1,6 +1,7 @@
 'use server'
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
 
 export type PagamentoDetalhe = {
   forma_nome: string
@@ -96,5 +97,51 @@ export async function buscarDetalheVendaPublic(vendaId: string): Promise<Detalhe
       desconto_item: i.desconto_item ?? 0,
       total_item: i.total_item,
     })),
+  }
+}
+
+// ============================================================
+// CANCELAR VENDA — a venda não deveria ter existido (erro de digitação, teste,
+// desistência antes de entregar). Diferente da Devolução, que é o cliente trazendo
+// a peça de volta e virando crédito/reembolso.
+//
+// Tudo dentro do RPC cancelar_venda (atômico): devolve estoque, devolve IMEIs,
+// apaga os lançamentos (sai do A Receber/caixa), estorna o crédito usado e marca
+// a venda como 'cancelada'. A venda NÃO é apagada — fica no histórico.
+//
+// Idempotente: cancelar 2x não devolve estoque em dobro (o RPC recusa a 2ª).
+// ============================================================
+export type ResultadoCancelamento =
+  | { ok: true; jaCancelada: boolean; numero: number | null; estoqueDevolvido: number; imeis: number; creditoEstornado: number }
+  | { ok: false; erro: string }
+
+export async function cancelarVenda(vendaId: string, motivo: string): Promise<ResultadoCancelamento> {
+  await requirePermissao('vendas')
+  const supabase = await createServiceClient()
+
+  const { data, error } = await supabase.rpc('cancelar_venda', {
+    p_venda_id: vendaId,
+    p_motivo: motivo?.trim() || null,
+  })
+  if (error) return { ok: false, erro: error.message }
+
+  const d = (data ?? {}) as {
+    ja_cancelada?: boolean
+    venda_numero?: number | null
+    estoque_devolvido?: number
+    imeis_devolvidos?: number
+    credito_estornado?: number
+  }
+  revalidatePath('/painel/vendas')
+  revalidatePath('/painel/estoque')
+  revalidatePath('/painel/financeiro')
+  revalidatePath('/painel')
+  return {
+    ok: true,
+    jaCancelada: !!d.ja_cancelada,
+    numero: d.venda_numero ?? null,
+    estoqueDevolvido: Number(d.estoque_devolvido) || 0,
+    imeis: Number(d.imeis_devolvidos) || 0,
+    creditoEstornado: Number(d.credito_estornado) || 0,
   }
 }
