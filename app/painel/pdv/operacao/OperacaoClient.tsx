@@ -87,6 +87,8 @@ interface Props {
   totalCrediario: number
   totalReforcos: number
   totalRetiradas: number
+  reforcosDinheiro: number
+  retiradasDinheiro: number
   totalDevolucoes: number
   qtdVendas: number
   movimentos: Movimento[]
@@ -95,6 +97,7 @@ interface Props {
   porProduto: Record<string, ProdutoResumo>
   formas: string[]
   porForma: Record<string, number>
+  porTipo: Record<string, number>
   erro?: string
   fechado?: boolean
   aberto?: boolean
@@ -109,11 +112,75 @@ interface Props {
     totalRetiradas: number
     totalCrediario: number
     porForma: Record<string, number>
+    porTipo: Record<string, number>
     movimentos: { tipo: string; motivo: string | null; forma_pagamento: string; valor: number; created_at: string }[]
     valorEsperado: number
     valorContado: number
     operador: string
   } | null
+}
+
+// ─── "Em Caixa" — o saldo separado POR TIPO, porque cada um se confere num lugar ──
+// Processo da loja (Vitor): dinheiro conta na gaveta · PIX bate nos comprovantes do
+// WhatsApp · cartão bate na maquininha (automático) · Crédito Loja é DÍVIDA, não é
+// dinheiro em lugar nenhum. Só a linha Dinheiro é o saldo esperado da contagem.
+function EmCaixaCard({
+  abertura,
+  porTipo,
+  reforcosDinheiro,
+  retiradasDinheiro,
+  saldoGaveta,
+}: {
+  abertura: number
+  porTipo: Record<string, number>
+  reforcosDinheiro: number
+  retiradasDinheiro: number
+  saldoGaveta: number
+}) {
+  const v = (t: string) => porTipo[t] ?? 0
+  const outros = Object.entries(porTipo)
+    .filter(([t]) => !['dinheiro', 'pix', 'cartao_credito', 'cartao_debito', 'fiado'].includes(t))
+    .reduce((s, [, x]) => s + x, 0)
+  const linhas = [
+    { icone: '💠', nome: 'PIX', valor: v('pix'), conferir: 'comprovantes no WhatsApp' },
+    { icone: '💳', nome: 'Cartão de Crédito', valor: v('cartao_credito'), conferir: 'maquininha' },
+    { icone: '💳', nome: 'Cartão de Débito', valor: v('cartao_debito'), conferir: 'maquininha' },
+    { icone: '💰', nome: 'Outros', valor: outros, conferir: null },
+  ].filter((l) => l.valor > 0)
+
+  return (
+    <div className="rounded-xl border border-gray-200 overflow-hidden">
+      {/* Dinheiro — a única linha que é gaveta */}
+      <div className="bg-emerald-50 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-bold text-emerald-800">💵 Dinheiro na gaveta</span>
+          <span className="text-lg font-extrabold tabular-nums text-emerald-700">{fmt(saldoGaveta)}</span>
+        </div>
+        <div className="mt-1.5 space-y-0.5 text-xs text-emerald-700/80">
+          <div className="flex justify-between"><span>Abertura</span><span className="tabular-nums">{fmt(abertura)}</span></div>
+          <div className="flex justify-between"><span>+ Vendas em dinheiro</span><span className="tabular-nums">{fmt(v('dinheiro'))}</span></div>
+          {reforcosDinheiro > 0 && <div className="flex justify-between"><span>+ Reforços (dinheiro)</span><span className="tabular-nums">{fmt(reforcosDinheiro)}</span></div>}
+          {retiradasDinheiro > 0 && <div className="flex justify-between"><span>− Sangrias (dinheiro)</span><span className="tabular-nums">−{fmt(retiradasDinheiro)}</span></div>}
+        </div>
+      </div>
+
+      {/* As formas que NÃO são gaveta */}
+      <div className="divide-y divide-gray-50 bg-white">
+        {linhas.map((l) => (
+          <div key={l.nome} className="flex items-center justify-between px-4 py-2.5 text-sm">
+            <span className="text-gray-600">{l.icone} {l.nome}{l.conferir && <span className="ml-2 text-[11px] text-gray-400">conferir: {l.conferir}</span>}</span>
+            <span className="font-semibold tabular-nums text-gray-800">{fmt(l.valor)}</span>
+          </div>
+        ))}
+        {v('fiado') > 0 && (
+          <div className="flex items-center justify-between bg-orange-50 px-4 py-2.5 text-sm">
+            <span className="text-orange-700">🏷️ Crédito Loja (fiado)<span className="ml-2 text-[11px] text-orange-500">é dívida — não é dinheiro</span></span>
+            <span className="font-semibold tabular-nums text-orange-600">{fmt(v('fiado'))}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
 
 // ─── FeedbackMsg ─────────────────────────────────────────────────────────────
@@ -170,23 +237,19 @@ function AbrirCaixaPanel({ lojaId }: { lojaId: string }) {
 function FecharCaixaPanel({
   caixaId,
   valorAbertura,
-  totalVendasReais,
-  totalCrediario,
-  totalReforcos,
-  totalRetiradas,
-  totalDevolucoes,
   saldoCaixa,
   porForma,
+  porTipo,
+  reforcosDinheiro,
+  retiradasDinheiro,
 }: {
   caixaId: string
   valorAbertura: number
-  totalVendasReais: number
-  totalCrediario: number
-  totalReforcos: number
-  totalRetiradas: number
-  totalDevolucoes: number
   saldoCaixa: number
   porForma: Record<string, number>
+  porTipo: Record<string, number>
+  reforcosDinheiro: number
+  retiradasDinheiro: number
 }) {
   const [etapa, setEtapa] = useState<'resumo' | 'cego'>('resumo')
   const [state, action, pending] = useActionState<ActionState, FormData>(fecharCaixa, null)
@@ -199,30 +262,23 @@ function FecharCaixaPanel({
       <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
         <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Fechamento de Caixa</p>
-          <p className="text-sm text-gray-500 mt-0.5">Confira o resumo do dia antes de contar o caixa</p>
+          <p className="text-sm text-gray-500 mt-0.5">Cada forma se confere no seu lugar — a contagem da gaveta é só o dinheiro</p>
         </div>
 
         <div className="divide-y divide-gray-100">
           <div className="px-6 py-4">
-            <div className="space-y-1.5 text-sm">
-              {[
-                { label: 'Abertura', valor: valorAbertura, color: 'text-gray-700' },
-                { label: '+ Vendas (excl. crediário)', valor: totalVendasReais, color: 'text-green-600' },
-                { label: '+ Total Reforçado', valor: totalReforcos, color: 'text-green-600' },
-                { label: '− Total Sangrado', valor: totalRetiradas, color: 'text-red-500' },
-                { label: '− Devoluções', valor: totalDevolucoes, color: 'text-red-500' },
-              ].map(({ label, valor, color }) => (
-                <div key={label} className="flex justify-between">
-                  <span className="text-gray-500">{label}</span>
-                  <span className={`font-medium ${color}`}>{fmt(valor)}</span>
-                </div>
-              ))}
-            </div>
+            <EmCaixaCard
+              abertura={valorAbertura}
+              porTipo={porTipo}
+              reforcosDinheiro={reforcosDinheiro}
+              retiradasDinheiro={retiradasDinheiro}
+              saldoGaveta={saldoCaixa}
+            />
           </div>
 
           {formasEntries.length > 0 && (
             <div className="px-6 py-4">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Vendas por Forma</p>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Detalhe por Forma</p>
               <div className="space-y-1.5">
                 {formasEntries.map(([forma, valor]) => (
                   <div key={forma} className="flex justify-between text-sm">
@@ -231,13 +287,6 @@ function FecharCaixaPanel({
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-
-          {totalCrediario > 0 && (
-            <div className="px-6 py-3 bg-orange-50 flex justify-between text-sm">
-              <span className="text-orange-700">Crediário (a receber, não entra no caixa)</span>
-              <span className="font-semibold text-orange-600">{fmt(totalCrediario)}</span>
             </div>
           )}
         </div>
@@ -262,7 +311,7 @@ function FecharCaixaPanel({
     <div className="rounded-2xl border border-blue-200 bg-white shadow-sm overflow-hidden">
       <div className="px-6 py-4 bg-blue-50 border-b border-blue-100">
         <p className="text-xs font-semibold text-blue-400 uppercase tracking-wider">Contagem de Caixa</p>
-        <p className="text-sm text-blue-700 mt-0.5">Conte o dinheiro fisicamente e informe o total abaixo</p>
+        <p className="text-sm text-blue-700 mt-0.5">Conte o dinheiro da gaveta e informe o total abaixo</p>
       </div>
 
       <form action={withToken(action)} className="px-6 py-5 space-y-4">
@@ -271,7 +320,7 @@ function FecharCaixaPanel({
 
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-gray-700">
-            Valor Total Contado no Caixa (R$)
+            Dinheiro Contado na Gaveta (R$)
           </label>
           <input
             name="valor_fechamento"
@@ -283,7 +332,7 @@ function FecharCaixaPanel({
             className="field text-xl font-bold"
             required
           />
-          <p className="text-xs text-gray-400 mt-1">Some todas as cédulas, moedas e pagamentos recebidos</p>
+          <p className="text-xs text-gray-400 mt-1">Só cédulas e moedas — PIX, cartão e fiado não entram (conferem no WhatsApp e na maquininha)</p>
         </div>
 
         <div>
@@ -441,28 +490,26 @@ function RetiradaPanel({
 function XReportPanel({
   caixaAberto,
   totalVendas,
-  totalVendasReais,
   totalCrediario,
-  totalReforcos,
-  totalRetiradas,
-  totalDevolucoes,
   saldoCaixa,
   qtdVendas,
   movimentos,
   porForma,
+  porTipo,
+  reforcosDinheiro,
+  retiradasDinheiro,
   vendasDia,
 }: {
   caixaAberto: CaixaAberto
   totalVendas: number
-  totalVendasReais: number
   totalCrediario: number
-  totalReforcos: number
-  totalRetiradas: number
-  totalDevolucoes: number
   saldoCaixa: number
   qtdVendas: number
   movimentos: Movimento[]
   porForma: Record<string, number>
+  porTipo: Record<string, number>
+  reforcosDinheiro: number
+  retiradasDinheiro: number
   vendasDia: VendaDia[]
 }) {
   const agora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
@@ -500,7 +547,7 @@ function XReportPanel({
           <p className="text-2xl font-bold text-green-600 mt-1">{fmt(totalVendas)}</p>
         </div>
         <div className="px-5 py-4 text-center">
-          <p className="text-xs text-gray-400 uppercase tracking-wide">Saldo Esperado</p>
+          <p className="text-xs text-gray-400 uppercase tracking-wide">Dinheiro na Gaveta</p>
           <p className="text-2xl font-bold text-indigo-600 mt-1">{fmt(saldoCaixa)}</p>
         </div>
       </div>
@@ -552,20 +599,16 @@ function XReportPanel({
           </div>
         )}
 
-        {/* Composição do saldo */}
+        {/* Composição do saldo — separado por onde cada tipo se confere */}
         <div className="px-6 py-4">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Composição do Saldo</p>
-          <div className="space-y-1.5 text-sm">
-            <div className="flex justify-between"><span className="text-gray-500">Abertura</span><span className="font-medium text-gray-700">{fmt(caixaAberto.valor_abertura)}</span></div>
-            <div className="flex justify-between"><span className="text-gray-500">+ Vendas (excl. crediário)</span><span className="font-medium text-gray-700">{fmt(totalVendasReais)}</span></div>
-            {totalReforcos > 0 && <div className="flex justify-between"><span className="text-gray-500">+ Reforços ({reforcos.length})</span><span className="font-medium text-gray-700">{fmt(totalReforcos)}</span></div>}
-            {totalRetiradas > 0 && <div className="flex justify-between"><span className="text-gray-500">− Retiradas ({retiradas.length})</span><span className="font-medium text-gray-700">{fmt(totalRetiradas)}</span></div>}
-            {totalDevolucoes > 0 && <div className="flex justify-between"><span className="text-gray-500">− Devoluções</span><span className="font-medium text-gray-700">{fmt(totalDevolucoes)}</span></div>}
-            <div className="flex justify-between pt-2 border-t border-gray-200 font-bold">
-              <span className="text-indigo-800">= Saldo físico estimado</span>
-              <span className="text-indigo-600">{fmt(saldoCaixa)}</span>
-            </div>
-          </div>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Em Caixa (por tipo)</p>
+          <EmCaixaCard
+            abertura={caixaAberto.valor_abertura}
+            porTipo={porTipo}
+            reforcosDinheiro={reforcosDinheiro}
+            retiradasDinheiro={retiradasDinheiro}
+            saldoGaveta={saldoCaixa}
+          />
         </div>
 
         {/* Vendas do Dia */}
@@ -642,52 +685,38 @@ function XReportPanel({
 
 function SaldoPanel({
   caixaAberto,
-  totalVendasReais,
-  totalCrediario,
-  totalReforcos,
-  totalRetiradas,
-  totalDevolucoes,
   saldoCaixa,
   saldoTotal,
   vendasDia,
   qtdVendas,
   porForma,
+  porTipo,
+  reforcosDinheiro,
+  retiradasDinheiro,
 }: {
   caixaAberto: CaixaAberto
-  totalVendasReais: number
-  totalCrediario: number
-  totalReforcos: number
-  totalRetiradas: number
-  totalDevolucoes: number
   saldoCaixa: number
   saldoTotal: number
   vendasDia: VendaDia[]
   qtdVendas: number
   porForma: Record<string, number>
+  porTipo: Record<string, number>
+  reforcosDinheiro: number
+  retiradasDinheiro: number
 }) {
   return (
     <div className="rounded-2xl border border-cyan-200 bg-white p-6 shadow-sm space-y-4">
       <h3 className="font-semibold text-gray-800 text-lg">Saldo do Caixa</h3>
-      <div className="rounded-xl bg-gray-50 border border-gray-200 overflow-hidden">
-        <div className="divide-y divide-gray-100">
-          {[
-            { label: 'Saldo na Abertura', valor: caixaAberto.valor_abertura, color: 'text-gray-700' },
-            { label: 'Saldo em Vendas (excl. crediário)', valor: totalVendasReais, color: 'text-green-600' },
-            { label: 'Saldo Crediário (a receber)', valor: totalCrediario, color: 'text-orange-500' },
-            { label: 'Total Reforçado', valor: totalReforcos, color: 'text-green-600' },
-            { label: 'Total Sangrado', valor: totalRetiradas, color: 'text-red-500' },
-            { label: 'Total de Devoluções', valor: totalDevolucoes, color: 'text-red-500' },
-          ].map(({ label, valor, color }) => (
-            <div key={label} className="flex justify-between px-4 py-2.5 text-sm">
-              <span className="text-gray-600">{label}</span>
-              <span className={`font-semibold ${color}`}>{fmt(valor)}</span>
-            </div>
-          ))}
-          <div className="flex justify-between px-4 py-3 bg-cyan-50 font-bold text-sm">
-            <span className="text-cyan-900">Total do Saldo (incl. crediário)</span>
-            <span className="text-cyan-700">{fmt(saldoTotal)}</span>
-          </div>
-        </div>
+      <EmCaixaCard
+        abertura={caixaAberto.valor_abertura}
+        porTipo={porTipo}
+        reforcosDinheiro={reforcosDinheiro}
+        retiradasDinheiro={retiradasDinheiro}
+        saldoGaveta={saldoCaixa}
+      />
+      <div className="flex justify-between rounded-xl bg-cyan-50 px-4 py-3 font-bold text-sm">
+        <span className="text-cyan-900">Total do turno (todas as formas, incl. fiado)</span>
+        <span className="text-cyan-700 tabular-nums">{fmt(saldoTotal)}</span>
       </div>
       {Object.keys(porForma).length > 0 && (
         <div>
@@ -735,6 +764,7 @@ function ZReportPanel({ z }: {
     totalRetiradas: number
     totalCrediario: number
     porForma: Record<string, number>
+    porTipo: Record<string, number>
     movimentos: { tipo: string; motivo: string | null; forma_pagamento: string; valor: number; created_at: string }[]
     valorEsperado: number
     valorContado: number
@@ -814,7 +844,7 @@ function ZReportPanel({ z }: {
             </div>
           </div>
 
-          {/* Breakdown por forma */}
+          {/* Breakdown por forma — onde conferir cada uma */}
           {formasEntries.length > 0 && (
             <div className="px-6 py-4">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Vendas por Forma de Pagamento</p>
@@ -826,6 +856,9 @@ function ZReportPanel({ z }: {
                   </div>
                 ))}
               </div>
+              <p className="mt-3 text-[11px] text-gray-400">
+                Conferência: dinheiro na gaveta · PIX nos comprovantes do WhatsApp · cartão na maquininha · Crédito Loja é dívida (não é dinheiro).
+              </p>
             </div>
           )}
 
@@ -855,14 +888,14 @@ function ZReportPanel({ z }: {
 
           {/* Conferência */}
           <div className={`px-6 py-4 ${divergenciaGrave ? 'bg-red-50' : divergenciaPositiva ? 'bg-blue-50' : 'bg-green-50'}`}>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Conferência de Fechamento</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Conferência da Gaveta (só dinheiro)</p>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-500">Saldo esperado pelo sistema</span>
+                <span className="text-gray-500">Dinheiro esperado na gaveta</span>
                 <span className="font-semibold text-gray-700">{fmt(z.valorEsperado)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Valor contado pelo operador</span>
+                <span className="text-gray-500">Dinheiro contado pelo operador</span>
                 <span className="font-semibold text-gray-700">{fmt(z.valorContado)}</span>
               </div>
               <div className={`flex justify-between pt-2 border-t font-bold text-base ${divergenciaGrave ? 'border-red-200 text-red-700' : divergenciaPositiva ? 'border-blue-200 text-blue-700' : 'border-green-200 text-green-700'}`}>
@@ -911,6 +944,8 @@ export function OperacaoClient({
   totalCrediario,
   totalReforcos,
   totalRetiradas,
+  reforcosDinheiro,
+  retiradasDinheiro,
   totalDevolucoes,
   qtdVendas,
   movimentos,
@@ -919,6 +954,7 @@ export function OperacaoClient({
   porProduto,
   formas,
   porForma,
+  porTipo,
   erro,
   fechado,
   aberto,
@@ -930,14 +966,19 @@ export function OperacaoClient({
   useEffect(() => { authToken().then((t) => { tokenCache = t }) }, [])
 
   const formasFisicas = formas.filter((f) => !FORMAS_INVALIDAS.some((inv) => f.includes(inv)))
-  const totalVendasReais = Math.max(0, totalVendas - totalCrediario)
+  // Saldo da GAVETA = só dinheiro físico. PIX está no banco, cartão está na
+  // maquininha, fiado é dívida — contar isso como cédula gerava divergência
+  // falsa em cima de quem fecha o caixa (aconteceu: caixa 09→13/07, R$30 de
+  // PIX cobrado como se faltasse na gaveta).
   const saldoCaixa =
     (caixaAberto?.valor_abertura ?? 0) +
-    totalVendasReais +
-    totalReforcos -
-    totalRetiradas -
+    (porTipo['dinheiro'] ?? 0) +
+    reforcosDinheiro -
+    retiradasDinheiro -
     totalDevolucoes
-  const saldoTotal = saldoCaixa + totalCrediario
+  // Tudo que o turno produziu, em qualquer forma (incl. fiado) — visão gerencial
+  const saldoTotal =
+    (caixaAberto?.valor_abertura ?? 0) + totalVendas + totalReforcos - totalRetiradas - totalDevolucoes
 
   return (
     <div className="space-y-6">
@@ -1100,13 +1141,11 @@ export function OperacaoClient({
             <FecharCaixaPanel
               caixaId={caixaAberto.id}
               valorAbertura={caixaAberto.valor_abertura}
-              totalVendasReais={totalVendasReais}
-              totalCrediario={totalCrediario}
-              totalReforcos={totalReforcos}
-              totalRetiradas={totalRetiradas}
-              totalDevolucoes={totalDevolucoes}
               saldoCaixa={saldoCaixa}
               porForma={porForma}
+              porTipo={porTipo}
+              reforcosDinheiro={reforcosDinheiro}
+              retiradasDinheiro={retiradasDinheiro}
             />
           )}
           {panel === 'reforco' && (
@@ -1127,31 +1166,28 @@ export function OperacaoClient({
             <XReportPanel
               caixaAberto={caixaAberto}
               totalVendas={totalVendas}
-              totalVendasReais={totalVendasReais}
               totalCrediario={totalCrediario}
-              totalReforcos={totalReforcos}
-              totalRetiradas={totalRetiradas}
-              totalDevolucoes={totalDevolucoes}
               saldoCaixa={saldoCaixa}
               qtdVendas={qtdVendas}
               movimentos={movimentos}
               porForma={porForma}
+              porTipo={porTipo}
+              reforcosDinheiro={reforcosDinheiro}
+              retiradasDinheiro={retiradasDinheiro}
               vendasDia={vendasDia}
             />
           )}
           {panel === 'saldo' && (
             <SaldoPanel
               caixaAberto={caixaAberto}
-              totalVendasReais={totalVendasReais}
-              totalCrediario={totalCrediario}
-              totalReforcos={totalReforcos}
-              totalRetiradas={totalRetiradas}
-              totalDevolucoes={totalDevolucoes}
               saldoCaixa={saldoCaixa}
               saldoTotal={saldoTotal}
               vendasDia={vendasDia}
               qtdVendas={qtdVendas}
               porForma={porForma}
+              porTipo={porTipo}
+              reforcosDinheiro={reforcosDinheiro}
+              retiradasDinheiro={retiradasDinheiro}
             />
           )}
 

@@ -32,7 +32,7 @@ export default async function OperacaoPDVPage({
       .limit(20),
     supabase
       .from('formas_pagamento')
-      .select('id, nome')
+      .select('id, nome, tipo')
       .eq('ativo', true)
       .order('nome'),
   ])
@@ -43,11 +43,17 @@ export default async function OperacaoPDVPage({
   const formasData = formasResult.data ?? []
   const formas = formasData.map((f) => f.nome as string)
   const formasPorId: Record<string, string> = Object.fromEntries(formasData.map((f) => [f.id, f.nome]))
+  const tipoPorId: Record<string, string> = Object.fromEntries(formasData.map((f) => [f.id, (f.tipo as string) ?? 'outros']))
+
+  // Reforço/retirada só mexem na GAVETA quando são em dinheiro (dá pra sangrar PIX, e isso não tira cédula nenhuma)
+  const ehDinheiroTxt = (t: string | null) => (t ?? '').toLowerCase().includes('dinheiro')
 
   let totalVendas = 0
   let totalCrediario = 0
   let totalReforcos = 0
   let totalRetiradas = 0
+  let reforcosDinheiro = 0
+  let retiradasDinheiro = 0
   const totalDevolucoes = 0
   let qtdVendas = 0
   let movimentos: {
@@ -61,22 +67,16 @@ export default async function OperacaoPDVPage({
   let vendasDia: { id: string; total: number; created_at: string; forma_pagamento_id: string | null; forma_pagamento: string }[] = []
   let porProduto: Record<string, { nome: string; qtd: number; total: number }> = {}
   let porForma: Record<string, number> = {}
+  let porTipo: Record<string, number> = {}
 
   if (caixaAberto) {
-    // Vendas, crediário e movimentos em paralelo
-    const [vendasResult, lancCrediarioResult, movResult] = await Promise.all([
+    const [vendasResult, movResult] = await Promise.all([
       supabase
         .from('vendas')
         .select('id, total, created_at, forma_pagamento_id')
         .eq('status', 'concluida')
         .eq('caixa_id', caixaAberto.id)
         .order('created_at', { ascending: false }),
-      supabase
-        .from('lancamentos')
-        .select('valor')
-        .eq('tipo', 'receber')
-        .eq('status', 'pendente')
-        .gte('created_at', caixaAberto.aberto_em),
       supabase
         .from('movimentos_caixa')
         .select('id, tipo, motivo, forma_pagamento, valor, created_at')
@@ -92,16 +92,33 @@ export default async function OperacaoPDVPage({
     })
     qtdVendas = vendasDia.length
     totalVendas = vendasDia.reduce((s, v) => s + (v.total ?? 0), 0)
-    totalCrediario = (lancCrediarioResult.data ?? []).reduce((s, l) => s + (l.valor ?? 0), 0)
 
-    // Vendas por forma de pagamento — cartões unificados
-    for (const v of vendasDia) {
-      porForma[v.forma_pagamento] = (porForma[v.forma_pagamento] ?? 0) + (v.total ?? 0)
+    // A verdade dos recebimentos é pagamentos_venda (venda mista = 2+ linhas),
+    // NÃO vendas.forma_pagamento_id (1 forma por venda — atribuía a venda inteira
+    // à primeira forma). Classificado pelo TIPO da forma, porque o fechamento da
+    // loja confere cada tipo num lugar: dinheiro na gaveta, PIX no WhatsApp,
+    // cartão na maquininha, fiado não é dinheiro.
+    if (vendasRaw.length > 0) {
+      const { data: pags } = await supabase
+        .from('pagamentos_venda')
+        .select('forma_pagamento_id, valor')
+        .in('venda_id', vendasRaw.map((v) => v.id))
+      for (const pg of pags ?? []) {
+        const nome = formasPorId[pg.forma_pagamento_id ?? ''] ?? 'Outras'
+        const tipo = tipoPorId[pg.forma_pagamento_id ?? ''] ?? 'outros'
+        porForma[nome] = (porForma[nome] ?? 0) + (pg.valor ?? 0)
+        porTipo[tipo] = (porTipo[tipo] ?? 0) + (pg.valor ?? 0)
+      }
     }
+    // Fiado DESTE caixa (antes vinha de lancamentos por created_at — pegava fiado
+    // de qualquer loja e até lançamento manual sem venda)
+    totalCrediario = porTipo['fiado'] ?? 0
 
     movimentos = movResult.data ?? []
     totalReforcos = movimentos.filter((m) => m.tipo === 'reforco').reduce((s, m) => s + m.valor, 0)
     totalRetiradas = movimentos.filter((m) => m.tipo === 'retirada').reduce((s, m) => s + m.valor, 0)
+    reforcosDinheiro = movimentos.filter((m) => m.tipo === 'reforco' && ehDinheiroTxt(m.forma_pagamento)).reduce((s, m) => s + m.valor, 0)
+    retiradasDinheiro = movimentos.filter((m) => m.tipo === 'retirada' && ehDinheiroTxt(m.forma_pagamento)).reduce((s, m) => s + m.valor, 0)
 
     // Itens vendidos depende de vendasDia, roda separado
     if (vendasDia.length > 0) {
@@ -136,6 +153,7 @@ export default async function OperacaoPDVPage({
     totalRetiradas: number
     totalCrediario: number
     porForma: Record<string, number>
+    porTipo: Record<string, number>
     movimentos: { tipo: string; motivo: string | null; forma_pagamento: string; valor: number; created_at: string }[]
     valorEsperado: number
     valorContado: number
@@ -157,7 +175,7 @@ export default async function OperacaoPDVPage({
 
     const ultimoCaixa = ultimoCaixaResult.data
     if (ultimoCaixa) {
-      const [zVendasResult, zMovResult, zLancResult] = await Promise.all([
+      const [zVendasResult, zMovResult] = await Promise.all([
         supabase
           .from('vendas')
           .select('id, total, forma_pagamento_id')
@@ -168,22 +186,24 @@ export default async function OperacaoPDVPage({
           .select('tipo, motivo, forma_pagamento, valor, created_at')
           .eq('caixa_id', ultimoCaixa.id)
           .order('created_at', { ascending: true }),
-        supabase
-          .from('lancamentos')
-          .select('valor')
-          .eq('tipo', 'receber')
-          .eq('status', 'pendente')
-          .gte('created_at', ultimoCaixa.aberto_em)
-          .lte('created_at', ultimoCaixa.fechado_em ?? new Date().toISOString()),
       ])
 
       const zVendas = zVendasResult.data ?? []
       const zMov = zMovResult.data ?? []
+      // Mesma verdade do caixa aberto: pagamentos_venda classificado por tipo
       const zPorForma: Record<string, number> = {}
-      for (const v of zVendas) {
-        const raw = formasPorId[v.forma_pagamento_id ?? ''] ?? v.forma_pagamento_id ?? 'Outras'
-        const forma = raw.toLowerCase().includes('cart') ? 'Cartão' : raw
-        zPorForma[forma] = (zPorForma[forma] ?? 0) + (v.total ?? 0)
+      const zPorTipo: Record<string, number> = {}
+      if (zVendas.length > 0) {
+        const { data: zPags } = await supabase
+          .from('pagamentos_venda')
+          .select('forma_pagamento_id, valor')
+          .in('venda_id', zVendas.map((v) => v.id))
+        for (const pg of zPags ?? []) {
+          const nome = formasPorId[pg.forma_pagamento_id ?? ''] ?? 'Outras'
+          const tipo = tipoPorId[pg.forma_pagamento_id ?? ''] ?? 'outros'
+          zPorForma[nome] = (zPorForma[nome] ?? 0) + (pg.valor ?? 0)
+          zPorTipo[tipo] = (zPorTipo[tipo] ?? 0) + (pg.valor ?? 0)
+        }
       }
 
       zReport = {
@@ -195,8 +215,9 @@ export default async function OperacaoPDVPage({
         qtdVendas: zVendas.length,
         totalReforcos: zMov.filter((m) => m.tipo === 'reforco').reduce((s, m) => s + m.valor, 0),
         totalRetiradas: zMov.filter((m) => m.tipo === 'retirada').reduce((s, m) => s + m.valor, 0),
-        totalCrediario: (zLancResult.data ?? []).reduce((s, l) => s + (l.valor ?? 0), 0),
+        totalCrediario: zPorTipo['fiado'] ?? 0,
         porForma: zPorForma,
+        porTipo: zPorTipo,
         movimentos: zMov,
         valorEsperado: parseFloat(esperado),
         valorContado: parseFloat(contado),
@@ -219,6 +240,8 @@ export default async function OperacaoPDVPage({
       totalCrediario={totalCrediario}
       totalReforcos={totalReforcos}
       totalRetiradas={totalRetiradas}
+      reforcosDinheiro={reforcosDinheiro}
+      retiradasDinheiro={retiradasDinheiro}
       totalDevolucoes={totalDevolucoes}
       qtdVendas={qtdVendas}
       movimentos={movimentos}
@@ -234,6 +257,7 @@ export default async function OperacaoPDVPage({
       porProduto={porProduto}
       formas={formas.length > 0 ? formas : ['Dinheiro', 'PIX', 'Cartão de Débito', 'Cartão de Crédito']}
       porForma={porForma}
+      porTipo={porTipo}
       erro={erro}
       fechado={fechado === '1'}
       aberto={aberto === '1'}
