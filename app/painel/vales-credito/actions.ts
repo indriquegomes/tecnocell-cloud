@@ -46,12 +46,24 @@ export async function estornarCredito(id: string) {
 
   if (!lanc || lanc.tipo !== 'credito') return
 
+  // Idempotente: estornar 2x criaria 2 linhas de 'estorno' e jogaria o saldo
+  // do cliente pra negativo (estorno subtrai). Marca a origem no descricao.
+  const marca = `Estorno de crédito #${id}`
+  const { count: jaEstornado } = await supabase
+    .from('creditos_clientes')
+    .select('id', { count: 'exact', head: true })
+    .eq('tipo', 'estorno')
+    .eq('descricao', marca)
+  if (jaEstornado && jaEstornado > 0) {
+    redirect(`/painel/vales-credito?erro=${encodeURIComponent('Este crédito já foi estornado.')}`)
+  }
+
   const { error } = await supabase.from('creditos_clientes').insert({
     pessoa_id: lanc.pessoa_id,
     pessoa_nome: lanc.pessoa_nome,
     valor: lanc.valor,
     tipo: 'estorno',
-    descricao: 'Estorno de crédito',
+    descricao: marca,
   })
   if (error) redirect(`/painel/vales-credito?erro=${encodeURIComponent(error.message)}`)
 
