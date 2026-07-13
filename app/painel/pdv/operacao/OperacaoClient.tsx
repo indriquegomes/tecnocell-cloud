@@ -98,6 +98,7 @@ interface Props {
   formas: string[]
   porForma: Record<string, number>
   porTipo: Record<string, number>
+  vendasPorTipo: Record<string, VendaConferencia[]>
   erro?: string
   fechado?: boolean
   aberto?: boolean
@@ -124,61 +125,179 @@ interface Props {
 // Processo da loja (Vitor): dinheiro conta na gaveta · PIX bate nos comprovantes do
 // WhatsApp · cartão bate na maquininha (automático) · Crédito Loja é DÍVIDA, não é
 // dinheiro em lugar nenhum. Só a linha Dinheiro é o saldo esperado da contagem.
+//
+// Cada linha ABRE a lista das VENDAS daquela forma. É assim que se confere de verdade:
+// a Duda pega comprovante de PIX por comprovante e bate com a venda que o gerou. Lista
+// de produto vendido não serve pra isso — o comprovante é da VENDA, não do produto.
 function EmCaixaCard({
   abertura,
   porTipo,
+  vendasPorTipo,
   reforcosDinheiro,
   retiradasDinheiro,
   saldoGaveta,
+  imprimivel = false,
 }: {
   abertura: number
   porTipo: Record<string, number>
+  vendasPorTipo: Record<string, VendaConferencia[]>
   reforcosDinheiro: number
   retiradasDinheiro: number
   saldoGaveta: number
+  imprimivel?: boolean
 }) {
+  const [aberto, setAberto] = useState<string | null>(null)
   const v = (t: string) => porTipo[t] ?? 0
   const outros = Object.entries(porTipo)
     .filter(([t]) => !['dinheiro', 'pix', 'cartao_credito', 'cartao_debito', 'fiado'].includes(t))
     .reduce((s, [, x]) => s + x, 0)
+
   const linhas = [
-    { icone: '💠', nome: 'PIX', valor: v('pix'), conferir: 'comprovantes no WhatsApp' },
-    { icone: '💳', nome: 'Cartão de Crédito', valor: v('cartao_credito'), conferir: 'maquininha' },
-    { icone: '💳', nome: 'Cartão de Débito', valor: v('cartao_debito'), conferir: 'maquininha' },
-    { icone: '💰', nome: 'Outros', valor: outros, conferir: null },
+    { tipo: 'pix', icone: '💠', nome: 'PIX', valor: v('pix'), conferir: 'comprovantes no WhatsApp', cor: 'text-gray-600' },
+    { tipo: 'cartao_credito', icone: '💳', nome: 'Cartão de Crédito', valor: v('cartao_credito'), conferir: 'maquininha', cor: 'text-gray-600' },
+    { tipo: 'cartao_debito', icone: '💳', nome: 'Cartão de Débito', valor: v('cartao_debito'), conferir: 'maquininha', cor: 'text-gray-600' },
+    { tipo: 'outros', icone: '💰', nome: 'Outros', valor: outros, conferir: null, cor: 'text-gray-600' },
+    { tipo: 'fiado', icone: '🏷️', nome: 'Crédito Loja (fiado)', valor: v('fiado'), conferir: 'é dívida — não é dinheiro', cor: 'text-orange-700' },
   ].filter((l) => l.valor > 0)
 
   return (
     <div className="rounded-xl border border-gray-200 overflow-hidden">
       {/* Dinheiro — a única linha que é gaveta */}
-      <div className="bg-emerald-50 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-bold text-emerald-800">💵 Dinheiro na gaveta</span>
-          <span className="text-lg font-extrabold tabular-nums text-emerald-700">{fmt(saldoGaveta)}</span>
-        </div>
-        <div className="mt-1.5 space-y-0.5 text-xs text-emerald-700/80">
-          <div className="flex justify-between"><span>Abertura</span><span className="tabular-nums">{fmt(abertura)}</span></div>
-          <div className="flex justify-between"><span>+ Vendas em dinheiro</span><span className="tabular-nums">{fmt(v('dinheiro'))}</span></div>
-          {reforcosDinheiro > 0 && <div className="flex justify-between"><span>+ Reforços (dinheiro)</span><span className="tabular-nums">{fmt(reforcosDinheiro)}</span></div>}
-          {retiradasDinheiro > 0 && <div className="flex justify-between"><span>− Sangrias (dinheiro)</span><span className="tabular-nums">−{fmt(retiradasDinheiro)}</span></div>}
-        </div>
-      </div>
+      <Linha
+        tipo="dinheiro"
+        aberto={aberto}
+        setAberto={setAberto}
+        vendas={vendasPorTipo['dinheiro'] ?? []}
+        imprimivel={imprimivel}
+        cabecalho={
+          <div className="w-full bg-emerald-50 px-4 py-3 text-left">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold text-emerald-800">💵 Dinheiro na gaveta</span>
+              <span className="text-lg font-extrabold tabular-nums text-emerald-700">{fmt(saldoGaveta)}</span>
+            </div>
+            <div className="mt-1.5 space-y-0.5 text-xs text-emerald-700/80">
+              <div className="flex justify-between"><span>Abertura</span><span className="tabular-nums">{fmt(abertura)}</span></div>
+              <div className="flex justify-between">
+                <span>+ Vendas em dinheiro {(vendasPorTipo['dinheiro'] ?? []).length > 0 && <b className="ml-1 print:hidden">(ver {(vendasPorTipo['dinheiro'] ?? []).length})</b>}</span>
+                <span className="tabular-nums">{fmt(v('dinheiro'))}</span>
+              </div>
+              {reforcosDinheiro > 0 && <div className="flex justify-between"><span>+ Reforços (dinheiro)</span><span className="tabular-nums">{fmt(reforcosDinheiro)}</span></div>}
+              {retiradasDinheiro > 0 && <div className="flex justify-between"><span>− Sangrias (dinheiro)</span><span className="tabular-nums">−{fmt(retiradasDinheiro)}</span></div>}
+            </div>
+          </div>
+        }
+      />
 
-      {/* As formas que NÃO são gaveta */}
       <div className="divide-y divide-gray-50 bg-white">
         {linhas.map((l) => (
-          <div key={l.nome} className="flex items-center justify-between px-4 py-2.5 text-sm">
-            <span className="text-gray-600">{l.icone} {l.nome}{l.conferir && <span className="ml-2 text-[11px] text-gray-400">conferir: {l.conferir}</span>}</span>
-            <span className="font-semibold tabular-nums text-gray-800">{fmt(l.valor)}</span>
-          </div>
+          <Linha
+            key={l.tipo}
+            tipo={l.tipo}
+            aberto={aberto}
+            setAberto={setAberto}
+            vendas={vendasPorTipo[l.tipo] ?? []}
+            imprimivel={imprimivel}
+            cabecalho={
+              <div className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm ${l.tipo === 'fiado' ? 'bg-orange-50' : ''}`}>
+                <span className={l.cor}>
+                  {l.icone} {l.nome}
+                  {l.conferir && <span className={`ml-2 text-[11px] ${l.tipo === 'fiado' ? 'text-orange-500' : 'text-gray-400'}`}>{l.tipo === 'fiado' ? l.conferir : `conferir: ${l.conferir}`}</span>}
+                  {(vendasPorTipo[l.tipo] ?? []).length > 0 && (
+                    <span className="ml-2 text-[11px] font-semibold text-blue-600 print:hidden">
+                      {aberto === l.tipo ? '▾ ocultar' : `▸ ver ${(vendasPorTipo[l.tipo] ?? []).length} venda${(vendasPorTipo[l.tipo] ?? []).length > 1 ? 's' : ''}`}
+                    </span>
+                  )}
+                </span>
+                <span className={`font-semibold tabular-nums ${l.tipo === 'fiado' ? 'text-orange-600' : 'text-gray-800'}`}>{fmt(l.valor)}</span>
+              </div>
+            }
+          />
         ))}
-        {v('fiado') > 0 && (
-          <div className="flex items-center justify-between bg-orange-50 px-4 py-2.5 text-sm">
-            <span className="text-orange-700">🏷️ Crédito Loja (fiado)<span className="ml-2 text-[11px] text-orange-500">é dívida — não é dinheiro</span></span>
-            <span className="font-semibold tabular-nums text-orange-600">{fmt(v('fiado'))}</span>
-          </div>
-        )}
       </div>
+    </div>
+  )
+}
+
+interface VendaConferencia {
+  id: string
+  numero: number | null
+  hora: string
+  cliente: string | null
+  valorForma: number
+  totalVenda: number
+}
+
+// Uma linha do "Em Caixa" + a lista de vendas que ela abre.
+function Linha({
+  tipo, aberto, setAberto, vendas, cabecalho, imprimivel,
+}: {
+  tipo: string
+  aberto: string | null
+  setAberto: (t: string | null) => void
+  vendas: VendaConferencia[]
+  cabecalho: React.ReactNode
+  imprimivel: boolean
+}) {
+  const temVendas = vendas.length > 0
+  const mostra = imprimivel || aberto === tipo
+  const soma = vendas.reduce((s, v) => s + v.valorForma, 0)
+  return (
+    <div>
+      {temVendas ? (
+        <button type="button" onClick={() => setAberto(aberto === tipo ? null : tipo)} className="block w-full hover:bg-gray-50/70 transition">
+          {cabecalho}
+        </button>
+      ) : (
+        cabecalho
+      )}
+
+      {temVendas && mostra && (
+        <div className="border-t border-gray-100 bg-gray-50/60 px-4 py-3">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+            Vendas desta forma — bata uma a uma
+          </p>
+          <table className="min-w-full text-xs">
+            <thead>
+              <tr className="text-gray-400">
+                <th className="pb-1 text-left font-semibold">Venda</th>
+                <th className="pb-1 text-left font-semibold">Hora</th>
+                <th className="pb-1 text-left font-semibold">Cliente</th>
+                <th className="pb-1 text-right font-semibold">Nesta forma</th>
+                <th className="pb-1 text-right font-semibold">Total da venda</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {vendas.map((v) => {
+                const misto = Math.abs(v.valorForma - v.totalVenda) > 0.005
+                return (
+                  <tr key={v.id + tipo} className="bg-white">
+                    <td className="py-1.5 pr-3 font-mono font-semibold text-gray-700">
+                      {v.numero ? `#${v.numero}` : v.id.slice(-6).toUpperCase()}
+                    </td>
+                    <td className="py-1.5 pr-3 text-gray-500">{fmtHora(v.hora)}</td>
+                    <td className="py-1.5 pr-3 text-gray-600">{v.cliente ?? <span className="text-gray-300">—</span>}</td>
+                    <td className="py-1.5 pr-3 text-right font-bold tabular-nums text-gray-900">{fmt(v.valorForma)}</td>
+                    <td className="py-1.5 text-right tabular-nums text-gray-400">
+                      {fmt(v.totalVenda)}
+                      {misto && <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-700">misto</span>}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-gray-200">
+                <td colSpan={3} className="pt-1.5 text-right font-semibold text-gray-500">Soma</td>
+                <td className="pt-1.5 text-right font-extrabold tabular-nums text-gray-900">{fmt(soma)}</td>
+                <td />
+              </tr>
+            </tfoot>
+          </table>
+          <p className="mt-2 text-[11px] text-gray-400">
+            <b>Nesta forma</b> = quanto desta venda entrou por aqui. Venda marcada <b>misto</b> foi paga em mais de uma forma — só este pedaço bate com o comprovante.
+          </p>
+        </div>
+      )}
     </div>
   )
 }
@@ -240,6 +359,7 @@ function FecharCaixaPanel({
   saldoCaixa,
   porForma,
   porTipo,
+  vendasPorTipo,
   reforcosDinheiro,
   retiradasDinheiro,
 }: {
@@ -248,6 +368,7 @@ function FecharCaixaPanel({
   saldoCaixa: number
   porForma: Record<string, number>
   porTipo: Record<string, number>
+  vendasPorTipo: Record<string, VendaConferencia[]>
   reforcosDinheiro: number
   retiradasDinheiro: number
 }) {
@@ -270,6 +391,7 @@ function FecharCaixaPanel({
             <EmCaixaCard
               abertura={valorAbertura}
               porTipo={porTipo}
+              vendasPorTipo={vendasPorTipo}
               reforcosDinheiro={reforcosDinheiro}
               retiradasDinheiro={retiradasDinheiro}
               saldoGaveta={saldoCaixa}
@@ -496,6 +618,7 @@ function XReportPanel({
   movimentos,
   porForma,
   porTipo,
+  vendasPorTipo,
   reforcosDinheiro,
   retiradasDinheiro,
   vendasDia,
@@ -508,6 +631,7 @@ function XReportPanel({
   movimentos: Movimento[]
   porForma: Record<string, number>
   porTipo: Record<string, number>
+  vendasPorTipo: Record<string, VendaConferencia[]>
   reforcosDinheiro: number
   retiradasDinheiro: number
   vendasDia: VendaDia[]
@@ -605,9 +729,11 @@ function XReportPanel({
           <EmCaixaCard
             abertura={caixaAberto.valor_abertura}
             porTipo={porTipo}
+            vendasPorTipo={vendasPorTipo}
             reforcosDinheiro={reforcosDinheiro}
             retiradasDinheiro={retiradasDinheiro}
             saldoGaveta={saldoCaixa}
+            imprimivel
           />
         </div>
 
@@ -691,6 +817,7 @@ function SaldoPanel({
   qtdVendas,
   porForma,
   porTipo,
+  vendasPorTipo,
   reforcosDinheiro,
   retiradasDinheiro,
 }: {
@@ -701,6 +828,7 @@ function SaldoPanel({
   qtdVendas: number
   porForma: Record<string, number>
   porTipo: Record<string, number>
+  vendasPorTipo: Record<string, VendaConferencia[]>
   reforcosDinheiro: number
   retiradasDinheiro: number
 }) {
@@ -710,6 +838,7 @@ function SaldoPanel({
       <EmCaixaCard
         abertura={caixaAberto.valor_abertura}
         porTipo={porTipo}
+        vendasPorTipo={vendasPorTipo}
         reforcosDinheiro={reforcosDinheiro}
         retiradasDinheiro={retiradasDinheiro}
         saldoGaveta={saldoCaixa}
@@ -955,6 +1084,7 @@ export function OperacaoClient({
   formas,
   porForma,
   porTipo,
+  vendasPorTipo,
   erro,
   fechado,
   aberto,
@@ -1144,6 +1274,7 @@ export function OperacaoClient({
               saldoCaixa={saldoCaixa}
               porForma={porForma}
               porTipo={porTipo}
+              vendasPorTipo={vendasPorTipo}
               reforcosDinheiro={reforcosDinheiro}
               retiradasDinheiro={retiradasDinheiro}
             />
@@ -1172,6 +1303,7 @@ export function OperacaoClient({
               movimentos={movimentos}
               porForma={porForma}
               porTipo={porTipo}
+              vendasPorTipo={vendasPorTipo}
               reforcosDinheiro={reforcosDinheiro}
               retiradasDinheiro={retiradasDinheiro}
               vendasDia={vendasDia}
@@ -1186,6 +1318,7 @@ export function OperacaoClient({
               qtdVendas={qtdVendas}
               porForma={porForma}
               porTipo={porTipo}
+              vendasPorTipo={vendasPorTipo}
               reforcosDinheiro={reforcosDinheiro}
               retiradasDinheiro={retiradasDinheiro}
             />

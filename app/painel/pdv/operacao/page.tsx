@@ -68,12 +68,14 @@ export default async function OperacaoPDVPage({
   let porProduto: Record<string, { nome: string; qtd: number; total: number }> = {}
   let porForma: Record<string, number> = {}
   let porTipo: Record<string, number> = {}
+  // vendas de cada tipo, pra conferência (bater comprovante de PIX com a venda)
+  const vendasPorTipo: Record<string, { id: string; numero: number | null; hora: string; cliente: string | null; valorForma: number; totalVenda: number }[]> = {}
 
   if (caixaAberto) {
     const [vendasResult, movResult] = await Promise.all([
       supabase
         .from('vendas')
-        .select('id, total, created_at, forma_pagamento_id')
+        .select('id, numero, total, created_at, forma_pagamento_id, pessoa_id')
         .eq('status', 'concluida')
         .eq('caixa_id', caixaAberto.id)
         .order('created_at', { ascending: false }),
@@ -99,15 +101,43 @@ export default async function OperacaoPDVPage({
     // loja confere cada tipo num lugar: dinheiro na gaveta, PIX no WhatsApp,
     // cartão na maquininha, fiado não é dinheiro.
     if (vendasRaw.length > 0) {
-      const { data: pags } = await supabase
-        .from('pagamentos_venda')
-        .select('forma_pagamento_id, valor')
-        .in('venda_id', vendasRaw.map((v) => v.id))
-      for (const pg of pags ?? []) {
+      const [pagsRes, pessoasRes] = await Promise.all([
+        supabase
+          .from('pagamentos_venda')
+          .select('venda_id, forma_pagamento_id, valor')
+          .in('venda_id', vendasRaw.map((v) => v.id)),
+        supabase
+          .from('pessoas')
+          .select('id, nome')
+          .in('id', [...new Set(vendasRaw.map((v) => v.pessoa_id).filter(Boolean))] as string[]),
+      ])
+      const nomePessoa: Record<string, string> = Object.fromEntries((pessoasRes.data ?? []).map((p) => [p.id, p.nome]))
+      const vendaPorId = Object.fromEntries(vendasRaw.map((v) => [v.id, v]))
+
+      for (const pg of pagsRes.data ?? []) {
         const nome = formasPorId[pg.forma_pagamento_id ?? ''] ?? 'Outras'
         const tipo = tipoPorId[pg.forma_pagamento_id ?? ''] ?? 'outros'
-        porForma[nome] = (porForma[nome] ?? 0) + (pg.valor ?? 0)
-        porTipo[tipo] = (porTipo[tipo] ?? 0) + (pg.valor ?? 0)
+        const valor = pg.valor ?? 0
+        porForma[nome] = (porForma[nome] ?? 0) + valor
+        porTipo[tipo] = (porTipo[tipo] ?? 0) + valor
+
+        // Lista de CONFERÊNCIA: a Duda bate comprovante por comprovante. Pra isso ela
+        // precisa da VENDA (nº, hora, cliente) e de quanto DAQUELA forma entrou nela —
+        // numa venda mista só o pedaço do PIX bate com o comprovante do PIX.
+        const v = vendaPorId[pg.venda_id]
+        if (!v) continue
+        if (!vendasPorTipo[tipo]) vendasPorTipo[tipo] = []
+        vendasPorTipo[tipo].push({
+          id: v.id,
+          numero: v.numero ?? null,
+          hora: v.created_at,
+          cliente: v.pessoa_id ? (nomePessoa[v.pessoa_id] ?? null) : null,
+          valorForma: valor,
+          totalVenda: v.total ?? 0,
+        })
+      }
+      for (const t of Object.keys(vendasPorTipo)) {
+        vendasPorTipo[t].sort((a, b) => a.hora.localeCompare(b.hora))
       }
     }
     // Fiado DESTE caixa (antes vinha de lancamentos por created_at — pegava fiado
@@ -258,6 +288,7 @@ export default async function OperacaoPDVPage({
       formas={formas.length > 0 ? formas : ['Dinheiro', 'PIX', 'Cartão de Débito', 'Cartão de Crédito']}
       porForma={porForma}
       porTipo={porTipo}
+      vendasPorTipo={vendasPorTipo}
       erro={erro}
       fechado={fechado === '1'}
       aberto={aberto === '1'}
