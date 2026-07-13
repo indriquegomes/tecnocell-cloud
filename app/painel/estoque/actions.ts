@@ -93,7 +93,7 @@ export async function registrarMovimento(formData: FormData) {
 
   revalidatePath('/painel/estoque')
   revalidatePath('/painel/estoque/historico')
-  redirect('/painel/estoque/historico')
+  redirect(`/painel/estoque/historico?ok=${Date.now()}`)
 }
 
 export async function transferirEstoque(formData: FormData) {
@@ -223,5 +223,5 @@ export async function registrarMovimentos(formData: FormData) {
   if (imeisDuplicados > 0) {
     redirect(`/painel/estoque/historico?aviso=imeis-duplicados&n=${imeisDuplicados}`)
   }
-  redirect('/painel/estoque/historico')
+  redirect(`/painel/estoque/historico?ok=${Date.now()}`)
 }

@@ -15,7 +15,7 @@ export async function criarMarca(formData: FormData) {
   const { error } = await supabase.from('marcas').insert({ nome })
   if (error) redirect(`/painel/marcas?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/marcas')
-  redirect('/painel/marcas')
+  redirect(`/painel/marcas?ok=${Date.now()}`)
 }
 
 export async function editarMarca(nomeAtual: string, formData: FormData) {
@@ -23,7 +23,7 @@ export async function editarMarca(nomeAtual: string, formData: FormData) {
   const supabase = await createServiceClient()
   const nome = (formData.get('nome') as string)?.trim()
   if (!nome) redirect(`/painel/marcas?editar=${encodeURIComponent(nomeAtual)}&erro=${encodeURIComponent('Nome obrigatório')}`)
-  if (nome === nomeAtual) redirect('/painel/marcas')
+  if (nome === nomeAtual) redirect(`/painel/marcas?ok=${Date.now()}`)
   const { data: ex } = await supabase.from('marcas').select('nome').ilike('nome', nome).maybeSingle()
   if (ex) redirect(`/painel/marcas?editar=${encodeURIComponent(nomeAtual)}&erro=${encodeURIComponent('Já existe outra marca com esse nome.')}`)
   // renomeia e propaga pros produtos (marca é ligada por texto)
@@ -31,7 +31,7 @@ export async function editarMarca(nomeAtual: string, formData: FormData) {
   const { error } = await supabase.from('marcas').update({ nome }).eq('nome', nomeAtual)
   if (error) redirect(`/painel/marcas?editar=${encodeURIComponent(nomeAtual)}&erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/marcas')
-  redirect('/painel/marcas')
+  redirect(`/painel/marcas?ok=${Date.now()}`)
 }
 
 export async function deletarMarca(nome: string) {

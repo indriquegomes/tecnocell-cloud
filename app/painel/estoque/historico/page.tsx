@@ -48,6 +48,7 @@ export default async function MovimentacoesPage({
     erro?: string
     aviso?: string
     n?: string
+    ok?: string
   }>
 }) {
   const params = await searchParams
@@ -282,6 +283,13 @@ export default async function MovimentacoesPage({
           <span className="ml-auto text-xs text-orange-600">
             {perdas.length} {perdas.length === 1 ? 'lançamento' : 'lançamentos'} · filtre por data pra fechar o mês
           </span>
+        </div>
+      )}
+
+      {/* Movimentação salva */}
+      {params.ok && !params.erro && (
+        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
+          Movimentação registrada.
         </div>
       )}
 

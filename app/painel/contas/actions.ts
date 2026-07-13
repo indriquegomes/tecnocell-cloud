@@ -21,7 +21,7 @@ export async function criarConta(formData: FormData) {
   if (error) redirect(`/painel/contas?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/contas')
   revalidatePath('/painel/formas-pagamento')
-  redirect('/painel/contas')
+  redirect(`/painel/contas?ok=${Date.now()}`)
 }
 
 export async function editarConta(id: string, formData: FormData) {
@@ -33,7 +33,7 @@ export async function editarConta(id: string, formData: FormData) {
   if (error) redirect(`/painel/contas?editar=${id}&erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/contas')
   revalidatePath('/painel/formas-pagamento')
-  redirect('/painel/contas')
+  redirect(`/painel/contas?ok=${Date.now()}`)
 }
 
 export async function criarTransferencia(formData: FormData) {
@@ -52,7 +52,7 @@ export async function criarTransferencia(formData: FormData) {
   const { error } = await supabase.from('transferencias').insert({ conta_origem_id: origem, conta_destino_id: destino, valor, data, observacao })
   if (error) err(error.message)
   revalidatePath('/painel/contas')
-  redirect('/painel/contas')
+  redirect(`/painel/contas?ok=${Date.now()}`)
 }
 
 export async function deletarTransferencia(id: string) {

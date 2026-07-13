@@ -25,7 +25,7 @@ export async function criarDeposito(formData: FormData) {
   const { error } = await supabase.from('depositos').insert({ id: crypto.randomUUID(), ...extrairCampos(formData) })
   if (error) redirect(`/painel/depositos?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/depositos')
-  redirect('/painel/depositos')
+  redirect(`/painel/depositos?ok=${Date.now()}`)
 }
 
 export async function editarDeposito(id: string, formData: FormData) {
@@ -34,7 +34,7 @@ export async function editarDeposito(id: string, formData: FormData) {
   const { error } = await supabase.from('depositos').update(extrairCampos(formData)).eq('id', id)
   if (error) redirect(`/painel/depositos?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/depositos')
-  redirect('/painel/depositos')
+  redirect(`/painel/depositos?ok=${Date.now()}`)
 }
 
 export async function deletarDeposito(id: string) {
