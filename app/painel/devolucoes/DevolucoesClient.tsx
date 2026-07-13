@@ -533,7 +533,7 @@ export function DevolucoesClient({
                   </div>
 
                   {/* Tabela de mercadorias (estilo SIGE) */}
-                  <div className="rounded-xl border border-gray-100 overflow-hidden">
+                  <div className="rounded-xl border border-gray-100 overflow-x-auto">
                     <table className="min-w-full text-sm">
                       <thead className="bg-gray-50 border-b border-gray-100">
                         <tr className="text-xs font-semibold uppercase text-gray-400">
@@ -805,7 +805,7 @@ export function DevolucoesClient({
                       </div>
                     ))}
                   </div>
-                  <div className="rounded-xl border border-gray-100 overflow-hidden">
+                  <div className="rounded-xl border border-gray-100 overflow-x-auto">
                     <table className="min-w-full text-sm">
                       <thead className="bg-gray-50">
                         <tr className="text-xs font-semibold uppercase text-gray-400">

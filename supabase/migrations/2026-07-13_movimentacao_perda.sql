@@ -20,6 +20,18 @@
 -- Idempotente. Seguro reaplicar.
 -- ============================================================
 
+-- PASSO 1 — a coluna `operacao` tem um CHECK que só aceitava entrada/saida/ajuste.
+-- Sem soltar essa trava o RPC até aceita 'perda', mas o INSERT no livro-razão
+-- estoura: violates check constraint "movimentacoes_estoque_operacao_check".
+-- (Pego no teste com dado __QA__ antes de subir.)
+alter table public.movimentacoes_estoque
+  drop constraint if exists movimentacoes_estoque_operacao_check;
+
+alter table public.movimentacoes_estoque
+  add constraint movimentacoes_estoque_operacao_check
+  check (operacao in ('entrada', 'saida', 'ajuste', 'perda'));
+
+-- PASSO 2 — o RPC.
 create or replace function public.movimentar_estoque(
   p_produto_id  text,
   p_deposito_id text,

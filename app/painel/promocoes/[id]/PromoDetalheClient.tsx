@@ -292,7 +292,7 @@ export function PromoDetalheClient({
             <p className="text-xs text-gray-400 mt-0.5">O preço cai conforme a quantidade <b>total</b> dos produtos deste grupo no carrinho. Ex: 1un = R$4,00 · 10un = R$1,80 · 100un = R$1,70.</p>
           </div>
           {faixas.length > 0 && (
-            <div className="overflow-hidden rounded-xl border border-gray-200">
+            <div className="overflow-x-auto rounded-xl border border-gray-200">
               <table className="min-w-full text-sm">
                 <thead className="bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
                   <tr><th className="px-4 py-2">A partir de (un.)</th><th className="px-4 py-2 text-right">Preço unitário</th><th className="px-4 py-2" /></tr>

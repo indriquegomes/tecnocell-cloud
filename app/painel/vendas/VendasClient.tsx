@@ -163,7 +163,7 @@ export function VendasClient({
       </div>
 
       {/* Tabela */}
-      <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-50 text-sm">
             <thead>
@@ -272,7 +272,7 @@ export function VendasClient({
                 {/* Itens */}
                 <div>
                   <p className="text-xs font-semibold uppercase text-gray-400 mb-2">Itens</p>
-                  <div className="overflow-hidden rounded-xl border border-gray-100">
+                  <div className="overflow-x-auto rounded-xl border border-gray-100">
                     <table className="min-w-full text-sm">
                       <thead className="bg-gray-50">
                         <tr className="text-xs font-semibold uppercase text-gray-400">

@@ -96,7 +96,7 @@ export default async function EditarClientePage({
           Histórico de compras
           {comprasSige.length > 0 && <span className="ml-2 normal-case font-normal text-gray-400">· últimas {compras.length} (SIGE importado)</span>}
         </h3>
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
           <table className="min-w-full divide-y divide-gray-100">
             <thead className="bg-gray-50">
               <tr>
@@ -125,7 +125,7 @@ export default async function EditarClientePage({
       {/* Histórico de OS (aparelhos que passaram pela assistência) */}
       <div>
         <h3 className="mb-2 text-sm font-semibold text-gray-500 uppercase tracking-wide">Ordens de serviço</h3>
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
           <table className="min-w-full divide-y divide-gray-100">
             <thead className="bg-gray-50">
               <tr>

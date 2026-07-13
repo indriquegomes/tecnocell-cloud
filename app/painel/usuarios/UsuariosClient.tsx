@@ -515,7 +515,7 @@ export function UsuariosClient({ usuarios, cargos, lojas, depositos, tabelas }: 
         </div>
       </div>
 
-      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
             <tr>

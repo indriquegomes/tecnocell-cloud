@@ -306,7 +306,7 @@ export function NovaMovimentacaoForm({
 
         {/* Tabela dos itens adicionados */}
         {itens.length > 0 && (
-          <div className="rounded-xl border border-gray-200 overflow-hidden">
+          <div className="rounded-xl border border-gray-200 overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-100">
               <thead className="bg-gray-50">
                 <tr>

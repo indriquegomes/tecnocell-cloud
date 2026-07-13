@@ -164,7 +164,7 @@ export default async function FormasPagamentoPage({
             Nenhuma variação. Os 5 essenciais já cobrem o dia a dia.
           </p>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
             <table className="min-w-full divide-y divide-gray-100">
               <tbody className="divide-y divide-gray-50">
                 {extras.map((f) => {

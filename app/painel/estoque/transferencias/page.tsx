@@ -69,7 +69,7 @@ export default async function TransferenciasPage({
       {/* Últimas transferências */}
       <div>
         <h3 className="mb-2 text-sm font-semibold text-gray-500 uppercase tracking-wide">Últimas transferências</h3>
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
           <table className="min-w-full divide-y divide-gray-100">
             <thead className="bg-gray-50">
               <tr>

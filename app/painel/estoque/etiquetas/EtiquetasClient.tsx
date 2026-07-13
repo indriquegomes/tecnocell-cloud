@@ -88,7 +88,7 @@ export function EtiquetasClient({ produtos }: { produtos: Produto[] }) {
         </div>
 
         {fila.length > 0 && (
-          <div className="rounded-xl border border-gray-200 overflow-hidden max-w-xl">
+          <div className="rounded-xl border border-gray-200 overflow-x-auto max-w-xl">
             <table className="min-w-full divide-y divide-gray-100">
               <thead className="bg-gray-50">
                 <tr>
