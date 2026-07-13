@@ -38,6 +38,17 @@ const fmtHora = (d: string) =>
 
 const FORMAS_INVALIDAS = ['Crédito Loja (Fiado)', 'Crediário', 'Crédito Loja']
 
+// Cada tipo de pagamento tem uma cor fixa no fechamento — o operador aprende a
+// reconhecer de relance (verde = gaveta, azul = PIX, roxo = maquininha, âmbar = dívida).
+const iconeDoTipo = (t: string) =>
+  t === 'dinheiro' ? '💵' : t === 'pix' ? '💠' : t.startsWith('cartao') ? '💳' : t === 'fiado' ? '🏷️' : '💰'
+const corDoTipo = (t: string) =>
+  t === 'dinheiro' ? 'bg-emerald-50 text-emerald-700'
+  : t === 'pix' ? 'bg-blue-50 text-blue-700'
+  : t.startsWith('cartao') ? 'bg-violet-50 text-violet-700'
+  : t === 'fiado' ? 'bg-orange-50 text-orange-700'
+  : 'bg-gray-100 text-gray-600'
+
 // ─── Tipos ──────────────────────────────────────────────────────────────────
 type Panel = 'fechar' | 'reforco' | 'retirada' | 'saldo' | 'xreport' | null
 
@@ -73,10 +84,13 @@ interface VendaDia {
   forma_pagamento?: string
 }
 
-interface ProdutoResumo {
-  nome: string
-  qtd: number
+interface VendaDetalhe {
+  id: string
+  numero: number | null
+  hora: string
+  cliente: string | null
   total: number
+  pagamentos: { nome: string; tipo: string; valor: number }[]
 }
 
 interface Props {
@@ -94,11 +108,11 @@ interface Props {
   movimentos: Movimento[]
   historico: Historico[]
   vendasDia: VendaDia[]
-  porProduto: Record<string, ProdutoResumo>
   formas: string[]
   porForma: Record<string, number>
   porTipo: Record<string, number>
   vendasPorTipo: Record<string, VendaConferencia[]>
+  vendasDetalhe: VendaDetalhe[]
   erro?: string
   fechado?: boolean
   aberto?: boolean
@@ -1080,11 +1094,11 @@ export function OperacaoClient({
   movimentos,
   historico,
   vendasDia,
-  porProduto,
   formas,
   porForma,
   porTipo,
   vendasPorTipo,
+  vendasDetalhe,
   erro,
   fechado,
   aberto,
@@ -1324,30 +1338,61 @@ export function OperacaoClient({
             />
           )}
 
-          {/* Itens vendidos */}
-          {Object.keys(porProduto).length > 0 && (
+          {/* Vendas do caixa — o que se confere. (Era "Itens Vendidos": produto × qtd
+              não bate com nada, porque o comprovante e a maquininha falam de VENDA.) */}
+          {vendasDetalhe.length > 0 && (
             <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                <h3 className="font-semibold text-gray-800">Itens Vendidos (caixa atual)</h3>
+                <div>
+                  <h3 className="font-semibold text-gray-800">Vendas deste caixa</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Cada venda com as formas que a pagaram</p>
+                </div>
                 <span className="text-xs text-gray-400">
-                  {qtdVendas} venda{qtdVendas !== 1 ? 's' : ''}
+                  {qtdVendas} venda{qtdVendas !== 1 ? 's' : ''} · {fmt(totalVendas)}
                 </span>
               </div>
-              <div className="divide-y divide-gray-50">
-                {Object.entries(porProduto)
-                  .sort(([, a], [, b]) => b.total - a.total)
-                  .map(([produtoId, p]) => (
-                    <div key={produtoId} className="flex items-center justify-between px-6 py-2.5 text-sm">
-                      <span className="text-gray-700">{p.nome}</span>
-                      <div className="flex items-center gap-4">
-                        <span className="text-gray-400">{p.qtd} un.</span>
-                        <span className="font-semibold text-gray-900 w-24 text-right">
-                          {fmt(p.total)}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-2.5 text-left text-xs font-semibold uppercase text-gray-400">Venda</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase text-gray-400">Hora</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase text-gray-400">Cliente</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase text-gray-400">Pagamento</th>
+                      <th className="px-6 py-2.5 text-right text-xs font-semibold uppercase text-gray-400">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {vendasDetalhe.map((v) => (
+                      <tr key={v.id} className="hover:bg-blue-50/50 transition">
+                        <td className="px-6 py-2.5 font-mono font-semibold text-gray-700">
+                          {v.numero ? `#${v.numero}` : v.id.slice(-6).toUpperCase()}
+                        </td>
+                        <td className="px-4 py-2.5 text-gray-500">{fmtHora(v.hora)}</td>
+                        <td className="px-4 py-2.5 text-gray-600">{v.cliente ?? <span className="text-gray-300">—</span>}</td>
+                        <td className="px-4 py-2.5">
+                          <div className="flex flex-wrap gap-1">
+                            {v.pagamentos.length === 0 && <span className="text-gray-300">—</span>}
+                            {v.pagamentos.map((pg, i) => (
+                              <span
+                                key={i}
+                                className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${corDoTipo(pg.tipo)}`}
+                              >
+                                {iconeDoTipo(pg.tipo)} {pg.nome}
+                                {v.pagamentos.length > 1 && <b className="tabular-nums">{fmt(pg.valor)}</b>}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-6 py-2.5 text-right font-bold tabular-nums text-gray-900">{fmt(v.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
+              <p className="border-t border-gray-100 px-6 py-2.5 text-[11px] text-gray-400">
+                Venda com mais de uma etiqueta foi paga em formas diferentes — o valor de cada uma aparece na etiqueta.
+              </p>
             </div>
           )}
         </>

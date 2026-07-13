@@ -30,10 +30,13 @@ export default async function OperacaoPDVPage({
       .eq('loja_id', lojaAtual)
       .order('aberto_em', { ascending: false })
       .limit(20),
+    // TODAS as formas (inclusive inativas): uma venda antiga paga com uma forma que
+    // depois foi desativada precisa continuar aparecendo com o nome e o TIPO certos —
+    // senão vira "Outras" e some da linha de cartão do fechamento (dinheiro sumindo
+    // da conferência). O filtro de ativas fica só na lista de reforço/retirada.
     supabase
       .from('formas_pagamento')
-      .select('id, nome, tipo')
-      .eq('ativo', true)
+      .select('id, nome, tipo, ativo')
       .order('nome'),
   ])
 
@@ -41,7 +44,7 @@ export default async function OperacaoPDVPage({
   // Exclui o caixa aberto atual do histórico (evita exibir duplicado)
   const historico = (historicoResult.data ?? []).filter((c) => c.id !== caixaAberto?.id)
   const formasData = formasResult.data ?? []
-  const formas = formasData.map((f) => f.nome as string)
+  const formas = formasData.filter((f) => f.ativo).map((f) => f.nome as string)
   const formasPorId: Record<string, string> = Object.fromEntries(formasData.map((f) => [f.id, f.nome]))
   const tipoPorId: Record<string, string> = Object.fromEntries(formasData.map((f) => [f.id, (f.tipo as string) ?? 'outros']))
 
@@ -65,11 +68,11 @@ export default async function OperacaoPDVPage({
     created_at: string
   }[] = []
   let vendasDia: { id: string; total: number; created_at: string; forma_pagamento_id: string | null; forma_pagamento: string }[] = []
-  let porProduto: Record<string, { nome: string; qtd: number; total: number }> = {}
   let porForma: Record<string, number> = {}
   let porTipo: Record<string, number> = {}
   // vendas de cada tipo, pra conferência (bater comprovante de PIX com a venda)
   const vendasPorTipo: Record<string, { id: string; numero: number | null; hora: string; cliente: string | null; valorForma: number; totalVenda: number }[]> = {}
+  let vendasDetalhe: { id: string; numero: number | null; hora: string; cliente: string | null; total: number; pagamentos: { nome: string; tipo: string; valor: number }[] }[] = []
 
   if (caixaAberto) {
     const [vendasResult, movResult] = await Promise.all([
@@ -114,6 +117,26 @@ export default async function OperacaoPDVPage({
       const nomePessoa: Record<string, string> = Object.fromEntries((pessoasRes.data ?? []).map((p) => [p.id, p.nome]))
       const vendaPorId = Object.fromEntries(vendasRaw.map((v) => [v.id, v]))
 
+      // Uma linha por VENDA, com as formas que a pagaram. É o que o operador confere —
+      // "Itens Vendidos" (produto x qtd) não serve pra bater caixa: o comprovante é da venda.
+      const pagsDaVenda: Record<string, { nome: string; tipo: string; valor: number }[]> = {}
+      for (const pg of pagsRes.data ?? []) {
+        if (!pagsDaVenda[pg.venda_id]) pagsDaVenda[pg.venda_id] = []
+        pagsDaVenda[pg.venda_id].push({
+          nome: formasPorId[pg.forma_pagamento_id ?? ''] ?? 'Outras',
+          tipo: tipoPorId[pg.forma_pagamento_id ?? ''] ?? 'outros',
+          valor: pg.valor ?? 0,
+        })
+      }
+      vendasDetalhe = vendasRaw.map((v) => ({
+        id: v.id,
+        numero: v.numero ?? null,
+        hora: v.created_at,
+        cliente: v.pessoa_id ? (nomePessoa[v.pessoa_id] ?? null) : null,
+        total: v.total ?? 0,
+        pagamentos: pagsDaVenda[v.id] ?? [],
+      }))
+
       for (const pg of pagsRes.data ?? []) {
         const nome = formasPorId[pg.forma_pagamento_id ?? ''] ?? 'Outras'
         const tipo = tipoPorId[pg.forma_pagamento_id ?? ''] ?? 'outros'
@@ -149,26 +172,6 @@ export default async function OperacaoPDVPage({
     totalRetiradas = movimentos.filter((m) => m.tipo === 'retirada').reduce((s, m) => s + m.valor, 0)
     reforcosDinheiro = movimentos.filter((m) => m.tipo === 'reforco' && ehDinheiroTxt(m.forma_pagamento)).reduce((s, m) => s + m.valor, 0)
     retiradasDinheiro = movimentos.filter((m) => m.tipo === 'retirada' && ehDinheiroTxt(m.forma_pagamento)).reduce((s, m) => s + m.valor, 0)
-
-    // Itens vendidos depende de vendasDia, roda separado
-    if (vendasDia.length > 0) {
-      const { data: itens } = await supabase
-        .from('itens_venda')
-        .select('produto_id, quantidade, total_item, produtos(nome)')
-        .in('venda_id', vendasDia.map((v) => v.id))
-
-      for (const i of (itens ?? []) as unknown as {
-        produto_id: string
-        quantidade: number
-        total_item: number
-        produtos: { nome: string } | null
-      }[]) {
-        const key = i.produto_id
-        if (!porProduto[key]) porProduto[key] = { nome: i.produtos?.nome ?? key, qtd: 0, total: 0 }
-        porProduto[key].qtd += i.quantidade
-        porProduto[key].total += i.total_item
-      }
-    }
   }
 
   // Quando caixa acaba de fechar, busca dados completos do Z Report
@@ -284,11 +287,11 @@ export default async function OperacaoPDVPage({
         status: string
       }[]}
       vendasDia={vendasDia}
-      porProduto={porProduto}
       formas={formas.length > 0 ? formas : ['Dinheiro', 'PIX', 'Cartão de Débito', 'Cartão de Crédito']}
       porForma={porForma}
       porTipo={porTipo}
       vendasPorTipo={vendasPorTipo}
+      vendasDetalhe={vendasDetalhe}
       erro={erro}
       fechado={fechado === '1'}
       aberto={aberto === '1'}
