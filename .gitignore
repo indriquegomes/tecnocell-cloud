@@ -46,3 +46,11 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 supabase/.temp/
+
+# Skills instaladas via "npx skills add" (ferramenta local, nao e codigo do app)
+.agents/
+.claude/skills/defuddle/
+.claude/skills/json-canvas/
+.claude/skills/obsidian-bases/
+.claude/skills/obsidian-cli/
+.claude/skills/obsidian-markdown/
