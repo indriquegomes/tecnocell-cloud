@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { IconWallet } from '@/components/icons'
 import { formatBRL, formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -48,9 +48,14 @@ export default async function FinanceiroPage({
   const { data: lancamentos } = await query
 
   const todos = lancamentos ?? []
-  const totalReceber = todos.filter((l) => l.tipo === 'receber' && l.status !== 'pago').reduce((s, l) => s + (l.valor ?? 0), 0)
-  const totalPagar = todos.filter((l) => l.tipo === 'pagar' && l.status !== 'pago').reduce((s, l) => s + (l.valor ?? 0), 0)
-  const pendentes = todos.filter((l) => (l.status ?? '').toLowerCase() !== 'pago').length
+  // Cards de resumo somam TODOS os pendentes (globais), sem o cap de 200 da lista
+  // nem o filtro de busca/tipo — senão os totais subcontam quando houver >200 lançamentos.
+  const paraTotais = await fetchAll<{ valor: number | null; tipo: string; status: string | null }>(
+    (from, to) => supabase.from('lancamentos').select('valor, tipo, status').range(from, to)
+  )
+  const totalReceber = paraTotais.filter((l) => l.tipo === 'receber' && l.status !== 'pago').reduce((s, l) => s + (l.valor ?? 0), 0)
+  const totalPagar = paraTotais.filter((l) => l.tipo === 'pagar' && l.status !== 'pago').reduce((s, l) => s + (l.valor ?? 0), 0)
+  const pendentes = paraTotais.filter((l) => (l.status ?? '').toLowerCase() !== 'pago').length
 
   function statusVariant(status: string | null): 'success' | 'warning' | 'danger' | 'outline' {
     const s = (status ?? '').toLowerCase()
