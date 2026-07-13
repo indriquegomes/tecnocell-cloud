@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
 import { VendasClient } from './VendasClient'
 
@@ -15,20 +15,26 @@ export default async function PainelVendasPage({
   const dataInicio = de ?? inicioMes
   const dataFim = ate ?? hoje
 
-  let query = supabase
-    .from('vendas')
-    .select('id, numero, total, desconto, created_at, status, vendedor_nome, pessoa_id, forma_pagamento_id')
-    .gte('created_at', dataInicio + 'T00:00:00')
-    .lte('created_at', dataFim + 'T23:59:59')
-    .order('created_at', { ascending: false })
-    .limit(500)
-
-  if (status) query = query.eq('status', status)
-  else query = query.neq('status', 'aberta') // exclui vendas em andamento
-  // filtro por forma é aplicado depois, via pagamentos_venda (campo forma_pagamento_id da venda é legado)
-
-  const [{ data: vendasRaw }, { data: formasData }] = await Promise.all([
-    query,
+  // Carrega TODAS as vendas do período (fetchAll) — antes capava em 500 e os
+  // totais do período subcontavam quando o mês passava disso.
+  type VendaRow = {
+    id: string; numero: number | null; total: number; desconto: number
+    created_at: string; status: string; vendedor_nome: string | null
+    pessoa_id: string | null; forma_pagamento_id: string | null
+  }
+  const [vendasRaw, { data: formasData }] = await Promise.all([
+    fetchAll<VendaRow>((from, to) => {
+      let q = supabase
+        .from('vendas')
+        .select('id, numero, total, desconto, created_at, status, vendedor_nome, pessoa_id, forma_pagamento_id')
+        .gte('created_at', dataInicio + 'T00:00:00')
+        .lte('created_at', dataFim + 'T23:59:59')
+        .order('created_at', { ascending: false })
+        .range(from, to)
+      if (status) q = q.eq('status', status)
+      else q = q.neq('status', 'aberta') // exclui vendas em andamento
+      return q
+    }),
     supabase.from('formas_pagamento').select('id, nome').eq('ativo', true).order('nome'),
   ])
 
@@ -39,8 +45,9 @@ export default async function PainelVendasPage({
   const pessoaIds = [...new Set((vendasRaw ?? []).map((v: { pessoa_id: string | null }) => v.pessoa_id).filter(Boolean))] as string[]
   let pessoaMap: Record<string, string> = {}
   if (pessoaIds.length > 0) {
-    const { data: pessoas } = await supabase.from('pessoas').select('id, nome').in('id', pessoaIds)
-    pessoaMap = Object.fromEntries((pessoas ?? []).map(p => [p.id, p.nome]))
+    const pessoas = await fetchAllIn<{ id: string; nome: string }>(pessoaIds, (chunk, from, to) =>
+      supabase.from('pessoas').select('id, nome').in('id', chunk).range(from, to))
+    pessoaMap = Object.fromEntries(pessoas.map(p => [p.id, p.nome]))
   }
 
   // Formas de pagamento reais (tabela filha pagamentos_venda — suporta múltiplos pagamentos)
@@ -48,12 +55,10 @@ export default async function PainelVendasPage({
   const pagamentosMap: Record<string, string> = {}
   const pagamentosIds: Record<string, Set<string>> = {}
   if (vendaIds.length > 0) {
-    const { data: pags } = await supabase
-      .from('pagamentos_venda')
-      .select('venda_id, forma_pagamento_id')
-      .in('venda_id', vendaIds)
+    const pags = await fetchAllIn<{ venda_id: string; forma_pagamento_id: string }>(vendaIds, (chunk, from, to) =>
+      supabase.from('pagamentos_venda').select('venda_id, forma_pagamento_id').in('venda_id', chunk).range(from, to))
     const porVenda: Record<string, Set<string>> = {}
-    for (const p of (pags ?? []) as { venda_id: string; forma_pagamento_id: string }[]) {
+    for (const p of pags) {
       const nome = formaMap[p.forma_pagamento_id]
       if (!nome) continue
       ;(porVenda[p.venda_id] ||= new Set()).add(nome)
