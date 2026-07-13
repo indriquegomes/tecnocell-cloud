@@ -5,7 +5,12 @@ import { formatBRL, hojeSP } from '@/lib/utils'
 import { labelPrazo } from '@/lib/formas-pagamento'
 import { createClient } from '@/lib/supabase/client'
 import { Spinner } from '@/components/Spinner'
-import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, buscarFiadoCliente, caixaAbertoDaLoja, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
+import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, buscarFiadoCliente, caixaAbertoDaLoja, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, aplicarDescontoCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
+
+// "Desconto" aparece junto das formas de recebimento porque é ali que a Duda procura,
+// mas NÃO é forma de pagamento: não entra dinheiro, ele abate a dívida. Id falso pra
+// não colidir com nenhuma forma real do banco.
+const DESCONTO_ID = '__desconto__'
 import { buscarSaldoCredito } from '@/app/painel/creditos/actions'
 import type { PromoInfo } from './page'
 
@@ -229,6 +234,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [formaRecebimento, setFormaRecebimento] = useState<string>('')  // forma_id da forma escolhida
   const [parcelasRecebimento, setParcelasRecebimento] = useState(1)
   const [valorRecebido, setValorRecebido] = useState<string>('')
+  const [motivoDesconto, setMotivoDesconto] = useState('')
   // F3 — Busca Orçamento/Pedido
   const [mostrarOrcamentos, setMostrarOrcamentos] = useState(false)
   const [orcamentos, setOrcamentos] = useState<PedidoResumo[]>([])
@@ -1107,6 +1113,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     const dinheiro = formas.find((f) => f.tipo === 'dinheiro') ?? formas.find((f) => f.tipo !== 'fiado')
     setFormaRecebimento(dinheiro?.id ?? '')
     setParcelasRecebimento(1)
+    setMotivoDesconto('')
     const restante = item.valor - (item.valor_pago ?? 0)
     setValorRecebido(restante.toFixed(2).replace('.', ','))
   }
@@ -1119,6 +1126,21 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       let valorNum = parseFloat(valorRecebido.replace(',', '.'))
       if (isNaN(valorNum) || valorNum <= 0) { setErro('Valor inválido.'); return }
       if (valorNum > restante) valorNum = restante
+
+      // DESCONTO: não entra dinheiro. A dívida encolhe (valor cai), o valor_pago não mexe.
+      if (formaRecebimento === DESCONTO_ID) {
+        const { quitado, novoValor } = await aplicarDescontoCrediario(await authToken(), recebendoItem.id, valorNum, motivoDesconto)
+        if (quitado) {
+          setCrediarioItens((prev) => prev.filter((i) => i.id !== recebendoItem.id))
+        } else {
+          setCrediarioItens((prev) => prev.map((i) => (i.id === recebendoItem.id ? { ...i, valor: novoValor } : i)))
+        }
+        setRecebendoItem(null)
+        setPagoCrediarioOk(true)
+        setTimeout(() => setPagoCrediarioOk(false), 3000)
+        return
+      }
+
       const fReceb = formas.find((f) => f.id === formaRecebimento)
       const ehCredReceb = fReceb?.tipo === 'cartao_credito'
       const formaTxt = (fReceb?.nome ?? 'Dinheiro') + (ehCredReceb && parcelasRecebimento > 1 ? ` ${parcelasRecebimento}x` : '')
@@ -2406,7 +2428,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       )}
 
       {/* Modal Receber Pagamento (por linha) */}
-      {recebendoItem && (
+      {recebendoItem && (() => {
+      const ehDesconto = formaRecebimento === DESCONTO_ID
+      const restanteReceb = recebendoItem.valor - (recebendoItem.valor_pago ?? 0)
+      const descontoNum = parseFloat((valorRecebido || '').replace(',', '.')) || 0
+      return (
         <div className="animate-fade-in fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
@@ -2424,10 +2450,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 <span className="font-bold text-gray-900">{formatBRL(recebendoItem.valor)}</span>
               </div>
 
-              {/* Valor a receber (editável) */}
+              {/* Valor a receber (editável) — vira "valor do desconto" quando é perdão de dívida */}
               <div>
                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Valor recebido
+                  {ehDesconto ? 'Valor do desconto' : 'Valor recebido'}
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">R$</span>
@@ -2436,7 +2462,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                     inputMode="decimal"
                     value={valorRecebido}
                     onChange={(e) => setValorRecebido(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 py-3 pl-9 pr-4 text-right text-lg font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full rounded-xl border py-3 pl-9 pr-4 text-right text-lg font-bold focus:outline-none focus:ring-2 ${ehDesconto ? 'border-amber-300 bg-amber-50/50 text-amber-800 focus:ring-amber-500' : 'border-gray-200 text-gray-900 focus:ring-blue-500'}`}
                   />
                 </div>
               </div>
@@ -2457,8 +2483,36 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                       {iconeForma(f.nome)} {f.nome}
                     </button>
                   ))}
+                  {/* Desconto — fica junto das formas porque é aqui que se procura, mas é
+                      abatimento de dívida, não dinheiro. Âmbar pra não parecer pagamento. */}
+                  <button
+                    type="button"
+                    onClick={() => { setFormaRecebimento(DESCONTO_ID); setParcelasRecebimento(1) }}
+                    className={`rounded-xl border py-2.5 text-sm font-semibold transition ${ehDesconto ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-dashed border-gray-300 bg-white text-gray-600 hover:border-amber-300 hover:text-amber-700'}`}
+                  >
+                    🏷️ Desconto
+                  </button>
                 </div>
-                {(() => {
+
+                {ehDesconto && (
+                  <div className="mt-3 space-y-2">
+                    <input
+                      type="text"
+                      value={motivoDesconto}
+                      onChange={(e) => setMotivoDesconto(e.target.value)}
+                      placeholder="Motivo (ex: arredondamento, negociação)"
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                    <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                      Desconto <b>não entra no caixa</b> — ele abate a dívida.
+                      {' '}Em aberto: <b className="tabular-nums">{formatBRL(restanteReceb)}</b>
+                      {descontoNum > 0 && <> → passa a <b className="tabular-nums">{formatBRL(Math.max(0, restanteReceb - descontoNum))}</b></>}
+                      {descontoNum >= restanteReceb && restanteReceb > 0 && <span className="mt-0.5 block text-[11px] text-amber-600/80">Perdoa o restante e quita a dívida.</span>}
+                    </p>
+                  </div>
+                )}
+
+                {!ehDesconto && (() => {
                   const sel = formas.find((f) => f.id === formaRecebimento)
                   const maq = maquinaById(maquinaDaForma(formaRecebimento))
                   const ehDeb = sel?.tipo === 'cartao_debito'
@@ -2495,42 +2549,51 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 type="button"
                 disabled={pagandoCrediario}
                 onClick={handleConfirmarRecebimento}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 py-3 text-sm font-bold text-white hover:bg-green-700 transition disabled:opacity-50"
+                className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white transition disabled:opacity-50 ${ehDesconto ? 'bg-amber-600 hover:bg-amber-700' : 'bg-green-600 hover:bg-green-700'}`}
               >
                 {pagandoCrediario && <Spinner />}{pagandoCrediario
-                  ? 'Registrando...'
-                  : `Confirmar — ${valorRecebido ? `R$ ${valorRecebido}` : formatBRL(recebendoItem.valor)}`}
+                  ? (ehDesconto ? 'Aplicando...' : 'Registrando...')
+                  : `${ehDesconto ? 'Aplicar desconto' : 'Confirmar'} — ${valorRecebido ? `R$ ${valorRecebido}` : formatBRL(recebendoItem.valor)}`}
               </button>
 
               {/* Histórico de pagamentos */}
               {(recebendoItem.historico_pagamentos ?? []).length > 0 && (
                 <div className="mt-1">
-                  <p className="text-xs font-semibold uppercase text-gray-400 tracking-wide mb-2">Histórico de pagamentos</p>
+                  <p className="text-xs font-semibold uppercase text-gray-400 tracking-wide mb-2">Histórico</p>
                   <div className="divide-y divide-gray-100 rounded-xl border border-gray-100 overflow-hidden">
                     {(recebendoItem.historico_pagamentos ?? []).map((h, idx) => {
                       const d = new Date(h.data)
+                      const desc = h.tipo === 'desconto'
                       const formaLabel: Record<string, string> = { dinheiro: '💵 Dinheiro', pix: '💠 PIX', debito: '💳 Débito', credito: '💳 Crédito' }
                       return (
-                        <div key={idx} className="flex items-center justify-between px-3 py-2 bg-white">
-                          <div>
-                            <span className="text-xs text-gray-500">{formaLabel[h.forma] ?? h.forma}</span>
+                        <div key={idx} className={`flex items-center justify-between px-3 py-2 ${desc ? 'bg-amber-50/60' : 'bg-white'}`}>
+                          <div className="min-w-0">
+                            <span className={`text-xs ${desc ? 'text-amber-700' : 'text-gray-500'}`}>
+                              {desc ? '🏷️ ' : ''}{formaLabel[h.forma] ?? h.forma}
+                            </span>
                             <span className="ml-2 text-xs text-gray-400">
                               {isNaN(d.getTime()) ? h.data : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                               {' '}
                               {isNaN(d.getTime()) ? '' : d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
-                          <span className="text-sm font-semibold text-green-600">{formatBRL(h.valor)}</span>
+                          <span className={`shrink-0 text-sm font-semibold ${desc ? 'text-amber-700' : 'text-green-600'}`}>
+                            {desc ? '−' : ''}{formatBRL(h.valor)}
+                          </span>
                         </div>
                       )
                     })}
                   </div>
+                  {(recebendoItem.historico_pagamentos ?? []).some((h) => h.tipo === 'desconto') && (
+                    <p className="mt-1.5 text-[11px] text-gray-400">🏷️ desconto abate a dívida — não é dinheiro recebido.</p>
+                  )}
                 </div>
               )}
             </div>
           </div>
         </div>
-      )}
+      )
+      })()}
 
       {/* Modal Detalhe da Venda */}
       {(detalheVenda || carregandoDetalhe) && (

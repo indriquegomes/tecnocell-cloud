@@ -364,6 +364,7 @@ export interface PagamentoHistorico {
   valor: number
   forma: string
   data: string
+  tipo?: 'desconto'   // sem tipo = dinheiro que entrou de verdade
 }
 
 export interface CrediarioItem {
@@ -600,6 +601,69 @@ export async function registrarPagamentoParcial(
   const { error } = await supabase.from('lancamentos').update(update).eq('id', id)
   if (error) throw new Error(error.message)
   return { quitado }
+}
+
+// DESCONTO no fiado — perdoar parte da dívida (arredondar centavos, negociar cobrança).
+//
+// Desconto NÃO é forma de pagamento, mesmo aparecendo do lado das outras no modal.
+// Se ele entrasse como "pagamento" o financeiro registraria dinheiro que nunca entrou
+// no caixa — o cliente deve 100, paga 95, e o sistema diria que recebemos 100.
+//
+// Então o desconto ABATE A DÍVIDA: `valor` cai de 100 pra 95. O `valor_pago` só sobe
+// com dinheiro de verdade. Assim o faturamento continua contando só o que entrou.
+export async function aplicarDescontoCrediario(
+  accessToken: string,
+  id: string,
+  valorDesconto: number,
+  motivo: string,
+): Promise<{ quitado: boolean; novoValor: number }> {
+  await requirePermissao('crediario_receber', accessToken)
+  await requirePermissao('venda_desconto', accessToken)   // perdoar dívida = dar desconto
+  const supabase = await createServiceClient()
+
+  const { data: lanc, error: errBusca } = await supabase
+    .from('lancamentos')
+    .select('valor, valor_pago, historico_pagamentos')
+    .eq('id', id)
+    .single()
+  if (errBusca || !lanc) throw new Error('Lançamento não encontrado.')
+
+  const valor = Number(lanc.valor) || 0
+  const pago = Number(lanc.valor_pago) || 0
+  const restante = Math.round((valor - pago) * 100) / 100
+
+  // trava: nunca perdoar mais do que o cliente ainda deve (senão a dívida vira negativa)
+  const desconto = Math.min(Math.round(valorDesconto * 100) / 100, restante)
+  if (!(desconto > 0)) throw new Error('Desconto inválido.')
+
+  const novoValor = Math.round((valor - desconto) * 100) / 100
+  const quitado = pago >= novoValor
+
+  const historico = (lanc.historico_pagamentos as PagamentoHistorico[] | null) ?? []
+  const registro: PagamentoHistorico = {
+    valor: desconto,
+    forma: motivo.trim() ? `Desconto — ${motivo.trim()}` : 'Desconto',
+    data: new Date().toISOString(),
+    tipo: 'desconto',
+  }
+
+  const update: Record<string, unknown> = {
+    valor: novoValor,
+    historico_pagamentos: [...historico, registro],
+    updated_at: new Date().toISOString(),
+  }
+  if (quitado) {
+    update.status = 'pago'
+    update.data_pagamento = hojeSP()
+    // a conta é a do ÚLTIMO pagamento REAL — o desconto não move dinheiro nenhum.
+    // Se a dívida foi 100% perdoada, conta_id fica null e nada entra em conta (correto).
+    const ultimoReal = [...historico].reverse().find((h) => h.tipo !== 'desconto')
+    if (ultimoReal) update.conta_id = await contaDaFormaTexto(supabase, ultimoReal.forma)
+  }
+
+  const { error } = await supabase.from('lancamentos').update(update).eq('id', id)
+  if (error) throw new Error(error.message)
+  return { quitado, novoValor }
 }
 
 export interface ItemPedido {
