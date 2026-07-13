@@ -56,6 +56,30 @@ export async function criarPromocao(formData: FormData) {
 }
 
 // ===== Faixas de quantidade (promoção "progressivo") =====
+// Renomear / ajustar a promoção (Vitor: "tem uma promoção chamada Teste, quero
+// trocar o nome"). Só mexe nos campos editáveis — tipo/valor não mudam aqui pra
+// não bagunçar o cálculo do desconto já aplicado nos itens.
+export async function editarPromocao(id: string, formData: FormData) {
+  await requirePermissao('produtos')
+  const supabase = await createServiceClient()
+
+  const nome = ((formData.get('nome') as string) ?? '').trim()
+  if (!nome) redirect(`/painel/promocoes/${id}?erro=${encodeURIComponent('O nome não pode ficar vazio.')}`)
+
+  const { error } = await supabase.from('promocoes').update({
+    nome,
+    // data vazia vira null (input date manda "" e o Postgres recusa)
+    data_inicio: ((formData.get('data_inicio') as string) || null) || null,
+    data_fim: ((formData.get('data_fim') as string) || null) || null,
+    descricao: ((formData.get('descricao') as string) || '').trim() || null,
+  }).eq('id', id)
+
+  if (error) redirect(`/painel/promocoes/${id}?erro=${encodeURIComponent(error.message)}`)
+  revalidatePath('/painel/promocoes')
+  revalidatePath(`/painel/promocoes/${id}`)
+  redirect(`/painel/promocoes/${id}?ok=1`)
+}
+
 export async function adicionarFaixa(promocaoId: string, quantidadeMinima: number, preco: number) {
   await requirePermissao('produtos')
   const supabase = await createServiceClient()

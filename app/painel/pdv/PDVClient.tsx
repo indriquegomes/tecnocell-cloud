@@ -173,12 +173,14 @@ interface Props {
   maquinas: Maquina[]
   tabelas: TabelaPreco[]
   precosPorTabela: Record<string, Record<string, { qtd_min: number; preco: number }[]>>
+  /** Tabelas que algum cliente realmente usa — só essas entram no pré-carregamento. */
+  tabelasUsadas?: string[]
   promosPorProduto: Record<string, PromoInfo[]>
   seriesPorProduto: Record<string, Record<string, string[]>>  // produto_id → deposito_id → [IMEIs em_estoque]
   depositoInicial?: string   // depósito padrão do usuário (config PDV do perfil)
 }
 
-export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoasIniciais, depositos, lojas, maquinas, tabelas, precosPorTabela, promosPorProduto, seriesPorProduto: seriesIniciais, depositoInicial }: Props) {
+export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoasIniciais, depositos, lojas, maquinas, tabelas, precosPorTabela, tabelasUsadas = [], promosPorProduto, seriesPorProduto: seriesIniciais, depositoInicial }: Props) {
   // produtos/pessoas/IMEIs viram CACHE acumulável: começam vazios (não vêm mais no HTML)
   // e vão sendo preenchidos pela busca sob demanda. Os `.find()` do carrinho leem daqui,
   // e como só entra no carrinho o que veio da busca, o item sempre está no cache.
@@ -687,6 +689,37 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   // no início pra os preços já saírem certos.
   useEffect(() => {
     if (tabelaId && !precos[tabelaId]) trocarTabela(tabelaId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Pré-carrega as OUTRAS tabelas em segundo plano (Isa: "trocar de tabela demora").
+  // A troca travava porque só ia buscar os itens da tabela na hora do clique — e uma
+  // tabela tem milhares de itens. Carregando antes, escolher o cliente vira instantâneo.
+  // Sequencial e sem bloquear a tela; não muda a lógica de preço, só antecipa o fetch.
+  useEffect(() => {
+    let vivo = true
+    ;(async () => {
+      const t = await authToken()
+      if (!t || !vivo) return
+      // só as tabelas que têm cliente (as outras são grandes e ninguém usa)
+      const alvo = tabelas.filter((t) => tabelasUsadas.includes(t.id))
+      for (const tab of alvo) {
+        if (!vivo) return
+        if (precos[tab.id]) continue
+        try {
+          const itens = await buscarItensTabela(t, tab.id)
+          if (!vivo) return
+          const m: Record<string, { qtd_min: number; preco: number }[]> = {}
+          for (const it of itens) {
+            ;(m[it.produto_id] ??= []).push({ qtd_min: it.quantidade_minima ?? 1, preco: it.preco })
+          }
+          for (const pid in m) m[pid].sort((a, b) => b.qtd_min - a.qtd_min)
+          // só grava se ninguém carregou no meio-tempo (não atropela o trocarTabela)
+          setPrecos((prev) => (prev[tab.id] ? prev : { ...prev, [tab.id]: m }))
+        } catch { /* silencioso: se falhar, o trocarTabela busca na hora, como antes */ }
+      }
+    })()
+    return () => { vivo = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

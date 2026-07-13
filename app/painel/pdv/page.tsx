@@ -1,5 +1,5 @@
 import { headers } from 'next/headers'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
 import { PDVClient } from './PDVClient'
 
@@ -57,6 +57,14 @@ export default async function PDVPage() {
   // Preços por tabela começam VAZIOS — o PDV carrega os itens da tabela escolhida
   // sob demanda (buscarItensTabela). "Preço Padrão" (default) nem precisa disso.
   const precosPorTabela: Record<string, Record<string, { qtd_min: number; preco: number }[]>> = {}
+
+  // Quais tabelas os clientes REALMENTE usam. O PDV pré-carrega só essas em segundo
+  // plano (Isa: "trocar de tabela demora") — sem isso ele baixaria as 7 tabelas
+  // (45 mil linhas), sendo que metade não é usada por ninguém.
+  const pessoasComTabela = await fetchAll<{ tabela_preco_id: string | null }>(
+    (from, to) => supabase.from('pessoas').select('tabela_preco_id').not('tabela_preco_id', 'is', null).range(from, to),
+  )
+  const tabelasUsadas = [...new Set(pessoasComTabela.map((p) => p.tabela_preco_id).filter(Boolean))] as string[]
 
   // Busca promoções ativas hoje (todos os tipos de uma vez)
   const { data: promocoesAtivas } = await supabase
@@ -154,6 +162,7 @@ export default async function PDVPage() {
         maquinas={maquinas ?? []}
         tabelas={tabelasVisiveis}
         precosPorTabela={precosPorTabela}
+        tabelasUsadas={tabelasUsadas}
         promosPorProduto={promosPorProduto}
         seriesPorProduto={seriesPorProduto}
       />

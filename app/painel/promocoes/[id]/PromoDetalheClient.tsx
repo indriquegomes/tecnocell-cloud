@@ -8,8 +8,9 @@ import { createClient } from '@/lib/supabase/client'
 import {
   adicionarItensLotePromocao, adicionarFaixa, removerFaixa,
   removerItemPromocao, removerItensLotePromocao, togglePromocao, deletarPromocao,
-  buscarCatalogoPromo,
+  buscarCatalogoPromo, editarPromocao,
 } from '../actions'
+import { SubmitButton } from '@/components/SubmitButton'
 
 const supabaseBrowser = createClient()
 
@@ -86,6 +87,7 @@ export function PromoDetalheClient({
 
   const [removendo, setRemovendo] = useState<string | null>(null)
   const [confExcluir, setConfExcluir] = useState(false)
+  const [editando, setEditando] = useState(false)
 
   // seleção pra remover em lote (checkbox na tabela de produtos da promoção)
   const [selRem, setSelRem] = useState<Set<string>>(new Set())
@@ -216,6 +218,10 @@ export function PromoDetalheClient({
           {promocao.descricao && <p className="mt-0.5 text-xs text-gray-400">{promocao.descricao}</p>}
         </div>
         <div className="flex gap-2 shrink-0">
+          <button onClick={() => setEditando((v) => !v)}
+            className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+            {editando ? 'Cancelar' : 'Renomear'}
+          </button>
           {!expirada && (
             <button onClick={handleToggle}
               className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
@@ -241,6 +247,42 @@ export function PromoDetalheClient({
           )}
         </div>
       </div>
+
+      {/* Renomear / ajustar a promoção */}
+      {editando && (
+        <form action={editarPromocao.bind(null, promocao.id)}
+          className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm grid gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Nome da promoção</label>
+            <input name="nome" defaultValue={promocao.nome} required autoFocus className="field" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Início</label>
+            <input type="date" name="data_inicio" defaultValue={promocao.data_inicio ?? ''} className="field" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Fim <span className="text-gray-400">(vazio = sem prazo)</span></label>
+            <input type="date" name="data_fim" defaultValue={promocao.data_fim ?? ''} className="field" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Descrição</label>
+            <input name="descricao" defaultValue={promocao.descricao ?? ''} className="field" />
+          </div>
+          <div className="sm:col-span-2 flex gap-2">
+            <SubmitButton pendingText="Salvando…"
+              className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-60">
+              Salvar
+            </SubmitButton>
+            <button type="button" onClick={() => setEditando(false)}
+              className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+              Cancelar
+            </button>
+          </div>
+          <p className="sm:col-span-2 text-xs text-gray-400">
+            O tipo e o valor da promoção não mudam aqui — se precisar alterá-los, crie uma nova (evita bagunçar o desconto já aplicado nos itens).
+          </p>
+        </form>
+      )}
 
       {/* Faixas de quantidade (progressivo) */}
       {!expirada && ehProgressivo && (
