@@ -1,48 +1,13 @@
-import { PortalLoginForm } from '@/components/PortalLoginForm'
+import { redirect } from 'next/navigation'
 
-export default function PortalPage() {
-  return (
-    <div className="flex min-h-screen">
-
-      {/* ══════════════════════════════════
-          LADO ESQUERDO — 30%, fundo branco
-      ══════════════════════════════════ */}
-      <div className="flex w-full flex-col items-center justify-center bg-white px-8 lg:w-[30%]">
-        <div className="w-full max-w-[260px] flex flex-col items-center">
-
-          {/* Logo pequena no topo */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo-transparent.png"
-            alt="TecnoCell Cloud"
-            style={{ width: '160px', marginBottom: '32px' }}
-          />
-
-          {/* Formulário com botão verde */}
-          <div className="w-full">
-            <PortalLoginForm buttonColor="#2e7d32" />
-          </div>
-
-        </div>
-      </div>
-
-      {/* ══════════════════════════════════
-          LADO DIREITO — 70%, azul #4A7BA7
-      ══════════════════════════════════ */}
-      <div
-        className="hidden lg:flex lg:w-[70%] items-center justify-center"
-        style={{ backgroundColor: '#4A7BA7' }}
-      >
-        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '32px' }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo-transparent.png"
-            alt="TecnoCell Cloud"
-            style={{ width: '300px', display: 'block' }}
-          />
-        </div>
-      </div>
-
-    </div>
-  )
+// A raiz não tem tela própria.
+//
+// Existiam DUAS telas de login e ninguém tinha notado: esta ("PortalPage", azul
+// #4A7BA7 e botão verde — fora do brand) e a /login (a certa: azul #1B6CA8 +
+// laranja #F47920, com o "Gestão da loja, num lugar só"). Quem abria o sistema
+// caía justamente na errada — a bonita ficava escondida.
+//
+// Agora a raiz manda direto pra /login. Uma tela de login só, no brand.
+export default function Home() {
+  redirect('/login')
 }

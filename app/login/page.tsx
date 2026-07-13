@@ -82,8 +82,7 @@ export default async function LoginPage({
             Apenas funcionários autorizados. Para acesso, fale com o administrador.
           </p>
           <p className="mt-4 text-sm text-gray-500">
-            ← <a href="/" className="text-[#1B6CA8] hover:underline">Voltar ao catálogo</a>
-          </p>
+</p>
         </div>
       </div>
     </div>
