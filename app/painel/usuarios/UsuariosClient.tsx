@@ -393,8 +393,15 @@ function EditarModal({ usuario, cargos, lojas, depositos, tabelas, onClose }: { 
   const router = useRouter()
   const [tk, setTk] = useState('')
   useEffect(() => { authToken().then(setTk) }, [])
-  // ao salvar, atualiza a lista (senão reabrir o modal mostra o cargo/dados velhos)
-  useEffect(() => { if (state?.ok) router.refresh() }, [state?.ok, router])
+  // Ao salvar: atualiza a lista E FECHA o modal. Manter aberto era o bug — o modal
+  // seguia com o dado de antes do save, e um 2o "Salvar" gravava null nos campos que
+  // nao estavam renderizados (horario). Fechando, reabrir sempre traz o dado fresco.
+  useEffect(() => {
+    if (!state?.ok) return
+    router.refresh()
+    const t = setTimeout(onClose, 700)   // deixa ler o "✓ Perfil atualizado"
+    return () => clearTimeout(t)
+  }, [state?.ok, router, onClose])
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -476,7 +483,14 @@ function EditarModal({ usuario, cargos, lojas, depositos, tabelas, onClose }: { 
 export function UsuariosClient({ usuarios, cargos, lojas, depositos, tabelas }: { usuarios: Usuario[]; cargos: Cargo[]; lojas: Loja[]; depositos: Deposito[]; tabelas: Tabela[] }) {
   const [criando, setCriando] = useState(false)
   const [convidando, setConvidando] = useState(false)
-  const [editando, setEditando] = useState<Usuario | null>(null)
+  // Guarda o ID, NAO um retrato do usuario. Antes o modal segurava um snapshot
+  // tirado no clique: depois de salvar, o router.refresh() atualizava a LISTA mas o
+  // modal seguia com o dado velho — e salvar de novo dali APAGAVA campos (o input de
+  // horario so existe se o checkbox estiver marcado; com o retrato velho ele vinha
+  // desmarcado, o input nao ia no form, e a action gravava null por cima). Bug real:
+  // apagou o horario do JOAO.
+  const [editandoId, setEditandoId] = useState<string | null>(null)
+  const editando = editandoId ? (usuarios.find((u) => u.id === editandoId) ?? null) : null
   const cargoNome = new Map(cargos.map((c) => [c.id, c.nome]))
 
   const resumoPermissoes = (u: Usuario) => {
@@ -560,7 +574,7 @@ export function UsuariosClient({ usuarios, cargos, lojas, depositos, tabelas }: 
                   </span>
                 </td>
                 <td className="px-6 py-3 text-right">
-                  <button onClick={() => setEditando(u)} className="text-sm text-blue-600 hover:underline">
+                  <button onClick={() => setEditandoId(u.id)} className="text-sm text-blue-600 hover:underline">
                     Editar
                   </button>
                 </td>
@@ -572,7 +586,7 @@ export function UsuariosClient({ usuarios, cargos, lojas, depositos, tabelas }: 
 
       {criando && <NovoUsuarioModal cargos={cargos} onClose={() => setCriando(false)} />}
       {convidando && <ConvidarModal cargos={cargos} onClose={() => setConvidando(false)} />}
-      {editando && <EditarModal usuario={editando} cargos={cargos} lojas={lojas} depositos={depositos} tabelas={tabelas} onClose={() => setEditando(null)} />}
+      {editando && <EditarModal key={editando.id} usuario={editando} cargos={cargos} lojas={lojas} depositos={depositos} tabelas={tabelas} onClose={() => setEditandoId(null)} />}
     </div>
   )
 }
