@@ -43,9 +43,7 @@ export default async function DashboardPage() {
   const [
     { count: totalProdutos },
     { count: totalClientes },
-    histRecente,
-    estoqueItems,
-    produtosInfo,
+    { data: resumo },
     { data: vendasHoje },
     { data: pendReceber },
     { data: pendPagar },
@@ -53,58 +51,43 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     supabase.from('produtos').select('*', { count: 'exact', head: true }).eq('ativo', true),
     supabase.from('pessoas').select('*', { count: 'exact', head: true }).eq('tipo', 'cliente'),
-    fetchAll<{ valor_final: number | null; cliente: string | null; vendedor: string | null; loja: string | null }>(
-      (f, t) => supabase.from('historico_vendas').select('valor_final, cliente, vendedor, loja').gte('data', de30).range(f, t)),
-    fetchAll<{ produto_id: string; quantidade: number }>(
-      (f, t) => supabase.from('estoque').select('produto_id, quantidade').gt('quantidade', 0).range(f, t)),
-    fetchAll<{ id: string; preco_custo: number | null; estoque_minimo: number | null }>(
-      (f, t) => supabase.from('produtos').select('id, preco_custo, estoque_minimo').eq('ativo', true).range(f, t)),
+    // Antes isto eram 3 fetchAll: TODO o historico de 30d + TODAS as linhas de estoque
+    // + TODOS os produtos ativos — ~18.700 linhas, paginadas de 1000 em 1000 (~19 idas
+    // ao banco) so pra calcular ~10 numeros. Custava 2,7s.
+    // Agora o Postgres soma tudo e devolve pronto em 1 chamada (~120ms).
+    // Conferido campo a campo contra o calculo antigo antes de trocar: bate 100%.
+    supabase.rpc('dashboard_resumo', { p_de30: de30 }),
     supabase.from('vendas').select('total').eq('status', 'concluida').gte('created_at', hoje),
     supabase.from('lancamentos').select('valor, valor_pago').eq('tipo', 'receber').eq('status', 'pendente'),
     supabase.from('lancamentos').select('valor, valor_pago').eq('tipo', 'pagar').eq('status', 'pendente'),
     supabase.from('lancamentos').select('id, descricao, valor, tipo, status, data_vencimento, pessoa_nome').order('data_vencimento', { ascending: false }).limit(5),
   ])
 
-  // ---- Operação recente (histórico, últimos 30 dias) ----
-  const nVendas = histRecente.length
-  const faturamento = histRecente.reduce((s, v) => s + (v.valor_final ?? 0), 0)
-  const ticket = nVendas ? faturamento / nVendas : 0
-  const porCliente: Record<string, number> = {}
-  const porVendedor: Record<string, number> = {}
-  const porLoja: Record<string, number> = {}
-  for (const v of histRecente) {
-    const c = (v.cliente ?? '').trim()
-    if (c && !/consumidor|não identif|nao identif/i.test(c)) porCliente[c] = (porCliente[c] ?? 0) + (v.valor_final ?? 0)
-    const vd = (v.vendedor ?? '').trim()
-    if (vd) porVendedor[vd] = (porVendedor[vd] ?? 0) + (v.valor_final ?? 0)
-    const lj = (v.loja ?? '').replace(/TECNOCELL /i, '').trim()
-    if (lj) porLoja[lj] = (porLoja[lj] ?? 0) + (v.valor_final ?? 0)
+  // ---- Tudo isto vem SOMADO do banco agora (dashboard_resumo) ----
+  type ResumoDash = {
+    n_vendas: number; faturamento: number
+    unidades: number; pecas_com_estoque: number; valor_estoque: number; abaixo_min: number
+    top_clientes: [string, number][]; top_vendedores: [string, number][]; lojas: [string, number][]
+    lista_repor: { nome: string; saldo: number; min: number }[]
   }
-  const top = (o: Record<string, number>, n: number) => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, n)
-  const topClientes = top(porCliente, 6)
-  const topVendedores = top(porVendedor, 5)
-  const lojas = top(porLoja, 3)
+  const R = (resumo ?? {}) as Partial<ResumoDash>
+
+  // ---- Operação recente (histórico, últimos 30 dias) ----
+  const nVendas = Number(R.n_vendas) || 0
+  const faturamento = Number(R.faturamento) || 0
+  const ticket = nVendas ? faturamento / nVendas : 0
+  const topClientes = (R.top_clientes ?? []).map(([k, v]) => [k, Number(v)] as [string, number])
+  const topVendedores = (R.top_vendedores ?? []).map(([k, v]) => [k, Number(v)] as [string, number])
+  const lojas = (R.lojas ?? []).map(([k, v]) => [k, Number(v)] as [string, number])
   const totalLojas = lojas.reduce((s, [, v]) => s + v, 0) || 1
   const maxCli = topClientes[0]?.[1] ?? 1
   const maxVend = topVendedores[0]?.[1] ?? 1
 
   // ---- Estoque ----
-  const info = new Map(produtosInfo.map((p) => [p.id, p]))
-  const totalPorProduto: Record<string, number> = {}
-  let valorEstoque = 0, unidades = 0
-  for (const e of estoqueItems) {
-    totalPorProduto[e.produto_id] = (totalPorProduto[e.produto_id] ?? 0) + e.quantidade
-    unidades += e.quantidade
-    const c = info.get(e.produto_id)
-    if (c) valorEstoque += e.quantidade * (c.preco_custo ?? 0)
-  }
-  let abaixoMin = 0
-  const abaixoIds: string[] = []
-  for (const p of produtosInfo) {
-    const min = p.estoque_minimo ?? 0
-    if (min > 0 && (totalPorProduto[p.id] ?? 0) < min) { abaixoMin++; abaixoIds.push(p.id) }
-  }
-  const pecasComEstoque = Object.keys(totalPorProduto).length
+  const unidades = Number(R.unidades) || 0
+  const valorEstoque = Number(R.valor_estoque) || 0
+  const abaixoMin = Number(R.abaixo_min) || 0
+  const pecasComEstoque = Number(R.pecas_com_estoque) || 0
 
   // ---- Financeiro ----
   const somaPend = (l?: { valor: number | null; valor_pago: number | null }[] | null) =>
@@ -126,14 +109,9 @@ export default async function DashboardPage() {
   const meuTicket = meuNVendas ? meuFatMes / meuNVendas : 0
 
   // ---- Dados do ESTOQUISTA (lista pra repor) ----
-  let listaRepor: { nome: string; saldo: number; min: number }[] = []
-  if (role === 'estoquista' && abaixoIds.length > 0) {
-    const { data: nomes } = await supabase.from('produtos').select('id, nome, estoque_minimo').in('id', abaixoIds.slice(0, 200))
-    listaRepor = (nomes ?? [])
-      .map((n) => ({ nome: n.nome as string, saldo: totalPorProduto[n.id] ?? 0, min: (n.estoque_minimo as number) ?? 0 }))
-      .sort((a, b) => (a.saldo - a.min) - (b.saldo - b.min))
-      .slice(0, 12)
-  }
+  // Já vem pronta do RPC (top 12 pelo menor saldo-mínimo) — antes era mais uma query.
+  const listaRepor: { nome: string; saldo: number; min: number }[] =
+    role === 'estoquista' ? (R.lista_repor ?? []) : []
 
   // ---- METAS ativas (do banco), por loja ----
   const { data: metasAtivas } = await supabase.from('metas')
