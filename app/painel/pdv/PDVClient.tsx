@@ -247,7 +247,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
   // Busca saldo de crédito ao selecionar cliente
   useEffect(() => {
-    if (!pessoaId) { setSaldoCredito(0); setCreditoAplicado(0); setFiadoCliente(null); return }
+    // Trocar de cliente (ou limpar) zera o crédito aplicado do anterior —
+    // senão o crédito do cliente A ficava "aplicado" na venda do cliente B.
+    setCreditoAplicado(0)
+    if (!pessoaId) { setSaldoCredito(0); setFiadoCliente(null); return }
     authToken().then((t) => {
       if (!t) return
       buscarSaldoCredito(t, pessoaId).then(({ saldo }) => setSaldoCredito(saldo)).catch(() => {})
