@@ -1,0 +1,30 @@
+{
+  "name": "TecnoCell Cloud",
+  "short_name": "TecnoCell",
+  "description": "PDV e gestão — TecnoCell Petrópolis e Teresópolis",
+  "start_url": "/painel/pdv",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#1B6CA8",
+  "icons": [
+    {
+      "src": "/tecnocell-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/tecnocell-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    { "name": "PDV", "url": "/painel/pdv" },
+    { "name": "Estoque", "url": "/painel/estoque" },
+    { "name": "Vendas", "url": "/painel/vendas" }
+  ]
+}
