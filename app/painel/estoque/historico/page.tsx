@@ -6,7 +6,7 @@ import { ColunasToggler } from './ColunasToggler'
 import { NovaMovimentacaoForm } from './NovaMovimentacaoForm'
 import { Dica } from '@/components/Dica'
 
-type Tipo = 'venda' | 'devolucao' | 'entrada' | 'saida' | 'ajuste'
+type Tipo = 'venda' | 'devolucao' | 'entrada' | 'saida' | 'ajuste' | 'perda'
 
 const TIPO: Record<Tipo, { label: string; cls: string; sinal: string }> = {
   venda:     { label: 'Venda',     cls: 'text-red-700 bg-red-50 border-red-200',      sinal: '−' },
@@ -14,6 +14,8 @@ const TIPO: Record<Tipo, { label: string; cls: string; sinal: string }> = {
   entrada:   { label: 'Entrada',   cls: 'text-green-700 bg-green-50 border-green-200', sinal: '+' },
   saida:     { label: 'Saída',     cls: 'text-red-700 bg-red-50 border-red-200',       sinal: '−' },
   ajuste:    { label: 'Ajuste',    cls: 'text-blue-700 bg-blue-50 border-blue-200',    sinal: '' },
+  // Perda (quebra/sumiço/avaria): baixa igual à saída, mas separada pra somar no mês.
+  perda:     { label: 'Perda',     cls: 'text-orange-700 bg-orange-50 border-orange-200', sinal: '−' },
 }
 
 type Linha = {
@@ -114,8 +116,8 @@ export default async function MovimentacoesPage({
   const pessoaIds = [...new Set((vendas ?? []).map((v) => v.pessoa_id).filter(Boolean))] as string[]
   const [{ data: prods }, { data: pessoas }] = await Promise.all([
     prodIds.length
-      ? supabase.from('produtos').select('id, nome, codigo').in('id', prodIds)
-      : Promise.resolve({ data: [] as { id: string; nome: string; codigo: string | null }[] }),
+      ? supabase.from('produtos').select('id, nome, codigo, preco_custo').in('id', prodIds)
+      : Promise.resolve({ data: [] as { id: string; nome: string; codigo: string | null; preco_custo: number | null }[] }),
     pessoaIds.length
       ? supabase.from('pessoas').select('id, nome').in('id', pessoaIds)
       : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
@@ -132,6 +134,9 @@ export default async function MovimentacoesPage({
 
   for (const m of manuais ?? []) {
     const p = prodMap[m.produto_id]
+    // Perda é valorizada pelo CUSTO (quanto de dinheiro foi pro lixo). As demais
+    // movimentações manuais seguem sem valor, como antes.
+    const custo = m.operacao === 'perda' ? (Number((p as { preco_custo?: number | null } | undefined)?.preco_custo) || 0) : 0
     linhas.push({
       key: 'm' + m.id,
       data: m.created_at,
@@ -141,8 +146,8 @@ export default async function MovimentacoesPage({
       parte: '—',
       deposito: depMap[m.deposito_id] ?? '—',
       qtd: m.quantidade,
-      valorUnitario: null,
-      valorTotal: null,
+      valorUnitario: m.operacao === 'perda' ? custo : null,
+      valorTotal: m.operacao === 'perda' ? custo * (Number(m.quantidade) || 0) : null,
       saldo: `${m.qtd_anterior} → ${m.qtd_nova}`,
       obs: m.observacao,
     })
@@ -201,6 +206,12 @@ export default async function MovimentacoesPage({
 
   const ordemAtual = params.ordem ?? 'data'
   const ordemDesc = (params.dir ?? 'desc') === 'desc'
+  // PERDAS do período (pedido da Isa: "para somarmos no fim do mês").
+  // Soma sobre as linhas JÁ FILTRADAS, então respeita o período/depósito escolhidos.
+  const perdas = rows.filter((r) => r.tipo === 'perda')
+  const perdasQtd = perdas.reduce((s, r) => s + (Number(r.qtd) || 0), 0)
+  const perdasValor = perdas.reduce((s, r) => s + (Number(r.valorTotal) || 0), 0)
+
   rows.sort((a, b) => {
     let va: string | number = a.data
     let vb: string | number = b.data
@@ -258,6 +269,22 @@ export default async function MovimentacoesPage({
         <ColunasToggler />
       </div>
 
+      {/* Perdas do período — quebra/sumiço/avaria, valorizadas pelo custo */}
+      {perdas.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl border border-orange-200 bg-orange-50 px-5 py-3">
+          <span className="text-sm font-semibold text-orange-800">Perdas no período</span>
+          <span className="text-sm text-orange-700">
+            <b className="text-base">{perdasQtd}</b> {perdasQtd === 1 ? 'unidade' : 'unidades'}
+          </span>
+          <span className="text-sm text-orange-700">
+            Custo: <b className="text-base">{formatBRL(perdasValor)}</b>
+          </span>
+          <span className="ml-auto text-xs text-orange-600">
+            {perdas.length} {perdas.length === 1 ? 'lançamento' : 'lançamentos'} · filtre por data pra fechar o mês
+          </span>
+        </div>
+      )}
+
       {/* Banner de erro */}
       {params.erro === 'produto-nao-encontrado' && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -292,6 +319,7 @@ export default async function MovimentacoesPage({
               <option value="entrada">Entrada</option>
               <option value="saida">Saída</option>
               <option value="ajuste">Ajuste</option>
+              <option value="perda">Perda</option>
             </select>
           </div>
           <div>

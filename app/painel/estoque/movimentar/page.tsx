@@ -82,6 +82,7 @@ export default async function MovimentarEstoquePage({
                 <option value="entrada">Entrada</option>
                 <option value="saida">Saída</option>
                 <option value="ajuste">Ajuste</option>
+                <option value="perda">Perda</option>
               </select>
             </div>
           </div>

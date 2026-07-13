@@ -11,11 +11,14 @@ type Deposito = { id: string; nome: string }
 type Produto = { id: string; nome: string; codigo: string | null; controla_serie: boolean | null }
 type ItemLista = { produtoBusca: string; quantidade: number; operacao: string; imeis?: string[] }
 
-const OP_LABEL: Record<string, string> = { entrada: 'Entrada', saida: 'Saída', ajuste: 'Ajuste' }
+const OP_LABEL: Record<string, string> = { entrada: 'Entrada', saida: 'Saída', ajuste: 'Ajuste', perda: 'Perda' }
 const OP_CLS: Record<string, string> = {
   entrada: 'text-green-700 bg-green-50 border-green-200',
   saida:   'text-red-700 bg-red-50 border-red-200',
   ajuste:  'text-blue-700 bg-blue-50 border-blue-200',
+  // perda (quebra/sumiço/avaria): baixa o estoque igual à saída, mas fica separada
+  // no livro-razão pra somar no fim do mês (pedido da Isa).
+  perda:   'text-orange-700 bg-orange-50 border-orange-200',
 }
 
 function acharProduto(produtos: Produto[], busca: string): Produto | null {
@@ -215,6 +218,7 @@ export function NovaMovimentacaoForm({
               <option value="entrada">Entrada</option>
               <option value="saida">Saída</option>
               <option value="ajuste">Ajuste</option>
+              <option value="perda">Perda</option>
             </select>
           </div>
           <button
