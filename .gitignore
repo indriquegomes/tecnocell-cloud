@@ -54,3 +54,21 @@ supabase/.temp/
 .claude/skills/obsidian-bases/
 .claude/skills/obsidian-cli/
 .claude/skills/obsidian-markdown/
+
+# Skills do Superpowers (obra/superpowers) — ferramenta local, instalada via npx
+.claude/skills/brainstorming/
+.claude/skills/dispatching-parallel-agents/
+.claude/skills/executing-plans/
+.claude/skills/finishing-a-development-branch/
+.claude/skills/receiving-code-review/
+.claude/skills/requesting-code-review/
+.claude/skills/subagent-driven-development/
+.claude/skills/test-driven-development/
+.claude/skills/using-git-worktrees/
+.claude/skills/using-superpowers/
+.claude/skills/verification-before-completion/
+.claude/skills/writing-plans/
+.claude/skills/writing-skills/
+# extras que o superpowers jogou dentro da minha skill systematic-debugging
+.claude/skills/systematic-debugging/*
+!.claude/skills/systematic-debugging/SKILL.md
