@@ -471,7 +471,7 @@ export async function buscarDetalheVenda(accessToken: string, vendaId: string): 
 // que o snap gerado na finalização), pra reimprimir do modal de vendas.
 export interface CupomSnap {
   numero: number | null
-  itens: { codigo: string | null; nome: string; quantidade: number; preco_unitario: number }[]
+  itens: { codigo: string | null; nome: string; quantidade: number; preco_unitario: number; prateleira: string | null }[]
   pagamentos: { forma_nome: string; valor: number; taxa: number; parcelas: number; status: string }[]
   cliente: string | null; clienteTelefone: string | null; clienteEndereco: string | null
   vendedor: string | null; deposito: string | null
@@ -490,7 +490,7 @@ export async function buscarCupomVenda(accessToken: string, vendaId: string): Pr
   if (!v) return null
 
   const [itensRes, pagsRes, depRes, cliRes] = await Promise.all([
-    supabase.from('itens_venda').select('quantidade, preco_unitario, produtos(nome, codigo)').eq('venda_id', vendaId),
+    supabase.from('itens_venda').select('quantidade, preco_unitario, produtos(nome, codigo, prateleira)').eq('venda_id', vendaId),
     supabase.from('pagamentos_venda').select('valor, taxa, parcelas, status, formas_pagamento(nome)').eq('venda_id', vendaId),
     v.deposito_id ? supabase.from('depositos').select('nome, loja_id').eq('id', v.deposito_id).maybeSingle() : Promise.resolve({ data: null }),
     v.pessoa_id ? supabase.from('pessoas').select('nome, telefone, endereco, bairro, cidade, estado, cep').eq('id', v.pessoa_id).maybeSingle() : Promise.resolve({ data: null }),
@@ -511,8 +511,8 @@ export async function buscarCupomVenda(accessToken: string, vendaId: string): Pr
 
   return {
     numero: v.numero,
-    itens: ((itensRes.data ?? []) as unknown as { quantidade: number; preco_unitario: number; produtos: { nome: string; codigo: string | null } | null }[])
-      .map((i) => ({ codigo: i.produtos?.codigo ?? null, nome: i.produtos?.nome ?? '—', quantidade: i.quantidade, preco_unitario: i.preco_unitario })),
+    itens: ((itensRes.data ?? []) as unknown as { quantidade: number; preco_unitario: number; produtos: { nome: string; codigo: string | null; prateleira: string | null } | null }[])
+      .map((i) => ({ codigo: i.produtos?.codigo ?? null, nome: i.produtos?.nome ?? '—', quantidade: i.quantidade, preco_unitario: i.preco_unitario, prateleira: i.produtos?.prateleira ?? null })),
     pagamentos: ((pagsRes.data ?? []) as unknown as { valor: number; taxa: number | null; parcelas: number | null; status: string | null; formas_pagamento: { nome: string } | null }[])
       .map((p) => ({ forma_nome: p.formas_pagamento?.nome ?? '—', valor: Number(p.valor) || 0, taxa: Number(p.taxa) || 0, parcelas: p.parcelas ?? 1, status: p.status ?? 'pago' })),
     cliente: cli?.nome ?? null,

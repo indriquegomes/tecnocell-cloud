@@ -944,7 +944,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
       const snap = {
         numero: result.vendaNumero ?? null,
-        itens: carrinho.map(({ codigo, nome, quantidade, preco_unitario }) => ({ codigo, nome, quantidade, preco_unitario })),
+        // prateleira vai junto: quem separa a peça lê no cupom onde ela está guardada
+        itens: carrinho.map(({ codigo, nome, quantidade, preco_unitario, prateleira }) => ({ codigo, nome, quantidade, preco_unitario, prateleira: prateleira ?? null })),
         pagamentos: pagamentos.map((p) => ({
           forma_nome: formas.find((f) => f.id === p.forma_id)?.nome ?? p.forma_id,
           valor: parseFloat(p.valor) || 0,
@@ -1266,11 +1267,17 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     const valorTotal = subtotal - snap.desconto + totalTaxas
     const numeroLabel = snap.numero != null ? String(snap.numero) : idCurto
 
-    // Item em BLOCO (bonito no 58mm): nome na linha inteira + "qtd x preço ... total"
+    // Item em BLOCO (bonito no 58mm): nome na linha inteira + "qtd x preço ... total".
+    // A prateleira vai encostada à direita, na MESMA linha do nome (aproveita o espaço
+    // que sobrava ali) — é o que a Isa lê pra saber onde pegar a peça.
     const rowItem = (i: typeof snap.itens[0]) => {
       const desc = i.codigo ? `${i.codigo} - ${i.nome}` : i.nome
+      const prat = (i as { prateleira?: string | null }).prateleira?.trim()
       return `<div class="item">
-        <div class="item-nome">${desc}</div>
+        <div class="row item-nome-row">
+          <span class="item-nome">${desc}</span>
+          ${prat ? `<span class="prateleira">${prat}</span>` : ''}
+        </div>
         <div class="row"><span>${i.quantidade} x ${brl(i.preco_unitario)}</span><span class="bold">${brl(i.quantidade * i.preco_unitario)}</span></div>
       </div>`
     }
@@ -1299,6 +1306,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       .row { display: flex; justify-content: space-between; margin: 2px 0; }
       .item { margin: 4px 0; }
       .item-nome { text-align: left; word-break: break-word; }
+      /* prateleira: encostada na direita da linha do nome, no espaço que sobrava */
+      .item-nome-row { align-items: flex-start; gap: 6px; }
+      .prateleira { flex: none; font-weight: bold; white-space: nowrap; border: 1px solid #000; padding: 0 3px; }
       table { width: 100%; border-collapse: collapse; font-size: 10px; }
       th { border-bottom: 1px dashed #000; padding: 2px 0; text-align: left; }
       td { padding: 2px 0; vertical-align: top; }
