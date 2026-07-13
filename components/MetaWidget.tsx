@@ -81,11 +81,6 @@ export function MetaWidget({ meta }: { meta: MetaInput }) {
                 <span className="inline-flex items-center gap-2 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700">
                   🎁 Prêmio {proxima.nome}: {formatBRL(proxima.premio)}
                 </span>
-                {(meta.pessoas ?? 0) > 1 && (
-                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700">
-                    👤 sua parte (÷{meta.pessoas}): {formatBRL(proxima.valor / (meta.pessoas ?? 1))}
-                  </span>
-                )}
               </div>
             </>
           ) : (
