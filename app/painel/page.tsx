@@ -15,15 +15,12 @@ export default async function DashboardPage() {
 
   // ---- Quem é / qual cargo → dashboard adaptativo ----
   const userId = (await headers()).get('x-user-id')
+  // O cargo vem JUNTO do perfil (join) — antes eram 2 idas ao banco em fila.
   const { data: meuPerfil } = userId
-    ? await supabase.from('perfis').select('nome, cargo, cargo_id, meta_venda_mensal, pdv_loja_id').eq('id', userId).maybeSingle()
+    ? await supabase.from('perfis').select('nome, cargo, cargo_id, meta_venda_mensal, pdv_loja_id, cargos(nome)').eq('id', userId).maybeSingle()
     : { data: null }
-  let cargoNome = (meuPerfil?.cargo ?? '').toLowerCase()
-  const cgId = (meuPerfil as { cargo_id?: string | null } | null)?.cargo_id
-  if (cgId) {
-    const { data: cg } = await supabase.from('cargos').select('nome').eq('id', cgId).maybeSingle()
-    if (cg?.nome) cargoNome = cg.nome.toLowerCase()
-  }
+  const cargoDoVinculo = (meuPerfil as { cargos?: { nome: string } | null } | null)?.cargos?.nome
+  const cargoNome = (cargoDoVinculo ?? meuPerfil?.cargo ?? '').toLowerCase()
   const primeiroNome = (meuPerfil?.nome ?? '').trim().split(/\s+/)[0] || ''
   const meta = Number((meuPerfil as { meta_venda_mensal?: number } | null)?.meta_venda_mensal ?? 0)
   // classifica: cargo pelo nome; fallback por permissão
@@ -39,6 +36,7 @@ export default async function DashboardPage() {
 
   const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
   const de30 = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
+  const inicioMes = (() => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0] })()
 
   const [
     { count: totalProdutos },
@@ -48,6 +46,9 @@ export default async function DashboardPage() {
     { data: pendReceber },
     { data: pendPagar },
     { data: lancRecentes },
+    { data: metasAtivas },
+    { data: lojasList },
+    { data: minhasVendasMes },
   ] = await Promise.all([
     supabase.from('produtos').select('*', { count: 'exact', head: true }).eq('ativo', true),
     supabase.from('pessoas').select('*', { count: 'exact', head: true }).eq('tipo', 'cliente'),
@@ -61,6 +62,15 @@ export default async function DashboardPage() {
     supabase.from('lancamentos').select('valor, valor_pago').eq('tipo', 'receber').eq('status', 'pendente'),
     supabase.from('lancamentos').select('valor, valor_pago').eq('tipo', 'pagar').eq('status', 'pendente'),
     supabase.from('lancamentos').select('id, descricao, valor, tipo, status, data_vencimento, pessoa_nome').order('data_vencimento', { ascending: false }).limit(5),
+    // metas / lojas / minhas-vendas nao dependem de nada acima — antes rodavam
+    // uma DEPOIS da outra, cada ida ao Supabase custando ~350ms de latencia.
+    supabase.from('metas')
+      .select('id, loja_id, rotulo, data_inicio, data_fim, dias_uteis, pessoas')
+      .eq('ativo', true).lte('data_inicio', hoje).gte('data_fim', hoje),
+    supabase.from('lojas').select('id, nome'),
+    role === 'vendedora' && userId
+      ? supabase.from('vendas').select('total, created_at, numero').eq('vendedor_id', userId).eq('status', 'concluida').gte('created_at', inicioMes).order('created_at', { ascending: false })
+      : Promise.resolve({ data: null }),
   ])
 
   // ---- Tudo isto vem SOMADO do banco agora (dashboard_resumo) ----
@@ -96,12 +106,8 @@ export default async function DashboardPage() {
   const aPagar = somaPend(pendPagar)
   const vendasHojeTotal = (vendasHoje ?? []).reduce((s, v) => s + (v.total ?? 0), 0)
 
-  // ---- Dados da VENDEDORA (minhas vendas do mês) ----
-  const inicioMes = (() => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0] })()
-  const { data: minhasVendasMes } = role === 'vendedora' && userId
-    ? await supabase.from('vendas').select('total, created_at, numero').eq('vendedor_id', userId).eq('status', 'concluida').gte('created_at', inicioMes).order('created_at', { ascending: false })
-    : { data: null }
-  const minhasMes = minhasVendasMes ?? []
+  // ---- Dados da VENDEDORA (minhas vendas do mês) — já veio no lote paralelo ----
+  const minhasMes = (minhasVendasMes ?? []) as { total: number; created_at: string; numero: number | null }[]
   const meuFatMes = minhasMes.reduce((s, v) => s + (v.total ?? 0), 0)
   const meuHoje = minhasMes.filter((v) => (v.created_at ?? '').split('T')[0] === hoje).reduce((s, v) => s + (v.total ?? 0), 0)
   const meuNVendasHoje = minhasMes.filter((v) => (v.created_at ?? '').split('T')[0] === hoje).length
@@ -113,25 +119,24 @@ export default async function DashboardPage() {
   const listaRepor: { nome: string; saldo: number; min: number }[] =
     role === 'estoquista' ? (R.lista_repor ?? []) : []
 
-  // ---- METAS ativas (do banco), por loja ----
-  const { data: metasAtivas } = await supabase.from('metas')
-    .select('id, loja_id, rotulo, data_inicio, data_fim, dias_uteis, pessoas')
-    .eq('ativo', true).lte('data_inicio', hoje).gte('data_fim', hoje)
+  // ---- METAS ativas (já vieram no lote paralelo) ----
   const metaIds = (metasAtivas ?? []).map((m) => m.id)
-  const { data: faixasAll } = metaIds.length
-    ? await supabase.from('metas_faixas').select('meta_id, nome, valor, premio, ordem').in('meta_id', metaIds).order('ordem')
-    : { data: [] as { meta_id: string; nome: string; valor: number; premio: number; ordem: number }[] }
-  const { data: lojasList } = await supabase.from('lojas').select('id, nome')
   const nomeLoja: Record<string, string> = Object.fromEntries((lojasList ?? []).map((l) => [l.id, l.nome]))
   // Cash-in REAL: soma de pagamentos_venda (dinheiro/PIX/cartão), EXCLUINDO fiado.
   // Fiado é dívida a receber — não conta como "entrou no caixa" (pedido do Vitor).
   const metaMin = (metasAtivas ?? []).reduce((a, m) => (m.data_inicio < a ? m.data_inicio : a), '9999-12-31')
   const metaMax = (metasAtivas ?? []).reduce((a, m) => (m.data_fim > a ? m.data_fim : a), '0000-01-01')
+  // faixas e vendas-do-periodo dependem das metas, mas NAO uma da outra: em paralelo.
   // fetchAll: pagina p/ não bater no cap de 1000 do PostgREST quando o volume crescer
-  const vendasPeriodo = metaIds.length
-    ? await fetchAll<{ id: string; caixa_id: string | null; deposito_id: string | null; created_at: string }>(
-        (from, to) => supabase.from('vendas').select('id, caixa_id, deposito_id, created_at').eq('status', 'concluida').gte('created_at', metaMin).lte('created_at', metaMax + 'T23:59:59').range(from, to))
-    : []
+  const [{ data: faixasAll }, vendasPeriodo] = await Promise.all([
+    metaIds.length
+      ? supabase.from('metas_faixas').select('meta_id, nome, valor, premio, ordem').in('meta_id', metaIds).order('ordem')
+      : Promise.resolve({ data: [] as { meta_id: string; nome: string; valor: number; premio: number; ordem: number }[] }),
+    metaIds.length
+      ? fetchAll<{ id: string; caixa_id: string | null; deposito_id: string | null; created_at: string }>(
+          (from, to) => supabase.from('vendas').select('id, caixa_id, deposito_id, created_at').eq('status', 'concluida').gte('created_at', metaMin).lte('created_at', metaMax + 'T23:59:59').range(from, to))
+      : Promise.resolve([] as { id: string; caixa_id: string | null; deposito_id: string | null; created_at: string }[]),
+  ])
   const vendaIds = vendasPeriodo.map((v) => v.id)
   const [pagsV, { data: formasFiado }, { data: caixasL }, { data: depsL }] = await Promise.all([
     vendaIds.length ? fetchAll<{ venda_id: string; valor: number; forma_pagamento_id: string }>(
