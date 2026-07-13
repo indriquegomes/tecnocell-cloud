@@ -25,7 +25,12 @@ export function PainelShell({
 
   const isPDV = PDV_PATHS.some((p) => pathname === p)
 
+  // No celular a sidebar COMEÇA FECHADA: ela é fixa de 240px e, numa tela de 390px,
+  // sobrava uma tira de 150px pro conteúdo — o painel ficava inutilizável no telefone.
+  // No PC/tablet mantém a preferência salva (o Vitor gosta de recolher).
   useEffect(() => {
+    const celular = window.matchMedia('(max-width: 1023px)').matches
+    if (celular) { setAberta(false); return }
     const salvo = localStorage.getItem('sidebar-aberta')
     if (salvo !== null) setAberta(salvo === 'true')
   }, [])
@@ -76,9 +81,22 @@ export function PainelShell({
         </div>
       )}
 
-      {aberta && <Sidebar permissoes={permissoes} isMaster={isMaster} />}
+      {/* Celular: sidebar vira gaveta por cima do conteúdo (fixed + fundo escuro).
+          PC/tablet: continua empurrando o conteúdo, como sempre foi. */}
+      {aberta && (
+        <>
+          <div
+            onClick={toggle}
+            className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+            aria-hidden
+          />
+          <div className="fixed inset-y-0 left-0 z-50 lg:static lg:z-auto">
+            <Sidebar permissoes={permissoes} isMaster={isMaster} />
+          </div>
+        </>
+      )}
 
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
           <div className="flex items-center gap-3">
             <button type="button" onClick={toggle}

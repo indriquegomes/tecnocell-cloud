@@ -193,8 +193,8 @@ export default async function DashboardPage() {
 
   const cor = (i: number) => (i === 0 ? 'bg-white' : i === 1 ? 'bg-white/55' : 'bg-white/30')
 
-  const Stat = ({ icon, bg, label, value, sub, href }: { icon: ReactNode; bg: string; label: string; value: string; sub?: string; href: string }) => (
-    <Link href={href} className="group rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-[#1B6CA8]/40 hover:shadow-md">
+  const Stat = ({ icon, bg, label, value, sub, href, cls = '' }: { icon: ReactNode; bg: string; label: string; value: string; sub?: string; href: string; cls?: string }) => (
+    <Link href={href} className={`group flex flex-col justify-center rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-[#1B6CA8]/40 hover:shadow-md ${cls}`}>
       <div className="flex items-center gap-3.5">
         <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${bg}`}>{icon}</span>
         <div className="min-w-0">
@@ -206,8 +206,8 @@ export default async function DashboardPage() {
     </Link>
   )
 
-  const Rank = ({ titulo, dados, max }: { titulo: string; dados: [string, number][]; max: number }) => (
-    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+  const Rank = ({ titulo, dados, max, cls = '' }: { titulo: string; dados: [string, number][]; max: number; cls?: string }) => (
+    <div className={`rounded-2xl border border-gray-200 bg-white shadow-sm ${cls}`}>
       <div className="border-b border-gray-100 px-5 py-3.5"><h3 className="text-sm font-semibold text-gray-800">{titulo} <span className="font-normal text-gray-400">· 30 dias</span></h3></div>
       <div className="p-2">
         {dados.length === 0 ? <p className="px-3 py-8 text-center text-sm text-gray-400">Sem dados no período.</p> :
@@ -360,9 +360,14 @@ export default async function DashboardPage() {
         <Dica texto="Visão geral: operação dos últimos 30 dias (do histórico), estoque, financeiro e o que está vendendo agora." />
       </div>
 
-      {/* HERO: faturamento + estoque */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="relative overflow-hidden rounded-2xl bg-[#1B6CA8] p-6 text-white shadow-sm lg:col-span-2">
+      {/* ═══ BENTO GRID ═══
+          Um grid unico de 12 colunas, cada card ocupando o espaço que o seu peso
+          merece — em vez da pilha de faixas horizontais de largura cheia. O que
+          importa (faturamento) domina; o resto acomoda em volta. */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12">
+
+        {/* HERO — faturamento: o numero que manda. Ocupa 2 linhas. */}
+        <div className="relative flex flex-col justify-between overflow-hidden rounded-2xl bg-[#1B6CA8] p-6 text-white shadow-sm md:col-span-6 lg:col-span-8 lg:row-span-2">
           <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/5" />
           <div className="relative flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Faturamento · últimos 30 dias</p>
@@ -375,7 +380,7 @@ export default async function DashboardPage() {
             <span><b className="font-bold text-white">~{Math.round(nVendas / 30)}</b> por dia</span>
           </div>
           {lojas.length > 0 && (
-            <div className="relative mt-6">
+            <div className="relative mt-6 lg:mt-0">
               <div className="flex h-2.5 overflow-hidden rounded-full bg-white/15">
                 {lojas.map(([nome, val], i) => (
                   <div key={nome} style={{ width: `${Math.max(4, (100 * val) / totalLojas)}%` }} className={cor(i)} title={nome} />
@@ -393,7 +398,7 @@ export default async function DashboardPage() {
         </div>
 
         {pode('estoque') && (
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm md:col-span-3 lg:col-span-4">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-400">Valor em estoque</p>
             <p className="mt-2.5 text-3xl font-extrabold leading-none tabular-nums text-[#1B6CA8]">{formatBRL(valorEstoque)}</p>
             <p className="mt-1.5 text-xs text-gray-400">a preço de custo</p>
@@ -406,18 +411,33 @@ export default async function DashboardPage() {
               : <p className="mt-3.5 inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700">✓ estoque em dia</p>}
           </div>
         )}
-      </div>
 
-      {/* METAS das lojas */}
-      {metasWidgets.length > 0 && (
-        <div className={`grid gap-4 ${metasWidgets.length > 1 ? 'lg:grid-cols-2' : ''}`}>
-          {metasWidgets.map((m, i) => <MetaWidget key={i} meta={m} />)}
-        </div>
-      )}
+        {/* Vendas de hoje — encosta no hero, fechando a coluna da direita */}
+        {pode('vendas') && <Stat cls="md:col-span-3 lg:col-span-4" icon={<IconCart className="h-5 w-5 text-emerald-600" />} bg="bg-emerald-50" label="Vendas hoje (PDV)" value={formatBRL(vendasHojeTotal)} sub={`${(vendasHoje ?? []).length} venda(s)`} href="/painel/pdv" />}
 
-      {/* PRÊMIOS a pagar — comissão automática por faixa (só quem gerencia metas) */}
-      {pode('metas') && metasWidgets.length > 0 && (
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        {/* Trio de contadores */}
+        {pode('produtos') && <Stat cls="md:col-span-3 lg:col-span-4" icon={<IconPackage className="h-5 w-5 text-[#1B6CA8]" />} bg="bg-[#1B6CA8]/10" label="Produtos ativos" value={(totalProdutos ?? 0).toLocaleString('pt-BR')} href="/painel/produtos" />}
+        {pode('clientes') && <Stat cls="md:col-span-3 lg:col-span-4" icon={<IconUsers className="h-5 w-5 text-violet-600" />} bg="bg-violet-50" label="Clientes" value={(totalClientes ?? 0).toLocaleString('pt-BR')} href="/painel/clientes" />}
+        {pode('financeiro') && <Stat cls="md:col-span-3 lg:col-span-4" icon={<IconWallet className="h-5 w-5 text-amber-600" />} bg="bg-amber-50" label="A receber · a pagar" value={formatBRL(aReceber)} sub={`a pagar ${formatBRL(aPagar)}`} href="/painel/financeiro" />}
+
+        {/* Graficos: o fluxo e largo (a linha precisa de espaco), a rosca e compacta */}
+        {fluxoDiario.length > 0 && (
+          <>
+            <div className="md:col-span-6 lg:col-span-8"><FluxoDiario dias={fluxoDiario} total={fluxoTotal} mes={mesLabel} /></div>
+            <div className="md:col-span-6 lg:col-span-4"><StatusPedidos status={statusPedidos} mes={mesLabel} /></div>
+          </>
+        )}
+
+        {/* METAS — uma por loja, meio a meio */}
+        {metasWidgets.map((m, i) => (
+          <div key={i} className={metasWidgets.length > 1 ? 'md:col-span-6 lg:col-span-6' : 'md:col-span-6 lg:col-span-12'}>
+            <MetaWidget meta={m} />
+          </div>
+        ))}
+
+        {/* PRÊMIOS a pagar — comissão automática por faixa (só quem gerencia metas) */}
+        {pode('metas') && metasWidgets.length > 0 && (
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm md:col-span-6 lg:col-span-6">
           <h3 className="text-sm font-semibold text-gray-800">🎁 Prêmios a pagar <span className="font-normal text-gray-400">· pelo faturamento atual</span></h3>
           <div className="mt-3 space-y-2">
             {metasWidgets.map((m, i) => {
@@ -441,36 +461,18 @@ export default async function DashboardPage() {
                   </div>
                 </div>
               )
-            })}
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* AGORA */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {pode('vendas') && <Stat icon={<IconCart className="h-5 w-5 text-emerald-600" />} bg="bg-emerald-50" label="Vendas hoje (PDV)" value={formatBRL(vendasHojeTotal)} sub={`${(vendasHoje ?? []).length} venda(s)`} href="/painel/pdv" />}
-        {pode('produtos') && <Stat icon={<IconPackage className="h-5 w-5 text-[#1B6CA8]" />} bg="bg-[#1B6CA8]/10" label="Produtos ativos" value={(totalProdutos ?? 0).toLocaleString('pt-BR')} href="/painel/produtos" />}
-        {pode('clientes') && <Stat icon={<IconUsers className="h-5 w-5 text-violet-600" />} bg="bg-violet-50" label="Clientes" value={(totalClientes ?? 0).toLocaleString('pt-BR')} href="/painel/clientes" />}
-        {pode('financeiro') && <Stat icon={<IconWallet className="h-5 w-5 text-amber-600" />} bg="bg-amber-50" label="A receber · a pagar" value={formatBRL(aReceber)} sub={`a pagar ${formatBRL(aPagar)}`} href="/painel/financeiro" />}
-      </div>
+        {/* Rankings — lado a lado */}
+        <Rank cls="md:col-span-6 lg:col-span-6" titulo="Top clientes" dados={topClientes} max={maxCli} />
+        <Rank cls="md:col-span-6 lg:col-span-6" titulo="Vendedores" dados={topVendedores} max={maxVend} />
 
-      {/* Fluxo diário + visão geral dos pedidos (os dois gráficos do SIGE) */}
-      {fluxoDiario.length > 0 && (
-        <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-          <FluxoDiario dias={fluxoDiario} total={fluxoTotal} mes={mesLabel} />
-          <StatusPedidos status={statusPedidos} mes={mesLabel} />
-        </div>
-      )}
-
-      {/* TOP clientes + vendedores */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Rank titulo="Top clientes" dados={topClientes} max={maxCli} />
-        <Rank titulo="Vendedores" dados={topVendedores} max={maxVend} />
-      </div>
-
-      {/* últimos lançamentos */}
-      {pode('financeiro') && (lancRecentes ?? []).length > 0 && (
-        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+        {/* últimos lançamentos */}
+        {pode('financeiro') && (lancRecentes ?? []).length > 0 && (
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm md:col-span-6 lg:col-span-6">
           <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
             <h3 className="text-sm font-semibold text-gray-800">Últimos lançamentos</h3>
             <Link href="/painel/financeiro" className="text-xs text-[#1B6CA8] hover:underline">Ver todos</Link>
@@ -484,16 +486,16 @@ export default async function DashboardPage() {
                   <p className="text-xs text-gray-400">{l.data_vencimento ? formatDate(l.data_vencimento) : ''}</p>
                 </div>
               </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ATALHOS */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        {pode('pdv') && <Link href="/painel/pdv" className="flex items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-white p-4 text-sm font-medium text-gray-600 transition hover:border-emerald-400 hover:text-emerald-600"><span className="text-xl">🛒</span> Abrir PDV</Link>}
-        {pode('financeiro') && <Link href="/painel/financeiro/novo" className="flex items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-white p-4 text-sm font-medium text-gray-600 transition hover:border-[#1B6CA8] hover:text-[#1B6CA8]"><span className="text-xl">💰</span> Novo lançamento</Link>}
-        <Link href="/painel/relatorios" className="flex items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-white p-4 text-sm font-medium text-gray-600 transition hover:border-[#1B6CA8] hover:text-[#1B6CA8]"><span className="text-xl">📊</span> Relatórios</Link>
+        {/* ATALHOS — fecham o bento */}
+        {pode('pdv') && <Link href="/painel/pdv" className="flex items-center gap-3 rounded-2xl border border-dashed border-gray-300 bg-white p-4 text-sm font-medium text-gray-600 transition hover:border-emerald-400 hover:text-emerald-600 md:col-span-2 lg:col-span-4"><span className="text-xl">🛒</span> Abrir PDV</Link>}
+        {pode('financeiro') && <Link href="/painel/financeiro/novo" className="flex items-center gap-3 rounded-2xl border border-dashed border-gray-300 bg-white p-4 text-sm font-medium text-gray-600 transition hover:border-[#1B6CA8] hover:text-[#1B6CA8] md:col-span-2 lg:col-span-4"><span className="text-xl">💰</span> Novo lançamento</Link>}
+        <Link href="/painel/relatorios" className="flex items-center gap-3 rounded-2xl border border-dashed border-gray-300 bg-white p-4 text-sm font-medium text-gray-600 transition hover:border-[#1B6CA8] hover:text-[#1B6CA8] md:col-span-2 lg:col-span-4"><span className="text-xl">📊</span> Relatórios</Link>
+
       </div>
     </div>
   )
