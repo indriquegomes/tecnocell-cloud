@@ -68,6 +68,13 @@ export function horarioDoDia(diaSemana: number) {
   return diaSemana === 6 ? HORARIO_LOJA.sabado : HORARIO_LOJA.semana
 }
 
+// A RÉGUA vai de 00:00 a 24:00 (pedido do Vitor: "não contar somente quando a loja
+// está aberta, mas o dia todo"). Sem isto não dava pra escalar quem chega 06h pra
+// abrir, ou quem fica depois das 19h fechando o caixa — a régua parava no horário
+// comercial. O FURO continua sendo só dentro do expediente: loja fechada não tem furo.
+export const DIA_INICIO = 0          // 00:00
+export const DIA_FIM = 24 * 60       // 24:00
+
 /** Os turnos de um DIA concreto: rotina + alterações daquela data. */
 export function turnosDoDia(
   data: string,                       // "2026-07-20"

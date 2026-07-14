@@ -6,7 +6,7 @@ import { Spinner } from '@/components/Spinner'
 import { createClient } from '@/lib/supabase/client'
 import { salvarEscalaDia, salvarExcecao, salvarRegua, removerExcecao, type ActionState } from './actions'
 import {
-  DIAS, HORARIO_LOJA, horarioDoDia, hhmm, min, horasTexto,
+  DIAS, HORARIO_LOJA, horarioDoDia, hhmm, min, horasTexto, DIA_INICIO, DIA_FIM,
   type Escala, type Excecao, type Turno,
 } from '@/lib/escala'
 
@@ -122,15 +122,18 @@ function DiaLinha({ dia, perfis, cores, fmtDiaData }: { dia: DiaGrade; perfis: P
 
   if (!h) return null   // domingo: loja fechada
 
+  // A régua cobre o DIA TODO (00:00–24:00). O expediente da loja é só uma faixa
+  // sombreada dentro dela — assim dá pra escalar quem chega 06h pra abrir ou quem
+  // fica depois das 19h fechando o caixa.
   const abre = min(h.abre)
   const fecha = min(h.fecha)
-  const span = fecha - abre
-  const pos = (m: number) => `${((m - abre) / span) * 100}%`
-  const larg = (a: number, b: number) => `${((Math.min(b, fecha) - Math.max(a, abre)) / span) * 100}%`
+  const span = DIA_FIM - DIA_INICIO
+  const pos = (m: number) => `${((m - DIA_INICIO) / span) * 100}%`
+  const larg = (a: number, b: number) => `${((Math.min(b, DIA_FIM) - Math.max(a, DIA_INICIO)) / span) * 100}%`
 
-  // marcas de hora no eixo (de 2 em 2)
+  // marcas de hora no eixo (de 3 em 3 pra caber as 24h)
   const marcas: number[] = []
-  for (let m = abre; m <= fecha; m += 120) marcas.push(m)
+  for (let m = DIA_INICIO; m <= DIA_FIM; m += 180) marcas.push(m)
 
   return (
     <div className={`rounded-2xl border bg-white p-4 shadow-sm ${dia.furos.length ? 'border-red-200' : 'border-gray-200'}`}>
@@ -160,11 +163,14 @@ function DiaLinha({ dia, perfis, cores, fmtDiaData }: { dia: DiaGrade; perfis: P
           ))}
         </div>
 
-        {/* faixa de cada pessoa */}
+        {/* faixa de cada pessoa — o fundo mostra o EXPEDIENTE (resto do dia é cinza) */}
         <div className="space-y-1.5">
           {ativos.length === 0 && (
-            <div className="relative h-7 overflow-hidden rounded-lg bg-red-50">
-              <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-red-500">Loja aberta e ninguém escalado</span>
+            <div className="relative h-7 overflow-hidden rounded-lg bg-gray-100">
+              <div className="absolute inset-y-0 flex items-center justify-center bg-red-50 text-[11px] font-medium text-red-500"
+                style={{ left: pos(abre), width: larg(abre, fecha) }}>
+                Loja aberta e ninguém escalado
+              </div>
             </div>
           )}
           {ativos.map((t) => {
@@ -402,20 +408,20 @@ function ReguaEditor({
     }
   }
 
-  // pointer → minuto (preso ao trilho, passo 15min)
+  // pointer → minuto (preso ao trilho de 24h, passo 15min)
   const minutoDoEvento = (clientX: number) => {
     const r = trilhoRef.current?.getBoundingClientRect()
-    if (!r) return abre
+    if (!r) return DIA_INICIO
     const f = Math.min(1, Math.max(0, (clientX - r.left) / r.width))
-    return Math.round((abre + f * (fecha - abre)) / 15) * 15
+    return Math.round((DIA_INICIO + f * (DIA_FIM - DIA_INICIO)) / 15) * 15
   }
 
   useEffect(() => {
     const move = (e: PointerEvent) => {
       if (!arrastando.current) return
       const m = minutoDoEvento(e.clientX)
-      if (arrastando.current === 'ent') setEnt(Math.min(m, sai - 15))
-      if (arrastando.current === 'sai') setSai(Math.max(m, ent + 15))
+      if (arrastando.current === 'ent') setEnt(Math.max(DIA_INICIO, Math.min(m, sai - 15)))
+      if (arrastando.current === 'sai') setSai(Math.min(DIA_FIM, Math.max(m, ent + 15)))
       if (arrastando.current === 'p1') setP1(Math.max(ent + 15, Math.min(m, p2 - 15)))
       if (arrastando.current === 'p2') setP2(Math.min(sai - 15, Math.max(m, p1 + 15)))
     }
@@ -428,8 +434,9 @@ function ReguaEditor({
 
   useEffect(() => { if (state?.ok) router.refresh() }, [state, router])
 
-  const span = fecha - abre
-  const pos = (m: number) => `${((m - abre) / span) * 100}%`
+  // trilho = DIA TODO (00:00–24:00); a loja é só a faixa sombreada dentro dele
+  const span = DIA_FIM - DIA_INICIO
+  const pos = (m: number) => `${((m - DIA_INICIO) / span) * 100}%`
   const larg = (a: number, b: number) => `${((b - a) / span) * 100}%`
 
   const Handle = ({ m, tipo, rotulo }: { m: number; tipo: 'ent' | 'sai' | 'p1' | 'p2'; rotulo: string }) => (
@@ -465,9 +472,19 @@ function ReguaEditor({
         </label>
       </div>
 
-      {/* a régua: turno com 2 pontas + almoço com 2 pontas */}
+      {/* a régua: DIA TODO, com o expediente sombreado. Turno com 2 pontas + almoço. */}
       <div className="px-3 pt-5 pb-1">
-        <div ref={trilhoRef} className="relative h-8 touch-none select-none rounded-lg bg-gray-200/70">
+        {/* eixo de 24h */}
+        <div className="relative mb-1 h-3">
+          {[0, 3, 6, 9, 12, 15, 18, 21, 24].map((hr) => (
+            <span key={hr} className="absolute -translate-x-1/2 text-[9px] text-gray-400" style={{ left: pos(hr * 60) }}>
+              {String(hr).padStart(2, '0')}h
+            </span>
+          ))}
+        </div>
+        <div ref={trilhoRef} className="relative h-8 touch-none select-none overflow-hidden rounded-lg bg-gray-200/70">
+          {/* expediente da loja — fora dele a escala é possível, só não gera furo */}
+          <div className="absolute inset-y-0 bg-white/70" style={{ left: pos(abre), width: larg(abre, fecha) }} />
           <div className="absolute inset-y-0 rounded-lg opacity-90" style={{ left: pos(ent), width: larg(ent, sai), background: cor }} />
           {comAlmoco && (
             <div className="absolute inset-y-0 flex items-center justify-center text-[10px]"
@@ -480,8 +497,11 @@ function ReguaEditor({
           {comAlmoco && <Handle m={p1} tipo="p1" rotulo="Início do almoço" />}
           {comAlmoco && <Handle m={p2} tipo="p2" rotulo="Fim do almoço" />}
         </div>
-        <div className="mt-2 flex items-center justify-between text-xs">
-          <span className="font-bold tabular-nums" style={{ color: cor }}>{hhmm(ent)} → {hhmm(sai)}</span>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span className="font-bold tabular-nums" style={{ color: cor }}>
+            {hhmm(ent)} → {hhmm(sai)}
+            <span className="ml-2 font-normal text-gray-400">loja {hhmm(abre)}–{hhmm(fecha)}</span>
+          </span>
           <label className="flex items-center gap-1.5 text-gray-500">
             <input type="checkbox" checked={comAlmoco} onChange={(e) => setComAlmoco(e.target.checked)} className="rounded" />
             almoço/lanche {comAlmoco && <b className="tabular-nums text-gray-700">{hhmm(p1)}–{hhmm(p2)}</b>}
