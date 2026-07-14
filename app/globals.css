@@ -98,14 +98,18 @@ button:not(:disabled),
 [role="button"]:not([aria-disabled="true"]),
 a[class*="rounded"] {
   cursor: pointer;
-  transition: transform 0.06s ease, filter 0.12s ease;
+  transition: transform 0.08s ease, filter 0.12s ease;
 }
+/* Afundada ao APERTAR — perceptível no dedo (tablet/PDV é toque, não hover).
+   Era 0.985 (quase invisível): a dúvida "cliquei?" continuava. 0.96 dá o retorno
+   sem exagero. -webkit-tap-highlight-color remove o flash cinza feio do toque. */
 button:not(:disabled):active,
 [role="button"]:not([aria-disabled="true"]):active,
 a[class*="rounded"]:active {
-  transform: translateY(0.5px) scale(0.985);
-  filter: brightness(0.97);
+  transform: translateY(1px) scale(0.96);
+  filter: brightness(0.94);
 }
+button, [role="button"], a { -webkit-tap-highlight-color: transparent; }
 button:disabled,
 [aria-disabled="true"] { cursor: not-allowed; }
 

@@ -47,6 +47,7 @@ const ICONS: Record<string, IconComp> = {
   '/painel/usuarios': IconUser,
   '/painel/cargos': IconShield,
   '/painel/configuracoes': IconSettings,
+  '/painel/componentes': IconSettings,
 }
 
 type NavItem = { href: string; label: string; permissao?: string }
@@ -120,6 +121,7 @@ const navCompleto: NavGroup[] = [
       { href: '/painel/usuarios',      label: 'Usuários',      permissao: 'usuarios' },
       { href: '/painel/cargos',        label: 'Cargos',        permissao: 'usuarios' },
       { href: '/painel/configuracoes', label: 'Configurações', permissao: 'usuarios' },
+      { href: '/painel/componentes',   label: 'Componentes',   permissao: 'usuarios' },
     ],
   },
 ]
