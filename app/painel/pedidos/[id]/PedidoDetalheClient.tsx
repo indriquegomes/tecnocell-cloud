@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { adicionarItemPedido, removerItemPedido, atualizarStatusPedido, atualizarInfoPedido, atualizarDescontoFrete, atualizarObservacoesTermos, cancelarComMotivo, faturarPedido } from '../actions'
 import { gerarOSDePedido } from '@/app/painel/os/actions'
 import { formatDate } from '@/lib/utils'
+import { CampoDinheiro } from '@/components/CampoDinheiro'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtDate = (d: string) => new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
@@ -144,7 +145,7 @@ export function PedidoDetalheClient({
   }
 
   const handleAdicionar = async () => {
-    if (!produtoSel || !precoUnit) return
+    if (!produtoSel || !(Number(precoUnit) > 0)) return
     setAdicionando(true)
     setErroAdd('')
     const fd = new FormData()
@@ -409,10 +410,9 @@ export function PedidoDetalheClient({
             </div>
             <div className="w-36">
               <label className="mb-1.5 block text-sm font-medium text-gray-700">Preço Unit.</label>
-              <input value={precoUnit} onChange={(e) => setPrecoUnit(e.target.value)}
-                type="number" step="0.01" min="0" className="field w-full" placeholder="0,00" />
+              <CampoDinheiro value={Number(precoUnit) || 0} onChange={(r) => setPrecoUnit(String(r))} className="w-full" />
             </div>
-            <button onClick={handleAdicionar} disabled={!produtoSel || !precoUnit || adicionando}
+            <button onClick={handleAdicionar} disabled={!produtoSel || !(Number(precoUnit) > 0) || adicionando}
               className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
               {adicionando ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Adicionando...</span> : 'Adicionar'}
             </button>
@@ -486,15 +486,11 @@ export function PedidoDetalheClient({
             <div className="space-y-3 pt-1">
               <div className="flex items-center gap-3">
                 <label className="text-sm text-gray-500 w-24 shrink-0">Desconto (R$)</label>
-                <input type="number" step="0.01" min="0" value={desconto}
-                  onChange={e => setDesconto(parseFloat(e.target.value) || 0)}
-                  className="field flex-1 text-right" />
+                <CampoDinheiro value={desconto} onChange={setDesconto} className="flex-1" />
               </div>
               <div className="flex items-center gap-3">
                 <label className="text-sm text-gray-500 w-24 shrink-0">Frete (R$)</label>
-                <input type="number" step="0.01" min="0" value={frete}
-                  onChange={e => setFrete(parseFloat(e.target.value) || 0)}
-                  className="field flex-1 text-right" />
+                <CampoDinheiro value={frete} onChange={setFrete} className="flex-1" />
               </div>
               <div className="flex gap-2 pt-1">
                 <button onClick={handleSalvarTotal} disabled={salvandoTotal}

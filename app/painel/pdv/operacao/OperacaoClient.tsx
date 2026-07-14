@@ -1,6 +1,7 @@
 'use client'
 
 import { Spinner } from '@/components/Spinner'
+import { CampoDinheiro } from '@/components/CampoDinheiro'
 import { useActionState, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -369,16 +370,13 @@ function AbrirCaixaPanel({ lojaId }: { lojaId: string }) {
           <label htmlFor="valor_abertura" className="mb-1.5 block text-sm font-medium text-gray-700">
             Troco na Gaveta (R$)
           </label>
-          <input
+          <CampoDinheiro
             id="valor_abertura"
             name="valor_abertura"
-            type="number"
-            step="0.01"
-            min="0"
-            value={valor}
-            onChange={(e) => setValor(e.target.value)}
+            value={Number(valor) || 0}
+            onChange={(r) => setValor(String(r))}
             required
-            className={`field ${zerado ? 'border-amber-300 bg-amber-50/50' : ''}`}
+            className={zerado ? 'border-amber-300 bg-amber-50/50' : ''}
           />
           <p className="mt-1 text-xs text-gray-400">
             {zerado ? '⚠ Gaveta vazia — confira se não tem troco.' : `Padrão da loja: R$ ${TROCO_PADRAO},00`}
@@ -503,16 +501,7 @@ function FecharCaixaPanel({
           <label className="mb-1.5 block text-sm font-semibold text-gray-700">
             Dinheiro Contado na Gaveta (R$)
           </label>
-          <input
-            name="valor_fechamento"
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder="0,00"
-            autoFocus
-            className="field text-xl font-bold"
-            required
-          />
+          <CampoDinheiro name="valor_fechamento" autoFocus required className="text-xl" />
           <p className="text-xs text-gray-400 mt-1">Só cédulas e moedas — PIX, cartão e fiado não entram (conferem no WhatsApp e na maquininha)</p>
         </div>
 
@@ -573,7 +562,7 @@ function ReforcoPanel({
         </div>
         <div className="w-40">
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Valor (R$)</label>
-          <input name="valor" type="number" step="0.01" min="0.01" className="field" required />
+          <CampoDinheiro name="valor" required />
         </div>
         <button
           type="submit"
@@ -635,7 +624,7 @@ function RetiradaPanel({
         </div>
         <div className="w-40">
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Valor (R$)</label>
-          <input name="valor" type="number" step="0.01" min="0.01" className="field" required />
+          <CampoDinheiro name="valor" required />
         </div>
         <button
           type="submit"

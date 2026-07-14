@@ -7,6 +7,7 @@ import { SubmitButton } from '@/components/SubmitButton'
 import { Dica } from '@/components/Dica'
 import { formatBRL, formatDate } from '@/lib/utils'
 import Link from 'next/link'
+import { CampoDinheiro } from '@/components/CampoDinheiro'
 
 type Conta = { id: string; nome: string; tipo: string; ativa: boolean; saldo_inicial?: number | null }
 type Transf = { id: string; conta_origem_id: string; conta_destino_id: string; valor: number; data: string; observacao: string | null }
@@ -111,7 +112,7 @@ export default async function ContasPage({
           </div>
           <div className="w-40">
             <label className="mb-1.5 block text-xs font-medium text-gray-600">Saldo inicial (R$)</label>
-            <input name="saldo_inicial" type="number" step="0.01" defaultValue={editando?.saldo_inicial ?? 0} className="field" placeholder="0,00" />
+            <CampoDinheiro name="saldo_inicial" defaultValue={Number(editando?.saldo_inicial ?? 0)} />
           </div>
           {editando && (
             <div>
@@ -192,7 +193,7 @@ export default async function ContasPage({
           </div>
           <div className="w-32">
             <label className="mb-1.5 block text-xs font-medium text-gray-600">Valor (R$) *</label>
-            <input name="valor" type="number" step="0.01" min="0" required className="field" placeholder="0,00" />
+            <CampoDinheiro name="valor" required />
           </div>
           <div className="w-40">
             <label className="mb-1.5 block text-xs font-medium text-gray-600">Data</label>

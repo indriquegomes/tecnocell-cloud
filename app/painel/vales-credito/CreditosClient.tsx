@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { emitirCredito, estornarCredito } from './actions'
 import { ConfirmButton } from '@/components/ConfirmButton'
 import { SubmitButton } from '@/components/SubmitButton'
+import { CampoDinheiro } from '@/components/CampoDinheiro'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtData = (d: string) => new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
@@ -263,7 +264,7 @@ export function CreditosClient({
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700">Valor (R$) <span className="text-red-500">*</span></label>
-                <input name="valor" type="number" step="0.01" min="0.01" required className="field w-full" placeholder="0,00" />
+                <CampoDinheiro name="valor" required />
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700">Motivo</label>

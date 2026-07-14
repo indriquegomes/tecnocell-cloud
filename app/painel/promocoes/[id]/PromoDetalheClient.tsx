@@ -12,6 +12,7 @@ import {
 } from '../actions'
 import { SubmitButton } from '@/components/SubmitButton'
 import { CategoriaPromo } from './CategoriaPromo'
+import { CampoDinheiro } from '@/components/CampoDinheiro'
 
 const supabaseBrowser = createClient()
 
@@ -327,9 +328,9 @@ export function PromoDetalheClient({
             </div>
             <div className="w-40">
               <label className="mb-1.5 block text-xs font-semibold uppercase text-gray-400">Preço unitário R$</label>
-              <input value={faixaPreco} onChange={(e) => setFaixaPreco(e.target.value)} type="number" step="0.01" min="0" placeholder="1,80" className="field w-full" />
+              <CampoDinheiro value={Number(faixaPreco) || 0} onChange={(r) => setFaixaPreco(String(r))} className="w-full" />
             </div>
-            <button onClick={handleAddFaixa} disabled={salvandoFaixa || !faixaQtd || !faixaPreco}
+            <button onClick={handleAddFaixa} disabled={salvandoFaixa || !faixaQtd || !(Number(faixaPreco) > 0)}
               className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50 transition">
               {salvandoFaixa ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Salvando...</span> : '+ Faixa'}
             </button>

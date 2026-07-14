@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { criarPessoa, editarPessoa } from './actions'
 import { SubmitButton } from '@/components/SubmitButton'
+import { CampoDinheiro } from '@/components/CampoDinheiro'
 
 const ESTADOS = ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO']
 const TIPOS: [string, string][] = [
@@ -182,7 +183,7 @@ export function PessoaForm({ tabelas, vendedores, editando, podeCredito = true }
           {podeCredito ? (
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700">Limite de crédito (fiado) R$</label>
-              <input name="limite_credito" type="number" step="0.01" min="0" defaultValue={String(editando?.limite_credito ?? 0)} className="field" />
+              <CampoDinheiro name="limite_credito" defaultValue={Number(editando?.limite_credito ?? 0)} />
             </div>
           ) : (
             <div>

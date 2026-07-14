@@ -14,6 +14,7 @@ import { rotulaRotina } from '@/lib/rotina-pagamento'
 const DESCONTO_ID = '__desconto__'
 import { buscarSaldoCredito } from '@/app/painel/creditos/actions'
 import type { PromoInfo } from './page'
+import { CampoDinheiro } from '@/components/CampoDinheiro'
 
 // Preço unitário de uma faixa progressiva conforme a quantidade TOTAL do grupo.
 // Pega a maior faixa cujo mínimo já foi atingido. Nenhuma atingida = sem desconto.
@@ -2037,16 +2038,15 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                       >
                         {formas.map((f) => <option key={f.id} value={f.id}>{iconeForma(f.nome)} {f.nome}</option>)}
                       </select>
-                      <div className="relative">
-                        <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">R$</span>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={p.valor}
-                          onChange={(e) => { setValorAuto(false); setPagamentos((prev) => prev.map((x) =>
-                            x.uid === p.uid ? { ...x, valor: e.target.value } : x
+                      <div className="w-32">
+                        <CampoDinheiro
+                          value={parseFloat(p.valor) || 0}
+                          onChange={(r) => { setValorAuto(false); setPagamentos((prev) => prev.map((x) =>
+                            x.uid === p.uid ? { ...x, valor: String(r) } : x
                           )) }}
+                          // clicou num campo vazio: já joga o que falta pra fechar a venda.
+                          // (p.valor continua '' até alguém digitar, então o auto-preencher
+                          // não confunde o R$ 0,00 que a máscara mostra com um valor digitado.)
                           onFocus={() => {
                             if (!p.valor) {
                               const outros = pagamentos.filter((x) => x.uid !== p.uid).reduce((s, x) => s + (parseFloat(x.valor) || 0), 0)
@@ -2056,8 +2056,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                               ))
                             }
                           }}
-                          placeholder="0,00"
-                          className="w-28 rounded-lg border border-gray-200 bg-white pl-7 pr-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full"
                         />
                       </div>
                       {pagamentos.length > 1 && (

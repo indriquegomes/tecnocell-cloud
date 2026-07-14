@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { Spinner } from '@/components/Spinner'
 import { useRouter } from 'next/navigation'
 import { adicionarItemNota } from '../actions'
+import { CampoDinheiro } from '@/components/CampoDinheiro'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -57,7 +58,7 @@ export function AddItemNota({ notaId, produtos, depositos, lojas }: {
   const escolher = (p: Produto) => { setSel(p); setBusca(p.nome); setPreco(p.preco_custo ? String(p.preco_custo) : '') }
 
   const adicionar = async () => {
-    if (!sel || !depositoSel || !preco) return
+    if (!sel || !depositoSel || !(Number(preco) > 0)) return
     setSalvando(true); setErro('')
     const fd = new FormData()
     fd.set('produto_id', sel.id); fd.set('deposito_id', depositoSel)
@@ -113,12 +114,12 @@ export function AddItemNota({ notaId, produtos, depositos, lojas }: {
         </div>
         <div className="w-36">
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Preço Unit. (R$)</label>
-          <input value={preco} onChange={(e) => setPreco(e.target.value)} type="number" step="0.01" min="0" className="field w-full" placeholder="0,00" />
+          <CampoDinheiro value={Number(preco) || 0} onChange={(r) => setPreco(String(r))} className="w-full" />
           {sel && sel.preco_custo != null && Number(preco) !== Number(sel.preco_custo) && (
             <p className="mt-1 text-[11px] text-amber-600">era {fmt(sel.preco_custo)}{Number(preco) > Number(sel.preco_custo) ? ' ▲' : ' ▼'}</p>
           )}
         </div>
-        <button onClick={adicionar} disabled={!sel || !depositoSel || !preco || salvando}
+        <button onClick={adicionar} disabled={!sel || !depositoSel || !(Number(preco) > 0) || salvando}
           className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
           {salvando ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Adicionando...</span> : 'Adicionar'}
         </button>

@@ -3,6 +3,7 @@ import { hojeSP } from '@/lib/utils'
 import { criarLancamento } from '../actions'
 import { SubmitButton } from '@/components/SubmitButton'
 import Link from 'next/link'
+import { CampoDinheiro } from '@/components/CampoDinheiro'
 
 export default async function NovoLancamentoPage({
   searchParams,
@@ -47,7 +48,7 @@ export default async function NovoLancamentoPage({
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Valor (R$) *</label>
-            <input name="valor" type="number" step="0.01" min="0" required defaultValue="0" className="field" />
+            <CampoDinheiro name="valor" required />
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Data Competência</label>

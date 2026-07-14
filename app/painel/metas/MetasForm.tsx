@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { salvarMeta } from './actions'
 import { SubmitButton } from '@/components/SubmitButton'
+import { CampoDinheiro } from '@/components/CampoDinheiro'
 
 type Loja = { id: string; nome: string }
 type FaixaEdit = { nome: string; valor: string; premio: string }
@@ -90,8 +91,8 @@ export function MetasForm({ lojas, editando }: { lojas: Loja[]; editando?: MetaE
             <div key={i}>
               <div className="grid grid-cols-[1fr_1fr_1fr_auto] items-center gap-2">
                 <input name="faixa_nome" value={f.nome} onChange={(e) => set(i, 'nome', e.target.value.toUpperCase())} placeholder="GRANADA" className="field" />
-                <input name="faixa_valor" value={f.valor} onChange={(e) => set(i, 'valor', e.target.value)} type="number" step="0.01" min="0" placeholder="250000" className="field" />
-                <input name="faixa_premio" value={f.premio} onChange={(e) => set(i, 'premio', e.target.value)} type="number" step="0.01" min="0" placeholder="250" className="field" />
+                <CampoDinheiro name="faixa_valor" value={Number(f.valor) || 0} onChange={(r) => set(i, 'valor', String(r))} />
+                <CampoDinheiro name="faixa_premio" value={Number(f.premio) || 0} onChange={(r) => set(i, 'premio', String(r))} />
                 <button type="button" onClick={() => setFaixas((p) => p.filter((_, j) => j !== i))}
                   className="px-2 text-gray-300 hover:text-red-500 transition" title="Remover">✕</button>
               </div>

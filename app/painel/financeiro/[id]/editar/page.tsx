@@ -3,6 +3,7 @@ import { editarLancamento } from '../../actions'
 import { SubmitButton } from '@/components/SubmitButton'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { CampoDinheiro } from '@/components/CampoDinheiro'
 
 export default async function EditarLancamentoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -44,7 +45,7 @@ export default async function EditarLancamentoPage({ params }: { params: Promise
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Valor (R$) *</label>
-            <input name="valor" type="number" step="0.01" min="0" required defaultValue={lancamento.valor} className="field" />
+            <CampoDinheiro name="valor" defaultValue={Number(lancamento.valor)} required />
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Data Competência</label>

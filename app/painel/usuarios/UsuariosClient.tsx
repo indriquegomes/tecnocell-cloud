@@ -7,6 +7,7 @@ import { Spinner } from '@/components/Spinner'
 import { createClient } from '@/lib/supabase/client'
 import { TODAS_PERMISSOES } from '@/lib/permissoes'
 import { criarUsuario, criarConvite, atualizarPerfil, alterarSenha, type ActionResult, type ConviteResult } from './actions'
+import { CampoDinheiro } from '@/components/CampoDinheiro'
 
 const supabaseBrowser = createClient()
 async function authToken() {
@@ -203,7 +204,7 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario }: { lojas: Loja[];
 
       <div className="w-48">
         <label className="mb-1 block text-xs font-medium text-gray-600">Meta de venda mensal (R$)</label>
-        <input name="meta_venda_mensal" type="number" step="0.01" min="0" defaultValue={usuario.metaVendaMensal || ''} className="field w-full text-sm" placeholder="0 = sem meta" />
+        <CampoDinheiro name="meta_venda_mensal" defaultValue={Number(usuario.metaVendaMensal || 0)} className="text-sm" />
       </div>
 
       {tabelas.length > 0 && (

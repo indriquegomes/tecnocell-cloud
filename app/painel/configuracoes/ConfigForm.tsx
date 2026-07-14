@@ -3,6 +3,7 @@
 import { Spinner } from '@/components/Spinner'
 import { useActionState } from 'react'
 import { salvarConfiguracoes } from './actions'
+import { CampoDinheiro } from '@/components/CampoDinheiro'
 
 export function ConfigForm({ dados, dadosPdv }: { dados: Record<string, string>; dadosPdv: Record<string, number> }) {
   const [state, formAction, pending] = useActionState(salvarConfiguracoes, { ok: false, erro: null })
@@ -78,15 +79,7 @@ export function ConfigForm({ dados, dadosPdv }: { dados: Record<string, string>;
       <div className="grid gap-5 sm:grid-cols-2">
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Limite de divergência no fechamento (R$)</label>
-          <input
-            name="limite_divergencia"
-            type="number"
-            step="0.01"
-            min="0"
-            defaultValue={dadosPdv.limite_divergencia ?? 0}
-            className="field"
-            placeholder="0 = sem limite"
-          />
+          <CampoDinheiro name="limite_divergencia" defaultValue={Number(dadosPdv.limite_divergencia ?? 0)} />
           <p className="text-xs text-gray-400 mt-1">Bloqueia o fechamento se a diferença entre contado e esperado ultrapassar este valor. Zero desativa o bloqueio.</p>
         </div>
         <div>

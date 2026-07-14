@@ -4,6 +4,7 @@ import { useState, useTransition, useMemo, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Spinner } from '@/components/Spinner'
+import { CampoDinheiro } from '@/components/CampoDinheiro'
 import {
   adicionarItemTabela,
   removerItemTabela,
@@ -142,7 +143,7 @@ export function TabelaDetalheClient({
   // Adicionar produto
   const [erroAdicionar, setErroAdicionar] = useState('')
   const handleAdicionar = async () => {
-    if (!produtoSelecionado || !novoPreco) return
+    if (!produtoSelecionado || !(Number(novoPreco) > 0)) return
     setAdicionando(true)
     setErroAdicionar('')
     const fd = new FormData()
@@ -289,19 +290,11 @@ export function TabelaDetalheClient({
           </div>
           <div className="w-44">
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Preço nesta tabela</label>
-            <input
-              value={novoPreco}
-              onChange={(e) => setNovoPreco(e.target.value)}
-              type="number"
-              step="0.01"
-              min="0"
-              className="field w-full"
-              placeholder="0,00"
-            />
+            <CampoDinheiro value={Number(novoPreco) || 0} onChange={(r) => setNovoPreco(String(r))} className="w-full" />
           </div>
           <button
             onClick={handleAdicionar}
-            disabled={!produtoSelecionado || !novoPreco || adicionando}
+            disabled={!produtoSelecionado || !(Number(novoPreco) > 0) || adicionando}
             className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
             {adicionando ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Adicionando...</span> : 'Adicionar'}
           </button>
@@ -352,18 +345,17 @@ export function TabelaDetalheClient({
                   <td className="px-4 py-3 text-right">
                     {editando ? (
                       <div className="flex items-center justify-end gap-2">
-                        <input
-                          autoFocus
-                          value={editValor}
-                          onChange={(e) => setEditValor(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSalvarEdicao(item.id)
-                            if (e.key === 'Escape') setEditandoId(null)
-                          }}
-                          type="number"
-                          step="0.01"
-                          className="field w-28 text-right py-1 text-sm"
-                        />
+                        <div className="w-32">
+                          <CampoDinheiro
+                            autoFocus
+                            value={Number(editValor) || 0}
+                            onChange={(r) => setEditValor(String(r))}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSalvarEdicao(item.id)
+                              if (e.key === 'Escape') setEditandoId(null)
+                            }}
+                          />
+                        </div>
                         <button onClick={() => handleSalvarEdicao(item.id)}
                           className="text-xs text-green-600 font-semibold hover:text-green-800">✓</button>
                         <button onClick={() => setEditandoId(null)}

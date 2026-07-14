@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { criarPromocao } from './actions'
 import { SubmitButton } from '@/components/SubmitButton'
+import { CampoDinheiro } from '@/components/CampoDinheiro'
 
 export function NovaPromocaoForm({ hoje }: { hoje: string }) {
   const [tipo, setTipo] = useState('valor_direto')
@@ -66,7 +67,7 @@ export function NovaPromocaoForm({ hoje }: { hoje: string }) {
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-semibold uppercase text-gray-500">Pague por unidade (R$)</label>
-              <input name="valor" type="number" step="0.01" min="0" defaultValue="0" required className="field w-full" />
+              <CampoDinheiro name="valor" required />
               <input name="quantidade_y" type="hidden" value="" />
             </div>
           </>
