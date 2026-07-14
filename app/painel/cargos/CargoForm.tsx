@@ -17,6 +17,13 @@ export function CargoForm({ editando }: { editando?: CargoEdit }) {
     const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n
   })
 
+  // marcar/desmarcar todas as permissões de um grupo de uma vez
+  const marcarGrupo = (grupo: string, ligar: boolean) => setSel((prev) => {
+    const n = new Set(prev)
+    for (const p of TODAS_PERMISSOES) if (p.grupo === grupo) ligar ? n.add(p.key) : n.delete(p.key)
+    return n
+  })
+
   return (
     <form action={action} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-5">
       <h3 className="text-sm font-semibold text-gray-700">{editando ? `Editando cargo: ${editando.nome}` : 'Novo Cargo'}</h3>
@@ -47,11 +54,25 @@ export function CargoForm({ editando }: { editando?: CargoEdit }) {
         </div>
       </label>
 
-      {!master && (['Módulos', 'Limites'] as const).map((grupo) => (
+      {!master && (['Módulos', 'Limites'] as const).map((grupo) => {
+        const doGrupo = TODAS_PERMISSOES.filter((p) => p.grupo === grupo)
+        const marcados = doGrupo.filter((p) => sel.has(p.key)).length
+        const todos = marcados === doGrupo.length
+        return (
         <div key={grupo}>
-          <label className="mb-2 block text-sm font-medium text-gray-700">
-            {grupo === 'Módulos' ? 'Módulos que o cargo acessa' : 'Limites de operação (o que pode fazer)'}
-          </label>
+          <div className="mb-2 flex items-center justify-between">
+            <label className="block text-sm font-medium text-gray-700">
+              {grupo === 'Módulos' ? 'Módulos que o cargo acessa' : 'Limites de operação (o que pode fazer)'}
+              <span className="ml-2 text-xs font-normal text-gray-400">{marcados}/{doGrupo.length}</span>
+            </label>
+            <button
+              type="button"
+              onClick={() => marcarGrupo(grupo, !todos)}
+              className="rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600 hover:border-blue-300 hover:text-blue-700 transition"
+            >
+              {todos ? 'Desmarcar todos' : 'Marcar todos'}
+            </button>
+          </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {TODAS_PERMISSOES.filter((p) => p.grupo === grupo).map((p) => {
               const on = sel.has(p.key)
@@ -67,7 +88,8 @@ export function CargoForm({ editando }: { editando?: CargoEdit }) {
             })}
           </div>
         </div>
-      ))}
+        )
+      })}
 
       <div className="flex gap-3 pt-1">
         <SubmitButton pendingText={editando ? 'Salvando...' : 'Criando...'} className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition">

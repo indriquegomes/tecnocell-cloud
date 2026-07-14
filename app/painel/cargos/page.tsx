@@ -37,7 +37,10 @@ export default async function CargosPage({
 
       {erro && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
 
-      <CargoForm editando={editando} />
+      {/* key força REMONTAR o form ao trocar de cargo (ou de editar→novo). Sem ela, o
+          React reusa o mesmo componente e o useState inicial não recalcula — as
+          permissões salvas não vinham marcadas ao clicar em Editar. */}
+      <CargoForm key={editando?.id ?? 'novo'} editando={editando} />
 
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-gray-100">
