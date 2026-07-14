@@ -184,6 +184,8 @@ export interface RegistrarDevolucaoInput {
   pessoa_nome: string | null
   vendedor_nome: string | null
   motivo: string
+  /** motivo FECHADO (teste | defeito_alegado | cliente_desistiu | peca_errada | outro) */
+  motivo_tipo: string
   tipo_credito: string
   itens: { produto_id: string; nome: string; quantidade: number; preco_unitario: number; total_item: number; status_produto: string; series?: string[] }[]
   lancamento_pendente: boolean
@@ -219,7 +221,16 @@ export async function registrarDevolucao(
   if (error) throw new Error(error.message)
   if (!data) throw new Error('RPC registrar_devolucao retornou vazio.')
 
-  return { id: (data as { devolucao_id: string }).devolucao_id }
+  const devolucaoId = (data as { devolucao_id: string }).devolucao_id
+
+  // O motivo é um RÓTULO, não dinheiro — grava DEPOIS, fora do RPC. Não mexo no
+  // registrar_devolucao (que move estoque, crédito e fiado numa transação atômica)
+  // só pra carregar uma etiqueta: o risco não compensa.
+  if (input.motivo_tipo) {
+    await supabase.from('devolucoes').update({ motivo_tipo: input.motivo_tipo }).eq('id', devolucaoId)
+  }
+
+  return { id: devolucaoId }
 }
 
 export async function buscarItensDevolucao(

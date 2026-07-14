@@ -5,6 +5,7 @@ import { hojeSP } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { buscarDetalheVendaPublic, cancelarVenda, type DetalheVendaCompleto } from './actions'
+import { MOTIVOS_CANCELAMENTO } from '@/lib/motivos'
 import { Dica } from '@/components/Dica'
 
 type Venda = {
@@ -60,12 +61,13 @@ export function VendasClient({
   // estorna o crédito. A venda vira 'cancelada' e some dos totais, sem perder o rastro.
   const [confCancelar, setConfCancelar] = useState(false)
   const [motivoCancel, setMotivoCancel] = useState('')
+  const [motivoTipo, setMotivoTipo] = useState('')   // motivo FECHADO — sem ele nao cancela
   const [cancelando, setCancelando] = useState(false)
   const [erroCancel, setErroCancel] = useState('')
 
   const handleCancelar = async (vendaId: string) => {
     setCancelando(true); setErroCancel('')
-    const r = await cancelarVenda(vendaId, motivoCancel)
+    const r = await cancelarVenda(vendaId, motivoCancel, motivoTipo)
     setCancelando(false)
     if (!r.ok) { setErroCancel(r.erro); return }
     setConfCancelar(false); setMotivoCancel(''); setDetalhe(null)
@@ -394,20 +396,41 @@ export function VendasClient({
                           Isso devolve o estoque, tira os lançamentos do financeiro e estorna o crédito usado.
                           A venda fica no histórico como <b>cancelada</b> (não some).
                         </p>
+                        {/* Motivo FECHADO e obrigatorio. Em julho 76% dos cancelamentos
+                            tem uma venda pro mesmo cliente no mesmo dia (cheira a erro de
+                            digitacao sendo refeito) — mas isso e deducao. So o motivo prova. */}
+                        <div>
+                          <p className="mb-1.5 text-xs font-semibold uppercase text-red-700">Por que está cancelando? *</p>
+                          <div className="grid gap-1.5 sm:grid-cols-2">
+                            {MOTIVOS_CANCELAMENTO.map((m) => (
+                              <button
+                                key={m.id}
+                                type="button"
+                                onClick={() => setMotivoTipo(m.id)}
+                                className={`rounded-lg border px-2.5 py-2 text-left text-xs transition ${
+                                  motivoTipo === m.id ? `${m.cor} font-semibold ring-1 ring-inset` : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                                }`}
+                              >
+                                <span className="mr-1">{m.icone}</span>{m.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                         <input
                           value={motivoCancel}
                           onChange={(e) => setMotivoCancel(e.target.value)}
-                          placeholder="Motivo (ex: venda de teste, erro de digitação)"
+                          placeholder={motivoTipo === 'outro' ? 'Escreva o motivo…' : 'Detalhe (opcional)'}
                           className="field"
-                          autoFocus
                         />
                         {erroCancel && <p className="text-xs font-medium text-red-700">{erroCancel}</p>}
                         <div className="flex gap-2">
-                          <button type="button" disabled={cancelando} onClick={() => handleCancelar(detalhe.id)}
+                          <button type="button"
+                            disabled={cancelando || !motivoTipo || (motivoTipo === 'outro' && !motivoCancel.trim())}
+                            onClick={() => handleCancelar(detalhe.id)}
                             className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60 transition">
-                            {cancelando ? 'Cancelando…' : 'Confirmar cancelamento'}
+                            {cancelando ? 'Cancelando…' : !motivoTipo ? 'Escolha o motivo acima' : 'Confirmar cancelamento'}
                           </button>
-                          <button type="button" disabled={cancelando} onClick={() => { setConfCancelar(false); setErroCancel(''); setMotivoCancel('') }}
+                          <button type="button" disabled={cancelando} onClick={() => { setConfCancelar(false); setErroCancel(''); setMotivoCancel(''); setMotivoTipo('') }}
                             className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
                             Voltar
                           </button>

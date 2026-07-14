@@ -2,6 +2,8 @@
 
 import { IconPlus } from '@/components/icons'
 import { Spinner } from '@/components/Spinner'
+import { MOTIVOS_DEVOLUCAO, motivoDevolucao } from '@/lib/motivos'
+import { ResumoMotivos } from '@/components/ResumoMotivos'
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -32,6 +34,7 @@ export interface ItemDevolucaoLinha {
   total_item: number
   tipo_credito: string
   motivo: string | null
+  motivo_tipo: string | null
   status_produto?: string
 }
 
@@ -92,18 +95,35 @@ export function DevolucoesClient({
   const [filtroDe, setFiltroDe] = useState(filtros.de)
   const [filtroAte, setFiltroAte] = useState(filtros.ate)
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
+  const [filtroMotivo, setFiltroMotivo] = useState<string | null>(null)
+
+  // Conta por DEVOLUÇÃO (não por item): 3 peças numa devolução são UM motivo, não três.
+  const contagemMotivos = useMemo(() => {
+    const vistas = new Set<string>()
+    const acc: Record<string, { n: number; valor: number }> = {}
+    for (const l of linhas) {
+      const k = l.motivo_tipo ?? '__sem__'
+      acc[k] ??= { n: 0, valor: 0 }
+      acc[k].valor += l.total_item
+      if (!vistas.has(l.devolucao_id)) { vistas.add(l.devolucao_id); acc[k].n += 1 }
+    }
+    return acc
+  }, [linhas])
 
   const linhasFiltradas = useMemo(() => {
-    if (!busca.trim()) return linhas
+    let out = linhas
+    if (filtroMotivo) out = out.filter(l => (l.motivo_tipo ?? '__sem__') === filtroMotivo)
+    if (!busca.trim()) return out
     const b = busca.toLowerCase()
-    return linhas.filter(l =>
+    return out.filter(l =>
       l.produto_nome.toLowerCase().includes(b) ||
       l.pessoa_nome?.toLowerCase().includes(b) ||
       l.venda_id?.toLowerCase().includes(b) ||
       l.operador?.toLowerCase().includes(b) ||
-      l.motivo?.toLowerCase().includes(b)
+      l.motivo?.toLowerCase().includes(b) ||
+      motivoDevolucao(l.motivo_tipo)?.label.toLowerCase().includes(b)
     )
-  }, [linhas, busca])
+  }, [linhas, busca, filtroMotivo])
 
   const aplicarFiltros = () => {
     router.push(`/painel/devolucoes?${new URLSearchParams({ de: filtroDe, ate: filtroAte, q: busca })}`)
@@ -121,6 +141,7 @@ export function DevolucoesClient({
   const [statusProduto, setStatusProduto] = useState<Map<string, string>>(new Map())
   const [seriesSel, setSeriesSel] = useState<Map<string, string[]>>(new Map())  // produto_id → IMEIs escolhidos p/ devolver
   const [motivo, setMotivo] = useState('')
+  const [motivoTipo, setMotivoTipo] = useState('')   // motivo FECHADO (o texto livre virou detalhe)
   const [tipoCredito, setTipoCredito] = useState('dinheiro')
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
@@ -154,7 +175,7 @@ export function DevolucoesClient({
   const fechar = () => {
     setOpen(false); setStep('buscar'); setBuscaVenda(''); setVendas([])
     setVenda(null); setItens(new Map()); setStatusProduto(new Map()); setSeriesSel(new Map())
-    setMotivo(''); setTipoCredito('dinheiro'); setErro('')
+    setMotivo(''); setMotivoTipo(''); setTipoCredito('dinheiro'); setErro('')
   }
 
   const carregarVendas = useCallback(async (q: string) => {
@@ -241,7 +262,7 @@ export function DevolucoesClient({
       await registrarDevolucao(t, {
         venda_id: venda.id, deposito_id: venda.deposito_id,
         pessoa_id: venda.pessoa_id, pessoa_nome: venda.pessoa_nome,
-        vendedor_nome: venda.vendedor_nome, motivo,
+        vendedor_nome: venda.vendedor_nome, motivo, motivo_tipo: motivoTipo,
         // se não sobra reembolso (devolução só de fiado), registra como cancelamento de fiado
         tipo_credito: reembolso > 0.01 ? tipoCredito : 'cancelamento_fiado',
         itens: itensDev, lancamento_pendente: venda.lancamento_pendente,
@@ -357,6 +378,16 @@ export function DevolucoesClient({
         </div>
       )}
 
+      {/* Por que as peças voltam — clica na barra pra filtrar a lista */}
+      <ResumoMotivos
+        titulo="Por que as peças voltaram"
+        motivos={MOTIVOS_DEVOLUCAO}
+        contagem={contagemMotivos}
+        selecionado={filtroMotivo}
+        onSelecionar={setFiltroMotivo}
+        legenda="Uma devolução conta uma vez, mesmo com várias peças. Clique numa barra pra ver só ela."
+      />
+
       {/* ── Tabela de itens ─────────────────────────────────────────────── */}
       <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
         <div className="border-b border-gray-100 px-5 py-3 flex items-center justify-between">
@@ -408,7 +439,19 @@ export function DevolucoesClient({
                   </td>
                   <td className="px-4 py-3 text-gray-700 max-w-[220px]">
                     <p className="truncate font-medium">{l.produto_nome}</p>
-                    {l.motivo && <p className="text-xs text-gray-400 truncate mt-0.5">{l.motivo}</p>}
+                    {(() => {
+                      const m = motivoDevolucao(l.motivo_tipo)
+                      return (
+                        <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                          {m && (
+                            <span className={`inline-flex shrink-0 items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold ${m.cor}`}>
+                              {m.icone} {m.label}
+                            </span>
+                          )}
+                          {l.motivo && <span className="truncate text-xs text-gray-400">{l.motivo}</span>}
+                        </div>
+                      )
+                    })()}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap ${statusCor(l.status_produto)}`}>
@@ -688,12 +731,40 @@ export function DevolucoesClient({
                     </div>
                   )}
 
-                  {/* Motivo */}
+                  {/* Motivo — FECHADO e obrigatório.
+                      Era texto livre e as 6 devoluções existentes tinham motivo NULL:
+                      ninguém preenche, e o que se preenche não dá pra somar. A pergunta
+                      "por que as peças voltam?" só tem resposta se der pra CONTAR. */}
                   <div>
-                    <label className="block text-xs font-semibold uppercase text-gray-500 mb-1.5">Motivo (opcional)</label>
-                    <input value={motivo} onChange={(e) => setMotivo(e.target.value)}
-                      placeholder="Ex: produto com defeito, troca de tamanho..."
-                      className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <label className="mb-1.5 block text-xs font-semibold uppercase text-gray-500">
+                      Por que a peça voltou? <span className="text-red-500">*</span>
+                    </label>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {MOTIVOS_DEVOLUCAO.map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => setMotivoTipo(m.id)}
+                          className={`rounded-xl border px-3 py-2.5 text-left text-sm transition ${
+                            motivoTipo === m.id ? `${m.cor} font-semibold ring-1 ring-inset` : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                          }`}
+                        >
+                          <span className="mr-1.5">{m.icone}</span>{m.label}
+                        </button>
+                      ))}
+                    </div>
+                    {motivoTipo && (
+                      <p className="mt-1.5 text-xs text-gray-400">
+                        {MOTIVOS_DEVOLUCAO.find((m) => m.id === motivoTipo)?.ajuda}
+                      </p>
+                    )}
+                    <input
+                      value={motivo}
+                      onChange={(e) => setMotivo(e.target.value)}
+                      placeholder={motivoTipo === 'outro' ? 'Escreva o motivo…' : 'Detalhe (opcional)'}
+                      required={motivoTipo === 'outro'}
+                      className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
                   </div>
 
                   {/* Split: abate dívida × reembolso */}
@@ -779,9 +850,13 @@ export function DevolucoesClient({
                 </button>
               )}
               {step === 'confirmar' && (
-                <button onClick={confirmar} disabled={salvando}
+                <button onClick={confirmar} disabled={salvando || !motivoTipo || (motivoTipo === 'outro' && !motivo.trim())}
+                  title={!motivoTipo ? 'Escolha por que a peça voltou' : undefined}
                   className="flex-1 rounded-xl bg-green-600 py-2.5 text-sm font-bold text-white hover:bg-green-700 transition disabled:opacity-50">
-                  {salvando ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Registrando...</span> : `✓ Confirmar — ${fmt(totalSelecionado)}`}
+                  {salvando
+                    ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Registrando...</span>
+                    : !motivoTipo ? 'Escolha o motivo acima'
+                    : `✓ Confirmar — ${fmt(totalSelecionado)}`}
                 </button>
               )}
             </div>

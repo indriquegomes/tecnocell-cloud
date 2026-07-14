@@ -22,7 +22,7 @@ export default async function DevolucoesPage({
       .from('devolucoes')
       .select(`
         id, venda_id, pessoa_nome, vendedor_nome,
-        tipo_credito, motivo, valor_total, created_at,
+        tipo_credito, motivo, motivo_tipo, valor_total, created_at,
         itens_devolucao ( id, nome, quantidade, preco_unitario, total_item, status_produto )
       `)
       .gte('created_at', dataInicio + 'T00:00:00')
@@ -50,6 +50,7 @@ export default async function DevolucoesPage({
         total_item:   item.total_item,
         tipo_credito:   d.tipo_credito,
         motivo:         d.motivo ?? null,
+        motivo_tipo:    d.motivo_tipo ?? null,
         status_produto: item.status_produto ?? 'ok',
       })
     }

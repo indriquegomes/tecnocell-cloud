@@ -118,7 +118,11 @@ export type ResultadoCancelamento =
   | { ok: true; jaCancelada: boolean; numero: number | null; estoqueDevolvido: number; imeis: number; creditoEstornado: number }
   | { ok: false; erro: string }
 
-export async function cancelarVenda(vendaId: string, motivo: string): Promise<ResultadoCancelamento> {
+export async function cancelarVenda(
+  vendaId: string,
+  motivo: string,
+  motivoTipo?: string,
+): Promise<ResultadoCancelamento> {
   await requirePermissao('vendas')
   const supabase = await createServiceClient()
 
@@ -127,6 +131,13 @@ export async function cancelarVenda(vendaId: string, motivo: string): Promise<Re
     p_motivo: motivo?.trim() || null,
   })
   if (error) return { ok: false, erro: error.message }
+
+  // O motivo fechado e um ROTULO, nao dinheiro — grava fora do RPC (que mexe em estoque,
+  // IMEI, lancamento e credito numa transacao atomica). Nao vale o risco de mexer nele
+  // so pra carregar uma etiqueta.
+  if (motivoTipo) {
+    await supabase.from('vendas').update({ motivo_cancelamento: motivoTipo }).eq('id', vendaId)
+  }
 
   const d = (data ?? {}) as {
     ja_cancelada?: boolean
