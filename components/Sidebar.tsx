@@ -42,6 +42,7 @@ const ICONS: Record<string, IconComp> = {
   '/painel/marcas': IconTag,
   '/painel/relatorios': IconChart,
   '/painel/rh': IconUsers,
+  '/painel/escala': IconUsers,
   '/painel/lembretes': IconUsers,
   '/painel/usuarios': IconUser,
   '/painel/cargos': IconShield,
@@ -114,6 +115,7 @@ const navCompleto: NavGroup[] = [
     items: [
       { href: '/painel/relatorios',    label: 'Relatórios',    permissao: 'relatorios' },
       { href: '/painel/rh',            label: 'RH / Equipe',   permissao: 'rh' },
+      { href: '/painel/escala',        label: 'Escala',        permissao: 'rh' },
       { href: '/painel/lembretes',     label: 'Lembretes',     permissao: 'lembretes' },
       { href: '/painel/usuarios',      label: 'Usuários',      permissao: 'usuarios' },
       { href: '/painel/cargos',        label: 'Cargos',        permissao: 'usuarios' },

@@ -17,6 +17,7 @@ export const ROTAS_PERMISSAO: Record<string, string> = {
   '/painel/painel-vendedor':  'relatorios',
   '/painel/metas':            'metas',
   '/painel/rh':               'rh',
+  '/painel/escala':           'rh',
   '/painel/lembretes':        'lembretes',
   '/painel/compras':       'compras',
   '/painel/pedidos':       'pedidos',
