@@ -1094,7 +1094,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     setPagandoCrediario(true)
     setPagoCrediarioOk(false)
     try {
-      await pagarLancamentos(await authToken(), ids, forma)
+      await pagarLancamentos(await authToken(), ids, forma, lojaId)
       setCrediarioItens((prev) => prev.filter((i) => !ids.includes(i.id)))
       setSelecionados(new Set())
       setRecebendoItem(null)
@@ -1144,7 +1144,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       const fReceb = formas.find((f) => f.id === formaRecebimento)
       const ehCredReceb = fReceb?.tipo === 'cartao_credito'
       const formaTxt = (fReceb?.nome ?? 'Dinheiro') + (ehCredReceb && parcelasRecebimento > 1 ? ` ${parcelasRecebimento}x` : '')
-      const { quitado } = await registrarPagamentoParcial(await authToken(), recebendoItem.id, valorNum, formaTxt)
+      // passa a loja: o dinheiro do fiado entra na GAVETA do caixa aberto dela
+      const { quitado } = await registrarPagamentoParcial(await authToken(), recebendoItem.id, valorNum, formaTxt, lojaId)
       if (quitado) {
         setCrediarioItens((prev) => prev.filter((i) => i.id !== recebendoItem.id))
       } else {

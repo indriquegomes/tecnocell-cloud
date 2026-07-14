@@ -47,9 +47,21 @@ export default async function OperacaoPDVPage({
   const formas = formasData.filter((f) => f.ativo).map((f) => f.nome as string)
   const formasPorId: Record<string, string> = Object.fromEntries(formasData.map((f) => [f.id, f.nome]))
   const tipoPorId: Record<string, string> = Object.fromEntries(formasData.map((f) => [f.id, (f.tipo as string) ?? 'outros']))
+  // movimentos_caixa guardam o NOME da forma (texto), não o id
+  const tipoPorNome: Record<string, string> = Object.fromEntries(
+    formasData.map((f) => [(f.nome as string ?? '').toLowerCase(), (f.tipo as string) ?? 'outros']),
+  )
+  const tipoDoTexto = (txt: string | null) => {
+    const t = (txt ?? '').trim().toLowerCase()
+    if (tipoPorNome[t]) return tipoPorNome[t]
+    if (t.includes('dinheiro')) return 'dinheiro'
+    if (t.includes('pix')) return 'pix'
+    if (t.includes('cr')) return 'cartao_credito'
+    if (t.includes('deb') || t.includes('déb')) return 'cartao_debito'
+    return 'outros'
+  }
 
-  // Reforço/retirada só mexem na GAVETA quando são em dinheiro (dá pra sangrar PIX, e isso não tira cédula nenhuma)
-  const ehDinheiroTxt = (t: string | null) => (t ?? '').toLowerCase().includes('dinheiro')
+
 
   let totalVendas = 0
   let totalCrediario = 0
@@ -57,6 +69,7 @@ export default async function OperacaoPDVPage({
   let totalRetiradas = 0
   let reforcosDinheiro = 0
   let retiradasDinheiro = 0
+  let recebidosDinheiro = 0   // fiado recebido em espécie — entra na gaveta
   const totalDevolucoes = 0
   let qtdVendas = 0
   let movimentos: {
@@ -71,7 +84,7 @@ export default async function OperacaoPDVPage({
   let porForma: Record<string, number> = {}
   let porTipo: Record<string, number> = {}
   // vendas de cada tipo, pra conferência (bater comprovante de PIX com a venda)
-  const vendasPorTipo: Record<string, { id: string; numero: number | null; hora: string; cliente: string | null; valorForma: number; totalVenda: number }[]> = {}
+  const vendasPorTipo: Record<string, { id: string; numero: number | null; hora: string; cliente: string | null; valorForma: number; totalVenda: number; fiado?: boolean }[]> = {}
   let vendasDetalhe: { id: string; numero: number | null; hora: string; cliente: string | null; total: number; pagamentos: { nome: string; tipo: string; valor: number }[] }[] = []
 
   if (caixaAberto) {
@@ -170,8 +183,31 @@ export default async function OperacaoPDVPage({
     movimentos = movResult.data ?? []
     totalReforcos = movimentos.filter((m) => m.tipo === 'reforco').reduce((s, m) => s + m.valor, 0)
     totalRetiradas = movimentos.filter((m) => m.tipo === 'retirada').reduce((s, m) => s + m.valor, 0)
-    reforcosDinheiro = movimentos.filter((m) => m.tipo === 'reforco' && ehDinheiroTxt(m.forma_pagamento)).reduce((s, m) => s + m.valor, 0)
-    retiradasDinheiro = movimentos.filter((m) => m.tipo === 'retirada' && ehDinheiroTxt(m.forma_pagamento)).reduce((s, m) => s + m.valor, 0)
+    // Reforço/sangria só mexem na GAVETA quando são em dinheiro (dá pra sangrar PIX, e
+    // isso não tira cédula nenhuma)
+    const ehDin = (m: { forma_pagamento: string }) => tipoDoTexto(m.forma_pagamento) === 'dinheiro'
+    reforcosDinheiro = movimentos.filter((m) => m.tipo === 'reforco' && ehDin(m)).reduce((s, m) => s + m.valor, 0)
+    retiradasDinheiro = movimentos.filter((m) => m.tipo === 'retirada' && ehDin(m)).reduce((s, m) => s + m.valor, 0)
+
+    // FIADO RECEBIDO — dinheiro que entrou sem ser venda. Antes não entrava em lugar
+    // nenhum: a gaveta tinha R$50 a mais e o fechamento acusava SOBRA falsa.
+    for (const m of movimentos.filter((x) => x.tipo === 'recebimento')) {
+      const t = tipoDoTexto(m.forma_pagamento)
+      const v = Number(m.valor) || 0
+      if (t === 'dinheiro') {
+        recebidosDinheiro += v            // entra na gaveta
+      } else {
+        porTipo[t] = (porTipo[t] ?? 0) + v   // PIX/cartão: aparece na linha do tipo, pra conferir
+        porForma[m.forma_pagamento] = (porForma[m.forma_pagamento] ?? 0) + v
+      }
+      // na lista de conferência ele aparece como linha do tipo, marcado como fiado
+      if (!vendasPorTipo[t]) vendasPorTipo[t] = []
+      vendasPorTipo[t].push({
+        id: m.id, numero: null, hora: m.created_at,
+        cliente: (m.motivo ?? '').replace(/^Fiado recebido — /, '') || 'Fiado',
+        valorForma: v, totalVenda: v, fiado: true,
+      })
+    }
   }
 
   // Quando caixa acaba de fechar, busca dados completos do Z Report
@@ -275,6 +311,7 @@ export default async function OperacaoPDVPage({
       totalRetiradas={totalRetiradas}
       reforcosDinheiro={reforcosDinheiro}
       retiradasDinheiro={retiradasDinheiro}
+      recebidosDinheiro={recebidosDinheiro}
       totalDevolucoes={totalDevolucoes}
       qtdVendas={qtdVendas}
       movimentos={movimentos}

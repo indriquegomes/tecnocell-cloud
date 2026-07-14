@@ -544,12 +544,61 @@ async function contaDaFormaTexto(supabase: Awaited<ReturnType<typeof createServi
   return (f?.conta_destino_id as string | null) ?? null
 }
 
-export async function pagarLancamentos(accessToken: string, ids: string[], formaPagamento = 'dinheiro'): Promise<void> {
+// FIADO RECEBIDO ENTRA NO CAIXA.
+//
+// Buraco que existia: a Duda cobrava R$50 de fiado em espécie, o dinheiro ia pra
+// gaveta, e o caixa não sabia de nada. No fechamento a contagem dava R$50 a MAIS que o
+// esperado e o sistema acusava SOBRA — culpando quem tinha feito tudo certo.
+//
+// Agora todo recebimento de crediário vira um movimento do caixa aberto DAQUELA LOJA:
+//   dinheiro → soma na gaveta (é cédula que entrou de verdade)
+//   PIX/cartão → não é gaveta, mas aparece na linha do seu tipo pra conferir
+//                (o comprovante do PIX de um fiado também precisa bater)
+//
+// Se não há caixa aberto na loja, não registra — e não quebra o recebimento: o dinheiro
+// entrou de qualquer forma, e travar a cobrança por causa disso seria pior.
+async function registrarNoCaixa(
+  supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  lojaId: string | null | undefined,
+  valor: number,
+  formaTexto: string,
+  motivo: string,
+): Promise<void> {
+  if (!lojaId || !(valor > 0)) return
+  const { data: caixa } = await supabase
+    .from('caixas')
+    .select('id')
+    .eq('status', 'aberto')
+    .eq('loja_id', lojaId)
+    .maybeSingle()
+  if (!caixa) return
+  await supabase.from('movimentos_caixa').insert({
+    caixa_id: caixa.id,
+    tipo: 'recebimento',
+    motivo,
+    forma_pagamento: formaTexto || 'Dinheiro',
+    valor,
+  })
+}
+
+export async function pagarLancamentos(
+  accessToken: string,
+  ids: string[],
+  formaPagamento = 'dinheiro',
+  lojaId?: string | null,
+): Promise<void> {
   if (ids.length === 0) return
   await requirePermissao('crediario_receber', accessToken)
   const supabase = await createServiceClient()
   const today = hojeSP()
   const contaId = await contaDaFormaTexto(supabase, formaPagamento)
+
+  // pega o que sobrou de cada um ANTES de quitar — é esse valor que entra no caixa
+  const { data: antes } = await supabase
+    .from('lancamentos')
+    .select('id, valor, valor_pago, pessoa_nome')
+    .in('id', ids)
+
   const { data, error } = await supabase
     .from('lancamentos')
     .update({ status: 'pago', data_pagamento: today, forma_pagamento: formaPagamento, conta_id: contaId, updated_at: new Date().toISOString() })
@@ -557,6 +606,10 @@ export async function pagarLancamentos(accessToken: string, ids: string[], forma
     .select('id')
   if (error) throw new Error(error.message)
   if (!data || data.length === 0) throw new Error('Pagamento não registrado — sem permissão ou lançamento não encontrado.')
+
+  const total = (antes ?? []).reduce((s, l) => s + Math.max(0, (Number(l.valor) || 0) - (Number(l.valor_pago) || 0)), 0)
+  const quem = (antes ?? []).length === 1 ? ((antes ?? [])[0].pessoa_nome ?? 'cliente') : `${(antes ?? []).length} fiados`
+  await registrarNoCaixa(supabase, lojaId, Math.round(total * 100) / 100, formaPagamento, `Fiado recebido — ${quem}`)
 }
 
 export async function registrarPagamentoParcial(
@@ -564,13 +617,14 @@ export async function registrarPagamentoParcial(
   id: string,
   valorPago: number,
   formaPagamento: string,
+  lojaId?: string | null,
 ): Promise<{ quitado: boolean }> {
   await requirePermissao('crediario_receber', accessToken)
   const supabase = await createServiceClient()
 
   const { data: lanc, error: errBusca } = await supabase
     .from('lancamentos')
-    .select('valor, valor_pago, historico_pagamentos')
+    .select('valor, valor_pago, historico_pagamentos, pessoa_nome')
     .eq('id', id)
     .single()
   if (errBusca || !lanc) throw new Error('Lançamento não encontrado.')
@@ -600,6 +654,9 @@ export async function registrarPagamentoParcial(
 
   const { error } = await supabase.from('lancamentos').update(update).eq('id', id)
   if (error) throw new Error(error.message)
+
+  await registrarNoCaixa(supabase, lojaId, valorPago, formaPagamento, `Fiado recebido — ${lanc.pessoa_nome ?? 'cliente'}`)
+
   return { quitado }
 }
 

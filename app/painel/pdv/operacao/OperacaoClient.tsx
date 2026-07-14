@@ -103,6 +103,7 @@ interface Props {
   totalRetiradas: number
   reforcosDinheiro: number
   retiradasDinheiro: number
+  recebidosDinheiro: number
   totalDevolucoes: number
   qtdVendas: number
   movimentos: Movimento[]
@@ -149,6 +150,7 @@ function EmCaixaCard({
   vendasPorTipo,
   reforcosDinheiro,
   retiradasDinheiro,
+  recebidosDinheiro,
   saldoGaveta,
   imprimivel = false,
 }: {
@@ -157,6 +159,7 @@ function EmCaixaCard({
   vendasPorTipo: Record<string, VendaConferencia[]>
   reforcosDinheiro: number
   retiradasDinheiro: number
+  recebidosDinheiro: number
   saldoGaveta: number
   imprimivel?: boolean
 }) {
@@ -195,6 +198,7 @@ function EmCaixaCard({
                 <span>+ Vendas em dinheiro {(vendasPorTipo['dinheiro'] ?? []).length > 0 && <b className="ml-1 print:hidden">(ver {(vendasPorTipo['dinheiro'] ?? []).length})</b>}</span>
                 <span className="tabular-nums">{fmt(v('dinheiro'))}</span>
               </div>
+              {recebidosDinheiro > 0 && <div className="flex justify-between"><span>+ Fiado recebido em dinheiro</span><span className="tabular-nums">{fmt(recebidosDinheiro)}</span></div>}
               {reforcosDinheiro > 0 && <div className="flex justify-between"><span>+ Reforços (dinheiro)</span><span className="tabular-nums">{fmt(reforcosDinheiro)}</span></div>}
               {retiradasDinheiro > 0 && <div className="flex justify-between"><span>− Sangrias (dinheiro)</span><span className="tabular-nums">−{fmt(retiradasDinheiro)}</span></div>}
             </div>
@@ -239,6 +243,7 @@ interface VendaConferencia {
   cliente: string | null
   valorForma: number
   totalVenda: number
+  fiado?: boolean   // nao e venda: e fiado recebido (entrou dinheiro sem venda nova)
 }
 
 // Uma linha do "Em Caixa" + a lista de vendas que ela abre.
@@ -286,7 +291,9 @@ function Linha({
                 return (
                   <tr key={v.id + tipo} className="bg-white">
                     <td className="py-1.5 pr-3 font-mono font-semibold text-gray-700">
-                      {v.numero ? `#${v.numero}` : v.id.slice(-6).toUpperCase()}
+                      {v.fiado
+                        ? <span className="rounded bg-orange-100 px-1 py-0.5 font-sans text-[10px] font-semibold text-orange-700">fiado</span>
+                        : v.numero ? `#${v.numero}` : v.id.slice(-6).toUpperCase()}
                     </td>
                     <td className="py-1.5 pr-3 text-gray-500">{fmtHora(v.hora)}</td>
                     <td className="py-1.5 pr-3 text-gray-600">{v.cliente ?? <span className="text-gray-300">—</span>}</td>
@@ -342,6 +349,10 @@ function AbrirCaixaPanel({ lojaId }: { lojaId: string }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
       <h3 className="font-semibold text-gray-800">Abrir Caixa</h3>
+      {/* grid + items-start: os campos alinham pelo TOPO. Com flex/items-end, o texto de
+          ajuda embaixo de um campo empurrava o outro pra baixo — os inputs saíam
+          desencontrados. O botão usa um rótulo invisível como espaçador pra ficar na
+          mesma linha dos inputs. */}
       <form
         action={withToken(action)}
         onSubmit={(e) => {
@@ -350,14 +361,16 @@ function AbrirCaixaPanel({ lojaId }: { lojaId: string }) {
             e.preventDefault()
           }
         }}
-        className="flex flex-wrap gap-4 items-end"
+        className="grid items-start gap-4 sm:grid-cols-[1fr_1fr_auto]"
       >
         <input type="hidden" name="loja_id" value={lojaId} />
-        <div className="flex-1 min-w-48">
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">
+
+        <div>
+          <label htmlFor="valor_abertura" className="mb-1.5 block text-sm font-medium text-gray-700">
             Troco na Gaveta (R$)
           </label>
           <input
+            id="valor_abertura"
             name="valor_abertura"
             type="number"
             step="0.01"
@@ -371,17 +384,25 @@ function AbrirCaixaPanel({ lojaId }: { lojaId: string }) {
             {zerado ? '⚠ Gaveta vazia — confira se não tem troco.' : `Padrão da loja: R$ ${TROCO_PADRAO},00`}
           </p>
         </div>
-        <div className="flex-1 min-w-48">
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">Observações</label>
-          <input name="obs_abertura" className="field" placeholder="Ex: quem abriu" />
+
+        <div>
+          <label htmlFor="obs_abertura" className="mb-1.5 block text-sm font-medium text-gray-700">
+            Observações
+          </label>
+          <input id="obs_abertura" name="obs_abertura" className="field" placeholder="Ex: quem abriu" />
+          <p className="mt-1 text-xs text-gray-400">Opcional.</p>
         </div>
-        <button
-          type="submit"
-          disabled={pending}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-green-700 transition disabled:opacity-50"
-        >
-          {pending && <Spinner />}{pending ? 'Abrindo...' : 'Abrir Caixa'}
-        </button>
+
+        <div>
+          <span aria-hidden className="mb-1.5 block text-sm font-medium invisible">Abrir</span>
+          <button
+            type="submit"
+            disabled={pending}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-green-600 bg-green-600 px-6 py-2 text-sm font-semibold text-white hover:bg-green-700 transition disabled:opacity-50 sm:w-auto"
+          >
+            {pending && <Spinner />}{pending ? 'Abrindo...' : 'Abrir Caixa'}
+          </button>
+        </div>
       </form>
       <FeedbackMsg state={state} />
     </div>
@@ -397,6 +418,7 @@ function FecharCaixaPanel({
   vendasPorTipo,
   reforcosDinheiro,
   retiradasDinheiro,
+  recebidosDinheiro,
 }: {
   caixaId: string
   valorAbertura: number
@@ -406,6 +428,7 @@ function FecharCaixaPanel({
   vendasPorTipo: Record<string, VendaConferencia[]>
   reforcosDinheiro: number
   retiradasDinheiro: number
+  recebidosDinheiro: number
 }) {
   const [etapa, setEtapa] = useState<'resumo' | 'cego'>('resumo')
   const [state, action, pending] = useActionState<ActionState, FormData>(fecharCaixa, null)
@@ -429,6 +452,7 @@ function FecharCaixaPanel({
               vendasPorTipo={vendasPorTipo}
               reforcosDinheiro={reforcosDinheiro}
               retiradasDinheiro={retiradasDinheiro}
+              recebidosDinheiro={recebidosDinheiro}
               saldoGaveta={saldoCaixa}
             />
           </div>
@@ -656,6 +680,7 @@ function XReportPanel({
   vendasPorTipo,
   reforcosDinheiro,
   retiradasDinheiro,
+  recebidosDinheiro,
   vendasDia,
 }: {
   caixaAberto: CaixaAberto
@@ -669,6 +694,7 @@ function XReportPanel({
   vendasPorTipo: Record<string, VendaConferencia[]>
   reforcosDinheiro: number
   retiradasDinheiro: number
+  recebidosDinheiro: number
   vendasDia: VendaDia[]
 }) {
   const agora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
@@ -767,6 +793,7 @@ function XReportPanel({
             vendasPorTipo={vendasPorTipo}
             reforcosDinheiro={reforcosDinheiro}
             retiradasDinheiro={retiradasDinheiro}
+            recebidosDinheiro={recebidosDinheiro}
             saldoGaveta={saldoCaixa}
             imprimivel
           />
@@ -855,6 +882,7 @@ function SaldoPanel({
   vendasPorTipo,
   reforcosDinheiro,
   retiradasDinheiro,
+  recebidosDinheiro,
 }: {
   caixaAberto: CaixaAberto
   saldoCaixa: number
@@ -866,6 +894,7 @@ function SaldoPanel({
   vendasPorTipo: Record<string, VendaConferencia[]>
   reforcosDinheiro: number
   retiradasDinheiro: number
+  recebidosDinheiro: number
 }) {
   return (
     <div className="rounded-2xl border border-cyan-200 bg-white p-6 shadow-sm space-y-4">
@@ -876,6 +905,7 @@ function SaldoPanel({
         vendasPorTipo={vendasPorTipo}
         reforcosDinheiro={reforcosDinheiro}
         retiradasDinheiro={retiradasDinheiro}
+        recebidosDinheiro={recebidosDinheiro}
         saldoGaveta={saldoCaixa}
       />
       <div className="flex justify-between rounded-xl bg-cyan-50 px-4 py-3 font-bold text-sm">
@@ -1110,6 +1140,7 @@ export function OperacaoClient({
   totalRetiradas,
   reforcosDinheiro,
   retiradasDinheiro,
+  recebidosDinheiro,
   totalDevolucoes,
   qtdVendas,
   movimentos,
@@ -1138,6 +1169,7 @@ export function OperacaoClient({
   const saldoCaixa =
     (caixaAberto?.valor_abertura ?? 0) +
     (porTipo['dinheiro'] ?? 0) +
+    recebidosDinheiro +          // fiado cobrado em especie: a cedula ESTA na gaveta
     reforcosDinheiro -
     retiradasDinheiro -
     totalDevolucoes
@@ -1312,6 +1344,7 @@ export function OperacaoClient({
               vendasPorTipo={vendasPorTipo}
               reforcosDinheiro={reforcosDinheiro}
               retiradasDinheiro={retiradasDinheiro}
+              recebidosDinheiro={recebidosDinheiro}
             />
           )}
           {panel === 'reforco' && (
@@ -1341,6 +1374,7 @@ export function OperacaoClient({
               vendasPorTipo={vendasPorTipo}
               reforcosDinheiro={reforcosDinheiro}
               retiradasDinheiro={retiradasDinheiro}
+              recebidosDinheiro={recebidosDinheiro}
               vendasDia={vendasDia}
             />
           )}
@@ -1356,6 +1390,7 @@ export function OperacaoClient({
               vendasPorTipo={vendasPorTipo}
               reforcosDinheiro={reforcosDinheiro}
               retiradasDinheiro={retiradasDinheiro}
+              recebidosDinheiro={recebidosDinheiro}
             />
           )}
 
