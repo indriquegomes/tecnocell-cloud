@@ -20,13 +20,14 @@ export default async function PainelVendasPage({
   type VendaRow = {
     id: string; numero: number | null; total: number; desconto: number
     created_at: string; status: string; vendedor_nome: string | null
+    motivo_cancelamento?: string | null; observacoes?: string | null
     pessoa_id: string | null; forma_pagamento_id: string | null
   }
   const [vendasRaw, { data: formasData }] = await Promise.all([
     fetchAll<VendaRow>((from, to) => {
       let q = supabase
         .from('vendas')
-        .select('id, numero, total, desconto, created_at, status, vendedor_nome, pessoa_id, forma_pagamento_id')
+        .select('id, numero, total, desconto, created_at, status, vendedor_nome, pessoa_id, forma_pagamento_id, motivo_cancelamento, observacoes')
         .gte('created_at', dataInicio + 'T00:00:00')
         .lte('created_at', dataFim + 'T23:59:59')
         .order('created_at', { ascending: false })
@@ -70,6 +71,7 @@ export default async function PainelVendasPage({
   const vendas = (vendasRaw ?? []).map((v: {
     id: string; numero: number | null; total: number; desconto: number
     created_at: string; status: string; vendedor_nome: string | null
+    motivo_cancelamento?: string | null; observacoes?: string | null
     pessoa_id: string | null; forma_pagamento_id: string | null
   }) => ({
     id: v.id,
@@ -78,6 +80,8 @@ export default async function PainelVendasPage({
     desconto: v.desconto ?? 0,
     created_at: v.created_at,
     status: v.status,
+    motivo_cancelamento: v.motivo_cancelamento ?? null,
+    observacoes: v.observacoes ?? null,
     vendedor_nome: v.vendedor_nome ?? null,
     pessoa_nome: v.pessoa_id ? (pessoaMap[v.pessoa_id] ?? null) : null,
     forma_pagamento_nome: pagamentosMap[v.id] ?? (v.forma_pagamento_id ? (formaMap[v.forma_pagamento_id] ?? null) : null),

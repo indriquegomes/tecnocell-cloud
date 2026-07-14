@@ -5,7 +5,8 @@ import { hojeSP } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { buscarDetalheVendaPublic, cancelarVenda, type DetalheVendaCompleto } from './actions'
-import { MOTIVOS_CANCELAMENTO } from '@/lib/motivos'
+import { MOTIVOS_CANCELAMENTO, motivoCancelamento } from '@/lib/motivos'
+import { ResumoMotivos } from '@/components/ResumoMotivos'
 import { Dica } from '@/components/Dica'
 
 type Venda = {
@@ -18,6 +19,8 @@ type Venda = {
   vendedor_nome: string | null
   pessoa_nome: string | null
   forma_pagamento_nome: string | null
+  motivo_cancelamento?: string | null
+  observacoes?: string | null
 }
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -29,12 +32,21 @@ const STATUS: Record<string, { label: string; cor: string }> = {
   aberta:     { label: 'Em aberto',  cor: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
 }
 
-function BadgeStatus({ status }: { status: string }) {
+function BadgeStatus({ status, motivo }: { status: string; motivo?: string | null }) {
   const s = STATUS[status] ?? { label: status, cor: 'bg-gray-100 text-gray-500 border-gray-200' }
+  // POR QUE foi cancelada — antes o motivo era gravado e nunca aparecia em lugar nenhum
+  const m = status === 'cancelada' ? motivoCancelamento(motivo) : null
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap ${s.cor}`}>
-      {s.label}
-    </span>
+    <div className="flex flex-col items-start gap-1">
+      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap ${s.cor}`}>
+        {s.label}
+      </span>
+      {m && (
+        <span className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap ${m.cor}`}>
+          {m.icone} {m.label}
+        </span>
+      )}
+    </div>
   )
 }
 
@@ -103,6 +115,24 @@ export function VendasClient({
   }
 
   const concluidas = vendas.filter(v => v.status === 'concluida').length
+
+  // POR QUE as vendas foram canceladas. Em julho, 76% dos cancelamentos tinham uma
+  // venda pro MESMO cliente no MESMO dia (cheira a erro de digitação sendo refeito) —
+  // mas isso era DEDUÇÃO. Com o motivo preenchido, aqui fica a resposta de verdade.
+  const [filtroMotivo, setFiltroMotivo] = useState<string | null>(null)
+
+  const listaCanceladas = vendas.filter((v) => v.status === 'cancelada')
+  const contagemMotivos = listaCanceladas.reduce((acc, v) => {
+    const k = v.motivo_cancelamento ?? '__sem__'
+    acc[k] ??= { n: 0, valor: 0 }
+    acc[k].n += 1
+    acc[k].valor += v.total
+    return acc
+  }, {} as Record<string, { n: number; valor: number }>)
+
+  const vendasVisiveis = filtroMotivo
+    ? vendas.filter((v) => v.status === 'cancelada' && (v.motivo_cancelamento ?? '__sem__') === filtroMotivo)
+    : vendas
 
   return (
     <div className="space-y-5">
@@ -181,6 +211,18 @@ export function VendasClient({
         </div>
       </div>
 
+      {/* Por que as vendas foram canceladas — cada barra filtra a lista */}
+      {listaCanceladas.length > 0 && (
+        <ResumoMotivos
+          titulo="Por que as vendas foram canceladas"
+          motivos={MOTIVOS_CANCELAMENTO}
+          contagem={contagemMotivos}
+          selecionado={filtroMotivo}
+          onSelecionar={setFiltroMotivo}
+          legenda="Clique numa barra pra ver só os cancelamentos daquele motivo."
+        />
+      )}
+
       {/* Tabela */}
       <div className="overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm">
         <div className="overflow-x-auto">
@@ -193,14 +235,14 @@ export function VendasClient({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {vendas.length === 0 ? (
+              {vendasVisiveis.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-4 py-16 text-center">
                     <p className="text-2xl mb-2">🛒</p>
                     <p className="text-sm text-gray-400">Nenhuma venda no período.</p>
                   </td>
                 </tr>
-              ) : vendas.map(v => (
+              ) : vendasVisiveis.map(v => (
                 <tr key={v.id} className="hover:bg-blue-50/60/60 transition group cursor-pointer" onClick={() => abrirDetalhe(v.id)}>
                   <td className="px-4 py-3">
                     <span className="font-mono text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded px-1.5 py-0.5">
@@ -208,7 +250,7 @@ export function VendasClient({
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{fmtData(v.created_at)}</td>
-                  <td className="px-4 py-3"><BadgeStatus status={v.status} /></td>
+                  <td className="px-4 py-3"><BadgeStatus status={v.status} motivo={v.motivo_cancelamento} /></td>
                   <td className="px-4 py-3 font-medium text-gray-800 max-w-[140px] truncate">
                     {v.pessoa_nome ?? <span className="text-gray-300 font-normal italic text-xs">Cliente final</span>}
                   </td>
