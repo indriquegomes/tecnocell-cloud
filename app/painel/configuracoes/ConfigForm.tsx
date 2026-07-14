@@ -103,6 +103,26 @@ export function ConfigForm({ dados, dadosPdv }: { dados: Record<string, string>;
           />
           <p className="text-xs text-gray-400 mt-1">% global sobre o total vendido, igual pra todas. Aparece no Painel de Vendas. Zero desativa.</p>
         </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Lembrar de fechar o caixa às — Seg a Sex</label>
+          <input
+            name="hora_fechar_semana"
+            type="time"
+            defaultValue={dadosPdv.hora_fechar_semana ?? '18:30'}
+            className="field"
+          />
+          <p className="text-xs text-gray-400 mt-1">Um aviso aparece no painel a partir deste horário se o caixa ainda estiver aberto.</p>
+        </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Lembrar de fechar o caixa às — Sábado</label>
+          <input
+            name="hora_fechar_sabado"
+            type="time"
+            defaultValue={dadosPdv.hora_fechar_sabado ?? '16:30'}
+            className="field"
+          />
+          <p className="text-xs text-gray-400 mt-1">Caixa que virar a noite aberto é avisado no dia seguinte, em vermelho.</p>
+        </div>
       </div>
 
       <div className="pt-2">

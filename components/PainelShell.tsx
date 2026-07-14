@@ -6,17 +6,20 @@ import Link from 'next/link'
 import { Sidebar } from '@/components/Sidebar'
 import { SessionGuard } from '@/components/SessionGuard'
 import { BotaoReport } from '@/components/BotaoReport'
+import { LembreteCaixa } from '@/components/LembreteCaixa'
+import type { Lembrete } from '@/lib/lembrete-caixa'
 
 const PDV_PATHS = ['/painel/pdv', '/painel/pdv/operacao']
 
 export function PainelShell({
-  children, email, nome, permissoes, isMaster,
+  children, email, nome, permissoes, isMaster, lembretes = [],
 }: {
   children: React.ReactNode
   email: string
   nome?: string
   permissoes: string[]
   isMaster: boolean
+  lembretes?: Lembrete[]
 }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -65,6 +68,7 @@ export function PainelShell({
             ← Painel
           </Link>
         </div>
+        <LembreteCaixa lembretes={lembretes} />
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>
     )
@@ -116,6 +120,7 @@ export function PainelShell({
             </div>
           </div>
         </header>
+        <LembreteCaixa lembretes={lembretes} />
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>
     </div>

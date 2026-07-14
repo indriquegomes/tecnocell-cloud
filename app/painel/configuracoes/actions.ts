@@ -25,6 +25,9 @@ export async function salvarConfiguracoes(_prev: State, formData: FormData): Pro
   const valorPdv = {
     limite_divergencia: isNaN(limiteDivergenciaRaw) ? 0 : limiteDivergenciaRaw,
     comissao_percentual: isNaN(comissaoRaw) ? 0 : comissaoRaw,
+    // horários do lembrete de fechar o caixa (loja fecha 19h na semana / 17h no sábado)
+    hora_fechar_semana: (formData.get('hora_fechar_semana') as string) || '18:30',
+    hora_fechar_sabado: (formData.get('hora_fechar_sabado') as string) || '16:30',
   }
 
   const [r1, r2] = await Promise.all([

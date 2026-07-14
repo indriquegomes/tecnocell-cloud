@@ -5,6 +5,7 @@ import { NavProgress } from '@/components/NavProgress'
 import { createServiceClient, permissoesEfetivas, configAcesso } from '@/lib/supabase/server'
 import { permissaoPorRota, temPermissao } from '@/lib/permissoes'
 import { acessoBloqueado } from '@/lib/acesso'
+import { lembretesDeCaixa, HORARIOS_PADRAO, type HorariosCaixa, type Lembrete } from '@/lib/lembrete-caixa'
 
 export default async function PainelLayout({ children }: { children: React.ReactNode }) {
   const h = await headers()
@@ -59,6 +60,34 @@ export default async function PainelLayout({ children }: { children: React.React
     redirect('/painel?acesso=negado')
   }
 
+  // Lembrete de fechar o caixa — só pra quem opera o PDV.
+  // (Um caixa passou a noite aberto em 13/07: o sistema sabia e não avisava ninguém.)
+  let lembretes: Lembrete[] = []
+  if (temPermissao(permissoes, 'pdv', isMaster)) {
+    try {
+      const supabase = await createServiceClient()
+      const [caixasRes, cfgRes, lojasRes] = await Promise.all([
+        supabase.from('caixas').select('id, aberto_em, loja_id').eq('status', 'aberto'),
+        supabase.from('configuracoes').select('valor').eq('chave', 'pdv').maybeSingle(),
+        supabase.from('lojas').select('id, nome'),
+      ])
+      const nomeLoja: Record<string, string> = Object.fromEntries((lojasRes.data ?? []).map((l) => [l.id, l.nome]))
+      const cfg = (cfgRes.data?.valor ?? {}) as Record<string, string>
+      const horarios: HorariosCaixa = {
+        semana: cfg.hora_fechar_semana || HORARIOS_PADRAO.semana,
+        sabado: cfg.hora_fechar_sabado || HORARIOS_PADRAO.sabado,
+      }
+      lembretes = lembretesDeCaixa(
+        (caixasRes.data ?? []).map((c) => ({
+          id: c.id,
+          aberto_em: c.aberto_em,
+          loja: c.loja_id ? (nomeLoja[c.loja_id] ?? null) : null,
+        })),
+        horarios,
+      )
+    } catch {}
+  }
+
   return (
     <>
       <NavProgress />
@@ -67,6 +96,7 @@ export default async function PainelLayout({ children }: { children: React.React
         nome={nome}
         permissoes={permissoes}
         isMaster={isMaster}
+        lembretes={lembretes}
       >
         {children}
       </PainelShell>
