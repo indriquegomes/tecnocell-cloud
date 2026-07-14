@@ -5,7 +5,8 @@ import { NavProgress } from '@/components/NavProgress'
 import { createServiceClient, permissoesEfetivas, configAcesso } from '@/lib/supabase/server'
 import { permissaoPorRota, temPermissao } from '@/lib/permissoes'
 import { acessoBloqueado } from '@/lib/acesso'
-import { lembretesDeCaixa, HORARIOS_PADRAO, type HorariosCaixa, type Lembrete } from '@/lib/lembrete-caixa'
+import { lembretesDeCaixa, HORARIOS_PADRAO, type HorariosCaixa, type Lembrete as AvisoCaixa } from '@/lib/lembrete-caixa'
+import { pendentesDeHoje, hojeSP, type Lembrete, type LembretePendente } from '@/lib/lembretes'
 
 export default async function PainelLayout({ children }: { children: React.ReactNode }) {
   const h = await headers()
@@ -60,30 +61,49 @@ export default async function PainelLayout({ children }: { children: React.React
     redirect('/painel?acesso=negado')
   }
 
-  // Lembrete de fechar o caixa — só pra quem opera o PDV.
-  // (Um caixa passou a noite aberto em 13/07: o sistema sabia e não avisava ninguém.)
-  let lembretes: Lembrete[] = []
-  if (temPermissao(permissoes, 'pdv', isMaster)) {
+  // ── Avisos da barra: caixa aberto fora de hora + rotinas da equipe ("Duda conferir
+  //    caixa 18:30"). Um caixa passou a noite aberto em 13/07 — o sistema sabia e não
+  //    avisava ninguém.
+  let avisosCaixa: AvisoCaixa[] = []
+  let rotinas: LembretePendente[] = []
+
+  if (userId) {
     try {
       const supabase = await createServiceClient()
-      const [caixasRes, cfgRes, lojasRes] = await Promise.all([
-        supabase.from('caixas').select('id, aberto_em, loja_id').eq('status', 'aberto'),
-        supabase.from('configuracoes').select('valor').eq('chave', 'pdv').maybeSingle(),
-        supabase.from('lojas').select('id, nome'),
+      const podePdv = temPermissao(permissoes, 'pdv', isMaster)
+      const hoje = hojeSP().data
+
+      const [caixasRes, cfgRes, lojasRes, meuRes, lembretesRes, feitosRes] = await Promise.all([
+        podePdv ? supabase.from('caixas').select('id, aberto_em, loja_id').eq('status', 'aberto') : Promise.resolve({ data: [] }),
+        podePdv ? supabase.from('configuracoes').select('valor').eq('chave', 'pdv').maybeSingle() : Promise.resolve({ data: null }),
+        podePdv ? supabase.from('lojas').select('id, nome') : Promise.resolve({ data: [] }),
+        supabase.from('perfis').select('cargo_id').eq('id', userId).maybeSingle(),
+        supabase.from('lembretes').select('id, titulo, descricao, perfil_id, cargo_id, hora, dias, ativo').eq('ativo', true),
+        supabase.from('lembretes_feitos').select('lembrete_id, perfil_id, feito_em').eq('data', hoje),
       ])
-      const nomeLoja: Record<string, string> = Object.fromEntries((lojasRes.data ?? []).map((l) => [l.id, l.nome]))
-      const cfg = (cfgRes.data?.valor ?? {}) as Record<string, string>
-      const horarios: HorariosCaixa = {
-        semana: cfg.hora_fechar_semana || HORARIOS_PADRAO.semana,
-        sabado: cfg.hora_fechar_sabado || HORARIOS_PADRAO.sabado,
+
+      if (podePdv) {
+        const nomeLoja: Record<string, string> = Object.fromEntries(((lojasRes.data ?? []) as { id: string; nome: string }[]).map((l) => [l.id, l.nome]))
+        const cfg = ((cfgRes.data as { valor?: Record<string, string> } | null)?.valor ?? {}) as Record<string, string>
+        const horarios: HorariosCaixa = {
+          semana: cfg.hora_fechar_semana || HORARIOS_PADRAO.semana,
+          sabado: cfg.hora_fechar_sabado || HORARIOS_PADRAO.sabado,
+        }
+        avisosCaixa = lembretesDeCaixa(
+          ((caixasRes.data ?? []) as { id: string; aberto_em: string; loja_id: string | null }[]).map((c) => ({
+            id: c.id,
+            aberto_em: c.aberto_em,
+            loja: c.loja_id ? (nomeLoja[c.loja_id] ?? null) : null,
+          })),
+          horarios,
+        )
       }
-      lembretes = lembretesDeCaixa(
-        (caixasRes.data ?? []).map((c) => ({
-          id: c.id,
-          aberto_em: c.aberto_em,
-          loja: c.loja_id ? (nomeLoja[c.loja_id] ?? null) : null,
-        })),
-        horarios,
+
+      rotinas = pendentesDeHoje(
+        (lembretesRes.data ?? []) as Lembrete[],
+        feitosRes.data ?? [],
+        userId,
+        (meuRes.data?.cargo_id as string | null) ?? null,
       )
     } catch {}
   }
@@ -96,7 +116,8 @@ export default async function PainelLayout({ children }: { children: React.React
         nome={nome}
         permissoes={permissoes}
         isMaster={isMaster}
-        lembretes={lembretes}
+        avisosCaixa={avisosCaixa}
+        rotinas={rotinas}
       >
         {children}
       </PainelShell>

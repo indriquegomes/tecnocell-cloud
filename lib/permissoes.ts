@@ -17,6 +17,7 @@ export const ROTAS_PERMISSAO: Record<string, string> = {
   '/painel/painel-vendedor':  'relatorios',
   '/painel/metas':            'metas',
   '/painel/rh':               'rh',
+  '/painel/lembretes':        'lembretes',
   '/painel/compras':       'compras',
   '/painel/pedidos':       'pedidos',
   '/painel/usuarios':      'usuarios',
@@ -44,6 +45,7 @@ export const TODAS_PERMISSOES = [
   { grupo: 'Módulos',  key: 'relatorios', label: 'Relatórios',           desc: 'Relatórios gerenciais e indicadores' },
   { grupo: 'Módulos',  key: 'metas',      label: 'Metas',                desc: 'Configurar metas e faixas de premiação por loja' },
   { grupo: 'Módulos',  key: 'rh',         label: 'RH / Equipe',          desc: 'Espelho de ponto, horários e tarefas da equipe' },
+  { grupo: 'Módulos',  key: 'lembretes',  label: 'Lembretes',            desc: 'Criar e editar as rotinas que o sistema cobra da equipe' },
   { grupo: 'Módulos',  key: 'usuarios',   label: 'Usuários',             desc: 'Gerenciar contas e permissões' },
 
   // Limites de operação — o que pode FAZER dentro do módulo (segurança de balcão)

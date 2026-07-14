@@ -6,20 +6,22 @@ import Link from 'next/link'
 import { Sidebar } from '@/components/Sidebar'
 import { SessionGuard } from '@/components/SessionGuard'
 import { BotaoReport } from '@/components/BotaoReport'
-import { LembreteCaixa } from '@/components/LembreteCaixa'
-import type { Lembrete } from '@/lib/lembrete-caixa'
+import { BarraAvisos } from '@/components/BarraAvisos'
+import type { Lembrete as AvisoCaixa } from '@/lib/lembrete-caixa'
+import type { LembretePendente } from '@/lib/lembretes'
 
 const PDV_PATHS = ['/painel/pdv', '/painel/pdv/operacao']
 
 export function PainelShell({
-  children, email, nome, permissoes, isMaster, lembretes = [],
+  children, email, nome, permissoes, isMaster, avisosCaixa = [], rotinas = [],
 }: {
   children: React.ReactNode
   email: string
   nome?: string
   permissoes: string[]
   isMaster: boolean
-  lembretes?: Lembrete[]
+  avisosCaixa?: AvisoCaixa[]
+  rotinas?: LembretePendente[]
 }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -68,7 +70,7 @@ export function PainelShell({
             ← Painel
           </Link>
         </div>
-        <LembreteCaixa lembretes={lembretes} />
+        <BarraAvisos caixas={avisosCaixa} rotinas={rotinas} />
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>
     )
@@ -120,7 +122,7 @@ export function PainelShell({
             </div>
           </div>
         </header>
-        <LembreteCaixa lembretes={lembretes} />
+        <BarraAvisos caixas={avisosCaixa} rotinas={rotinas} />
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>
     </div>
