@@ -163,6 +163,85 @@ export function furosDoDia(turnos: Turno[], diaSemana: number): { de: number; at
   return furos.filter((f) => f.ate - f.de >= 5)
 }
 
+// ── PONTO: o que REALMENTE aconteceu ────────────────────────────────────────
+//
+// A escala é o PLANO. O ponto é o REAL. A Bruna aperta "Pausa" quando vai lanchar
+// (10 minutinhos) e "Retornar" quando volta — e isso vira uma barra ao lado da barra
+// planejada, na mesma linha do tempo.
+//
+// Vitor foi explícito: é pra ENXERGAR, não pra julgar. Nada de "atrasado", nada de
+// limite de pausa. Só o tempo trabalhado. Se as meninas sentirem vigilância, param de
+// apertar o botão — e aí o dado morre e o esforço foi jogado fora.
+
+export interface Ponto {
+  usuario_id: string
+  tipo: string          // entrada | pausa | retorno | saida
+  criado_em: string
+}
+
+export interface Trabalhado {
+  perfilId: string
+  blocos: { de: number; ate: number }[]   // minutos do dia, já sem as pausas
+  minutos: number
+  aberto: boolean                          // ainda está trabalhando agora
+}
+
+/** Minuto do dia (fuso da loja) de um timestamp. */
+function minutoSP(iso: string): number {
+  const f = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false,
+  })
+  const [h, m] = f.format(new Date(iso)).split(':').map(Number)
+  return (h || 0) * 60 + (m || 0)
+}
+
+/** Data (YYYY-MM-DD) de um timestamp, no fuso da loja. */
+function dataSP(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+}
+
+/**
+ * O que cada pessoa trabalhou DE FATO num dia: pares entrada/retorno → pausa/saída.
+ * Um bloco aberto (entrou e ainda não saiu) vai até agora.
+ */
+export function trabalhadoDoDia(pontos: Ponto[], data: string, agora = new Date()): Trabalhado[] {
+  const doDia = pontos
+    .filter((p) => dataSP(p.criado_em) === data)
+    .sort((a, b) => a.criado_em.localeCompare(b.criado_em))
+
+  const porPessoa: Record<string, Ponto[]> = {}
+  for (const p of doDia) (porPessoa[p.usuario_id] ??= []).push(p)
+
+  const hojeSP = dataSP(agora.toISOString())
+  const agoraMin = minutoSP(agora.toISOString())
+
+  return Object.entries(porPessoa).map(([perfilId, ps]) => {
+    const blocos: { de: number; ate: number }[] = []
+    let inicio: number | null = null
+
+    for (const p of ps) {
+      const m = minutoSP(p.criado_em)
+      if (p.tipo === 'entrada' || p.tipo === 'retorno') {
+        if (inicio === null) inicio = m
+      } else if (p.tipo === 'pausa' || p.tipo === 'saida') {
+        if (inicio !== null && m > inicio) blocos.push({ de: inicio, ate: m })
+        inicio = null
+      }
+    }
+
+    // ainda trabalhando: o bloco vai até agora (só faz sentido se o dia é hoje)
+    const aberto = inicio !== null
+    if (aberto && data === hojeSP && agoraMin > inicio!) blocos.push({ de: inicio!, ate: agoraMin })
+
+    return {
+      perfilId,
+      blocos,
+      minutos: blocos.reduce((s, b) => s + (b.ate - b.de), 0),
+      aberto,
+    }
+  })
+}
+
 /** Horas de cada pessoa no período (já sem as folgas). */
 export function horasPorPessoa(
   dias: { data: string; diaSemana: number }[],

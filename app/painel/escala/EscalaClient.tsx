@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { salvarEscalaDia, salvarExcecao, salvarRegua, removerExcecao, type ActionState } from './actions'
 import {
   DIAS, HORARIO_LOJA, horarioDoDia, hhmm, min, horasTexto, DIA_INICIO, DIA_FIM,
-  type Escala, type Excecao, type Turno,
+  type Escala, type Excecao, type Turno, type Trabalhado,
 } from '@/lib/escala'
 
 const supabaseBrowser = createClient()
@@ -22,6 +22,7 @@ interface DiaGrade {
   diaSemana: number
   turnos: Turno[]
   furos: { de: number; ate: number }[]
+  trabalhado: Trabalhado[]   // o REAL — o que bateram no ponto
 }
 
 // paleta estável por pessoa — mas a cor SALVA no cadastro ("a Bruna é rosinha")
@@ -31,7 +32,7 @@ const corDe = (id: string, perfis: Pessoa[], cores?: Record<string, string | nul
   cores?.[id] || CORES[perfis.findIndex((p) => p.id === id) % CORES.length]
 
 export function EscalaClient({
-  dias, perfis, cores, escalas, excecoes, lojas, horas, semanaAtual,
+  dias, perfis, cores, escalas, excecoes, lojas, horas, trabalhadoSemana, semanaAtual,
 }: {
   dias: DiaGrade[]
   perfis: Pessoa[]
@@ -40,6 +41,7 @@ export function EscalaClient({
   excecoes: Excecao[]
   lojas: { id: string; nome: string }[]
   horas: { perfilId: string; nome: string; minutos: number; dias: number }[]
+  trabalhadoSemana: Record<string, number>
   semanaAtual: string
 }) {
   const [aba, setAba] = useState<'semana' | 'padrao'>('semana')
@@ -88,20 +90,37 @@ export function EscalaClient({
             {dias.map((d) => <DiaLinha key={d.data} dia={d} perfis={perfis} cores={cores} fmtDiaData={fmtDiaData} />)}
           </div>
 
-          {/* horas da semana */}
-          {horas.length > 0 && (
+          {/* horas da semana — o previsto e o TRABALHADO (só mostra; não julga) */}
+          {(horas.length > 0 || Object.keys(trabalhadoSemana).length > 0) && (
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <p className="mb-3 text-sm font-semibold text-gray-800">Horas na semana</p>
+              <p className="text-sm font-semibold text-gray-800">Horas na semana</p>
+              <p className="mb-3 text-xs text-gray-400">Escalado é o plano. Trabalhado é o que a pessoa bateu no ponto.</p>
               <div className="space-y-1.5">
-                {horas.map((h) => (
-                  <div key={h.perfilId} className="flex items-center gap-3 text-sm">
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: corDe(h.perfilId, perfis, cores) }} />
-                    <span className="min-w-0 flex-1 truncate text-gray-700">{h.nome}</span>
-                    <span className="text-xs text-gray-400">{h.dias} dia{h.dias !== 1 ? 's' : ''}</span>
-                    <span className="w-16 text-right font-bold tabular-nums text-gray-900">{horasTexto(h.minutos)}</span>
-                  </div>
-                ))}
+                {/* junta quem tem escala com quem bateu ponto (mesmo sem escala) */}
+                {[...new Set([...horas.map((h) => h.perfilId), ...Object.keys(trabalhadoSemana)])].map((id) => {
+                  const h = horas.find((x) => x.perfilId === id)
+                  const nome = h?.nome ?? perfis.find((p) => p.id === id)?.nome ?? '—'
+                  const real = trabalhadoSemana[id] ?? 0
+                  return (
+                    <div key={id} className="flex items-center gap-3 text-sm">
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: corDe(id, perfis, cores) }} />
+                      <span className="min-w-0 flex-1 truncate text-gray-700">{nome}</span>
+                      {h && <span className="text-xs text-gray-400">{h.dias} dia{h.dias !== 1 ? 's' : ''}</span>}
+                      <span className="w-24 text-right text-xs text-gray-400">
+                        escalado <b className="tabular-nums text-gray-600">{horasTexto(h?.minutos ?? 0)}</b>
+                      </span>
+                      <span className="w-28 text-right text-xs text-gray-400">
+                        trabalhado <b className="tabular-nums text-gray-900">{real > 0 ? horasTexto(real) : '—'}</b>
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
+              {Object.keys(trabalhadoSemana).length === 0 && (
+                <p className="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-400">
+                  Ninguém bateu ponto nesta semana. A equipe registra em <b>Meu Perfil</b> (▶ Entrada · ⏸ Pausa · ▶ Retornar · ⏹ Saída) — aí o realizado aparece aqui embaixo do plano.
+                </p>
+              )}
             </div>
           )}
 
@@ -203,6 +222,30 @@ function DiaLinha({ dia, perfis, cores, fmtDiaData }: { dia: DiaGrade; perfis: P
             )
           })}
         </div>
+
+        {/* O REAL — o que bateram no ponto. Fica ABAIXO do plano, mais fininho.
+            Sem cor de alerta, sem "atrasado": só mostra o que aconteceu. */}
+        {dia.trabalhado.length > 0 && (
+          <div className="mt-2 space-y-1 border-t border-dashed border-gray-200 pt-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Ponto (real)</p>
+            {dia.trabalhado.map((t) => {
+              const cor = corDe(t.perfilId, perfis, cores)
+              const nome = perfis.find((p) => p.id === t.perfilId)?.nome ?? '—'
+              return (
+                <div key={t.perfilId} className="relative h-4 overflow-hidden rounded bg-gray-100"
+                  title={`${nome}: trabalhou ${horasTexto(t.minutos)}${t.aberto ? ' (ainda na loja)' : ''}`}>
+                  {t.blocos.map((b, i) => (
+                    <div key={i} className="absolute inset-y-0 rounded"
+                      style={{ left: pos(b.de), width: larg(b.de, b.ate), background: cor, opacity: 0.55 }} />
+                  ))}
+                  <span className="absolute inset-y-0 left-1 flex items-center text-[10px] font-semibold text-gray-600">
+                    {nome.split(' ')[0]} · {horasTexto(t.minutos)}{t.aberto ? ' ⏱' : ''}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        )}
 
         {/* furos pintados por cima */}
         {dia.furos.map((f, i) => (
