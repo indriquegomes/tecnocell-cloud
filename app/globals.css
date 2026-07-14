@@ -116,3 +116,100 @@ button:disabled,
 @media (prefers-reduced-motion: reduce) {
   button:active, [role="button"]:active, a[class*="rounded"]:active { transform: none; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   MOVIMENTO — a linguagem de resposta do sistema.
+
+   Regra: todo movimento RESPONDE a uma ação da pessoa. Nada se mexe
+   sozinho, nada é decoração. Se a animação não responde uma pergunta
+   ("pegou?", "entrou?", "qual está selecionado?"), ela não entra.
+
+   Tudo aqui é CSS puro: zero biblioteca, ~0 KB de JS. Reversível:
+   apagar o bloco. Quem pede menos movimento no sistema operacional
+   (prefers-reduced-motion) recebe tudo estático — está no fim.
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Mola: passa um tiquinho do ponto e volta. É o que dá a sensação
+     de "vivo" em vez de "software". O exagero fica no 1.35 — acima
+     disso vira brinquedo. */
+  --tc-mola: cubic-bezier(0.34, 1.35, 0.4, 1);
+  --tc-suave: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── GAVETA (sidebar) — desliza, não pisca.
+   Celular: entra por cima, da esquerda. PC: o menu encolhe e o conteúdo
+   acompanha. Fica MONTADA o tempo todo, senão não tem o que animar. */
+.tc-gaveta { transition: transform 0.3s var(--tc-suave); }
+@media (min-width: 1024px) {
+  .tc-gaveta { transition: width 0.28s var(--tc-suave); }
+}
+.tc-veu { transition: opacity 0.3s var(--tc-suave); }
+
+/* ── ITEM ATIVO DO MENU — barrinha laranja que cresce no item escolhido.
+   Responde "onde eu estou?" de relance, sem ler. */
+.tc-ativo { position: relative; }
+.tc-ativo::before {
+  content: '';
+  position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: #f47920;
+  animation: tc-barra 0.3s var(--tc-mola);
+  transform-origin: center;
+}
+@keyframes tc-barra { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+
+/* ── ESCOLHIDO — o "prende" de quando você seleciona algo (permissão,
+   filtro, forma de pagamento). Um pulinho curto: confirma que pegou. */
+@keyframes tc-prender {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.045); }
+  100% { transform: scale(1); }
+}
+.tc-escolhido { animation: tc-prender 0.26s var(--tc-mola); }
+
+/* ── NEGADO — entra pela direita e TREME. Bloqueio tem que ser sentido,
+   não lido. É o oposto do "escolhido". */
+@keyframes tc-entrar-dir {
+  from { opacity: 0; transform: translateX(28px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes tc-tremer {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+.tc-negado { animation: tc-entrar-dir 0.26s ease-out, tc-tremer 0.42s 0.26s ease-in-out; }
+/* mesmo tremor, avulso — pra quando uma ação é barrada na hora */
+.tc-treme { animation: tc-tremer 0.42s ease-in-out; }
+
+/* ── BARRA QUE CRESCE — a barra de ranking/porcentagem nasce do zero e preenche.
+   Mostra a proporção acontecendo, em vez de já entregar pronta. scaleX (e não width)
+   porque scaleX roda na GPU e não força recálculo de layout a cada frame. */
+@keyframes tc-cresce { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.tc-cresce { animation: tc-cresce 0.55s var(--tc-suave) backwards; transform-origin: left; }
+
+/* ── CASCATA — a lista entra item a item, não tudo de uma vez. Dá a leitura
+   de "carregou agora" e guia o olho de cima pra baixo.
+   'backwards' e NÃO 'both' de propósito: 'both' deixaria um transform preso
+   no elemento pra sempre, e transform num ancestral quebra position:fixed
+   (foi o que escondeu o × dos modais atrás do header uma vez). */
+.tc-cascata > * { animation: tc-fade-in-up 0.32s var(--tc-suave) backwards; }
+.tc-cascata > *:nth-child(1)  { animation-delay: 0ms; }
+.tc-cascata > *:nth-child(2)  { animation-delay: 25ms; }
+.tc-cascata > *:nth-child(3)  { animation-delay: 50ms; }
+.tc-cascata > *:nth-child(4)  { animation-delay: 75ms; }
+.tc-cascata > *:nth-child(5)  { animation-delay: 100ms; }
+.tc-cascata > *:nth-child(6)  { animation-delay: 125ms; }
+.tc-cascata > *:nth-child(7)  { animation-delay: 150ms; }
+.tc-cascata > *:nth-child(8)  { animation-delay: 175ms; }
+/* do 9º em diante entram juntos — passar disso a espera vira lentidão */
+.tc-cascata > *:nth-child(n + 9) { animation-delay: 200ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tc-gaveta, .tc-veu { transition: none; }
+  .tc-ativo::before, .tc-escolhido, .tc-negado, .tc-treme, .tc-cresce,
+  .tc-cascata > * { animation: none; }
+}

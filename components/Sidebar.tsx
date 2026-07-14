@@ -164,13 +164,20 @@ export function Sidebar({ permissoes, isMaster }: { permissoes: string[]; isMast
                 return (
                   <Link key={item.href} href={item.href}
                     className={cn(
-                      'flex items-center gap-2.5 px-4 py-2 text-sm font-medium transition-colors',
+                      // 'tc-ativo' cria a barrinha laranja que cresce no item onde você está:
+                      // responde "onde eu estou?" de relance, sem precisar ler o menu inteiro.
+                      'group flex items-center gap-2.5 px-4 py-2 text-sm font-medium transition-colors',
                       isActive(item.href)
-                        ? 'bg-blue-50 text-blue-700'
+                        ? 'tc-ativo bg-blue-50 text-blue-700'
                         : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
                     )}>
                     {Ic
-                      ? <Ic className={cn('h-[18px] w-[18px] shrink-0', isActive(item.href) ? 'text-[#1B6CA8]' : 'text-gray-400')} />
+                      ? <Ic className={cn(
+                          'h-[18px] w-[18px] shrink-0 transition-transform duration-200',
+                          isActive(item.href)
+                            ? 'text-[#1B6CA8] scale-110'          // o ativo cresce um tico
+                            : 'text-gray-400 group-hover:scale-110',  // e o que você mira, também
+                        )} />
                       : <span className={cn('h-1.5 w-1.5 rounded-full', isActive(item.href) ? 'bg-accent-500' : 'bg-gray-300')} />}
                     {item.label}
                   </Link>

@@ -73,13 +73,23 @@ export function CargoForm({ editando }: { editando?: CargoEdit }) {
               {todos ? 'Desmarcar todos' : 'Marcar todos'}
             </button>
           </div>
+          {/* Sem 'tc-cascata' aqui de propósito: as duas classes escrevem a mesma
+              propriedade `animation`, uma anularia a outra e o pulinho da permissão
+              sumiria sem ninguém perceber. Cascata fica pras listas. */}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {TODAS_PERMISSOES.filter((p) => p.grupo === grupo).map((p) => {
               const on = sel.has(p.key)
               return (
-                <label key={p.key} className={`flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2.5 transition ${on ? 'border-blue-200 bg-blue-50' : 'border-gray-200 bg-gray-50 hover:border-gray-300'}`}>
+                // 'tc-escolhido' — a permissão que ENTRA dá um pulinho. Confirma que pegou,
+                // sem precisar conferir o quadradinho. Sai = volta ao cinza, sem pulo.
+                <label
+                  key={p.key}
+                  className={`flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2.5 transition-colors ${
+                    on ? 'tc-escolhido border-blue-300 bg-blue-50 shadow-sm' : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                  }`}
+                >
                   <div className="min-w-0 pr-2">
-                    <p className={`truncate text-xs font-semibold ${on ? 'text-blue-700' : 'text-gray-600'}`}>{p.label}</p>
+                    <p className={`truncate text-xs font-semibold transition-colors ${on ? 'text-blue-700' : 'text-gray-600'}`}>{p.label}</p>
                     <p className="truncate text-[10px] text-gray-400">{p.desc}</p>
                   </div>
                   <input type="checkbox" name="permissoes" value={p.key} checked={on} onChange={() => toggle(p.key)} className="h-4 w-4 shrink-0 rounded accent-blue-600" />

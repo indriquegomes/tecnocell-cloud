@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { cn } from '@/lib/utils'
 import { Sidebar } from '@/components/Sidebar'
 import { SessionGuard } from '@/components/SessionGuard'
 import { BotaoReport } from '@/components/BotaoReport'
@@ -80,27 +81,33 @@ export function PainelShell({
     <div className="flex h-screen overflow-hidden bg-gray-100">
       <SessionGuard />
 
-      {/* Toast acesso negado */}
+      {/* Bloqueio: entra pela direita e TREME. Barrado tem que ser sentido, não lido. */}
       {acessoNegado && (
-        <div className="fixed top-5 right-5 z-[60] rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-xl">
+        <div className="tc-negado fixed top-5 right-5 z-[60] rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-xl">
           🚫 Você não tem permissão para acessar essa página.
         </div>
       )}
 
-      {/* Celular: sidebar vira gaveta por cima do conteúdo (fixed + fundo escuro).
-          PC/tablet: continua empurrando o conteúdo, como sempre foi. */}
-      {aberta && (
-        <>
-          <div
-            onClick={toggle}
-            className="fixed inset-0 z-40 bg-black/40 lg:hidden"
-            aria-hidden
-          />
-          <div className="fixed inset-y-0 left-0 z-50 lg:static lg:z-auto">
-            <Sidebar permissoes={permissoes} isMaster={isMaster} />
-          </div>
-        </>
-      )}
+      {/* A gaveta fica SEMPRE montada — antes era {aberta && <Sidebar/>}, que monta e
+          desmonta, então ela PISCAVA (não há o que animar num elemento que nem existe).
+          Celular: desliza por cima do conteúdo. PC: encolhe e o conteúdo acompanha. */}
+      <div
+        onClick={toggle}
+        aria-hidden
+        className={cn(
+          'tc-veu fixed inset-0 z-40 bg-black/40 lg:hidden',
+          aberta ? 'opacity-100' : 'pointer-events-none opacity-0',
+        )}
+      />
+      <div
+        inert={!aberta}
+        className={cn(
+          'tc-gaveta fixed inset-y-0 left-0 z-50 lg:static lg:z-auto lg:overflow-hidden',
+          aberta ? 'translate-x-0 lg:w-60' : '-translate-x-full lg:w-0 lg:translate-x-0',
+        )}
+      >
+        <Sidebar permissoes={permissoes} isMaster={isMaster} />
+      </div>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">

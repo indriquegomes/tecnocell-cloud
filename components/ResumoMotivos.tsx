@@ -55,14 +55,17 @@ export function ResumoMotivos({
           const pct = (n / total) * 100
           const ativo = selecionado === m.id
           return (
+            // o filtro escolhido "prende" com um pulinho e ganha o anel azul do brand
             <button
               key={m.id}
               type="button"
               onClick={() => onSelecionar(ativo ? null : m.id)}
-              className={`block w-full rounded-lg px-2 py-1.5 text-left transition hover:bg-gray-50 ${ativo ? 'bg-gray-50 ring-1 ring-gray-200' : ''}`}
+              className={`block w-full rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-gray-50 ${
+                ativo ? 'tc-escolhido bg-blue-50/60 ring-1 ring-blue-200' : ''
+              }`}
             >
               <div className="flex items-baseline justify-between gap-2 text-sm">
-                <span className={ativo ? 'font-semibold text-gray-900' : 'text-gray-600'}>
+                <span className={ativo ? 'font-semibold text-blue-800' : 'text-gray-600'}>
                   {m.icone} {m.label}
                 </span>
                 <span className="shrink-0 tabular-nums text-gray-400">
@@ -70,8 +73,9 @@ export function ResumoMotivos({
                 </span>
               </div>
               <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-100">
+                {/* a barra CRESCE do zero — mostra a proporção acontecendo */}
                 <div
-                  className={`h-full rounded-full ${m.cor.split(' ').find((c) => c.startsWith('bg-'))?.replace('-50', '-400') ?? 'bg-gray-400'}`}
+                  className={`tc-cresce h-full rounded-full ${m.cor.split(' ').find((c) => c.startsWith('bg-'))?.replace('-50', '-400') ?? 'bg-gray-400'}`}
                   style={{ width: `${pct}%` }}
                 />
               </div>
