@@ -20,6 +20,7 @@ export type PessoaEdit = {
   telefone: string | null; celular: string | null; cep: string | null; endereco: string | null
   numero: string | null; complemento: string | null; bairro: string | null; cidade: string | null
   estado: string | null; tabela_preco_id: string | null; limite_credito: number | null
+  rotina_pagamento?: string | null
   vendedor_id: string | null; origem: string | null; observacoes: string | null
 }
 
@@ -166,6 +167,17 @@ export function PessoaForm({ tabelas, vendedores, editando, podeCredito = true }
               {tabelas.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
             </select>
             <p className="mt-1 text-[11px] text-gray-400">Aplicada sozinha no PDV ao escolher este cliente</p>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Rotina de pagamento do fiado</label>
+            <select name="rotina_pagamento" defaultValue={editando?.rotina_pagamento ?? ''} className="field">
+              <option value="">— sem combinado —</option>
+              <option value="fim_do_dia">🕕 Paga no fim do dia</option>
+              <option value="semanal">📅 Acerta toda semana</option>
+              <option value="quinzenal">🗓️ Acerta na quinzena</option>
+              <option value="mensal">📆 Acerta no mês</option>
+            </select>
+            <p className="mt-1 text-[11px] text-gray-400">Aparece no crediário do PDV — o balcão sabe que o saldo é normal.</p>
           </div>
           {podeCredito ? (
             <div>

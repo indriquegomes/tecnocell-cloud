@@ -83,6 +83,57 @@ export async function salvarExcecao(_prev: ActionState, fd: FormData): Promise<A
   }
 }
 
+// ── RÉGUA — edição direta na linha do tempo (pedido do Vitor) ────────────────
+// Escolhe a pessoa, arrasta as pontas (entrada/saída) e a régua do almoço, salva.
+// escopo 'padrao' = vira a rotina daquele dia da semana · 'dia' = só aquela data.
+export async function salvarRegua(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  try {
+    const token = fd.get('access_token') as string
+    const usuario = await requirePermissao('rh', token)
+    const supabase = await createServiceClient()
+
+    const perfilId = fd.get('perfil_id') as string
+    const escopo = fd.get('escopo') as string          // 'padrao' | 'dia'
+    const dia = Number(fd.get('dia'))
+    const data = fd.get('data') as string
+    const entrada = fd.get('entrada') as string
+    const saida = fd.get('saida') as string
+    const pausaIni = (fd.get('pausa_inicio') as string) || null
+    const pausaFim = (fd.get('pausa_fim') as string) || null
+    const cor = (fd.get('cor') as string) || null
+
+    if (!perfilId || !entrada || !saida) return { ok: false, message: 'Dados incompletos.' }
+    if (saida <= entrada) return { ok: false, message: 'A saída tem que ser depois da entrada.' }
+    if (pausaIni && pausaFim && (pausaIni <= entrada || pausaFim >= saida || pausaFim <= pausaIni)) {
+      return { ok: false, message: 'O almoço tem que caber dentro do turno.' }
+    }
+
+    // a cor é da PESSOA (a Bruna é rosinha em todos os dias)
+    if (cor) await supabase.from('perfis').update({ cor_escala: cor }).eq('id', perfilId)
+
+    if (escopo === 'padrao') {
+      if (isNaN(dia)) return { ok: false, message: 'Dia inválido.' }
+      const { error } = await supabase.from('escalas').upsert(
+        { perfil_id: perfilId, dia, entrada, saida, pausa_inicio: pausaIni, pausa_fim: pausaFim, ativo: true },
+        { onConflict: 'perfil_id,dia' },
+      )
+      if (error) return { ok: false, message: error.message }
+    } else {
+      if (!data) return { ok: false, message: 'Data inválida.' }
+      const { error } = await supabase.from('escala_excecoes').upsert(
+        { perfil_id: perfilId, data, folga: false, entrada, saida, pausa_inicio: pausaIni, pausa_fim: pausaFim, criado_por: usuario.id },
+        { onConflict: 'perfil_id,data' },
+      )
+      if (error) return { ok: false, message: error.message }
+    }
+
+    revalidatePath('/painel/escala')
+    return { ok: true, message: escopo === 'padrao' ? 'Salvo como rotina.' : 'Salvo só neste dia.' }
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : 'Erro ao salvar.' }
+  }
+}
+
 export async function removerExcecao(_prev: ActionState, fd: FormData): Promise<ActionState> {
   try {
     await requirePermissao('rh', fd.get('access_token') as string)

@@ -406,6 +406,30 @@ export async function buscarCrediario(accessToken: string): Promise<CrediarioIte
   return (data ?? []) as CrediarioItem[]
 }
 
+// Limite e rotina de pagamento das pessoas do crediário (pra visão POR PESSOA).
+// O vínculo é por NOME (lancamentos guarda pessoa_nome, não pessoa_id — herança do
+// SIGE; casa 99%, ver memória). Devolve só quem foi pedido.
+export async function buscarInfoPessoasCrediario(
+  accessToken: string,
+  nomes: string[],
+): Promise<Record<string, { limite: number; rotina: string | null }>> {
+  await requirePermissao('pdv', accessToken)
+  if (nomes.length === 0) return {}
+  const supabase = await createServiceClient()
+  const out: Record<string, { limite: number; rotina: string | null }> = {}
+  // .in() com até ~200 nomes por lote (o crediário aberto raramente passa disso)
+  for (let i = 0; i < nomes.length; i += 200) {
+    const { data } = await supabase
+      .from('pessoas')
+      .select('nome, limite_credito, rotina_pagamento')
+      .in('nome', nomes.slice(i, i + 200))
+    for (const p of data ?? []) {
+      out[p.nome] = { limite: Number(p.limite_credito) || 0, rotina: (p.rotina_pagamento as string | null) ?? null }
+    }
+  }
+  return out
+}
+
 export async function buscarDetalheVenda(accessToken: string, vendaId: string): Promise<DetalheVenda | null> {
   await requirePermissao('pdv', accessToken)
   const supabase = await createServiceClient()

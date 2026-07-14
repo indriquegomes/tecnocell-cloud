@@ -17,7 +17,7 @@ export default async function EscalaPage({
   const ultimo = dias[dias.length - 1].data
 
   const [perfisRes, escalasRes, excecoesRes, lojasRes] = await Promise.all([
-    supabase.from('perfis').select('id, nome, cargo_id').eq('ativo', true).order('nome'),
+    supabase.from('perfis').select('id, nome, cargo_id, cor_escala').eq('ativo', true).order('nome'),
     supabase.from('escalas').select('*').eq('ativo', true),
     supabase.from('escala_excecoes').select('*').gte('data', primeiro).lte('data', ultimo),
     supabase.from('lojas').select('id, nome').eq('ativa', true).order('nome'),
@@ -36,10 +36,15 @@ export default async function EscalaPage({
 
   const horas = horasPorPessoa(dias, escalas, excecoes, nomes)
 
+  const cores: Record<string, string | null> = Object.fromEntries(
+    perfis.map((p) => [p.id, (p as { cor_escala?: string | null }).cor_escala ?? null]),
+  )
+
   return (
     <EscalaClient
       dias={grade}
       perfis={perfis}
+      cores={cores}
       escalas={escalas}
       excecoes={excecoes}
       lojas={lojasRes.data ?? []}

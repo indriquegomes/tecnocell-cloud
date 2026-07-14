@@ -28,6 +28,8 @@ function camposPessoa(formData: FormData, cpfCnpj: string, email: string) {
     estado: txt('estado'),
     tabela_preco_id: txt('tabela_preco_id'),
     limite_credito: parseFloat(formData.get('limite_credito') as string) || 0,
+    // combinado de pagamento do fiado ("paga no fim do dia") — mostrado no crediário do PDV
+    rotina_pagamento: txt('rotina_pagamento'),
     vendedor_id: txt('vendedor_id'),
     origem: txt('origem'),
     observacoes: txt('observacoes'),

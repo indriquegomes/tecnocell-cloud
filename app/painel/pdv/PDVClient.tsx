@@ -5,7 +5,8 @@ import { formatBRL, hojeSP } from '@/lib/utils'
 import { labelPrazo } from '@/lib/formas-pagamento'
 import { createClient } from '@/lib/supabase/client'
 import { Spinner } from '@/components/Spinner'
-import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, buscarFiadoCliente, caixaAbertoDaLoja, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, aplicarDescontoCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
+import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, buscarFiadoCliente, caixaAbertoDaLoja, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, aplicarDescontoCrediario, buscarInfoPessoasCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
+import { rotulaRotina } from '@/lib/rotina-pagamento'
 
 // "Desconto" aparece junto das formas de recebimento porque é ali que a Duda procura,
 // mas NÃO é forma de pagamento: não entra dinheiro, ele abate a dívida. Id falso pra
@@ -235,6 +236,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [parcelasRecebimento, setParcelasRecebimento] = useState(1)
   const [valorRecebido, setValorRecebido] = useState<string>('')
   const [motivoDesconto, setMotivoDesconto] = useState('')
+  // Visão do crediário: por venda (lista de fiados) ou POR PESSOA (quem deve, quanto,
+  // limite e o combinado de pagamento) — pedido do Vitor
+  const [visaoCrediario, setVisaoCrediario] = useState<'vendas' | 'pessoas'>('vendas')
+  const [infoPessoas, setInfoPessoas] = useState<Record<string, { limite: number; rotina: string | null }>>({})
   // F3 — Busca Orçamento/Pedido
   const [mostrarOrcamentos, setMostrarOrcamentos] = useState(false)
   const [orcamentos, setOrcamentos] = useState<PedidoResumo[]>([])
@@ -1080,7 +1085,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     setSelecionados(new Set())
     setCarregandoCrediario(true)
     try {
-      setCrediarioItens(await buscarCrediario(await authToken()))
+      const itens = await buscarCrediario(await authToken())
+      setCrediarioItens(itens)
+      // limite + rotina de cada pessoa (não trava a lista se falhar)
+      const nomes = [...new Set(itens.map((i) => i.pessoa_nome).filter(Boolean))] as string[]
+      buscarInfoPessoasCrediario(await authToken(), nomes).then(setInfoPessoas).catch(() => {})
     } catch {
       setErro('Não consegui carregar o crediário.')
       setMostrarCrediario(false)
@@ -1199,6 +1208,21 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     : crediarioItens
 
   const restante = (i: CrediarioItem) => i.valor - (i.valor_pago ?? 0)
+
+  // Agregado POR PESSOA: quem deve, quanto, desde quando — com limite e rotina.
+  const pessoasCrediario = (() => {
+    const m = new Map<string, { nome: string; n: number; devendo: number; maisAntigo: string; temVencido: boolean }>()
+    for (const i of crediarioFiltrado) {
+      const nome = i.pessoa_nome ?? '(sem cliente)'
+      const cur = m.get(nome) ?? { nome, n: 0, devendo: 0, maisAntigo: i.created_at, temVencido: false }
+      cur.n += 1
+      cur.devendo += restante(i)
+      if (i.created_at < cur.maisAntigo) cur.maisAntigo = i.created_at
+      if (i.data_vencimento && i.data_vencimento < hoje) cur.temVencido = true
+      m.set(nome, cur)
+    }
+    return [...m.values()].sort((a, b) => b.devendo - a.devendo)
+  })()
   const totalDividas = crediarioItens.reduce((s, i) => s + restante(i), 0)
   const totalPagoCrediario = crediarioItens.reduce((s, i) => s + (i.valor_pago ?? 0), 0)
   const totalAtraso = crediarioItens.filter((i) => i.data_vencimento && i.data_vencimento < hoje).reduce((s, i) => s + restante(i), 0)
@@ -2290,6 +2314,16 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
             {/* Filtros */}
             <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-3">
+              <div className="flex shrink-0 rounded-lg border border-gray-200 bg-gray-50 p-0.5 text-xs font-semibold">
+                <button type="button" onClick={() => setVisaoCrediario('vendas')}
+                  className={`rounded-md px-2.5 py-1.5 transition ${visaoCrediario === 'vendas' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500'}`}>
+                  Por venda
+                </button>
+                <button type="button" onClick={() => setVisaoCrediario('pessoas')}
+                  className={`rounded-md px-2.5 py-1.5 transition ${visaoCrediario === 'pessoas' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500'}`}>
+                  Por pessoa
+                </button>
+              </div>
               <input
                 value={buscaCrediario}
                 onChange={(e) => setBuscaCrediario(e.target.value)}
@@ -2330,6 +2364,67 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 <p className="py-14 text-center text-sm text-gray-400">
                   {crediarioItens.length === 0 ? 'Nenhum fiado em aberto. 🎉' : 'Nenhum resultado para o filtro.'}
                 </p>
+              ) : visaoCrediario === 'pessoas' ? (
+                /* POR PESSOA — quem deve, quanto, o limite e o combinado de pagamento.
+                   O saldo alto de quem "paga no fim do dia" é rotina, não inadimplência. */
+                <table className="min-w-full divide-y divide-gray-100 text-sm">
+                  <thead className="sticky top-0 bg-gray-50">
+                    <tr className="text-left text-xs font-semibold uppercase text-gray-500">
+                      <th className="px-4 py-3">Cliente</th>
+                      <th className="px-4 py-3">Combinado</th>
+                      <th className="px-4 py-3 text-center">Fiados</th>
+                      <th className="px-4 py-3 text-right">Devendo</th>
+                      <th className="px-4 py-3">Limite</th>
+                      <th className="px-4 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {pessoasCrediario.map((pp) => {
+                      const info = infoPessoas[pp.nome]
+                      const limite = info?.limite ?? 0
+                      const rot = rotulaRotina(info?.rotina)
+                      const pct = limite > 0 ? (pp.devendo / limite) * 100 : null
+                      const estourou = pct !== null && pct >= 100
+                      return (
+                        <tr key={pp.nome} className="hover:bg-blue-50/50 transition">
+                          <td className="px-4 py-3">
+                            <p className="font-semibold text-gray-800">{pp.nome}</p>
+                            {pp.temVencido && <span className="text-[11px] font-semibold text-red-600">tem fiado vencido</span>}
+                          </td>
+                          <td className="px-4 py-3">
+                            {rot
+                              ? <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">{rot.icone} {rot.label}</span>
+                              : <span className="text-xs text-gray-300">—</span>}
+                          </td>
+                          <td className="px-4 py-3 text-center text-gray-600">{pp.n}</td>
+                          <td className="px-4 py-3 text-right font-bold tabular-nums text-gray-900">{formatBRL(pp.devendo)}</td>
+                          <td className="px-4 py-3">
+                            {limite > 0 ? (
+                              <div className="w-32">
+                                <div className="flex justify-between text-[11px] tabular-nums">
+                                  <span className={estourou ? 'font-bold text-red-600' : 'text-gray-500'}>{Math.round(pct!)}%</span>
+                                  <span className="text-gray-400">{formatBRL(limite)}</span>
+                                </div>
+                                <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-gray-100">
+                                  <div className={`h-full rounded-full ${estourou ? 'bg-red-500' : pct! >= 75 ? 'bg-amber-400' : 'bg-emerald-500'}`}
+                                    style={{ width: `${Math.min(100, pct!)}%` }} />
+                                </div>
+                                {estourou && <p className="mt-0.5 text-[10px] font-semibold text-red-600">estourou o limite</p>}
+                              </div>
+                            ) : <span className="text-xs text-gray-300">sem limite</span>}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button type="button"
+                              onClick={() => { setBuscaCrediario(pp.nome); setVisaoCrediario('vendas') }}
+                              className="rounded-lg border border-blue-200 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50 transition">
+                              ver fiados →
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
               ) : (
                 <table className="min-w-full divide-y divide-gray-100 text-sm">
                   <thead className="sticky top-0 bg-gray-50">

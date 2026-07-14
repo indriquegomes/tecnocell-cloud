@@ -21,6 +21,8 @@ export interface Escala {
   dia: number         // 0=dom … 6=sáb
   entrada: string     // "08:00:00"
   saida: string
+  pausa_inicio?: string | null   // almoço/lanche — durante a pausa a pessoa NÃO cobre a loja
+  pausa_fim?: string | null
   ativo: boolean
 }
 
@@ -31,6 +33,8 @@ export interface Excecao {
   folga: boolean
   entrada: string | null
   saida: string | null
+  pausa_inicio?: string | null
+  pausa_fim?: string | null
   motivo: string | null
 }
 
@@ -40,6 +44,8 @@ export interface Turno {
   nome: string
   entrada: number     // minutos do dia
   saida: number
+  pausaIni: number | null   // almoço/lanche (minutos) — não cobre a loja nesse trecho
+  pausaFim: number | null
   folga: boolean
   motivo: string | null
   alterado: boolean   // veio de exceção, não da rotina
@@ -79,14 +85,18 @@ export function turnosDoDia(
   for (const es of escalas.filter((e) => e.ativo && e.dia === diaSemana)) {
     const ex = porPessoa.get(es.perfil_id)
     if (ex?.folga) {
-      turnos.push({ perfilId: es.perfil_id, nome: nomes[es.perfil_id] ?? '—', entrada: 0, saida: 0, folga: true, motivo: ex.motivo, alterado: true })
+      turnos.push({ perfilId: es.perfil_id, nome: nomes[es.perfil_id] ?? '—', entrada: 0, saida: 0, pausaIni: null, pausaFim: null, folga: true, motivo: ex.motivo, alterado: true })
       continue
     }
+    const pIni = ex ? (ex.pausa_inicio ?? null) : (es.pausa_inicio ?? null)
+    const pFim = ex ? (ex.pausa_fim ?? null) : (es.pausa_fim ?? null)
     turnos.push({
       perfilId: es.perfil_id,
       nome: nomes[es.perfil_id] ?? '—',
       entrada: min(ex?.entrada ?? es.entrada),
       saida: min(ex?.saida ?? es.saida),
+      pausaIni: pIni ? min(pIni) : null,
+      pausaFim: pFim ? min(pFim) : null,
       folga: false,
       motivo: ex?.motivo ?? null,
       alterado: !!ex,
@@ -103,6 +113,8 @@ export function turnosDoDia(
       nome: nomes[ex.perfil_id] ?? '—',
       entrada: min(ex.entrada),
       saida: min(ex.saida),
+      pausaIni: ex.pausa_inicio ? min(ex.pausa_inicio) : null,
+      pausaFim: ex.pausa_fim ? min(ex.pausa_fim) : null,
       folga: false,
       motivo: ex.motivo,
       alterado: true,
@@ -124,7 +136,9 @@ export function furosDoDia(turnos: Turno[], diaSemana: number): { de: number; at
   const fecha = min(h.fecha)
   const ativos = turnos.filter((t) => !t.folga && t.saida > t.entrada)
 
-  const cobre = (m: number) => ativos.some((t) => t.entrada <= m && m < t.saida)
+  const cobre = (m: number) => ativos.some((t) =>
+    t.entrada <= m && m < t.saida &&
+    !(t.pausaIni !== null && t.pausaFim !== null && t.pausaIni <= m && m < t.pausaFim))
 
   const furos: { de: number; ate: number }[] = []
   let inicio: number | null = null
@@ -155,7 +169,8 @@ export function horasPorPessoa(
     for (const t of turnosDoDia(d.data, d.diaSemana, escalas, excecoes, nomes)) {
       if (t.folga || t.saida <= t.entrada) continue
       acc[t.perfilId] ??= { minutos: 0, dias: 0 }
-      acc[t.perfilId].minutos += t.saida - t.entrada
+      const pausa = t.pausaIni !== null && t.pausaFim !== null ? Math.max(0, t.pausaFim - t.pausaIni) : 0
+      acc[t.perfilId].minutos += (t.saida - t.entrada) - pausa
       acc[t.perfilId].dias += 1
     }
   }
