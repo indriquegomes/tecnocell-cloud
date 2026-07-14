@@ -11,6 +11,7 @@ import {
   buscarCatalogoPromo, editarPromocao,
 } from '../actions'
 import { SubmitButton } from '@/components/SubmitButton'
+import { CategoriaPromo } from './CategoriaPromo'
 
 const supabaseBrowser = createClient()
 
@@ -55,11 +56,19 @@ export function PromoDetalheClient({
   itens,
   jaNaPromo,
   faixas,
+  categorias,
+  categoriaAtual,
+  faltamNaCategoria,
+  nomeCategoriaAtual,
 }: {
   promocao: Promocao
   itens: ItemPromo[]
   jaNaPromo: string[]
   faixas: Faixa[]
+  categorias: { hierarquia: string; nome: string; total: number }[]
+  categoriaAtual: string | null
+  faltamNaCategoria: number
+  nomeCategoriaAtual: string | null
 }) {
   const router = useRouter()
   const hoje = hojeSP()
@@ -326,6 +335,17 @@ export function PromoDetalheClient({
             </button>
           </div>
         </div>
+      )}
+
+      {/* Categoria inteira — pedido da Isa (não catar 327 películas na mão) */}
+      {!expirada && categorias.length > 0 && (
+        <CategoriaPromo
+          promocaoId={promocao.id}
+          categorias={categorias}
+          categoriaAtual={categoriaAtual}
+          faltamNaCategoria={faltamNaCategoria}
+          nomeCategoriaAtual={nomeCategoriaAtual}
+        />
       )}
 
       {/* Adicionar em lote */}

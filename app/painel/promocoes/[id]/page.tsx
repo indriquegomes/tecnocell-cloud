@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { PromoDetalheClient } from './PromoDetalheClient'
@@ -49,6 +49,32 @@ export default async function PromoDetalhe({ params }: { params: Promise<{ id: s
     .eq('promocao_id', id)
     .order('quantidade_minima')
 
+  // ── Categorias, pra "adicionar categoria inteira" (pedido da Isa: não catar as 327
+  //    películas na mão). Conta quantos produtos ATIVOS cada uma tem.
+  //    fetchAll: COMPONENTE sozinha tem 2.886 e o PostgREST capa em 1000.
+  const [{ data: catsRaw }, todosProdutos] = await Promise.all([
+    supabase.from('categorias').select('hierarquia, nome').order('nome'),
+    fetchAll<{ id: string; categoria: string | null }>(
+      (from, to) => supabase.from('produtos').select('id, categoria').eq('ativo', true).order('id').range(from, to),
+    ),
+  ])
+
+  const porCategoria: Record<string, string[]> = {}
+  for (const p of todosProdutos) {
+    if (p.categoria) (porCategoria[p.categoria] ??= []).push(p.id)
+  }
+  const categorias = (catsRaw ?? [])
+    .map((c) => ({ hierarquia: c.hierarquia as string, nome: c.nome as string, total: (porCategoria[c.hierarquia] ?? []).length }))
+    .filter((c) => c.total > 0)
+
+  // A promoção é uma FOTO: produto novo na categoria não entra sozinho. Conta quantos
+  // ficaram de fora pra tela poder avisar.
+  const categoriaAtual = (promo.categoria as string | null) ?? null
+  const faltamNaCategoria = categoriaAtual
+    ? (porCategoria[categoriaAtual] ?? []).filter((pid) => !jaNaPromo.has(pid)).length
+    : 0
+  const nomeCategoriaAtual = categorias.find((c) => c.hierarquia === categoriaAtual)?.nome ?? null
+
   return (
     <div className="space-y-4">
       <Link href="/painel/promocoes" className="text-sm text-blue-600 hover:text-blue-800">
@@ -59,6 +85,10 @@ export default async function PromoDetalhe({ params }: { params: Promise<{ id: s
         itens={itens}
         jaNaPromo={[...jaNaPromo]}
         faixas={(faixas ?? []) as { id: string; quantidade_minima: number; preco: number }[]}
+        categorias={categorias}
+        categoriaAtual={categoriaAtual}
+        faltamNaCategoria={faltamNaCategoria}
+        nomeCategoriaAtual={nomeCategoriaAtual}
       />
     </div>
   )

@@ -1,6 +1,6 @@
 'use server'
 
-import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao, fetchAll } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
@@ -173,6 +173,77 @@ export async function adicionarItensLotePromocao(
     const { error } = await supabase.from('itens_promocao').insert(rows.slice(i, i + 500))
     if (error) throw new Error(error.message)
   }
+  revalidatePath(`/painel/promocoes/${promocaoId}`)
+  return rows.length
+}
+
+// ===== PROMOÇÃO POR CATEGORIA =====
+//
+// Pedido da Isa: promoção de PELÍCULA sem ter que catar as 327 películas na mão.
+//
+// A promoção continua guardando PRODUTO A PRODUTO (itens_promocao) — a lógica de preço
+// do PDV não muda em nada. Isso é dinheiro; não mexo nela por conveniência de cadastro.
+// O que muda é o CADASTRO: em vez de buscar e marcar 327 itens, escolhe-se a categoria
+// e o sistema despeja todos de uma vez.
+//
+// Como é uma FOTOGRAFIA, um produto novo cadastrado depois não entra sozinho. Por isso
+// guardamos a categoria na promoção (promocoes.categoria) e a tela avisa quando surgem
+// produtos novos que ainda não estão nela — com um clique pra incluir.
+
+// Quantos produtos ATIVOS a categoria tem, e quantos já estão na promoção.
+export async function contarCategoriaPromocao(
+  promocaoId: string,
+  hierarquia: string,
+): Promise<{ total: number; ja: number; faltam: number }> {
+  await requirePermissao('produtos')
+  const supabase = await createServiceClient()
+
+  const [prodRes, itensRes] = await Promise.all([
+    supabase.from('produtos').select('id').eq('ativo', true).eq('categoria', hierarquia),
+    supabase.from('itens_promocao').select('produto_id').eq('promocao_id', promocaoId),
+  ])
+  const daCategoria = (prodRes.data ?? []).map((p) => p.id)
+  const jaNaPromo = new Set((itensRes.data ?? []).map((i) => i.produto_id))
+  const faltam = daCategoria.filter((id) => !jaNaPromo.has(id)).length
+  return { total: daCategoria.length, ja: daCategoria.length - faltam, faltam }
+}
+
+// Joga TODOS os produtos ativos da categoria na promoção (só os que ainda não estão).
+export async function adicionarCategoriaPromocao(
+  promocaoId: string,
+  hierarquia: string,
+): Promise<number> {
+  await requirePermissao('produtos')
+  const supabase = await createServiceClient()
+
+  // fetchAll: uma categoria pode ter 2.886 produtos (COMPONENTE) e o PostgREST capa em 1000
+  const daCategoria = await fetchAll<{ id: string; preco: number | null }>(
+    (from, to) => supabase.from('produtos').select('id, preco')
+      .eq('ativo', true).eq('categoria', hierarquia).order('id').range(from, to),
+  )
+  const { data: itens } = await supabase.from('itens_promocao').select('produto_id').eq('promocao_id', promocaoId)
+  const ja = new Set((itens ?? []).map((i) => i.produto_id))
+
+  const novos = daCategoria.filter((p) => !ja.has(p.id))
+  if (novos.length === 0) return 0
+
+  const rows = novos.map((p) => ({
+    promocao_id: promocaoId,
+    produto_id: p.id,
+    // 0 = sem preço fixo. Na promoção progressiva quem manda são as FAIXAS de quantidade,
+    // não um preço por item — é assim que a de película já funciona hoje.
+    preco_promocional: 0,
+    quantidade_x: null,
+    quantidade_y: null,
+  }))
+  for (let i = 0; i < rows.length; i += 500) {
+    const { error } = await supabase.from('itens_promocao').insert(rows.slice(i, i + 500))
+    if (error) throw new Error(error.message)
+  }
+
+  // guarda a categoria na promoção pra tela saber avisar quando entrar produto novo
+  await supabase.from('promocoes').update({ categoria: hierarquia }).eq('id', promocaoId)
+
   revalidatePath(`/painel/promocoes/${promocaoId}`)
   return rows.length
 }
