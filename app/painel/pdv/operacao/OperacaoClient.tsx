@@ -330,29 +330,50 @@ function FeedbackMsg({ state }: { state: ActionState }) {
 // Cada painel monta/desmonta quando o card é aberto/fechado.
 // O useActionState fica no sub-componente → state reseta ao reabrir.
 
+// Troco padrão da loja. O campo vinha com 0 e dava pra abrir o dia sem troco sem
+// perceber — foi o que aconteceu em 13/07 (dois caixas abertos com R$0).
+const TROCO_PADRAO = '200'
+
 function AbrirCaixaPanel({ lojaId }: { lojaId: string }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(abrirCaixa, null)
+  const [valor, setValor] = useState(TROCO_PADRAO)
+  const zerado = (parseFloat(valor.replace(',', '.')) || 0) === 0
+
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
       <h3 className="font-semibold text-gray-800">Abrir Caixa</h3>
-      <form action={withToken(action)} className="flex flex-wrap gap-4 items-end">
+      <form
+        action={withToken(action)}
+        onSubmit={(e) => {
+          // abrir sem troco é possível, mas não pode ser por descuido
+          if (zerado && !confirm('Abrir o caixa SEM troco na gaveta (R$ 0,00)?\n\nSe você tem troco, informe o valor — senão o fechamento vai acusar sobra.')) {
+            e.preventDefault()
+          }
+        }}
+        className="flex flex-wrap gap-4 items-end"
+      >
         <input type="hidden" name="loja_id" value={lojaId} />
         <div className="flex-1 min-w-48">
           <label className="mb-1.5 block text-sm font-medium text-gray-700">
-            Valor de Abertura (R$)
+            Troco na Gaveta (R$)
           </label>
           <input
             name="valor_abertura"
             type="number"
             step="0.01"
             min="0"
-            defaultValue="0"
-            className="field"
+            value={valor}
+            onChange={(e) => setValor(e.target.value)}
+            required
+            className={`field ${zerado ? 'border-amber-300 bg-amber-50/50' : ''}`}
           />
+          <p className="mt-1 text-xs text-gray-400">
+            {zerado ? '⚠ Gaveta vazia — confira se não tem troco.' : `Padrão da loja: R$ ${TROCO_PADRAO},00`}
+          </p>
         </div>
         <div className="flex-1 min-w-48">
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Observações</label>
-          <input name="obs_abertura" className="field" placeholder="Opcional" />
+          <input name="obs_abertura" className="field" placeholder="Ex: quem abriu" />
         </div>
         <button
           type="submit"
