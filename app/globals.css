@@ -88,32 +88,50 @@ body {
   .animate-fade-in > * { animation: none; }
 }
 
-/* Feedback universal de botão (o sistema quase não tinha estado :active).
-   - cursor de mãozinha em tudo que é clicável
-   - ao PASSAR: leve realce (só onde não há hover próprio muito forte, é sutil)
-   - ao APERTAR: micro-afundada — deixa CLARO que o clique pegou
+/* ═══════════════════════════════════════════════════════════════════
+   O APERTO — a única pergunta que TODO botão precisa responder:
+   "pegou ou não pegou?"
+
+   Ninguém no balcão olha pra tela pra admirar botão. A pessoa aperta,
+   olha pro cliente, e volta. Se ela ficar na dúvida se pegou, ela
+   aperta DE NOVO — e no PDV apertar de novo é venda duplicada.
+
+   Por isso o aperto é FÍSICO, não decorativo:
+     apertou  → afunda RÁPIDO (0.04s). Instantâneo, como tecla de verdade.
+     soltou   → volta com MOLA, passando um tico do ponto e assentando.
+
+   Essa assimetria (desce seco, sobe com mola) é o que dá a sensação de
+   coisa real. Simétrico parece software; assimétrico parece botão.
+
    Vale pra <button>, <a> e role=button. Desabilitado não reage.
-   Reversível: apagar este bloco. */
+   Reversível: apagar o bloco. */
 button:not(:disabled),
 [role="button"]:not([aria-disabled="true"]),
 a[class*="rounded"] {
   cursor: pointer;
-  transition: transform 0.08s ease, filter 0.12s ease;
+  /* a VOLTA (soltar) — a mola mora aqui */
+  transition: transform 0.3s var(--tc-mola), filter 0.16s ease;
 }
-/* Afundada ao APERTAR — perceptível no dedo (tablet/PDV é toque, não hover).
-   Era 0.985 (quase invisível): a dúvida "cliquei?" continuava. 0.96 dá o retorno
-   sem exagero. -webkit-tap-highlight-color remove o flash cinza feio do toque. */
+
+/* A DESCIDA (apertar). 0.94 e não 0.985: o antigo era invisível e a dúvida
+   "cliquei?" continuava — que é justamente o que causa clique duplo.
+   A descida é quase instantânea de propósito: tecla de verdade não desce devagar. */
 button:not(:disabled):active,
 [role="button"]:not([aria-disabled="true"]):active,
 a[class*="rounded"]:active {
-  transform: translateY(1px) scale(0.96);
-  filter: brightness(0.94);
+  transform: translateY(1px) scale(0.94);
+  filter: brightness(0.88);
+  transition-duration: 0.04s, 0.04s;
 }
+
 button, [role="button"], a { -webkit-tap-highlight-color: transparent; }
+
+/* Desabilitado: não reage, e ainda AVISA que não vai reagir. */
 button:disabled,
 [aria-disabled="true"] { cursor: not-allowed; }
 
 @media (prefers-reduced-motion: reduce) {
+  button:not(:disabled), [role="button"], a[class*="rounded"] { transition: none; }
   button:active, [role="button"]:active, a[class*="rounded"]:active { transform: none; }
 }
 
