@@ -121,7 +121,6 @@ const navCompleto: NavGroup[] = [
       { href: '/painel/usuarios',      label: 'Usuários',      permissao: 'usuarios' },
       { href: '/painel/cargos',        label: 'Cargos',        permissao: 'usuarios' },
       { href: '/painel/configuracoes', label: 'Configurações', permissao: 'usuarios' },
-      { href: '/painel/componentes',   label: 'Componentes',   permissao: 'usuarios' },
     ],
   },
 ]
