@@ -111,6 +111,25 @@ export async function salvarRegua(_prev: ActionState, fd: FormData): Promise<Act
     // a cor é da PESSOA (a Bruna é rosinha em todos os dias)
     if (cor) await supabase.from('perfis').update({ cor_escala: cor }).eq('id', perfilId)
 
+    // NÃO TRABALHA nesse dia (pergunta do Vitor: "e se ela não for trabalhar no dia?").
+    // Na rotina: remove o turno. Num dia só: vira folga (a rotina continua valendo
+    // nos outros dias, e a folga aparece na lista de alterações).
+    if (escopo === 'folga_padrao') {
+      const { error } = await supabase.from('escalas').delete().eq('perfil_id', perfilId).eq('dia', dia)
+      if (error) return { ok: false, message: error.message }
+      revalidatePath('/painel/escala')
+      return { ok: true, message: 'Não trabalha mais nesse dia.' }
+    }
+    if (escopo === 'folga_dia') {
+      const { error } = await supabase.from('escala_excecoes').upsert(
+        { perfil_id: perfilId, data, folga: true, entrada: null, saida: null, pausa_inicio: null, pausa_fim: null, criado_por: usuario.id },
+        { onConflict: 'perfil_id,data' },
+      )
+      if (error) return { ok: false, message: error.message }
+      revalidatePath('/painel/escala')
+      return { ok: true, message: 'Folga registrada nesse dia.' }
+    }
+
     if (escopo === 'todos') {
       // mesma régua em seg→sáb de uma vez (domingo a loja não abre)
       const linhas = [1, 2, 3, 4, 5, 6].map((d) => ({

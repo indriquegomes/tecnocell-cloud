@@ -389,6 +389,7 @@ function ReguaEditor({
   const [ent, setEnt] = useState(abre)
   const [sai, setSai] = useState(fecha)
   const [comAlmoco, setComAlmoco] = useState(true)
+  const [folga, setFolga] = useState(false)   // "e se ela não for trabalhar no dia?"
   const [p1, setP1] = useState(12 * 60)
   const [p2, setP2] = useState(13 * 60)
   const trilhoRef = useRef<HTMLDivElement>(null)
@@ -398,6 +399,8 @@ function ReguaEditor({
   const escolher = (id: string) => {
     setPessoa(id)
     setCor(corDe(id, perfis, cores))
+    const emFolga = dia.turnos.some((x) => x.perfilId === id && x.folga)
+    setFolga(emFolga)
     const t = dia.turnos.find((x) => x.perfilId === id && !x.folga)
     if (t) {
       setEnt(t.entrada); setSai(t.saida)
@@ -482,7 +485,7 @@ function ReguaEditor({
             </span>
           ))}
         </div>
-        <div ref={trilhoRef} className="relative h-8 touch-none select-none overflow-hidden rounded-lg bg-gray-200/70">
+        <div ref={trilhoRef} className={`relative h-8 touch-none select-none overflow-hidden rounded-lg bg-gray-200/70 transition ${folga ? 'pointer-events-none opacity-30' : ''}`}>
           {/* expediente da loja — fora dele a escala é possível, só não gera furo */}
           <div className="absolute inset-y-0 bg-white/70" style={{ left: pos(abre), width: larg(abre, fecha) }} />
           <div className="absolute inset-y-0 rounded-lg opacity-90" style={{ left: pos(ent), width: larg(ent, sai), background: cor }} />
@@ -502,10 +505,18 @@ function ReguaEditor({
             {hhmm(ent)} → {hhmm(sai)}
             <span className="ml-2 font-normal text-gray-400">loja {hhmm(abre)}–{hhmm(fecha)}</span>
           </span>
-          <label className="flex items-center gap-1.5 text-gray-500">
-            <input type="checkbox" checked={comAlmoco} onChange={(e) => setComAlmoco(e.target.checked)} className="rounded" />
-            almoço/lanche {comAlmoco && <b className="tabular-nums text-gray-700">{hhmm(p1)}–{hhmm(p2)}</b>}
-          </label>
+          <div className="flex items-center gap-4">
+            {/* sem almoço = barra inteira, sem o vão */}
+            <label className="flex items-center gap-1.5 text-gray-500">
+              <input type="checkbox" checked={comAlmoco} onChange={(e) => setComAlmoco(e.target.checked)} className="rounded" />
+              almoço/lanche {comAlmoco && <b className="tabular-nums text-gray-700">{hhmm(p1)}–{hhmm(p2)}</b>}
+            </label>
+            {/* não trabalha = folga (a pergunta do Vitor) */}
+            <label className="flex items-center gap-1.5 font-semibold text-purple-700">
+              <input type="checkbox" checked={folga} onChange={(e) => setFolga(e.target.checked)} className="rounded accent-purple-600" />
+              🌴 não trabalha
+            </label>
+          </div>
         </div>
       </div>
 
@@ -519,21 +530,37 @@ function ReguaEditor({
         <input type="hidden" name="pausa_inicio" value={comAlmoco ? hhmm(p1) : ''} />
         <input type="hidden" name="pausa_fim" value={comAlmoco ? hhmm(p2) : ''} />
         <input type="hidden" name="cor" value={cor} />
-        <button type="submit" name="escopo" value="padrao" disabled={pending}
-          className="rounded-xl bg-[#1B6CA8] px-4 py-2 text-xs font-bold text-white hover:bg-[#155a8c] transition disabled:opacity-50">
-          Salvar como toda {DIAS[dia.diaSemana]}
-        </button>
-        {/* mesma régua em seg→sáb de uma vez — quem tem o mesmo horário todo dia
-            (que é a maioria) não precisa repetir 6 vezes */}
-        <button type="submit" name="escopo" value="todos" disabled={pending}
-          onClick={(e) => { if (!confirm(`Aplicar ${hhmm(ent)}–${hhmm(sai)} de SEGUNDA a SÁBADO?\n\nIsso substitui a escala atual desta pessoa em todos esses dias.`)) e.preventDefault() }}
-          className="rounded-xl bg-[#F47920] px-4 py-2 text-xs font-bold text-white hover:bg-[#d9660f] transition disabled:opacity-50">
-          Aplicar em todos os dias
-        </button>
-        <button type="submit" name="escopo" value="dia" disabled={pending}
-          className="rounded-xl border border-[#1B6CA8] bg-white px-4 py-2 text-xs font-bold text-[#1B6CA8] hover:bg-blue-50 transition disabled:opacity-50">
-          Só {dia.data.slice(8, 10)}/{dia.data.slice(5, 7)}
-        </button>
+        {folga ? (
+          <>
+            {/* NÃO TRABALHA. Na rotina: some do dia. Num dia só: vira folga. */}
+            <button type="submit" name="escopo" value="folga_padrao" disabled={pending}
+              className="rounded-xl bg-purple-600 px-4 py-2 text-xs font-bold text-white hover:bg-purple-700 transition disabled:opacity-50">
+              🌴 Não trabalha toda {DIAS[dia.diaSemana]}
+            </button>
+            <button type="submit" name="escopo" value="folga_dia" disabled={pending}
+              className="rounded-xl border border-purple-500 bg-white px-4 py-2 text-xs font-bold text-purple-700 hover:bg-purple-50 transition disabled:opacity-50">
+              Folga só {dia.data.slice(8, 10)}/{dia.data.slice(5, 7)}
+            </button>
+          </>
+        ) : (
+          <>
+            <button type="submit" name="escopo" value="padrao" disabled={pending}
+              className="rounded-xl bg-[#1B6CA8] px-4 py-2 text-xs font-bold text-white hover:bg-[#155a8c] transition disabled:opacity-50">
+              Salvar como toda {DIAS[dia.diaSemana]}
+            </button>
+            {/* mesma régua em seg→sáb de uma vez — quem tem o mesmo horário todo dia
+                (que é a maioria) não precisa repetir 6 vezes */}
+            <button type="submit" name="escopo" value="todos" disabled={pending}
+              onClick={(e) => { if (!confirm(`Aplicar ${hhmm(ent)}–${hhmm(sai)} de SEGUNDA a SÁBADO?\n\nIsso substitui a escala atual desta pessoa em todos esses dias.`)) e.preventDefault() }}
+              className="rounded-xl bg-[#F47920] px-4 py-2 text-xs font-bold text-white hover:bg-[#d9660f] transition disabled:opacity-50">
+              Aplicar em todos os dias
+            </button>
+            <button type="submit" name="escopo" value="dia" disabled={pending}
+              className="rounded-xl border border-[#1B6CA8] bg-white px-4 py-2 text-xs font-bold text-[#1B6CA8] hover:bg-blue-50 transition disabled:opacity-50">
+              Só {dia.data.slice(8, 10)}/{dia.data.slice(5, 7)}
+            </button>
+          </>
+        )}
         {pending && <Spinner className="h-3.5 w-3.5" />}
         {state && <span className={`text-xs font-medium ${state.ok ? 'text-green-600' : 'text-red-600'}`}>{state.ok ? '✓ ' + state.message : '✗ ' + state.message}</span>}
         <button type="button" onClick={onFechar} className="ml-auto text-xs text-gray-400 hover:text-gray-600">fechar</button>
