@@ -111,6 +111,17 @@ export async function salvarRegua(_prev: ActionState, fd: FormData): Promise<Act
     // a cor é da PESSOA (a Bruna é rosinha em todos os dias)
     if (cor) await supabase.from('perfis').update({ cor_escala: cor }).eq('id', perfilId)
 
+    if (escopo === 'todos') {
+      // mesma régua em seg→sáb de uma vez (domingo a loja não abre)
+      const linhas = [1, 2, 3, 4, 5, 6].map((d) => ({
+        perfil_id: perfilId, dia: d, entrada, saida, pausa_inicio: pausaIni, pausa_fim: pausaFim, ativo: true,
+      }))
+      const { error } = await supabase.from('escalas').upsert(linhas, { onConflict: 'perfil_id,dia' })
+      if (error) return { ok: false, message: error.message }
+      revalidatePath('/painel/escala')
+      return { ok: true, message: 'Aplicado de segunda a sábado.' }
+    }
+
     if (escopo === 'padrao') {
       if (isNaN(dia)) return { ok: false, message: 'Dia inválido.' }
       const { error } = await supabase.from('escalas').upsert(

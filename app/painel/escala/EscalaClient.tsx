@@ -523,6 +523,13 @@ function ReguaEditor({
           className="rounded-xl bg-[#1B6CA8] px-4 py-2 text-xs font-bold text-white hover:bg-[#155a8c] transition disabled:opacity-50">
           Salvar como toda {DIAS[dia.diaSemana]}
         </button>
+        {/* mesma régua em seg→sáb de uma vez — quem tem o mesmo horário todo dia
+            (que é a maioria) não precisa repetir 6 vezes */}
+        <button type="submit" name="escopo" value="todos" disabled={pending}
+          onClick={(e) => { if (!confirm(`Aplicar ${hhmm(ent)}–${hhmm(sai)} de SEGUNDA a SÁBADO?\n\nIsso substitui a escala atual desta pessoa em todos esses dias.`)) e.preventDefault() }}
+          className="rounded-xl bg-[#F47920] px-4 py-2 text-xs font-bold text-white hover:bg-[#d9660f] transition disabled:opacity-50">
+          Aplicar em todos os dias
+        </button>
         <button type="submit" name="escopo" value="dia" disabled={pending}
           className="rounded-xl border border-[#1B6CA8] bg-white px-4 py-2 text-xs font-bold text-[#1B6CA8] hover:bg-blue-50 transition disabled:opacity-50">
           Só {dia.data.slice(8, 10)}/{dia.data.slice(5, 7)}
