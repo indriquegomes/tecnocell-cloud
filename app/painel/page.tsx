@@ -166,6 +166,26 @@ export default async function DashboardPage() {
     cash: cashPorVenda[v.id] ?? 0,
   }))
 
+  // HISTÓRICO do SIGE entra na meta. As vendas reais de julho estão aqui (o PDV daqui
+  // ainda tem quase nada) — sem isto a meta mostrava R$0. Só "Pedido Faturado" (venda
+  // concretizada, não orçamento). O histórico NÃO tem forma de pagamento, então não dá
+  // pra descontar fiado dele — mas 'Faturado' no SIGE já é venda fechada; a decisão
+  // (Vitor) foi contar cheio.
+  const nomeParaLojaId: Record<string, string> = {}
+  for (const [id, nome] of Object.entries(nomeLoja)) nomeParaLojaId[nome.trim().toUpperCase()] = id
+  const histMeta = metaIds.length
+    ? await fetchAll<{ loja: string | null; valor_final: number | null; data: string }>(
+        (from, to) => supabase.from('historico_vendas').select('loja, valor_final, data')
+          .eq('status', 'Pedido Faturado').gte('data', metaMin).lte('data', metaMax + 'T23:59:59').range(from, to))
+    : []
+  for (const h of histMeta) {
+    // "TECNOCELL PETRÓPOLIS" → "PETRÓPOLIS" → loja_id
+    const chave = (h.loja ?? '').replace(/^TECNOCELL\s+/i, '').trim().toUpperCase()
+    const lojaId = nomeParaLojaId[chave] ?? null
+    if (!lojaId) continue
+    vendasCash.push({ lojaId, dia: (h.data ?? '').slice(0, 10), cash: Number(h.valor_final) || 0 })
+  }
+
   // conta dias TRABALHADOS (segunda a sábado, pula domingo) entre duas datas
   const diasTrabalhados = (a: string, b: string) => {
     const ini = new Date(a + 'T00:00:00'), fim = new Date(b + 'T00:00:00')
