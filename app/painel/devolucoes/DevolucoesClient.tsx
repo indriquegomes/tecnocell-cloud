@@ -825,6 +825,19 @@ export function DevolucoesClient({
                             </button>
                           ))}
                         </div>
+                        {/* De ONDE sai o dinheiro — o Vitor pediu clareza: dinheiro é gaveta,
+                            cartão/PIX é estorno (não mexe na gaveta). */}
+                        <p className="mt-2 text-xs text-gray-500">
+                          {tipoCredito === 'dinheiro'
+                            ? '💵 Sai da gaveta do caixa aberto — o fechamento já desconta.'
+                            : tipoCredito === 'debito' || tipoCredito === 'credito'
+                            ? '💳 Estorno pela maquininha — você faz na máquina. Não sai da gaveta.'
+                            : tipoCredito === 'pix'
+                            ? '💠 Estorno pela conta (PIX). Não sai da gaveta.'
+                            : tipoCredito === 'sem_reembolso'
+                            ? '— Sem devolução de valor (troca ou cortesia).'
+                            : ''}
+                        </p>
                       </div>
                     )}
                   </div>

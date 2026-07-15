@@ -390,6 +390,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       else if (e.key === 'F8') { e.preventDefault(); acaoF8Ref.current() }
       else if (e.key === 'F9') { e.preventDefault(); acaoF9Ref.current() }
       else if (e.key === 'F2') { e.preventDefault(); buscaRef.current?.focus() }
+      else if (e.key === 'F7') { e.preventDefault(); window.location.href = '/painel/devolucoes' }  // acesso rápido à devolução
       else if (e.key === 'Escape') { acaoEscRef.current() }
     }
     window.addEventListener('keydown', handler)
@@ -2214,7 +2215,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           <span><kbd className="rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 font-mono text-[11px] text-gray-600">F8</kbd> Finalizar venda</span>
           <span><kbd className="rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 font-mono text-[11px] text-gray-600">F9</kbd> Crediário</span>
           <span><kbd className="rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 font-mono text-[11px] text-gray-600">Esc</kbd> Fechar</span>
-          <a href="/painel/devolucoes" className="ml-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 transition">↩ Devoluções</a>
+          <a href="/painel/devolucoes" className="ml-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 transition"><kbd className="mr-1 rounded border border-gray-300 bg-white px-1 py-0.5 font-mono text-[10px]">F7</kbd> ↩ Devoluções</a>
         </div>
       </div>
 
