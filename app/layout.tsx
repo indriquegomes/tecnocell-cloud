@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Plus_Jakarta_Sans } from 'next/font/google'
 import './globals.css'
+import { RegistrarSW } from '@/components/RegistrarSW'
 
 // Fonte do sistema — Plus Jakarta Sans (variável, self-hosted pelo next/font =
 // zero request externo, sem layout shift). Exposta como --font-sans p/ o globals.
@@ -26,7 +27,10 @@ export const viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" className={`h-full ${jakarta.variable}`}>
-      <body className="min-h-full bg-gray-50 antialiased">{children}</body>
+      <body className="min-h-full bg-gray-50 antialiased">
+        <RegistrarSW />
+        {children}
+      </body>
     </html>
   )
 }
