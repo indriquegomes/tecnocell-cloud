@@ -70,7 +70,7 @@ export default async function OperacaoPDVPage({
   let reforcosDinheiro = 0
   let retiradasDinheiro = 0
   let recebidosDinheiro = 0   // fiado recebido em espécie — entra na gaveta
-  const totalDevolucoes = 0
+  let totalDevolucoes = 0
   let qtdVendas = 0
   let movimentos: {
     id: string
@@ -188,6 +188,9 @@ export default async function OperacaoPDVPage({
     const ehDin = (m: { forma_pagamento: string }) => tipoDoTexto(m.forma_pagamento) === 'dinheiro'
     reforcosDinheiro = movimentos.filter((m) => m.tipo === 'reforco' && ehDin(m)).reduce((s, m) => s + m.valor, 0)
     retiradasDinheiro = movimentos.filter((m) => m.tipo === 'retirada' && ehDin(m)).reduce((s, m) => s + m.valor, 0)
+    // DEVOLUÇÃO em dinheiro — cédula que SAIU da gaveta pro cliente. O saldo já
+    // subtrai totalDevolucoes; este era o gancho que faltava ligar (vinha 0).
+    totalDevolucoes = movimentos.filter((m) => m.tipo === 'devolucao' && ehDin(m)).reduce((s, m) => s + m.valor, 0)
 
     // FIADO RECEBIDO — dinheiro que entrou sem ser venda. Antes não entrava em lugar
     // nenhum: a gaveta tinha R$50 a mais e o fechamento acusava SOBRA falsa.

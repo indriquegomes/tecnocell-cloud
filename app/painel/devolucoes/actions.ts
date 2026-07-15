@@ -222,6 +222,34 @@ export async function registrarDevolucao(
   if (!data) throw new Error('RPC registrar_devolucao retornou vazio.')
 
   const devolucaoId = (data as { devolucao_id: string }).devolucao_id
+  const reembolso = Number((data as { reembolso?: number }).reembolso ?? 0)
+
+  // DINHEIRO devolvido SAI DA GAVETA — registra a saída no caixa aberto da loja.
+  // O RPC já não cria lançamento financeiro pra dinheiro (migration de 15/07): o
+  // dinheiro é evento de CAIXA, não conta a pagar. Aqui fechamos o outro lado —
+  // sem isto, a gaveta perdia o dinheiro físico e o sistema não registrava, e o
+  // fechamento acusava falta. Débito/crédito/PIX NÃO passam por aqui (não saem da
+  // gaveta). Fora do RPC de propósito: uma escrita de caixa não deve reverter a
+  // devolução (estoque/crédito) se der ruim — ela é secundária ao ato de devolver.
+  if (input.tipo_credito === 'dinheiro' && reembolso > 0.005 && input.deposito_id) {
+    const { data: dep } = await supabase.from('depositos').select('loja_id').eq('id', input.deposito_id).maybeSingle()
+    const lojaId = (dep as { loja_id: string | null } | null)?.loja_id ?? null
+    if (lojaId) {
+      const { data: caixa } = await supabase
+        .from('caixas').select('id').eq('status', 'aberto').eq('loja_id', lojaId)
+        .order('aberto_em', { ascending: false }).limit(1).maybeSingle()
+      const caixaId = (caixa as { id: string } | null)?.id ?? null
+      if (caixaId) {
+        await supabase.from('movimentos_caixa').insert({
+          caixa_id: caixaId,
+          tipo: 'devolucao',
+          forma_pagamento: 'Dinheiro',
+          valor: reembolso,
+          motivo: `Devolução — ${input.pessoa_nome ?? 'Cliente'}`,
+        })
+      }
+    }
+  }
 
   // O motivo é um RÓTULO, não dinheiro — grava DEPOIS, fora do RPC. Não mexo no
   // registrar_devolucao (que move estoque, crédito e fiado numa transação atômica)
