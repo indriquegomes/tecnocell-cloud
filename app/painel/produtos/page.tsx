@@ -16,7 +16,7 @@ export default async function ProdutosPage({
     busca?: string; categoria?: string; marca?: string
     ordem?: string; dir?: string
     preco_min?: string; preco_max?: string; prateleira?: string
-    com_estoque?: string; so_inativos?: string; pagina?: string
+    com_estoque?: string; so_inativos?: string; deposito?: string; pagina?: string
   }>
 }) {
   const params = await searchParams
@@ -24,7 +24,7 @@ export default async function ProdutosPage({
 
   const ordemAtual = params.ordem ?? 'nome'
   const ordemDir   = params.dir === 'desc'
-  const advancedOn = !!(params.preco_min || params.preco_max || params.prateleira || params.com_estoque || params.so_inativos)
+  const advancedOn = !!(params.preco_min || params.preco_max || params.prateleira || params.com_estoque || params.so_inativos || params.deposito)
 
   const ordemCampo = ordemAtual === 'marca'     ? 'marca'
     : ordemAtual === 'categoria' ? 'categoria'
@@ -40,7 +40,15 @@ export default async function ProdutosPage({
   // ordenar por estoque ou filtrar "só com estoque" precisa de todos os itens (agregado do join, feito em JS)
   const precisaTudo = ordemEstoque || !!params.com_estoque
 
+  // Com o filtro de depósito, TODA a tela (número, ordenação, "somente com estoque")
+  // passa a olhar só aquele depósito — pedido do Vitor: "mostra só o de Petrópolis"
   const getEstoque = (p: Record<string, unknown>) =>
+    ((p.estoque as { quantidade: number; deposito_id: string }[]) ?? [])
+      .filter((e) => !params.deposito || e.deposito_id === params.deposito)
+      .reduce((s, e) => s + (e.quantidade ?? 0), 0)
+  // total geral (todos os depósitos) — o alerta de estoque mínimo compara com o TODO,
+  // senão filtrar um depósito dispararia "abaixo do mínimo" falso
+  const getEstoqueGeral = (p: Record<string, unknown>) =>
     ((p.estoque as { quantidade: number }[]) ?? []).reduce((s, e) => s + (e.quantidade ?? 0), 0)
 
   const buildQ = (withCount: boolean) => {
@@ -109,7 +117,9 @@ export default async function ProdutosPage({
     ...(params.preco_max  ? { preco_max: params.preco_max }   : {}),
     ...(params.com_estoque  ? { com_estoque: params.com_estoque }   : {}),
     ...(params.so_inativos  ? { so_inativos: params.so_inativos }   : {}),
+    ...(params.deposito     ? { deposito: params.deposito }         : {}),
   }
+  const depFiltrado = params.deposito ? depositosReais.find((d) => d.id === params.deposito) : null
 
   return (
     <div className="space-y-6">
@@ -169,6 +179,16 @@ export default async function ProdutosPage({
           <div className="border-t border-gray-200 px-4 py-4 space-y-4">
             <div className="flex flex-wrap gap-3 items-end">
               <div>
+                <label className="mb-1 block text-xs font-medium text-gray-500">Depósito</label>
+                <select name="deposito" defaultValue={params.deposito ?? ''}
+                  className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="">Todos os depósitos</option>
+                  {depositosReais.map((d) => (
+                    <option key={d.id} value={d.id}>{d.nome}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className="mb-1 block text-xs font-medium text-gray-500">Prateleira</label>
                 <input name="prateleira" defaultValue={params.prateleira}
                   placeholder="Ex: Vitrine 1"
@@ -214,7 +234,7 @@ export default async function ProdutosPage({
                 { label: 'Categoria', ordem: 'categoria', align: 'text-left' },
                 { label: 'Preço',     ordem: 'preco',     align: 'text-right' },
                 { label: 'Custo',     ordem: 'custo',     align: 'text-right' },
-                { label: 'Estoque',   ordem: 'estoque',   align: 'text-center' },
+                { label: depFiltrado ? `Estoque · ${depFiltrado.nome}` : 'Estoque', ordem: 'estoque', align: 'text-center' },
                 { label: 'Status',    ordem: 'status',    align: 'text-center' },
               ].map(({ label, ordem, align }) => {
                 const ativo    = ordemAtual === ordem
@@ -246,9 +266,9 @@ export default async function ProdutosPage({
               </tr>
             ) : (
               produtos.map((p: Record<string, unknown>) => {
-                const estoqueTotal = getEstoque(p)
+                const estoqueTotal = getEstoque(p)   // com filtro de depósito = só aquele depósito
                 const minimo       = (p.estoque_minimo as number) ?? 0
-                const abaixoMinimo = minimo > 0 && estoqueTotal < minimo
+                const abaixoMinimo = minimo > 0 && getEstoqueGeral(p) < minimo
                 return (
                   <tr key={p.id as string} className="hover:bg-blue-50/60 transition">
                     <td className="px-4 py-3">
@@ -287,9 +307,9 @@ export default async function ProdutosPage({
                             <svg className="h-3.5 w-3.5 text-gray-400 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                           </summary>
                           <div className="mt-1.5 min-w-[168px] space-y-1 rounded-xl border border-gray-100 bg-gray-50/80 p-2.5 shadow-sm">
-                            {depositosReais.map((d) => { const q = ed[d.id] ?? 0; return (
-                              <div key={d.id} className="flex items-center justify-between gap-3 text-[11px]">
-                                <span className="flex items-center gap-1.5 text-gray-500">
+                            {depositosReais.map((d) => { const q = ed[d.id] ?? 0; const sel = d.id === params.deposito; return (
+                              <div key={d.id} className={`flex items-center justify-between gap-3 text-[11px] ${sel ? 'rounded-md bg-blue-50 px-1.5 py-0.5 -mx-1' : ''}`}>
+                                <span className={`flex items-center gap-1.5 ${sel ? 'font-semibold text-blue-700' : 'text-gray-500'}`}>
                                   <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${q < 0 ? 'bg-red-500' : q > 0 ? 'bg-green-500' : 'bg-gray-300'}`} />
                                   {d.nome}
                                 </span>
