@@ -1,19 +1,19 @@
 'use client'
 
-// Atalhos rápidos de período — preenchem os campos de data "de/até" sem digitar.
-// O Vitor pediu personalizável (datas livres) + queria os botões 7/15/30; aqui
-// tem os dois: os botões só ajustam as datas, e o "Calcular" continua sendo o form.
+// Atalhos rápidos de período — clicou, JÁ recalcula (o Vitor: "clico em 7 e 15 e
+// não vai nada"). Antes o botão só mudava as datas e ficava esperando o "Calcular";
+// agora ele preenche as datas E submete o form na hora.
 export function AtalhosPeriodo() {
   const aplicar = (dias: number) => {
-    const form = document.querySelector('form') as HTMLFormElement | null
-    if (!form) return
-    const ate = form.querySelector<HTMLInputElement>('input[name="ate"]')
-    const de = form.querySelector<HTMLInputElement>('input[name="de"]')
-    if (!ate || !de) return
+    // navega direto pra URL com as novas datas — preserva prazo/cobertura/categoria/
+    // depósito que já estão na URL. Setar o value do input date não pegava no submit.
+    const fmt = (dt: Date) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
     const hoje = new Date()
     const inicio = new Date(); inicio.setDate(inicio.getDate() - (dias - 1))
-    ate.value = hoje.toISOString().slice(0, 10)
-    de.value = inicio.toISOString().slice(0, 10)
+    const url = new URL(window.location.href)
+    url.searchParams.set('ate', fmt(hoje))
+    url.searchParams.set('de', fmt(inicio))
+    window.location.href = url.toString()
   }
   return (
     <div className="flex flex-wrap items-center gap-2">
