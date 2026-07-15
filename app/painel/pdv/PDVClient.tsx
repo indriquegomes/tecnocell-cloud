@@ -5,7 +5,7 @@ import { formatBRL, hojeSP } from '@/lib/utils'
 import { labelPrazo } from '@/lib/formas-pagamento'
 import { createClient } from '@/lib/supabase/client'
 import { Spinner } from '@/components/Spinner'
-import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, buscarFiadoCliente, caixaAbertoDaLoja, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, aplicarDescontoCrediario, buscarInfoPessoasCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
+import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, carregarClientesPDV, buscarFiadoCliente, caixaAbertoDaLoja, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, aplicarDescontoCrediario, buscarInfoPessoasCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
 import { rotulaRotina } from '@/lib/rotina-pagamento'
 
 // "Desconto" aparece junto das formas de recebimento porque é ali que a Duda procura,
@@ -353,10 +353,49 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     return () => { vivo = false; clearTimeout(t) }
   }, [busca, buscaFicha, fichaAberta, mesclarProdutos, catalogoPronto])
 
-  // Busca de cliente SOB DEMANDA (debounce 250ms) — alimenta o cache de pessoas
+  // PRÉ-CARREGA TODOS os clientes (leve) ao abrir o PDV → busca de cliente 100% LOCAL,
+  // instantânea. Antes ia ao servidor a cada tecla ("Buscando..." travado). Mesmo
+  // padrão do catálogo: cache no PC (localStorage) + revalida em background.
+  const [clientesProntos, setClientesProntos] = useState(false)
+  useEffect(() => {
+    let vivo = true
+    const CHAVE = 'pdv_clientes_v1'
+    const VALIDADE = 7 * 24 * 3600 * 1000
+    const mesclar = (novos: Pessoa[]) => setPessoas((prev) => {
+      const map = new Map(prev.map((p) => [p.id, p]))
+      for (const p of novos) map.set(p.id, p)
+      return Array.from(map.values())
+    })
+    try {
+      const bruto = localStorage.getItem(CHAVE)
+      if (bruto) {
+        const { t, clientes } = JSON.parse(bruto) as { t: number; clientes: Pessoa[] }
+        if (Array.isArray(clientes) && clientes.length && Date.now() - (t || 0) < VALIDADE) {
+          mesclar(clientes); setClientesProntos(true)
+        }
+      }
+    } catch { /* ignore */ }
+    ;(async () => {
+      try {
+        const cli = await carregarClientesPDV(await authToken())
+        if (vivo && cli.length) {
+          mesclar(cli); setClientesProntos(true)
+          try { localStorage.setItem(CHAVE, JSON.stringify({ t: Date.now(), clientes: cli })) } catch { /* quota */ }
+        }
+      } catch { /* cai na busca on-demand */ }
+    })()
+    return () => { vivo = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Busca de cliente — com todos os clientes locais, a vitrine já filtra instantâneo.
+  // O servidor vira só REFORÇO (pega cadastro novo feito noutra máquina); sem "Buscando..."
+  // travando, e só dispara se o cache ainda não carregou ou não achou nada local.
   useEffect(() => {
     const termo = buscaCliente.trim()
     if (termo.length < 1) { setBuscandoClientes(false); return }
+    // já tem tudo local → não mostra "buscando" nem vai ao servidor por tecla
+    if (clientesProntos) { setBuscandoClientes(false); return }
     setBuscandoClientes(true)
     let vivo = true
     const t = setTimeout(async () => {
@@ -369,9 +408,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         })
       } catch { /* silencioso */ }
       finally { if (vivo) setBuscandoClientes(false) }
-    }, 250)
+    }, 300)
     return () => { vivo = false; clearTimeout(t) }
-  }, [buscaCliente])
+  }, [buscaCliente, clientesProntos])
 
   // Atalhos de teclado (F8 finalizar, F2 busca, Esc fecha) — refs evitam closure stale
   const buscaRef = useRef<HTMLInputElement>(null)

@@ -108,6 +108,20 @@ export type PessoaPDV = {
 
 // Busca de cliente SOB DEMANDA (não embute mais as 2.397 pessoas no HTML).
 // Só dígitos → CPF/CNPJ/telefone; senão cada palavra em nome_norm (sem acento).
+// Pré-carrega TODOS os clientes (leve) UMA vez ao abrir o PDV → a busca de cliente
+// fica 100% LOCAL, instantânea, sem rede por tecla (era o "Buscando..." que travava).
+// Mesmo padrão do catálogo de produtos. ~2.5k clientes, paginado.
+export async function carregarClientesPDV(accessToken: string): Promise<PessoaPDV[]> {
+  await requirePermissao('pdv', accessToken)
+  const supabase = await createServiceClient()
+  const rows = await fetchAll<PessoaPDV>(
+    (from, to) => supabase.from('pessoas')
+      .select('id, nome, cpf_cnpj, telefone, endereco, bairro, cidade, estado, cep, tabela_preco_id')
+      .eq('ativo', true).in('tipo', ['cliente', 'ambos']).order('nome').range(from, to),
+  )
+  return rows
+}
+
 export async function buscarClientesPDV(accessToken: string, termo: string): Promise<PessoaPDV[]> {
   await requirePermissao('pdv', accessToken)
   const raw = termo.trim()
