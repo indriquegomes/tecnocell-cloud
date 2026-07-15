@@ -9,7 +9,7 @@ import { Dica } from '@/components/Dica'
 export default async function EstoquePage({
   searchParams,
 }: {
-  searchParams: Promise<{ deposito?: string; busca?: string; dir?: string; pagina?: string }>
+  searchParams: Promise<{ deposito?: string; busca?: string; categoria?: string; dir?: string; pagina?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
@@ -18,8 +18,9 @@ export default async function EstoquePage({
   // Depósito viram cabeçalho fixo — a busca no servidor é a navegação (acha em tudo).
   const ordemDir = params.dir === 'desc'
   const baseParams: Record<string, string> = {}
-  if (params.deposito) baseParams.deposito = params.deposito
-  if (params.busca)    baseParams.busca    = params.busca
+  if (params.deposito)  baseParams.deposito  = params.deposito
+  if (params.busca)     baseParams.busca     = params.busca
+  if (params.categoria) baseParams.categoria = params.categoria
   const qtdSort = (() => {
     const nextDir = ordemDir ? 'asc' : 'desc'
     const arrow = ordemDir ? '↓' : '↑'
@@ -30,7 +31,12 @@ export default async function EstoquePage({
   const porPagina = 50
   const pagina = Math.max(1, parseInt(params.pagina ?? '1', 10) || 1)
 
-  const { data: depositos } = await supabase.from('depositos').select('id, nome').order('nome')
+  const [{ data: depositos }, { data: categorias }] = await Promise.all([
+    supabase.from('depositos').select('id, nome, loja_id').order('nome'),
+    supabase.from('categorias').select('hierarquia, nome').order('nome'),
+  ])
+  // só depósitos de loja viram botão (os "abstratos" tipo Estoque Geral ficam no menos-usado)
+  const depsBotao = (depositos ?? []).filter((d) => d.loja_id)
 
   // busca sem acento em produtos.busca_norm (cada palavra, qualquer ordem)
   const semAcento = (s: string) => s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
@@ -39,7 +45,8 @@ export default async function EstoquePage({
   let query = supabase.from('estoque')
     .select('id, quantidade, produto:produtos!inner ( id, nome, marca, categoria, preco, busca_norm ), deposito:depositos ( id, nome )', { count: 'exact' })
     .order('quantidade', { ascending: !ordemDir })
-  if (params.deposito) query = query.eq('deposito_id', params.deposito)
+  if (params.deposito)  query = query.eq('deposito_id', params.deposito)
+  if (params.categoria) query = query.eq('produto.categoria', params.categoria)
   for (const w of palavras) query = query.ilike('produto.busca_norm', `%${w}%`)
   const { data: estoque, count } = await query.range((pagina - 1) * porPagina, pagina * porPagina - 1)
   const total = count ?? 0
@@ -51,7 +58,10 @@ export default async function EstoquePage({
     return c ?? 0
   }
   function baseCard() {
-    let q = supabase.from('estoque').select('id', { count: 'exact', head: true })
+    // com filtro de categoria precisa do join (inner) pra contar só a categoria
+    let q = params.categoria
+      ? supabase.from('estoque').select('id, produto:produtos!inner ( categoria )', { count: 'exact', head: true }).eq('produto.categoria', params.categoria)
+      : supabase.from('estoque').select('id', { count: 'exact', head: true })
     if (params.deposito) q = q.eq('deposito_id', params.deposito)
     return q
   }
@@ -119,24 +129,46 @@ export default async function EstoquePage({
         </div>
       </div>
 
-      {/* Filtros */}
+      {/* Depósitos como ABAS — o que a estoquista mais troca fica na cara (pedido do Vitor) */}
+      <div className="flex flex-wrap items-center gap-2">
+        {[{ id: '', nome: 'Todos os depósitos' }, ...depsBotao].map((d) => {
+          const ativo = (params.deposito ?? '') === d.id
+          const qs = new URLSearchParams({ ...baseParams, ...(d.id ? { deposito: d.id } : {}) })
+          if (!d.id) qs.delete('deposito')
+          return (
+            <Link key={d.id || 'todos'} href={`/painel/estoque${qs.toString() ? '?' + qs.toString() : ''}`}
+              className={`rounded-xl border px-4 py-2 text-sm font-semibold transition ${
+                ativo ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+              }`}>
+              {d.nome}
+            </Link>
+          )
+        })}
+      </div>
+
+      {/* Busca + categoria */}
       <div className="flex flex-wrap gap-3">
         <BuscaEstoque />
         <form method="GET" className="flex gap-3">
           {params.busca && <input type="hidden" name="busca" value={params.busca} />}
+          {params.deposito && <input type="hidden" name="deposito" value={params.deposito} />}
           <select
-            name="deposito"
-            defaultValue={params.deposito ?? ''}
+            name="categoria"
+            defaultValue={params.categoria ?? ''}
             className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="">Todos os depósitos</option>
-            {(depositos ?? []).map((d) => (
-              <option key={d.id} value={d.id}>{d.nome}</option>
+            <option value="">Todas as categorias</option>
+            {(categorias ?? []).map((c) => (
+              <option key={c.hierarquia} value={c.hierarquia}>{c.nome}</option>
             ))}
           </select>
           <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition">
             Filtrar
           </button>
+          {(params.categoria || params.busca) && (
+            <Link href={`/painel/estoque${params.deposito ? '?deposito=' + params.deposito : ''}`}
+              className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition">Limpar</Link>
+          )}
         </form>
         <span className="ml-auto self-center text-sm text-gray-400">{total} registro{total === 1 ? '' : 's'}</span>
       </div>
