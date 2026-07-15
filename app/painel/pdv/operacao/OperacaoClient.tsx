@@ -4,6 +4,7 @@ import { Spinner } from '@/components/Spinner'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
 import { useActionState, useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   abrirCaixa,
@@ -1145,6 +1146,7 @@ export function OperacaoClient({
   aberto,
   zReport,
 }: Props) {
+  const router = useRouter()
   const [panel, setPanel] = useState<Panel>(null)
   const toggle = (p: Panel) => setPanel((prev) => (prev === p ? null : p))
   // carrega o token do navegador 1x → o withToken usa ele síncrono no submit
@@ -1409,9 +1411,20 @@ export function OperacaoClient({
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {vendasDetalhe.map((v) => (
-                      <tr key={v.id} className="hover:bg-blue-50/50 transition">
-                        <td className="px-6 py-2.5 font-mono font-semibold text-gray-700">
-                          {v.numero ? `#${v.numero}` : v.id.slice(-6).toUpperCase()}
+                      // A venda inteira leva pro Painel de Vendas com ela ABERTA (deep-link
+                      // ?venda=). O Vitor confere o PIX aqui e clica pra ver os itens/comprovante.
+                      <tr
+                        key={v.id}
+                        onClick={() => router.push(`/painel/vendas?venda=${v.id}`)}
+                        className="group cursor-pointer hover:bg-blue-50/50 transition"
+                      >
+                        <td className="px-6 py-2.5">
+                          <span className="inline-flex items-center gap-1.5 font-mono font-semibold text-blue-700 group-hover:text-blue-900 group-hover:underline">
+                            {v.numero ? `#${v.numero}` : v.id.slice(-6).toUpperCase()}
+                            <svg className="h-3.5 w-3.5 opacity-0 transition group-hover:opacity-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                            </svg>
+                          </span>
                         </td>
                         <td className="px-4 py-2.5 text-gray-500">{fmtHora(v.hora)}</td>
                         <td className="px-4 py-2.5 text-gray-600">{v.cliente ?? <span className="text-gray-300">—</span>}</td>

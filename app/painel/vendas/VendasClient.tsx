@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useTransition, useCallback } from 'react'
+import { useState, useTransition, useCallback, useEffect } from 'react'
 import { hojeSP } from '@/lib/utils'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { buscarDetalheVendaPublic, cancelarVenda, type DetalheVendaCompleto } from './actions'
 import { MOTIVOS_CANCELAMENTO, motivoCancelamento } from '@/lib/motivos'
@@ -113,6 +113,15 @@ export function VendasClient({
     setDetalhe(d)
     setCarregando(false)
   }
+
+  // Deep-link: /painel/vendas?venda=<id> já abre a venda. É o que o botão da
+  // conferência do caixa usa — clicou na venda lá, cai aqui com ela aberta.
+  const searchParams = useSearchParams()
+  const vendaLink = searchParams.get('venda')
+  useEffect(() => {
+    if (vendaLink) abrirDetalhe(vendaLink)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendaLink])
 
   const concluidas = vendas.filter(v => v.status === 'concluida').length
 
