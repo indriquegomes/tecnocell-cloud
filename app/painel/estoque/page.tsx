@@ -102,6 +102,10 @@ export default async function EstoquePage({
             className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
             Etiquetas
           </Link>
+          <Link href="/painel/estoque/reposicao"
+            className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 transition">
+            📦 Reposição
+          </Link>
           <Link href="/painel/estoque/historico"
             className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
             Histórico
