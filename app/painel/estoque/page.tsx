@@ -79,42 +79,10 @@ export default async function EstoquePage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <IconPackage className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
-          <h2 className="text-2xl font-bold text-gray-900">Estoque</h2>
-          <Dica texto="Quantidade atual de cada produto por depósito. Atualizado automaticamente após vendas, compras e movimentações manuais." />
-        </div>
-        <div className="flex gap-2">
-          <Link href="/painel/estoque/transferencias"
-            className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
-            Entre Depósitos
-          </Link>
-          <Link href="/painel/estoque/imeis"
-            className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
-            Aparelhos (IMEIs)
-          </Link>
-          <Link href="/painel/estoque/marcas"
-            className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
-            Marcas
-          </Link>
-          <Link href="/painel/estoque/etiquetas"
-            className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
-            Etiquetas
-          </Link>
-          <Link href="/painel/estoque/reposicao"
-            className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 transition">
-            📦 Reposição
-          </Link>
-          <Link href="/painel/estoque/historico"
-            className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
-            Histórico
-          </Link>
-          <Link href="/painel/estoque/movimentar"
-            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
-            + Entrada / Saída
-          </Link>
-        </div>
+      <div className="flex items-center gap-2">
+        <IconPackage className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
+        <h2 className="text-2xl font-bold text-gray-900">Estoque</h2>
+        <Dica texto="Quantidade atual de cada produto por depósito. Atualizado automaticamente após vendas, compras e movimentações manuais." />
       </div>
 
       {/* Cards resumo */}
