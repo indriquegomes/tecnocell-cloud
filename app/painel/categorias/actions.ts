@@ -1,7 +1,7 @@
 'use server'
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 export async function criarCategoria(formData: FormData) {
@@ -26,6 +26,7 @@ export async function criarCategoria(formData: FormData) {
   })
   if (error) redirect(`/painel/categorias?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/categorias')
+  revalidateTag('categorias', 'max')
   redirect(`/painel/categorias?ok=${Date.now()}`)
 }
 
@@ -43,6 +44,7 @@ export async function editarCategoria(hierarquia: string, formData: FormData) {
   }).eq('hierarquia', hierarquia)
   if (error) redirect(`/painel/categorias?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/categorias')
+  revalidateTag('categorias', 'max')
   redirect(`/painel/categorias?ok=${Date.now()}`)
 }
 
@@ -57,4 +59,5 @@ export async function deletarCategoria(hierarquia: string) {
   const { error } = await supabase.from('categorias').delete().eq('hierarquia', hierarquia)
   if (error) redirect(`/painel/categorias?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/categorias')
+  revalidateTag('categorias', 'max')
 }

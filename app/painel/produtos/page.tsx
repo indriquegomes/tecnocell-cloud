@@ -4,6 +4,7 @@ import { formatBRL } from '@/lib/utils'
 import { Paginacao } from '@/components/Paginacao'
 import { BuscaProdutos } from './BuscaProdutos'
 import { ColunasDeposito } from './ColunasDeposito'
+import { getCategoriasCache, getMarcasCache, getDepositosCache } from '@/lib/cache-catalogo'
 import { Badge } from '@/components/ui/badge'
 import { deletarProduto } from './actions'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
@@ -78,10 +79,10 @@ export default async function ProdutosPage({
     return q
   }
 
-  const [{ data: categorias }, { data: marcas }, { data: depositos }] = await Promise.all([
-    supabase.from('categorias').select('hierarquia, nome').order('nome'),
-    supabase.from('marcas').select('nome').order('nome'),
-    supabase.from('depositos').select('id, nome, loja_id').order('nome'),
+  const [categorias, marcas, depositos] = await Promise.all([
+    getCategoriasCache(),
+    getMarcasCache(),
+    getDepositosCache(),
   ])
   // depósitos reais (com loja) — mesmo critério do PDV pra mostrar saldo por depósito
   const depositosReais = (depositos ?? []).filter((d) => d.loja_id)

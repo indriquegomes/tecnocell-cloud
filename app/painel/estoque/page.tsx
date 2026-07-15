@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { Badge } from '@/components/ui/badge'
 import { Paginacao } from '@/components/Paginacao'
 import { BuscaEstoque } from './BuscaEstoque'
+import { getDepositosCache, getCategoriasCache } from '@/lib/cache-catalogo'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 
@@ -31,12 +32,9 @@ export default async function EstoquePage({
   const porPagina = 50
   const pagina = Math.max(1, parseInt(params.pagina ?? '1', 10) || 1)
 
-  const [{ data: depositos }, { data: categorias }] = await Promise.all([
-    supabase.from('depositos').select('id, nome, loja_id').order('nome'),
-    supabase.from('categorias').select('hierarquia, nome').order('nome'),
-  ])
+  const [depositos, categorias] = await Promise.all([getDepositosCache(), getCategoriasCache()])
   // só depósitos de loja viram botão (os "abstratos" tipo Estoque Geral ficam no menos-usado)
-  const depsBotao = (depositos ?? []).filter((d) => d.loja_id)
+  const depsBotao = depositos.filter((d) => d.loja_id)
 
   // busca sem acento em produtos.busca_norm (cada palavra, qualquer ordem)
   const semAcento = (s: string) => s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()

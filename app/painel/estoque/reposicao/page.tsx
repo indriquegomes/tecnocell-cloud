@@ -4,6 +4,7 @@ import { hojeSP } from '@/lib/utils'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 import { AtalhosPeriodo } from './AtalhosPeriodo'
+import { getDepositosCache, getCategoriasCache } from '@/lib/cache-catalogo'
 
 // ═══════════════════════════════════════════════════════════════════
 // REPOSIÇÃO — "o que preciso pedir?"
@@ -44,11 +45,8 @@ export default async function ReposicaoPage({
   const cobertura = Math.max(1, parseInt(params.cobertura ?? '30', 10) || 30) // dias de estoque que quer ter
   const dias = diasEntre(de, ate)
 
-  const [{ data: depositos }, { data: categorias }] = await Promise.all([
-    supabase.from('depositos').select('id, nome, loja_id').order('nome'),
-    supabase.from('categorias').select('hierarquia, nome').order('nome'),
-  ])
-  const depsBotao = (depositos ?? []).filter((d) => d.loja_id)
+  const [depositos, categorias] = await Promise.all([getDepositosCache(), getCategoriasCache()])
+  const depsBotao = depositos.filter((d) => d.loja_id)
 
   // 1) VENDIDO no período, por produto (fonte: vendas do sistema)
   let vq = supabase
