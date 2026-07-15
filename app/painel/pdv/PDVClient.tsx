@@ -993,7 +993,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         desconto: descontoNum + descontoPromo,
         horario: new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       }
-      abrirCupom(snap, result.vendaId)
+      imprimirCupomAuto(snap, result.vendaId)   // sai sozinho (iframe, não é bloqueado como popup)
       setVendaConcluidaId(result.vendaId)
       setVendaTotal(result.total)
       setVendaSnapshot(snap)
@@ -1304,11 +1304,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     }
   }
 
-  function abrirCupom(snap: NonNullable<typeof vendaSnapshot>, vendaId: string) {
+  function montarCupomHTML(snap: NonNullable<typeof vendaSnapshot>, vendaId: string): string {
     const idCurto = vendaId.replace(/-/g, '').slice(0, 8).toUpperCase()
-    const win = window.open('', '_blank', 'width=420,height=700')
-    if (!win) return
-
     const brl = (v: number) => 'R$ ' + v.toFixed(2).replace('.', ',')
     const totalItens = snap.itens.reduce((s, i) => s + i.quantidade, 0)
     const subtotal   = snap.itens.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0)
@@ -1342,7 +1339,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     }
 
     const logoUrl = window.location.origin + '/tecnocell-icon.png'
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+    return `<!DOCTYPE html><html><head><meta charset="utf-8">
     <title>Comprovante #${numeroLabel}</title>
     <style>
       * { box-sizing: border-box; }
@@ -1415,9 +1412,38 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     <p>Obrigado pela preferência!</p>
     <p style="margin-top:4px">www.tecnocell.com.br</p>
 
-    </body></html>`)
+    </body></html>`
+  }
+
+  // Popup — 2ª via / reimpressão (é clique direto do usuário, o navegador não bloqueia)
+  function abrirCupom(snap: NonNullable<typeof vendaSnapshot>, vendaId: string) {
+    const win = window.open('', '_blank', 'width=420,height=700')
+    if (!win) { imprimirCupomAuto(snap, vendaId); return }  // popup barrado -> cai no iframe
+    win.document.write(montarCupomHTML(snap, vendaId))
     win.document.close()
     setTimeout(() => win.print(), 400)
+  }
+
+  // AUTOMÁTICO logo após finalizar a venda. Antes usava window.open (popup) — mas
+  // popup aberto DEPOIS do await da venda perde o "gesto do clique" e o navegador
+  // BLOQUEIA, então o cupom não saía sozinho. Um iframe oculto não é bloqueado.
+  // Pra pular até o diálogo de impressão, rodar o Chrome do balcão com --kiosk-printing.
+  function imprimirCupomAuto(snap: NonNullable<typeof vendaSnapshot>, vendaId: string) {
+    const iframe = document.createElement('iframe')
+    Object.assign(iframe.style, { position: 'fixed', right: '0', bottom: '0', width: '0', height: '0', border: '0' })
+    document.body.appendChild(iframe)
+    const doc = iframe.contentWindow?.document
+    if (!doc) { iframe.remove(); return }
+    doc.open(); doc.write(montarCupomHTML(snap, vendaId)); doc.close()
+    let feito = false
+    const imprimir = () => {
+      if (feito) return
+      feito = true
+      try { iframe.contentWindow?.focus(); iframe.contentWindow?.print() } catch { /* ignora */ }
+      setTimeout(() => iframe.remove(), 2000)
+    }
+    iframe.onload = () => setTimeout(imprimir, 300)  // espera o layout + a logo carregar
+    setTimeout(imprimir, 1200)                        // rede: fallback se onload não vier
   }
 
   function imprimirCupom() {
