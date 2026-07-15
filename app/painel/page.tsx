@@ -136,9 +136,16 @@ export default async function DashboardPage() {
   // Fiado é dívida a receber — não conta como "entrou no caixa" (pedido do Vitor).
   const metaMin = (metasAtivas ?? []).reduce((a, m) => (m.data_inicio < a ? m.data_inicio : a), '9999-12-31')
   const metaMax = (metasAtivas ?? []).reduce((a, m) => (m.data_fim > a ? m.data_fim : a), '0000-01-01')
-  // faixas e vendas-do-periodo dependem das metas, mas NAO uma da outra: em paralelo.
-  // fetchAll: pagina p/ não bater no cap de 1000 do PostgREST quando o volume crescer
-  const [{ data: faixasAll }, vendasPeriodo] = await Promise.all([
+  // "TECNOCELL PETRÓPOLIS" → "PETRÓPOLIS" → loja_id (só depende das lojas, já carregadas)
+  const nomeParaLojaId: Record<string, string> = {}
+  for (const [id, nome] of Object.entries(nomeLoja)) nomeParaLojaId[nome.trim().toUpperCase()] = id
+
+  // ── PERF: uma ONDA só. Tudo que depende apenas das metas/período (faixas, vendas,
+  // histórico do SIGE, formas, caixas, depósitos) vai em paralelo. Antes eram 3 ondas
+  // sequenciais e o histórico (o fetchAll mais pesado, 238k linhas) rodava POR ÚLTIMO
+  // mesmo sendo independente — o dashboard levava ~4s. Só pagamentos_venda fica de fora
+  // (precisa dos vendaIds), numa 2ª onda.
+  const [{ data: faixasAll }, vendasPeriodo, histMeta, { data: formasFiado }, { data: caixasL }, { data: depsL }] = await Promise.all([
     metaIds.length
       ? supabase.from('metas_faixas').select('meta_id, nome, valor, premio, ordem').in('meta_id', metaIds).order('ordem')
       : Promise.resolve({ data: [] as { meta_id: string; nome: string; valor: number; premio: number; ordem: number }[] }),
@@ -146,15 +153,17 @@ export default async function DashboardPage() {
       ? fetchAll<{ id: string; caixa_id: string | null; deposito_id: string | null; created_at: string }>(
           (from, to) => supabase.from('vendas').select('id, caixa_id, deposito_id, created_at').eq('status', 'concluida').gte('created_at', metaMin).lte('created_at', metaMax + 'T23:59:59').range(from, to))
       : Promise.resolve([] as { id: string; caixa_id: string | null; deposito_id: string | null; created_at: string }[]),
-  ])
-  const vendaIds = vendasPeriodo.map((v) => v.id)
-  const [pagsV, { data: formasFiado }, { data: caixasL }, { data: depsL }] = await Promise.all([
-    vendaIds.length ? fetchAll<{ venda_id: string; valor: number; forma_pagamento_id: string }>(
-      (from, to) => supabase.from('pagamentos_venda').select('venda_id, valor, forma_pagamento_id').in('venda_id', vendaIds).range(from, to)) : Promise.resolve([] as { venda_id: string; valor: number; forma_pagamento_id: string }[]),
+    metaIds.length
+      ? fetchAll<{ loja: string | null; valor_final: number | null; data: string }>(
+          (from, to) => supabase.from('historico_vendas').select('loja, valor_final, data').eq('status', 'Pedido Faturado').gte('data', metaMin).lte('data', metaMax + 'T23:59:59').range(from, to))
+      : Promise.resolve([] as { loja: string | null; valor_final: number | null; data: string }[]),
     supabase.from('formas_pagamento').select('id').eq('tipo', 'fiado'),
     supabase.from('caixas').select('id, loja_id'),
     supabase.from('depositos').select('id, loja_id'),
   ])
+  const vendaIds = vendasPeriodo.map((v) => v.id)
+  const pagsV = vendaIds.length ? await fetchAll<{ venda_id: string; valor: number; forma_pagamento_id: string }>(
+    (from, to) => supabase.from('pagamentos_venda').select('venda_id, valor, forma_pagamento_id').in('venda_id', vendaIds).range(from, to)) : []
   const fiadoIds = new Set((formasFiado ?? []).map((f) => f.id))
   const caixaLoja: Record<string, string | null> = Object.fromEntries((caixasL ?? []).map((c) => [c.id, c.loja_id]))
   const depLoja: Record<string, string | null> = Object.fromEntries((depsL ?? []).map((d) => [d.id, d.loja_id]))
@@ -166,18 +175,9 @@ export default async function DashboardPage() {
     cash: cashPorVenda[v.id] ?? 0,
   }))
 
-  // HISTÓRICO do SIGE entra na meta. As vendas reais de julho estão aqui (o PDV daqui
-  // ainda tem quase nada) — sem isto a meta mostrava R$0. Só "Pedido Faturado" (venda
-  // concretizada, não orçamento). O histórico NÃO tem forma de pagamento, então não dá
-  // pra descontar fiado dele — mas 'Faturado' no SIGE já é venda fechada; a decisão
-  // (Vitor) foi contar cheio.
-  const nomeParaLojaId: Record<string, string> = {}
-  for (const [id, nome] of Object.entries(nomeLoja)) nomeParaLojaId[nome.trim().toUpperCase()] = id
-  const histMeta = metaIds.length
-    ? await fetchAll<{ loja: string | null; valor_final: number | null; data: string }>(
-        (from, to) => supabase.from('historico_vendas').select('loja, valor_final, data')
-          .eq('status', 'Pedido Faturado').gte('data', metaMin).lte('data', metaMax + 'T23:59:59').range(from, to))
-    : []
+  // HISTÓRICO do SIGE entra na meta (já veio na onda paralela acima). As vendas reais
+  // de julho estão aqui — sem isto a meta mostrava R$0. Só "Pedido Faturado" (venda
+  // fechada, não orçamento); sem forma de pagamento, então conta cheio (decisão do Vitor).
   for (const h of histMeta) {
     // "TECNOCELL PETRÓPOLIS" → "PETRÓPOLIS" → loja_id
     const chave = (h.loja ?? '').replace(/^TECNOCELL\s+/i, '').trim().toUpperCase()
