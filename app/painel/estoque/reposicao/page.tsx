@@ -123,9 +123,18 @@ export default async function ReposicaoPage({
           <h2 className="text-2xl font-bold text-gray-900">Reposição</h2>
           <Dica texto="Baseado no que vendeu no período, sugere quanto pedir pra não faltar até o fornecedor entregar." />
         </div>
-        <Link href="/painel/estoque" className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
-          ← Estoque
-        </Link>
+        <div className="flex gap-2">
+          <a href={`/painel/estoque/reposicao/exportar?${baseQS({})}`}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition">
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+            </svg>
+            Baixar Excel
+          </a>
+          <Link href="/painel/estoque" className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+            ← Estoque
+          </Link>
+        </div>
       </div>
 
       {/* Resumo */}
