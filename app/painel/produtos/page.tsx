@@ -3,6 +3,7 @@ import { IconPlus, IconPackage } from '@/components/icons'
 import { formatBRL } from '@/lib/utils'
 import { Paginacao } from '@/components/Paginacao'
 import { BuscaProdutos } from './BuscaProdutos'
+import { ColunasDeposito } from './ColunasDeposito'
 import { Badge } from '@/components/ui/badge'
 import { deletarProduto } from './actions'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
@@ -164,7 +165,10 @@ export default async function ProdutosPage({
           <Link href="/painel/produtos" className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition">
             Limpar
           </Link>
-          <span className="ml-auto self-center text-sm text-gray-400">{produtos.length} registros</span>
+          <div className="ml-auto flex items-center gap-3">
+            <ColunasDeposito depositos={depositosReais.map((d) => ({ id: d.id, nome: d.nome }))} />
+            <span className="self-center text-sm text-gray-400">{produtos.length} registros</span>
+          </div>
         </div>
 
         {/* Busca Avançada */}
@@ -254,13 +258,19 @@ export default async function ProdutosPage({
                   </th>
                 )
               })}
+              {/* Colunas de estoque por depósito — o botão "Colunas" liga/desliga cada uma (CSS) */}
+              {depositosReais.map((d) => (
+                <th key={d.id} data-col-dep={d.id} className="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                  {d.nome}
+                </th>
+              ))}
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {produtos.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center text-sm text-gray-400">
+                <td colSpan={8 + depositosReais.length} className="px-4 py-12 text-center text-sm text-gray-400">
                   Nenhum produto encontrado. <Link href="/painel/produtos/novo" className="text-blue-500 hover:underline">Cadastrar produto</Link>.
                 </td>
               </tr>
@@ -320,6 +330,12 @@ export default async function ProdutosPage({
                         </details>
                       )})()}
                     </td>
+                    {/* uma célula de estoque por depósito (escondida/mostrada pelo botão Colunas) */}
+                    {depositosReais.map((d) => { const q = estoquePorDep(p)[d.id] ?? 0; return (
+                      <td key={d.id} data-col-dep={d.id} className="px-3 py-3 text-center">
+                        <span className={`text-sm font-semibold tabular-nums ${q < 0 ? 'text-red-600' : q > 0 ? 'text-gray-800' : 'text-gray-300'}`}>{q}</span>
+                      </td>
+                    )})}
                     <td className="px-4 py-3 text-center">
                       <Badge variant={p.ativo ? 'success' : 'danger'}>
                         {p.ativo ? 'Ativo' : 'Inativo'}
