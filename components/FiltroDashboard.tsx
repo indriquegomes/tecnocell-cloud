@@ -56,23 +56,44 @@ export function FiltroDashboard({
       ativo ? 'bg-[#1B6CA8] text-white shadow-sm' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300'
     }`
 
+  // Qual atalho está ativo AGORA. Antes "Esta semana" e "Este mês" eram btn(false)
+  // fixo — nunca acendiam, escolhesse o que escolhesse. O usuário ficava sem saber
+  // em que período estava.
+  const hojeIso = iso(hoje)
+  const diasAtras = (n: number) => { const d = new Date(hoje); d.setDate(d.getDate() - (n - 1)); return iso(d) }
+  const primeiroDoMes = iso(new Date(hoje.getFullYear(), hoje.getMonth(), 1))
+  const ultimoDoMes = iso(new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0))
+  const ativoHoje   = !ehPadrao && de === hojeIso && ate === hojeIso
+  const ativoSemana = !ehPadrao && de === diasAtras(7) && ate === hojeIso
+  // "Este mês" fecha no último dia do mês, ou em hoje se o mês ainda está correndo
+  const ativoMes    = !ehPadrao && de === primeiroDoMes && (ate === hojeIso || ate === ultimoDoMes)
+  // um mês qualquer escolhido nos selects (que não seja o atalho "Este mês")
+  const ativoMesSel = !ehPadrao && !ativoMes && de.slice(8) === '01'
+
+  const selCls = (ativo: boolean) =>
+    `rounded-lg border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#1B6CA8] transition ${
+      ativo ? 'border-[#1B6CA8] bg-[#1B6CA8]/10 text-[#1B6CA8] font-semibold' : 'border-gray-200 bg-white text-gray-700'
+    }`
+
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/60 px-3 py-2">
       {/* "Hoje" é o atalho que a Isa realmente precisa: como o SIGE parou, só o dia
           de hoje mostra as vendedoras de verdade (Mariana, Maria Eduarda, Brunna)
           no ranking. Qualquer janela maior ainda é dominada pelo histórico do SIGE,
           que só tinha login por LOJA ("ATENDIMENTO PETRÓPOLIS 01"). */}
-      <button type="button" onClick={() => atalho(1)} className={btn(!ehPadrao && de === ate && ate === iso(hoje))}>Hoje</button>
-      <button type="button" onClick={() => atalho(7)} className={btn(false)}>Esta semana</button>
-      <button type="button" onClick={() => irMes(hoje.getMonth(), hoje.getFullYear())} className={btn(false)}>Este mês</button>
+      <button type="button" onClick={() => atalho(1)} className={btn(ativoHoje)}>Hoje</button>
+      <button type="button" onClick={() => atalho(7)} className={btn(ativoSemana)}>Esta semana</button>
+      <button type="button" onClick={() => irMes(hoje.getMonth(), hoje.getFullYear())} className={btn(ativoMes)}>Este mês</button>
       <button type="button" onClick={() => router.push('/painel')} className={btn(ehPadrao)}>30 dias</button>
 
       <span className="mx-1 h-4 w-px bg-gray-200" />
 
+      {/* Quando um mês está escolhido (e não é o atalho "Este mês"), os selects ficam
+          destacados — senão nada na barra indica em que período o usuário está. */}
       <select
         value={mesAtual}
         onChange={(e) => irMes(Number(e.target.value), anoAtual)}
-        className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#1B6CA8]"
+        className={selCls(ativoMesSel)}
       >
         {MESES.map((m, i) => <option key={m} value={i}>{m}</option>)}
       </select>
@@ -80,7 +101,7 @@ export function FiltroDashboard({
       <select
         value={anoAtual}
         onChange={(e) => irMes(mesAtual, Number(e.target.value))}
-        className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#1B6CA8]"
+        className={selCls(ativoMesSel)}
       >
         {anos.map((a) => <option key={a} value={a}>{a}</option>)}
       </select>
