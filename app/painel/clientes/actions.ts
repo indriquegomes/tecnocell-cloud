@@ -30,6 +30,10 @@ function camposPessoa(formData: FormData, cpfCnpj: string, email: string) {
     limite_credito: parseFloat(formData.get('limite_credito') as string) || 0,
     // combinado de pagamento do fiado ("paga no fim do dia") — mostrado no crediário do PDV
     rotina_pagamento: txt('rotina_pagamento'),
+    // cliente problemático (antes era digitado no nome). getAll() porque o campo tem
+    // hidden + checkbox: com get() viria sempre o hidden e nunca marcaria.
+    nao_vender: formData.getAll('nao_vender').includes('1'),
+    nao_vender_motivo: txt('nao_vender_motivo'),
     vendedor_id: txt('vendedor_id'),
     origem: txt('origem'),
     observacoes: txt('observacoes'),

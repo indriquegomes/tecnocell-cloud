@@ -22,6 +22,7 @@ export type PessoaEdit = {
   numero: string | null; complemento: string | null; bairro: string | null; cidade: string | null
   estado: string | null; tabela_preco_id: string | null; limite_credito: number | null
   rotina_pagamento?: string | null
+  nao_vender?: boolean | null; nao_vender_motivo?: string | null
   vendedor_id: string | null; origem: string | null; observacoes: string | null
 }
 
@@ -192,6 +193,23 @@ export function PessoaForm({ tabelas, vendedores, editando, podeCredito = true }
               <p className="mt-1 text-[11px] text-gray-400">Seu cargo não pode alterar o limite.</p>
             </div>
           )}
+          {/* Cliente problemático. Antes isso era digitado NO NOME ("TATIANA (NÃO
+              VENDER)"), o que sujava a busca e sumia se alguém digitasse minúsculo.
+              AVISA no PDV, não bloqueia — travar o balcão com cliente na frente é pior. */}
+          <div className="sm:col-span-2 rounded-xl border border-gray-200 bg-gray-50/60 p-3">
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+              {/* hidden + checkbox: o form lê com getAll() e checa se veio '1' —
+                  com fd.get() pegaria sempre o hidden e nunca marcaria. */}
+              <input type="hidden" name="nao_vender" value="0" />
+              <input type="checkbox" name="nao_vender" value="1" defaultChecked={!!editando?.nao_vender}
+                className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500" />
+              🚫 Não vender para este cliente
+            </label>
+            <input name="nao_vender_motivo" defaultValue={editando?.nao_vender_motivo ?? ''}
+              placeholder="Motivo (ex: calote de R$439 em 06/2026)"
+              className="field mt-2 text-sm" />
+            <p className="mt-1 text-[11px] text-gray-400">O PDV mostra um aviso vermelho ao escolher este cliente. Não impede a venda.</p>
+          </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Vendedor responsável</label>
             <select name="vendedor_id" defaultValue={editando?.vendedor_id ?? ''} className="field">

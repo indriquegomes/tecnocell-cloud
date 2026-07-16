@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Spinner } from '@/components/Spinner'
 import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, carregarClientesPDV, buscarFiadoCliente, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, aplicarDescontoCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
 import { rotulaRotina } from '@/lib/rotina-pagamento'
+import { badgeTabela } from '@/lib/badge-tabela'
 
 // "Desconto" aparece junto das formas de recebimento porque é ali que a Duda procura,
 // mas NÃO é forma de pagamento: não entra dinheiro, ele abate a dívida. Id falso pra
@@ -127,6 +128,8 @@ interface Pessoa {
   estado?: string | null
   cep?: string | null
   tabela_preco_id?: string | null
+  nao_vender?: boolean | null
+  nao_vender_motivo?: string | null
 }
 
 interface Deposito {
@@ -1716,10 +1719,25 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-xs font-semibold uppercase tracking-wide text-gray-400 shrink-0">Cliente</span>
                 <span className="font-medium text-gray-800">👤 {clienteSelecionado.nome}</span>
+                {/* Badge da tabela: a menina precisa VER que preço está pegando.
+                    Verde = ATACADO1 (mais barato) · Laranja = ATACADO2 (mais caro). */}
+                {(() => {
+                  const b = badgeTabela(clienteSelecionado.tabela_preco_id, tabelas)
+                  return b ? <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${b.cls}`}>{b.txt}</span> : null
+                })()}
                 {clienteSelecionado.cpf_cnpj && <span className="text-xs text-gray-400">{clienteSelecionado.cpf_cnpj}</span>}
                 <button type="button" onClick={() => { setPessoaId(''); setBuscaCliente(''); setCreditoAplicado(0) }}
                   className="ml-auto text-xs font-medium text-red-400 hover:text-red-600">✕</button>
               </div>
+              {/* Cliente problemático — AVISA, não bloqueia (decisão do Vitor) */}
+              {clienteSelecionado.nao_vender && (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-2.5 py-1.5">
+                  <span className="text-xs font-bold text-red-700">🚫 NÃO VENDER</span>
+                  {clienteSelecionado.nao_vender_motivo && (
+                    <span className="text-xs text-red-600">· {clienteSelecionado.nao_vender_motivo}</span>
+                  )}
+                </div>
+              )}
               {saldoCredito > 0.01 && (
                 <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 px-2.5 py-1.5">
                   <span className="text-xs text-green-700 font-medium">🏦 Saldo em conta: {formatBRL(saldoCredito)}</span>

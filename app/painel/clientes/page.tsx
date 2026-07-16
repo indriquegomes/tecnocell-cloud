@@ -7,6 +7,7 @@ import { deletarPessoa, inativarPessoa, reativarPessoa } from './actions'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
+import { badgeTabela } from '@/lib/badge-tabela'
 
 export default async function ClientesPage({
   searchParams,
@@ -38,9 +39,12 @@ export default async function ClientesPage({
   const porPagina = 50
   const pagina = Math.max(1, parseInt(params.pagina ?? '1', 10) || 1)
 
+  // nomes das tabelas de preço — pra pintar o badge (🟢 Atacado 1 / 🟠 Atacado 2)
+  const { data: tabelas } = await supabase.from('tabelas_preco').select('id, nome')
+
   let query = supabase
     .from('pessoas')
-    .select('id, nome, tipo, pessoa_fisica, cpf_cnpj, email, telefone, cidade, estado, ativo', { count: 'exact' })
+    .select('id, nome, tipo, pessoa_fisica, cpf_cnpj, email, telefone, cidade, estado, ativo, tabela_preco_id, nao_vender, nao_vender_motivo', { count: 'exact' })
     .eq('ativo', !verInativos)
     .order(ordemCampo, { ascending: !ordemDir })
 
@@ -134,7 +138,21 @@ export default async function ClientesPage({
               (pessoas ?? []).map((p) => (
                 <tr key={p.id} className="hover:bg-blue-50/60 transition">
                   <td className="px-4 py-3">
-                    <p className="text-sm font-medium text-gray-800">{p.nome}</p>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <p className="text-sm font-medium text-gray-800">{p.nome}</p>
+                      {/* Badge da tabela embaixo do nome, sem coluna nova:
+                          🟢 ATACADO1 (preço melhor) · 🟠 ATACADO2 (mais caro) */}
+                      {(() => {
+                        const b = badgeTabela(p.tabela_preco_id as string | null, tabelas ?? [])
+                        return b ? <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${b.cls}`}>{b.txt}</span> : null
+                      })()}
+                      {p.nao_vender && (
+                        <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700"
+                          title={(p.nao_vender_motivo as string) || 'Cliente marcado como não vender'}>
+                          🚫 NÃO VENDER
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-400">{p.pessoa_fisica ? 'Pessoa Física' : 'Pessoa Jurídica'}</p>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">

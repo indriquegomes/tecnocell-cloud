@@ -104,6 +104,7 @@ export type PessoaPDV = {
   id: string; nome: string; cpf_cnpj: string | null; telefone: string | null
   endereco: string | null; bairro: string | null; cidade: string | null
   estado: string | null; cep: string | null; tabela_preco_id: string | null
+  nao_vender: boolean | null; nao_vender_motivo: string | null
 }
 
 // Busca de cliente SOB DEMANDA (não embute mais as 2.397 pessoas no HTML).
@@ -116,7 +117,7 @@ export async function carregarClientesPDV(accessToken: string): Promise<PessoaPD
   const supabase = await createServiceClient()
   const rows = await fetchAll<PessoaPDV>(
     (from, to) => supabase.from('pessoas')
-      .select('id, nome, cpf_cnpj, telefone, endereco, bairro, cidade, estado, cep, tabela_preco_id')
+      .select('id, nome, cpf_cnpj, telefone, endereco, bairro, cidade, estado, cep, tabela_preco_id, nao_vender, nao_vender_motivo')
       .eq('ativo', true).in('tipo', ['cliente', 'ambos']).order('nome').range(from, to),
   )
   return rows
@@ -128,7 +129,7 @@ export async function buscarClientesPDV(accessToken: string, termo: string): Pro
   if (raw.length < 1) return []
   const supabase = await createServiceClient()
   let q = supabase.from('pessoas')
-    .select('id, nome, cpf_cnpj, telefone, endereco, bairro, cidade, estado, cep, tabela_preco_id')
+    .select('id, nome, cpf_cnpj, telefone, endereco, bairro, cidade, estado, cep, tabela_preco_id, nao_vender, nao_vender_motivo')
     .eq('ativo', true).in('tipo', ['cliente', 'ambos'])
   const digitos = raw.replace(/\D/g, '')
   const soDigitos = digitos.length >= 4 && /^[\d.\-/()\s]+$/.test(raw)
