@@ -5,7 +5,7 @@ import { formatBRL, hojeSP } from '@/lib/utils'
 import { labelPrazo } from '@/lib/formas-pagamento'
 import { createClient } from '@/lib/supabase/client'
 import { Spinner } from '@/components/Spinner'
-import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, carregarClientesPDV, buscarFiadoCliente, caixaAbertoDaLoja, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, aplicarDescontoCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
+import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, carregarClientesPDV, buscarFiadoCliente, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, aplicarDescontoCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
 import { rotulaRotina } from '@/lib/rotina-pagamento'
 
 // "Desconto" aparece junto das formas de recebimento porque é ali que a Duda procura,
@@ -63,6 +63,18 @@ const supabaseBrowser = createClient()
 async function authToken(): Promise<string> {
   const { data } = await supabaseBrowser.auth.getSession()
   return data.session?.access_token ?? ''
+}
+
+// Pré-carregamento por GET (não por server action). O Next serializa server actions,
+// então o catálogo/clientes do mount prendiam na fila tudo que a menina fizesse nos
+// primeiros segundos (o F9 custava 7,6s em vez de 2,5s). GET roda em paralelo.
+async function getJSON<T>(url: string): Promise<T> {
+  const r = await fetch(url, {
+    headers: { authorization: 'Bearer ' + (await authToken()) },
+    cache: 'no-store',
+  })
+  if (!r.ok) throw new Error(await r.text())
+  return r.json() as Promise<T>
 }
 
 function iconeForma(nome: string) {
@@ -322,7 +334,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     // 2) sempre traz o catálogo fresco em background e recacheia (frescor do estoque)
     ;(async () => {
       try {
-        const cat = await carregarCatalogoPDV(await authToken())
+        const cat = await getJSON<Awaited<ReturnType<typeof carregarCatalogoPDV>>>('/api/pdv/catalogo')
         if (vivo && cat.length) {
           mesclarProdutos(cat, {}); setCatalogoPronto(true)
           try { localStorage.setItem(CHAVE, JSON.stringify({ t: Date.now(), produtos: cat })) } catch { /* quota — segue sem cache */ }
@@ -377,7 +389,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     } catch { /* ignore */ }
     ;(async () => {
       try {
-        const cli = await carregarClientesPDV(await authToken())
+        const cli = await getJSON<Awaited<ReturnType<typeof carregarClientesPDV>>>('/api/pdv/clientes')
         if (vivo && cli.length) {
           mesclar(cli); setClientesProntos(true)
           try { localStorage.setItem(CHAVE, JSON.stringify({ t: Date.now(), clientes: cli })) } catch { /* quota */ }
@@ -490,7 +502,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   useEffect(() => {
     if (!lojaId) return
     let vivo = true
-    authToken().then((t) => { if (t) caixaAbertoDaLoja(t, lojaId).then((ok) => { if (vivo) setCaixaAberto(ok) }).catch(() => {}) })
+    getJSON<{ aberto: boolean }>('/api/pdv/caixa-aberto?loja=' + encodeURIComponent(lojaId))
+      .then(({ aberto }) => { if (vivo) setCaixaAberto(aberto) })
+      .catch(() => {})
     return () => { vivo = false }
   }, [lojaId])
   const lojaSel = lojas.find((l) => l.id === lojaId) ?? null
