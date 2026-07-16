@@ -58,9 +58,14 @@ export function FiltroDashboard({
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/60 px-3 py-2">
-      <button type="button" onClick={() => router.push('/painel')} className={btn(ehPadrao)}>30 dias</button>
+      {/* "Hoje" é o atalho que a Isa realmente precisa: como o SIGE parou, só o dia
+          de hoje mostra as vendedoras de verdade (Mariana, Maria Eduarda, Brunna)
+          no ranking. Qualquer janela maior ainda é dominada pelo histórico do SIGE,
+          que só tinha login por LOJA ("ATENDIMENTO PETRÓPOLIS 01"). */}
+      <button type="button" onClick={() => atalho(1)} className={btn(!ehPadrao && de === ate && ate === iso(hoje))}>Hoje</button>
       <button type="button" onClick={() => atalho(7)} className={btn(false)}>Esta semana</button>
       <button type="button" onClick={() => irMes(hoje.getMonth(), hoje.getFullYear())} className={btn(false)}>Este mês</button>
+      <button type="button" onClick={() => router.push('/painel')} className={btn(ehPadrao)}>30 dias</button>
 
       <span className="mx-1 h-4 w-px bg-gray-200" />
 
