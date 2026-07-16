@@ -5,7 +5,7 @@ import { formatBRL, hojeSP } from '@/lib/utils'
 import { labelPrazo } from '@/lib/formas-pagamento'
 import { createClient } from '@/lib/supabase/client'
 import { Spinner } from '@/components/Spinner'
-import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, carregarClientesPDV, buscarFiadoCliente, caixaAbertoDaLoja, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, aplicarDescontoCrediario, buscarInfoPessoasCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
+import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, carregarClientesPDV, buscarFiadoCliente, caixaAbertoDaLoja, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, aplicarDescontoCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
 import { rotulaRotina } from '@/lib/rotina-pagamento'
 
 // "Desconto" aparece junto das formas de recebimento porque é ali que a Duda procura,
@@ -1126,11 +1126,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     setSelecionados(new Set())
     setCarregandoCrediario(true)
     try {
-      const itens = await buscarCrediario(await authToken())
+      // uma action só: fiados + limite/rotina das pessoas (o Next serializa actions,
+      // duas viagens custavam o dobro)
+      const { itens, infoPessoas } = await buscarCrediario(await authToken())
       setCrediarioItens(itens)
-      // limite + rotina de cada pessoa (não trava a lista se falhar)
-      const nomes = [...new Set(itens.map((i) => i.pessoa_nome).filter(Boolean))] as string[]
-      buscarInfoPessoasCrediario(await authToken(), nomes).then(setInfoPessoas).catch(() => {})
+      setInfoPessoas(infoPessoas)
     } catch {
       setErro('Não consegui carregar o crediário.')
       setMostrarCrediario(false)

@@ -407,7 +407,14 @@ export interface DetalheVenda {
   itens: { nome: string; quantidade: number; preco_unitario: number; total_item: number }[]
 }
 
-export async function buscarCrediario(accessToken: string): Promise<CrediarioItem[]> {
+// Traz os fiados E o limite/rotina de cada pessoa NUMA ÚNICA action.
+//
+// Antes eram 2 actions (fiados, depois as pessoas). O Next SERIALIZA server actions —
+// uma espera a outra —, então abrir o F9 custava as duas somadas. Os nomes saem dos
+// próprios fiados aqui no servidor: não precisa de segunda viagem pra descobri-los.
+export async function buscarCrediario(
+  accessToken: string,
+): Promise<{ itens: CrediarioItem[]; infoPessoas: Record<string, { limite: number; rotina: string | null }> }> {
   await requirePermissao('pdv', accessToken)
   const supabase = await createServiceClient()
   const { data, error } = await supabase
@@ -417,31 +424,25 @@ export async function buscarCrediario(accessToken: string): Promise<CrediarioIte
     .eq('status', 'pendente')
     .order('data_vencimento', { ascending: true })
   if (error) throw new Error(error.message)
-  return (data ?? []) as CrediarioItem[]
-}
+  const itens = (data ?? []) as CrediarioItem[]
 
-// Limite e rotina de pagamento das pessoas do crediário (pra visão POR PESSOA).
-// O vínculo é por NOME (lancamentos guarda pessoa_nome, não pessoa_id — herança do
-// SIGE; casa 99%, ver memória). Devolve só quem foi pedido.
-export async function buscarInfoPessoasCrediario(
-  accessToken: string,
-  nomes: string[],
-): Promise<Record<string, { limite: number; rotina: string | null }>> {
-  await requirePermissao('pdv', accessToken)
-  if (nomes.length === 0) return {}
-  const supabase = await createServiceClient()
-  const out: Record<string, { limite: number; rotina: string | null }> = {}
-  // .in() com até ~200 nomes por lote (o crediário aberto raramente passa disso)
-  for (let i = 0; i < nomes.length; i += 200) {
-    const { data } = await supabase
-      .from('pessoas')
-      .select('nome, limite_credito, rotina_pagamento')
-      .in('nome', nomes.slice(i, i + 200))
-    for (const p of data ?? []) {
-      out[p.nome] = { limite: Number(p.limite_credito) || 0, rotina: (p.rotina_pagamento as string | null) ?? null }
-    }
+  // limite/rotina das pessoas dos fiados — nunca derruba a lista se falhar
+  const infoPessoas: Record<string, { limite: number; rotina: string | null }> = {}
+  const nomes = [...new Set(itens.map((i) => i.pessoa_nome).filter(Boolean))] as string[]
+  if (nomes.length) {
+    try {
+      for (let i = 0; i < nomes.length; i += 200) {
+        const { data: ps } = await supabase
+          .from('pessoas')
+          .select('nome, limite_credito, rotina_pagamento')
+          .in('nome', nomes.slice(i, i + 200))
+        for (const p of ps ?? []) {
+          infoPessoas[p.nome] = { limite: Number(p.limite_credito) || 0, rotina: (p.rotina_pagamento as string | null) ?? null }
+        }
+      }
+    } catch { /* sem limite/rotina — a lista de fiados vale por si */ }
   }
-  return out
+  return { itens, infoPessoas }
 }
 
 export async function buscarDetalheVenda(accessToken: string, vendaId: string): Promise<DetalheVenda | null> {
