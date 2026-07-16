@@ -7,10 +7,16 @@ import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 import { MetaWidget, type MetaInput } from '@/components/MetaWidget'
 import { FluxoDiario, StatusPedidos } from '@/components/GraficosVendas'
+import { FiltroDashboard } from '@/components/FiltroDashboard'
 import { IconCart, IconPackage, IconUsers, IconWallet } from '@/components/icons'
 import type { ReactNode } from 'react'
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ de?: string; ate?: string; loja?: string }>
+}) {
+  const params = await searchParams
   const supabase = await createServiceClient()
   const { permissoes, isMaster } = await permissoesUsuarioAtual()
   const pode = (k: string) => temPermissao(permissoes, k, isMaster)
@@ -40,6 +46,16 @@ export default async function DashboardPage() {
   const de30 = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
   const inicioMes = (() => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0] })()
 
+  // Filtro de período + loja (Isa: "mostrar por mês, ano e selecionar a loja").
+  // Default = últimos 30 dias, que é o que o dashboard sempre mostrou.
+  const filtroDe = params.de || de30
+  const filtroAte = params.ate || hoje
+  const filtroLoja = params.loja || ''
+  const ehPadrao = !params.de && !params.ate && !params.loja
+  const rotuloPeriodo = ehPadrao
+    ? 'últimos 30 dias'
+    : `${formatDate(filtroDe)} a ${formatDate(filtroAte)}`
+
   const [
     { count: totalProdutos },
     { count: totalClientes },
@@ -59,7 +75,7 @@ export default async function DashboardPage() {
     // ao banco) so pra calcular ~10 numeros. Custava 2,7s.
     // Agora o Postgres soma tudo e devolve pronto em 1 chamada (~120ms).
     // Conferido campo a campo contra o calculo antigo antes de trocar: bate 100%.
-    supabase.rpc('dashboard_resumo', { p_de30: de30 }),
+    supabase.rpc('dashboard_resumo', { p_de: filtroDe, p_ate: filtroAte, p_loja: filtroLoja || null }),
     supabase.from('vendas').select('total').eq('status', 'concluida').gte('created_at', hoje),
     supabase.from('lancamentos').select('valor, valor_pago').eq('tipo', 'receber').eq('status', 'pendente'),
     supabase.from('lancamentos').select('valor, valor_pago').eq('tipo', 'pagar').eq('status', 'pendente'),
@@ -337,9 +353,14 @@ export default async function DashboardPage() {
   // ============ GERENTE / DONO (visão completa) ============
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
-        <Dica texto="Visão geral: operação dos últimos 30 dias (do histórico), estoque, financeiro e o que está vendendo agora." />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
+          <Dica texto="Faturamento, estoque e financeiro. Escolha o período e a loja no filtro ao lado — o padrão são os últimos 30 dias." />
+        </div>
+        <div className="ml-auto">
+          <FiltroDashboard de={filtroDe} ate={filtroAte} loja={filtroLoja} lojas={lojasList ?? []} ehPadrao={ehPadrao} />
+        </div>
       </div>
 
       {/* ═══ BENTO GRID ═══
@@ -352,7 +373,9 @@ export default async function DashboardPage() {
         <div className="relative flex flex-col justify-between overflow-hidden rounded-2xl bg-[#1B6CA8] p-6 text-white shadow-sm md:col-span-6 lg:col-span-8 lg:row-span-2">
           <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/5" />
           <div className="relative flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Faturamento · últimos 30 dias</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/70">
+              Faturamento · {rotuloPeriodo}{filtroLoja && ` · ${filtroLoja}`}
+            </p>
             <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-medium">histórico</span>
           </div>
           <p className="relative mt-2.5 text-[38px] font-extrabold leading-none tracking-tight tabular-nums">{formatBRL(faturamento)}</p>
