@@ -33,7 +33,7 @@ const diasEntre = (de: string, ate: string) => {
 export default async function ReposicaoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ de?: string; ate?: string; categoria?: string; deposito?: string; cobrir?: string }>
+  searchParams: Promise<{ de?: string; ate?: string; categoria?: string; deposito?: string; cobrir?: string; tudo?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
@@ -51,7 +51,11 @@ export default async function ReposicaoPage({
   const [depositos, categorias] = await Promise.all([getDepositosCache(), getCategoriasCache()])
   const depsBotao = depositos.filter((d) => d.loja_id)
 
-  // 1) VENDIDO no período, por produto (fonte: vendas do sistema)
+  // ── VENDIDO no período + ESTOQUE atual, tudo em PARALELO ──
+  // Fonte de venda = vendas do sistema (itens_venda) + histórico do SIGE (90d importados).
+  // O histórico só entra na visão "Todos os depósitos" (é a demanda TOTAL; o SIGE não
+  // separa por depósito). Estoque e produtos vêm por fetch-all paginado (poucos round-trips
+  // e sem risco de estourar o limite de URL do PostgREST com milhares de ids num .in()).
   let vq = supabase
     .from('itens_venda')
     .select('produto_id, quantidade, venda:vendas!inner ( created_at, status, deposito_id )')
@@ -59,36 +63,41 @@ export default async function ReposicaoPage({
     .gte('venda.created_at', de + 'T00:00:00')
     .lte('venda.created_at', ate + 'T23:59:59')
   if (params.deposito) vq = vq.eq('venda.deposito_id', params.deposito)
-  const itens = await fetchAll<{ produto_id: string; quantidade: number }>(
-    (from, to) => vq.range(from, to) as unknown as PromiseLike<{ data: { produto_id: string; quantidade: number }[] | null }>,
-  )
+
+  const [itens, hist, produtosAll, estoqueAll] = await Promise.all([
+    fetchAll<{ produto_id: string; quantidade: number }>(
+      (from, to) => vq.range(from, to) as unknown as PromiseLike<{ data: { produto_id: string; quantidade: number }[] | null }>,
+    ),
+    params.deposito
+      ? Promise.resolve([] as { produto_id: string; quantidade: number }[])
+      : fetchAll<{ produto_id: string; quantidade: number }>(
+          (from, to) => supabase.from('historico_itens_venda').select('produto_id, quantidade').gte('data', de).lte('data', ate).range(from, to) as unknown as PromiseLike<{ data: { produto_id: string; quantidade: number }[] | null }>,
+        ),
+    fetchAll<{ id: string; nome: string; codigo: string | null; categoria: string | null; cat: { nome: string } | null }>(
+      (from, to) => {
+        let q = supabase.from('produtos').select('id, nome, codigo, categoria, cat:categorias!categoria ( nome )')
+        if (params.categoria) q = q.eq('categoria', params.categoria)
+        return q.range(from, to) as unknown as PromiseLike<{ data: { id: string; nome: string; codigo: string | null; categoria: string | null; cat: { nome: string } | null }[] | null }>
+      },
+    ),
+    fetchAll<{ produto_id: string; quantidade: number; deposito_id: string }>(
+      (from, to) => {
+        let q = supabase.from('estoque').select('produto_id, quantidade, deposito_id')
+        if (params.deposito) q = q.eq('deposito_id', params.deposito)
+        return q.range(from, to) as unknown as PromiseLike<{ data: { produto_id: string; quantidade: number; deposito_id: string }[] | null }>
+      },
+    ),
+  ])
+
   const vendidoPorProd: Record<string, number> = {}
   for (const i of itens) vendidoPorProd[i.produto_id] = (vendidoPorProd[i.produto_id] ?? 0) + Number(i.quantidade)
-  const idsVendidos = Object.keys(vendidoPorProd)
+  for (const h of hist) vendidoPorProd[h.produto_id] = (vendidoPorProd[h.produto_id] ?? 0) + Number(h.quantidade)
 
-  // 2) dados dos produtos vendidos (+ filtro de categoria)
-  const produtos = idsVendidos.length
-    ? await fetchAll<{ id: string; nome: string; codigo: string | null; categoria: string | null; cat: { nome: string } | null }>(
-        (from, to) => {
-          let q = supabase.from('produtos').select('id, nome, codigo, categoria, cat:categorias!categoria ( nome )').in('id', idsVendidos)
-          if (params.categoria) q = q.eq('categoria', params.categoria)
-          return q.range(from, to) as unknown as PromiseLike<{ data: { id: string; nome: string; codigo: string | null; categoria: string | null; cat: { nome: string } | null }[] | null }>
-        },
-      )
-    : []
+  // só os produtos que venderam no período (e que passaram no filtro de categoria)
+  const produtos = produtosAll.filter((p) => vendidoPorProd[p.id] !== undefined)
 
-  // 3) estoque atual desses produtos (no depósito filtrado, ou soma de todos)
   const estoquePorProd: Record<string, number> = {}
-  if (produtos.length) {
-    const ids = produtos.map((p) => p.id)
-    const est = await fetchAll<{ produto_id: string; quantidade: number; deposito_id: string }>(
-      (from, to) => supabase.from('estoque').select('produto_id, quantidade, deposito_id').in('produto_id', ids).range(from, to) as unknown as PromiseLike<{ data: { produto_id: string; quantidade: number; deposito_id: string }[] | null }>,
-    )
-    for (const e of est) {
-      if (params.deposito && e.deposito_id !== params.deposito) continue
-      estoquePorProd[e.produto_id] = (estoquePorProd[e.produto_id] ?? 0) + Number(e.quantidade)
-    }
-  }
+  for (const e of estoqueAll) estoquePorProd[e.produto_id] = (estoquePorProd[e.produto_id] ?? 0) + Number(e.quantidade)
 
   // 4) cálculo de reposição por produto
   const linhas = produtos.map((p) => {
@@ -105,6 +114,11 @@ export default async function ReposicaoPage({
   const precisaPedir = linhas.filter((l) => l.sugestao > 0)
   const totalSugerido = precisaPedir.reduce((s, l) => s + l.sugestao, 0)
   const urgentes = linhas.filter((l) => l.urgente).length
+  // Tela = o PEDIDO: por padrão só o que precisa pedir (a estoquista quer isso).
+  // "Ver todos" mostra também os que estão abastecidos. O Excel sempre traz tudo.
+  const verTudo = params.tudo === '1'
+  const linhasMostradas = verTudo ? linhas : precisaPedir
+  const semNecessidade = linhas.length - precisaPedir.length
 
   const fmtDias = (d: number) => d === Infinity ? '∞' : d < 1 ? '<1d' : Math.round(d) + 'd'
   const baseQS = (extra: Record<string, string>) => {
@@ -112,6 +126,7 @@ export default async function ReposicaoPage({
     q.set('de', de); q.set('ate', ate); q.set('cobrir', String(cobrir))
     if (params.categoria) q.set('categoria', params.categoria)
     if (params.deposito) q.set('deposito', params.deposito)
+    if (verTudo) q.set('tudo', '1')
     for (const [k, v] of Object.entries(extra)) v ? q.set(k, v) : q.delete(k)
     return q.toString()
   }
@@ -196,6 +211,23 @@ export default async function ReposicaoPage({
         </p>
       </form>
 
+      {/* Cabeçalho da lista + alternar "só o pedido" / "ver todos" */}
+      {linhas.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 -mb-2">
+          <p className="text-sm text-gray-500">
+            {verTudo
+              ? <>Mostrando <b>todos os {linhas.length}</b> produtos vendidos no período.</>
+              : <>Mostrando os <b>{precisaPedir.length}</b> que precisam de pedido.{semNecessidade > 0 && <span className="text-gray-400"> {semNecessidade} já abastecidos ocultos.</span>}</>}
+          </p>
+          {semNecessidade > 0 && (
+            <Link href={`/painel/estoque/reposicao?${baseQS(verTudo ? { tudo: '' } : { tudo: '1' })}`}
+              className="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline">
+              {verTudo ? '← Só o que preciso pedir' : `Ver todos (${linhas.length}) →`}
+            </Link>
+          )}
+        </div>
+      )}
+
       {/* Tabela */}
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-gray-100">
@@ -214,8 +246,12 @@ export default async function ReposicaoPage({
               <tr><td colSpan={6} className="px-4 py-12 text-center text-sm text-gray-400">
                 Nenhuma venda no período. Ajuste as datas ou espere as vendas entrarem.
               </td></tr>
+            ) : linhasMostradas.length === 0 ? (
+              <tr><td colSpan={6} className="px-4 py-12 text-center text-sm text-gray-500">
+                🎉 Nada a pedir — todo o estoque cobre o período desejado.
+              </td></tr>
             ) : (
-              linhas.map((l) => (
+              linhasMostradas.map((l) => (
                 <tr key={l.id} className={`hover:bg-blue-50/60 transition ${l.urgente ? 'bg-red-50/40' : ''}`}>
                   <td className="px-4 py-3">
                     <p className="text-sm font-medium text-gray-800">{l.nome}</p>

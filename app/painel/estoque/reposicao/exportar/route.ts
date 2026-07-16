@@ -1,4 +1,4 @@
-import { createServiceClient, fetchAll, requirePermissao } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll, fetchAllIn, requirePermissao } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
 import ExcelJS from 'exceljs'
 import type { NextRequest } from 'next/server'
@@ -41,12 +41,20 @@ export async function GET(req: NextRequest) {
   )
   const vendidoPorProd: Record<string, number> = {}
   for (const i of itens) vendidoPorProd[i.produto_id] = (vendidoPorProd[i.produto_id] ?? 0) + Number(i.quantidade)
+  // histórico do SIGE (só na visão "Todos os depósitos"), igual à tela
+  if (!deposito) {
+    const hist = await fetchAll<{ produto_id: string; quantidade: number }>(
+      (from, to) => supabase.from('historico_itens_venda').select('produto_id, quantidade').gte('data', de).lte('data', ate).range(from, to) as unknown as PromiseLike<{ data: { produto_id: string; quantidade: number }[] | null }>,
+    )
+    for (const h of hist) vendidoPorProd[h.produto_id] = (vendidoPorProd[h.produto_id] ?? 0) + Number(h.quantidade)
+  }
   const ids = Object.keys(vendidoPorProd)
 
   const produtos = ids.length
-    ? await fetchAll<{ id: string; nome: string; codigo: string | null; categoria: string | null; cat: { nome: string } | null }>(
-        (from, to) => {
-          let q = supabase.from('produtos').select('id, nome, codigo, categoria, cat:categorias!categoria ( nome )').in('id', ids)
+    ? await fetchAllIn<{ id: string; nome: string; codigo: string | null; categoria: string | null; cat: { nome: string } | null }>(
+        ids,
+        (chunk, from, to) => {
+          let q = supabase.from('produtos').select('id, nome, codigo, categoria, cat:categorias!categoria ( nome )').in('id', chunk)
           if (categoria) q = q.eq('categoria', categoria)
           return q.range(from, to) as unknown as PromiseLike<{ data: { id: string; nome: string; codigo: string | null; categoria: string | null; cat: { nome: string } | null }[] | null }>
         },
@@ -56,8 +64,9 @@ export async function GET(req: NextRequest) {
   const estoquePorProd: Record<string, number> = {}
   if (produtos.length) {
     const pids = produtos.map((p) => p.id)
-    const est = await fetchAll<{ produto_id: string; quantidade: number; deposito_id: string }>(
-      (from, to) => supabase.from('estoque').select('produto_id, quantidade, deposito_id').in('produto_id', pids).range(from, to) as unknown as PromiseLike<{ data: { produto_id: string; quantidade: number; deposito_id: string }[] | null }>,
+    const est = await fetchAllIn<{ produto_id: string; quantidade: number; deposito_id: string }>(
+      pids,
+      (chunk, from, to) => supabase.from('estoque').select('produto_id, quantidade, deposito_id').in('produto_id', chunk).range(from, to) as unknown as PromiseLike<{ data: { produto_id: string; quantidade: number; deposito_id: string }[] | null }>,
     )
     for (const e of est) {
       if (deposito && e.deposito_id !== deposito) continue
