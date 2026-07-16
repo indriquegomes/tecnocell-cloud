@@ -45,7 +45,8 @@ export default async function ReposicaoPage({
   const cobrir = Math.max(1, parseInt(params.cobrir ?? '30', 10) || 30)
   // prazo de reposição FIXO (interno) só pra o alerta 🔥: se o estoque dura menos que
   // o tempo típico de um pedido chegar, é urgente. Não é campo — é constante.
-  const PRAZO_REPOSICAO = 15
+  // 12 dias: prazo real que o Vitor mediu do pedido chegar (16/07).
+  const PRAZO_REPOSICAO = 12
   const dias = diasEntre(de, ate)
 
   const [depositos, categorias] = await Promise.all([getDepositosCache(), getCategoriasCache()])

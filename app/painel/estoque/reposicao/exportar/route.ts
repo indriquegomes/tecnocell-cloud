@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   const ate = sp.get('ate') || hoje
   const de = sp.get('de') || (() => { const d = new Date(ate + 'T00:00:00'); d.setDate(d.getDate() - 29); return d.toISOString().slice(0, 10) })()
   const cobrir = Math.max(1, parseInt(sp.get('cobrir') ?? '30', 10) || 30)
-  const PRAZO_REPOSICAO = 15
+  const PRAZO_REPOSICAO = 12   // prazo real do pedido chegar (Vitor, 16/07) — igual à tela
   const categoria = sp.get('categoria') || ''
   const deposito = sp.get('deposito') || ''
   const dias = (() => {

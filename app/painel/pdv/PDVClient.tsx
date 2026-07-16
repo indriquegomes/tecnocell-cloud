@@ -241,6 +241,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
   const [pagandoCrediario, setPagandoCrediario] = useState(false)
   const [pagoCrediarioOk, setPagoCrediarioOk] = useState(false)
+  // forma escolhida pra quitar VÁRIAS notas de uma vez (Isa: "quitar todas de uma vez só")
+  const [formaQuitar, setFormaQuitar] = useState('')
   const [detalheVenda, setDetalheVenda] = useState<DetalheVenda | null>(null)
   const [carregandoDetalhe, setCarregandoDetalhe] = useState(false)
   // Modal de recebimento por linha
@@ -1288,6 +1290,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const totalAtraso = crediarioItens.filter((i) => i.data_vencimento && i.data_vencimento < hoje).reduce((s, i) => s + restante(i), 0)
   const totalAVencer = crediarioItens.filter((i) => !i.data_vencimento || i.data_vencimento >= hoje).reduce((s, i) => s + restante(i), 0)
   const subtotalSelecionado = crediarioItens.filter((i) => selecionados.has(i.id)).reduce((s, i) => s + restante(i), 0)
+  // default da forma de quitação: Dinheiro (ou a 1ª que não seja fiado)
+  const formaQuitarEfetiva = formaQuitar
+    || formas.find((f) => f.tipo === 'dinheiro')?.nome
+    || formas.find((f) => f.tipo !== 'fiado')?.nome
+    || 'Dinheiro'
   const todosVisivelSelecionados = crediarioFiltrado.length > 0 && crediarioFiltrado.every((i) => selecionados.has(i.id))
 
   // #9 — abrir o modal e carregar as últimas vendas
@@ -2437,6 +2444,40 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                     <p className={`mt-0.5 text-base font-bold ${cor}`}>{formatBRL(valor)}</p>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Barra de quitação em lote — a seleção já existia e somava, mas não havia
+                botão nenhum pra cobrar o selecionado (Isa: "quitar todas de uma vez só"). */}
+            {selecionados.size > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-blue-100 bg-blue-50 px-5 py-3">
+                <p className="text-sm font-semibold text-blue-900">
+                  {selecionados.size} {selecionados.size === 1 ? 'nota selecionada' : 'notas selecionadas'} · {formatBRL(subtotalSelecionado)}
+                </p>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={formaQuitarEfetiva}
+                    onChange={(e) => setFormaQuitar(e.target.value)}
+                    className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {formas.filter((f) => f.tipo !== 'fiado').map((f) => (
+                      <option key={f.id} value={f.nome}>{f.nome}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={pagandoCrediario}
+                    onClick={() => handlePagarCrediario([...selecionados], formaQuitarEfetiva)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-green-700 disabled:opacity-60"
+                  >
+                    {pagandoCrediario && <Spinner />}
+                    {pagandoCrediario ? 'Quitando…' : `Quitar ${formatBRL(subtotalSelecionado)}`}
+                  </button>
+                  <button type="button" onClick={() => setSelecionados(new Set())}
+                    className="px-1 text-sm text-gray-500 transition hover:text-gray-700">
+                    Limpar
+                  </button>
+                </div>
               </div>
             )}
 
