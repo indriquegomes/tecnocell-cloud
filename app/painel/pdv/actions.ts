@@ -619,35 +619,49 @@ async function registrarNoCaixa(
   })
 }
 
+// Os recebimentos de crediário RETORNAM o erro em vez de lançar. Em produção o Next
+// CENSURA a mensagem de qualquer erro lançado numa server action (vira o texto genérico
+// "An error occurred in the Server Components render…"), escondendo o motivo real —
+// tipicamente "Sessão expirada, recarregue (F5)" com o PDV aberto o dia todo. Retornando,
+// a operadora enxerga o motivo de verdade e sabe o que fazer.
+export type ResultadoReceb =
+  | { ok: true; quitado?: boolean; novoValor?: number }
+  | { ok: false; erro: string }
+
 export async function pagarLancamentos(
   accessToken: string,
   ids: string[],
   formaPagamento = 'dinheiro',
   lojaId?: string | null,
-): Promise<void> {
-  if (ids.length === 0) return
-  await requirePermissao('crediario_receber', accessToken)
-  const supabase = await createServiceClient()
-  const today = hojeSP()
-  const contaId = await contaDaFormaTexto(supabase, formaPagamento)
+): Promise<ResultadoReceb> {
+  if (ids.length === 0) return { ok: true }
+  try {
+    await requirePermissao('crediario_receber', accessToken)
+    const supabase = await createServiceClient()
+    const today = hojeSP()
+    const contaId = await contaDaFormaTexto(supabase, formaPagamento)
 
-  // pega o que sobrou de cada um ANTES de quitar — é esse valor que entra no caixa
-  const { data: antes } = await supabase
-    .from('lancamentos')
-    .select('id, valor, valor_pago, pessoa_nome')
-    .in('id', ids)
+    // pega o que sobrou de cada um ANTES de quitar — é esse valor que entra no caixa
+    const { data: antes } = await supabase
+      .from('lancamentos')
+      .select('id, valor, valor_pago, pessoa_nome')
+      .in('id', ids)
 
-  const { data, error } = await supabase
-    .from('lancamentos')
-    .update({ status: 'pago', data_pagamento: today, forma_pagamento: formaPagamento, conta_id: contaId, updated_at: new Date().toISOString() })
-    .in('id', ids)
-    .select('id')
-  if (error) throw new Error(error.message)
-  if (!data || data.length === 0) throw new Error('Pagamento não registrado — sem permissão ou lançamento não encontrado.')
+    const { data, error } = await supabase
+      .from('lancamentos')
+      .update({ status: 'pago', data_pagamento: today, forma_pagamento: formaPagamento, conta_id: contaId, updated_at: new Date().toISOString() })
+      .in('id', ids)
+      .select('id')
+    if (error) throw new Error(error.message)
+    if (!data || data.length === 0) throw new Error('Pagamento não registrado — sem permissão ou lançamento não encontrado.')
 
-  const total = (antes ?? []).reduce((s, l) => s + Math.max(0, (Number(l.valor) || 0) - (Number(l.valor_pago) || 0)), 0)
-  const quem = (antes ?? []).length === 1 ? ((antes ?? [])[0].pessoa_nome ?? 'cliente') : `${(antes ?? []).length} fiados`
-  await registrarNoCaixa(supabase, lojaId, Math.round(total * 100) / 100, formaPagamento, `Fiado recebido — ${quem}`)
+    const total = (antes ?? []).reduce((s, l) => s + Math.max(0, (Number(l.valor) || 0) - (Number(l.valor_pago) || 0)), 0)
+    const quem = (antes ?? []).length === 1 ? ((antes ?? [])[0].pessoa_nome ?? 'cliente') : `${(antes ?? []).length} fiados`
+    await registrarNoCaixa(supabase, lojaId, Math.round(total * 100) / 100, formaPagamento, `Fiado recebido — ${quem}`)
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, erro: e instanceof Error && e.message ? e.message : 'Erro ao registrar pagamento.' }
+  }
 }
 
 export async function registrarPagamentoParcial(
@@ -656,46 +670,53 @@ export async function registrarPagamentoParcial(
   valorPago: number,
   formaPagamento: string,
   lojaId?: string | null,
-): Promise<{ quitado: boolean }> {
-  await requirePermissao('crediario_receber', accessToken)
-  const supabase = await createServiceClient()
+): Promise<ResultadoReceb> {
+  try {
+    await requirePermissao('crediario_receber', accessToken)
+    const supabase = await createServiceClient()
 
-  const { data: lanc, error: errBusca } = await supabase
-    .from('lancamentos')
-    .select('valor, valor_pago, historico_pagamentos, pessoa_nome')
-    .eq('id', id)
-    .single()
-  if (errBusca || !lanc) throw new Error('Lançamento não encontrado.')
+    const { data: lanc, error: errBusca } = await supabase
+      .from('lancamentos')
+      .select('valor, valor_pago, historico_pagamentos, pessoa_nome')
+      .eq('id', id)
+      .single()
+    if (errBusca || !lanc) throw new Error('Lançamento não encontrado.')
 
-  const totalPagoAtualizado = (lanc.valor_pago ?? 0) + valorPago
-  const quitado = totalPagoAtualizado >= lanc.valor
-  const today = hojeSP()
+    const totalPagoAtualizado = (lanc.valor_pago ?? 0) + valorPago
+    const quitado = totalPagoAtualizado >= lanc.valor
+    const today = hojeSP()
 
-  const novoRegistro: PagamentoHistorico = {
-    valor: valorPago,
-    forma: formaPagamento,
-    data: new Date().toISOString(),
+    const novoRegistro: PagamentoHistorico = {
+      valor: valorPago,
+      forma: formaPagamento,
+      data: new Date().toISOString(),
+    }
+    // historico_pagamentos deveria ser sempre array; guarda contra registro legado
+    // malformado (objeto/null) — spread de não-array lançaria TypeError.
+    const historicoAtual = Array.isArray(lanc.historico_pagamentos) ? (lanc.historico_pagamentos as PagamentoHistorico[]) : []
+    const historicoAtualizado = [...historicoAtual, novoRegistro]
+
+    const update: Record<string, unknown> = {
+      valor_pago: totalPagoAtualizado,
+      forma_pagamento: formaPagamento,
+      historico_pagamentos: historicoAtualizado,
+      updated_at: new Date().toISOString(),
+    }
+    if (quitado) {
+      update.status = 'pago'
+      update.data_pagamento = today
+      update.conta_id = await contaDaFormaTexto(supabase, formaPagamento)
+    }
+
+    const { error } = await supabase.from('lancamentos').update(update).eq('id', id)
+    if (error) throw new Error(error.message)
+
+    await registrarNoCaixa(supabase, lojaId, valorPago, formaPagamento, `Fiado recebido — ${lanc.pessoa_nome ?? 'cliente'}`)
+
+    return { ok: true, quitado }
+  } catch (e) {
+    return { ok: false, erro: e instanceof Error && e.message ? e.message : 'Erro ao registrar pagamento.' }
   }
-  const historicoAtualizado = [...((lanc.historico_pagamentos as PagamentoHistorico[] | null) ?? []), novoRegistro]
-
-  const update: Record<string, unknown> = {
-    valor_pago: totalPagoAtualizado,
-    forma_pagamento: formaPagamento,
-    historico_pagamentos: historicoAtualizado,
-    updated_at: new Date().toISOString(),
-  }
-  if (quitado) {
-    update.status = 'pago'
-    update.data_pagamento = today
-    update.conta_id = await contaDaFormaTexto(supabase, formaPagamento)
-  }
-
-  const { error } = await supabase.from('lancamentos').update(update).eq('id', id)
-  if (error) throw new Error(error.message)
-
-  await registrarNoCaixa(supabase, lojaId, valorPago, formaPagamento, `Fiado recebido — ${lanc.pessoa_nome ?? 'cliente'}`)
-
-  return { quitado }
 }
 
 // DESCONTO no fiado — perdoar parte da dívida (arredondar centavos, negociar cobrança).
@@ -711,54 +732,58 @@ export async function aplicarDescontoCrediario(
   id: string,
   valorDesconto: number,
   motivo: string,
-): Promise<{ quitado: boolean; novoValor: number }> {
-  await requirePermissao('crediario_receber', accessToken)
-  await requirePermissao('venda_desconto', accessToken)   // perdoar dívida = dar desconto
-  const supabase = await createServiceClient()
+): Promise<ResultadoReceb> {
+  try {
+    await requirePermissao('crediario_receber', accessToken)
+    await requirePermissao('venda_desconto', accessToken)   // perdoar dívida = dar desconto
+    const supabase = await createServiceClient()
 
-  const { data: lanc, error: errBusca } = await supabase
-    .from('lancamentos')
-    .select('valor, valor_pago, historico_pagamentos')
-    .eq('id', id)
-    .single()
-  if (errBusca || !lanc) throw new Error('Lançamento não encontrado.')
+    const { data: lanc, error: errBusca } = await supabase
+      .from('lancamentos')
+      .select('valor, valor_pago, historico_pagamentos')
+      .eq('id', id)
+      .single()
+    if (errBusca || !lanc) throw new Error('Lançamento não encontrado.')
 
-  const valor = Number(lanc.valor) || 0
-  const pago = Number(lanc.valor_pago) || 0
-  const restante = Math.round((valor - pago) * 100) / 100
+    const valor = Number(lanc.valor) || 0
+    const pago = Number(lanc.valor_pago) || 0
+    const restante = Math.round((valor - pago) * 100) / 100
 
-  // trava: nunca perdoar mais do que o cliente ainda deve (senão a dívida vira negativa)
-  const desconto = Math.min(Math.round(valorDesconto * 100) / 100, restante)
-  if (!(desconto > 0)) throw new Error('Desconto inválido.')
+    // trava: nunca perdoar mais do que o cliente ainda deve (senão a dívida vira negativa)
+    const desconto = Math.min(Math.round(valorDesconto * 100) / 100, restante)
+    if (!(desconto > 0)) throw new Error('Desconto inválido.')
 
-  const novoValor = Math.round((valor - desconto) * 100) / 100
-  const quitado = pago >= novoValor
+    const novoValor = Math.round((valor - desconto) * 100) / 100
+    const quitado = pago >= novoValor
 
-  const historico = (lanc.historico_pagamentos as PagamentoHistorico[] | null) ?? []
-  const registro: PagamentoHistorico = {
-    valor: desconto,
-    forma: motivo.trim() ? `Desconto — ${motivo.trim()}` : 'Desconto',
-    data: new Date().toISOString(),
-    tipo: 'desconto',
+    const historico = Array.isArray(lanc.historico_pagamentos) ? (lanc.historico_pagamentos as PagamentoHistorico[]) : []
+    const registro: PagamentoHistorico = {
+      valor: desconto,
+      forma: motivo.trim() ? `Desconto — ${motivo.trim()}` : 'Desconto',
+      data: new Date().toISOString(),
+      tipo: 'desconto',
+    }
+
+    const update: Record<string, unknown> = {
+      valor: novoValor,
+      historico_pagamentos: [...historico, registro],
+      updated_at: new Date().toISOString(),
+    }
+    if (quitado) {
+      update.status = 'pago'
+      update.data_pagamento = hojeSP()
+      // a conta é a do ÚLTIMO pagamento REAL — o desconto não move dinheiro nenhum.
+      // Se a dívida foi 100% perdoada, conta_id fica null e nada entra em conta (correto).
+      const ultimoReal = [...historico].reverse().find((h) => h.tipo !== 'desconto')
+      if (ultimoReal) update.conta_id = await contaDaFormaTexto(supabase, ultimoReal.forma)
+    }
+
+    const { error } = await supabase.from('lancamentos').update(update).eq('id', id)
+    if (error) throw new Error(error.message)
+    return { ok: true, quitado, novoValor }
+  } catch (e) {
+    return { ok: false, erro: e instanceof Error && e.message ? e.message : 'Erro ao aplicar desconto.' }
   }
-
-  const update: Record<string, unknown> = {
-    valor: novoValor,
-    historico_pagamentos: [...historico, registro],
-    updated_at: new Date().toISOString(),
-  }
-  if (quitado) {
-    update.status = 'pago'
-    update.data_pagamento = hojeSP()
-    // a conta é a do ÚLTIMO pagamento REAL — o desconto não move dinheiro nenhum.
-    // Se a dívida foi 100% perdoada, conta_id fica null e nada entra em conta (correto).
-    const ultimoReal = [...historico].reverse().find((h) => h.tipo !== 'desconto')
-    if (ultimoReal) update.conta_id = await contaDaFormaTexto(supabase, ultimoReal.forma)
-  }
-
-  const { error } = await supabase.from('lancamentos').update(update).eq('id', id)
-  if (error) throw new Error(error.message)
-  return { quitado, novoValor }
 }
 
 export interface ItemPedido {

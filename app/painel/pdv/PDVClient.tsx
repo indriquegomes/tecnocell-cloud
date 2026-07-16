@@ -1144,7 +1144,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     setPagandoCrediario(true)
     setPagoCrediarioOk(false)
     try {
-      await pagarLancamentos(await authToken(), ids, forma, lojaId)
+      const res = await pagarLancamentos(await authToken(), ids, forma, lojaId)
+      if (!res.ok) { setErro(res.erro); return }
       setCrediarioItens((prev) => prev.filter((i) => !ids.includes(i.id)))
       setSelecionados(new Set())
       setRecebendoItem(null)
@@ -1179,11 +1180,13 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
       // DESCONTO: não entra dinheiro. A dívida encolhe (valor cai), o valor_pago não mexe.
       if (formaRecebimento === DESCONTO_ID) {
-        const { quitado, novoValor } = await aplicarDescontoCrediario(await authToken(), recebendoItem.id, valorNum, motivoDesconto)
+        const res = await aplicarDescontoCrediario(await authToken(), recebendoItem.id, valorNum, motivoDesconto)
+        if (!res.ok) { setErro(res.erro); return }
+        const { quitado, novoValor } = res
         if (quitado) {
           setCrediarioItens((prev) => prev.filter((i) => i.id !== recebendoItem.id))
         } else {
-          setCrediarioItens((prev) => prev.map((i) => (i.id === recebendoItem.id ? { ...i, valor: novoValor } : i)))
+          setCrediarioItens((prev) => prev.map((i) => (i.id === recebendoItem.id ? { ...i, valor: novoValor ?? i.valor } : i)))
         }
         setRecebendoItem(null)
         setPagoCrediarioOk(true)
@@ -1195,7 +1198,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       const ehCredReceb = fReceb?.tipo === 'cartao_credito'
       const formaTxt = (fReceb?.nome ?? 'Dinheiro') + (ehCredReceb && parcelasRecebimento > 1 ? ` ${parcelasRecebimento}x` : '')
       // passa a loja: o dinheiro do fiado entra na GAVETA do caixa aberto dela
-      const { quitado } = await registrarPagamentoParcial(await authToken(), recebendoItem.id, valorNum, formaTxt, lojaId)
+      const res = await registrarPagamentoParcial(await authToken(), recebendoItem.id, valorNum, formaTxt, lojaId)
+      if (!res.ok) { setErro(res.erro); return }
+      const { quitado } = res
       if (quitado) {
         setCrediarioItens((prev) => prev.filter((i) => i.id !== recebendoItem.id))
       } else {
