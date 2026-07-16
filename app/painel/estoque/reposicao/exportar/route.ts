@@ -4,8 +4,8 @@ import ExcelJS from 'exceljs'
 import type { NextRequest } from 'next/server'
 
 // Baixa a Reposição como planilha — o Vitor pediu Excel pra a estoquista fazer o
-// pedido. Mesmíssimo cálculo da tela (vendeu ÷ dias × (prazo+cobertura) − estoque),
-// respeitando os filtros que vieram na URL (de/até/categoria/depósito/prazo/cobertura).
+// pedido. Mesmíssimo cálculo da tela (vendeu ÷ dias × dias-de-estoque − estoque),
+// respeitando os filtros que vieram na URL (de/até/categoria/depósito/cobrir).
 export async function GET(req: NextRequest) {
   try {
     await requirePermissao('estoque')
@@ -19,8 +19,8 @@ export async function GET(req: NextRequest) {
   const hoje = hojeSP()
   const ate = sp.get('ate') || hoje
   const de = sp.get('de') || (() => { const d = new Date(ate + 'T00:00:00'); d.setDate(d.getDate() - 29); return d.toISOString().slice(0, 10) })()
-  const prazo = Math.max(0, parseInt(sp.get('prazo') ?? '15', 10) || 0)
-  const cobertura = Math.max(1, parseInt(sp.get('cobertura') ?? '30', 10) || 30)
+  const cobrir = Math.max(1, parseInt(sp.get('cobrir') ?? '30', 10) || 30)
+  const PRAZO_REPOSICAO = 15
   const categoria = sp.get('categoria') || ''
   const deposito = sp.get('deposito') || ''
   const dias = (() => {
@@ -70,8 +70,8 @@ export async function GET(req: NextRequest) {
     const estoque = estoquePorProd[p.id] ?? 0
     const mediaDia = vendido / dias
     const dura = mediaDia > 0 ? estoque / mediaDia : Infinity
-    const sugestao = Math.max(0, Math.ceil(mediaDia * (prazo + cobertura) - estoque))
-    const urgente = mediaDia > 0 && dura < prazo
+    const sugestao = Math.max(0, Math.ceil(mediaDia * cobrir - estoque))
+    const urgente = mediaDia > 0 && dura < PRAZO_REPOSICAO
     return { ...p, vendido, estoque, mediaDia, dura, sugestao, urgente }
   }).sort((a, b) => b.sugestao - a.sugestao || b.vendido - a.vendido)
 
@@ -115,11 +115,10 @@ export async function GET(req: NextRequest) {
   info.getRow(1).font = { bold: true }
   info.addRows([
     { k: 'Período de venda', v: `${de} a ${ate} (${dias} dias)` },
-    { k: 'Prazo de entrega do fornecedor', v: `${prazo} dias` },
-    { k: 'Cobertura desejada', v: `${cobertura} dias` },
+    { k: 'Estoque desejado', v: `${cobrir} dias de venda` },
     { k: 'Depósito', v: deposito ? '(filtrado)' : 'Todos' },
     { k: 'Categoria', v: categoria ? '(filtrada)' : 'Todas' },
-    { k: 'Fórmula do PEDIR', v: 'média/dia × (prazo + cobertura) − estoque' },
+    { k: 'Fórmula do PEDIR', v: 'média/dia × dias de estoque − estoque atual' },
     { k: 'Gerado em', v: new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) },
   ])
 

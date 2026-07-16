@@ -11,12 +11,12 @@ import { getDepositosCache, getCategoriasCache } from '@/lib/cache-catalogo'
 //
 // Vitor descreveu a lógica de ponto de reposição: quantos vendeu num período,
 // quantos tem em estoque, a média de venda por dia, projeta quanto vai vender
-// ATÉ o pedido chegar (prazo do fornecedor), e sugere quanto comprar pra cobrir.
+// e sugere quanto comprar pra manter X dias de estoque de cada produto.
 //
 // A conta, por produto:
 //   média/dia   = vendido no período ÷ dias do período
 //   dura         = estoque atual ÷ média/dia   (quantos dias o estoque aguenta)
-//   necessário   = média/dia × (prazo de entrega + dias de cobertura desejada)
+//   necessário   = média/dia × (dias de estoque desejados)
 //   SUGESTÃO     = necessário − estoque atual   (nunca negativo)
 //   urgente?     = o estoque acaba ANTES do pedido chegar (dura < prazo)
 //
@@ -33,7 +33,7 @@ const diasEntre = (de: string, ate: string) => {
 export default async function ReposicaoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ de?: string; ate?: string; categoria?: string; deposito?: string; prazo?: string; cobertura?: string }>
+  searchParams: Promise<{ de?: string; ate?: string; categoria?: string; deposito?: string; cobrir?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
@@ -41,8 +41,11 @@ export default async function ReposicaoPage({
   const hoje = hojeSP()
   const ate = params.ate || hoje
   const de = params.de || (() => { const d = new Date(ate + 'T00:00:00'); d.setDate(d.getDate() - 29); return d.toISOString().slice(0, 10) })()
-  const prazo = Math.max(0, parseInt(params.prazo ?? '15', 10) || 0)         // dias até o pedido chegar
-  const cobertura = Math.max(1, parseInt(params.cobertura ?? '30', 10) || 30) // dias de estoque que quer ter
+  // UM campo só (Vitor tirou o "prazo" + "cobrir" e juntou): quantos dias de estoque quer ter.
+  const cobrir = Math.max(1, parseInt(params.cobrir ?? '30', 10) || 30)
+  // prazo de reposição FIXO (interno) só pra o alerta 🔥: se o estoque dura menos que
+  // o tempo típico de um pedido chegar, é urgente. Não é campo — é constante.
+  const PRAZO_REPOSICAO = 15
   const dias = diasEntre(de, ate)
 
   const [depositos, categorias] = await Promise.all([getDepositosCache(), getCategoriasCache()])
@@ -93,9 +96,9 @@ export default async function ReposicaoPage({
     const estoque = estoquePorProd[p.id] ?? 0
     const mediaDia = vendido / dias
     const dura = mediaDia > 0 ? estoque / mediaDia : Infinity
-    const necessario = mediaDia * (prazo + cobertura)
+    const necessario = mediaDia * cobrir            // quero ter 'cobrir' dias de estoque
     const sugestao = Math.max(0, Math.ceil(necessario - estoque))
-    const urgente = mediaDia > 0 && dura < prazo
+    const urgente = mediaDia > 0 && dura < PRAZO_REPOSICAO
     return { ...p, vendido, estoque, mediaDia, dura, sugestao, urgente }
   }).sort((a, b) => b.sugestao - a.sugestao || b.vendido - a.vendido)
 
@@ -106,7 +109,7 @@ export default async function ReposicaoPage({
   const fmtDias = (d: number) => d === Infinity ? '∞' : d < 1 ? '<1d' : Math.round(d) + 'd'
   const baseQS = (extra: Record<string, string>) => {
     const q = new URLSearchParams()
-    q.set('de', de); q.set('ate', ate); q.set('prazo', String(prazo)); q.set('cobertura', String(cobertura))
+    q.set('de', de); q.set('ate', ate); q.set('cobrir', String(cobrir))
     if (params.categoria) q.set('categoria', params.categoria)
     if (params.deposito) q.set('deposito', params.deposito)
     for (const [k, v] of Object.entries(extra)) v ? q.set(k, v) : q.delete(k)
@@ -181,19 +184,15 @@ export default async function ReposicaoPage({
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500">Fornecedor entrega em (dias)</label>
-            <input type="number" name="prazo" min="0" defaultValue={prazo} className="w-32 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500">Quero cobrir (dias)</label>
-            <input type="number" name="cobertura" min="1" defaultValue={cobertura} className="w-32 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <label className="mb-1 block text-xs font-medium text-gray-500">Quero estoque pra (dias)</label>
+            <input type="number" name="cobrir" min="1" defaultValue={cobrir} className="w-36 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <button type="submit" className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">Calcular</button>
         </div>
         {/* Atalhos de período — preenchem as datas (client) */}
         <AtalhosPeriodo />
         <p className="text-xs text-gray-400">
-          Base: <b>{dias} dias</b> de venda · o pedido cobre <b>{prazo} dias</b> de entrega + <b>{cobertura} dias</b> de estoque.
+          Base: <b>{dias} dias</b> de venda · quero ter <b>{cobrir} dias</b> de estoque de cada produto.
         </p>
       </form>
 
@@ -227,7 +226,7 @@ export default async function ReposicaoPage({
                   <td className={`px-4 py-3 text-right text-sm font-semibold tabular-nums ${l.estoque <= 0 ? 'text-red-600' : 'text-gray-800'}`}>{l.estoque}</td>
                   <td className="px-4 py-3 text-center">
                     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                      l.urgente ? 'bg-red-100 text-red-700' : l.dura < prazo + cobertura ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'
+                      l.urgente ? 'bg-red-100 text-red-700' : l.dura < cobrir ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'
                     }`}>
                       {l.urgente && '🔥'} {fmtDias(l.dura)}
                     </span>
