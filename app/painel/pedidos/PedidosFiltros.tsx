@@ -28,7 +28,7 @@ export function PedidosFiltros({
   return (
     <div className="flex flex-wrap gap-2 items-center">
       {/* Tipo */}
-      {([['', 'Todos'], ['orcamento', 'Orçamentos'], ['pedido', 'Pedidos']] as [string, string][]).map(([v, l]) => (
+      {([['', 'Todos'], ['orcamento', 'Orçamentos'], ['pedido', 'Pedidos'], ['venda', 'Vendas (PDV)']] as [string, string][]).map(([v, l]) => (
         <Link key={v}
           href={buildUrl({ tipo: v, q: '' })}
           className={`rounded-lg px-3 py-1.5 text-sm font-medium border transition ${tipo === v ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
