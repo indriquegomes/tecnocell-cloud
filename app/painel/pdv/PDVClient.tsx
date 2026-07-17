@@ -475,6 +475,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     horario: string
   } | null>(null)
   const [mostrarConfirmacao, setMostrarConfirmacao] = useState(false)
+  // PDV em 2 etapas (pedido da Isa): 'venda' = monta o carrinho/cliente/tabela;
+  // 'pagamento' = tela cheia com os botões de forma (a forma sai da 1ª tela).
+  const [etapa, setEtapa] = useState<'venda' | 'pagamento'>('venda')
   const [salvandoOrc, setSalvandoOrc] = useState(false)
   const [msgOrc, setMsgOrc] = useState('')
   // Loja/depósito: lembrado por COMPUTADOR (localStorage) — as usuárias revezam
@@ -916,6 +919,26 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     parcelas: 1,
   })
 
+  // Aba 2 (tela de pagamento): clicar num botão-forma do grid define a forma como
+  // pagamento único, com o valor cheio do total. Cartão/split ainda são ajustáveis
+  // no detalhe abaixo do grid.
+  const escolherFormaGrid = (formaId: string) => {
+    setErro(null)
+    setValorAuto(true)
+    setPagamentos([{ uid: '1', forma_id: formaId, valor: total.toFixed(2), maquina: maquinaDaForma(formaId), parcelas: 1 }])
+  }
+  // Cor do botão por TIPO da forma (grid da aba 2) — inspirado no modelo do SIGE,
+  // mas na paleta do sistema. Fundo forte, texto branco.
+  const corFormaBtn = (forma: typeof formas[number]): string => {
+    const t = forma.tipo
+    if (t === 'dinheiro') return 'bg-emerald-600 hover:bg-emerald-700'
+    if (t === 'pix') return 'bg-teal-500 hover:bg-teal-600'
+    if (t === 'cartao_credito') return 'bg-rose-500 hover:bg-rose-600'
+    if (t === 'cartao_debito') return 'bg-[#1B6CA8] hover:bg-[#155a8c]'
+    if (t === 'fiado') return 'bg-orange-500 hover:bg-orange-600'
+    return 'bg-slate-500 hover:bg-slate-600'
+  }
+
   const totalPagoDistribuido = pagamentos.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0) + creditoAplicado
   const totalTaxasPg = pagamentos.reduce((s, p) => s + taxaDoItem(p), 0)
   const totalCobrado = total + totalTaxasPg
@@ -972,6 +995,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         tabela_preco_id: tabelas.some((t) => t.id === tabelaId) ? tabelaId : null,
         forma_pagamento_id: pagamentos[0]?.forma_id || null,
       })
+      setEtapa('venda')
       setCarrinho([])
       setPagamentos([{ uid: '1', forma_id: '', valor: '', maquina: '', parcelas: 1 }])
       setValorAuto(true); setPessoaId(''); setDesconto(''); setSenhaDesconto(''); setObservacoes(''); setBuscaCliente(''); setDescontoTipo('valor'); setCreditoAplicado(0); setSaldoCredito(0); setFiadoCliente(null)
@@ -1058,6 +1082,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       setVendaTotal(result.total)
       setVendaSnapshot(snap)
       setMostrarConfirmacao(false)
+      setEtapa('venda')
       setCarrinho([])
       setPagamentos([{ uid: '1', forma_id: '', valor: '', maquina: '', parcelas: 1 }])
       setValorAuto(true)
@@ -2119,38 +2144,80 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             </div>
           </div>
 
+          {/* ABA 1 → botão que leva pra tela de pagamento. A forma saiu da 1ª tela
+              (pedido da Isa): primeiro monta a venda, depois escolhe como pagou. */}
+          {etapa === 'venda' && (
+            <button
+              type="button"
+              onClick={() => { if (carrinho.length > 0 && caixaAberto) { setErro(null); setEtapa('pagamento') } }}
+              disabled={carrinho.length === 0 || !caixaAberto}
+              title={!caixaAberto ? 'Abra o caixa da loja pra vender' : undefined}
+              className="w-full rounded-xl bg-gradient-to-r from-green-600 to-green-500 py-3.5 text-sm font-bold text-white shadow-sm shadow-green-600/25 hover:from-green-700 hover:to-green-600 disabled:from-gray-300 disabled:to-gray-300 disabled:cursor-not-allowed transition"
+            >
+              {!caixaAberto ? '🔒 Caixa fechado — abra pra vender'
+                : carrinho.length === 0 ? 'Adicione produtos pra vender'
+                : <span className="inline-flex items-center gap-2">Ir para pagamento <span className="tabular-nums">{formatBRL(totalCobrado)}</span> →</span>}
+            </button>
+          )}
+
+          {/* ABA 2 → tela de pagamento: grid de botões grandes por forma (modelo do
+              SIGE, na paleta do sistema) + o detalhe de valor/cartão/split embaixo. */}
+          {etapa === 'pagamento' && (<>
+            <div className="border-t border-gray-100 pt-4">
+              <button type="button" onClick={() => setEtapa('venda')}
+                className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition">← Voltar</button>
+              <p className="text-center text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">Como foi pago?</p>
+              <p className="mb-4 text-center text-3xl font-extrabold tabular-nums text-[#1B6CA8]">{formatBRL(totalCobrado)}</p>
+              <div className="grid grid-cols-2 gap-2.5">
+                {formas.map((f, i) => {
+                  const ativa = pagamentos.length === 1 && pagamentos[0].forma_id === f.id
+                  return (
+                    <button key={f.id} type="button" onClick={() => escolherFormaGrid(f.id)}
+                      className={`relative flex min-h-[82px] flex-col items-center justify-center gap-1.5 rounded-2xl px-2 py-3 font-bold text-white shadow-sm transition ${corFormaBtn(f)} ${ativa ? 'scale-[1.03] ring-2 ring-[#1B6CA8] ring-offset-2' : 'opacity-95 hover:opacity-100 hover:shadow-md'}`}>
+                      <span className="absolute right-1.5 top-1.5 rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-bold leading-none">F{i + 1}</span>
+                      <span className="text-2xl leading-none">{iconeForma(f.nome)}</span>
+                      <span className="text-center text-xs leading-tight">{f.nome}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
           <div className="space-y-3 border-t border-gray-100 pt-4">
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-gray-600">
-                Pagamentos <span className="text-red-500">*</span>
+              <label className="mb-1.5 block text-xs font-medium text-gray-400">
+                Valor e ajustes <span className="font-normal">(cartão · dividir · troco)</span>
               </label>
               <div className="space-y-2">
                 {pagamentos.map((p) => (
                   <div key={p.uid} className="rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-2">
                     <div className="flex items-center gap-2">
-                      <select
-                        value={p.forma_id}
-                        onChange={(e) => setPagamentos((prev) => {
-                          // ao escolher a forma, já preenche o valor com o que falta (se estiver vazio)
-                          const outros = prev.filter((x) => x.uid !== p.uid).reduce((s, x) => s + (parseFloat(x.valor) || 0), 0)
-                          const restante = total - outros
-                          return prev.map((x) =>
-                            x.uid === p.uid
-                              ? {
-                                  ...x,
-                                  forma_id: e.target.value,
-                                  maquina: maquinaDaForma(e.target.value),
-                                  parcelas: 1,
-                                  valor: (!x.valor || parseFloat(x.valor) === 0) && restante > 0 ? restante.toFixed(2) : x.valor,
-                                }
-                              : x
-                          )
-                        })}
-                        className={`flex-1 rounded-lg border bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${p.forma_id ? 'border-gray-200' : 'border-amber-400 text-amber-700'}`}
-                      >
-                        <option value="" disabled>Selecione a forma…</option>
-                        {formas.map((f) => <option key={f.id} value={f.id}>{iconeForma(f.nome)} {f.nome}</option>)}
-                      </select>
+                      {/* O dropdown de forma só aparece na DIVISÃO (2+ formas), pra escolher
+                          a outra. Na venda de 1 forma o grid de botões acima já escolheu —
+                          senão seria a mesma coisa duas vezes (a Isa reparou). */}
+                      {pagamentos.length > 1 ? (
+                        <select
+                          value={p.forma_id}
+                          onChange={(e) => setPagamentos((prev) => {
+                            const outros = prev.filter((x) => x.uid !== p.uid).reduce((s, x) => s + (parseFloat(x.valor) || 0), 0)
+                            const restante = total - outros
+                            return prev.map((x) =>
+                              x.uid === p.uid
+                                ? { ...x, forma_id: e.target.value, maquina: maquinaDaForma(e.target.value), parcelas: 1,
+                                    valor: (!x.valor || parseFloat(x.valor) === 0) && restante > 0 ? restante.toFixed(2) : x.valor }
+                                : x
+                            )
+                          })}
+                          className={`flex-1 rounded-lg border bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${p.forma_id ? 'border-gray-200' : 'border-amber-400 text-amber-700'}`}
+                        >
+                          <option value="" disabled>Selecione a forma…</option>
+                          {formas.map((f) => <option key={f.id} value={f.id}>{iconeForma(f.nome)} {f.nome}</option>)}
+                        </select>
+                      ) : (
+                        <span className="flex flex-1 items-center gap-1.5 text-sm font-semibold text-gray-700">
+                          {iconeForma(nomeDaForma(p.forma_id))} {nomeDaForma(p.forma_id)}
+                        </span>
+                      )}
                       <div className="w-32">
                         <CampoDinheiro
                           value={parseFloat(p.valor) || 0}
@@ -2288,6 +2355,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               : !caixaAberto ? '🔒 Caixa fechado — abra pra vender'
               : <span className="inline-flex items-center gap-2">Finalizar Venda <span className="tabular-nums">{formatBRL(totalCobrado)}</span></span>}
           </button>
+          </>)}
 
           {carrinho.length > 0 && (
             <button
@@ -2307,7 +2375,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           {carrinho.length > 0 && (
             <button
               type="button"
-              onClick={() => { if (confirm(`Limpar o carrinho? ${totalItens} ${totalItens === 1 ? 'item será removido' : 'itens serão removidos'}.`)) { setCarrinho([]); setErro(null) } }}
+              onClick={() => { if (confirm(`Limpar o carrinho? ${totalItens} ${totalItens === 1 ? 'item será removido' : 'itens serão removidos'}.`)) { setCarrinho([]); setEtapa('venda'); setErro(null) } }}
               className="w-full rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-red-500 hover:border-red-200 transition"
             >
               Limpar Carrinho
