@@ -1,6 +1,8 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { useEffect, useTransition } from 'react'
+import { beginNav, endNav } from '@/components/NavProgress'
 
 // Filtro do dashboard: período + loja.
 //
@@ -23,13 +25,21 @@ export function FiltroDashboard({
   ehPadrao: boolean
 }) {
   const router = useRouter()
+  const [pending, startTransition] = useTransition()
+
+  // Navega mostrando a barra de carregamento do topo. O filtro só troca a QUERY
+  // (mesmo pathname), então a barra não fecharia sozinha — beginNav/endNav a
+  // controlam pelo estado da transição. (Reclamação da Isa: "clica e não acontece
+  // nada visível enquanto carrega".)
+  const irUrl = (url: string) => { beginNav(); startTransition(() => router.push(url)) }
+  useEffect(() => { if (!pending) endNav() }, [pending])
 
   const ir = (novo: Partial<{ de: string; ate: string; loja: string }>) => {
     const q = new URLSearchParams()
     const d = novo.de ?? de, a = novo.ate ?? ate, l = novo.loja ?? loja
     q.set('de', d); q.set('ate', a)
     if (l) q.set('loja', l)
-    router.push('/painel?' + q.toString())
+    irUrl('/painel?' + q.toString())
   }
 
   // datas em America/Sao_Paulo (o resto do sistema usa o mesmo fuso)
@@ -76,7 +86,11 @@ export function FiltroDashboard({
     }`
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/60 px-3 py-2">
+    <div
+      aria-busy={pending}
+      className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/60 px-3 py-2 transition-opacity"
+      style={pending ? { opacity: 0.55, pointerEvents: 'none' } : undefined}
+    >
       {/* "Hoje" é o atalho que a Isa realmente precisa: como o SIGE parou, só o dia
           de hoje mostra as vendedoras de verdade (Mariana, Maria Eduarda, Brunna)
           no ranking. Qualquer janela maior ainda é dominada pelo histórico do SIGE,
@@ -84,7 +98,7 @@ export function FiltroDashboard({
       <button type="button" onClick={() => atalho(1)} className={btn(ativoHoje)}>Hoje</button>
       <button type="button" onClick={() => atalho(7)} className={btn(ativoSemana)}>Esta semana</button>
       <button type="button" onClick={() => irMes(hoje.getMonth(), hoje.getFullYear())} className={btn(ativoMes)}>Este mês</button>
-      <button type="button" onClick={() => router.push('/painel')} className={btn(ehPadrao)}>30 dias</button>
+      <button type="button" onClick={() => irUrl('/painel')} className={btn(ehPadrao)}>30 dias</button>
 
       <span className="mx-1 h-4 w-px bg-gray-200" />
 

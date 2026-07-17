@@ -7,6 +7,17 @@ import { usePathname } from 'next/navigation'
 // O App Router não expõe evento de "início de navegação", então detectamos o
 // clique num link interno (começo) e o usePathname (fim, quando a rota troca).
 // CSS puro, sem dependência. Respeita prefers-reduced-motion via transições curtas.
+//
+// Navegação por <a> é pega sozinha. Mas quando a rota muda só a QUERY
+// (ex.: filtros do dashboard, que fazem router.push('/painel?...')), o pathname
+// não troca e a barra não fecharia sozinha. Por isso a base expõe um gatilho
+// imperativo: quem navega por router.push chama beginNav()/endNav() (via
+// useTransition) e a barra aparece igual. Ver components/FiltroDashboard.tsx.
+const EVT_BEGIN = 'navprogress:begin'
+const EVT_END = 'navprogress:end'
+export function beginNav() { if (typeof window !== 'undefined') window.dispatchEvent(new Event(EVT_BEGIN)) }
+export function endNav() { if (typeof window !== 'undefined') window.dispatchEvent(new Event(EVT_END)) }
+
 export function NavProgress() {
   const pathname = usePathname()
   const [width, setWidth] = useState(0)
@@ -17,7 +28,23 @@ export function NavProgress() {
   const clear = () => { timers.current.forEach((t) => clearTimeout(t)); timers.current = [] }
   const push = (fn: () => void, ms: number) => { timers.current.push(window.setTimeout(fn, ms)) }
 
-  // Começa ao clicar num link interno pra outra rota
+  const start = () => {
+    active.current = true
+    clear(); setVisible(true); setWidth(8)
+    push(() => setWidth(50), 50)
+    push(() => setWidth(78), 300)
+    push(() => setWidth(92), 900)
+  }
+  const finish = () => {
+    if (!active.current) return
+    active.current = false
+    clear(); setWidth(100)
+    push(() => setVisible(false), 250)
+    push(() => setWidth(0), 550)
+  }
+
+  // Começa ao clicar num link interno pra outra rota, OU quando alguém dispara
+  // beginNav() (navegação por router.push — filtros, selects que trocam só a query).
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
@@ -26,23 +53,22 @@ export function NavProgress() {
       let url: URL
       try { url = new URL(a.href, location.href) } catch { return }
       if (url.origin !== location.origin || url.pathname === location.pathname) return
-      active.current = true
-      clear(); setVisible(true); setWidth(8)
-      push(() => setWidth(50), 50)
-      push(() => setWidth(78), 300)
-      push(() => setWidth(92), 900)
+      start()
     }
     document.addEventListener('click', onClick, true)
-    return () => document.removeEventListener('click', onClick, true)
+    window.addEventListener('navprogress:begin', start)
+    window.addEventListener('navprogress:end', finish)
+    return () => {
+      document.removeEventListener('click', onClick, true)
+      window.removeEventListener('navprogress:begin', start)
+      window.removeEventListener('navprogress:end', finish)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Termina quando a rota realmente troca
+  // Termina quando a rota realmente troca (cobre a navegação por <a>)
   useEffect(() => {
-    if (!active.current) return
-    active.current = false
-    clear(); setWidth(100)
-    push(() => setVisible(false), 250)
-    push(() => setWidth(0), 550)
+    finish()
     return clear
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname])
