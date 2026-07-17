@@ -219,8 +219,17 @@ export function DevolucoesClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vendaInicial])
 
+  // O desconto da venda é ABATIMENTO DO PEDIDO, não dinheiro que o cliente pagou (Isa, 17/07).
+  // Os itens guardam o preço de tabela; o desconto vive só no total da venda. Devolver pelo
+  // preço cheio fazia o desconto virar "reembolso": venda de R$66 com R$18 de desconto e fiado
+  // de R$48 devolvia R$48 de abate + R$18 em dinheiro pra quem nunca pagou nada.
+  // Por isso o valor devolvido é proporcional ao que a venda REALMENTE custou.
+  const totalCheio = venda
+    ? venda.itens.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0)
+    : 0
+  const fatorDesconto = venda && totalCheio > 0 ? venda.total / totalCheio : 1
   const totalSelecionado = venda
-    ? venda.itens.reduce((s, i) => s + (itens.get(i.produto_id) ?? 0) * i.preco_unitario, 0)
+    ? venda.itens.reduce((s, i) => s + (itens.get(i.produto_id) ?? 0) * i.preco_unitario, 0) * fatorDesconto
     : 0
 
   // Split da devolução: abate a dívida (fiado) primeiro; o resto foi pago → reembolso
@@ -252,7 +261,8 @@ export function DevolucoesClient({
         .map((i) => ({
           ...i,
           quantidade: itens.get(i.produto_id) ?? 0,
-          total_item: (itens.get(i.produto_id) ?? 0) * i.preco_unitario,
+          // proporcional ao desconto da venda — o item vale o que foi cobrado, não a tabela
+          total_item: (itens.get(i.produto_id) ?? 0) * i.preco_unitario * fatorDesconto,
           status_produto: statusProduto.get(i.produto_id) ?? 'ok',
           series: seriesSel.get(i.produto_id) ?? [],   // IMEIs escolhidos (vazio p/ não serializado)
         }))
