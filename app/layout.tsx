@@ -25,8 +25,11 @@ export const viewport = {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // suppressHydrationWarning no <html>: o script anti-piscada do "esconder valores"
+  // (components/OcultarValores.tsx) adiciona a classe tc-ocultar-valores no <html>
+  // ANTES do React hidratar. Sem isto, o React acusa mismatch de className.
   return (
-    <html lang="pt-BR" className={`h-full ${jakarta.variable}`}>
+    <html lang="pt-BR" className={`h-full ${jakarta.variable}`} suppressHydrationWarning>
       <body className="min-h-full bg-gray-50 antialiased">
         <RegistrarSW />
         {children}

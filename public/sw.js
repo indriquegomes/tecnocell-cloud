@@ -6,8 +6,13 @@
 // muda e o cache velho nunca é reusado por engano. HTML, dados e API NUNCA são
 // cacheados aqui: vão sempre pela rede, sempre frescos. Nada de estoque/venda velho.
 
-const CACHE = 'tecnocell-assets-v1'
+const CACHE = 'tecnocell-assets-v2'
 const ESTATICO = /\/_next\/static\/|\.(?:png|jpg|jpeg|svg|gif|ico|webp|woff2?)$/
+// Em DEV (localhost) os assets do Next NÃO têm hash estável no nome — a mesma URL
+// muda de conteúdo quando editamos. Cache-first então serve CSS/JS VELHO no reload
+// normal (só o Ctrl+Shift+R passa por cima). Em localhost o SW não cacheia nada:
+// tudo pela rede, sempre fresco. Em produção (vercel) segue cacheando (nomes com hash).
+const EH_DEV = self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1'
 
 self.addEventListener('install', () => self.skipWaiting())
 
@@ -25,6 +30,7 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return
   const url = new URL(req.url)
   if (url.origin !== self.location.origin) return
+  if (EH_DEV) return // dev: nada de cache, sempre pela rede (evita CSS/JS velho no reload)
   if (!ESTATICO.test(url.pathname)) return // HTML/dados/API: passa direto pela rede
 
   // cache-first pros imutáveis: se está guardado, entrega na hora; senão baixa e guarda

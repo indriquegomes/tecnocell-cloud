@@ -8,6 +8,7 @@ import { Sidebar } from '@/components/Sidebar'
 import { SessionGuard } from '@/components/SessionGuard'
 import { BotaoReport } from '@/components/BotaoReport'
 import { BarraAvisos } from '@/components/BarraAvisos'
+import { OcultarValores, scriptOcultarValores } from '@/components/OcultarValores'
 import type { Lembrete as AvisoCaixa } from '@/lib/lembrete-caixa'
 import type { LembretePendente } from '@/lib/lembretes'
 
@@ -79,6 +80,8 @@ export function PainelShell({
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-100">
+      {/* aplica o "esconder valores" salvo ANTES da tela pintar (sem piscar o valor) */}
+      <script dangerouslySetInnerHTML={{ __html: scriptOcultarValores }} />
       <SessionGuard />
 
       {/* Bloqueio: entra pela direita e TREME. Barrado tem que ser sentido, não lido. */}
@@ -122,6 +125,7 @@ export function PainelShell({
             <h1 className="text-sm font-medium text-gray-500">Painel Interno</h1>
           </div>
           <div className="flex items-center gap-4">
+            <OcultarValores />
             <BotaoReport />
             <div className="text-right">
               <p className="text-sm font-medium text-gray-700">{nome ?? email}</p>

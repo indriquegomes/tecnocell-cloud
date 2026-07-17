@@ -2,6 +2,7 @@ import { createServiceClient, permissoesUsuarioAtual, fetchAll } from '@/lib/sup
 import { getFaturamentoMetas, type VendaCash } from '@/lib/cache-dashboard'
 import { temPermissao } from '@/lib/permissoes'
 import { formatBRL, formatDate } from '@/lib/utils'
+import { Valor } from '@/components/Valor'
 import { headers } from 'next/headers'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
@@ -191,13 +192,13 @@ export default async function DashboardPage({
 
   const cor = (i: number) => (i === 0 ? 'bg-white' : i === 1 ? 'bg-white/55' : 'bg-white/30')
 
-  const Stat = ({ icon, bg, label, value, sub, href, cls = '' }: { icon: ReactNode; bg: string; label: string; value: string; sub?: string; href: string; cls?: string }) => (
+  const Stat = ({ icon, bg, label, value, sub, href, cls = '', sensivel = false }: { icon: ReactNode; bg: string; label: string; value: string; sub?: string; href: string; cls?: string; sensivel?: boolean }) => (
     <Link href={href} className={`group flex flex-col justify-center rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-[#1B6CA8]/40 hover:shadow-md ${cls}`}>
       <div className="flex items-center gap-3.5">
         <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${bg}`}>{icon}</span>
         <div className="min-w-0">
           <p className="truncate text-xs font-medium text-gray-400">{label}</p>
-          <p className="truncate text-xl font-bold tabular-nums leading-tight text-gray-900">{value}</p>
+          <p className="truncate text-xl font-bold tabular-nums leading-tight text-gray-900">{sensivel ? <Valor>{value}</Valor> : value}</p>
           {sub && <p className="truncate text-[11px] text-gray-400">{sub}</p>}
         </div>
       </div>
@@ -216,7 +217,7 @@ export default async function DashboardPage({
                 <span className="w-4 shrink-0 text-center text-xs font-bold tabular-nums text-[#1B6CA8]/50">{i + 1}</span>
                 <span className="truncate text-sm text-gray-700">{nome}</span>
               </div>
-              <span className="relative z-10 shrink-0 pl-3 text-sm font-semibold tabular-nums text-gray-900">{formatBRL(val)}</span>
+              <span className="relative z-10 shrink-0 pl-3 text-sm font-semibold tabular-nums text-gray-900"><Valor>{formatBRL(val)}</Valor></span>
             </div>
           ))}
       </div>
@@ -247,22 +248,22 @@ export default async function DashboardPage({
           <div className="relative overflow-hidden rounded-2xl bg-[#1B6CA8] p-6 text-white shadow-sm lg:col-span-2">
             <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/5" />
             <p className="relative text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Minhas vendas · este mês</p>
-            <p className="relative mt-2.5 text-[38px] font-extrabold leading-none tabular-nums">{formatBRL(meuFatMes)}</p>
+            <p className="relative mt-2.5 text-[38px] font-extrabold leading-none tabular-nums"><Valor>{formatBRL(meuFatMes)}</Valor></p>
             <div className="relative mt-2.5 flex flex-wrap gap-x-5 gap-y-1 text-sm text-white/75">
               <span><b className="font-bold text-white tabular-nums">{meuNVendas}</b> vendas</span>
-              <span>ticket <b className="font-bold text-white">{formatBRL(meuTicket)}</b></span>
+              <span>ticket <b className="font-bold text-white"><Valor>{formatBRL(meuTicket)}</Valor></b></span>
             </div>
             {metaEfetiva > 0 ? (
               <div className="relative mt-6">
                 <div className="flex items-center justify-between text-xs text-white/80">
-                  <span>{meta > 0 ? 'Meta do mês' : `Sua parte da meta (÷${minhaMeta?.pessoas ?? 1})`} · {formatBRL(metaEfetiva)}</span>
+                  <span>{meta > 0 ? 'Meta do mês' : `Sua parte da meta (÷${minhaMeta?.pessoas ?? 1})`} · <Valor>{formatBRL(metaEfetiva)}</Valor></span>
                   <span className="font-bold text-white tabular-nums">{metaEfetivaPct}%</span>
                 </div>
                 <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-white/15">
                   <div className="h-full rounded-full bg-white transition-all" style={{ width: `${metaEfetivaPct}%` }} />
                 </div>
                 <p className="relative mt-1.5 text-[11px] text-white/60">
-                  {metaEfetivaPct >= 100 ? '🏆 bateu a meta!' : `faltam ${formatBRL(metaEfetiva - meuFatMes)}`}
+                  {metaEfetivaPct >= 100 ? '🏆 bateu a meta!' : <>faltam <Valor>{formatBRL(metaEfetiva - meuFatMes)}</Valor></>}
                 </p>
               </div>
             ) : (
@@ -270,7 +271,7 @@ export default async function DashboardPage({
             )}
           </div>
 
-          <Stat icon={<IconCart className="h-5 w-5 text-emerald-600" />} bg="bg-emerald-50" label="Vendas hoje" value={formatBRL(meuHoje)} sub={`${meuNVendasHoje} venda(s)`} href="/painel/pdv" />
+          <Stat sensivel icon={<IconCart className="h-5 w-5 text-emerald-600" />} bg="bg-emerald-50" label="Vendas hoje" value={formatBRL(meuHoje)} sub={`${meuNVendasHoje} venda(s)`} href="/painel/pdv" />
         </div>
 
         {/* Meta da loja — o time todo mira as faixas (sabendo a loja: só a dela; senão, todas) */}
@@ -291,7 +292,7 @@ export default async function DashboardPage({
                   <span className="font-mono text-xs font-semibold text-gray-400">#{v.numero ?? '—'}</span>
                   <span className="text-sm text-gray-500">{v.created_at ? formatDate(v.created_at) : ''}</span>
                 </div>
-                <span className="text-sm font-bold tabular-nums text-gray-900">{formatBRL(v.total ?? 0)}</span>
+                <span className="text-sm font-bold tabular-nums text-gray-900"><Valor>{formatBRL(v.total ?? 0)}</Valor></span>
               </div>
             ))}
           </div>
@@ -313,7 +314,7 @@ export default async function DashboardPage({
           <div className="relative overflow-hidden rounded-2xl bg-[#1B6CA8] p-6 text-white shadow-sm lg:col-span-2">
             <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/5" />
             <p className="relative text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Valor em estoque · custo</p>
-            <p className="relative mt-2.5 text-[38px] font-extrabold leading-none tabular-nums">{formatBRL(valorEstoque)}</p>
+            <p className="relative mt-2.5 text-[38px] font-extrabold leading-none tabular-nums"><Valor>{formatBRL(valorEstoque)}</Valor></p>
             <div className="relative mt-2.5 flex flex-wrap gap-x-5 gap-y-1 text-sm text-white/75">
               <span><b className="font-bold text-white tabular-nums">{unidades.toLocaleString('pt-BR')}</b> unidades</span>
               <span><b className="font-bold text-white tabular-nums">{pecasComEstoque.toLocaleString('pt-BR')}</b> peças</span>
@@ -378,10 +379,10 @@ export default async function DashboardPage({
             </p>
             <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-medium">histórico</span>
           </div>
-          <p className="relative mt-2.5 text-[38px] font-extrabold leading-none tracking-tight tabular-nums">{formatBRL(faturamento)}</p>
+          <p className="relative mt-2.5 text-[38px] font-extrabold leading-none tracking-tight tabular-nums"><Valor>{formatBRL(faturamento)}</Valor></p>
           <div className="relative mt-2.5 flex flex-wrap gap-x-5 gap-y-1 text-sm text-white/75">
             <span><b className="font-bold text-white tabular-nums">{nVendas.toLocaleString('pt-BR')}</b> vendas</span>
-            <span>ticket <b className="font-bold text-white">{formatBRL(ticket)}</b></span>
+            <span>ticket <b className="font-bold text-white"><Valor>{formatBRL(ticket)}</Valor></b></span>
             <span><b className="font-bold text-white">~{Math.round(nVendas / 30)}</b> por dia</span>
           </div>
           {lojas.length > 0 && (
@@ -394,7 +395,7 @@ export default async function DashboardPage({
               <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/75">
                 {lojas.map(([nome, val], i) => (
                   <span key={nome} className="inline-flex items-center gap-1.5">
-                    <span className={`h-2 w-2 rounded-full ${cor(i)}`} />{nome} · <b className="font-semibold text-white">{formatBRL(val)}</b>
+                    <span className={`h-2 w-2 rounded-full ${cor(i)}`} />{nome} · <b className="font-semibold text-white"><Valor>{formatBRL(val)}</Valor></b>
                   </span>
                 ))}
               </div>
@@ -405,7 +406,7 @@ export default async function DashboardPage({
         {pode('estoque') && (
           <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm md:col-span-3 lg:col-span-4">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-400">Valor em estoque</p>
-            <p className="mt-2.5 text-3xl font-extrabold leading-none tabular-nums text-[#1B6CA8]">{formatBRL(valorEstoque)}</p>
+            <p className="mt-2.5 text-3xl font-extrabold leading-none tabular-nums text-[#1B6CA8]"><Valor>{formatBRL(valorEstoque)}</Valor></p>
             <p className="mt-1.5 text-xs text-gray-400">a preço de custo</p>
             <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 border-t border-gray-100 pt-3.5 text-sm text-gray-500">
               <span><b className="font-bold tabular-nums text-gray-800">{unidades.toLocaleString('pt-BR')}</b> unidades</span>
@@ -418,12 +419,12 @@ export default async function DashboardPage({
         )}
 
         {/* Vendas de hoje — encosta no hero, fechando a coluna da direita */}
-        {pode('vendas') && <Stat cls="md:col-span-3 lg:col-span-4" icon={<IconCart className="h-5 w-5 text-emerald-600" />} bg="bg-emerald-50" label="Vendas hoje (PDV)" value={formatBRL(vendasHojeTotal)} sub={`${(vendasHoje ?? []).length} venda(s)`} href="/painel/pdv" />}
+        {pode('vendas') && <Stat cls="md:col-span-3 lg:col-span-4" sensivel icon={<IconCart className="h-5 w-5 text-emerald-600" />} bg="bg-emerald-50" label="Vendas hoje (PDV)" value={formatBRL(vendasHojeTotal)} sub={`${(vendasHoje ?? []).length} venda(s)`} href="/painel/pdv" />}
 
         {/* Trio de contadores */}
         {pode('produtos') && <Stat cls="md:col-span-3 lg:col-span-4" icon={<IconPackage className="h-5 w-5 text-[#1B6CA8]" />} bg="bg-[#1B6CA8]/10" label="Produtos ativos" value={(totalProdutos ?? 0).toLocaleString('pt-BR')} href="/painel/produtos" />}
         {pode('clientes') && <Stat cls="md:col-span-3 lg:col-span-4" icon={<IconUsers className="h-5 w-5 text-violet-600" />} bg="bg-violet-50" label="Clientes" value={(totalClientes ?? 0).toLocaleString('pt-BR')} href="/painel/clientes" />}
-        {pode('financeiro') && <Stat cls="md:col-span-3 lg:col-span-4" icon={<IconWallet className="h-5 w-5 text-amber-600" />} bg="bg-amber-50" label="A receber · a pagar" value={formatBRL(aReceber)} sub={`a pagar ${formatBRL(aPagar)}`} href="/painel/financeiro" />}
+        {pode('financeiro') && <Stat cls="md:col-span-3 lg:col-span-4" sensivel icon={<IconWallet className="h-5 w-5 text-amber-600" />} bg="bg-amber-50" label="A receber · a pagar" value={formatBRL(aReceber)} sub={`a pagar ${formatBRL(aPagar)}`} href="/painel/financeiro" />}
 
         {/* Graficos: o fluxo e largo (a linha precisa de espaco), a rosca e compacta */}
         {fluxoDiario.length > 0 && (
@@ -457,12 +458,12 @@ export default async function DashboardPage({
                     <p className="text-sm font-semibold text-gray-800">{m.loja}</p>
                     <p className="text-xs text-gray-500">
                       {atingida ? <>faixa <b className="text-gray-700">{atingida.nome}</b> batida</> : <span className="text-gray-400">nenhuma faixa batida ainda</span>}
-                      {prox && <> · faltam {formatBRL(prox.valor - m.faturamento)} pra {prox.nome}</>}
+                      {prox && <> · faltam <Valor>{formatBRL(prox.valor - m.faturamento)}</Valor> pra {prox.nome}</>}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className={`text-lg font-extrabold tabular-nums ${atingida ? 'text-emerald-600' : 'text-gray-300'}`}>{formatBRL(atingida?.premio ?? 0)}</p>
-                    {atingida && pes > 1 && <p className="text-[11px] text-gray-500">👤 {formatBRL(atingida.premio / pes)} por pessoa (÷{pes})</p>}
+                    <p className={`text-lg font-extrabold tabular-nums ${atingida ? 'text-emerald-600' : 'text-gray-300'}`}><Valor>{formatBRL(atingida?.premio ?? 0)}</Valor></p>
+                    {atingida && pes > 1 && <p className="text-[11px] text-gray-500">👤 <Valor>{formatBRL(atingida.premio / pes)}</Valor> por pessoa (÷{pes})</p>}
                   </div>
                 </div>
               )

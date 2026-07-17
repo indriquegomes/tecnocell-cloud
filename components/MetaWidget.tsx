@@ -1,4 +1,5 @@
 import { formatBRL } from '@/lib/utils'
+import { Valor } from '@/components/Valor'
 
 export type Faixa = { nome: string; valor: number; premio: number }
 export type MetaInput = {
@@ -68,9 +69,9 @@ export function MetaWidget({ meta }: { meta: MetaInput }) {
           {proxima ? (
             <>
               <p className="text-xs font-medium text-gray-400">Faltam pra <span className="font-bold" style={{ color: GEMA[proxima.nome] ?? BLUE }}>{proxima.nome}</span></p>
-              <p className="text-3xl font-extrabold tabular-nums text-gray-900">{formatBRL(faltam)}</p>
+              <p className="text-3xl font-extrabold tabular-nums text-gray-900"><Valor>{formatBRL(faltam)}</Valor></p>
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-gray-500">
-                <span>Faturado <b className="tabular-nums text-gray-700">{formatBRL(fat)}</b></span>
+                <span>Faturado <b className="tabular-nums text-gray-700"><Valor>{formatBRL(fat)}</Valor></b></span>
                 {atingida && (
                   <span className="inline-flex items-center gap-1 font-semibold" style={{ color: GEMA[atingida.nome] ?? BLUE }}>
                     · <span className="h-2 w-2 rounded-full" style={{ background: GEMA[atingida.nome] ?? BLUE }} /> {atingida.nome} batida
@@ -79,14 +80,14 @@ export function MetaWidget({ meta }: { meta: MetaInput }) {
               </div>
               <div className="mt-2.5 flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-2 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700">
-                  🎁 Prêmio {proxima.nome}: {formatBRL(proxima.premio)}
+                  🎁 Prêmio {proxima.nome}: <Valor>{formatBRL(proxima.premio)}</Valor>
                 </span>
               </div>
             </>
           ) : (
             <>
               <p className="text-xs font-medium text-gray-400">🏆 Todas as faixas batidas!</p>
-              <p className="text-3xl font-extrabold tabular-nums text-gray-900">{formatBRL(fat)}</p>
+              <p className="text-3xl font-extrabold tabular-nums text-gray-900"><Valor>{formatBRL(fat)}</Valor></p>
               <p className="mt-1 text-sm font-semibold" style={{ color: GEMA[faixas[faixas.length - 1]?.nome] ?? BLUE }}>{faixas[faixas.length - 1]?.nome} conquistada</p>
             </>
           )}
@@ -125,11 +126,11 @@ export function MetaWidget({ meta }: { meta: MetaInput }) {
         <div className="mt-2 flex items-end justify-between">
           <div>
             <p className="text-[10px] uppercase tracking-wide text-gray-400">Vendido hoje</p>
-            <p className="text-xl font-bold tabular-nums text-gray-900">{formatBRL(meta.faturamentoHoje)}</p>
+            <p className="text-xl font-bold tabular-nums text-gray-900"><Valor>{formatBRL(meta.faturamentoHoje)}</Valor></p>
           </div>
           <div className="text-right">
             <p className="text-[10px] uppercase tracking-wide text-gray-400">Meta do dia</p>
-            <p className="text-xl font-bold tabular-nums text-gray-500">{formatBRL(metaDia)}</p>
+            <p className="text-xl font-bold tabular-nums text-gray-500"><Valor>{formatBRL(metaDia)}</Valor></p>
           </div>
         </div>
         <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-200">

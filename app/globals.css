@@ -231,3 +231,13 @@ button:disabled,
   .tc-ativo::before, .tc-escolhido, .tc-negado, .tc-treme, .tc-cresce,
   .tc-cascata > * { animation: none; }
 }
+
+/* Modo "esconder valores" (botão de olho no topo — components/OcultarValores.tsx).
+   Borra qualquer número marcado com <Valor> / .tc-sensivel. Tipo app de banco:
+   o valor continua no DOM (layout não pula), só fica ilegível. */
+.tc-ocultar-valores .tc-sensivel {
+  filter: blur(8px);
+  user-select: none;
+  cursor: default;
+  transition: filter 0.18s ease;
+}
