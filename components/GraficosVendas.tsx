@@ -1,8 +1,11 @@
+'use client'
+
+import { useState } from 'react'
 import { formatBRL } from '@/lib/utils'
 
 // Dois gráficos que o Vitor pediu (existiam no SIGE e faltavam aqui).
-// SVG puro, sem biblioteca de gráfico: zero dependência nova, zero peso no bundle
-// — e o PDV/painel continua leve, que é o que importa pra loja.
+// SVG/HTML puro, sem biblioteca de gráfico: zero dependência nova, zero peso no
+// bundle — e o PDV/painel continua leve, que é o que importa pra loja.
 //
 // Brand: azul #1B6CA8 · laranja #F47920.
 
@@ -13,7 +16,10 @@ const VERMELHO = '#dc2626'
 const CINZA = '#cbd5e1'
 
 // ───────────────────────────────────────────────────────────────
-// 1. FLUXO DIÁRIO DE VENDAS — área + linha, um ponto por dia do mês
+// 1. FLUXO DIÁRIO DE VENDAS — barras, uma por dia do mês.
+// Pedido da Isa: barras por dia e, ao passar o mouse, um box com o valor
+// vendido naquele dia (referência: o gráfico de vendas do SIGE). Antes era
+// linha com tooltip nativo do navegador (lento e só nos pontos).
 // ───────────────────────────────────────────────────────────────
 export function FluxoDiario({
   dias,
@@ -24,6 +30,8 @@ export function FluxoDiario({
   total: number
   mes: string
 }) {
+  const [hover, setHover] = useState<number | null>(null)
+
   if (dias.length === 0) {
     return (
       <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
@@ -33,16 +41,10 @@ export function FluxoDiario({
     )
   }
 
-  const W = 640, H = 170, PAD_L = 8, PAD_B = 20, PAD_T = 10
   const max = Math.max(...dias.map((d) => d.valor), 1)
-  const passo = dias.length > 1 ? (W - PAD_L * 2) / (dias.length - 1) : 0
-  const x = (i: number) => PAD_L + i * passo
-  const y = (v: number) => PAD_T + (H - PAD_T - PAD_B) * (1 - v / max)
-
-  const linha = dias.map((d, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(d.valor).toFixed(1)}`).join(' ')
-  const area = `${linha} L${x(dias.length - 1).toFixed(1)},${H - PAD_B} L${x(0).toFixed(1)},${H - PAD_B} Z`
   const melhor = dias.reduce((a, d) => (d.valor > a.valor ? d : a), dias[0])
   const comVenda = dias.filter((d) => d.valor > 0).length
+  const ativo = hover != null ? dias[hover] : null
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
@@ -52,38 +54,52 @@ export function FluxoDiario({
       </div>
       <p className="mb-3 text-2xl font-extrabold tabular-nums text-gray-900">{formatBRL(total)}</p>
 
-      <div className="overflow-x-auto">
-        <svg viewBox={`0 0 ${W} ${H}`} className="h-[170px] w-full min-w-[520px]" preserveAspectRatio="none">
-          {/* linhas de grade */}
-          {[0.25, 0.5, 0.75].map((f) => (
-            <line key={f} x1={PAD_L} x2={W - PAD_L} y1={y(max * f)} y2={y(max * f)}
-              stroke="#f1f5f9" strokeWidth="1" />
+      {/* barras + tooltip flutuante no hover */}
+      <div className="relative select-none" onMouseLeave={() => setHover(null)}>
+        {ativo && (
+          <div
+            className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 -translate-y-full pb-1"
+            style={{ left: `${((hover! + 0.5) / dias.length) * 100}%` }}
+          >
+            <div className="whitespace-nowrap rounded-lg bg-gray-900 px-2.5 py-1.5 text-center shadow-lg">
+              <div className="text-[10px] font-medium uppercase tracking-wide text-gray-300">Dia {ativo.dia}</div>
+              <div className="text-sm font-bold tabular-nums text-white">{formatBRL(ativo.valor)}</div>
+              <div className="text-[10px] text-gray-400">{ativo.n} {ativo.n === 1 ? 'venda' : 'vendas'}</div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex h-[160px] items-end gap-px">
+          {dias.map((d, i) => (
+            <div
+              key={i}
+              className="flex h-full flex-1 cursor-default items-end"
+              onMouseEnter={() => setHover(i)}
+            >
+              <div
+                className="w-full rounded-t-sm transition-[background-color,opacity]"
+                style={{
+                  height: `${d.valor > 0 ? Math.max(3, (d.valor / max) * 100) : 0}%`,
+                  backgroundColor: hover === i || (hover == null && d.dia === melhor.dia) ? LARANJA : AZUL,
+                  opacity: hover == null || hover === i ? 1 : 0.4,
+                }}
+              />
+            </div>
           ))}
-          <defs>
-            <linearGradient id="fluxoFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={AZUL} stopOpacity="0.22" />
-              <stop offset="100%" stopColor={AZUL} stopOpacity="0.02" />
-            </linearGradient>
-          </defs>
-          <path d={area} fill="url(#fluxoFill)" />
-          <path d={linha} fill="none" stroke={AZUL} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-          {/* pontos só nos dias com venda (senão vira sujeira) */}
-          {dias.map((d, i) => d.valor > 0 && (
-            <circle key={d.dia} cx={x(i)} cy={y(d.valor)} r={d.dia === melhor.dia ? 4 : 2.5}
-              fill={d.dia === melhor.dia ? LARANJA : AZUL}>
-              <title>{`Dia ${d.dia}: ${formatBRL(d.valor)} (${d.n} ${d.n === 1 ? 'venda' : 'vendas'})`}</title>
-            </circle>
+        </div>
+
+        {/* eixo: 1 dia a cada 3 pra não embolar */}
+        <div className="mt-1 flex gap-px">
+          {dias.map((d, i) => (
+            <div key={i} className="flex-1 text-center text-[9px] text-gray-400">
+              {i % 3 === 0 || i === dias.length - 1 ? d.dia : ''}
+            </div>
           ))}
-          {/* eixo: mostra 1 dia a cada 3 pra não embolar */}
-          {dias.map((d, i) => (i % 3 === 0 || i === dias.length - 1) && (
-            <text key={'t' + d.dia} x={x(i)} y={H - 5} textAnchor="middle"
-              fontSize="9" fill="#94a3b8">{d.dia}</text>
-          ))}
-        </svg>
+        </div>
       </div>
 
       {melhor.valor > 0 && (
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-2 text-xs text-gray-400">
           Melhor dia: <b className="text-gray-600">{melhor.dia}</b> · <span style={{ color: LARANJA }} className="font-semibold">{formatBRL(melhor.valor)}</span>
         </p>
       )}
