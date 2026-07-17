@@ -7,15 +7,32 @@ const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', curren
 const semAcento = (s: string) =>
   s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
 
-type Nota = { id: string; codigo: number | null; descricao: string | null; valor: number; vencimento: string | null; venda_id: string | null; vencida: boolean }
+type Nota = { id: string; codigo: number | null; descricao: string | null; pecas: string | null; valor: number; vencimento: string | null; venda_id: string | null; vencida: boolean }
 type Cliente = { nome: string; total: number; vencido: number; qtd: number; telefone: string | null; notas: Nota[] }
 
 const fmtData = (d: string | null) => (d ? d.slice(0, 10).split('-').reverse().join('/') : '—')
 
-// mensagem de cobrança pro WhatsApp
-const mensagem = (nome: string, total: number) =>
-  `Olá, ${nome}! 😊 Passando pra lembrar do saldo em aberto de ${fmt(total)} aqui na TecnoCell. ` +
-  `Quando puder, é só acertar. Qualquer dúvida, estou à disposição. Obrigado! 🙏`
+// mensagem de cobrança pro WhatsApp — modelo que a Isa desenhou: saudação com o
+// nome, saldo em aberto, período das notas, e o RELATÓRIO DE PEÇAS (uma linha por
+// nota em aberto, com código, descrição e valor).
+const mensagem = (c: Cliente) => {
+  const datas = c.notas.map((n) => n.vencimento).filter(Boolean).sort() as string[]
+  const periodo = datas.length
+    ? ` (referente ao período de ${fmtData(datas[0])} a ${fmtData(datas[datas.length - 1])})`
+    : ''
+  const pecas = c.notas.map((n) => {
+    // o produto ("2x Frontal iPhone") quando temos os itens; senão a descrição da nota
+    const oQue = (n.pecas || '').trim() || (n.descricao || '').trim() || 'Compra'
+    const nota = n.codigo ? `Nota ${n.codigo}: ` : ''
+    return `• ${nota}${oQue} — ${fmt(n.valor)}`
+  })
+  return (
+    `Olá, ${c.nome}! 😊\n` +
+    `Passando pra lembrar do saldo em aberto de ${fmt(c.total)} aqui na TecnoCell${periodo}. ` +
+    `Pedimos pelo acerto o quanto antes para mantermos tudo em dia. Qualquer dúvida, estamos à disposição.` +
+    (pecas.length ? `\n\nSegue o relatório de peças:\n${pecas.join('\n')}` : '')
+  )
+}
 
 // telefone -> só dígitos, com 55 na frente (Brasil)
 const waLink = (tel: string, msg: string) => {
@@ -43,7 +60,7 @@ export function FiadosClient({
 
   const copiar = async (c: Cliente) => {
     try {
-      await navigator.clipboard.writeText(mensagem(c.nome, c.total))
+      await navigator.clipboard.writeText(mensagem(c))
       setCopiado(c.nome)
       setTimeout(() => setCopiado((n) => (n === c.nome ? null : n)), 2500)
     } catch { /* clipboard bloqueado */ }
@@ -121,7 +138,7 @@ export function FiadosClient({
                 {c.telefone && (
                   // eslint-disable-next-line react/jsx-no-target-blank
                   <a
-                    href={waLink(c.telefone, mensagem(c.nome, c.total))}
+                    href={waLink(c.telefone, mensagem(c))}
                     target="_blank" rel="noopener"
                     className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition">
                     WhatsApp

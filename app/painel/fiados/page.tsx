@@ -27,10 +27,31 @@ export default async function FiadosPage() {
     if (p.nome && p.telefone) telPorNome.set(semAcento(p.nome), p.telefone)
   }
 
+  // PEÇAS de cada fiado: puxa os itens das vendas ligadas às notas, pra a cobrança
+  // sair com o produto ("2x Frontal iPhone") em vez de "Fiado #152" (pedido da Isa).
+  // Em LOTES de 100 ids — .in() com muitos ids estoura a URL do PostgREST ([[bug-in-muitos-ids-url-limit]]).
+  const vendaIds = [...new Set(lancamentos.map((l) => l.venda_id).filter(Boolean))] as string[]
+  const pecasPorVenda = new Map<string, string[]>()
+  for (let i = 0; i < vendaIds.length; i += 100) {
+    const lote = vendaIds.slice(i, i + 100)
+    const { data: itens } = await supabase
+      .from('itens_venda')
+      .select('venda_id, quantidade, produtos(nome)')
+      .in('venda_id', lote)
+    for (const it of (itens ?? []) as { venda_id: string; quantidade: number; produtos: { nome: string }[] | { nome: string } | null }[]) {
+      const prod = Array.isArray(it.produtos) ? it.produtos[0] : it.produtos
+      const nome = prod?.nome?.trim()
+      if (!nome) continue
+      const arr = pecasPorVenda.get(it.venda_id) ?? []
+      arr.push(it.quantidade > 1 ? `${it.quantidade}x ${nome}` : nome)
+      pecasPorVenda.set(it.venda_id, arr)
+    }
+  }
+
   const hoje = hojeSP()
 
   // agrupa por cliente + guarda as notas (lançamentos) de cada um
-  type Nota = { id: string; codigo: number | null; descricao: string | null; valor: number; vencimento: string | null; venda_id: string | null; vencida: boolean }
+  type Nota = { id: string; codigo: number | null; descricao: string | null; pecas: string | null; valor: number; vencimento: string | null; venda_id: string | null; vencida: boolean }
   const mapa = new Map<string, { nome: string; total: number; vencido: number; qtd: number; notas: Nota[] }>()
   for (const l of lancamentos) {
     const nome = l.pessoa_nome?.trim() || 'Sem nome'
@@ -42,7 +63,8 @@ export default async function FiadosPage() {
     atual.total += devendo
     atual.qtd += 1
     if (vencida) atual.vencido += devendo
-    atual.notas.push({ id: l.id, codigo: l.codigo, descricao: l.descricao, valor: devendo, vencimento: l.data_vencimento, venda_id: l.venda_id, vencida })
+    const pecas = l.venda_id ? (pecasPorVenda.get(l.venda_id)?.join(', ') ?? null) : null
+    atual.notas.push({ id: l.id, codigo: l.codigo, descricao: l.descricao, pecas, valor: devendo, vencimento: l.data_vencimento, venda_id: l.venda_id, vencida })
     mapa.set(chave, atual)
   }
 
