@@ -217,7 +217,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [selCopia, setSelCopia] = useState<Set<string>>(new Set())  // peças marcadas pra copiar preço
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([])
   const [pagamentos, setPagamentos] = useState<PagamentoItem[]>([
-    { uid: '1', forma_id: formas[0]?.id ?? '', valor: '', maquina: formas[0]?.maquina_id ?? '', parcelas: 1 },
+    { uid: '1', forma_id: '', valor: '', maquina: '', parcelas: 1 },
   ])
   // enquanto true, o valor do pagamento único acompanha o total do carrinho sozinho;
   // vira false quando o operador digita um valor à mão (pra dividir pagamento)
@@ -908,9 +908,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
   const novoPagamento = (): PagamentoItem => ({
     uid: String(Date.now() + Math.random()),
-    forma_id: formas[0]?.id ?? '',
+    // sem forma pré-marcada: a atendente ESCOLHE (pedido da Isa — antes vinha PIX
+    // e ela finalizava sem conferir se foi pix mesmo)
+    forma_id: '',
     valor: '',
-    maquina: maquinaDaForma(formas[0]?.id ?? ''),
+    maquina: '',
     parcelas: 1,
   })
 
@@ -971,7 +973,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         forma_pagamento_id: pagamentos[0]?.forma_id || null,
       })
       setCarrinho([])
-      setPagamentos([{ uid: '1', forma_id: formas[0]?.id ?? '', valor: '', maquina: formas[0]?.maquina_id ?? '', parcelas: 1 }])
+      setPagamentos([{ uid: '1', forma_id: '', valor: '', maquina: '', parcelas: 1 }])
       setValorAuto(true); setPessoaId(''); setDesconto(''); setSenhaDesconto(''); setObservacoes(''); setBuscaCliente(''); setDescontoTipo('valor'); setCreditoAplicado(0); setSaldoCredito(0); setFiadoCliente(null)
       setMsgOrc('✅ Orçamento salvo! Carregue de volta no F3 (Orçamento/Pedido) pra finalizar.')
       setTimeout(() => setMsgOrc(''), 6000)
@@ -1057,7 +1059,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       setVendaSnapshot(snap)
       setMostrarConfirmacao(false)
       setCarrinho([])
-      setPagamentos([{ uid: '1', forma_id: formas[0]?.id ?? '', valor: '', maquina: formas[0]?.maquina_id ?? '', parcelas: 1 }])
+      setPagamentos([{ uid: '1', forma_id: '', valor: '', maquina: '', parcelas: 1 }])
       setValorAuto(true)
       setPessoaId('')
       setDesconto('')
@@ -2144,8 +2146,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                               : x
                           )
                         })}
-                        className="flex-1 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={`flex-1 rounded-lg border bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${p.forma_id ? 'border-gray-200' : 'border-amber-400 text-amber-700'}`}
                       >
+                        <option value="" disabled>Selecione a forma…</option>
                         {formas.map((f) => <option key={f.id} value={f.id}>{iconeForma(f.nome)} {f.nome}</option>)}
                       </select>
                       <div className="w-32">
