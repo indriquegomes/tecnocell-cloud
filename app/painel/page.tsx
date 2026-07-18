@@ -62,8 +62,8 @@ export default async function DashboardPage({
     { count: totalClientes },
     { data: resumo },
     { data: vendasHoje },
-    { data: pendReceber },
-    { data: pendPagar },
+    pendReceber,
+    pendPagar,
     { data: lancRecentes },
     { data: metasAtivas },
     { data: lojasList },
@@ -78,8 +78,13 @@ export default async function DashboardPage({
     // Conferido campo a campo contra o calculo antigo antes de trocar: bate 100%.
     supabase.rpc('dashboard_resumo', { p_de: filtroDe, p_ate: filtroAte, p_loja: filtroLoja || null }),
     supabase.from('vendas').select('total').eq('status', 'concluida').gte('created_at', hoje),
-    supabase.from('lancamentos').select('valor, valor_pago').eq('tipo', 'receber').eq('status', 'pendente'),
-    supabase.from('lancamentos').select('valor, valor_pago').eq('tipo', 'pagar').eq('status', 'pendente'),
+    // fetchAll: estes dois viram os cards "A Receber"/"A Pagar". Sem paginar, o
+    // PostgREST corta em 1000 e o total passaria a mentir pra MENOS assim que a loja
+    // acumulasse mais de mil fiados em aberto — silenciosamente, que e o pior modo.
+    fetchAll<{ valor: number | null; valor_pago: number | null }>((from, to) =>
+      supabase.from('lancamentos').select('valor, valor_pago').eq('tipo', 'receber').eq('status', 'pendente').range(from, to)),
+    fetchAll<{ valor: number | null; valor_pago: number | null }>((from, to) =>
+      supabase.from('lancamentos').select('valor, valor_pago').eq('tipo', 'pagar').eq('status', 'pendente').range(from, to)),
     supabase.from('lancamentos').select('id, descricao, valor, tipo, status, data_vencimento, pessoa_nome').order('data_vencimento', { ascending: false }).limit(5),
     // metas / lojas / minhas-vendas nao dependem de nada acima — antes rodavam
     // uma DEPOIS da outra, cada ida ao Supabase custando ~350ms de latencia.
