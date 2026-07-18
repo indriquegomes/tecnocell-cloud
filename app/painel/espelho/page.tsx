@@ -1,5 +1,6 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { Dica } from '@/components/Dica'
+import AutoAtualiza from '@/components/AutoAtualiza'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -73,7 +74,10 @@ export default async function EspelhoPage() {
             O que está sendo capturado das telas do SIGE e o que o robô já replicou aqui.
           </p>
         </div>
-        <Dica texto="Esta tela lê direto do banco. Atualize (F5) para ver o estado mais recente." />
+        <div className="flex items-center gap-2">
+          <AutoAtualiza segundos={20} />
+          <Dica texto="A tela se atualiza sozinha a cada 20s. Clique em 'ao vivo' para pausar." />
+        </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
