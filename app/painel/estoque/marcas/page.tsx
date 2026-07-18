@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 import { SubmitButton } from '@/components/SubmitButton'
@@ -12,13 +12,16 @@ export default async function MarcasPage({
   const params = await searchParams
   const supabase = await createServiceClient()
 
-  const [{ data: marcas }, { data: produtos }] = await Promise.all([
+  const [{ data: marcas }, produtos] = await Promise.all([
     supabase.from('marcas').select('nome').order('nome'),
-    supabase.from('produtos').select('marca'),
+    // fetchAll: o PostgREST corta em 1000 linhas e temos 8 mil produtos — sem isto a
+    // contagem por marca sai sobre uma amostra e mostra número menor que o real.
+    fetchAll<{ marca: string | null }>((from, to) =>
+      supabase.from('produtos').select('marca').range(from, to)),
   ])
 
   const contagem: Record<string, number> = {}
-  for (const p of (produtos ?? []) as { marca: string | null }[]) {
+  for (const p of produtos) {
     const m = (p.marca ?? '').trim()
     if (m) contagem[m] = (contagem[m] ?? 0) + 1
   }

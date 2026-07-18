@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { IconTag } from '@/components/icons'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { criarCategoria, editarCategoria, deletarCategoria } from './actions'
@@ -14,16 +14,20 @@ export default async function CategoriasPage({
   const { erro, editar, busca, ordem, dir } = await searchParams
   const supabase = await createServiceClient()
 
-  const [{ data: categorias }, { data: produtos }] = await Promise.all([
+  // fetchAll porque o PostgREST corta em 1000 linhas: com 8 mil produtos, o select
+  // cru trazia só os 1000 primeiros e a contagem por categoria saía absurda —
+  // uma categoria com 1.157 produtos aparecia com 11.
+  const [{ data: categorias }, produtos] = await Promise.all([
     supabase.from('categorias').select('hierarquia, nome, descricao').order('nome'),
-    supabase.from('produtos').select('categoria'),
+    fetchAll<{ categoria: string | null }>((from, to) =>
+      supabase.from('produtos').select('categoria').range(from, to)),
   ])
 
   const editando = categorias?.find((c) => c.hierarquia === editar)
 
   const comContagem = (categorias ?? []).map((c) => ({
     ...c,
-    total: (produtos ?? []).filter((p) => p.categoria === c.hierarquia).length,
+    total: produtos.filter((p) => p.categoria === c.hierarquia).length,
   }))
 
   const ordemAtual = ordem ?? 'nome'
