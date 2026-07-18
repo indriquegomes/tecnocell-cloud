@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "TecnoCell — espelho do SIGE",
+  "version": "1.0.0",
+  "description": "Registra o que acontece nas telas do SIGE pra espelhar a operação no TecnoCell.",
+  "permissions": [
+    "storage",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://app.sigecloud.com.br/*",
+    "https://apiapp.sigecloud.com.br/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://app.sigecloud.com.br/*"
+      ],
+      "js": [
+        "inject.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://app.sigecloud.com.br/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "options_page": "opcoes.html"
+}
