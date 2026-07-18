@@ -32,12 +32,18 @@ export default async function FiadosPage() {
   // Em LOTES de 100 ids — .in() com muitos ids estoura a URL do PostgREST ([[bug-in-muitos-ids-url-limit]]).
   const vendaIds = [...new Set(lancamentos.map((l) => l.venda_id).filter(Boolean))] as string[]
   const pecasPorVenda = new Map<string, string[]>()
+  // quem vendeu (a CONTA que fez a venda), por venda — pro filtro "quem vendeu".
+  // O robô rodou logado como INDRIQUE GOMES, que é uma conta REAL e separada das
+  // meninas — então as vendas dele já saem no nome dessa conta. Nada de rótulo
+  // "robô" fabricado: cada atendente filtra pelo nome dela e a conta do robô fica
+  // numa opção à parte, porque é outra conta.
+  const vendedorPorVenda = new Map<string, string>()
   for (let i = 0; i < vendaIds.length; i += 100) {
     const lote = vendaIds.slice(i, i + 100)
-    const { data: itens } = await supabase
-      .from('itens_venda')
-      .select('venda_id, quantidade, produtos(nome)')
-      .in('venda_id', lote)
+    const [{ data: itens }, { data: vendas }] = await Promise.all([
+      supabase.from('itens_venda').select('venda_id, quantidade, produtos(nome)').in('venda_id', lote),
+      supabase.from('vendas').select('id, vendedor_nome').in('id', lote),
+    ])
     for (const it of (itens ?? []) as { venda_id: string; quantidade: number; produtos: { nome: string }[] | { nome: string } | null }[]) {
       const prod = Array.isArray(it.produtos) ? it.produtos[0] : it.produtos
       const nome = prod?.nome?.trim()
@@ -46,12 +52,15 @@ export default async function FiadosPage() {
       arr.push(it.quantidade > 1 ? `${it.quantidade}x ${nome}` : nome)
       pecasPorVenda.set(it.venda_id, arr)
     }
+    for (const v of (vendas ?? []) as { id: string; vendedor_nome: string | null }[]) {
+      vendedorPorVenda.set(v.id, v.vendedor_nome?.trim() || 'Sem vendedor')
+    }
   }
 
   const hoje = hojeSP()
 
   // agrupa por cliente + guarda as notas (lançamentos) de cada um
-  type Nota = { id: string; codigo: number | null; descricao: string | null; pecas: string | null; valor: number; vencimento: string | null; venda_id: string | null; vencida: boolean }
+  type Nota = { id: string; codigo: number | null; descricao: string | null; pecas: string | null; vendedor: string; valor: number; vencimento: string | null; venda_id: string | null; vencida: boolean }
   const mapa = new Map<string, { nome: string; total: number; vencido: number; qtd: number; notas: Nota[] }>()
   for (const l of lancamentos) {
     const nome = l.pessoa_nome?.trim() || 'Sem nome'
@@ -64,7 +73,8 @@ export default async function FiadosPage() {
     atual.qtd += 1
     if (vencida) atual.vencido += devendo
     const pecas = l.venda_id ? (pecasPorVenda.get(l.venda_id)?.join(', ') ?? null) : null
-    atual.notas.push({ id: l.id, codigo: l.codigo, descricao: l.descricao, pecas, valor: devendo, vencimento: l.data_vencimento, venda_id: l.venda_id, vencida })
+    const vendedor = (l.venda_id && vendedorPorVenda.get(l.venda_id)) || 'Sem vendedor'
+    atual.notas.push({ id: l.id, codigo: l.codigo, descricao: l.descricao, pecas, vendedor, valor: devendo, vencimento: l.data_vencimento, venda_id: l.venda_id, vencida })
     mapa.set(chave, atual)
   }
 
@@ -75,11 +85,15 @@ export default async function FiadosPage() {
   const totalReceber = clientes.reduce((s, c) => s + c.total, 0)
   const totalVencido = clientes.reduce((s, c) => s + c.vencido, 0)
 
+  // lista de vendedores que têm fiado em aberto (pro seletor "quem vendeu")
+  const vendedores = [...new Set(clientes.flatMap((c) => c.notas.map((n) => n.vendedor)))].sort()
+
   return (
     <FiadosClient
       clientes={clientes}
       totalReceber={totalReceber}
       totalVencido={totalVencido}
+      vendedores={vendedores}
     />
   )
 }

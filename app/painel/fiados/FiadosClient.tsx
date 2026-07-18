@@ -7,7 +7,7 @@ const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', curren
 const semAcento = (s: string) =>
   s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
 
-type Nota = { id: string; codigo: number | null; descricao: string | null; pecas: string | null; valor: number; vencimento: string | null; venda_id: string | null; vencida: boolean }
+type Nota = { id: string; codigo: number | null; descricao: string | null; pecas: string | null; vendedor: string; valor: number; vencimento: string | null; venda_id: string | null; vencida: boolean }
 type Cliente = { nome: string; total: number; vencido: number; qtd: number; telefone: string | null; notas: Nota[] }
 
 const fmtData = (d: string | null) => (d ? d.slice(0, 10).split('-').reverse().join('/') : '—')
@@ -45,18 +45,41 @@ export function FiadosClient({
   clientes,
   totalReceber,
   totalVencido,
+  vendedores,
 }: {
   clientes: Cliente[]
   totalReceber: number
   totalVencido: number
+  vendedores: string[]
 }) {
   const [busca, setBusca] = useState('')
+  const [vendedorSel, setVendedorSel] = useState('')   // '' = todos
   const [copiado, setCopiado] = useState<string | null>(null)
   const [aberto, setAberto] = useState<string | null>(null)
 
-  const filtrados = busca.trim()
-    ? clientes.filter((c) => semAcento(c.nome).includes(semAcento(busca)))
+  // Filtro "quem vendeu": refaz as notas e os totais de cada cliente só com a
+  // conta escolhida. Assim a atendente vê (e cobra) só os fiados dela — e as vendas
+  // de outra conta (ex.: a que rodou o robô) ficam numa opção à parte. Foi a mistura
+  // de contas na mesma lista que confundiu a cobrança das meninas.
+  const clientesVend = vendedorSel
+    ? clientes
+        .map((c) => {
+          const notas = c.notas.filter((n) => n.vendedor === vendedorSel)
+          const total = notas.reduce((s, n) => s + n.valor, 0)
+          const vencido = notas.filter((n) => n.vencida).reduce((s, n) => s + n.valor, 0)
+          return { ...c, notas, total, vencido, qtd: notas.length }
+        })
+        .filter((c) => c.notas.length > 0)
+        .sort((a, b) => b.total - a.total)
     : clientes
+
+  const filtrados = busca.trim()
+    ? clientesVend.filter((c) => semAcento(c.nome).includes(semAcento(busca)))
+    : clientesVend
+
+  // totais refletem o filtro de vendedor
+  const totReceber = vendedorSel ? clientesVend.reduce((s, c) => s + c.total, 0) : totalReceber
+  const totVencido = vendedorSel ? clientesVend.reduce((s, c) => s + c.vencido, 0) : totalVencido
 
   const copiar = async (c: Cliente) => {
     try {
@@ -80,25 +103,36 @@ export function FiadosClient({
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase text-gray-400">Total a receber</p>
-          <p className="mt-1 text-xl font-bold text-[#1B6CA8] tabular-nums">{fmt(totalReceber)}</p>
+          <p className="mt-1 text-xl font-bold text-[#1B6CA8] tabular-nums">{fmt(totReceber)}</p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase text-gray-400">Vencido</p>
-          <p className="mt-1 text-xl font-bold text-rose-600 tabular-nums">{fmt(totalVencido)}</p>
+          <p className="mt-1 text-xl font-bold text-rose-600 tabular-nums">{fmt(totVencido)}</p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase text-gray-400">Clientes devendo</p>
-          <p className="mt-1 text-xl font-bold text-gray-800 tabular-nums">{clientes.length}</p>
+          <p className="mt-1 text-xl font-bold text-gray-800 tabular-nums">{clientesVend.length}</p>
         </div>
       </div>
 
-      {/* Busca */}
-      <input
-        value={busca}
-        onChange={(e) => setBusca(e.target.value)}
-        placeholder="Buscar cliente..."
-        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B6CA8]/30"
-      />
+      {/* Busca + filtro por vendedor */}
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <input
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Buscar cliente..."
+          className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B6CA8]/30"
+        />
+        <select
+          value={vendedorSel}
+          onChange={(e) => setVendedorSel(e.target.value)}
+          title="Quem vendeu"
+          className={`rounded-xl border bg-white px-4 py-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B6CA8]/30 sm:w-64 ${vendedorSel ? 'border-[#1B6CA8] font-semibold text-[#1B6CA8]' : 'border-gray-200 text-gray-600'}`}
+        >
+          <option value="">👤 Todos os vendedores</option>
+          {vendedores.map((v) => <option key={v} value={v}>{v}</option>)}
+        </select>
+      </div>
 
       {/* Lista */}
       <div className="space-y-2">
