@@ -4,20 +4,33 @@ import Link from 'next/link'
 export default async function LojaGestaoPage() {
   const supabase = await createClient()
 
-  const [{ data: config }, { data: produtos }] = await Promise.all([
+  // Os contadores saem de count no banco, não de contar array na memória: o PostgREST
+  // corta em 1000 linhas e, com 8 mil produtos, os cards mostravam 1000 como se fosse
+  // o total. Contar no banco também evita trazer 8 mil linhas só pra exibir 4 números.
+  const [
+    { data: config },
+    { count: totalProdutos },
+    { count: totalVisiveis },
+    { count: comImagem },
+    { data: produtos },
+  ] = await Promise.all([
     supabase.from('configuracoes').select('valor').eq('chave', 'empresa').single(),
+    supabase.from('produtos').select('*', { count: 'exact', head: true }).eq('ativo', true),
+    supabase.from('produtos').select('*', { count: 'exact', head: true }).eq('ativo', true).eq('visivel_catalogo', true),
+    supabase.from('produtos').select('*', { count: 'exact', head: true }).eq('ativo', true).eq('visivel_catalogo', true).not('imagem_url', 'is', null),
+    // a prévia mostra só os primeiros; não precisa de todos
     supabase
       .from('produtos')
       .select('id, nome, preco, visivel_catalogo, imagem_url, categoria')
       .eq('ativo', true)
-      .order('nome'),
+      .eq('visivel_catalogo', true)
+      .order('nome')
+      .limit(60),
   ])
 
   const empresa = (config?.valor ?? {}) as Record<string, string>
   const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-  const totalVisiveis = (produtos ?? []).filter((p) => p.visivel_catalogo).length
-  const totalProdutos = (produtos ?? []).length
   const lojaUrl = typeof window === 'undefined' ? '/loja' : `${process.env.NEXT_PUBLIC_BASE_URL ?? ''}/loja`
 
   return (
@@ -37,20 +50,20 @@ export default async function LojaGestaoPage() {
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="rounded-xl border border-gray-200 bg-white p-4">
           <p className="text-xs text-gray-500">Produtos Visíveis</p>
-          <p className="text-2xl font-bold text-blue-600">{totalVisiveis}</p>
-          <p className="text-xs text-gray-400">{totalProdutos} cadastrados</p>
+          <p className="text-2xl font-bold text-blue-600">{totalVisiveis ?? 0}</p>
+          <p className="text-xs text-gray-400">{totalProdutos ?? 0} cadastrados</p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4">
           <p className="text-xs text-gray-500">Com Imagem</p>
           <p className="text-2xl font-bold text-gray-800">
-            {(produtos ?? []).filter((p) => p.visivel_catalogo && p.imagem_url).length}
+            {comImagem ?? 0}
           </p>
-          <p className="text-xs text-gray-400">de {totalVisiveis} visíveis</p>
+          <p className="text-xs text-gray-400">de {totalVisiveis ?? 0} visíveis</p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4">
           <p className="text-xs text-gray-500">Sem Imagem</p>
           <p className="text-2xl font-bold text-yellow-600">
-            {(produtos ?? []).filter((p) => p.visivel_catalogo && !p.imagem_url).length}
+            {(totalVisiveis ?? 0) - (comImagem ?? 0)}
           </p>
           <p className="text-xs text-gray-400">precisam de imagem</p>
         </div>
@@ -121,7 +134,7 @@ export default async function LojaGestaoPage() {
       {/* Preview produtos visíveis */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-gray-800">Produtos na Vitrine ({totalVisiveis})</h3>
+          <h3 className="font-semibold text-gray-800">Produtos na Vitrine ({totalVisiveis ?? 0})</h3>
           <Link href="/painel/catalogo" className="text-xs text-blue-600 hover:text-blue-800 font-medium">
             Gerenciar →
           </Link>
