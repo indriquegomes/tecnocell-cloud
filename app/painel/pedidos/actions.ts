@@ -1,6 +1,7 @@
 'use server'
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { logAtividade } from '@/lib/log-atividade'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -134,6 +135,14 @@ export async function faturarPedido(id: string): Promise<{ ok: boolean; msg: str
     await supabase.from('pedidos').update({ status: pedido.status }).eq('id', id)
     return { ok: false, msg: error.message }
   }
+
+  await logAtividade('pedido.faturar', {
+    pedido_id: id,
+    venda_id: data?.venda_id ?? null,
+    venda_numero: data?.venda_numero ?? null,
+    deposito_id: pedido.deposito_id,
+    forma_pagamento_id: pedido.forma_pagamento_id,
+  }, usuario, `/painel/pedidos/${id}`)
 
   revalidatePath('/painel/pedidos')
   revalidatePath(`/painel/pedidos/${id}`)

@@ -1,6 +1,8 @@
 'use server'
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { logAtividade } from '@/lib/log-atividade'
+import { registrarNoCaixa, lojaDoLancamento } from '@/lib/caixa'
 import { hojeSP } from '@/lib/utils'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
@@ -76,14 +78,46 @@ export async function editarLancamento(id: string, formData: FormData) {
 }
 
 export async function marcarPago(id: string) {
-  await requirePermissao('financeiro')
+  const usuario = await requirePermissao('financeiro')
   const supabase = await createServiceClient()
+  const { data: antes } = await supabase
+    .from('lancamentos')
+    .select('valor, valor_pago, forma_pagamento, pessoa_nome')
+    .eq('id', id)
+    .maybeSingle()
+  await logAtividade('pagamento.marcar_pago', {
+    lancamento_id: id,
+    valor: antes?.valor ?? null,
+    cliente: antes?.pessoa_nome ?? null,
+  }, usuario, '/painel/financeiro')
+  // valor_pago junto do status: os relatórios de fiado medem o que falta por
+  // (valor - valor_pago). Marcar 'pago' deixando valor_pago em 0 fazia a nota sumir
+  // da cobrança mas continuar contando como saldo devedor em quem lê a diferença.
+  const valor = Number(antes?.valor ?? 0)
   const { error } = await supabase.from('lancamentos').update({
     status: 'pago',
     data_pagamento: hojeSP(),
+    valor_pago: valor,
+    updated_at: new Date().toISOString(),
   }).eq('id', id)
   if (error) throw new Error(error.message)
+
+  // O dinheiro precisa aparecer na gaveta. Sem isto a baixa pelo Financeiro sumia do
+  // caixa (o PDV já registrava; só esta porta não registrava).
+  const faltava = valor - Number(antes?.valor_pago ?? 0)
+  if (faltava > 0) {
+    const lojaId = await lojaDoLancamento(supabase, id)
+    await registrarNoCaixa(
+      supabase,
+      lojaId,
+      Math.round(faltava * 100) / 100,
+      antes?.forma_pagamento ?? 'Dinheiro',
+      `Fiado recebido — ${antes?.pessoa_nome ?? 'cliente'}`,
+    )
+  }
+
   revalidatePath('/painel/financeiro')
+  revalidatePath('/painel/fiados')
 }
 
 export async function deletarLancamento(id: string) {

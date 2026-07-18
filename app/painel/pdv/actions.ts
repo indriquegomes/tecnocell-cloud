@@ -1,5 +1,6 @@
 'use server'
 
+import { registrarNoCaixa } from '@/lib/caixa'
 import { createServiceClient, fetchAll, requirePermissao, permissoesEfetivas } from '@/lib/supabase/server'
 import { temPermissao } from '@/lib/permissoes'
 import { hojeSP } from '@/lib/utils'
@@ -584,42 +585,6 @@ async function contaDaFormaTexto(supabase: Awaited<ReturnType<typeof createServi
   return (f?.conta_destino_id as string | null) ?? null
 }
 
-// FIADO RECEBIDO ENTRA NO CAIXA.
-//
-// Buraco que existia: a Duda cobrava R$50 de fiado em espécie, o dinheiro ia pra
-// gaveta, e o caixa não sabia de nada. No fechamento a contagem dava R$50 a MAIS que o
-// esperado e o sistema acusava SOBRA — culpando quem tinha feito tudo certo.
-//
-// Agora todo recebimento de crediário vira um movimento do caixa aberto DAQUELA LOJA:
-//   dinheiro → soma na gaveta (é cédula que entrou de verdade)
-//   PIX/cartão → não é gaveta, mas aparece na linha do seu tipo pra conferir
-//                (o comprovante do PIX de um fiado também precisa bater)
-//
-// Se não há caixa aberto na loja, não registra — e não quebra o recebimento: o dinheiro
-// entrou de qualquer forma, e travar a cobrança por causa disso seria pior.
-async function registrarNoCaixa(
-  supabase: Awaited<ReturnType<typeof createServiceClient>>,
-  lojaId: string | null | undefined,
-  valor: number,
-  formaTexto: string,
-  motivo: string,
-): Promise<void> {
-  if (!lojaId || !(valor > 0)) return
-  const { data: caixa } = await supabase
-    .from('caixas')
-    .select('id')
-    .eq('status', 'aberto')
-    .eq('loja_id', lojaId)
-    .maybeSingle()
-  if (!caixa) return
-  await supabase.from('movimentos_caixa').insert({
-    caixa_id: caixa.id,
-    tipo: 'recebimento',
-    motivo,
-    forma_pagamento: formaTexto || 'Dinheiro',
-    valor,
-  })
-}
 
 // Os recebimentos de crediário RETORNAM o erro em vez de lançar. Em produção o Next
 // CENSURA a mensagem de qualquer erro lançado numa server action (vira o texto genérico
