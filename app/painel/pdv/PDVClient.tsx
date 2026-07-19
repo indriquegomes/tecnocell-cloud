@@ -1021,14 +1021,21 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       const result = await finalizarVenda(
         token,
         carrinho.map(({ produto_id, nome, quantidade, preco_unitario }) => ({ produto_id, nome, quantidade, preco_unitario })),
-        pagamentos.map((p): PagamentoInput => ({
-          forma_pagamento_id: p.forma_id,
-          valor: parseFloat(p.valor) || 0,
-          taxa: taxaDoItem(p),
-          maquina: maquinaById(p.maquina)?.nome ?? '',   // grava o nome legível
-          parcelas: p.parcelas,
-          status: isFiadoForma(p.forma_id) ? 'pendente' : 'pago',
-        })),
+        // Linha de pagamento vazia não vai pro RPC. O PDV começa com uma linha em
+        // branco, e quando o crédito do cliente cobre a compra inteira ela fica com
+        // forma vazia e R$ 0 — o RPC recebia forma_pagamento_id '' e recusava a venda
+        // inteira, sem mensagem. Resultado: cliente com saldo suficiente não conseguia
+        // fechar a compra.
+        pagamentos
+          .filter((p) => p.forma_id && (parseFloat(p.valor) || 0) > 0)
+          .map((p): PagamentoInput => ({
+            forma_pagamento_id: p.forma_id,
+            valor: parseFloat(p.valor) || 0,
+            taxa: taxaDoItem(p),
+            maquina: maquinaById(p.maquina)?.nome ?? '',   // grava o nome legível
+            parcelas: p.parcelas,
+            status: isFiadoForma(p.forma_id) ? 'pendente' : 'pago',
+          })),
         pessoaId || null,
         descontoNum + descontoPromo,
         observacoes,
