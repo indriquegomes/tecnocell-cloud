@@ -91,6 +91,7 @@ interface Produto {
   id: string
   nome: string
   preco: number
+  preco_custo?: number | null   // usado só pra avisar venda abaixo do custo
   codigo: string | null
   marca: string | null
   categoria: string | null
@@ -176,6 +177,7 @@ interface ItemCarrinho {
   serializado?: boolean    // produto controla IMEI/número de série
   series?: string[]        // IMEIs escolhidos (serializado: quantidade = series.length)
   prateleira?: string | null  // gaveta/prateleira onde a peça está guardada
+  preco_custo?: number | null // pra avisar quando o item sai abaixo do custo
 }
 
 interface PagamentoItem {
@@ -651,6 +653,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         serializado: p.controla_serie,
         series: p.controla_serie ? [] : undefined,
         prateleira: p.prateleira,
+        preco_custo: p.preco_custo ?? null,
       }]
     })
     setBusca('')
@@ -2060,7 +2063,25 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                       </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right text-sm text-gray-600">{formatBRL(item.preco_unitario)}</td>
+                    {/* Preço abaixo do custo fica VERMELHO com aviso. Existem 177 produtos
+                        cadastrados com custo maior que o preço (achado em 20/07): a venda
+                        dava prejuízo e nada na tela indicava. Avisa, não bloqueia — pode ser
+                        queima de estoque proposital, e quem decide isso é quem está no balcão. */}
+                    {(() => {
+                      const custo = Number(item.preco_custo ?? 0)
+                      const abaixo = custo > 0 && item.preco_unitario < custo
+                      return (
+                        <td className={`px-4 py-3 text-right text-sm ${abaixo ? 'font-bold text-red-600' : 'text-gray-600'}`}>
+                          {formatBRL(item.preco_unitario)}
+                          {abaixo && (
+                            <span className="block text-[11px] font-medium text-red-500"
+                              title={`Custo desta peça: ${formatBRL(custo)}`}>
+                              ⚠ abaixo do custo ({formatBRL(custo)})
+                            </span>
+                          )}
+                        </td>
+                      )
+                    })()}
                     <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">
                       {formatBRL(item.quantidade * item.preco_unitario)}
                     </td>

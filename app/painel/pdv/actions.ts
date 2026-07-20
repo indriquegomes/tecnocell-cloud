@@ -72,7 +72,10 @@ export async function buscarProdutosPDV(
   const palavras = semAcentoServ(t).replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
   if (palavras.length === 0) return { produtos: [], series: {} }
 
-  const sel = 'id, nome, preco, codigo, marca, categoria, descricao, imagem_url, controla_serie, prateleira, estoque(deposito_id, quantidade)'
+  // preco_custo vem junto pro PDV poder avisar quando o item está saindo abaixo do
+  // custo. Achamos 177 produtos nessa situação (20/07) — a venda dava prejuízo e
+  // ninguém via, porque nada na tela indicava.
+  const sel = 'id, nome, preco, preco_custo, codigo, marca, categoria, descricao, imagem_url, controla_serie, prateleira, estoque(deposito_id, quantidade)'
   let q = supabase.from('produtos').select(sel).eq('ativo', true)
   for (const w of palavras) q = q.ilike('busca_norm', `%${w}%`)
   let { data, error } = await q.order('nome').limit(60)
