@@ -123,6 +123,7 @@ const navCompleto: NavGroup[] = [
       { href: '/painel/cargos',        label: 'Cargos',        permissao: 'usuarios' },
       { href: '/painel/configuracoes', label: 'Configurações', permissao: 'usuarios' },
       { href: '/painel/espelho',       label: 'Espelho do SIGE', permissao: 'usuarios' },
+      { href: '/painel/espelho/conferencia', label: 'Conferência SIGE', permissao: 'usuarios' },
     ],
   },
 ]
