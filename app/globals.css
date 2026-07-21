@@ -241,3 +241,10 @@ button:disabled,
   cursor: default;
   transition: filter 0.18s ease;
 }
+
+/* Barra de progresso do "ao vivo" (AutoAtualiza) — desliza da esquerda pra direita */
+@keyframes barra {
+  0%   { transform: translateX(-100%); }
+  50%  { transform: translateX(150%); }
+  100% { transform: translateX(400%); }
+}
