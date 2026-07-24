@@ -285,6 +285,17 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [novoTel, setNovoTel] = useState('')
   const [novoTabela, setNovoTabela] = useState('')
   const [novoFoto, setNovoFoto] = useState<File | null>(null)
+  const [novoFotoPreview, setNovoFotoPreview] = useState<string | null>(null)
+  const [novoEmail, setNovoEmail] = useState('')
+  const [novoNasc, setNovoNasc] = useState('')
+  const [novoCep, setNovoCep] = useState('')
+  const [novoUf, setNovoUf] = useState('')
+  const [novoLogradouro, setNovoLogradouro] = useState('')
+  const [novoNumero, setNovoNumero] = useState('')
+  const [novoCidade, setNovoCidade] = useState('')
+  const [novoBairro, setNovoBairro] = useState('')
+  const [novoComplemento, setNovoComplemento] = useState('')
+  const [buscandoCepNovo, setBuscandoCepNovo] = useState(false)
   const [salvandoNovoCliente, setSalvandoNovoCliente] = useState(false)
 
   // Crédito do cliente
@@ -1332,8 +1343,35 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   // Cadastro rápido de cliente pelo PDV (o balcão precisa registrar quem chegou na hora)
   const abrirNovoCliente = () => {
     setNovoNome(buscaCliente.trim())
-    setNovoCpf(''); setNovoRg(''); setNovoTel(''); setNovoTabela(''); setNovoFoto(null)
+    setNovoCpf(''); setNovoRg(''); setNovoTel(''); setNovoTabela('')
+    setNovoEmail(''); setNovoNasc(''); setNovoCep(''); setNovoUf('')
+    setNovoLogradouro(''); setNovoNumero(''); setNovoCidade(''); setNovoBairro(''); setNovoComplemento('')
+    setNovoFoto(null)
+    setNovoFotoPreview((old) => { if (old) URL.revokeObjectURL(old); return null })
     setMostrarNovoCliente(true)
+  }
+
+  const handleFotoNovo = (file: File | null) => {
+    setNovoFotoPreview((old) => { if (old) URL.revokeObjectURL(old); return file ? URL.createObjectURL(file) : null })
+    setNovoFoto(file)
+  }
+
+  // CEP → autopreenche endereço (ViaCEP), igual o cadastro completo
+  const buscarCepNovo = async () => {
+    const num = novoCep.replace(/\D/g, '')
+    if (num.length !== 8) return
+    setBuscandoCepNovo(true)
+    try {
+      const r = await fetch(`https://viacep.com.br/ws/${num}/json/`)
+      const d = await r.json()
+      if (!d.erro) {
+        setNovoLogradouro(d.logradouro || '')
+        setNovoBairro(d.bairro || '')
+        setNovoCidade(d.localidade || '')
+        setNovoUf(d.uf || '')
+      }
+    } catch { /* silencioso — preenche na mão */ }
+    setBuscandoCepNovo(false)
   }
 
   const handleCriarCliente = async () => {
@@ -1346,6 +1384,15 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       if (novoCpf.trim()) fd.set('cpf_cnpj', novoCpf.trim())
       if (novoRg.trim()) fd.set('rg', novoRg.trim())
       if (novoTel.trim()) fd.set('telefone', novoTel.trim())
+      if (novoEmail.trim()) fd.set('email', novoEmail.trim())
+      if (novoNasc.trim()) fd.set('data_nascimento', novoNasc.trim())
+      if (novoCep.trim()) fd.set('cep', novoCep.trim())
+      if (novoUf.trim()) fd.set('estado', novoUf.trim())
+      if (novoLogradouro.trim()) fd.set('endereco', novoLogradouro.trim())
+      if (novoNumero.trim()) fd.set('numero', novoNumero.trim())
+      if (novoCidade.trim()) fd.set('cidade', novoCidade.trim())
+      if (novoBairro.trim()) fd.set('bairro', novoBairro.trim())
+      if (novoComplemento.trim()) fd.set('complemento', novoComplemento.trim())
       if (novoTabela) fd.set('tabela_preco_id', novoTabela)
       if (novoFoto) fd.set('foto', novoFoto)
       const res = await criarClientePDV(await authToken(), fd)
@@ -3104,22 +3151,41 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       )
       })()}
 
-      {/* Modal Novo Cliente — cadastro rápido pelo PDV (política + RG + foto opcional) */}
+      {/* Modal Novo Cliente — cadastro completo pelo PDV (foto no topo + endereço, estilo SIGE) */}
       {mostrarNovoCliente && (
         <div className="animate-fade-in fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-          <div className="flex max-h-[90vh] w-full max-w-md flex-col rounded-2xl bg-white shadow-2xl">
+          <div className="flex max-h-[92vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
               <h3 className="text-base font-bold text-gray-900">Novo Cliente</h3>
               <button type="button" onClick={() => setMostrarNovoCliente(false)} className="text-lg text-gray-400 hover:text-gray-600">✕</button>
             </div>
             <div className="space-y-4 overflow-y-auto px-6 py-5">
+              {/* Foto circular no topo (Escolher imagem) */}
+              <label className="mx-auto flex w-fit cursor-pointer flex-col items-center gap-1.5">
+                <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-gray-300 bg-gray-50 transition hover:border-[#1B6CA8]">
+                  {novoFotoPreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={novoFotoPreview} alt="Foto do cliente" className="h-full w-full object-cover" />
+                  ) : (
+                    <svg className="h-10 w-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  )}
+                </div>
+                <span className="text-xs font-semibold text-[#1B6CA8]">{novoFotoPreview ? 'Trocar imagem' : 'Escolher imagem'}</span>
+                <input type="file" accept="image/*" capture="environment" className="hidden"
+                  onChange={(e) => handleFotoNovo(e.target.files?.[0] ?? null)} />
+              </label>
+              <p className="-mt-1 text-center text-[11px] text-gray-400">Foto de comprovação (técnico/lojista) — opcional</p>
+
               <PoliticaCadastro compacto />
+
               <div>
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Nome *</label>
-                <input value={novoNome} onChange={(e) => setNovoNome(e.target.value)} autoFocus
-                  placeholder="Nome do cliente"
+                <input value={novoNome} onChange={(e) => setNovoNome(e.target.value)} autoFocus placeholder="Nome do cliente"
                   className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">CPF / CNPJ</label>
@@ -3132,6 +3198,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                     className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
               </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Telefone</label>
@@ -3139,21 +3206,71 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                     className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tabela de preço</label>
-                  <select value={novoTabela} onChange={(e) => setNovoTabela(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="">Padrão</option>
-                    {tabelas.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
-                  </select>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Nascimento</label>
+                  <input type="date" value={novoNasc} onChange={(e) => setNovoNasc(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">E-mail</label>
+                <input type="email" value={novoEmail} onChange={(e) => setNovoEmail(e.target.value)} placeholder="email@exemplo.com"
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+
+              {/* Endereço (CEP autopreenche) */}
+              <div className="grid grid-cols-6 gap-3">
+                <div className="col-span-3">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">CEP</label>
+                  <div className="relative">
+                    <input value={novoCep} onChange={(e) => setNovoCep(e.target.value)} onBlur={buscarCepNovo} placeholder="00000-000"
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    {buscandoCepNovo && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">buscando…</span>}
+                  </div>
+                </div>
+                <div className="col-span-1">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">UF</label>
+                  <input value={novoUf} onChange={(e) => setNovoUf(e.target.value.toUpperCase().slice(0, 2))} placeholder="RJ"
+                    className="w-full rounded-xl border border-gray-200 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="col-span-2">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Número</label>
+                  <input value={novoNumero} onChange={(e) => setNovoNumero(e.target.value)} placeholder="123"
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Foto de comprovação <span className="font-normal normal-case text-gray-400">(opcional)</span></label>
-                <input type="file" accept="image/*" capture="environment"
-                  onChange={(e) => setNovoFoto(e.target.files?.[0] ?? null)}
-                  className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100" />
-                <p className="mt-1 text-[11px] text-gray-400">Técnico/lojista — comprova revenda. Pode adicionar depois no cadastro.</p>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Logradouro</label>
+                <input value={novoLogradouro} onChange={(e) => setNovoLogradouro(e.target.value)} placeholder="Rua / Avenida"
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Cidade</label>
+                  <input value={novoCidade} onChange={(e) => setNovoCidade(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Bairro</label>
+                  <input value={novoBairro} onChange={(e) => setNovoBairro(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Complemento</label>
+                  <input value={novoComplemento} onChange={(e) => setNovoComplemento(e.target.value)} placeholder="Apto, sala…"
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tabela de preço</label>
+                <select value={novoTabela} onChange={(e) => setNovoTabela(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="">Padrão</option>
+                  {tabelas.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                </select>
+              </div>
+
               <button type="button" disabled={salvandoNovoCliente || !novoNome.trim()} onClick={handleCriarCliente}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:opacity-50">
                 {salvandoNovoCliente && <Spinner />}{salvandoNovoCliente ? 'Salvando…' : 'Cadastrar e usar na venda'}

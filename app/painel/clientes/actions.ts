@@ -179,6 +179,15 @@ export async function criarClientePDV(accessToken: string, formData: FormData): 
       rg: txt('rg'),
       telefone: txt('telefone'),
       celular: txt('celular'),
+      email: txt('email'),
+      data_nascimento: txt('data_nascimento'),   // vazio vira null (evita timestamp inválido)
+      cep: txt('cep'),
+      endereco: txt('endereco'),
+      numero: txt('numero'),
+      complemento: txt('complemento'),
+      bairro: txt('bairro'),
+      cidade: txt('cidade'),
+      estado: txt('estado'),
       tabela_preco_id: txt('tabela_preco_id'),
       foto_url,
     }).select('id, nome, cpf_cnpj, tabela_preco_id').single()
