@@ -22,10 +22,10 @@ function Relogio({ className = 'h-4 w-4' }: { className?: string }) {
 }
 
 export function PontoWidget({
-  nome, meuPontoAberto, horasFechadasHojeMs, colegas,
+  nome, emOperacaoDesde, horasFechadasHojeMs, colegas,
 }: {
   nome: string
-  meuPontoAberto: { id: string; entrada: string } | null
+  emOperacaoDesde: string | null
   horasFechadasHojeMs: number
   colegas: Colega[]
 }) {
@@ -34,7 +34,7 @@ export function PontoWidget({
   const [agora, setAgora] = useState(() => Date.now())
   const [processando, setProcessando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
-  const emOperacao = !!meuPontoAberto
+  const emOperacao = !!emOperacaoDesde
 
   // relógio ao vivo só quando precisa (modal aberto ou em operação)
   useEffect(() => {
@@ -43,7 +43,7 @@ export function PontoWidget({
     return () => clearInterval(t)
   }, [aberto])
 
-  const elapsedMs = meuPontoAberto ? Math.max(0, agora - new Date(meuPontoAberto.entrada).getTime()) : 0
+  const elapsedMs = emOperacaoDesde ? Math.max(0, agora - new Date(emOperacaoDesde).getTime()) : 0
   const totalHojeMs = horasFechadasHojeMs + elapsedMs
 
   const acao = async (fn: () => Promise<{ ok: boolean; erro?: string }>) => {

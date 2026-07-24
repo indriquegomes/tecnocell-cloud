@@ -3,43 +3,45 @@
 import { createServiceClient, requireAuth } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
+// Usa a tabela `pontos` que JÁ EXISTE (modelo de eventos: entrada/pausa/retorno/saida,
+// usada em Meu Perfil / RH / Escala). O botão do dashboard grava no MESMO lugar.
 type Res = { ok: true } | { ok: false; erro: string }
 
-// Inicia um turno pra quem está logado. Se já tiver um aberto, não duplica.
+type SB = Awaited<ReturnType<typeof createServiceClient>>
+
+// Está em operação se a ÚLTIMA batida de hoje for entrada ou retorno.
+async function emOperacao(s: SB, userId: string, hoje: string): Promise<boolean> {
+  const { data } = await s.from('pontos').select('tipo')
+    .eq('usuario_id', userId).gte('criado_em', `${hoje}T00:00:00-03:00`)
+    .order('criado_em', { ascending: false }).limit(1)
+  const t = (data?.[0] as { tipo?: string } | undefined)?.tipo
+  return t === 'entrada' || t === 'retorno'
+}
+
+const hojeSP = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+
 export async function iniciarPonto(): Promise<Res> {
   try {
     const { id } = await requireAuth()
-    const supabase = await createServiceClient()
-
-    const { data: aberto } = await supabase.from('pontos').select('id').eq('perfil_id', id).is('saida', null).maybeSingle()
-    if (aberto) return { ok: false, erro: 'Você já tem um ponto aberto.' }
-
-    const { data: perfil } = await supabase.from('perfis').select('nome').eq('id', id).maybeSingle()
-    const { error } = await supabase.from('pontos').insert({
-      id: crypto.randomUUID(), perfil_id: id, nome: perfil?.nome ?? null, entrada: new Date().toISOString(),
-    })
+    const s = await createServiceClient()
+    if (await emOperacao(s, id, hojeSP())) return { ok: false, erro: 'Você já está em operação.' }
+    const { data: perfil } = await s.from('perfis').select('pdv_loja_id').eq('id', id).maybeSingle()
+    const { error } = await s.from('pontos').insert({ usuario_id: id, tipo: 'entrada', loja_id: (perfil as { pdv_loja_id?: string | null } | null)?.pdv_loja_id ?? null })
     if (error) return { ok: false, erro: error.message }
     revalidatePath('/painel')
     return { ok: true }
-  } catch (e) {
-    return { ok: false, erro: e instanceof Error && e.message ? e.message : 'Erro ao iniciar o ponto.' }
-  }
+  } catch (e) { return { ok: false, erro: e instanceof Error && e.message ? e.message : 'Erro ao iniciar o ponto.' } }
 }
 
-// Fecha o turno aberto de quem está logado.
 export async function pararPonto(): Promise<Res> {
   try {
     const { id } = await requireAuth()
-    const supabase = await createServiceClient()
-
-    const { data: aberto } = await supabase.from('pontos').select('id').eq('perfil_id', id).is('saida', null).order('entrada', { ascending: false }).limit(1).maybeSingle()
-    if (!aberto) return { ok: false, erro: 'Você não tem ponto aberto.' }
-
-    const { error } = await supabase.from('pontos').update({ saida: new Date().toISOString() }).eq('id', aberto.id)
+    const s = await createServiceClient()
+    if (!(await emOperacao(s, id, hojeSP()))) return { ok: false, erro: 'Você não está em operação.' }
+    const { data: perfil } = await s.from('perfis').select('pdv_loja_id').eq('id', id).maybeSingle()
+    const { error } = await s.from('pontos').insert({ usuario_id: id, tipo: 'saida', loja_id: (perfil as { pdv_loja_id?: string | null } | null)?.pdv_loja_id ?? null })
     if (error) return { ok: false, erro: error.message }
     revalidatePath('/painel')
     return { ok: true }
-  } catch (e) {
-    return { ok: false, erro: e instanceof Error && e.message ? e.message : 'Erro ao parar o ponto.' }
-  }
+  } catch (e) { return { ok: false, erro: e instanceof Error && e.message ? e.message : 'Erro ao parar o ponto.' } }
 }

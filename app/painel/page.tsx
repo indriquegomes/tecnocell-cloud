@@ -111,23 +111,31 @@ export default async function DashboardPage({
   }
   const R = (resumo ?? {}) as Partial<ResumoDash>
 
-  // ---- Ponto do dia (relógio de ponto) — falha suave se a tabela ainda não existe ----
-  let meuPontoAberto: { id: string; entrada: string } | null = null
+  // ---- Ponto do dia (usa a tabela `pontos` EXISTENTE: eventos entrada/pausa/retorno/saida) ----
+  let meuInicioOperacao: string | null = null
   let horasFechadasHojeMs = 0
-  let colegasPonto: { nome: string; entrada: string }[] = []
+  const colegasPonto: { nome: string; entrada: string }[] = []
   if (userId) {
-    const inicioDiaSP = hoje + 'T00:00:00-03:00'
-    const [{ data: pAberto }, { data: pMeusHoje }, { data: pAbertosTodos }] = await Promise.all([
-      supabase.from('pontos').select('id, entrada').eq('perfil_id', userId).is('saida', null).order('entrada', { ascending: false }).limit(1),
-      supabase.from('pontos').select('entrada, saida').eq('perfil_id', userId).gte('entrada', inicioDiaSP).not('saida', 'is', null),
-      supabase.from('pontos').select('nome, entrada, perfil_id').is('saida', null),
-    ])
-    meuPontoAberto = pAberto?.[0] ? { id: pAberto[0].id as string, entrada: pAberto[0].entrada as string } : null
-    for (const p of pMeusHoje ?? []) horasFechadasHojeMs += new Date(p.saida as string).getTime() - new Date(p.entrada as string).getTime()
-    colegasPonto = (pAbertosTodos ?? []).filter((a) => a.perfil_id !== userId).map((a) => ({ nome: (a.nome as string) ?? '—', entrada: a.entrada as string }))
+    const { data: eventosHoje } = await supabase.from('pontos')
+      .select('usuario_id, tipo, criado_em').gte('criado_em', `${hoje}T00:00:00-03:00`).order('criado_em')
+    const porUser: Record<string, { tipo: string; criado_em: string }[]> = {}
+    for (const e of (eventosHoje ?? []) as { usuario_id: string; tipo: string; criado_em: string }[]) (porUser[e.usuario_id] = porUser[e.usuario_id] || []).push(e)
+    const ids = Object.keys(porUser)
+    const nomes: Record<string, string> = {}
+    if (ids.length) { const { data: ps } = await supabase.from('perfis').select('id, nome').in('id', ids); for (const p of ps ?? []) nomes[p.id as string] = (p.nome as string) ?? '—' }
+    for (const uid of ids) {
+      // caminha os eventos do dia: entra em operação em entrada/retorno, sai em pausa/saida
+      let worked = 0; let inSince: string | null = null
+      for (const e of porUser[uid]) {
+        if (e.tipo === 'entrada' || e.tipo === 'retorno') inSince = e.criado_em
+        else if ((e.tipo === 'saida' || e.tipo === 'pausa') && inSince) { worked += new Date(e.criado_em).getTime() - new Date(inSince).getTime(); inSince = null }
+      }
+      if (uid === userId) { horasFechadasHojeMs = worked; meuInicioOperacao = inSince }
+      else if (inSince) colegasPonto.push({ nome: nomes[uid] ?? '—', entrada: inSince })
+    }
   }
   const nomeCompleto = (meuPerfil?.nome ?? primeiroNome ?? '').trim()
-  const pontoWidget = <PontoWidget nome={nomeCompleto} meuPontoAberto={meuPontoAberto} horasFechadasHojeMs={horasFechadasHojeMs} colegas={colegasPonto} />
+  const pontoWidget = <PontoWidget nome={nomeCompleto} emOperacaoDesde={meuInicioOperacao} horasFechadasHojeMs={horasFechadasHojeMs} colegas={colegasPonto} />
 
   // ---- Operação recente (histórico, últimos 30 dias) ----
   const nVendas = Number(R.n_vendas) || 0
