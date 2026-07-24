@@ -18,7 +18,7 @@ const GRUPO = Number(process.env.TELEGRAM_GRUPO_CHAT_ID || '0')
 const SHEET_ID = process.env.COMPROVANTES_SHEET_ID || ''
 
 const PROMPT = `Comprovante de PIX brasileiro. Extraia e responda APENAS um JSON, nada mais:
-{"valor": <número em reais, ex 70.00>, "data": "<AAAA-MM-DD>", "cliente": "<quem ENVIOU: campo 'De'/origem/pagador>", "destinatario": "<quem RECEBEU: campo 'Para'/destino/favorecido>"}
+{"valor": <número em reais, ex 70.00>, "data": "<AAAA-MM-DD>", "cliente": "<quem ENVIOU: campo 'De'/origem/pagador>", "destinatario": "<quem RECEBEU: campo 'Para'/destino/favorecido>", "transacao_id": "<identificador ÚNICO da transação: 'ID da transação'/'Identificador'/'Autenticação'/código E2E (ex E1234...). Copie EXATO. Ausente = null>"}
 Regras: valor é número (ponto decimal). Campo ausente = null. Não escreva texto fora do JSON.`
 
 function sb() {
@@ -67,8 +67,12 @@ async function extrai(fid: string) {
     ? (resp.content.find((b) => b.type === 'text') as { text: string }).text
     : ''
   const limpo = txt.replace(/```json?/g, '').replace(/```/g, '').trim()
-  try { return JSON.parse(limpo) as { valor: number | null; data: string | null; cliente: string | null; destinatario: string | null } }
+  try { return JSON.parse(limpo) as { valor: number | null; data: string | null; cliente: string | null; destinatario: string | null; transacao_id: string | null } }
   catch { return null }
+}
+
+async function tgAlerta(texto: string, replyTo: number) {
+  await fetch(`https://api.telegram.org/bot${T}/sendMessage?chat_id=${GRUPO}&reply_to_message_id=${replyTo}&text=${encodeURIComponent(texto)}`).catch(() => {})
 }
 
 // ---- Google Sheets via REST (JWT do service account — sem dependência googleapis) ----
@@ -108,20 +112,21 @@ function montaLinhas(comps: Comp[]): string[][] {
     groups[key].itens.push(c)
   }
   const linhas: string[][] = [header]
-  let geral = 0
+  let geral = 0, dups = 0, validos = 0
   for (const key of Object.keys(groups).sort()) {
     const g = groups[key]
-    let soma = 0
+    let soma = 0, nImg = 0
     for (const c of g.itens) {
       const v = Number(c.valor) || 0
-      soma += v; geral += v
-      const obs = c.status === 'data_divergente' ? '⚠️ data ≠ hoje' : c.valor == null ? '⚠️ não lido' : ''
+      let obs = ''
+      if (c.status === 'duplicado') { obs = '🔁 duplicado — não somado'; dups++ }
+      else { soma += v; geral += v; validos++; nImg++; obs = c.status === 'data_divergente' ? '⚠️ data ≠ hoje' : c.valor == null ? '⚠️ não lido' : '' }
       linhas.push([g.nome, c.pagador || '—', c.valor != null ? money(v) : '', c.data_pix || '', obs])
     }
-    linhas.push(['', `TOTAL ${g.nome}`, money(soma), '', ''])
+    linhas.push(['', `TOTAL ${g.nome}`, money(soma), `${nImg} ${nImg === 1 ? 'imagem' : 'imagens'}`, ''])
     linhas.push(['', '', '', '', ''])
   }
-  linhas.push(['', 'TOTAL GERAL', money(geral), '', `${comps.length} comprovantes`])
+  linhas.push(['', 'TOTAL GERAL', money(geral), '', `${validos} comprovantes${dups ? ` · ${dups} duplicado(s) ignorado(s)` : ''}`])
   return linhas
 }
 
@@ -154,11 +159,22 @@ async function processa(update: any) {
 
   const j = await extrai(t.fid).catch(() => null)
   if (j) {
-    const status = j.data && j.data !== hojeSP() ? 'data_divergente' : 'extraido'
+    let status = j.data && j.data !== hojeSP() ? 'data_divergente' : 'extraido'
+    let ehDup = false
+    // DUPLICATA: mesmo transacao_id numa mensagem ANTERIOR = já foi enviado antes
+    if (j.transacao_id) {
+      const { data: ant } = await supabase.from('comprovantes_pix')
+        .select('telegram_message_id').eq('telegram_chat_id', GRUPO).eq('transacao_id', j.transacao_id)
+        .lt('telegram_message_id', m.message_id).limit(1)
+      if (ant && ant.length) { status = 'duplicado'; ehDup = true }
+    }
     await supabase.from('comprovantes_pix').update({
       valor: j.valor, data_pix: j.data || null, pagador: j.cliente || null,
-      destinatario: j.destinatario || null, status, extraido_raw: j,
+      destinatario: j.destinatario || null, transacao_id: j.transacao_id || null, status, extraido_raw: j,
     }).eq('telegram_chat_id', GRUPO).eq('telegram_message_id', m.message_id)
+    if (ehDup) {
+      await tgAlerta(`⚠️ COMPROVANTE DUPLICADO\n${j.cliente ? 'De: ' + j.cliente + '\n' : ''}${j.destinatario ? 'Para: ' + j.destinatario + '\n' : ''}${j.valor != null ? 'Valor: R$ ' + Number(j.valor).toFixed(2).replace('.', ',') + '\n' : ''}Esse Pix (ID ${j.transacao_id}) já foi enviado antes. NÃO estou somando de novo.`, m.message_id)
+    }
   } else {
     await supabase.from('comprovantes_pix').update({ status: 'erro_leitura' })
       .eq('telegram_chat_id', GRUPO).eq('telegram_message_id', m.message_id)
