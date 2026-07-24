@@ -161,19 +161,28 @@ async function processa(update: any) {
   if (j) {
     let status = j.data && j.data !== hojeSP() ? 'data_divergente' : 'extraido'
     let ehDup = false
+    let origId: string | null = null
+    let jaAvisou = false
     // DUPLICATA: mesmo transacao_id numa mensagem ANTERIOR = já foi enviado antes
     if (j.transacao_id) {
-      const { data: ant } = await supabase.from('comprovantes_pix')
-        .select('telegram_message_id').eq('telegram_chat_id', GRUPO).eq('transacao_id', j.transacao_id)
-        .lt('telegram_message_id', m.message_id).limit(1)
-      if (ant && ant.length) { status = 'duplicado'; ehDup = true }
+      const { data: mesmos } = await supabase.from('comprovantes_pix')
+        .select('id, telegram_message_id, extraido_raw').eq('telegram_chat_id', GRUPO).eq('transacao_id', j.transacao_id)
+        .lt('telegram_message_id', m.message_id).order('telegram_message_id')
+      if (mesmos && mesmos.length) {
+        status = 'duplicado'; ehDup = true
+        origId = (mesmos[0] as { id: string }).id
+        jaAvisou = mesmos.some((x) => (x as { extraido_raw?: { dup_avisado?: boolean } }).extraido_raw?.dup_avisado)
+      }
     }
     await supabase.from('comprovantes_pix').update({
       valor: j.valor, data_pix: j.data || null, pagador: j.cliente || null,
       destinatario: j.destinatario || null, transacao_id: j.transacao_id || null, status, extraido_raw: j,
     }).eq('telegram_chat_id', GRUPO).eq('telegram_message_id', m.message_id)
-    if (ehDup) {
+    // avisa UMA vez por transação (persiste dup_avisado no 1º comprovante daquele ID)
+    if (ehDup && !jaAvisou && origId) {
       await tgAlerta(`⚠️ COMPROVANTE DUPLICADO\n${j.cliente ? 'De: ' + j.cliente + '\n' : ''}${j.destinatario ? 'Para: ' + j.destinatario + '\n' : ''}${j.valor != null ? 'Valor: R$ ' + Number(j.valor).toFixed(2).replace('.', ',') + '\n' : ''}Esse Pix (ID ${j.transacao_id}) já foi enviado antes. NÃO estou somando de novo.`, m.message_id)
+      const { data: o } = await supabase.from('comprovantes_pix').select('extraido_raw').eq('id', origId).single()
+      await supabase.from('comprovantes_pix').update({ extraido_raw: { ...((o?.extraido_raw as object) || {}), dup_avisado: true } }).eq('id', origId)
     }
   } else {
     await supabase.from('comprovantes_pix').update({ status: 'erro_leitura' })
