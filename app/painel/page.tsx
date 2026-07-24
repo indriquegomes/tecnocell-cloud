@@ -9,6 +9,7 @@ import { Dica } from '@/components/Dica'
 import { MetaWidget, type MetaInput } from '@/components/MetaWidget'
 import { FluxoDiario, StatusPedidos } from '@/components/GraficosVendas'
 import { FiltroDashboard } from '@/components/FiltroDashboard'
+import { PontoWidget } from '@/components/PontoWidget'
 import { IconCart, IconPackage, IconUsers, IconWallet } from '@/components/icons'
 import type { ReactNode } from 'react'
 
@@ -109,6 +110,24 @@ export default async function DashboardPage({
     status_pedidos: { faturados: number; cancelados: number; aprovados: number; abertos: number }
   }
   const R = (resumo ?? {}) as Partial<ResumoDash>
+
+  // ---- Ponto do dia (relógio de ponto) — falha suave se a tabela ainda não existe ----
+  let meuPontoAberto: { id: string; entrada: string } | null = null
+  let horasFechadasHojeMs = 0
+  let colegasPonto: { nome: string; entrada: string }[] = []
+  if (userId) {
+    const inicioDiaSP = hoje + 'T00:00:00-03:00'
+    const [{ data: pAberto }, { data: pMeusHoje }, { data: pAbertosTodos }] = await Promise.all([
+      supabase.from('pontos').select('id, entrada').eq('perfil_id', userId).is('saida', null).order('entrada', { ascending: false }).limit(1),
+      supabase.from('pontos').select('entrada, saida').eq('perfil_id', userId).gte('entrada', inicioDiaSP).not('saida', 'is', null),
+      supabase.from('pontos').select('nome, entrada, perfil_id').is('saida', null),
+    ])
+    meuPontoAberto = pAberto?.[0] ? { id: pAberto[0].id as string, entrada: pAberto[0].entrada as string } : null
+    for (const p of pMeusHoje ?? []) horasFechadasHojeMs += new Date(p.saida as string).getTime() - new Date(p.entrada as string).getTime()
+    colegasPonto = (pAbertosTodos ?? []).filter((a) => a.perfil_id !== userId).map((a) => ({ nome: (a.nome as string) ?? '—', entrada: a.entrada as string }))
+  }
+  const nomeCompleto = (meuPerfil?.nome ?? primeiroNome ?? '').trim()
+  const pontoWidget = <PontoWidget nome={nomeCompleto} meuPontoAberto={meuPontoAberto} horasFechadasHojeMs={horasFechadasHojeMs} colegas={colegasPonto} />
 
   // ---- Operação recente (histórico, últimos 30 dias) ----
   const nVendas = Number(R.n_vendas) || 0
@@ -245,9 +264,12 @@ export default async function DashboardPage({
     const metaEfetivaPct = metaEfetiva > 0 ? Math.min(100, Math.round((meuFatMes / metaEfetiva) * 100)) : 0
     return (
       <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Olá, {primeiroNome || 'vendedora'} 👋</h2>
-          <p className="mt-0.5 text-sm text-gray-400">Seu resumo de vendas — bora vender!</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Olá, {primeiroNome || 'vendedora'} 👋</h2>
+            <p className="mt-0.5 text-sm text-gray-400">Seu resumo de vendas — bora vender!</p>
+          </div>
+          {pontoWidget}
         </div>
 
         <div className="grid gap-4 lg:grid-cols-3">
@@ -311,9 +333,12 @@ export default async function DashboardPage({
   if (role === 'estoquista') {
     return (
       <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Olá, {primeiroNome || 'estoquista'} 👋</h2>
-          <p className="mt-0.5 text-sm text-gray-400">Saúde do estoque num relance.</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Olá, {primeiroNome || 'estoquista'} 👋</h2>
+            <p className="mt-0.5 text-sm text-gray-400">Saúde do estoque num relance.</p>
+          </div>
+          {pontoWidget}
         </div>
 
         <div className="grid gap-4 lg:grid-cols-3">
@@ -365,7 +390,8 @@ export default async function DashboardPage({
           <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
           <Dica texto="Faturamento, estoque e financeiro. Escolha o período e a loja no filtro ao lado — o padrão é este mês." />
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          {pontoWidget}
           <FiltroDashboard de={filtroDe} ate={filtroAte} loja={filtroLoja} lojas={lojasList ?? []} />
         </div>
       </div>
