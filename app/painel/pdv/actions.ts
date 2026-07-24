@@ -689,6 +689,77 @@ export async function registrarPagamentoParcial(
   }
 }
 
+// RECEBIMENTO MISTO — quitar um fiado com VÁRIAS formas de uma vez (ex: metade em
+// dinheiro, metade no Pix), igual o PDV faz na venda. Antes só dava uma forma por
+// recebimento, então a menina tinha que registrar dois recebimentos e o histórico ficava
+// confuso. Aqui cada forma:
+//   - vira uma linha no historico_pagamentos (detalhe preservado)
+//   - entra separada no caixa (dinheiro na gaveta, Pix na linha do Pix) via registrarNoCaixa
+// e o valor_pago sobe pela SOMA. Quita se cobrir o total.
+export async function registrarPagamentoMisto(
+  accessToken: string,
+  id: string,
+  pagamentos: { forma: string; valor: number }[],
+  lojaId?: string | null,
+): Promise<ResultadoReceb> {
+  try {
+    await requirePermissao('crediario_receber', accessToken)
+    const supabase = await createServiceClient()
+
+    const linhas = (pagamentos ?? [])
+      .map((p) => ({ forma: (p.forma || '').trim(), valor: Math.round((Number(p.valor) || 0) * 100) / 100 }))
+      .filter((p) => p.forma && p.valor > 0)
+    if (linhas.length === 0) throw new Error('Informe ao menos uma forma com valor.')
+
+    const { data: lanc, error: errBusca } = await supabase
+      .from('lancamentos')
+      .select('valor, valor_pago, historico_pagamentos, pessoa_nome')
+      .eq('id', id)
+      .single()
+    if (errBusca || !lanc) throw new Error('Lançamento não encontrado.')
+
+    const valor = Number(lanc.valor) || 0
+    const pagoAntes = Number(lanc.valor_pago) || 0
+    const restante = Math.round((valor - pagoAntes) * 100) / 100
+    const totalPago = Math.round(linhas.reduce((s, p) => s + p.valor, 0) * 100) / 100
+    // trava: não deixar receber mais do que o cliente deve (viraria crédito fantasma no caixa)
+    if (totalPago > restante + 0.01) {
+      throw new Error(`Total das formas (${totalPago.toFixed(2)}) maior que o saldo devedor (${restante.toFixed(2)}).`)
+    }
+
+    const totalPagoAtualizado = Math.round((pagoAntes + totalPago) * 100) / 100
+    const quitado = totalPagoAtualizado >= valor - 0.01
+    const today = hojeSP()
+    const agora = new Date().toISOString()
+
+    const historicoAtual = Array.isArray(lanc.historico_pagamentos) ? (lanc.historico_pagamentos as PagamentoHistorico[]) : []
+    const novos: PagamentoHistorico[] = linhas.map((p) => ({ valor: p.valor, forma: p.forma, data: agora }))
+
+    const update: Record<string, unknown> = {
+      valor_pago: totalPagoAtualizado,
+      forma_pagamento: linhas.map((p) => p.forma).join(' + '),
+      historico_pagamentos: [...historicoAtual, ...novos],
+      updated_at: agora,
+    }
+    if (quitado) {
+      update.status = 'pago'
+      update.data_pagamento = today
+      update.conta_id = await contaDaFormaTexto(supabase, linhas[0].forma)
+    }
+
+    const { error } = await supabase.from('lancamentos').update(update).eq('id', id)
+    if (error) throw new Error(error.message)
+
+    // caixa: uma linha por forma (mesma regra do recebimento simples)
+    for (const p of linhas) {
+      await registrarNoCaixa(supabase, lojaId, p.valor, p.forma, `Fiado recebido — ${lanc.pessoa_nome ?? 'cliente'}`)
+    }
+    return { ok: true, quitado }
+  } catch (e) {
+    return { ok: false, erro: e instanceof Error && e.message ? e.message : 'Erro ao registrar pagamento.' }
+  }
+}
+
 // DESCONTO no fiado — perdoar parte da dívida (arredondar centavos, negociar cobrança).
 //
 // Desconto NÃO é forma de pagamento, mesmo aparecendo do lado das outras no modal.

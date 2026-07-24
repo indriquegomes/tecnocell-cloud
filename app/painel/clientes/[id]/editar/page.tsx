@@ -56,6 +56,13 @@ export default async function EditarClientePage({
   const { permissoes, isMaster } = await permissoesUsuarioAtual()
   const podeCredito = temPermissao(permissoes, 'credito_limite', isMaster)
 
+  // foto fica no bucket PRIVADO — gera URL assinada (1h) só pra exibir aqui
+  let fotoAtualUrl: string | null = null
+  if (pessoa.foto_url) {
+    const { data: signed } = await supabase.storage.from('clientes').createSignedUrl(pessoa.foto_url as string, 3600)
+    fotoAtualUrl = signed?.signedUrl ?? null
+  }
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center gap-3">
@@ -88,7 +95,7 @@ export default async function EditarClientePage({
       {erro && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
 
       {/* Cadastro */}
-      <PessoaForm tabelas={tabelas ?? []} vendedores={vendedores ?? []} editando={pessoa as PessoaEdit} podeCredito={podeCredito} />
+      <PessoaForm tabelas={tabelas ?? []} vendedores={vendedores ?? []} editando={pessoa as PessoaEdit} podeCredito={podeCredito} fotoAtualUrl={fotoAtualUrl} />
 
       {/* Histórico de compras (app + importado do SIGE) */}
       <div>

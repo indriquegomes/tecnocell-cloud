@@ -5,6 +5,25 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { validarCpfCnpj } from '@/lib/validacoes'
 
+// Foto de comprovação do cliente — vai pro bucket PRIVADO `clientes`. Guardamos só o
+// caminho (ex: "<id>.jpg"); a exibição gera URL assinada. Devolve o path ou null.
+async function uploadFotoCliente(
+  supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  file: File | null,
+  id: string,
+): Promise<string | null> {
+  if (!file || file.size === 0) return null
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+  const path = `${id}.${ext}`
+  const buffer = Buffer.from(await file.arrayBuffer())
+  const { error } = await supabase.storage.from('clientes').upload(path, buffer, {
+    contentType: file.type || 'image/jpeg',
+    upsert: true,
+  })
+  if (error) return null
+  return path
+}
+
 // Campos compartilhados entre criar e editar — Novo e Editar são o mesmo formulário
 function camposPessoa(formData: FormData, cpfCnpj: string, email: string) {
   const txt = (k: string) => (formData.get(k) as string)?.trim() || null
@@ -60,9 +79,12 @@ export async function criarPessoa(formData: FormData) {
 
   const campos = camposPessoa(formData, cpfCnpj, email)
   if (!(await podeAcao('credito_limite'))) campos.limite_credito = 0
+  const id = crypto.randomUUID()
+  const foto_url = await uploadFotoCliente(supabase, formData.get('foto') as File | null, id)
   const { error } = await supabase.from('pessoas').insert({
-    id: crypto.randomUUID(),
+    id,
     ...campos,
+    foto_url,
   })
   if (error) redirect(`/painel/clientes/novo?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/clientes')
@@ -87,9 +109,12 @@ export async function editarPessoa(id: string, formData: FormData) {
     if (existente) redirect(`/painel/clientes/${id}/editar?erro=${encodeURIComponent('Já existe outro cadastro com este e-mail.')}`)
   }
 
-  const campos: Partial<ReturnType<typeof camposPessoa>> = camposPessoa(formData, cpfCnpj, email)
+  const campos: Partial<ReturnType<typeof camposPessoa>> & { foto_url?: string } = camposPessoa(formData, cpfCnpj, email)
   // sem permissão: não mexe no limite de crédito (preserva o existente)
   if (!(await podeAcao('credito_limite'))) delete campos.limite_credito
+  // só troca a foto se enviaram uma nova (senão preserva a atual)
+  const novaFoto = await uploadFotoCliente(supabase, formData.get('foto') as File | null, id)
+  if (novaFoto) campos.foto_url = novaFoto
   const { error } = await supabase.from('pessoas').update(campos).eq('id', id)
   if (error) redirect(`/painel/clientes/${id}/editar?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/clientes')
@@ -114,6 +139,56 @@ export async function deletarPessoa(id: string) {
   const { error } = await supabase.from('pessoas').delete().eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/painel/clientes')
+}
+
+// Criar cliente DIRETO do PDV (o balcão precisa cadastrar quem chegou pra vender na hora).
+// Diferente de criarPessoa: usa token (o PDV não tem cookie de action), RETORNA a pessoa
+// em vez de redirecionar, e coleta só o essencial + foto opcional. Permissão 'pdv' basta —
+// quem opera o caixa pode cadastrar o cliente da venda.
+export type ResultadoCriarCliente =
+  | { ok: true; pessoa: { id: string; nome: string; cpf_cnpj: string | null; tabela_preco_id: string | null } }
+  | { ok: false; erro: string }
+
+export async function criarClientePDV(accessToken: string, formData: FormData): Promise<ResultadoCriarCliente> {
+  try {
+    await requirePermissao('pdv', accessToken)
+    const supabase = await createServiceClient()
+
+    const nome = (formData.get('nome') as string)?.trim()
+    if (!nome) return { ok: false, erro: 'Informe o nome do cliente.' }
+
+    const cpfCnpj = (formData.get('cpf_cnpj') as string)?.trim() || ''
+    if (cpfCnpj) {
+      const { valido } = validarCpfCnpj(cpfCnpj)
+      if (!valido) return { ok: false, erro: 'CPF ou CNPJ inválido.' }
+      const { data: existente } = await supabase.from('pessoas').select('id, nome').eq('cpf_cnpj', cpfCnpj).maybeSingle()
+      if (existente) return { ok: false, erro: `Já existe cadastro com este CPF/CNPJ (${existente.nome}).` }
+    }
+
+    const txt = (k: string) => (formData.get(k) as string)?.trim() || null
+    const id = crypto.randomUUID()
+    const foto_url = await uploadFotoCliente(supabase, formData.get('foto') as File | null, id)
+
+    const { data, error } = await supabase.from('pessoas').insert({
+      id,
+      nome,
+      tipo: 'cliente',
+      pessoa_fisica: true,
+      ativo: true,
+      cpf_cnpj: cpfCnpj || null,
+      rg: txt('rg'),
+      telefone: txt('telefone'),
+      celular: txt('celular'),
+      tabela_preco_id: txt('tabela_preco_id'),
+      foto_url,
+    }).select('id, nome, cpf_cnpj, tabela_preco_id').single()
+    if (error) return { ok: false, erro: error.message }
+
+    revalidatePath('/painel/clientes')
+    return { ok: true, pessoa: data }
+  } catch (e) {
+    return { ok: false, erro: e instanceof Error && e.message ? e.message : 'Erro ao cadastrar cliente.' }
+  }
 }
 
 export async function inativarPessoa(id: string) {

@@ -5,7 +5,9 @@ import { formatBRL, hojeSP } from '@/lib/utils'
 import { labelPrazo } from '@/lib/formas-pagamento'
 import { createClient } from '@/lib/supabase/client'
 import { Spinner } from '@/components/Spinner'
-import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, carregarClientesPDV, buscarFiadoCliente, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, aplicarDescontoCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
+import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, carregarClientesPDV, buscarFiadoCliente, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, registrarPagamentoMisto, aplicarDescontoCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
+import { criarClientePDV } from '../clientes/actions'
+import { PoliticaCadastro } from '../clientes/politica'
 import { rotulaRotina } from '@/lib/rotina-pagamento'
 import { badgeTabela } from '@/lib/badge-tabela'
 
@@ -256,6 +258,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [parcelasRecebimento, setParcelasRecebimento] = useState(1)
   const [valorRecebido, setValorRecebido] = useState<string>('')
   const [motivoDesconto, setMotivoDesconto] = useState('')
+  // Recebimento MISTO — quitar um fiado com várias formas (dinheiro + Pix…) de uma vez.
+  // Cada linha é { forma_id, valor }. Vazio/off = fluxo simples de uma forma só.
+  const [modoMistoReceb, setModoMistoReceb] = useState(false)
+  const [linhasMisto, setLinhasMisto] = useState<{ formaId: string; valor: string }[]>([])
   // Visão do crediário: por venda (lista de fiados) ou POR PESSOA (quem deve, quanto,
   // limite e o combinado de pagamento) — pedido do Vitor
   const [visaoCrediario, setVisaoCrediario] = useState<'vendas' | 'pessoas'>('vendas')
@@ -270,6 +276,16 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [fichaAberta, setFichaAberta] = useState(false)
   const [fichaSel, setFichaSel] = useState<Produto | null>(null)
   const [buscaFicha, setBuscaFicha] = useState('')
+
+  // Novo cliente pelo PDV (cadastro rápido com política + RG + foto opcional)
+  const [mostrarNovoCliente, setMostrarNovoCliente] = useState(false)
+  const [novoNome, setNovoNome] = useState('')
+  const [novoCpf, setNovoCpf] = useState('')
+  const [novoRg, setNovoRg] = useState('')
+  const [novoTel, setNovoTel] = useState('')
+  const [novoTabela, setNovoTabela] = useState('')
+  const [novoFoto, setNovoFoto] = useState<File | null>(null)
+  const [salvandoNovoCliente, setSalvandoNovoCliente] = useState(false)
 
   // Crédito do cliente
   const [saldoCredito, setSaldoCredito] = useState(0)
@@ -1221,8 +1237,46 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     setFormaRecebimento(dinheiro?.id ?? '')
     setParcelasRecebimento(1)
     setMotivoDesconto('')
+    setModoMistoReceb(false)
+    setLinhasMisto([])
     const restante = item.valor - (item.valor_pago ?? 0)
     setValorRecebido(restante.toFixed(2).replace('.', ','))
+  }
+
+  // Recebimento misto: soma as linhas e chama a action única. Cada forma vira uma
+  // entrada no caixa e no histórico. Quita se cobrir o restante.
+  const handleConfirmarRecebimentoMisto = async () => {
+    if (!recebendoItem) return
+    const restante = Math.round((recebendoItem.valor - (recebendoItem.valor_pago ?? 0)) * 100) / 100
+    const pagamentos = linhasMisto
+      .map((l) => {
+        const f = formas.find((x) => x.id === l.formaId)
+        return { forma: f?.nome ?? '', valor: parseFloat((l.valor || '').replace(',', '.')) || 0 }
+      })
+      .filter((p) => p.forma && p.valor > 0)
+    if (pagamentos.length === 0) { setErro('Adicione ao menos uma forma com valor.'); return }
+    const soma = Math.round(pagamentos.reduce((s, p) => s + p.valor, 0) * 100) / 100
+    if (soma > restante + 0.01) { setErro(`Somou ${formatBRL(soma)}, maior que o saldo em aberto (${formatBRL(restante)}).`); return }
+
+    setPagandoCrediario(true)
+    try {
+      const res = await registrarPagamentoMisto(await authToken(), recebendoItem.id, pagamentos, lojaId)
+      if (!res.ok) { setErro(res.erro); return }
+      if (res.quitado) {
+        setCrediarioItens((prev) => prev.filter((i) => i.id !== recebendoItem.id))
+      } else {
+        setCrediarioItens((prev) => prev.map((i) =>
+          i.id === recebendoItem.id ? { ...i, valor_pago: (i.valor_pago ?? 0) + soma } : i
+        ))
+      }
+      setRecebendoItem(null)
+      setPagoCrediarioOk(true)
+      setTimeout(() => setPagoCrediarioOk(false), 3000)
+    } catch (e) {
+      setErro(e instanceof Error && e.message ? e.message : 'Erro ao registrar pagamento.')
+    } finally {
+      setPagandoCrediario(false)
+    }
   }
 
   const handleConfirmarRecebimento = async () => {
@@ -1272,6 +1326,41 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       setErro(e instanceof Error && e.message ? e.message : 'Erro ao registrar pagamento.')
     } finally {
       setPagandoCrediario(false)
+    }
+  }
+
+  // Cadastro rápido de cliente pelo PDV (o balcão precisa registrar quem chegou na hora)
+  const abrirNovoCliente = () => {
+    setNovoNome(buscaCliente.trim())
+    setNovoCpf(''); setNovoRg(''); setNovoTel(''); setNovoTabela(''); setNovoFoto(null)
+    setMostrarNovoCliente(true)
+  }
+
+  const handleCriarCliente = async () => {
+    const nome = novoNome.trim()
+    if (!nome) { setErro('Informe o nome do cliente.'); return }
+    setSalvandoNovoCliente(true)
+    try {
+      const fd = new FormData()
+      fd.set('nome', nome)
+      if (novoCpf.trim()) fd.set('cpf_cnpj', novoCpf.trim())
+      if (novoRg.trim()) fd.set('rg', novoRg.trim())
+      if (novoTel.trim()) fd.set('telefone', novoTel.trim())
+      if (novoTabela) fd.set('tabela_preco_id', novoTabela)
+      if (novoFoto) fd.set('foto', novoFoto)
+      const res = await criarClientePDV(await authToken(), fd)
+      if (!res.ok) { setErro(res.erro); return }
+      // entra no cache local e já seleciona na venda
+      const nova: Pessoa = { id: res.pessoa.id, nome: res.pessoa.nome, cpf_cnpj: res.pessoa.cpf_cnpj, tabela_preco_id: res.pessoa.tabela_preco_id }
+      setPessoas((prev) => [nova, ...prev.filter((p) => p.id !== nova.id)])
+      setPessoaId(nova.id)
+      setBuscaCliente('')
+      if (nova.tabela_preco_id && tabelas.some((t) => t.id === nova.tabela_preco_id)) trocarTabela(nova.tabela_preco_id)
+      setMostrarNovoCliente(false)
+    } catch (e) {
+      setErro(e instanceof Error && e.message ? e.message : 'Erro ao cadastrar cliente.')
+    } finally {
+      setSalvandoNovoCliente(false)
     }
   }
 
@@ -1814,6 +1903,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 placeholder="buscar por nome ou CPF..."
                 className="flex-1 min-w-0 border-none bg-transparent text-sm focus:outline-none placeholder:text-gray-400"
               />
+              <button type="button" onClick={abrirNovoCliente}
+                className="shrink-0 rounded-lg border border-blue-200 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50 transition">
+                + novo
+              </button>
             </div>
           )}
           {clientesFiltrados.length > 0 && (
@@ -1833,8 +1926,14 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             </div>
           )}
           {buscaCliente.trim().length >= 1 && clientesFiltrados.length === 0 && (
-            <div className="absolute top-full left-0 right-0 z-20 mt-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs text-gray-400 shadow-lg">
-              {buscandoClientes ? 'Buscando…' : 'Nenhum cliente encontrado.'}
+            <div className="absolute top-full left-0 right-0 z-20 mt-1 flex items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs text-gray-400 shadow-lg">
+              <span>{buscandoClientes ? 'Buscando…' : 'Nenhum cliente encontrado.'}</span>
+              {!buscandoClientes && (
+                <button type="button" onClick={abrirNovoCliente}
+                  className="shrink-0 rounded-lg bg-blue-600 px-2.5 py-1 font-semibold text-white hover:bg-blue-700 transition">
+                  + Cadastrar &quot;{buscaCliente.trim()}&quot;
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -2788,7 +2887,29 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 <span className="font-bold text-gray-900">{formatBRL(recebendoItem.valor)}</span>
               </div>
 
-              {/* Valor a receber (editável) — vira "valor do desconto" quando é perdão de dívida */}
+              {/* Uma forma × Misto — no misto o cliente paga parte em dinheiro, parte no Pix etc. */}
+              {!ehDesconto && (
+                <div className="flex gap-1 rounded-xl bg-gray-100 p-1 text-xs font-semibold">
+                  <button type="button" onClick={() => setModoMistoReceb(false)}
+                    className={`flex-1 rounded-lg py-1.5 transition ${!modoMistoReceb ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'}`}>
+                    Uma forma
+                  </button>
+                  <button type="button"
+                    onClick={() => {
+                      setModoMistoReceb(true)
+                      if (linhasMisto.length === 0) {
+                        const dinheiro = formas.find((f) => f.tipo === 'dinheiro') ?? formas.find((f) => f.tipo !== 'fiado')
+                        setLinhasMisto([{ formaId: dinheiro?.id ?? '', valor: '' }])
+                      }
+                    }}
+                    className={`flex-1 rounded-lg py-1.5 transition ${modoMistoReceb ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'}`}>
+                    ⚡ Misto
+                  </button>
+                </div>
+              )}
+
+              {/* Valor a receber (editável) — vira "valor do desconto" quando é perdão de dívida. Oculto no misto (cada linha tem seu valor). */}
+              {!modoMistoReceb && (
               <div>
                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
                   {ehDesconto ? 'Valor do desconto' : 'Valor recebido'}
@@ -2804,8 +2925,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                   />
                 </div>
               </div>
+              )}
 
-              {/* Forma de pagamento — formas reais (a máquina TON/PagBank vem na forma) */}
+              {/* Forma de pagamento — formas reais (a máquina TON/PagBank vem na forma). No misto some (as formas viram linhas abaixo). */}
+              {!modoMistoReceb && (
               <div>
                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
                   Forma de recebimento
@@ -2881,17 +3004,65 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                   )
                 })()}
               </div>
+              )}
+
+              {/* Recebimento MISTO — uma linha por forma, cada uma com seu valor */}
+              {modoMistoReceb && (() => {
+                const somaMisto = Math.round(linhasMisto.reduce((s, l) => s + (parseFloat((l.valor || '').replace(',', '.')) || 0), 0) * 100) / 100
+                const faltam = Math.round((restanteReceb - somaMisto) * 100) / 100
+                const formasReais = formas.filter((f) => f.tipo !== 'fiado')
+                return (
+                  <div className="space-y-2">
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">Formas (soma tem que fechar o valor)</label>
+                    {linhasMisto.map((l, idx) => (
+                      <div key={idx} className="flex gap-2">
+                        <select
+                          value={l.formaId}
+                          onChange={(e) => setLinhasMisto((prev) => prev.map((x, i) => i === idx ? { ...x, formaId: e.target.value } : x))}
+                          className="flex-1 rounded-xl border border-gray-200 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                          {formasReais.map((f) => <option key={f.id} value={f.id}>{iconeForma(f.nome)} {f.nome}</option>)}
+                        </select>
+                        <div className="relative w-28">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">R$</span>
+                          <input type="text" inputMode="decimal" value={l.valor}
+                            onChange={(e) => setLinhasMisto((prev) => prev.map((x, i) => i === idx ? { ...x, valor: e.target.value } : x))}
+                            placeholder="0,00"
+                            className="w-full rounded-xl border border-gray-200 py-2 pl-7 pr-2 text-right text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                        {linhasMisto.length > 1 && (
+                          <button type="button" onClick={() => setLinhasMisto((prev) => prev.filter((_, i) => i !== idx))}
+                            className="shrink-0 rounded-lg border border-gray-200 px-2 text-gray-400 hover:bg-gray-50 hover:text-red-500">✕</button>
+                        )}
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between pt-1">
+                      <button type="button"
+                        onClick={() => {
+                          const usadas = new Set(linhasMisto.map((x) => x.formaId))
+                          const prox = formasReais.find((f) => !usadas.has(f.id)) ?? formasReais[0]
+                          setLinhasMisto((prev) => [...prev, { formaId: prox?.id ?? '', valor: faltam > 0 ? faltam.toFixed(2).replace('.', ',') : '' }])
+                        }}
+                        className="text-xs font-semibold text-blue-600 hover:text-blue-800">+ adicionar forma</button>
+                      <span className={`text-xs font-semibold tabular-nums ${Math.abs(faltam) < 0.01 ? 'text-green-600' : faltam < 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                        {Math.abs(faltam) < 0.01 ? '✓ fecha certinho' : faltam > 0 ? `faltam ${formatBRL(faltam)}` : `passou ${formatBRL(-faltam)}`}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })()}
 
               {/* Botão confirmar */}
               <button
                 type="button"
                 disabled={pagandoCrediario}
-                onClick={handleConfirmarRecebimento}
+                onClick={modoMistoReceb ? handleConfirmarRecebimentoMisto : handleConfirmarRecebimento}
                 className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white transition disabled:opacity-50 ${ehDesconto ? 'bg-amber-600 hover:bg-amber-700' : 'bg-green-600 hover:bg-green-700'}`}
               >
                 {pagandoCrediario && <Spinner />}{pagandoCrediario
                   ? (ehDesconto ? 'Aplicando...' : 'Registrando...')
-                  : `${ehDesconto ? 'Aplicar desconto' : 'Confirmar'} — ${valorRecebido ? `R$ ${valorRecebido}` : formatBRL(recebendoItem.valor)}`}
+                  : modoMistoReceb
+                    ? `Confirmar misto — ${formatBRL(Math.round(linhasMisto.reduce((s, l) => s + (parseFloat((l.valor || '').replace(',', '.')) || 0), 0) * 100) / 100)}`
+                    : `${ehDesconto ? 'Aplicar desconto' : 'Confirmar'} — ${valorRecebido ? `R$ ${valorRecebido}` : formatBRL(recebendoItem.valor)}`}
               </button>
 
               {/* Histórico de pagamentos */}
@@ -2932,6 +3103,65 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         </div>
       )
       })()}
+
+      {/* Modal Novo Cliente — cadastro rápido pelo PDV (política + RG + foto opcional) */}
+      {mostrarNovoCliente && (
+        <div className="animate-fade-in fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="flex max-h-[90vh] w-full max-w-md flex-col rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+              <h3 className="text-base font-bold text-gray-900">Novo Cliente</h3>
+              <button type="button" onClick={() => setMostrarNovoCliente(false)} className="text-lg text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="space-y-4 overflow-y-auto px-6 py-5">
+              <PoliticaCadastro compacto />
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Nome *</label>
+                <input value={novoNome} onChange={(e) => setNovoNome(e.target.value)} autoFocus
+                  placeholder="Nome do cliente"
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">CPF / CNPJ</label>
+                  <input value={novoCpf} onChange={(e) => setNovoCpf(e.target.value)} placeholder="000.000.000-00"
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">RG</label>
+                  <input value={novoRg} onChange={(e) => setNovoRg(e.target.value)} placeholder="00.000.000-0"
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Telefone</label>
+                  <input value={novoTel} onChange={(e) => setNovoTel(e.target.value)} placeholder="(24) 99999-9999"
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tabela de preço</label>
+                  <select value={novoTabela} onChange={(e) => setNovoTabela(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Padrão</option>
+                    {tabelas.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Foto de comprovação <span className="font-normal normal-case text-gray-400">(opcional)</span></label>
+                <input type="file" accept="image/*" capture="environment"
+                  onChange={(e) => setNovoFoto(e.target.files?.[0] ?? null)}
+                  className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100" />
+                <p className="mt-1 text-[11px] text-gray-400">Técnico/lojista — comprova revenda. Pode adicionar depois no cadastro.</p>
+              </div>
+              <button type="button" disabled={salvandoNovoCliente || !novoNome.trim()} onClick={handleCriarCliente}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:opacity-50">
+                {salvandoNovoCliente && <Spinner />}{salvandoNovoCliente ? 'Salvando…' : 'Cadastrar e usar na venda'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Detalhe da Venda */}
       {(detalheVenda || carregandoDetalhe) && (

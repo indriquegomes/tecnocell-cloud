@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { criarPessoa, editarPessoa } from './actions'
 import { SubmitButton } from '@/components/SubmitButton'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
+import { PoliticaCadastro } from './politica'
 
 const ESTADOS = ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO']
 const TIPOS: [string, string][] = [
@@ -26,7 +27,7 @@ export type PessoaEdit = {
   vendedor_id: string | null; origem: string | null; observacoes: string | null
 }
 
-export function PessoaForm({ tabelas, vendedores, editando, podeCredito = true }: { tabelas: Tabela[]; vendedores: Vendedor[]; editando?: PessoaEdit; podeCredito?: boolean }) {
+export function PessoaForm({ tabelas, vendedores, editando, podeCredito = true, fotoAtualUrl }: { tabelas: Tabela[]; vendedores: Vendedor[]; editando?: PessoaEdit; podeCredito?: boolean; fotoAtualUrl?: string | null }) {
   const action = editando ? editarPessoa.bind(null, editando.id) : criarPessoa
 
   // Endereço é controlado p/ a busca de CEP conseguir preencher
@@ -56,6 +57,9 @@ export function PessoaForm({ tabelas, vendedores, editando, podeCredito = true }
 
   return (
     <form action={action} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-6">
+      {/* Política de cadastro — texto que o cliente aceita ao ser cadastrado */}
+      <PoliticaCadastro />
+
       {/* Identificação */}
       <div>
         <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Identificação</h3>
@@ -92,6 +96,21 @@ export function PessoaForm({ tabelas, vendedores, editando, podeCredito = true }
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Data de nascimento</label>
             <input name="data_nascimento" type="date" defaultValue={editando?.data_nascimento ?? ''} className="field" />
+          </div>
+          {/* Foto de comprovação (técnico/lojista) — opcional. Vai pro bucket privado. */}
+          <div className="sm:col-span-2">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              Foto de comprovação <span className="font-normal text-gray-400">(técnico/lojista — opcional)</span>
+            </label>
+            <div className="flex items-center gap-3">
+              {fotoAtualUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={fotoAtualUrl} alt="Foto do cliente" className="h-16 w-16 shrink-0 rounded-lg border border-gray-200 object-cover" />
+              )}
+              <input name="foto" type="file" accept="image/*" capture="environment"
+                className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100" />
+            </div>
+            <p className="mt-1 text-[11px] text-gray-400">Foto do rosto com documento ou da fachada/loja. {fotoAtualUrl ? 'Enviar uma nova substitui a atual.' : ''}</p>
           </div>
         </div>
       </div>

@@ -12,7 +12,7 @@ import { badgeTabela } from '@/lib/badge-tabela'
 export default async function ClientesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ busca?: string; tipo?: string; ordem?: string; dir?: string; status?: string; pagina?: string; erro?: string }>
+  searchParams: Promise<{ busca?: string; tipo?: string; ordem?: string; dir?: string; status?: string; foto?: string; pagina?: string; erro?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
@@ -27,6 +27,18 @@ export default async function ClientesPage({
   if (params.busca) baseParams.busca = params.busca
   if (params.tipo)  baseParams.tipo  = params.tipo
   if (verInativos)  baseParams.status = 'inativos'
+  if (params.foto === 'com' || params.foto === 'sem') baseParams.foto = params.foto
+
+  // link do filtro de foto preservando busca/tipo/status
+  const fotoLink = (val: '' | 'com' | 'sem') => {
+    const qs = new URLSearchParams()
+    if (params.busca) qs.set('busca', params.busca)
+    if (params.tipo) qs.set('tipo', params.tipo)
+    if (verInativos) qs.set('status', 'inativos')
+    if (val) qs.set('foto', val)
+    const s = qs.toString()
+    return `/painel/clientes${s ? '?' + s : ''}`
+  }
 
   const sortLink = (ordem: string) => {
     const ativo = ordemAtual === ordem
@@ -44,9 +56,13 @@ export default async function ClientesPage({
 
   let query = supabase
     .from('pessoas')
-    .select('id, nome, tipo, pessoa_fisica, cpf_cnpj, email, telefone, cidade, estado, ativo, tabela_preco_id, nao_vender, nao_vender_motivo', { count: 'exact' })
+    .select('id, nome, tipo, pessoa_fisica, cpf_cnpj, email, telefone, cidade, estado, ativo, tabela_preco_id, nao_vender, nao_vender_motivo, foto_url', { count: 'exact' })
     .eq('ativo', !verInativos)
     .order(ordemCampo, { ascending: !ordemDir })
+
+  // filtro de comprovação: quem tem foto × quem falta
+  if (params.foto === 'com') query = query.not('foto_url', 'is', null)
+  else if (params.foto === 'sem') query = query.is('foto_url', null)
 
   if (params.busca) {
     const raw = params.busca.trim()
@@ -108,6 +124,15 @@ export default async function ClientesPage({
           className={`rounded-lg border px-4 py-2 text-sm transition ${verInativos ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
           {verInativos ? '← Voltar aos ativos' : 'Ver inativos'}
         </Link>
+        {/* Comprovação: quem tem foto × quem falta */}
+        <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+          <Link href={fotoLink('')}
+            className={`px-3 py-2 transition ${!params.foto ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>Foto: todos</Link>
+          <Link href={fotoLink('com')}
+            className={`px-3 py-2 border-l border-gray-200 transition ${params.foto === 'com' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>📷 Com foto</Link>
+          <Link href={fotoLink('sem')}
+            className={`px-3 py-2 border-l border-gray-200 transition ${params.foto === 'sem' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>Sem foto</Link>
+        </div>
         <span className="ml-auto self-center text-sm text-gray-400">{total} registro{total === 1 ? '' : 's'}</span>
       </div>
 
@@ -151,6 +176,9 @@ export default async function ClientesPage({
                           title={(p.nao_vender_motivo as string) || 'Cliente marcado como não vender'}>
                           🚫 NÃO VENDER
                         </span>
+                      )}
+                      {p.foto_url && (
+                        <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700" title="Tem foto de comprovação">📷</span>
                       )}
                     </div>
                     <p className="text-xs text-gray-400">{p.pessoa_fisica ? 'Pessoa Física' : 'Pessoa Jurídica'}</p>
