@@ -44,17 +44,18 @@ export default async function DashboardPage({
     : 'gerente'
 
   const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-  const de30 = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
   const inicioMes = (() => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0] })()
 
   // Filtro de período + loja (Isa: "mostrar por mês, ano e selecionar a loja").
-  // Default = últimos 30 dias, que é o que o dashboard sempre mostrou.
-  const filtroDe = params.de || de30
+  // Default = ESTE MÊS (mês corrente) — pedido do Vitor: 30 dias misturava mês passado,
+  // o relevante é o mês atual. Mês passado continua acessível pelos selects de mês/ano.
+  const inicioMesSP = hoje.slice(0, 7) + '-01'   // 1º dia do mês corrente, no fuso SP
+  const filtroDe = params.de || inicioMesSP
   const filtroAte = params.ate || hoje
   const filtroLoja = params.loja || ''
   const ehPadrao = !params.de && !params.ate && !params.loja
   const rotuloPeriodo = ehPadrao
-    ? 'últimos 30 dias'
+    ? 'este mês'
     : `${formatDate(filtroDe)} a ${formatDate(filtroAte)}`
 
   const [
@@ -362,10 +363,10 @@ export default async function DashboardPage({
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
           <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
-          <Dica texto="Faturamento, estoque e financeiro. Escolha o período e a loja no filtro ao lado — o padrão são os últimos 30 dias." />
+          <Dica texto="Faturamento, estoque e financeiro. Escolha o período e a loja no filtro ao lado — o padrão é este mês." />
         </div>
         <div className="ml-auto">
-          <FiltroDashboard de={filtroDe} ate={filtroAte} loja={filtroLoja} lojas={lojasList ?? []} ehPadrao={ehPadrao} />
+          <FiltroDashboard de={filtroDe} ate={filtroAte} loja={filtroLoja} lojas={lojasList ?? []} />
         </div>
       </div>
 

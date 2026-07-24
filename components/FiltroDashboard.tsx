@@ -16,13 +16,12 @@ import { beginNav, endNav } from '@/components/NavProgress'
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
 export function FiltroDashboard({
-  de, ate, loja, lojas, ehPadrao,
+  de, ate, loja, lojas,
 }: {
   de: string
   ate: string
   loja: string
   lojas: { id: string; nome: string }[]
-  ehPadrao: boolean
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -73,12 +72,13 @@ export function FiltroDashboard({
   const diasAtras = (n: number) => { const d = new Date(hoje); d.setDate(d.getDate() - (n - 1)); return iso(d) }
   const primeiroDoMes = iso(new Date(hoje.getFullYear(), hoje.getMonth(), 1))
   const ultimoDoMes = iso(new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0))
-  const ativoHoje   = !ehPadrao && de === hojeIso && ate === hojeIso
-  const ativoSemana = !ehPadrao && de === diasAtras(7) && ate === hojeIso
-  // "Este mês" fecha no último dia do mês, ou em hoje se o mês ainda está correndo
-  const ativoMes    = !ehPadrao && de === primeiroDoMes && (ate === hojeIso || ate === ultimoDoMes)
+  const ativoHoje   = de === hojeIso && ate === hojeIso
+  const ativoSemana = de === diasAtras(7) && ate === hojeIso
+  // "Este mês" é o PADRÃO: acende quando de=1º do mês e ate=hoje (mês correndo) ou último dia
+  const ativoMes    = de === primeiroDoMes && (ate === hojeIso || ate === ultimoDoMes)
+  const ativo30     = de === diasAtras(30) && ate === hojeIso
   // um mês qualquer escolhido nos selects (que não seja o atalho "Este mês")
-  const ativoMesSel = !ehPadrao && !ativoMes && de.slice(8) === '01'
+  const ativoMesSel = !ativoMes && de.slice(8) === '01'
 
   const selCls = (ativo: boolean) =>
     `rounded-lg border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#1B6CA8] transition ${
@@ -98,7 +98,7 @@ export function FiltroDashboard({
       <button type="button" onClick={() => atalho(1)} className={btn(ativoHoje)}>Hoje</button>
       <button type="button" onClick={() => atalho(7)} className={btn(ativoSemana)}>Esta semana</button>
       <button type="button" onClick={() => irMes(hoje.getMonth(), hoje.getFullYear())} className={btn(ativoMes)}>Este mês</button>
-      <button type="button" onClick={() => irUrl('/painel')} className={btn(ehPadrao)}>30 dias</button>
+      <button type="button" onClick={() => atalho(30)} className={btn(ativo30)}>30 dias</button>
 
       <span className="mx-1 h-4 w-px bg-gray-200" />
 
