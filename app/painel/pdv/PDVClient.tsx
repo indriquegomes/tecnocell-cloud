@@ -2334,14 +2334,21 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             </button>
           )}
 
-          {/* ABA 2 → tela de pagamento: grid de botões grandes por forma (modelo do
-              SIGE, na paleta do sistema) + o detalhe de valor/cartão/split embaixo. */}
-          {etapa === 'pagamento' && (<>
-            <div className="border-t border-gray-100 pt-4">
-              <button type="button" onClick={() => setEtapa('venda')}
-                className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition">← Voltar</button>
-              <p className="text-center text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">Como foi pago?</p>
-              <p className="mb-4 text-center text-3xl font-extrabold tabular-nums text-[#1B6CA8]">{formatBRL(totalCobrado)}</p>
+          {/* PAGAMENTO em MODAL centralizado (estilo SIGE): ao "Ir para pagamento" a
+              operadora cai DIRETO no pagamento, sempre 100% visível, sem rolar a tela.
+              É fixed inset-0 → renderiza como overlay independente de onde está no JSX. */}
+          {etapa === 'pagamento' && (
+            <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+              onClick={(e) => { if (e.target === e.currentTarget) setEtapa('venda') }}>
+              <div className="animate-pop-in flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+                <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-3">
+                  <button type="button" onClick={() => setEtapa('venda')}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition">← Voltar</button>
+                  <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">Como foi pago?</span>
+                  <span className="text-xl font-extrabold tabular-nums text-[#1B6CA8]">{formatBRL(totalCobrado)}</span>
+                </div>
+                <div className="flex-1 space-y-4 overflow-y-auto p-5">
+              <div>
               <div className="grid grid-cols-2 gap-2.5">
                 {formas.map((f, i) => {
                   const ativa = pagamentos.length === 1 && pagamentos[0].forma_id === f.id
@@ -2517,19 +2524,23 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               />
             </div>
           </div>
-
-          <button
-            type="button"
-            onClick={abrirConfirmacao}
-            disabled={carrinho.length === 0 || loading || !caixaAberto}
-            title={!caixaAberto ? 'Abra o caixa da loja pra vender' : undefined}
-            className="w-full rounded-xl bg-gradient-to-r from-green-600 to-green-500 py-3.5 text-sm font-bold text-white shadow-sm shadow-green-600/25 hover:from-green-700 hover:to-green-600 disabled:from-gray-300 disabled:to-gray-300 disabled:text-white disabled:shadow-none disabled:cursor-not-allowed transition"
-          >
-            {loading ? <span className="inline-flex items-center gap-2"><Spinner />Finalizando…</span>
-              : !caixaAberto ? '🔒 Caixa fechado — abra pra vender'
-              : <span className="inline-flex items-center gap-2">Finalizar Venda <span className="tabular-nums">{formatBRL(totalCobrado)}</span></span>}
-          </button>
-          </>)}
+                </div>{/* fim do corpo rolável do modal */}
+                <div className="shrink-0 border-t border-gray-100 p-4">
+                  <button
+                    type="button"
+                    onClick={abrirConfirmacao}
+                    disabled={carrinho.length === 0 || loading || !caixaAberto}
+                    title={!caixaAberto ? 'Abra o caixa da loja pra vender' : undefined}
+                    className="w-full rounded-xl bg-gradient-to-r from-green-600 to-green-500 py-3.5 text-sm font-bold text-white shadow-sm shadow-green-600/25 hover:from-green-700 hover:to-green-600 disabled:from-gray-300 disabled:to-gray-300 disabled:text-white disabled:shadow-none disabled:cursor-not-allowed transition"
+                  >
+                    {loading ? <span className="inline-flex items-center gap-2"><Spinner />Finalizando…</span>
+                      : !caixaAberto ? '🔒 Caixa fechado — abra pra vender'
+                      : <span className="inline-flex items-center gap-2">Finalizar Venda <span className="tabular-nums">{formatBRL(totalCobrado)}</span></span>}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {carrinho.length > 0 && (
             <button
