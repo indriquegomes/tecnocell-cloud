@@ -57,6 +57,20 @@ export default async function FinanceiroPage({
   const totalPagar = paraTotais.filter((l) => l.tipo === 'pagar' && l.status !== 'pago').reduce((s, l) => s + (l.valor ?? 0), 0)
   const pendentes = paraTotais.filter((l) => (l.status ?? '').toLowerCase() !== 'pago').length
 
+  // Saldo por conta (Caixa Petrópolis/Teresópolis/Estoque): inicial + recebido − pago,
+  // contando só o que JÁ movimentou (valor_pago) e está atribuído a uma conta.
+  const { data: contas } = await supabase.from('contas').select('id, nome, tipo, saldo_inicial').eq('ativa', true).order('nome')
+  const movConta = await fetchAll<{ conta_id: string | null; tipo: string; valor_pago: number | null }>(
+    (from, to) => supabase.from('lancamentos').select('conta_id, tipo, valor_pago').not('conta_id', 'is', null).range(from, to)
+  )
+  const saldoConta: Record<string, number> = {}
+  for (const c of contas ?? []) saldoConta[c.id] = Number(c.saldo_inicial) || 0
+  for (const m of movConta) {
+    if (!m.conta_id || !(m.conta_id in saldoConta)) continue
+    const v = Number(m.valor_pago) || 0
+    saldoConta[m.conta_id] += m.tipo === 'receber' ? v : -v
+  }
+
   function statusVariant(status: string | null): 'success' | 'warning' | 'danger' | 'outline' {
     const s = (status ?? '').toLowerCase()
     if (s.includes('pago') || s.includes('recebido')) return 'success'
@@ -100,6 +114,22 @@ export default async function FinanceiroPage({
           <p className="mt-1 text-3xl font-bold text-gray-900">{pendentes}</p>
         </div>
       </div>
+
+      {/* Saldo por conta (caixa/banco) — inicial + recebido − pago */}
+      {(contas ?? []).length > 0 && (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Saldo por conta</p>
+          <p className="mb-2 text-xs text-gray-400">Soma os lançamentos com conta definida (os novos já exigem conta).</p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {(contas ?? []).map((c) => (
+              <div key={c.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <p className="text-sm font-medium text-gray-600">{c.tipo === 'caixa' ? '💵' : '🏦'} {c.nome}</p>
+                <p className={`mt-1 text-2xl font-bold tabular-nums ${(saldoConta[c.id] ?? 0) < 0 ? 'text-red-600' : 'text-gray-900'}`}>{formatBRL(saldoConta[c.id] ?? 0)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filtros */}
       <form method="GET" className="flex flex-wrap gap-3">

@@ -82,9 +82,9 @@ export default async function NovoLancamentoPage({
             </datalist>
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Conta (entra/sai daqui)</label>
-            <select name="conta_id" className="field">
-              <option value="">—</option>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Conta (entra/sai daqui) *</label>
+            <select name="conta_id" required defaultValue="" className="field">
+              <option value="" disabled>Selecione a conta…</option>
               {(contas ?? []).map((c) => (
                 <option key={c.id} value={c.id}>{c.tipo === 'caixa' ? '💵' : '🏦'} {c.nome}</option>
               ))}
