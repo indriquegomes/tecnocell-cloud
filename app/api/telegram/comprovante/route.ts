@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import crypto from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
@@ -365,6 +365,8 @@ export async function POST(req: Request) {
   if (!loja || !loja.token || !loja.grupo) return NextResponse.json({ ok: true }) // loja desconhecida/sem config — ignora
   let update: unknown
   try { update = await req.json() } catch { return NextResponse.json({ ok: true }) }
-  try { await processa(loja, update) } catch (e) { console.error('comprovante webhook:', e) }
-  return NextResponse.json({ ok: true }) // sempre 200 — evita retry-storm do Telegram
+  // Responde 200 NA HORA e processa DEPOIS (after): extração Sonnet + planilha passam de 60s
+  // no cold-start → o Telegram dava "Read timeout" e REENVIAVA. after() roda pós-resposta.
+  after(async () => { try { await processa(loja as Loja, update) } catch (e) { console.error('comprovante webhook:', e) } })
+  return NextResponse.json({ ok: true }) // 200 imediato — sem retry-storm do Telegram
 }
