@@ -60,6 +60,7 @@ const navCompleto: NavGroup[] = [
     items: [
       { href: '/painel', label: 'Dashboard' },
       { href: '/painel/meu-perfil', label: 'Meu Perfil' },
+      { href: '/painel/chat', label: 'Chat com IA', permissao: 'chat_ia' },
     ],
   },
   {

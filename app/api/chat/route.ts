@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, permissoesEfetivas } from '@/lib/supabase/server'
+import { temPermissao } from '@/lib/permissoes'
 import { streamChat, buildSystemPrompt, type ChatMessage } from '@/lib/claude'
 
 // Rate-limit simples em memória por IP. Evita abuso de custo Anthropic na rota
@@ -26,9 +27,17 @@ export async function POST(req: NextRequest) {
 
   const supabase = await createClient()
 
-  // Valida no servidor: só concede contexto de funcionário se o usuário está autenticado
+  // Valida no servidor: contexto de FUNCIONÁRIO (vê financeiro/estoque) só pra quem
+  // está autenticado E tem a permissão 'chat_ia'. Antes bastava estar logado — qualquer
+  // vendedor puxava o total a receber pela IA. Sem a permissão, cai no contexto 'cliente'
+  // (só catálogo público). O `tipo` mandado pelo cliente não é confiável.
   const { data: { user } } = await supabase.auth.getUser()
-  const tipo: 'funcionario' | 'cliente' = (tipoRequisitado === 'funcionario' && user) ? 'funcionario' : 'cliente'
+  let podeFuncionario = false
+  if (user) {
+    const { permissoes, isMaster } = await permissoesEfetivas(user.id)
+    podeFuncionario = temPermissao(permissoes, 'chat_ia', isMaster)
+  }
+  const tipo: 'funcionario' | 'cliente' = (tipoRequisitado === 'funcionario' && podeFuncionario) ? 'funcionario' : 'cliente'
 
   // Monta contexto a partir do Supabase
   let contexto: Record<string, unknown> = {}
