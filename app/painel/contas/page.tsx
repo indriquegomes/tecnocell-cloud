@@ -9,7 +9,7 @@ import { formatBRL, formatDate } from '@/lib/utils'
 import Link from 'next/link'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
 
-type Conta = { id: string; nome: string; tipo: string; ativa: boolean; saldo_inicial?: number | null }
+type Conta = { id: string; nome: string; tipo: string; ativa: boolean; saldo_inicial?: number | null; loja_id?: string | null }
 type Transf = { id: string; conta_origem_id: string; conta_destino_id: string; valor: number; data: string; observacao: string | null }
 
 // Leitura tolerante — não quebra se a migration 2026-07-31 ainda não rodou.
@@ -62,8 +62,18 @@ export default async function ContasPage({
 }) {
   const { erro, editar } = await searchParams
   const supabase = await createServiceClient()
-  const { data } = await supabase.from('contas').select('id, nome, tipo, ativa, saldo_inicial').order('created_at')
-  const contas = (data ?? []) as Conta[]
+  // leitura tolerante: se a migration do loja_id ainda não rodou, cai no select sem ela
+  let contas: Conta[] = []
+  try {
+    const { data, error } = await supabase.from('contas').select('id, nome, tipo, ativa, saldo_inicial, loja_id').order('created_at')
+    if (error) throw error
+    contas = (data ?? []) as Conta[]
+  } catch {
+    const { data } = await supabase.from('contas').select('id, nome, tipo, ativa, saldo_inicial').order('created_at')
+    contas = (data ?? []) as Conta[]
+  }
+  const { data: lojas } = await supabase.from('lojas').select('id, nome').order('nome')
+  const nomeLoja = (id?: string | null) => (lojas ?? []).find((l) => l.id === id)?.nome ?? null
   const editando = editar ? contas.find((c) => c.id === editar) : undefined
   const transferencias = await lerTransferencias(supabase)
   const saldos = await calcularSaldos(supabase, contas)
@@ -110,6 +120,13 @@ export default async function ContasPage({
               <option value="banco">Banco</option>
             </select>
           </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-gray-600">Loja (empresa)</label>
+            <select name="loja_id" defaultValue={editando?.loja_id ?? ''} className="field">
+              <option value="">— Geral —</option>
+              {(lojas ?? []).map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
+            </select>
+          </div>
           <div className="w-40">
             <label className="mb-1.5 block text-xs font-medium text-gray-600">Saldo inicial (R$)</label>
             <CampoDinheiro name="saldo_inicial" defaultValue={Number(editando?.saldo_inicial ?? 0)} />
@@ -148,7 +165,10 @@ export default async function ContasPage({
               <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">Nenhuma conta.</td></tr>
             ) : contas.map((c) => (
               <tr key={c.id} className="hover:bg-blue-50/60 transition">
-                <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.tipo === 'caixa' ? '💵' : '🏦'} {c.nome}</td>
+                <td className="px-4 py-3 text-sm font-medium text-gray-800">
+                  {c.tipo === 'caixa' ? '💵' : '🏦'} {c.nome}
+                  {nomeLoja(c.loja_id) && <span className="ml-2 text-xs font-normal text-gray-400">· {nomeLoja(c.loja_id)}</span>}
+                </td>
                 <td className="px-4 py-3 text-sm text-gray-500">{c.tipo === 'caixa' ? 'Caixa' : 'Banco'}</td>
                 <td className={`px-4 py-3 text-right text-sm font-bold tabular-nums ${(saldos[c.id] ?? 0) >= 0 ? 'text-gray-900' : 'text-red-600'}`}>{formatBRL(saldos[c.id] ?? 0)}</td>
                 <td className="px-4 py-3 text-center">
