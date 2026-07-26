@@ -127,17 +127,20 @@ export function PainelShell({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            {/* Logo = atalho pro Dashboard, SEMPRE visível — mesmo com a sidebar
-                recolhida ou no celular (pedido Isa: voltar fácil pro Dashboard). */}
-            <Link href="/painel" title="Ir para o Dashboard"
-              className="flex items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-gray-100 transition">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/tecnocell-icon.png" alt="TecnoCell" className="h-8 w-8 shrink-0 object-contain" />
-              <div className="hidden flex-col leading-none sm:flex">
-                <span className="text-sm font-extrabold tracking-tight text-gray-900">TecnoCell</span>
-                <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#1B6CA8]">Cloud</span>
-              </div>
-            </Link>
+            {/* Logo = atalho pro Dashboard. Aparece SÓ com a sidebar recolhida (ou no
+                celular): aberta, o logo do topo dela já é o atalho — sem logo em dobro.
+                Pedido Isa: voltar fácil pro Dashboard de qualquer janela. */}
+            {!aberta && (
+              <Link href="/painel" title="Ir para o Dashboard"
+                className="flex items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-gray-100 transition">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/tecnocell-icon.png" alt="TecnoCell" className="h-8 w-8 shrink-0 object-contain" />
+                <div className="hidden flex-col leading-none sm:flex">
+                  <span className="text-sm font-extrabold tracking-tight text-gray-900">TecnoCell</span>
+                  <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#1B6CA8]">Cloud</span>
+                </div>
+              </Link>
+            )}
           </div>
           <div className="flex items-center gap-4">
             <OcultarValores />
