@@ -50,7 +50,9 @@ export default async function EditarClientePage({
   const compras = [...comprasApp, ...comprasSige].sort((a, b) => (b.data || '').localeCompare(a.data || ''))
 
   const fiadoPendente = (lancs ?? []).reduce((s, l) => s + ((l.valor ?? 0) - (l.valor_pago ?? 0)), 0)
-  const saldoCredito = (creds ?? []).reduce((s, c) => (c.tipo === 'uso' ? s - (c.valor ?? 0) : s + (c.valor ?? 0)), 0)
+  // 'uso' e 'estorno' subtraem; 'credito' soma. O estorno CANCELA um crédito
+  // (fix de sinal, igual ao RPC e ao buscarSaldoCredito) — antes ele somava.
+  const saldoCredito = (creds ?? []).reduce((s, c) => ((c.tipo === 'uso' || c.tipo === 'estorno') ? s - (c.valor ?? 0) : s + (c.valor ?? 0)), 0)
   const totalComprado = (vendas ?? []).reduce((s, v) => s + (v.total ?? 0), 0)
   const limite = Number(pessoa.limite_credito ?? 0)
   const { permissoes, isMaster } = await permissoesUsuarioAtual()

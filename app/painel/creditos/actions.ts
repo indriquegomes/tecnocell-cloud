@@ -1,6 +1,6 @@
 'use server'
 
-import { createServiceClient, requireAuth, permissoesEfetivas, requirePermissao } from '@/lib/supabase/server'
+import { createServiceClient, requireAuth, permissoesEfetivas, requirePermissao, fetchAll } from '@/lib/supabase/server'
 import { temPermissao } from '@/lib/permissoes'
 
 export interface MovimentoCredito {
@@ -25,20 +25,23 @@ export async function buscarSaldoCredito(
   }
   const supabase = await createServiceClient()
 
-  const { data } = await supabase
-    .from('creditos_clientes')
-    .select('id, tipo, valor, descricao, created_at')
-    .eq('pessoa_id', pessoaId)
-    .order('created_at', { ascending: false })
-    .limit(50)
-
-  const movimentos = (data ?? []) as MovimentoCredito[]
+  // TODAS as linhas (paginadas) — o saldo TEM que somar o extrato inteiro. Antes
+  // usava .limit(50) e o saldo saía errado pra quem tem mais de 50 movimentos.
+  const todos = await fetchAll<MovimentoCredito>(
+    (from, to) => supabase
+      .from('creditos_clientes')
+      .select('id, tipo, valor, descricao, created_at')
+      .eq('pessoa_id', pessoaId)
+      .order('created_at', { ascending: false })
+      .range(from, to),
+  )
   // 'credito' entra (+); 'uso' e 'estorno' saem (−). O estorno CANCELA um crédito,
   // então subtrai — antes somava, o que dobrava o saldo ao estornar.
-  const saldo = movimentos.reduce((s, m) => {
+  const saldo = todos.reduce((s, m) => {
     if (m.tipo === 'uso' || m.tipo === 'estorno') return s - m.valor
     return s + m.valor
   }, 0)
+  const movimentos = todos.slice(0, 50)   // extrato recente pra exibir
 
   return { saldo: Math.max(0, saldo), movimentos }
 }
@@ -67,31 +70,7 @@ export async function registrarCreditoCliente(
   if (error) throw new Error(error.message)
 }
 
-export async function usarCreditoVenda(
-  accessToken: string,
-  input: {
-    pessoa_id: string
-    pessoa_nome: string
-    valor: number
-    venda_id: string
-  },
-): Promise<void> {
-  await requirePermissao('financeiro', accessToken)
-  const supabase = await createServiceClient()
-
-  // Valida saldo disponível
-  const { saldo } = await buscarSaldoCredito(accessToken, input.pessoa_id)
-  if (saldo < input.valor - 0.01) {
-    throw new Error(`Saldo insuficiente. Disponível: R$ ${saldo.toFixed(2)}`)
-  }
-
-  const { error } = await supabase.from('creditos_clientes').insert({
-    pessoa_id: input.pessoa_id,
-    pessoa_nome: input.pessoa_nome,
-    valor: input.valor,
-    tipo: 'uso',
-    descricao: `Usado na venda #${input.venda_id.slice(0, 8)}`,
-    venda_id: input.venda_id,
-  })
-  if (error) throw new Error(error.message)
-}
+// (removido) usarCreditoVenda — o débito do crédito na venda passou a ser feito
+// DENTRO de finalizar_venda (migration 2026-07-10), atômico e com lock do cliente
+// (2026-07-26). Esta versão avulsa lia o saldo sem lock e inseria o 'uso' fora de
+// transação — mesma corrida do RPC, mas sem nem a atomicidade. Era código morto.
