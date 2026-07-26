@@ -7,6 +7,7 @@ import { adicionarItemPedido, removerItemPedido, atualizarStatusPedido, atualiza
 import { gerarOSDePedido } from '@/app/painel/os/actions'
 import { formatDate } from '@/lib/utils'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
+import { DocumentoPedido, resumoPedidoTexto, cssImpressao, type PedidoImpr } from '@/components/DocumentoPedido'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtDate = (d: string) => new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
@@ -236,6 +237,21 @@ export function PedidoDetalheClient({
   const totalAtual = Math.max(0, subtotal - desconto + frete)
   const temTabela = Object.keys(precoTabela).length > 0
 
+  // ===== Impressão (A4 / Cupom) · Copiar · Enviar =====
+  const [formatoImpr, setFormatoImpr] = useState<'a4' | 'cupom'>('a4')
+  const [copiado, setCopiado] = useState(false)
+  const pedidoImpr: PedidoImpr = {
+    id: pedido.id, numero: pedido.numero, tipo: pedido.tipo, pessoa_nome: pedido.pessoa_nome,
+    vendedor_nome: pedido.vendedor_nome, created_at: pedido.created_at, data_validade: pedido.data_validade,
+    referencia_cliente: pedido.referencia_cliente, observacoes: pedido.observacoes, desconto, frete,
+    itens: itens.map((i) => ({ id: i.id, quantidade: i.quantidade, preco_unitario: i.preco_unitario, total_item: i.total_item ?? 0, nome: i.produtos?.nome ?? 'Produto' })),
+  }
+  const imprimir = (f: 'a4' | 'cupom') => { setFormatoImpr(f); setTimeout(() => window.print(), 60) }
+  const copiar = async () => {
+    try { await navigator.clipboard.writeText(resumoPedidoTexto(pedidoImpr)); setCopiado(true); setTimeout(() => setCopiado(false), 2000) } catch { /* clipboard bloqueado */ }
+  }
+  const enviarWhats = () => window.open(`https://wa.me/?text=${encodeURIComponent(resumoPedidoTexto(pedidoImpr))}`, '_blank')
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -256,7 +272,16 @@ export function PedidoDetalheClient({
           </p>
         </div>
 
-        <div className="flex gap-2 flex-shrink-0">
+        <div className="flex flex-wrap justify-end gap-2 flex-shrink-0">
+          {/* Imprimir · Copiar · Enviar */}
+          <button onClick={() => imprimir('a4')}
+            className="rounded-xl bg-[#1B6CA8] px-3.5 py-2 text-sm font-semibold text-white hover:bg-[#155a8a] transition">🖨️ Imprimir A4</button>
+          <button onClick={() => imprimir('cupom')}
+            className="rounded-xl bg-[#1B6CA8] px-3.5 py-2 text-sm font-semibold text-white hover:bg-[#155a8a] transition">🧾 Cupom</button>
+          <button onClick={copiar}
+            className="rounded-xl border border-gray-200 px-3.5 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">{copiado ? '✓ Copiado!' : '📋 Copiar'}</button>
+          <button onClick={enviarWhats}
+            className="rounded-xl bg-[#F47920] px-3.5 py-2 text-sm font-semibold text-white hover:brightness-95 transition">🟢 WhatsApp</button>
           {pedido.status === 'rascunho' && (
             <button onClick={() => handleStatus('aprovado')}
               className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
@@ -634,6 +659,10 @@ export function PedidoDetalheClient({
           </div>
         </div>
       )}
+
+      {/* Documento imprimível (some da tela, aparece só ao imprimir) */}
+      <style dangerouslySetInnerHTML={{ __html: cssImpressao(formatoImpr) }} />
+      <div id="pedido-print"><DocumentoPedido p={pedidoImpr} formato={formatoImpr} /></div>
     </div>
   )
 }

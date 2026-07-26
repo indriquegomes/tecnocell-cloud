@@ -235,3 +235,82 @@ export async function removerItemPedido(itemId: string, pedidoId: string) {
   await supabase.from('pedidos').update({ total: novoTotal }).eq('id', pedidoId)
   revalidatePath(`/painel/pedidos/${pedidoId}`)
 }
+
+// Traz pedido(s)+itens dos IDs selecionados na lista, no formato do documento
+// imprimível (usado pela barra de ações: Imprimir A4/Cupom, PDF, WhatsApp).
+import type { PedidoImpr } from '@/components/DocumentoPedido'
+export async function carregarPedidosImpressao(accessToken: string, ids: string[]): Promise<PedidoImpr[]> {
+  await requirePermissao('pedidos', accessToken)
+  if (!ids.length) return []
+  ids = ids.slice(0, 100) // trava: .in() com centenas de ids estoura a URL do PostgREST
+  const supabase = await createServiceClient()
+  const [{ data: peds }, { data: itens }] = await Promise.all([
+    supabase.from('pedidos')
+      .select('id, numero, tipo, pessoa_id, vendedor_nome, created_at, data_validade, referencia_cliente, observacoes, desconto, frete')
+      .in('id', ids),
+    supabase.from('itens_pedido')
+      .select('id, pedido_id, produto_id, quantidade, preco_unitario, total_item')
+      .in('pedido_id', ids),
+  ])
+  const prodIds = [...new Set((itens ?? []).map((i) => i.produto_id))]
+  const nomeProd: Record<string, string> = {}
+  if (prodIds.length) {
+    const { data: prods } = await supabase.from('produtos').select('id, nome').in('id', prodIds)
+    for (const p of prods ?? []) nomeProd[p.id] = p.nome
+  }
+  const pesIds = [...new Set((peds ?? []).map((p) => p.pessoa_id).filter(Boolean))] as string[]
+  const nomePes: Record<string, string> = {}
+  if (pesIds.length) {
+    const { data: pes } = await supabase.from('pessoas').select('id, nome').in('id', pesIds)
+    for (const p of pes ?? []) nomePes[p.id] = p.nome
+  }
+  // preserva a ordem dos ids selecionados
+  const byId = new Map((peds ?? []).map((p) => [p.id, p]))
+  return ids.filter((id) => byId.has(id)).map((id) => {
+    const p = byId.get(id)!
+    return {
+      id: p.id, numero: p.numero, tipo: p.tipo,
+      pessoa_nome: p.pessoa_id ? (nomePes[p.pessoa_id] ?? null) : null,
+      vendedor_nome: p.vendedor_nome ?? null,
+      created_at: p.created_at, data_validade: p.data_validade ?? null,
+      referencia_cliente: p.referencia_cliente ?? null, observacoes: p.observacoes ?? null,
+      desconto: p.desconto ?? 0, frete: p.frete ?? 0,
+      itens: (itens ?? []).filter((i) => i.pedido_id === p.id).map((i) => ({
+        id: i.id, quantidade: i.quantidade, preco_unitario: i.preco_unitario,
+        total_item: i.total_item ?? 0, nome: nomeProd[i.produto_id] ?? 'Produto',
+      })),
+    }
+  })
+}
+
+// Igual à de cima, mas pras VENDAS do PDV (tabela itens_venda). Mapeia pro mesmo
+// documento imprimível (venda não tem frete/validade/ref).
+export async function carregarVendasImpressao(accessToken: string, ids: string[]): Promise<PedidoImpr[]> {
+  await requirePermissao('pedidos', accessToken)
+  if (!ids.length) return []
+  ids = ids.slice(0, 100) // trava: .in() com centenas de ids estoura a URL do PostgREST
+  const supabase = await createServiceClient()
+  const [{ data: vendas }, { data: itensRaw }] = await Promise.all([
+    supabase.from('vendas').select('id, numero, pessoa_id, vendedor_nome, created_at, observacoes, desconto').in('id', ids),
+    supabase.from('itens_venda').select('id, venda_id, quantidade, preco_unitario, total_item, produtos(nome)').in('venda_id', ids),
+  ])
+  const itens = (itensRaw ?? []) as unknown as { id: string | null; venda_id: string; quantidade: number; preco_unitario: number; total_item: number | null; produtos: { nome: string } | null }[]
+  const pesIds = [...new Set((vendas ?? []).map((v) => v.pessoa_id).filter(Boolean))] as string[]
+  const nomePes: Record<string, string> = {}
+  if (pesIds.length) { const { data: pes } = await supabase.from('pessoas').select('id, nome').in('id', pesIds); for (const p of pes ?? []) nomePes[p.id] = p.nome }
+  const byId = new Map((vendas ?? []).map((v) => [v.id, v]))
+  return ids.filter((id) => byId.has(id)).map((id) => {
+    const v = byId.get(id)!
+    return {
+      id: v.id, numero: v.numero, tipo: 'venda',
+      pessoa_nome: v.pessoa_id ? (nomePes[v.pessoa_id] ?? null) : null,
+      vendedor_nome: v.vendedor_nome ?? null,
+      created_at: v.created_at, data_validade: null, referencia_cliente: null,
+      observacoes: v.observacoes ?? null, desconto: v.desconto ?? 0, frete: 0,
+      itens: itens.filter((i) => i.venda_id === id).map((i, idx) => ({
+        id: i.id ?? `${id}-${idx}`, quantidade: i.quantidade, preco_unitario: i.preco_unitario,
+        total_item: i.total_item ?? (i.quantidade * i.preco_unitario), nome: i.produtos?.nome ?? 'Produto',
+      })),
+    }
+  })
+}

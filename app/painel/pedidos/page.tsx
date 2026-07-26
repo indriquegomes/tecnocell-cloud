@@ -1,9 +1,8 @@
-import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { IconPlus, IconClipboard } from '@/components/icons'
-import { deletarPedido } from './actions'
-import { ConfirmButton } from '@/components/ConfirmButton'
 import Link from 'next/link'
 import { PedidosFiltros } from './PedidosFiltros'
+import { PedidosLista } from './PedidosLista'
 import { Dica } from '@/components/Dica'
 
 // ═══════════════════════════════════════════════════════════════════
@@ -21,27 +20,6 @@ import { Dica } from '@/components/Dica'
 //
 // Status traduzido pro vocabulário dela: venda concluída = "Faturado".
 // ═══════════════════════════════════════════════════════════════════
-
-const STATUS_SISTEMA: Record<string, string> = {
-  rascunho:  'Rascunho',
-  aprovado:  'Aprovado — Aguardando Faturamento',
-  faturado:  'Faturado',
-  cancelado: 'Cancelado',
-  concluida: 'Faturado',      // venda do PDV
-  cancelada: 'Cancelado',     // venda do PDV
-}
-const STATUS_COLOR: Record<string, string> = {
-  rascunho:  'text-gray-400',
-  aprovado:  'text-yellow-600 font-medium',
-  faturado:  'text-green-600 font-medium',
-  cancelado: 'text-red-500',
-  concluida: 'text-green-600 font-medium',
-  cancelada: 'text-red-500',
-}
-
-const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const fmtDt = (d: string) =>
-  new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
 
 type Linha = {
   id: string
@@ -138,15 +116,15 @@ export default async function PedidosPage({
       if (ordemAtual === 'total')  return (a.total - b.total) * dirMul
       if (ordemAtual === 'tipo')   return a.tipo.localeCompare(b.tipo) * dirMul
       if (ordemAtual === 'status') return a.status.localeCompare(b.status) * dirMul
+      if (ordemAtual === 'loja')    return (a.loja ?? '').localeCompare(b.loja ?? '') * dirMul
+      if (ordemAtual === 'cliente') return (a.cliente ?? '').localeCompare(b.cliente ?? '') * dirMul
+      if (ordemAtual === 'forma')   return (a.forma ?? '').localeCompare(b.forma ?? '') * dirMul
       return a.created_at.localeCompare(b.created_at) * dirMul
     })
 
-  const rotuloTipo = (t: Linha['tipo']) =>
-    t === 'orcamento' ? 'Orçamento' : t === 'venda' ? 'Venda (PDV)' : 'Pedido'
-  const corTipo = (t: Linha['tipo']) =>
-    t === 'orcamento' ? 'bg-purple-50 text-purple-700'
-    : t === 'venda'   ? 'bg-emerald-50 text-emerald-700'
-    : 'bg-blue-50 text-blue-700'
+  const sortLinks = Object.fromEntries(
+    ['numero', 'created_at', 'tipo', 'status', 'loja', 'cliente', 'forma', 'total'].map((o) => [o, sortLink(o)]),
+  )
 
   return (
     <div className="space-y-5">
@@ -172,80 +150,7 @@ export default async function PedidosPage({
       />
 
       {/* Tabela */}
-      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-gray-100">
-          <thead className="bg-gray-50">
-            <tr>
-              {[
-                { o: 'numero',     l: 'Código', a: 'text-left' },
-                { o: 'created_at', l: 'Data',   a: 'text-left' },
-                { o: 'tipo',       l: 'Tipo',   a: 'text-left' },
-                { o: 'status',     l: 'Status', a: 'text-left' },
-              ].map(({ o, l, a }) => {
-                const s = sortLink(o)
-                return <th key={o} className={`px-4 py-3 ${a} text-xs font-semibold text-gray-500 uppercase`}>
-                  <Link href={s.href} className={`inline-flex items-center gap-1 hover:text-gray-800 transition ${s.ativo ? 'text-blue-600' : ''}`}>{l} <span className="text-gray-400">{s.arrow}</span></Link>
-                </th>
-              })}
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Empresa</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Cliente</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Pagamento</th>
-              {(() => { const s = sortLink('total'); return (
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">
-                  <Link href={s.href} className={`inline-flex items-center gap-1 hover:text-gray-800 transition ${s.ativo ? 'text-blue-600' : ''}`}>Valor <span className="text-gray-400">{s.arrow}</span></Link>
-                </th>
-              ) })()}
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {lista.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="px-4 py-12 text-center text-sm text-gray-400">
-                  Nenhum registro.{' '}
-                  <Link href="/painel/pedidos/novo" className="text-blue-500 hover:underline">Criar novo</Link>.
-                </td>
-              </tr>
-            ) : lista.map((l) => (
-              <tr key={l.tipo + l.id} className="hover:bg-blue-50/60 transition">
-                <td className="px-4 py-3 text-sm font-mono text-gray-500">#{l.numero ?? '—'}</td>
-                <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{fmtDt(l.created_at)}</td>
-                <td className="px-4 py-3 text-sm">
-                  <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${corTipo(l.tipo)}`}>
-                    {rotuloTipo(l.tipo)}
-                  </span>
-                </td>
-                <td className={`px-4 py-3 text-sm whitespace-nowrap ${STATUS_COLOR[l.status] ?? 'text-gray-500'}`}>
-                  {STATUS_SISTEMA[l.status] ?? l.status}
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-500">{l.loja ?? '—'}</td>
-                <td className="px-4 py-3 text-sm font-medium text-gray-800">{l.cliente ?? '—'}</td>
-                <td className="px-4 py-3 text-sm text-gray-500">{l.forma ?? '—'}</td>
-                <td className="px-4 py-3 text-right text-sm font-semibold text-gray-800 tabular-nums">{fmt(l.total)}</td>
-                <td className="px-4 py-3 text-center">
-                  <div className="flex items-center justify-center gap-2">
-                    <Link href={l.tipo === 'venda' ? `/painel/vendas?q=${l.numero ?? ''}` : `/painel/pedidos/${l.id}`}
-                      className="rounded-lg px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 transition">
-                      Abrir
-                    </Link>
-                    {/* Excluir SÓ em orçamento/pedido. Venda não se apaga — se cancela
-                        ou se devolve; apagar sumiria com dinheiro do caixa e do
-                        faturamento sem deixar rastro. */}
-                    {l.tipo !== 'venda' && (
-                      <form action={deletarPedido.bind(null, l.id)}>
-                        <ConfirmButton message="Excluir este pedido/orçamento?"
-                          className="rounded-lg px-2.5 py-1 text-xs font-medium text-red-400 hover:bg-red-50 transition">
-                          Excluir
-                        </ConfirmButton>
-                      </form>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <PedidosLista lista={lista} sortLinks={sortLinks} />
     </div>
   )
 }
