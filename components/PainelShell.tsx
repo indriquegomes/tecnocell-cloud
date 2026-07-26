@@ -62,7 +62,12 @@ export function PainelShell({
       <div className="flex h-screen flex-col overflow-hidden bg-gray-100">
         <SessionGuard />
         <div className="flex h-10 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            {/* Logo clicável → Dashboard, também no PDV em tela cheia (pedido Isa) */}
+            <Link href="/painel" title="Ir para o Dashboard" className="flex items-center rounded-md px-1 py-0.5 hover:bg-gray-100 transition">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/tecnocell-icon.png" alt="TecnoCell" className="h-6 w-6 shrink-0 object-contain" />
+            </Link>
             <span className="text-xs font-bold tracking-widest text-gray-400 uppercase">PDV</span>
             <span className="text-gray-200">|</span>
             <span className="text-xs text-gray-500">{nome ?? email}</span>
@@ -122,7 +127,17 @@ export function PainelShell({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <h1 className="text-sm font-medium text-gray-500">Painel Interno</h1>
+            {/* Logo = atalho pro Dashboard, SEMPRE visível — mesmo com a sidebar
+                recolhida ou no celular (pedido Isa: voltar fácil pro Dashboard). */}
+            <Link href="/painel" title="Ir para o Dashboard"
+              className="flex items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-gray-100 transition">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/tecnocell-icon.png" alt="TecnoCell" className="h-8 w-8 shrink-0 object-contain" />
+              <div className="hidden flex-col leading-none sm:flex">
+                <span className="text-sm font-extrabold tracking-tight text-gray-900">TecnoCell</span>
+                <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#1B6CA8]">Cloud</span>
+              </div>
+            </Link>
           </div>
           <div className="flex items-center gap-4">
             <OcultarValores />
