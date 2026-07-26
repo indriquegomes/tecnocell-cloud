@@ -163,3 +163,24 @@ export async function criarPessoaRapida(accessToken: string, nome: string): Prom
   if (error) return { ok: false, erro: error.message }
   return { ok: true, id, nome: limpo }
 }
+
+// Sangria/Retirada: tira dinheiro de um caixa em 1 clique (vira um lançamento
+// 'pagar' já PAGO naquela conta → subtrai do saldo pela via normal).
+export async function registrarSangria(formData: FormData) {
+  await requirePermissao('financeiro')
+  const contaId = (formData.get('conta_id') as string) || ''
+  const valor = parseFloat((formData.get('valor') as string) || '0')
+  const motivo = ((formData.get('motivo') as string) || '').trim() || 'Sangria / Retirada'
+  if (!contaId || !(valor > 0)) redirect(`/painel/contas?aba=saldos&erro=${encodeURIComponent('Escolha a conta e um valor maior que zero.')}`)
+  const supabase = await createServiceClient()
+  const hoje = hojeSP()
+  const { error } = await supabase.from('lancamentos').insert({
+    id: crypto.randomUUID(),
+    descricao: motivo, valor, tipo: 'pagar', categoria: 'Sangria / Retirada',
+    data_competencia: hoje, data_vencimento: hoje, conta_id: contaId,
+    status: 'pago', data_pagamento: hoje, valor_pago: valor, updated_at: new Date().toISOString(),
+  })
+  if (error) redirect(`/painel/contas?aba=saldos&erro=${encodeURIComponent(error.message)}`)
+  revalidatePath('/painel/contas'); revalidatePath('/painel/financeiro')
+  redirect(`/painel/contas?aba=saldos&ok=${Date.now()}`)
+}

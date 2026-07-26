@@ -1,5 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { calcularSaldosContas } from '@/lib/saldos-contas'
+import { FinanceiroTabs } from '../financeiro/FinanceiroTabs'
+import { SangriaButton } from '../financeiro/SangriaButton'
 import { IconBank, IconWallet } from '@/components/icons'
 import { hojeSP } from '@/lib/utils'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
@@ -24,9 +26,10 @@ async function lerTransferencias(supabase: Awaited<ReturnType<typeof createServi
 export default async function ContasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string; editar?: string }>
+  searchParams: Promise<{ erro?: string; editar?: string; aba?: string }>
 }) {
-  const { erro, editar } = await searchParams
+  const { erro, editar, aba: abaParam } = await searchParams
+  const aba: 'saldos' | 'contas' = (editar || abaParam === 'contas') ? 'contas' : 'saldos'
   const supabase = await createServiceClient()
   // leitura tolerante: se a migration do loja_id ainda não rodou, cai no select sem ela
   let contas: Conta[] = []
@@ -58,6 +61,10 @@ export default async function ContasPage({
         <Dica texto="Onde o dinheiro fica de verdade: Caixa (gaveta) e contas de banco. O saldo de cada uma é calculado sozinho: saldo inicial + vendas que caem nela + lançamentos pagos + transferências." />
       </div>
 
+      <FinanceiroTabs active={aba} />
+      {erro && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
+
+      {aba === 'saldos' ? (<>
       {/* Herói: saldo total consolidado (número-chave da tela) */}
       <div className="relative overflow-hidden rounded-2xl bg-[#1B6CA8] p-6 text-white shadow-sm">
         <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/5" />
@@ -70,7 +77,28 @@ export default async function ContasPage({
         </div>
       </div>
 
-      {erro && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
+      {/* cards de saldo por conta */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {contasAtivas.map((c) => (
+          <div key={c.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-medium text-gray-600">{c.tipo === 'caixa' ? '💵' : '🏦'} {c.nome}</p>
+              {nomeLoja(c.loja_id) && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-600">{nomeLoja(c.loja_id)}</span>}
+            </div>
+            <p className={`mt-2 text-2xl font-bold tabular-nums ${(saldos[c.id] ?? 0) < 0 ? 'text-red-600' : 'text-gray-900'}`}>{formatBRL(saldos[c.id] ?? 0)}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* ações rápidas do caixa */}
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+        <span className="mr-auto text-sm text-gray-500">Ações rápidas:</span>
+        <Link href="/painel/financeiro/novo?tipo=receber" className="rounded-lg bg-green-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">+ Entrada</Link>
+        <SangriaButton contas={contasAtivas.map((c) => ({ id: c.id, nome: c.nome, tipo: c.tipo }))} />
+        <Link href="/painel/contas?aba=contas" className="rounded-lg border border-gray-200 px-3.5 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">⇄ Transferir</Link>
+        <Link href="/painel/contas?aba=contas" className="rounded-lg bg-[#1B6CA8] px-3.5 py-2 text-sm font-semibold text-white hover:bg-[#155a8a] transition">+ Nova conta</Link>
+      </div>
+      </>) : (<>
 
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <h3 className="mb-4 text-sm font-semibold text-gray-700">{editando ? `Editando: ${editando.nome}` : 'Nova Conta'}</h3>
@@ -223,6 +251,7 @@ export default async function ContasPage({
           </tbody>
         </table>
       </div>
+      </>)}
     </div>
   )
 }

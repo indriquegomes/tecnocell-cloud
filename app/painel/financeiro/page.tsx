@@ -1,5 +1,5 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
-import { calcularSaldosContas } from '@/lib/saldos-contas'
+import { FinanceiroTabs } from './FinanceiroTabs'
 import { IconWallet } from '@/components/icons'
 import { formatBRL, formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -58,18 +58,6 @@ export default async function FinanceiroPage({
   const totalPagar = paraTotais.filter((l) => l.tipo === 'pagar' && l.status !== 'pago').reduce((s, l) => s + (l.valor ?? 0), 0)
   const pendentes = paraTotais.filter((l) => (l.status ?? '').toLowerCase() !== 'pago').length
 
-  // Saldo por conta — MESMA fonte da tela de Contas (vendas roteadas por loja +
-  // lançamentos + transferências). Antes aqui era um cálculo simplificado que só via
-  // lançamentos e divergia da tela de Contas; agora é a função única.
-  let contas: { id: string; nome: string; tipo: string; loja_id?: string | null }[] = []
-  try {
-    const { data } = await supabase.from('contas').select('id, nome, tipo, saldo_inicial, loja_id').eq('ativa', true).order('nome')
-    contas = (data ?? []) as typeof contas
-  } catch {
-    const { data } = await supabase.from('contas').select('id, nome, tipo, saldo_inicial').eq('ativa', true).order('nome')
-    contas = (data ?? []) as typeof contas
-  }
-  const saldoConta = await calcularSaldosContas(supabase, contas)
 
   function statusVariant(status: string | null): 'success' | 'warning' | 'danger' | 'outline' {
     const s = (status ?? '').toLowerCase()
@@ -99,6 +87,8 @@ export default async function FinanceiroPage({
         </div>
       </div>
 
+      <FinanceiroTabs active="lancamentos" />
+
       {/* Resumo */}
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-green-200 bg-green-50 p-5 shadow-sm">
@@ -114,22 +104,6 @@ export default async function FinanceiroPage({
           <p className="mt-1 text-3xl font-bold text-gray-900">{pendentes}</p>
         </div>
       </div>
-
-      {/* Saldo por conta (caixa/banco) — inicial + recebido − pago */}
-      {(contas ?? []).length > 0 && (
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Saldo por conta</p>
-          <p className="mb-2 text-xs text-gray-400">Vendas (dinheiro no caixa da loja, cartão/pix no banco) + lançamentos pagos + transferências.</p>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {(contas ?? []).map((c) => (
-              <div key={c.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                <p className="text-sm font-medium text-gray-600">{c.tipo === 'caixa' ? '💵' : '🏦'} {c.nome}</p>
-                <p className={`mt-1 text-2xl font-bold tabular-nums ${(saldoConta[c.id] ?? 0) < 0 ? 'text-red-600' : 'text-gray-900'}`}>{formatBRL(saldoConta[c.id] ?? 0)}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Filtros */}
       <form method="GET" className="flex flex-wrap gap-3">
