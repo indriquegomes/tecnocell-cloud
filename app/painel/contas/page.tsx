@@ -1,4 +1,5 @@
-import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { calcularSaldosContas } from '@/lib/saldos-contas'
 import { IconBank, IconWallet } from '@/components/icons'
 import { hojeSP } from '@/lib/utils'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
@@ -18,41 +19,6 @@ async function lerTransferencias(supabase: Awaited<ReturnType<typeof createServi
     const { data } = await supabase.from('transferencias').select('id, conta_origem_id, conta_destino_id, valor, data, observacao').order('data', { ascending: false }).limit(50)
     return (data ?? []) as Transf[]
   } catch { return [] }
-}
-
-// Saldo atual de cada conta. Sem dupla contagem:
-//  - vendas entram via pagamentos_venda PAGO → forma → conta (fiado à vista não conta)
-//  - lançamentos manuais pagos com conta_id (receber +, pagar −)
-//  - transferências (destino +, origem −)
-// Venda-lançamentos (auto) não têm conta_id, então não duplicam com pagamentos_venda.
-async function calcularSaldos(
-  supabase: Awaited<ReturnType<typeof createServiceClient>>,
-  contas: Conta[],
-): Promise<Record<string, number>> {
-  const saldo: Record<string, number> = {}
-  for (const c of contas) saldo[c.id] = Number(c.saldo_inicial ?? 0)
-  try {
-    const [{ data: formas }, pv, tr, lc] = await Promise.all([
-      supabase.from('formas_pagamento').select('id, conta_destino_id'),
-      fetchAll<{ valor: number; taxa: number | null; forma_pagamento_id: string | null }>((from, to) => supabase.from('pagamentos_venda').select('valor, taxa, forma_pagamento_id').eq('status', 'pago').range(from, to)),
-      fetchAll<{ conta_origem_id: string; conta_destino_id: string; valor: number }>((from, to) => supabase.from('transferencias').select('conta_origem_id, conta_destino_id, valor').range(from, to)),
-      fetchAll<{ tipo: string; valor: number; conta_id: string; status: string }>((from, to) => supabase.from('lancamentos').select('tipo, valor, conta_id, status').eq('status', 'pago').not('conta_id', 'is', null).range(from, to)),
-    ])
-    const contaDaForma = Object.fromEntries((formas ?? []).map((f) => [f.id, (f as { conta_destino_id: string | null }).conta_destino_id]))
-    for (const p of (pv ?? []) as { valor: number; taxa: number | null; forma_pagamento_id: string | null }[]) {
-      const conta = p.forma_pagamento_id ? contaDaForma[p.forma_pagamento_id] : null
-      if (conta && conta in saldo) saldo[conta] += (p.valor ?? 0) - (p.taxa ?? 0)
-    }
-    for (const t of (tr ?? []) as { conta_origem_id: string; conta_destino_id: string; valor: number }[]) {
-      if (t.conta_destino_id in saldo) saldo[t.conta_destino_id] += t.valor ?? 0
-      if (t.conta_origem_id in saldo) saldo[t.conta_origem_id] -= t.valor ?? 0
-    }
-    for (const l of (lc ?? []) as { tipo: string; valor: number; conta_id: string }[]) {
-      if (!(l.conta_id in saldo)) continue
-      saldo[l.conta_id] += l.tipo === 'receber' ? (l.valor ?? 0) : -(l.valor ?? 0)
-    }
-  } catch { /* colunas novas ainda não existem — mostra só o inicial */ }
-  return saldo
 }
 
 export default async function ContasPage({
@@ -76,7 +42,7 @@ export default async function ContasPage({
   const nomeLoja = (id?: string | null) => (lojas ?? []).find((l) => l.id === id)?.nome ?? null
   const editando = editar ? contas.find((c) => c.id === editar) : undefined
   const transferencias = await lerTransferencias(supabase)
-  const saldos = await calcularSaldos(supabase, contas)
+  const saldos = await calcularSaldosContas(supabase, contas)
   const saldoTotal = contas.filter((c) => c.ativa).reduce((s, c) => s + (saldos[c.id] ?? 0), 0)
   const contasAtivas = contas.filter((c) => c.ativa)
   const caixaTotal = contasAtivas.filter((c) => c.tipo === 'caixa').reduce((s, c) => s + (saldos[c.id] ?? 0), 0)

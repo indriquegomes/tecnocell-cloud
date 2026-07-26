@@ -1,4 +1,5 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { calcularSaldosContas } from '@/lib/saldos-contas'
 import { IconWallet } from '@/components/icons'
 import { formatBRL, formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -57,19 +58,18 @@ export default async function FinanceiroPage({
   const totalPagar = paraTotais.filter((l) => l.tipo === 'pagar' && l.status !== 'pago').reduce((s, l) => s + (l.valor ?? 0), 0)
   const pendentes = paraTotais.filter((l) => (l.status ?? '').toLowerCase() !== 'pago').length
 
-  // Saldo por conta (Caixa Petrópolis/Teresópolis/Estoque): inicial + recebido − pago,
-  // contando só o que JÁ movimentou (valor_pago) e está atribuído a uma conta.
-  const { data: contas } = await supabase.from('contas').select('id, nome, tipo, saldo_inicial').eq('ativa', true).order('nome')
-  const movConta = await fetchAll<{ conta_id: string | null; tipo: string; valor_pago: number | null }>(
-    (from, to) => supabase.from('lancamentos').select('conta_id, tipo, valor_pago').not('conta_id', 'is', null).range(from, to)
-  )
-  const saldoConta: Record<string, number> = {}
-  for (const c of contas ?? []) saldoConta[c.id] = Number(c.saldo_inicial) || 0
-  for (const m of movConta) {
-    if (!m.conta_id || !(m.conta_id in saldoConta)) continue
-    const v = Number(m.valor_pago) || 0
-    saldoConta[m.conta_id] += m.tipo === 'receber' ? v : -v
+  // Saldo por conta — MESMA fonte da tela de Contas (vendas roteadas por loja +
+  // lançamentos + transferências). Antes aqui era um cálculo simplificado que só via
+  // lançamentos e divergia da tela de Contas; agora é a função única.
+  let contas: { id: string; nome: string; tipo: string; loja_id?: string | null }[] = []
+  try {
+    const { data } = await supabase.from('contas').select('id, nome, tipo, saldo_inicial, loja_id').eq('ativa', true).order('nome')
+    contas = (data ?? []) as typeof contas
+  } catch {
+    const { data } = await supabase.from('contas').select('id, nome, tipo, saldo_inicial').eq('ativa', true).order('nome')
+    contas = (data ?? []) as typeof contas
   }
+  const saldoConta = await calcularSaldosContas(supabase, contas)
 
   function statusVariant(status: string | null): 'success' | 'warning' | 'danger' | 'outline' {
     const s = (status ?? '').toLowerCase()
@@ -119,7 +119,7 @@ export default async function FinanceiroPage({
       {(contas ?? []).length > 0 && (
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Saldo por conta</p>
-          <p className="mb-2 text-xs text-gray-400">Soma os lançamentos com conta definida (os novos já exigem conta).</p>
+          <p className="mb-2 text-xs text-gray-400">Vendas (dinheiro no caixa da loja, cartão/pix no banco) + lançamentos pagos + transferências.</p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {(contas ?? []).map((c) => (
               <div key={c.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
