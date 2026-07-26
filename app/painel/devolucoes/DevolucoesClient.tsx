@@ -39,12 +39,14 @@ export interface ItemDevolucaoLinha {
 }
 
 // ── Constantes ────────────────────────────────────────────────────────────────
+// Rótulo enxuto e claro do destino da peça (pedido Isa: "OK-VENDA / TROCA-SAÍDA").
+// A explicação completa fica no texto de ajuda logo abaixo da tabela.
 const STATUS_PRODUTO = [
-  { key: 'ok',    label: 'OK',    cor: 'bg-green-50 text-green-700 border-green-200' },
-  { key: 'troca', label: 'Troca', cor: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
+  { key: 'ok',    label: 'OK · Venda',    cor: 'bg-green-50 text-green-700 border-green-200' },
+  { key: 'troca', label: 'Troca · Saída', cor: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
 ]
 // rótulo dos status antigos (defeito/avaria) que ainda existam no histórico
-const LABEL_ANTIGO: Record<string, string> = { defeito: 'Defeito', avaria: 'Avaria', troca: 'Troca', ok: 'OK' }
+const LABEL_ANTIGO: Record<string, string> = { defeito: 'Defeito', avaria: 'Avaria', troca: 'Troca · Saída', ok: 'OK · Venda' }
 const statusCor = (s?: string) =>
   STATUS_PRODUTO.find(x => x.key === (s ?? 'ok'))?.cor
   ?? (s === 'ok' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200')
@@ -694,7 +696,7 @@ export function DevolucoesClient({
                   </div>
 
                   <p className="text-[11px] text-gray-400 px-1">
-                    <b className="text-green-600">OK</b> = volta pro estoque · <b className="text-yellow-600">Troca</b> = sai pro fornecedor (não volta ao estoque)
+                    <b className="text-green-600">OK — Venda</b> = peça boa, volta pro estoque e pode vender de novo · <b className="text-yellow-600">Troca — Saída</b> = peça sai do estoque (fornecedor/caixinha), não volta
                   </p>
 
                   <div className="flex justify-between rounded-xl bg-gray-50 px-4 py-3 text-sm font-bold">
