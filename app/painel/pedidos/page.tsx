@@ -41,11 +41,12 @@ export default async function PedidosPage({
   const { tipo, status, q, ordem, dir } = await searchParams
   const supabase = await createServiceClient()
 
-  const ordemAtual = ordem ?? 'created_at'
-  // Padrão = MAIS RECENTE primeiro. Antes era crescente: com 1 registro ninguém
-  // notava, mas com as vendas do PDV na lista a Isa abriria a tela no dia 06/07 e
-  // teria que rolar até o fim pra ver o dia de hoje — o oposto do que ela quer.
-  const ordemDir = dir ? dir === 'desc' : true
+  const ordemAtual = ordem ?? 'cliente'
+  // Padrão = ALFABÉTICO por cliente (A→Z) — pedido da Isa (26/07). A lista continua
+  // ordenável por qualquer coluna; pra ver o dia de hoje é só clicar em DATA (aí vai
+  // "mais recente primeiro"). Sem dir explícito, DATA ordena desc (recente) e as
+  // demais colunas ordenam asc (A→Z), que é o que se espera de cada uma.
+  const ordemDir = dir ? dir === 'desc' : ordemAtual === 'created_at'
   const baseParams: Record<string, string> = {}
   if (tipo)   baseParams.tipo   = tipo
   if (status) baseParams.status = status
@@ -112,13 +113,15 @@ export default async function PedidosPage({
     })
     .sort((a, b) => {
       const dirMul = ordemDir ? -1 : 1
+      // comparação pt-BR: alfabética de verdade (ignora acento e maiúsc/minúsc)
+      const cmp = (x: string | null, y: string | null) => (x ?? '').localeCompare(y ?? '', 'pt-BR', { sensitivity: 'base' })
       if (ordemAtual === 'numero') return ((a.numero ?? 0) - (b.numero ?? 0)) * dirMul
       if (ordemAtual === 'total')  return (a.total - b.total) * dirMul
-      if (ordemAtual === 'tipo')   return a.tipo.localeCompare(b.tipo) * dirMul
-      if (ordemAtual === 'status') return a.status.localeCompare(b.status) * dirMul
-      if (ordemAtual === 'loja')    return (a.loja ?? '').localeCompare(b.loja ?? '') * dirMul
-      if (ordemAtual === 'cliente') return (a.cliente ?? '').localeCompare(b.cliente ?? '') * dirMul
-      if (ordemAtual === 'forma')   return (a.forma ?? '').localeCompare(b.forma ?? '') * dirMul
+      if (ordemAtual === 'tipo')   return cmp(a.tipo, b.tipo) * dirMul
+      if (ordemAtual === 'status') return cmp(a.status, b.status) * dirMul
+      if (ordemAtual === 'loja')    return cmp(a.loja, b.loja) * dirMul
+      if (ordemAtual === 'cliente') return cmp(a.cliente, b.cliente) * dirMul
+      if (ordemAtual === 'forma')   return cmp(a.forma, b.forma) * dirMul
       return a.created_at.localeCompare(b.created_at) * dirMul
     })
 
