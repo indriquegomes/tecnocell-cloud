@@ -1560,12 +1560,14 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     const rowItem = (i: typeof snap.itens[0]) => {
       const desc = i.codigo ? `${i.codigo} - ${i.nome}` : i.nome
       const prat = (i as { prateleira?: string | null }).prateleira?.trim()
+      const qtd = String(i.quantidade).padStart(2, '0')
       return `<div class="item">
         <div class="row item-nome-row">
-          <span class="item-nome">${desc}</span>
+          <span class="item-nome"><span class="ck"></span>${desc}</span>
           ${prat ? `<span class="prateleira">${prat}</span>` : ''}
         </div>
-        <div class="row"><span>${i.quantidade} x ${brl(i.preco_unitario)}</span><span class="bold">${brl(i.quantidade * i.preco_unitario)}</span></div>
+        <div class="row"><span class="bold">QUANTIDADE: ${qtd}</span><span>${i.quantidade} x ${brl(i.preco_unitario)}</span></div>
+        <div class="row"><span></span><span class="bold">${brl(i.quantidade * i.preco_unitario)}</span></div>
       </div>`
     }
 
@@ -1596,6 +1598,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       /* prateleira: encostada na direita da linha do nome, no espaço que sobrava */
       .item-nome-row { align-items: flex-start; gap: 6px; }
       .prateleira { flex: none; font-weight: bold; white-space: nowrap; border: 1px solid #000; padding: 0 3px; }
+      /* caixa de seleção pro conferente marcar à mão o que já separou */
+      .ck { display: inline-block; width: 11px; height: 11px; border: 1px solid #000; margin-right: 5px; vertical-align: middle; flex: none; }
+      .assina { text-align: left; margin: 3px 0; }
       table { width: 100%; border-collapse: collapse; font-size: 10px; }
       th { border-bottom: 1px dashed #000; padding: 2px 0; text-align: left; }
       td { padding: 2px 0; vertical-align: top; }
@@ -1647,6 +1652,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     <p class="bold">CONSUMIDOR</p>
     ${snap.cliente ? `<p>${snap.cliente}</p>` : '<p>CONSUMIDOR FINAL</p>'}
     ${snap.clienteEndereco ? `<p style="text-align:left"><b>Entrega:</b> ${snap.clienteEndereco}</p>` : ''}
+
+    <hr class="sep">
+    <p class="assina bold">Conferência: __________________</p>
+    <p class="assina bold">Separação: ____________________</p>
 
     <hr class="sep">
     ${snap.lojaTermos ? `<p style="font-size:9px;text-align:left;white-space:pre-wrap">${snap.lojaTermos.replace(/</g, '&lt;')}</p><hr class="sep">` : ''}
