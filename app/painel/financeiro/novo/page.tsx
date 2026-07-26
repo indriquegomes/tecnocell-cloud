@@ -4,6 +4,7 @@ import { criarLancamento } from '../actions'
 import { SubmitButton } from '@/components/SubmitButton'
 import Link from 'next/link'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
+import { ClienteFornecedorField } from '../ClienteFornecedorField'
 
 export default async function NovoLancamentoPage({
   searchParams,
@@ -69,7 +70,7 @@ export default async function NovoLancamentoPage({
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Cliente / Fornecedor</label>
-            <input name="pessoa_nome" className="field" placeholder="Nome da pessoa" />
+            <ClienteFornecedorField />
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Categoria</label>

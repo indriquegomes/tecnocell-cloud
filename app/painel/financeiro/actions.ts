@@ -1,5 +1,6 @@
 'use server'
 
+import crypto from 'node:crypto'
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { logAtividade } from '@/lib/log-atividade'
 import { registrarNoCaixa, lojaDoLancamento } from '@/lib/caixa'
@@ -126,4 +127,39 @@ export async function deletarLancamento(id: string) {
   const { error } = await supabase.from('lancamentos').delete().eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/painel/financeiro')
+}
+
+// Busca cliente/fornecedor JÁ cadastrado (qualquer tipo) pro campo do lançamento.
+// Sob demanda — pessoas tem ~2.5k, não cabe em select.
+export async function buscarPessoasFinanceiro(accessToken: string, termo: string): Promise<{ id: string; nome: string }[]> {
+  await requirePermissao('financeiro', accessToken)
+  const raw = termo.trim()
+  if (raw.length < 1) return []
+  const supabase = await createServiceClient()
+  let q = supabase.from('pessoas').select('id, nome').eq('ativo', true)
+  const digitos = raw.replace(/\D/g, '')
+  const soDigitos = digitos.length >= 4 && /^[\d.\-/()\s]+$/.test(raw)
+  if (soDigitos) {
+    q = q.or(`cpf_cnpj.ilike.%${digitos}%,telefone.ilike.%${digitos}%,celular.ilike.%${digitos}%`)
+  } else {
+    const semAcento = raw.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
+    const palavras = semAcento.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
+    if (palavras.length === 0) return []
+    for (const w of palavras) q = q.ilike('nome_norm', `%${w}%`)
+  }
+  const { data } = await q.order('nome').limit(15)
+  return data ?? []
+}
+
+// Cria uma pessoa rápida (só o nome) quando não existe — pro campo Cliente/Fornecedor.
+// pessoas é tabela do SIGE (PK TEXT) → precisa gerar o id. nome_norm é gerado no banco.
+export async function criarPessoaRapida(accessToken: string, nome: string): Promise<{ ok: true; id: string; nome: string } | { ok: false; erro: string }> {
+  await requirePermissao('financeiro', accessToken)
+  const limpo = nome.trim()
+  if (limpo.length < 2) return { ok: false, erro: 'Nome muito curto.' }
+  const supabase = await createServiceClient()
+  const id = crypto.randomUUID()
+  const { error } = await supabase.from('pessoas').insert({ id, nome: limpo, tipo: 'ambos', pessoa_fisica: false, ativo: true })
+  if (error) return { ok: false, erro: error.message }
+  return { ok: true, id, nome: limpo }
 }
