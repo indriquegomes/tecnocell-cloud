@@ -28,6 +28,8 @@ function lojaDe(slug: string): Loja | null {
   return null
 }
 const SHEET_ID = process.env.COMPROVANTES_SHEET_ID || ''
+// os 2 grupos — pra detectar o MESMO Pix postado nas DUAS lojas (contaria em dobro)
+const GRUPOS = [Number(process.env.TELEGRAM_GRUPO_PETROPOLIS || 0), Number(process.env.TELEGRAM_GRUPO_TERESOPOLIS || 0)].filter(Boolean)
 
 function sb() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
@@ -137,7 +139,10 @@ async function blocoDeLink(url: string): Promise<Anthropic.ContentBlockParam | n
   } catch { return null }
 }
 
-const PROMPT = `Comprovante de PIX brasileiro. Leia com ATENÇÃO especial ao VALOR (confira cada dígito). Responda APENAS JSON: {"eh_comprovante": <true; false se NÃO for comprovante de Pix (conversa, foto aleatória)>, "valor": <número em reais, ex 259.00>, "data": "<AAAA-MM-DD>", "cliente": "<quem ENVIOU / 'De'>", "destinatario": "<quem RECEBEU / 'Para'>", "destinatario_doc": "<CPF/CNPJ do recebedor, só dígitos>", "transacao_id": "<ID da transação / E2E, copie EXATO>"}. Campo ausente = null.`
+const PROMPT = `Comprovante de PIX brasileiro. Leia com ATENÇÃO ao VALOR (cada dígito) e NÃO INVERTA quem pagou e quem recebeu:
+- "cliente" = quem ENVIOU / PAGOU (rótulos no comprovante: De / Origem / Pagador / Remetente / Debitado de / Conta de origem). É de quem SAIU o dinheiro.
+- "destinatario" = quem RECEBEU (rótulos: Para / Destino / Recebedor / Favorecido / Beneficiário / Creditado para). É para quem o dinheiro FOI. "destinatario_doc" = CPF/CNPJ DESSE recebedor.
+Responda APENAS JSON: {"eh_comprovante": <true; false se NÃO for comprovante de Pix (conversa, foto aleatória)>, "valor": <número em reais, ex 259.00>, "data": "<AAAA-MM-DD>", "cliente": "<quem ENVIOU>", "destinatario": "<quem RECEBEU>", "destinatario_doc": "<CPF/CNPJ do recebedor, só dígitos>", "transacao_id": "<ID da transação / E2E, copie EXATO>"}. Campo ausente = null.`
 
 // Registra uma FALHA de leitura. Depois de 3 tentativas marca 'ilegivel' pra o
 // comprovante SAIR da fila (extraiPendentes ignora 'ilegivel'). Antes, um que nunca
@@ -222,6 +227,29 @@ async function deduplica(loja: Loja) {
           + 'Esse Pix (ID ' + id + ') já foi lançado. NÃO conta de novo e não vai no fechamento.'
         await tgSend(loja.token, loja.grupo, txt, ult.telegram_message_id)
         await supa.from('comprovantes_pix').update({ extraido_raw: { ...((orig.extraido_raw as object) || {}), dup_avisado: true } }).eq('id', orig.id)
+      }
+    }
+  }
+
+  // CROSS-GROUP: o MESMO Pix (mesmo ID) postado nos DOIS grupos (lojas diferentes) —
+  // contaria em dobro. O robô AVISA (não escolhe qual vale — pedido do Vitor); as
+  // atendentes conferem de qual loja é e apagam do grupo errado (a planilha é espelho).
+  const outro = GRUPOS.find((g) => g !== loja.grupo)
+  const txs = [...new Set((cs || []).map((c) => (c as Comp).transacao_id).filter(Boolean))] as string[]
+  if (outro && txs.length) {
+    for (let i = 0; i < txs.length; i += 100) {
+      const { data: noOutro } = await supa.from('comprovantes_pix')
+        .select('transacao_id, valor, destinatario').eq('telegram_chat_id', outro)
+        .neq('status', 'nao_comprovante').in('transacao_id', txs.slice(i, i + 100))
+      for (const o of (noOutro || []) as Comp[]) {
+        const aqui = (cs || []).find((c) => (c as Comp).transacao_id === o.transacao_id) as Comp | undefined
+        if (!aqui || (aqui.extraido_raw as { cross_avisado?: boolean } | null)?.cross_avisado) continue
+        const txt = '⚠️ ESTE PIX ESTÁ NOS DOIS GRUPOS (Petrópolis e Teresópolis)\n'
+          + (o.valor != null ? 'Valor: R$ ' + money(o.valor) + '\n' : '')
+          + (o.destinatario ? 'Para: ' + o.destinatario + '\n' : '')
+          + 'O mesmo Pix (ID ' + o.transacao_id + ') foi postado nos dois grupos. Vejam de qual LOJA é e apaguem do grupo errado — pra não contar em dobro.'
+        await tgSend(loja.token, loja.grupo, txt)
+        await supa.from('comprovantes_pix').update({ extraido_raw: { ...((aqui.extraido_raw as object) || {}), cross_avisado: true } }).eq('id', aqui.id)
       }
     }
   }
