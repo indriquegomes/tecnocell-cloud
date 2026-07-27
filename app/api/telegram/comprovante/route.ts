@@ -354,8 +354,14 @@ async function processa(loja: Loja, update: any) {
     formato: t.f, arquivo_file_id: 'fid' in t ? t.fid : null, arquivo_url: 'url' in t ? t.url : null, status: 'recebido',
   }, { onConflict: 'telegram_chat_id,telegram_message_id' })
 
-  await extraiPendentes(loja)
-  await deduplica(loja)
+  // Planilha PRIMEIRO: reflete o comprovante recém-chegado na hora, mesmo que a
+  // extração (Sonnet) demore. Antes a extração rodava ANTES do escreveSheet e
+  // estourava os 60s do Vercel → a função morria antes de escrever e a planilha
+  // CONGELAVA (ficava vazia/desatualizada). Agora: escreve já, extrai (lote menor
+  // pra caber nos 60s), reescreve com os valores. Se a 2ª escrita for cortada pelo
+  // tempo, a 1ª já deixou a planilha atualizada — nunca mais congela.
+  await escreveSheet(loja)
+  try { await extraiPendentes(loja, 3); await deduplica(loja) } catch (e) { console.error('extrai/dedup:', e) }
   await escreveSheet(loja)
 }
 
