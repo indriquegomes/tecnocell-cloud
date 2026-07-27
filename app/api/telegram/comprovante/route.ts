@@ -157,6 +157,23 @@ async function marcaFalha(c: Comp, motivo: string) {
   }).eq('id', c.id)
 }
 
+// A IA às vezes emite o JSON e DEPOIS continua ("Wait, let me re-read...") ou manda um
+// 2º bloco — aí dar JSON.parse no texto todo quebra (json-fail) e o comprovante TRAVA em
+// 'recebido'. Pega o PRIMEIRO objeto {...} balanceado (respeitando strings) e ignora o resto.
+function primeiroJson(txt: string): any | null {
+  const s = txt.indexOf('{')
+  if (s < 0) return null
+  let depth = 0, inStr = false, esc = false
+  for (let i = s; i < txt.length; i++) {
+    const ch = txt[i]
+    if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false }
+    else if (ch === '"') inStr = true
+    else if (ch === '{') depth++
+    else if (ch === '}') { if (--depth === 0) { try { return JSON.parse(txt.slice(s, i + 1)) } catch { return null } } }
+  }
+  return null
+}
+
 // extrai UM comprovante (Sonnet + 2ª leitura focada em valor/ID). Atualiza a linha no banco.
 async function extraiUm(loja: Loja, c: Comp) {
   const ai = anthropic()
@@ -166,16 +183,15 @@ async function extraiUm(loja: Loja, c: Comp) {
   if (!bloco) return marcaFalha(c, 'sem-conteudo')
   const resp = await ai.messages.create({ model: 'claude-sonnet-4-6', max_tokens: 400, messages: [{ role: 'user', content: [bloco, { type: 'text', text: PROMPT }] }] })
   const raw = resp.content.find((b) => b.type === 'text') as { text: string } | undefined
-  const txt = (raw?.text || '').replace(/```json?/g, '').replace(/```/g, '').trim()
-  let j: any
-  try { j = JSON.parse(txt) } catch { return marcaFalha(c, 'json-fail') }
+  const j: any = primeiroJson(raw?.text || '')
+  if (!j) return marcaFalha(c, 'json-fail')
   const supa = sb()
   if (j.eh_comprovante === false) { await supa.from('comprovantes_pix').update({ status: 'nao_comprovante', extraido_raw: j }).eq('id', c.id); return }
   // 2ª leitura focada nos 2 campos que mais erram
   try {
     const rr = await ai.messages.create({ model: 'claude-sonnet-4-6', max_tokens: 120, messages: [{ role: 'user', content: [bloco, { type: 'text', text: 'Leia com atenção MÁXIMA só isto deste comprovante Pix. JSON: {"valor":<número>,"transacao_id":"<ID da transação/E2E, EXATO caractere por caractere>"}' }] }] })
     const rr2 = rr.content.find((b) => b.type === 'text') as { text: string } | undefined
-    const jj = JSON.parse((rr2?.text || '').replace(/```json?/g, '').replace(/```/g, '').trim())
+    const jj = primeiroJson(rr2?.text || '') || {}
     const v2 = parseValor(jj.valor)
     if (v2 != null && j.valor == null) j.valor = v2
     else if (v2 != null && j.valor != null && Math.abs(v2 - Number(j.valor)) > 0.01) { j.valor_incerto = true; j.valor_leitura2 = v2 }
