@@ -435,6 +435,14 @@ const BASE = process.env.APP_BASE_URL || 'https://tecnocell-cloud.vercel.app'
 async function disparaReenvio(loja: Loja) {
   try { await fetch(`${BASE}/api/telegram/comprovante?loja=${loja.slug}&job=reenvio`, { method: 'POST', headers: { 'x-telegram-bot-api-secret-token': process.env.TELEGRAM_WEBHOOK_SECRET || '' } }) } catch { /* segue */ }
 }
+// Imagem enviada COMO ARQUIVO vira 'document' no Telegram, mas o bot marca 'foto' — aí o
+// sendPhoto recusa ("can't use file of type Document as Photo") e a imagem sumia do arquivo.
+// Tenta como foto; se recusar, manda como documento (sempre funciona pra imagem).
+async function enviaFoto(loja: Loja, fid: string) {
+  const r = await tgPost(loja.token, 'sendPhoto', { chat_id: loja.grupo, photo: fid })
+  if (r && (r as { ok?: boolean }).ok) return
+  await tgPost(loja.token, 'sendDocument', { chat_id: loja.grupo, document: fid })
+}
 async function itensReenvio(loja: Loja, p: { aberto_em: string; fechado_em: string | null }): Promise<Array<Record<string, unknown>>> {
   const ate = p.fechado_em || new Date().toISOString()
   const { data: cs } = await sb().from('comprovantes_pix').select('*')
@@ -464,7 +472,7 @@ async function processaReenvio(loja: Loja) {
     const it = itens[cur]
     try {
       if (it.t === 'h') await tgSend(loja.token, loja.grupo, '📎 ' + it.nome + ' — ' + it.n + ' comprovantes — R$ ' + money(it.soma as number))
-      else if (it.t === 'foto') await tgPost(loja.token, 'sendPhoto', { chat_id: loja.grupo, photo: it.fid })
+      else if (it.t === 'foto') await enviaFoto(loja, it.fid as string)
       else if (it.t === 'pdf') await tgPost(loja.token, 'sendDocument', { chat_id: loja.grupo, document: it.fid })
       else if (it.t === 'link') await tgSend(loja.token, loja.grupo, '🔗 ' + it.url)
     } catch { /* um item ruim não trava a fila */ }
