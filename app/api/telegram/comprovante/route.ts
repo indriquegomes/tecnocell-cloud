@@ -421,16 +421,62 @@ async function fechar(loja: Loja, p: any, quem: string | null) {
   for (const k of keys) { const g = groups[k]; const soma = g.itens.reduce((s, c) => s + (Number(c.valor) || 0), 0); geral += soma; resumo += '• ' + g.itens.length + ' imagens — ' + g.nome + ' — R$ ' + money(soma) + '\n' }
   resumo += '\n💰 TOTAL: R$ ' + money(geral) + ' · ' + (cs || []).length + ' comprovantes'
   await tgSend(loja.token, loja.grupo, resumo)
-  // marca fechado ANTES das imagens (garante o registro mesmo se o reenvio estourar o tempo)
-  await sb().from('pix_periodos').update({ fechado_em: new Date().toISOString(), fechado_por: quem || null }).eq('id', p.id)
-  // reenvia as imagens agrupadas (best-effort)
+  // fecha o período e ENFILEIRA o arquivo agrupado (fotos+pdfs+links). Reenviar 30+ de uma
+  // vez estoura os 60s e o flood-control do Telegram (o álbum de foto é o 1º a ser barrado —
+  // era por isso que sumiam as fotos). Agora o worker manda pausado, em segundo plano.
+  await sb().from('pix_periodos').update({ fechado_em: new Date().toISOString(), fechado_por: quem || null, reenvio_ativo: true, reenvio_cursor: 0 }).eq('id', p.id)
+  await disparaReenvio(loja)
+}
+
+// ---------- arquivo do fechamento: reenvio PAUSADO em segundo plano ----------
+// /fechar só enfileira; este worker manda ~1 item a cada 4s (≈15/min, dentro do limite do
+// Telegram), até ~45s por chamada, e se AUTO-CHAMA (fora dos 60s) até esvaziar a fila.
+const BASE = process.env.APP_BASE_URL || 'https://tecnocell-cloud.vercel.app'
+async function disparaReenvio(loja: Loja) {
+  try { await fetch(`${BASE}/api/telegram/comprovante?loja=${loja.slug}&job=reenvio`, { method: 'POST', headers: { 'x-telegram-bot-api-secret-token': process.env.TELEGRAM_WEBHOOK_SECRET || '' } }) } catch { /* segue */ }
+}
+async function itensReenvio(loja: Loja, p: { aberto_em: string; fechado_em: string | null }): Promise<Array<Record<string, unknown>>> {
+  const ate = p.fechado_em || new Date().toISOString()
+  const { data: cs } = await sb().from('comprovantes_pix').select('*')
+    .eq('telegram_chat_id', loja.grupo).gte('recebido_em', p.aberto_em).lte('recebido_em', ate)
+    .neq('status', 'duplicado').neq('status', 'nao_comprovante').neq('status', 'incompleto').neq('status', 'apagado')
+    .order('recebido_em')
+  const groups = agrupaPorDestino((cs || []) as Comp[]); const keys = Object.keys(groups).sort()
+  const itens: Array<Record<string, unknown>> = []
   for (const k of keys) {
     const g = groups[k]; const soma = g.itens.reduce((s, c) => s + (Number(c.valor) || 0), 0)
-    await tgSend(loja.token, loja.grupo, '📎 ' + g.nome + ' — ' + g.itens.length + ' comprovantes — R$ ' + money(soma))
-    const fotos = g.itens.filter((c) => c.formato === 'foto').map((c) => c.arquivo_file_id)
-    for (let i = 0; i < fotos.length; i += 10) await tgPost(loja.token, 'sendMediaGroup', { chat_id: loja.grupo, media: fotos.slice(i, i + 10).map((f) => ({ type: 'photo', media: f })) })
-    for (const c of g.itens.filter((x) => x.formato === 'pdf')) await tgPost(loja.token, 'sendDocument', { chat_id: loja.grupo, document: c.arquivo_file_id })
-    for (const c of g.itens.filter((x) => x.formato === 'link' && x.arquivo_url)) await tgSend(loja.token, loja.grupo, '🔗 ' + c.arquivo_url)
+    itens.push({ t: 'h', nome: g.nome, n: g.itens.length, soma })
+    for (const c of g.itens) {
+      if (c.formato === 'foto' && c.arquivo_file_id) itens.push({ t: 'foto', fid: c.arquivo_file_id })
+      else if (c.formato === 'pdf' && c.arquivo_file_id) itens.push({ t: 'pdf', fid: c.arquivo_file_id })
+      else if (c.formato === 'link' && c.arquivo_url) itens.push({ t: 'link', url: c.arquivo_url })
+    }
+  }
+  return itens
+}
+async function processaReenvio(loja: Loja) {
+  const { data: ps } = await sb().from('pix_periodos').select('*').eq('telegram_chat_id', loja.grupo).eq('reenvio_ativo', true).order('fechado_em', { ascending: false }).limit(1)
+  const p = (ps || [])[0]; if (!p) return
+  const itens = await itensReenvio(loja, p)
+  let cur = Number(p.reenvio_cursor) || 0
+  const t0 = Date.now()
+  while (cur < itens.length && Date.now() - t0 < 45000) {
+    const it = itens[cur]
+    try {
+      if (it.t === 'h') await tgSend(loja.token, loja.grupo, '📎 ' + it.nome + ' — ' + it.n + ' comprovantes — R$ ' + money(it.soma as number))
+      else if (it.t === 'foto') await tgPost(loja.token, 'sendPhoto', { chat_id: loja.grupo, photo: it.fid })
+      else if (it.t === 'pdf') await tgPost(loja.token, 'sendDocument', { chat_id: loja.grupo, document: it.fid })
+      else if (it.t === 'link') await tgSend(loja.token, loja.grupo, '🔗 ' + it.url)
+    } catch { /* um item ruim não trava a fila */ }
+    cur++
+    await sb().from('pix_periodos').update({ reenvio_cursor: cur }).eq('id', p.id)
+    if (cur < itens.length && Date.now() - t0 < 45000) await new Promise((r) => setTimeout(r, 4000))
+  }
+  if (cur >= itens.length) {
+    await sb().from('pix_periodos').update({ reenvio_ativo: false }).eq('id', p.id)
+    await tgSend(loja.token, loja.grupo, '✅ Arquivo do fechamento completo — ' + itens.length + ' itens enviados.')
+  } else {
+    await disparaReenvio(loja) // continua numa próxima chamada (fora dos 60s)
   }
 }
 
@@ -469,6 +515,11 @@ export async function POST(req: Request) {
   if (req.headers.get('x-telegram-bot-api-secret-token') !== process.env.TELEGRAM_WEBHOOK_SECRET) return new NextResponse('forbidden', { status: 401 })
   const loja = lojaDe(new URL(req.url).searchParams.get('loja') || '')
   if (!loja || !loja.token || !loja.grupo) return NextResponse.json({ ok: true }) // loja desconhecida/sem config — ignora
+  // auto-chamada do worker do arquivo pausado (não é update do Telegram)
+  if (new URL(req.url).searchParams.get('job') === 'reenvio') {
+    after(async () => { try { await processaReenvio(loja as Loja) } catch (e) { console.error('reenvio:', e) } })
+    return NextResponse.json({ ok: true })
+  }
   let update: unknown
   try { update = await req.json() } catch { return NextResponse.json({ ok: true }) }
   // Responde 200 NA HORA e processa DEPOIS (after): extração Sonnet + planilha passam de 60s
