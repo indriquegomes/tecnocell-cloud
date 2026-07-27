@@ -205,7 +205,9 @@ async function deduplica(loja: Loja) {
     .select('id, telegram_message_id, transacao_id, data_pix, status, valor, pagador, destinatario, extraido_raw, recebido_em')
     .eq('telegram_chat_id', loja.grupo)
   const grupos: Record<string, Comp[]> = {}
-  for (const c of (cs || []) as Comp[]) { if (!c.transacao_id) continue; (grupos[c.transacao_id] = grupos[c.transacao_id] || []).push(c) }
+  // 'apagado' fica FORA do dedup: foi excluído no grupo (espelho) e não pode ser
+  // ressuscitado nem virar o "original" que marca um vivo como duplicado.
+  for (const c of (cs || []) as Comp[]) { if (!c.transacao_id || c.status === 'apagado') continue; (grupos[c.transacao_id] = grupos[c.transacao_id] || []).push(c) }
   for (const id in grupos) {
     const arr = grupos[id].sort((a, b) => (a.telegram_message_id || 0) - (b.telegram_message_id || 0))
     for (let i = 0; i < arr.length; i++) {
@@ -235,12 +237,12 @@ async function deduplica(loja: Loja) {
   // contaria em dobro. O robô AVISA (não escolhe qual vale — pedido do Vitor); as
   // atendentes conferem de qual loja é e apagam do grupo errado (a planilha é espelho).
   const outro = GRUPOS.find((g) => g !== loja.grupo)
-  const txs = [...new Set((cs || []).map((c) => (c as Comp).transacao_id).filter(Boolean))] as string[]
+  const txs = [...new Set((cs || []).filter((c) => (c as Comp).status !== 'apagado').map((c) => (c as Comp).transacao_id).filter(Boolean))] as string[]
   if (outro && txs.length) {
     for (let i = 0; i < txs.length; i += 100) {
       const { data: noOutro } = await supa.from('comprovantes_pix')
         .select('transacao_id, valor, destinatario').eq('telegram_chat_id', outro)
-        .neq('status', 'nao_comprovante').in('transacao_id', txs.slice(i, i + 100))
+        .neq('status', 'nao_comprovante').neq('status', 'apagado').in('transacao_id', txs.slice(i, i + 100))
       for (const o of (noOutro || []) as Comp[]) {
         const aqui = (cs || []).find((c) => (c as Comp).transacao_id === o.transacao_id) as Comp | undefined
         if (!aqui || (aqui.extraido_raw as { cross_avisado?: boolean } | null)?.cross_avisado) continue
