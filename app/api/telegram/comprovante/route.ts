@@ -284,11 +284,39 @@ async function periodoAberto(grupo: number) {
   const { data } = await sb().from('pix_periodos').select('*').eq('telegram_chat_id', grupo).is('fechado_em', null).order('aberto_em', { ascending: false }).limit(1)
   return data && data[0]
 }
+// ESPELHO: tira da planilha os comprovantes APAGADOS no grupo. O bot não vê exclusões,
+// então uma CONTA logada (GramJS) LÊ o grupo e marca 'apagado' os que sumiram. SÓ no
+// período aberto (IDs antigos da migração ficam de fora → seguro). Se não conseguir ler
+// o grupo, NÃO apaga nada (trava de segurança pra não zerar a planilha por engano).
+async function reconcilaApagados(loja: Loja) {
+  const sess = process.env.TELEGRAM_SESSION, apiId = Number(process.env.TELEGRAM_API_ID || 0), apiHash = process.env.TELEGRAM_API_HASH
+  if (!sess || !apiId || !apiHash) return
+  const per = await periodoAberto(loja.grupo)
+  if (!per) return
+  try {
+    const { TelegramClient } = await import('telegram')
+    const { StringSession } = await import('telegram/sessions')
+    const client = new TelegramClient(new StringSession(sess), apiId, apiHash, { connectionRetries: 3 })
+    await client.connect()
+    const vivos = new Set<number>()
+    try { for await (const m of client.iterMessages(loja.grupo, { limit: 2000 })) vivos.add(m.id) } catch { /* segue */ }
+    await client.disconnect().catch(() => {})
+    if (vivos.size === 0) return
+    const supa = sb()
+    const { data } = await supa.from('comprovantes_pix').select('id, telegram_message_id')
+      .eq('telegram_chat_id', loja.grupo).gte('recebido_em', per.aberto_em)
+      .lt('telegram_message_id', 700000000).neq('status', 'nao_comprovante').neq('status', 'apagado')
+    for (const c of (data || []) as { id: string; telegram_message_id: number }[]) {
+      if (!vivos.has(c.telegram_message_id)) await supa.from('comprovantes_pix').update({ status: 'apagado' }).eq('id', c.id)
+    }
+  } catch (e) { console.error('reconcilaApagados:', e) }
+}
+
 async function escreveSheet(loja: Loja) {
   const token = await googleToken()
   const sheetId = await garanteAba(token, loja.aba)
   const per = await periodoAberto(loja.grupo)
-  let q = sb().from('comprovantes_pix').select('*').eq('telegram_chat_id', loja.grupo).neq('status', 'nao_comprovante')
+  let q = sb().from('comprovantes_pix').select('*').eq('telegram_chat_id', loja.grupo).neq('status', 'nao_comprovante').neq('status', 'apagado')
   if (per) q = q.gte('recebido_em', per.aberto_em)
   const { data: cs } = await q.order('recebido_em')
   const groups = agrupaPorDestino((cs || []) as Comp[])
@@ -360,7 +388,7 @@ async function abrir(loja: Loja, quem: string | null) {
   await tgSend(loja.token, loja.grupo, '✅ Contagem do Pix ABERTA' + (quem ? ' por ' + quem : '') + '. Pode mandar os comprovantes.')
 }
 async function fechar(loja: Loja, p: any, quem: string | null) {
-  const { data: cs } = await sb().from('comprovantes_pix').select('*').eq('telegram_chat_id', loja.grupo).gte('recebido_em', p.aberto_em).neq('status', 'duplicado').neq('status', 'nao_comprovante').neq('status', 'incompleto').order('recebido_em')
+  const { data: cs } = await sb().from('comprovantes_pix').select('*').eq('telegram_chat_id', loja.grupo).gte('recebido_em', p.aberto_em).neq('status', 'duplicado').neq('status', 'nao_comprovante').neq('status', 'incompleto').neq('status', 'apagado').order('recebido_em')
   const groups = agrupaPorDestino((cs || []) as Comp[]); const keys = Object.keys(groups).sort()
   let geral = 0, resumo = '📊 FECHAMENTO DO PIX' + (quem ? ' — ' + quem : '') + '\n'
   resumo += '(' + new Date(p.aberto_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }) + ' → agora)\n\n'
@@ -387,7 +415,8 @@ async function processa(loja: Loja, update: any) {
   const txt = (m.text || '').trim().toLowerCase()
   const quem = m.from ? ((m.from.first_name || '') + (m.from.last_name ? ' ' + m.from.last_name : '')).trim() : null
   if (txt.startsWith('/abrir')) { await abrir(loja, quem); await escreveSheet(loja); return }
-  if (txt.startsWith('/fechar')) { const p = await periodoAberto(loja.grupo); if (p) await fechar(loja, p, quem); else await tgSend(loja.token, loja.grupo, 'ℹ️ Não há contagem aberta. Use /abrir primeiro.'); await escreveSheet(loja); return }
+  if (txt.startsWith('/revisar')) { await reconcilaApagados(loja); await escreveSheet(loja); await tgSend(loja.token, loja.grupo, '🔄 Planilha conferida com o grupo — comprovantes apagados foram removidos.'); return }
+  if (txt.startsWith('/fechar')) { await reconcilaApagados(loja); const p = await periodoAberto(loja.grupo); if (p) await fechar(loja, p, quem); else await tgSend(loja.token, loja.grupo, 'ℹ️ Não há contagem aberta. Use /abrir primeiro.'); await escreveSheet(loja); return }
 
   const t = tipo(m)
   if (!t) return // texto puro sem url = ignora
