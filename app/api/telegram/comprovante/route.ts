@@ -174,6 +174,12 @@ function primeiroJson(txt: string): any | null {
   return null
 }
 
+// O ID da transação (E2E) NÃO tem espaços — mas a IA às vezes o lê com espaço, hífen-suave
+// ou caractere invisível (zero-width) em posições ALEATÓRIAS. Aí o MESMO Pix reenviado gera
+// IDs "diferentes", o dedup (que compara o ID exato) não agrupa e conta em dobro sem avisar.
+// Limpar pra só letras/números resolve — e conserta a data embutida (dataDoId depende da posição).
+function limpaId(id: unknown): string | null { const s = String(id ?? '').replace(/[^A-Za-z0-9]/g, ''); return s || null }
+
 // extrai UM comprovante (Sonnet + 2ª leitura focada em valor/ID). Atualiza a linha no banco.
 async function extraiUm(loja: Loja, c: Comp) {
   const ai = anthropic()
@@ -185,6 +191,7 @@ async function extraiUm(loja: Loja, c: Comp) {
   const raw = resp.content.find((b) => b.type === 'text') as { text: string } | undefined
   const j: any = primeiroJson(raw?.text || '')
   if (!j) return marcaFalha(c, 'json-fail')
+  j.transacao_id = limpaId(j.transacao_id)
   const supa = sb()
   if (j.eh_comprovante === false) { await supa.from('comprovantes_pix').update({ status: 'nao_comprovante', extraido_raw: j }).eq('id', c.id); return }
   // 2ª leitura focada nos 2 campos que mais erram
@@ -192,6 +199,7 @@ async function extraiUm(loja: Loja, c: Comp) {
     const rr = await ai.messages.create({ model: 'claude-sonnet-4-6', max_tokens: 120, messages: [{ role: 'user', content: [bloco, { type: 'text', text: 'Leia com atenção MÁXIMA só isto deste comprovante Pix. JSON: {"valor":<número>,"transacao_id":"<ID da transação/E2E, EXATO caractere por caractere>"}' }] }] })
     const rr2 = rr.content.find((b) => b.type === 'text') as { text: string } | undefined
     const jj = primeiroJson(rr2?.text || '') || {}
+    jj.transacao_id = limpaId(jj.transacao_id)
     const v2 = parseValor(jj.valor)
     if (v2 != null && j.valor == null) j.valor = v2
     else if (v2 != null && j.valor != null && Math.abs(v2 - Number(j.valor)) > 0.01) { j.valor_incerto = true; j.valor_leitura2 = v2 }
