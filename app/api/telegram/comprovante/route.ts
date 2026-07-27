@@ -139,18 +139,31 @@ async function blocoDeLink(url: string): Promise<Anthropic.ContentBlockParam | n
 
 const PROMPT = `Comprovante de PIX brasileiro. Leia com ATENÇÃO especial ao VALOR (confira cada dígito). Responda APENAS JSON: {"eh_comprovante": <true; false se NÃO for comprovante de Pix (conversa, foto aleatória)>, "valor": <número em reais, ex 259.00>, "data": "<AAAA-MM-DD>", "cliente": "<quem ENVIOU / 'De'>", "destinatario": "<quem RECEBEU / 'Para'>", "destinatario_doc": "<CPF/CNPJ do recebedor, só dígitos>", "transacao_id": "<ID da transação / E2E, copie EXATO>"}. Campo ausente = null.`
 
+// Registra uma FALHA de leitura. Depois de 3 tentativas marca 'ilegivel' pra o
+// comprovante SAIR da fila (extraiPendentes ignora 'ilegivel'). Antes, um que nunca
+// lia ficava eterno em 'recebido' e, sendo o mais antigo, TRAVAVA a fila — os novos
+// nunca eram lidos. Aparece na planilha como "⚠️ não consegui ler".
+async function marcaFalha(c: Comp, motivo: string) {
+  const raw = (c.extraido_raw as Record<string, unknown> | null) || {}
+  const t = (Number(raw.tentativas) || 0) + 1
+  await sb().from('comprovantes_pix').update({
+    extraido_raw: { ...raw, tentativas: t, ultima_falha: motivo },
+    status: t >= 3 ? 'ilegivel' : 'recebido',
+  }).eq('id', c.id)
+}
+
 // extrai UM comprovante (Sonnet + 2ª leitura focada em valor/ID). Atualiza a linha no banco.
 async function extraiUm(loja: Loja, c: Comp) {
   const ai = anthropic()
   let bloco: Anthropic.ContentBlockParam | null = null
-  if (c.formato === 'link') { if (!c.arquivo_url) return; bloco = await blocoDeLink(c.arquivo_url) }
+  if (c.formato === 'link') { if (!c.arquivo_url) return marcaFalha(c, 'sem-url'); bloco = await blocoDeLink(c.arquivo_url) }
   else if (c.arquivo_file_id) bloco = await tgFileBloco(loja.token, c.arquivo_file_id, c.formato === 'pdf')
-  if (!bloco) return
+  if (!bloco) return marcaFalha(c, 'sem-conteudo')
   const resp = await ai.messages.create({ model: 'claude-sonnet-4-6', max_tokens: 400, messages: [{ role: 'user', content: [bloco, { type: 'text', text: PROMPT }] }] })
   const raw = resp.content.find((b) => b.type === 'text') as { text: string } | undefined
   const txt = (raw?.text || '').replace(/```json?/g, '').replace(/```/g, '').trim()
   let j: any
-  try { j = JSON.parse(txt) } catch { return }
+  try { j = JSON.parse(txt) } catch { return marcaFalha(c, 'json-fail') }
   const supa = sb()
   if (j.eh_comprovante === false) { await supa.from('comprovantes_pix').update({ status: 'nao_comprovante', extraido_raw: j }).eq('id', c.id); return }
   // 2ª leitura focada nos 2 campos que mais erram
@@ -174,7 +187,7 @@ async function extraiUm(loja: Loja, c: Comp) {
 async function extraiPendentes(loja: Loja, limite = 8) {
   const { data } = await sb().from('comprovantes_pix').select('*')
     .in('formato', ['foto', 'pdf', 'link']).eq('telegram_chat_id', loja.grupo)
-    .neq('status', 'nao_comprovante').neq('status', 'incompleto')
+    .neq('status', 'nao_comprovante').neq('status', 'incompleto').neq('status', 'ilegivel')
     .or('valor.is.null,destinatario.is.null,transacao_id.is.null')
     .order('recebido_em').limit(limite)
   for (const c of (data || []) as Comp[]) { try { await extraiUm(loja, c) } catch { /* segue */ } }
@@ -262,6 +275,7 @@ async function escreveSheet(loja: Loja) {
       let obs = '', tp = 'dado'
       if (c.status === 'duplicado') { obs = '🔁 duplicado — não somado'; dups++; tp = 'dup' }
       else if (c.status === 'incompleto') { obs = '❗ sem destinatário — não somado'; incompletos++; tp = 'incompleto' }
+      else if (c.status === 'ilegivel') { obs = '⚠️ não consegui ler — confira na mão'; incompletos++; tp = 'incompleto' }
       else {
         soma += v; geral += v; validos++; nImg++
         const er = c.extraido_raw as { valor_incerto?: boolean; valor_leitura2?: number } | null
@@ -349,22 +363,22 @@ async function processa(loja: Loja, update: any) {
 
   const t = tipo(m)
   if (!t) return // texto puro sem url = ignora
-  await sb().from('comprovantes_pix').upsert({
+  const { data: novo } = await sb().from('comprovantes_pix').upsert({
     telegram_chat_id: loja.grupo, telegram_message_id: m.message_id, recebido_em: new Date((m.date || 0) * 1000).toISOString(),
     formato: t.f, arquivo_file_id: 'fid' in t ? t.fid : null, arquivo_url: 'url' in t ? t.url : null, status: 'recebido',
-  }, { onConflict: 'telegram_chat_id,telegram_message_id' })
+  }, { onConflict: 'telegram_chat_id,telegram_message_id' }).select().maybeSingle()
 
-  // Planilha PRIMEIRO: reflete o comprovante recém-chegado na hora, mesmo que a
-  // extração (Sonnet) demore. Antes a extração rodava ANTES do escreveSheet e
-  // estourava os 60s do Vercel → a função morria antes de escrever e a planilha
-  // CONGELAVA (ficava vazia/desatualizada). Agora: escreve já, extrai (lote menor
-  // pra caber nos 60s), reescreve com os valores. Se a 2ª escrita for cortada pelo
-  // tempo, a 1ª já deixou a planilha atualizada — nunca mais congela.
+  // Planilha PRIMEIRO: reflete o recém-chegado na hora, mesmo que a leitura (Sonnet)
+  // demore — se a 2ª escrita for cortada pelos 60s do Vercel, a 1ª já atualizou (nunca
+  // congela). Depois LÊ O QUE ACABOU DE CHEGAR direto (não o mais antigo pendente):
+  // senão, numa rajada, o novo ficava "não lido" até vir outra mensagem. Um extra do
+  // backlog (falhas antigas) é drenado. Duas leituras cabem folgado nos 60s.
   await escreveSheet(loja)
-  // extrai 1 por vez: 2 leituras Sonnet de 1 comprovante cabem folgado nos 60s do
-  // Vercel; com 3 estourava e a leitura não completava (o comprovante ficava "não
-  // lido"). O backlog dos demais drena nas próximas mensagens (cada uma puxa 1).
-  try { await extraiPendentes(loja, 1); await deduplica(loja) } catch (e) { console.error('extrai/dedup:', e) }
+  try {
+    if (novo && (novo as Comp).status === 'recebido') await extraiUm(loja, novo as Comp)
+    await extraiPendentes(loja, 1)
+    await deduplica(loja)
+  } catch (e) { console.error('extrai/dedup:', e) }
   await escreveSheet(loja)
 }
 
