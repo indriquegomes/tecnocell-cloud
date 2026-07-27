@@ -361,7 +361,10 @@ async function processa(loja: Loja, update: any) {
   // pra caber nos 60s), reescreve com os valores. Se a 2ª escrita for cortada pelo
   // tempo, a 1ª já deixou a planilha atualizada — nunca mais congela.
   await escreveSheet(loja)
-  try { await extraiPendentes(loja, 3); await deduplica(loja) } catch (e) { console.error('extrai/dedup:', e) }
+  // extrai 1 por vez: 2 leituras Sonnet de 1 comprovante cabem folgado nos 60s do
+  // Vercel; com 3 estourava e a leitura não completava (o comprovante ficava "não
+  // lido"). O backlog dos demais drena nas próximas mensagens (cada uma puxa 1).
+  try { await extraiPendentes(loja, 1); await deduplica(loja) } catch (e) { console.error('extrai/dedup:', e) }
   await escreveSheet(loja)
 }
 
