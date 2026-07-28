@@ -38,6 +38,10 @@ const anthropic = () => new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 // Modelo da LEITURA do comprovante. Haiku ≈ 1/3 do preço do Sonnet. Trocável por env
 // (COMPROVANTE_MODELO) sem deploy — ex. voltar pro 'claude-sonnet-4-6' se a precisão cair.
 const MODELO_LEITURA = process.env.COMPROVANTE_MODELO || 'claude-haiku-4-5'
+// Quantos comprovantes atrasados o bot lê a CADA mensagem nova (além do recém-chegado).
+// Era 1 (calibrado p/ Sonnet, lento) → deixava fila "não lida" acumular em rajada. Com
+// Haiku (rápido) cabem vários nos 60s. Regulável por env COMPROVANTE_DRENA sem deploy.
+const DRENA_POR_MSG = Number(process.env.COMPROVANTE_DRENA || 6)
 
 // ---------- helpers de valor/data ----------
 const money = (v: number | null) => Number(v || 0).toFixed(2).replace('.', ',')
@@ -516,7 +520,7 @@ async function processa(loja: Loja, update: any) {
   await escreveSheet(loja)
   try {
     if (novo && (novo as Comp).status === 'recebido') await extraiUm(loja, novo as Comp)
-    await extraiPendentes(loja, 1)
+    await extraiPendentes(loja, DRENA_POR_MSG)
     await deduplica(loja)
   } catch (e) { console.error('extrai/dedup:', e) }
   await escreveSheet(loja)
