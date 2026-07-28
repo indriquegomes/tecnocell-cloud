@@ -436,20 +436,33 @@ async function escreveSheet(loja: Loja) {
   return { n: validos, soma: geral, dups }
 }
 
-// Relê os comprovantes PENDENTES ("recebido"/não lido) um a um, até esgotar ou estourar o
-// orçamento de tempo (pra caber nos 60s do Vercel). Usado pelo /revisar como "destravar".
-async function releComprovantes(loja: Loja, budgetMs: number, maxN = 20): Promise<number> {
-  const t0 = Date.now(); let n = 0
-  while (n < maxN && Date.now() - t0 < budgetMs) {
-    const { data } = await sb().from('comprovantes_pix').select('*')
-      .eq('telegram_chat_id', loja.grupo).eq('status', 'recebido')
-      .in('formato', ['foto', 'pdf', 'link']).order('recebido_em').limit(1)
-    const c = (data || [])[0] as Comp | undefined
-    if (!c) break // nada pendente
-    try { await extraiUm(loja, c) } catch { /* um ruim não trava o resto */ }
-    n++
+// RELEITURA COMPLETA do período (todos os comprovantes entre /abrir e /fechar). Não cabe
+// nos 60s → worker PAUSADO que relê ~40s por chamada e se AUTO-CHAMA (cursor vai na URL,
+// sem precisar de migração) até acabar. Reaproveita extraiUm (mesma qualidade da leitura).
+async function relerLista(loja: Loja): Promise<string[]> {
+  const { data: ps } = await sb().from('pix_periodos').select('aberto_em, fechado_em').eq('telegram_chat_id', loja.grupo).order('aberto_em', { ascending: false }).limit(1)
+  const p = (ps || [])[0]; if (!p) return []
+  const ate = p.fechado_em || new Date().toISOString()
+  const { data } = await sb().from('comprovantes_pix').select('id')
+    .eq('telegram_chat_id', loja.grupo).gte('recebido_em', p.aberto_em).lte('recebido_em', ate)
+    .neq('status', 'nao_comprovante').neq('status', 'apagado').lt('telegram_message_id', 700000000)
+    .order('telegram_message_id')
+  return (data || []).map((c) => (c as { id: string }).id)
+}
+async function disparaReler(loja: Loja, cursor: number) {
+  try { await fetchT(`${BASE}/api/telegram/comprovante?loja=${loja.slug}&job=reler&cursor=${cursor}`, { method: 'POST', headers: { 'x-telegram-bot-api-secret-token': process.env.TELEGRAM_WEBHOOK_SECRET || '' } }, 8000) } catch { /* segue */ }
+}
+async function processaReler(loja: Loja, cursor: number) {
+  const ids = await relerLista(loja)
+  let cur = cursor; const t0 = Date.now()
+  while (cur < ids.length && Date.now() - t0 < 40000) {
+    const { data: full } = await sb().from('comprovantes_pix').select('*').eq('id', ids[cur]).maybeSingle()
+    if (full) { try { await extraiUm(loja, full as Comp) } catch { /* um ruim não trava o resto */ } }
+    cur++
   }
-  return n
+  await deduplica(loja); await escreveSheet(loja)
+  if (cur >= ids.length) await tgSend(loja.token, loja.grupo, '✅ Releitura completa — ' + ids.length + ' comprovantes do período relidos.')
+  else await disparaReler(loja, cur) // continua na próxima chamada (fora dos 60s)
 }
 
 // ---------- /abrir e /fechar ----------
@@ -542,11 +555,10 @@ async function processa(loja: Loja, update: any) {
   const quem = m.from ? ((m.from.first_name || '') + (m.from.last_name ? ' ' + m.from.last_name : '')).trim() : null
   if (txt.startsWith('/abrir')) { await abrir(loja, quem); await escreveSheet(loja); return }
   if (txt.startsWith('/revisar')) {
-    await reconcilaApagados(loja)                       // 1. remove os apagados no grupo
-    const rel = await releComprovantes(loja, 35000)     // 2. relê os pendentes ("não lido")
-    await deduplica(loja)                               // 3. reconfere duplicados
-    await escreveSheet(loja)                            // 4. reescreve a planilha
-    await tgSend(loja.token, loja.grupo, '🔄 Planilha conferida — ' + rel + ' comprovante(s) relido(s), apagados removidos.')
+    await reconcilaApagados(loja)   // remove os apagados no grupo
+    await escreveSheet(loja)        // já reflete os apagados
+    await disparaReler(loja, 0)     // RELÊ todos os comprovantes do período (em segundo plano, pausado)
+    await tgSend(loja.token, loja.grupo, '🔄 Removendo apagados e RELENDO todos os comprovantes do período... aviso quando terminar.')
     return
   }
   if (txt.startsWith('/fechar')) { await reconcilaApagados(loja); const p = await periodoAberto(loja.grupo); if (p) await fechar(loja, p, quem); else await tgSend(loja.token, loja.grupo, 'ℹ️ Não há contagem aberta. Use /abrir primeiro.'); await escreveSheet(loja); return }
@@ -579,6 +591,11 @@ export async function POST(req: Request) {
   // auto-chamada do worker do arquivo pausado (não é update do Telegram)
   if (new URL(req.url).searchParams.get('job') === 'reenvio') {
     after(async () => { try { await processaReenvio(loja as Loja) } catch (e) { console.error('reenvio:', e) } })
+    return NextResponse.json({ ok: true })
+  }
+  if (new URL(req.url).searchParams.get('job') === 'reler') {
+    const cursor = Number(new URL(req.url).searchParams.get('cursor') || 0)
+    after(async () => { try { await processaReler(loja as Loja, cursor) } catch (e) { console.error('reler:', e) } })
     return NextResponse.json({ ok: true })
   }
   let update: unknown
