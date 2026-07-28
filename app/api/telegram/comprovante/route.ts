@@ -360,6 +360,17 @@ async function reconcilaApagados(loja: Loja) {
     if (vivos.size === 0) return
     const minVivo = Math.min(...vivos) // menor msg_id que REALMENTE li — abaixo disso não avalio (não sei se vive)
     const supa = sb()
+    // TRAVA anti falso-positivo: só marca apagado se o casamento de msg_id com a conta logada
+    // estiver CONFIÁVEL. Testa com o comprovante mais recente (que quase certo existe): se ele
+    // NÃO aparece em vivos, o casamento está furado (migração de grupo / leitura parcial) →
+    // aborta sem apagar nada. (Sem isso, uma leitura ruim marcou 67 comprovantes reais como
+    // apagado e zerou o caixa — 28/07.)
+    const { data: recente } = await supa.from('comprovantes_pix').select('telegram_message_id')
+      .eq('telegram_chat_id', loja.grupo).lt('telegram_message_id', 700000000)
+      .neq('status', 'apagado').neq('status', 'nao_comprovante')
+      .order('telegram_message_id', { ascending: false }).limit(1)
+    const refId = (recente || [])[0]?.telegram_message_id
+    if (!refId || !vivos.has(refId)) { console.error('reconcila: casamento msg_id nao confiavel — abortado (nada apagado)'); return }
     const { data } = await supa.from('comprovantes_pix').select('id, telegram_message_id')
       .eq('telegram_chat_id', loja.grupo).gte('telegram_message_id', minVivo)
       .lt('telegram_message_id', 700000000).neq('status', 'nao_comprovante').neq('status', 'apagado')
