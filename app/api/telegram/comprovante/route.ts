@@ -104,11 +104,15 @@ function agrupaPorDestino(cs: Comp[]) {
 const fmtDataBR = (d: string | null) => { if (!d) return ''; const p = String(d).slice(0, 10).split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : String(d) }
 
 // ---------- Telegram ----------
+// fetch COM TIMEOUT. Sem isso, uma chamada travada (Google Sheets/Telegram — acontece)
+// congela a função até os 60s do Vercel e a leitura do comprovante NUNCA roda (fica
+// "não lido", tentativas=0). Com timeout, a chamada travada morre rápido e segue o fluxo.
+const fetchT = (url: string, opts: RequestInit = {}, ms = 12000) => fetch(url, { ...opts, signal: AbortSignal.timeout(ms) })
 async function tgSend(token: string, chatId: number, text: string, replyTo?: number) {
-  await fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}${replyTo ? '&reply_to_message_id=' + replyTo : ''}&text=${encodeURIComponent(text)}`).catch(() => {})
+  await fetchT(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}${replyTo ? '&reply_to_message_id=' + replyTo : ''}&text=${encodeURIComponent(text)}`).catch(() => {})
 }
 async function tgPost(token: string, method: string, body: unknown) {
-  try { return await (await fetch(`https://api.telegram.org/bot${token}/${method}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })).json() }
+  try { return await (await fetchT(`https://api.telegram.org/bot${token}/${method}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })).json() }
   catch { return null }
 }
 const urlDe = (t: string) => { const m = (t || '').match(/https?:\/\/\S+/); return m ? m[0] : null }
@@ -127,9 +131,9 @@ function mediaBytes(buf: Buffer): 'image/png' | 'image/gif' | 'image/webp' | 'im
   return 'image/jpeg'
 }
 async function tgFileBloco(token: string, fid: string, ehPdf: boolean): Promise<Anthropic.ContentBlockParam | null> {
-  const gf = await (await fetch(`https://api.telegram.org/bot${token}/getFile?file_id=${fid}`)).json()
+  const gf = await (await fetchT(`https://api.telegram.org/bot${token}/getFile?file_id=${fid}`)).json()
   if (!gf.ok) return null
-  const buf = Buffer.from(await (await fetch(`https://api.telegram.org/file/bot${token}/${gf.result.file_path}`)).arrayBuffer())
+  const buf = Buffer.from(await (await fetchT(`https://api.telegram.org/file/bot${token}/${gf.result.file_path}`)).arrayBuffer())
   const b64 = buf.toString('base64')
   return ehPdf
     ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }
@@ -138,7 +142,7 @@ async function tgFileBloco(token: string, fid: string, ehPdf: boolean): Promise<
 function stripHtml(s: string) { return s.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 7000) }
 async function blocoDeLink(url: string): Promise<Anthropic.ContentBlockParam | null> {
   try {
-    const r = await fetch(url, { redirect: 'follow', headers: { 'user-agent': 'Mozilla/5.0' } })
+    const r = await fetchT(url, { redirect: 'follow', headers: { 'user-agent': 'Mozilla/5.0' } })
     const ct = (r.headers.get('content-type') || '').toLowerCase()
     if (ct.includes('text/html') || ct.includes('application/json')) { const t = stripHtml(await r.text()); return t.length > 20 ? { type: 'text', text: 'Conteúdo da página do comprovante (via link):\n' + t } : null }
     const buf = Buffer.from(await r.arrayBuffer())
@@ -316,7 +320,7 @@ async function googleToken(): Promise<string> {
   const input = `${header}.${claim}`
   const sig = crypto.createSign('RSA-SHA256').update(input).sign(sa.private_key)
   const jwt = `${input}.${b64url(sig)}`
-  const r = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: jwt }) })
+  const r = await fetchT('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: jwt }) })
   const j = await r.json()
   if (!j.access_token) throw new Error('google token: ' + JSON.stringify(j).slice(0, 120))
   return j.access_token
@@ -324,10 +328,10 @@ async function googleToken(): Promise<string> {
 const gh = (token: string) => ({ Authorization: 'Bearer ' + token })
 // garante a ABA por nome (cria se faltar) → retorna sheetId
 async function garanteAba(token: string, aba: string): Promise<number> {
-  const meta = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties(title,sheetId)`, { headers: gh(token) })).json()
+  const meta = await (await fetchT(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties(title,sheetId)`, { headers: gh(token) })).json()
   const found = (meta.sheets || []).find((s: any) => s.properties?.title === aba)
   if (found) return found.properties.sheetId
-  const add = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`, { method: 'POST', headers: { ...gh(token), 'content-type': 'application/json' }, body: JSON.stringify({ requests: [{ addSheet: { properties: { title: aba } } }] }) })).json()
+  const add = await (await fetchT(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`, { method: 'POST', headers: { ...gh(token), 'content-type': 'application/json' }, body: JSON.stringify({ requests: [{ addSheet: { properties: { title: aba } } }] }) })).json()
   return add.replies[0].addSheet.properties.sheetId
 }
 async function periodoAberto(grupo: number) {
@@ -401,8 +405,8 @@ async function escreveSheet(loja: Loja) {
 
   const R = (t: string) => encodeURIComponent(`${t}!A1:Z2000`)
   const RA1 = (t: string) => encodeURIComponent(`${t}!A1`)
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${R(loja.aba)}:clear`, { method: 'POST', headers: gh(token) })
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${RA1(loja.aba)}?valueInputOption=RAW`, { method: 'PUT', headers: { ...gh(token), 'content-type': 'application/json' }, body: JSON.stringify({ values: linhas }) })
+  await fetchT(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${R(loja.aba)}:clear`, { method: 'POST', headers: gh(token) })
+  await fetchT(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${RA1(loja.aba)}?valueInputOption=RAW`, { method: 'PUT', headers: { ...gh(token), 'content-type': 'application/json' }, body: JSON.stringify({ values: linhas }) })
 
   // DESIGN (marca TecnoCell #1B6CA8)
   const AZUL = { red: 0.106, green: 0.424, blue: 0.659 }, BRANCO = { red: 1, green: 1, blue: 1 }
@@ -426,7 +430,7 @@ async function escreveSheet(loja: Loja) {
   })
   const w = (c: number, px: number) => ({ updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: px }, fields: 'pixelSize' } })
   reqs.push(w(0, 250), w(1, 220), w(2, 120), w(3, 110), w(4, 270))
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`, { method: 'POST', headers: { ...gh(token), 'content-type': 'application/json' }, body: JSON.stringify({ requests: reqs }) }).catch(() => {})
+  await fetchT(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`, { method: 'POST', headers: { ...gh(token), 'content-type': 'application/json' }, body: JSON.stringify({ requests: reqs }) }).catch(() => {})
   return { n: validos, soma: geral, dups }
 }
 
@@ -457,7 +461,7 @@ async function fechar(loja: Loja, p: any, quem: string | null) {
 // Telegram), até ~45s por chamada, e se AUTO-CHAMA (fora dos 60s) até esvaziar a fila.
 const BASE = process.env.APP_BASE_URL || 'https://tecnocell-cloud.vercel.app'
 async function disparaReenvio(loja: Loja) {
-  try { await fetch(`${BASE}/api/telegram/comprovante?loja=${loja.slug}&job=reenvio`, { method: 'POST', headers: { 'x-telegram-bot-api-secret-token': process.env.TELEGRAM_WEBHOOK_SECRET || '' } }) } catch { /* segue */ }
+  try { await fetchT(`${BASE}/api/telegram/comprovante?loja=${loja.slug}&job=reenvio`, { method: 'POST', headers: { 'x-telegram-bot-api-secret-token': process.env.TELEGRAM_WEBHOOK_SECRET || '' } }) } catch { /* segue */ }
 }
 // Imagem enviada COMO ARQUIVO vira 'document' no Telegram, mas o bot marca 'foto' — aí o
 // sendPhoto recusa ("can't use file of type Document as Photo") e a imagem sumia do arquivo.
@@ -524,23 +528,23 @@ async function processa(loja: Loja, update: any) {
 
   const t = tipo(m)
   if (!t) return // texto puro sem url = ignora
-  const { data: novo } = await sb().from('comprovantes_pix').upsert({
+  const { data: novo, error: upErr } = await sb().from('comprovantes_pix').upsert({
     telegram_chat_id: loja.grupo, telegram_message_id: m.message_id, recebido_em: new Date((m.date || 0) * 1000).toISOString(),
     formato: t.f, arquivo_file_id: 'fid' in t ? t.fid : null, arquivo_url: 'url' in t ? t.url : null, status: 'recebido',
   }, { onConflict: 'telegram_chat_id,telegram_message_id' }).select().maybeSingle()
+  if (upErr) console.error('upsert comprovante:', upErr.message)
 
-  // Planilha PRIMEIRO: reflete o recém-chegado na hora, mesmo que a leitura (Sonnet)
-  // demore — se a 2ª escrita for cortada pelos 60s do Vercel, a 1ª já atualizou (nunca
-  // congela). Depois LÊ O QUE ACABOU DE CHEGAR direto (não o mais antigo pendente):
-  // senão, numa rajada, o novo ficava "não lido" até vir outra mensagem. Um extra do
-  // backlog (falhas antigas) é drenado. Duas leituras cabem folgado nos 60s.
-  await escreveSheet(loja)
+  // LÊ O RECÉM-CHEGADO PRIMEIRO. Antes a planilha rodava antes da leitura e, se o Google
+  // travasse a conexão (sem timeout), a função congelava e o comprovante ficava "não lido"
+  // (tentativas=0). Agora cada etapa é ISOLADA: uma travar não impede a próxima, e a leitura
+  // do novo acontece antes de qualquer coisa que possa demorar (planilha/dedup).
+  try { if (novo && (novo as Comp).status === 'recebido') await extraiUm(loja, novo as Comp) } catch (e) { console.error('extraiUm novo:', e) }
+  try { await escreveSheet(loja) } catch (e) { console.error('sheet1:', e) }
   try {
-    if (novo && (novo as Comp).status === 'recebido') await extraiUm(loja, novo as Comp)
-    await extraiPendentes(loja, DRENA_POR_MSG)
+    await extraiPendentes(loja, DRENA_POR_MSG) // drena atrasados (backlog)
     await deduplica(loja)
-  } catch (e) { console.error('extrai/dedup:', e) }
-  await escreveSheet(loja)
+    await escreveSheet(loja)
+  } catch (e) { console.error('drena/dedup:', e) }
 }
 
 export async function POST(req: Request) {
