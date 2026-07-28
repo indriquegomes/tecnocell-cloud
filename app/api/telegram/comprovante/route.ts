@@ -34,14 +34,16 @@ const GRUPOS = [Number(process.env.TELEGRAM_GRUPO_PETROPOLIS || 0), Number(proce
 function sb() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 }
-const anthropic = () => new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+// timeout por CHAMADA (20s) + retry: uma leitura que TRAVA morre rápido e é refeita, em
+// vez de congelar até os 60s e matar a função (deixando o comprovante "não lido").
+const anthropic = () => new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 20000, maxRetries: 2 })
 // Modelo da LEITURA do comprovante. Haiku ≈ 1/3 do preço do Sonnet. Trocável por env
 // (COMPROVANTE_MODELO) sem deploy — ex. voltar pro 'claude-sonnet-4-6' se a precisão cair.
 const MODELO_LEITURA = process.env.COMPROVANTE_MODELO || 'claude-haiku-4-5'
 // Quantos comprovantes atrasados o bot lê a CADA mensagem nova (além do recém-chegado).
 // Era 1 (calibrado p/ Sonnet, lento) → deixava fila "não lida" acumular em rajada. Com
 // Haiku (rápido) cabem vários nos 60s. Regulável por env COMPROVANTE_DRENA sem deploy.
-const DRENA_POR_MSG = Number(process.env.COMPROVANTE_DRENA || 6)
+const DRENA_POR_MSG = Number(process.env.COMPROVANTE_DRENA || 2)
 
 // ---------- helpers de valor/data ----------
 const money = (v: number | null) => Number(v || 0).toFixed(2).replace('.', ',')
@@ -187,7 +189,16 @@ function primeiroJson(txt: string): any | null {
 // Limpar pra só letras/números resolve — e conserta a data embutida (dataDoId depende da posição).
 function limpaId(id: unknown): string | null { const s = String(id ?? '').replace(/[^A-Za-z0-9]/g, ''); return s || null }
 
-// extrai UM comprovante (Sonnet + 2ª leitura focada em valor/ID). Atualiza a linha no banco.
+// 3ª leitura focada SÓ no valor — desempate quando as 2 primeiras discordam.
+async function leValorFocado(ai: Anthropic, bloco: Anthropic.ContentBlockParam): Promise<number | null> {
+  try {
+    const rr = await ai.messages.create({ model: MODELO_LEITURA, max_tokens: 60, messages: [{ role: 'user', content: [bloco, { type: 'text', text: 'Leia com atenção MÁXIMA só o VALOR em reais deste comprovante Pix. Responda só JSON: {"valor":<número>}' }] }] })
+    const jj = primeiroJson((rr.content.find((b) => b.type === 'text') as { text: string } | undefined)?.text || '') || {}
+    return parseValor(jj.valor)
+  } catch { return null }
+}
+
+// extrai UM comprovante (2 leituras + desempate no valor). Atualiza a linha no banco.
 async function extraiUm(loja: Loja, c: Comp) {
   const ai = anthropic()
   let bloco: Anthropic.ContentBlockParam | null = null
@@ -209,7 +220,13 @@ async function extraiUm(loja: Loja, c: Comp) {
     jj.transacao_id = limpaId(jj.transacao_id)
     const v2 = parseValor(jj.valor)
     if (v2 != null && j.valor == null) j.valor = v2
-    else if (v2 != null && j.valor != null && Math.abs(v2 - Number(j.valor)) > 0.01) { j.valor_incerto = true; j.valor_leitura2 = v2 }
+    else if (v2 != null && j.valor != null && Math.abs(v2 - Number(j.valor)) > 0.01) {
+      // as 2 leituras discordam no valor → 3ª leitura desempata (best-of-3)
+      const v3 = await leValorFocado(ai, bloco)
+      if (v3 != null && Math.abs(v3 - v2) < 0.01) j.valor = v2                         // 2 de 3 = leitura 2
+      else if (v3 != null && Math.abs(v3 - Number(j.valor)) < 0.01) { /* 2 de 3 = leitura 1, mantém */ }
+      else { j.valor_incerto = true; j.valor_leitura2 = v2; if (v3 != null) j.valor_leitura3 = v3 } // 3 valores diferentes → marca incerto
+    }
     if (jj.transacao_id && dataDoId(jj.transacao_id) && !dataDoId(j.transacao_id)) j.transacao_id = jj.transacao_id
   } catch { /* leitura 2 é best-effort */ }
   const semDest = !j.destinatario || !String(j.destinatario).trim()
