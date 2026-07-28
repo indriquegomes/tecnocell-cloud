@@ -567,13 +567,14 @@ async function processa(loja: Loja, update: any) {
   const quem = m.from ? ((m.from.first_name || '') + (m.from.last_name ? ' ' + m.from.last_name : '')).trim() : null
   if (txt.startsWith('/abrir')) { await abrir(loja, quem); await escreveSheet(loja); return }
   if (txt.startsWith('/revisar')) {
-    await reconcilaApagados(loja)   // remove os apagados no grupo
-    await escreveSheet(loja)        // já reflete os apagados
-    await disparaReler(loja, 0)     // RELÊ todos os comprovantes do período (em segundo plano, pausado)
-    await tgSend(loja.token, loja.grupo, '🔄 Removendo apagados e RELENDO todos os comprovantes do período... aviso quando terminar.')
+    // ESPELHO REMOVIDO: o grupo tem mensagem que SOME (auto-delete/limpeza) e "sumiu do
+    // Telegram" NÃO quer dizer "comprovante inválido" — o pagamento é real. Marcar apagado
+    // por isso zerava o caixa. /revisar agora só RELÊ os comprovantes do período.
+    await disparaReler(loja, 0)
+    await tgSend(loja.token, loja.grupo, '🔄 Relendo todos os comprovantes do período... aviso quando terminar.')
     return
   }
-  if (txt.startsWith('/fechar')) { await reconcilaApagados(loja); const p = await periodoAberto(loja.grupo); if (p) await fechar(loja, p, quem); else await tgSend(loja.token, loja.grupo, 'ℹ️ Não há contagem aberta. Use /abrir primeiro.'); await escreveSheet(loja); return }
+  if (txt.startsWith('/fechar')) { const p = await periodoAberto(loja.grupo); if (p) await fechar(loja, p, quem); else await tgSend(loja.token, loja.grupo, 'ℹ️ Não há contagem aberta. Use /abrir primeiro.'); await escreveSheet(loja); return }
 
   const t = tipo(m)
   if (!t) return // texto puro sem url = ignora
