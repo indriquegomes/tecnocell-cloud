@@ -436,6 +436,22 @@ async function escreveSheet(loja: Loja) {
   return { n: validos, soma: geral, dups }
 }
 
+// Relê os comprovantes PENDENTES ("recebido"/não lido) um a um, até esgotar ou estourar o
+// orçamento de tempo (pra caber nos 60s do Vercel). Usado pelo /revisar como "destravar".
+async function releComprovantes(loja: Loja, budgetMs: number, maxN = 20): Promise<number> {
+  const t0 = Date.now(); let n = 0
+  while (n < maxN && Date.now() - t0 < budgetMs) {
+    const { data } = await sb().from('comprovantes_pix').select('*')
+      .eq('telegram_chat_id', loja.grupo).eq('status', 'recebido')
+      .in('formato', ['foto', 'pdf', 'link']).order('recebido_em').limit(1)
+    const c = (data || [])[0] as Comp | undefined
+    if (!c) break // nada pendente
+    try { await extraiUm(loja, c) } catch { /* um ruim não trava o resto */ }
+    n++
+  }
+  return n
+}
+
 // ---------- /abrir e /fechar ----------
 async function abrir(loja: Loja, quem: string | null) {
   const p = await periodoAberto(loja.grupo)
@@ -525,7 +541,14 @@ async function processa(loja: Loja, update: any) {
   const txt = (m.text || '').trim().toLowerCase()
   const quem = m.from ? ((m.from.first_name || '') + (m.from.last_name ? ' ' + m.from.last_name : '')).trim() : null
   if (txt.startsWith('/abrir')) { await abrir(loja, quem); await escreveSheet(loja); return }
-  if (txt.startsWith('/revisar')) { await reconcilaApagados(loja); await escreveSheet(loja); await tgSend(loja.token, loja.grupo, '🔄 Planilha conferida com o grupo — comprovantes apagados foram removidos.'); return }
+  if (txt.startsWith('/revisar')) {
+    await reconcilaApagados(loja)                       // 1. remove os apagados no grupo
+    const rel = await releComprovantes(loja, 35000)     // 2. relê os pendentes ("não lido")
+    await deduplica(loja)                               // 3. reconfere duplicados
+    await escreveSheet(loja)                            // 4. reescreve a planilha
+    await tgSend(loja.token, loja.grupo, '🔄 Planilha conferida — ' + rel + ' comprovante(s) relido(s), apagados removidos.')
+    return
+  }
   if (txt.startsWith('/fechar')) { await reconcilaApagados(loja); const p = await periodoAberto(loja.grupo); if (p) await fechar(loja, p, quem); else await tgSend(loja.token, loja.grupo, 'ℹ️ Não há contagem aberta. Use /abrir primeiro.'); await escreveSheet(loja); return }
 
   const t = tipo(m)
