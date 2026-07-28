@@ -35,6 +35,9 @@ function sb() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 }
 const anthropic = () => new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+// Modelo da LEITURA do comprovante. Haiku ≈ 1/3 do preço do Sonnet. Trocável por env
+// (COMPROVANTE_MODELO) sem deploy — ex. voltar pro 'claude-sonnet-4-6' se a precisão cair.
+const MODELO_LEITURA = process.env.COMPROVANTE_MODELO || 'claude-haiku-4-5'
 
 // ---------- helpers de valor/data ----------
 const money = (v: number | null) => Number(v || 0).toFixed(2).replace('.', ',')
@@ -187,7 +190,7 @@ async function extraiUm(loja: Loja, c: Comp) {
   if (c.formato === 'link') { if (!c.arquivo_url) return marcaFalha(c, 'sem-url'); bloco = await blocoDeLink(c.arquivo_url) }
   else if (c.arquivo_file_id) bloco = await tgFileBloco(loja.token, c.arquivo_file_id, c.formato === 'pdf')
   if (!bloco) return marcaFalha(c, 'sem-conteudo')
-  const resp = await ai.messages.create({ model: 'claude-sonnet-4-6', max_tokens: 400, messages: [{ role: 'user', content: [bloco, { type: 'text', text: PROMPT }] }] })
+  const resp = await ai.messages.create({ model: MODELO_LEITURA, max_tokens: 400, messages: [{ role: 'user', content: [bloco, { type: 'text', text: PROMPT }] }] })
   const raw = resp.content.find((b) => b.type === 'text') as { text: string } | undefined
   const j: any = primeiroJson(raw?.text || '')
   if (!j) return marcaFalha(c, 'json-fail')
@@ -196,7 +199,7 @@ async function extraiUm(loja: Loja, c: Comp) {
   if (j.eh_comprovante === false) { await supa.from('comprovantes_pix').update({ status: 'nao_comprovante', extraido_raw: j }).eq('id', c.id); return }
   // 2ª leitura focada nos 2 campos que mais erram
   try {
-    const rr = await ai.messages.create({ model: 'claude-sonnet-4-6', max_tokens: 120, messages: [{ role: 'user', content: [bloco, { type: 'text', text: 'Leia com atenção MÁXIMA só isto deste comprovante Pix. JSON: {"valor":<número>,"transacao_id":"<ID da transação/E2E, EXATO caractere por caractere>"}' }] }] })
+    const rr = await ai.messages.create({ model: MODELO_LEITURA, max_tokens: 120, messages: [{ role: 'user', content: [bloco, { type: 'text', text: 'Leia com atenção MÁXIMA só isto deste comprovante Pix. JSON: {"valor":<número>,"transacao_id":"<ID da transação/E2E, EXATO caractere por caractere>"}' }] }] })
     const rr2 = rr.content.find((b) => b.type === 'text') as { text: string } | undefined
     const jj = primeiroJson(rr2?.text || '') || {}
     jj.transacao_id = limpaId(jj.transacao_id)
