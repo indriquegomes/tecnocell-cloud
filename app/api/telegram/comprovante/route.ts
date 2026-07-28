@@ -341,14 +341,14 @@ async function periodoAberto(grupo: number) {
   return data && data[0]
 }
 // ESPELHO: tira da planilha os comprovantes APAGADOS no grupo. O bot não vê exclusões,
-// então uma CONTA logada (GramJS) LÊ o grupo e marca 'apagado' os que sumiram. SÓ no
-// período aberto (IDs antigos da migração ficam de fora → seguro). Se não conseguir ler
-// o grupo, NÃO apaga nada (trava de segurança pra não zerar a planilha por engano).
+// então uma CONTA logada (GramJS) LÊ o grupo e marca 'apagado' os que sumiram. Avalia SÓ os
+// que estão no RANGE de mensagens que realmente li (msg_id >= menor lido) — os mais antigos
+// que isso ficam de fora (não sei se estão vivos), evitando falso-positivo com IDs antigos.
+// Assim pega apagado de QUALQUER data recente, não só do período aberto. Se não conseguir
+// ler o grupo, NÃO apaga nada (trava de segurança pra não zerar a planilha por engano).
 async function reconcilaApagados(loja: Loja) {
   const sess = process.env.TELEGRAM_SESSION, apiId = Number(process.env.TELEGRAM_API_ID || 0), apiHash = process.env.TELEGRAM_API_HASH
   if (!sess || !apiId || !apiHash) return
-  const per = await periodoAberto(loja.grupo)
-  if (!per) return
   try {
     const { TelegramClient } = await import('telegram')
     const { StringSession } = await import('telegram/sessions')
@@ -358,9 +358,10 @@ async function reconcilaApagados(loja: Loja) {
     try { for await (const m of client.iterMessages(loja.grupo, { limit: 2000 })) vivos.add(m.id) } catch { /* segue */ }
     await client.disconnect().catch(() => {})
     if (vivos.size === 0) return
+    const minVivo = Math.min(...vivos) // menor msg_id que REALMENTE li — abaixo disso não avalio (não sei se vive)
     const supa = sb()
     const { data } = await supa.from('comprovantes_pix').select('id, telegram_message_id')
-      .eq('telegram_chat_id', loja.grupo).gte('recebido_em', per.aberto_em)
+      .eq('telegram_chat_id', loja.grupo).gte('telegram_message_id', minVivo)
       .lt('telegram_message_id', 700000000).neq('status', 'nao_comprovante').neq('status', 'apagado')
     for (const c of (data || []) as { id: string; telegram_message_id: number }[]) {
       if (!vivos.has(c.telegram_message_id)) await supa.from('comprovantes_pix').update({ status: 'apagado' }).eq('id', c.id)
