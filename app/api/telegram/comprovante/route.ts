@@ -209,7 +209,9 @@ async function extraiUm(loja: Loja, c: Comp) {
   if (c.formato === 'link') { if (!c.arquivo_url) return marcaFalha(c, 'sem-url'); bloco = await blocoDeLink(c.arquivo_url) }
   else if (c.arquivo_file_id) bloco = await tgFileBloco(loja.token, c.arquivo_file_id, c.formato === 'pdf')
   if (!bloco) return marcaFalha(c, 'sem-conteudo')
-  const resp = await ai.messages.create({ model: MODELO_LEITURA, max_tokens: 400, messages: [{ role: 'user', content: [bloco, { type: 'text', text: PROMPT }] }] })
+  let resp
+  try { resp = await ai.messages.create({ model: MODELO_LEITURA, max_tokens: 400, messages: [{ role: 'user', content: [bloco, { type: 'text', text: PROMPT }] }] }) }
+  catch (e) { return marcaFalha(c, 'api: ' + String((e as { status?: number; message?: string })?.status || '') + ' ' + String((e as Error)?.message || e).slice(0, 120)) }
   const raw = resp.content.find((b) => b.type === 'text') as { text: string } | undefined
   const j: any = primeiroJson(raw?.text || '')
   if (!j) return marcaFalha(c, 'json-fail')
