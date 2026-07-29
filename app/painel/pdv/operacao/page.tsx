@@ -117,7 +117,7 @@ export default async function OperacaoPDVPage({
     // loja confere cada tipo num lugar: dinheiro na gaveta, PIX no WhatsApp,
     // cartão na maquininha, fiado não é dinheiro.
     if (vendasRaw.length > 0) {
-      const [pagsRes, pessoasRes] = await Promise.all([
+      const [pagsRes, pessoasRes, fiadoCancRes] = await Promise.all([
         supabase
           .from('pagamentos_venda')
           .select('venda_id, forma_pagamento_id, valor')
@@ -126,7 +126,17 @@ export default async function OperacaoPDVPage({
           .from('pessoas')
           .select('id, nome')
           .in('id', [...new Set(vendasRaw.map((v) => v.pessoa_id).filter(Boolean))] as string[]),
+        // Fiado DEVOLVIDO/cancelado não é mais dívida → não pode somar no caixa. O
+        // lançamento é a verdade (a devolução cancela ele), mas o pagamentos_venda fica
+        // — por isso o fiado cancelado "voltava" como fantasma no total (Isa 29/07).
+        supabase
+          .from('lancamentos')
+          .select('venda_id')
+          .eq('status', 'cancelado')
+          .ilike('descricao', '%Fiado%')
+          .in('venda_id', vendasRaw.map((v) => v.id)),
       ])
+      const fiadoCancelado = new Set((fiadoCancRes.data ?? []).map((l) => l.venda_id as string))
       const nomePessoa: Record<string, string> = Object.fromEntries((pessoasRes.data ?? []).map((p) => [p.id, p.nome]))
       const vendaPorId = Object.fromEntries(vendasRaw.map((v) => [v.id, v]))
 
@@ -134,10 +144,12 @@ export default async function OperacaoPDVPage({
       // "Itens Vendidos" (produto x qtd) não serve pra bater caixa: o comprovante é da venda.
       const pagsDaVenda: Record<string, { nome: string; tipo: string; valor: number }[]> = {}
       for (const pg of pagsRes.data ?? []) {
+        const tp = tipoPorId[pg.forma_pagamento_id ?? ''] ?? 'outros'
+        if (tp === 'fiado' && fiadoCancelado.has(pg.venda_id)) continue   // fiado cancelado não aparece
         if (!pagsDaVenda[pg.venda_id]) pagsDaVenda[pg.venda_id] = []
         pagsDaVenda[pg.venda_id].push({
           nome: formasPorId[pg.forma_pagamento_id ?? ''] ?? 'Outras',
-          tipo: tipoPorId[pg.forma_pagamento_id ?? ''] ?? 'outros',
+          tipo: tp,
           valor: pg.valor ?? 0,
         })
       }
@@ -153,6 +165,7 @@ export default async function OperacaoPDVPage({
       for (const pg of pagsRes.data ?? []) {
         const nome = formasPorId[pg.forma_pagamento_id ?? ''] ?? 'Outras'
         const tipo = tipoPorId[pg.forma_pagamento_id ?? ''] ?? 'outros'
+        if (tipo === 'fiado' && fiadoCancelado.has(pg.venda_id)) continue   // fiado devolvido não conta no caixa
         const valor = pg.valor ?? 0
         porForma[nome] = (porForma[nome] ?? 0) + valor
         porTipo[tipo] = (porTipo[tipo] ?? 0) + valor
@@ -266,13 +279,24 @@ export default async function OperacaoPDVPage({
       const zPorForma: Record<string, number> = {}
       const zPorTipo: Record<string, number> = {}
       if (zVendas.length > 0) {
-        const { data: zPags } = await supabase
-          .from('pagamentos_venda')
-          .select('forma_pagamento_id, valor')
-          .in('venda_id', zVendas.map((v) => v.id))
-        for (const pg of zPags ?? []) {
+        const [zPagsRes, zFiadoCancRes] = await Promise.all([
+          supabase
+            .from('pagamentos_venda')
+            .select('venda_id, forma_pagamento_id, valor')
+            .in('venda_id', zVendas.map((v) => v.id)),
+          // mesmo motivo do caixa aberto: fiado cancelado/devolvido não conta
+          supabase
+            .from('lancamentos')
+            .select('venda_id')
+            .eq('status', 'cancelado')
+            .ilike('descricao', '%Fiado%')
+            .in('venda_id', zVendas.map((v) => v.id)),
+        ])
+        const zFiadoCancelado = new Set((zFiadoCancRes.data ?? []).map((l) => l.venda_id as string))
+        for (const pg of zPagsRes.data ?? []) {
           const nome = formasPorId[pg.forma_pagamento_id ?? ''] ?? 'Outras'
           const tipo = tipoPorId[pg.forma_pagamento_id ?? ''] ?? 'outros'
+          if (tipo === 'fiado' && zFiadoCancelado.has(pg.venda_id)) continue
           zPorForma[nome] = (zPorForma[nome] ?? 0) + (pg.valor ?? 0)
           zPorTipo[tipo] = (zPorTipo[tipo] ?? 0) + (pg.valor ?? 0)
         }
