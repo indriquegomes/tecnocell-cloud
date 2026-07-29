@@ -77,6 +77,17 @@ export default async function PedidosPage({
     const nome = (lojas ?? []).find((l) => l.id === d.loja_id)?.nome
     if (nome) lojaDoDep[d.id] = nome
   }
+  // Venda do PDV: a loja vem do CAIXA (o depósito tem loja NULL em alguns).
+  // Mesma lógica do Painel de Vendas. Isa 29/07.
+  const caixaIds = [...new Set((vendasRes.data ?? []).map((v) => v.caixa_id).filter(Boolean))] as string[]
+  const { data: caixas } = caixaIds.length
+    ? await supabase.from('caixas').select('id, loja_id').in('id', caixaIds)
+    : { data: [] as { id: string; loja_id: string | null }[] }
+  const lojaDoCaixa: Record<string, string> = {}
+  for (const c of caixas ?? []) {
+    const nome = (lojas ?? []).find((l) => l.id === c.loja_id)?.nome
+    if (nome) lojaDoCaixa[c.id] = nome
+  }
   const nomeForma: Record<string, string> = {}
   for (const f of formas ?? []) nomeForma[f.id] = f.nome
 
@@ -92,7 +103,7 @@ export default async function PedidosPage({
     ...(vendasRes.data ?? []).map((v): Linha => ({
       id: v.id, numero: v.numero, tipo: 'venda',
       status: v.status, total: Number(v.total) || 0, created_at: v.created_at,
-      cliente: nomeCli(v), loja: v.deposito_id ? lojaDoDep[v.deposito_id] ?? null : null,
+      cliente: nomeCli(v), loja: (v.caixa_id && lojaDoCaixa[v.caixa_id]) || (v.deposito_id ? lojaDoDep[v.deposito_id] ?? null : null),
       forma: v.forma_pagamento_id ? nomeForma[v.forma_pagamento_id] ?? null : null,
     })),
   ]
