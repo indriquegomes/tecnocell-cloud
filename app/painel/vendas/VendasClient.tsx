@@ -19,6 +19,7 @@ type Venda = {
   vendedor_nome: string | null
   pessoa_nome: string | null
   forma_pagamento_nome: string | null
+  loja: string
   motivo_cancelamento?: string | null
   observacoes?: string | null
 }
@@ -57,6 +58,7 @@ export function VendasClient({
   ticketMedio,
   canceladas,
   formas,
+  lojas,
   filtros,
 }: {
   vendas: Venda[]
@@ -65,7 +67,8 @@ export function VendasClient({
   ticketMedio: number
   canceladas: number
   formas: { id: string; nome: string }[]
-  filtros: { de: string; ate: string; busca: string; forma: string; status: string }
+  lojas: string[]
+  filtros: { de: string; ate: string; busca: string; forma: string; status: string; loja: string }
 }) {
   const router = useRouter()
 
@@ -92,6 +95,7 @@ export function VendasClient({
   const [busca, setBusca] = useState(filtros.busca)
   const [forma, setForma] = useState(filtros.forma)
   const [status, setStatus] = useState(filtros.status)
+  const [loja, setLoja] = useState(filtros.loja)
 
   const [detalhe, setDetalhe] = useState<DetalheVendaCompleto | null>(null)
   const [carregando, setCarregando] = useState(false)
@@ -103,8 +107,9 @@ export function VendasClient({
     if (busca) p.set('busca', busca)
     if (forma) p.set('forma', forma)
     if (status) p.set('status', status)
+    if (loja) p.set('loja', loja)
     startTransition(() => router.push(`/painel/vendas?${p.toString()}`))
-  }, [de, ate, busca, forma, status, router])
+  }, [de, ate, busca, forma, status, loja, router])
 
   const abrirDetalhe = async (id: string) => {
     setCarregando(true)
@@ -205,6 +210,13 @@ export function VendasClient({
               <option value="cancelada">Canceladas</option>
             </select>
           </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-gray-400 uppercase">Loja</label>
+            <select value={loja} onChange={e => setLoja(e.target.value)} className="field">
+              <option value="">Todas</option>
+              {lojas.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
           <button onClick={aplicarFiltros}
             className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-bold text-white hover:bg-blue-700 transition">
             Filtrar
@@ -212,7 +224,7 @@ export function VendasClient({
           <button onClick={() => {
             const ini = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
             const hj = hojeSP()
-            setDe(ini); setAte(hj); setBusca(''); setForma(''); setStatus('')
+            setDe(ini); setAte(hj); setBusca(''); setForma(''); setStatus(''); setLoja('')
             startTransition(() => router.push('/painel/vendas'))
           }} className="rounded-xl border border-gray-200 px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 transition">
             Limpar
@@ -238,7 +250,7 @@ export function VendasClient({
           <table className="min-w-full divide-y divide-gray-50 text-sm">
             <thead>
               <tr className="bg-gray-50/80 text-left">
-                {['Nº', 'Data / Hora', 'Status', 'Cliente', 'Vendedor', 'Pagamento', 'Desconto', 'Total', ''].map(h => (
+                {['Nº', 'Data / Hora', 'Status', 'Cliente', 'Vendedor', 'Loja', 'Pagamento', 'Desconto', 'Total', ''].map(h => (
                   <th key={h} className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-gray-400 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -246,7 +258,7 @@ export function VendasClient({
             <tbody className="divide-y divide-gray-50">
               {vendasVisiveis.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-16 text-center">
+                  <td colSpan={10} className="px-4 py-16 text-center">
                     <p className="text-2xl mb-2">🛒</p>
                     <p className="text-sm text-gray-400">Nenhuma venda no período.</p>
                   </td>
@@ -265,6 +277,9 @@ export function VendasClient({
                   </td>
                   <td className="px-4 py-3 text-gray-600 max-w-[120px] truncate">
                     {v.vendedor_nome ?? <span className="text-gray-300 italic text-xs">—</span>}
+                  </td>
+                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+                    {v.loja || <span className="text-gray-300 italic text-xs">—</span>}
                   </td>
                   <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
                     {v.forma_pagamento_nome ?? <span className="text-gray-300 italic text-xs">—</span>}
