@@ -70,7 +70,8 @@ export default async function ProdutosPage({
       const palavras = semAcento.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
       for (const w of palavras) q = q.ilike('busca_norm', `%${w}%`)
     }
-    if (params.categoria)  q = q.eq('categoria', params.categoria)
+    if (params.categoria === '__sem__') q = q.or('categoria.is.null,categoria.eq.')
+    else if (params.categoria)  q = q.eq('categoria', params.categoria)
     if (params.marca)      q = q.eq('marca', params.marca)
     if (params.prateleira) q = q.ilike('prateleira', `%${params.prateleira}%`)
     if (params.preco_min)  q = q.gte('preco', parseFloat(params.preco_min))
@@ -149,6 +150,7 @@ export default async function ProdutosPage({
           <select name="categoria" defaultValue={params.categoria ?? ''}
             className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="">Todas as categorias</option>
+            <option value="__sem__">Sem categoria</option>
             {(categorias ?? []).map((c) => (
               <option key={c.hierarquia} value={c.hierarquia}>{c.nome}</option>
             ))}

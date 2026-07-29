@@ -30,6 +30,10 @@ export default async function CategoriasPage({
     total: produtos.filter((p) => p.categoria === c.hierarquia).length,
   }))
 
+  // Produtos sem categoria (nula, vazia ou órfã) — Isa 29/07: "mostrar produtos sem categoria também"
+  const hierSet = new Set((categorias ?? []).map((c) => c.hierarquia))
+  const semCategoria = produtos.filter((p) => !p.categoria || !hierSet.has(p.categoria)).length
+
   const ordemAtual = ordem ?? 'nome'
   const ordemDir = dir === 'desc'
   const baseParamsCat: Record<string, string> = {}
@@ -129,6 +133,19 @@ export default async function CategoriasPage({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
+            {semCategoria > 0 && (!busca || 'sem categoria'.includes(busca.toLowerCase())) && (
+              <tr className="bg-amber-50/70">
+                <td className="px-4 py-3 text-sm font-semibold text-amber-800">Sem categoria</td>
+                <td className="px-4 py-3 text-center text-sm font-bold text-amber-700">{semCategoria}</td>
+                <td className="px-4 py-3 text-sm text-amber-600">Produtos ainda não categorizados</td>
+                <td className="px-4 py-3 text-center">
+                  <Link href="/painel/produtos?categoria=__sem__"
+                    className="rounded-lg px-2.5 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100 transition">
+                    Ver produtos →
+                  </Link>
+                </td>
+              </tr>
+            )}
             {filtradas.length === 0 ? (
               <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">Nenhuma categoria encontrada.</td></tr>
             ) : filtradas.map((c) => (
