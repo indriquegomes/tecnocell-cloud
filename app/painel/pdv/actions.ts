@@ -396,6 +396,7 @@ export interface CrediarioItem {
   created_at: string
   codigo: number | null
   venda_id: string | null
+  venda_numero: number | null
   historico_pagamentos: PagamentoHistorico[] | null
 }
 
@@ -430,6 +431,25 @@ export async function buscarCrediario(
     .order('data_vencimento', { ascending: true })
   if (error) throw new Error(error.message)
   const itens = (data ?? []) as CrediarioItem[]
+
+  // Número amigável da venda (#500) — coluna `vendas.numero`. Sem isso o código do
+  // crediário cai no fatiado do UUID (#FF275D) e não bate com o número dos Pedidos.
+  // NÃO há FK lancamentos→vendas (embed falha), então busca em lote; fatiar o .in()
+  // por 200 evita estourar a URL do PostgREST. Ver [[bug-in-muitos-ids-url-limit]].
+  const numeroPorVenda: Record<string, number> = {}
+  const vendaIds = [...new Set(itens.map((i) => i.venda_id).filter(Boolean))] as string[]
+  if (vendaIds.length) {
+    try {
+      for (let i = 0; i < vendaIds.length; i += 200) {
+        const { data: vs } = await supabase
+          .from('vendas')
+          .select('id, numero')
+          .in('id', vendaIds.slice(i, i + 200))
+        for (const v of vs ?? []) if (v.numero != null) numeroPorVenda[v.id as string] = v.numero as number
+      }
+    } catch { /* sem número — o código cai no fallback (descrição/UUID) */ }
+  }
+  for (const it of itens) it.venda_numero = (it.venda_id && numeroPorVenda[it.venda_id]) || null
 
   // limite/rotina das pessoas dos fiados — nunca derruba a lista se falhar
   const infoPessoas: Record<string, { limite: number; rotina: string | null }> = {}

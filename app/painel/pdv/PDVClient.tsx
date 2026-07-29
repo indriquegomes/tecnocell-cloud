@@ -1427,9 +1427,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const hoje = hojeSP()
   const codCrediario = (item: CrediarioItem) => {
     if (item.codigo) return `#${item.codigo}`
-    if (item.venda_id) return `#${item.venda_id.slice(-6).toUpperCase()}`
-    const m = item.descricao?.match(/#([a-f0-9]{8})/i)
-    return m ? `#${m[1].toUpperCase()}` : '—'
+    if (item.venda_numero) return `#${item.venda_numero}`          // número real da venda (#500)
+    const m = item.descricao?.match(/#(\d+)/)                       // número na descrição ("Fiado #500")
+    if (m) return `#${m[1]}`
+    if (item.venda_id) return `#${item.venda_id.slice(-6).toUpperCase()}`  // último recurso
+    return '—'
   }
   const statusCrediario = (dataVenc: string | null) => {
     if (!dataVenc) return { label: 'Pendente', cor: 'text-gray-500' }
