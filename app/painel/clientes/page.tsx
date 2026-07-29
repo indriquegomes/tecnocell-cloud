@@ -12,7 +12,7 @@ import { badgeTabela } from '@/lib/badge-tabela'
 export default async function ClientesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ busca?: string; tipo?: string; ordem?: string; dir?: string; status?: string; foto?: string; pagina?: string; erro?: string }>
+  searchParams: Promise<{ busca?: string; tipo?: string; ordem?: string; dir?: string; status?: string; foto?: string; pagina?: string; erro?: string; de?: string; ate?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
@@ -28,6 +28,8 @@ export default async function ClientesPage({
   if (params.tipo)  baseParams.tipo  = params.tipo
   if (verInativos)  baseParams.status = 'inativos'
   if (params.foto === 'com' || params.foto === 'sem') baseParams.foto = params.foto
+  if (params.de)    baseParams.de = params.de
+  if (params.ate)   baseParams.ate = params.ate
 
   // link do filtro de foto preservando busca/tipo/status
   const fotoLink = (val: '' | 'com' | 'sem') => {
@@ -35,6 +37,8 @@ export default async function ClientesPage({
     if (params.busca) qs.set('busca', params.busca)
     if (params.tipo) qs.set('tipo', params.tipo)
     if (verInativos) qs.set('status', 'inativos')
+    if (params.de) qs.set('de', params.de)
+    if (params.ate) qs.set('ate', params.ate)
     if (val) qs.set('foto', val)
     const s = qs.toString()
     return `/painel/clientes${s ? '?' + s : ''}`
@@ -79,6 +83,9 @@ export default async function ClientesPage({
     }
   }
   if (params.tipo) query = query.eq('tipo', params.tipo)
+  // Período de cadastro (Isa 29/07): filtrar clientes cadastrados dentro do período
+  if (params.de)  query = query.gte('created_at', params.de + 'T00:00:00')
+  if (params.ate) query = query.lte('created_at', params.ate + 'T23:59:59')
 
   query = query.range((pagina - 1) * porPagina, pagina * porPagina - 1)
   const { data: pessoas, count } = await query
@@ -133,6 +140,21 @@ export default async function ClientesPage({
           <Link href={fotoLink('sem')}
             className={`px-3 py-2 border-l border-gray-200 transition ${params.foto === 'sem' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>Sem foto</Link>
         </div>
+        {/* Período de cadastro (Isa 29/07) */}
+        <form method="GET" className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-sm">
+          {params.busca && <input type="hidden" name="busca" value={params.busca} />}
+          {params.tipo && <input type="hidden" name="tipo" value={params.tipo} />}
+          {verInativos && <input type="hidden" name="status" value="inativos" />}
+          {(params.foto === 'com' || params.foto === 'sem') && <input type="hidden" name="foto" value={params.foto} />}
+          <span className="text-xs font-semibold uppercase text-gray-400">Cadastro</span>
+          <input type="date" name="de" defaultValue={params.de ?? ''}
+            className="rounded border border-gray-200 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+          <span className="text-gray-300">—</span>
+          <input type="date" name="ate" defaultValue={params.ate ?? ''}
+            className="rounded border border-gray-200 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+          <button type="submit" className="rounded bg-blue-600 px-3 py-1 font-medium text-white hover:bg-blue-700 transition">Filtrar</button>
+          {(params.de || params.ate) && <Link href="/painel/clientes" className="text-gray-400 hover:text-gray-600">Limpar</Link>}
+        </form>
         <span className="ml-auto self-center text-sm text-gray-400">{total} registro{total === 1 ? '' : 's'}</span>
       </div>
 
