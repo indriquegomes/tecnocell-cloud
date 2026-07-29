@@ -6,10 +6,21 @@ import { formatDate, hojeSP } from '@/lib/utils'
 import { ExportCsv } from './ExportCsv'
 import { ExportCsvLazy } from './ExportCsvLazy'
 import { FluxoChart, ParetoChart, Donut, Barra } from './Charts'
+import { FechamentoDetalhe, type MovDetalhe } from './FechamentoDetalhe'
 
 const AMOSTRA = 200  // abas pesadas mostram só as primeiras N linhas; CSV sai completo
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const dtBR = (s: string) => new Date(s).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+const tipoLabel = (tipo: string | null): string => {
+  if (!tipo) return 'Outro'
+  if (tipo === 'dinheiro') return 'Dinheiro'
+  if (tipo === 'pix') return 'PIX'
+  if (tipo.startsWith('cartao')) return 'Cartão'
+  if (tipo === 'fiado') return 'Fiado'
+  if (tipo.includes('credito') || tipo.includes('loja')) return 'Crédito'
+  return 'Outro'
+}
 const asRows = (a: unknown[]) => a as unknown as Record<string, unknown>[]
 
 type ItemVenda = {
@@ -24,9 +35,9 @@ type ItemVenda = {
 export default async function RelatoriosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ aba?: string; de?: string; ate?: string }>
+  searchParams: Promise<{ aba?: string; de?: string; ate?: string; loja?: string; caixa?: string }>
 }) {
-  const { aba = 'financeiro', de, ate } = await searchParams
+  const { aba = 'financeiro', de, ate, loja, caixa } = await searchParams
   const supabase = await createServiceClient()
 
   const hoje = hojeSP()
@@ -561,9 +572,124 @@ export default async function RelatoriosPage({
     })).filter((p) => p.telefone !== '—')
   }
 
+  // ---------- Fechamento de Caixa — Nível 1 (histórico dos caixas) ----------
+  type CaixaFech = {
+    id: string; status: string; loja: string; abriu: string; fechou: string | null
+    operador: string; vendas: number; entradas: number; saidas: number
+    esperado: number; contado: number | null; diferenca: number | null
+  }
+  let caixasFech: CaixaFech[] = []
+  let lojasFC: { id: string; nome: string }[] = []
+  const lojaFC = loja && loja !== 'todas' ? loja : null
+  if (aba === 'fechamentocaixa' && !caixa) {
+    const { data: lojas } = await supabase.from('lojas').select('id, nome').order('nome')
+    lojasFC = lojas ?? []
+    let qCx = supabase.from('caixas')
+      .select('id, status, aberto_em, fechado_em, valor_abertura, valor_fechamento, loja_id, usuario_id')
+      .gte('aberto_em', periodo.inicio).lte('aberto_em', periodo.fim).order('aberto_em', { ascending: false })
+    if (lojaFC) qCx = qCx.eq('loja_id', lojaFC)
+    const lista = (await qCx).data ?? []
+    const cxIds = lista.map((c) => c.id as string)
+    if (cxIds.length) {
+      const [vendasR, movR, perfisR, formasR] = await Promise.all([
+        supabase.from('vendas').select('id, total, caixa_id').eq('status', 'concluida').in('caixa_id', cxIds),
+        supabase.from('movimentos_caixa').select('caixa_id, tipo, forma_pagamento, valor').in('caixa_id', cxIds),
+        supabase.from('perfis').select('id, nome').in('id', [...new Set(lista.map((c) => c.usuario_id).filter(Boolean))] as string[]),
+        supabase.from('formas_pagamento').select('id, tipo'),
+      ])
+      const vendaIds = (vendasR.data ?? []).map((v) => v.id as string)
+      const pags = vendaIds.length
+        ? (await supabase.from('pagamentos_venda').select('venda_id, forma_pagamento_id, valor').in('venda_id', vendaIds)).data ?? []
+        : []
+      const tipoForma: Record<string, string> = Object.fromEntries((formasR.data ?? []).map((f) => [f.id, f.tipo]))
+      const vendaCaixa: Record<string, string> = Object.fromEntries((vendasR.data ?? []).map((v) => [v.id, v.caixa_id]))
+      const nomePerfil: Record<string, string> = Object.fromEntries((perfisR.data ?? []).map((p) => [p.id, p.nome]))
+      const nomeLoja: Record<string, string> = Object.fromEntries(lojasFC.map((l) => [l.id, l.nome]))
+      type Agg = { vendas: number; dinV: number; ref: number; ret: number; dev: number; refD: number; retD: number; devD: number }
+      const A: Record<string, Agg> = {}
+      for (const id of cxIds) A[id] = { vendas: 0, dinV: 0, ref: 0, ret: 0, dev: 0, refD: 0, retD: 0, devD: 0 }
+      for (const v of vendasR.data ?? []) { const a = A[v.caixa_id as string]; if (a) a.vendas += (v.total as number) ?? 0 }
+      for (const p of pags) { const cid = vendaCaixa[p.venda_id as string]; const a = cid ? A[cid] : null; if (a && tipoForma[(p.forma_pagamento_id as string) ?? ''] === 'dinheiro') a.dinV += (p.valor as number) ?? 0 }
+      const ehDin = (f: string | null) => /dinheiro/i.test(f ?? '')
+      for (const m of movR.data ?? []) {
+        const a = A[m.caixa_id as string]; if (!a) continue
+        const val = (m.valor as number) ?? 0
+        if (m.tipo === 'reforco') { a.ref += val; if (ehDin(m.forma_pagamento as string)) a.refD += val }
+        else if (m.tipo === 'retirada') { a.ret += val; if (ehDin(m.forma_pagamento as string)) a.retD += val }
+        else if (m.tipo === 'devolucao') { a.dev += val; if (ehDin(m.forma_pagamento as string)) a.devD += val }
+      }
+      caixasFech = lista.map((c) => {
+        const a = A[c.id as string]
+        const esperado = ((c.valor_abertura as number) ?? 0) + a.dinV + a.refD - a.retD - a.devD
+        const contado = c.status === 'fechado' ? ((c.valor_fechamento as number) ?? 0) : null
+        return {
+          id: c.id as string, status: c.status as string, loja: nomeLoja[c.loja_id as string] ?? '—',
+          abriu: c.aberto_em as string, fechou: (c.fechado_em as string | null) ?? null,
+          operador: c.usuario_id ? (nomePerfil[c.usuario_id as string] ?? '—') : '—',
+          vendas: a.vendas, entradas: a.ref, saidas: a.ret + a.dev,
+          esperado, contado, diferenca: contado === null ? null : contado - esperado,
+        }
+      })
+    }
+  }
+
+  // ---------- Fechamento de Caixa — Nível 2 (detalhe de um caixa) ----------
+  let fcHeader: { loja: string; operador: string; abriu: string; fechou: string | null } | null = null
+  const fcMovs: MovDetalhe[] = []
+  if (aba === 'fechamentocaixa' && caixa) {
+    const { data: cx } = await supabase.from('caixas').select('loja_id, usuario_id, aberto_em, fechado_em').eq('id', caixa).maybeSingle()
+    if (cx) {
+      const [lojaR, perfR, vendasR, movR, formasR] = await Promise.all([
+        cx.loja_id ? supabase.from('lojas').select('nome').eq('id', cx.loja_id as string).maybeSingle() : Promise.resolve({ data: null }),
+        cx.usuario_id ? supabase.from('perfis').select('nome').eq('id', cx.usuario_id as string).maybeSingle() : Promise.resolve({ data: null }),
+        supabase.from('vendas').select('id, numero, created_at, vendedor_nome').eq('status', 'concluida').eq('caixa_id', caixa),
+        supabase.from('movimentos_caixa').select('tipo, forma_pagamento, valor, created_at').eq('caixa_id', caixa),
+        supabase.from('formas_pagamento').select('id, nome, tipo'),
+      ])
+      fcHeader = {
+        loja: (lojaR.data as { nome: string } | null)?.nome ?? '—',
+        operador: (perfR.data as { nome: string } | null)?.nome ?? '—',
+        abriu: cx.aberto_em as string, fechou: (cx.fechado_em as string | null) ?? null,
+      }
+      const vendas = vendasR.data ?? []
+      const vendaIds = vendas.map((v) => v.id as string)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vendaById: Record<string, any> = Object.fromEntries(vendas.map((v) => [v.id, v]))
+      const [pagsRes, devsRes] = await Promise.all([
+        vendaIds.length ? supabase.from('pagamentos_venda').select('venda_id, forma_pagamento_id, valor').in('venda_id', vendaIds) : Promise.resolve({ data: [] }),
+        vendaIds.length ? supabase.from('devolucoes').select('venda_id, valor_total, tipo_credito, created_at').in('venda_id', vendaIds) : Promise.resolve({ data: [] }),
+      ])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const formaById: Record<string, { nome: string; tipo: string }> = Object.fromEntries((formasR.data ?? []).map((f: any) => [f.id, { nome: f.nome, tipo: f.tipo }]))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tipoByNome: Record<string, string> = Object.fromEntries((formasR.data ?? []).map((f: any) => [String(f.nome).toLowerCase(), f.tipo]))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const p of (pagsRes.data ?? []) as any[]) {
+        const v = vendaById[p.venda_id]; if (!v) continue
+        const f = formaById[p.forma_pagamento_id ?? ''] ?? { nome: 'Outra', tipo: 'outros' }
+        fcMovs.push({ data: v.created_at, vendedor: v.vendedor_nome ?? null, movimentacao: 'Venda', rotulo: 'Venda #' + (v.numero ?? '—'), forma: f.nome, tipoForma: tipoLabel(f.tipo), valor: p.valor ?? 0 })
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const m of (movR.data ?? []) as any[]) {
+        if (m.tipo === 'devolucao') continue   // devolução vem da tabela devolucoes (completa)
+        const rot = m.tipo === 'reforco' ? 'Reforço' : m.tipo === 'retirada' ? 'Retirada' : 'Recebimento'
+        const sinal = m.tipo === 'retirada' ? -1 : 1
+        fcMovs.push({ data: m.created_at, vendedor: null, movimentacao: rot, rotulo: rot === 'Retirada' ? 'Retirada (sangria)' : rot, forma: m.forma_pagamento ?? '—', tipoForma: tipoLabel(tipoByNome[String(m.forma_pagamento ?? '').toLowerCase()] ?? null), valor: sinal * (m.valor ?? 0) })
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const d of (devsRes.data ?? []) as any[]) {
+        const v = vendaById[d.venda_id]
+        const cred = d.tipo_credito === 'dinheiro' ? 'Dinheiro' : 'Crédito'
+        fcMovs.push({ data: d.created_at, vendedor: v?.vendedor_nome ?? null, movimentacao: 'Devolução', rotulo: 'Devolução' + (v ? ' #' + (v.numero ?? '') : ''), forma: cred, tipoForma: cred, valor: -(d.valor_total ?? 0) })
+      }
+      fcMovs.sort((a, b) => a.data.localeCompare(b.data))
+    }
+  }
+
   const categorias: { cat: string; abas: { id: string; label: string }[] }[] = [
     { cat: 'Financeiro', abas: [
       { id: 'financeiro', label: 'Lançamentos' }, { id: 'fluxo', label: 'Fluxo de Caixa' },
+      { id: 'fechamentocaixa', label: 'Fechamento de Caixa' },
       { id: 'dre', label: 'DRE' }, { id: 'inadimplencia', label: 'Inadimplência' },
       { id: 'comissoes', label: 'Comissões' }, { id: 'previsaocaixa', label: 'Previsão de Caixa' },
       { id: 'comparativo', label: 'Comparativo' },
@@ -632,6 +758,15 @@ export default async function RelatoriosPage({
           <label className="mb-1 block text-xs font-medium text-gray-600">Até</label>
           <input name="ate" type="date" defaultValue={dataFim} className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
+        {aba === 'fechamentocaixa' && !caixa && (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-600">Loja</label>
+            <select name="loja" defaultValue={loja ?? 'todas'} className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="todas">Todas</option>
+              {lojasFC.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
+            </select>
+          </div>
+        )}
         <button type="submit" className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">Filtrar</button>
       </form>
 
@@ -662,6 +797,42 @@ export default async function RelatoriosPage({
             ))}
           </Tabela>
         </div>
+      )}
+
+      {/* ---------------- Fechamento de Caixa — Nível 1 ---------------- */}
+      {aba === 'fechamentocaixa' && !caixa && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <Card label="Fechamentos" valor={String(caixasFech.filter((c) => c.status === 'fechado').length)} cor="text-gray-800" />
+            <Card label="Total vendido" valor={fmt(caixasFech.reduce((s, c) => s + c.vendas, 0))} cor="text-blue-600" />
+            <Card label="Entrou (reforços)" valor={fmt(caixasFech.reduce((s, c) => s + c.entradas, 0))} cor="text-green-600" />
+            <Card label="Saiu (retiradas/devol.)" valor={fmt(caixasFech.reduce((s, c) => s + c.saidas, 0))} cor="text-red-500" />
+          </div>
+          <Tabela vazio={caixasFech.length === 0} vazioMsg="Nenhum caixa no período."
+            head={['Loja', 'Abriu', 'Fechou', 'Operador', 'Vendas', 'Esperado', 'Contado', 'Diferença', '']}
+            alinhas={['l', 'l', 'l', 'l', 'r', 'r', 'r', 'r', 'c']}>
+            {caixasFech.map((c) => (
+              <tr key={c.id} className="hover:bg-blue-50/60">
+                <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.loja}{c.status !== 'fechado' && <span className="ml-1.5 rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-700">aberto</span>}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{dtBR(c.abriu)}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{c.fechou ? dtBR(c.fechou) : '—'}</td>
+                <td className="px-4 py-3 text-sm text-gray-600">{c.operador}</td>
+                <td className="px-4 py-3 text-sm text-right font-medium text-gray-800">{fmt(c.vendas)}</td>
+                <td className="px-4 py-3 text-sm text-right text-gray-600">{fmt(c.esperado)}</td>
+                <td className="px-4 py-3 text-sm text-right text-gray-600">{c.contado === null ? '—' : fmt(c.contado)}</td>
+                <td className="px-4 py-3 text-sm text-right">{c.diferenca === null ? '—' : <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${Math.abs(c.diferenca) < 0.01 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>{c.diferenca < 0 ? '−' : ''}{fmt(Math.abs(c.diferenca))}</span>}</td>
+                <td className="px-4 py-3 text-center"><Link prefetch={false} href={`/painel/relatorios?aba=fechamentocaixa&de=${dataInicio}&ate=${dataFim}&loja=${loja ?? 'todas'}&caixa=${c.id}`} className="text-sm font-medium text-blue-600 hover:underline">ver ▸</Link></td>
+              </tr>
+            ))}
+          </Tabela>
+        </div>
+      )}
+
+      {/* ---------------- Fechamento de Caixa — Nível 2 (detalhe) ---------------- */}
+      {aba === 'fechamentocaixa' && caixa && (
+        fcHeader
+          ? <FechamentoDetalhe header={fcHeader} movimentos={fcMovs} voltarHref={`/painel/relatorios?aba=fechamentocaixa&de=${dataInicio}&ate=${dataFim}&loja=${loja ?? 'todas'}`} />
+          : <p className="rounded-xl border border-gray-200 bg-white p-6 text-center text-sm text-gray-400">Caixa não encontrado.</p>
       )}
 
       {/* ---------------- Fluxo de Caixa ---------------- */}
