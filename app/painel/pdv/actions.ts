@@ -3,6 +3,7 @@
 import { registrarNoCaixa } from '@/lib/caixa'
 import { createServiceClient, fetchAll, requirePermissao, permissoesEfetivas } from '@/lib/supabase/server'
 import { temPermissao } from '@/lib/permissoes'
+import { logAtividade } from '@/lib/log-atividade'
 import { hojeSP } from '@/lib/utils'
 
 // Itens de UMA tabela de preço, sob demanda (o PDV não embute mais os 45k itens
@@ -369,6 +370,13 @@ export async function finalizarVenda(
 
   // Vendedor (rastreabilidade), fiado vinculado e baixa de IMEI já nascem
   // dentro do RPC finalizar_venda — sem escrita posterior nem race.
+
+  await logAtividade('venda.finalizar', {
+    venda_id: data.venda_id,
+    venda_numero: data.venda_numero ?? null,
+    total: data.total,
+    vendedor: vendedorNome,
+  }, usuario, '/painel/pdv')
 
   return {
     vendaId: data.venda_id as string,

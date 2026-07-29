@@ -1,6 +1,7 @@
 'use server'
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { logAtividade } from '@/lib/log-atividade'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -11,7 +12,7 @@ export async function abrirCaixa(
   formData: FormData,
 ): Promise<ActionState> {
   try {
-    await requirePermissao('pdv', formData.get('access_token') as string)
+    const usuario = await requirePermissao('pdv', formData.get('access_token') as string)
     const supabase = await createServiceClient()
     const lojaId = (formData.get('loja_id') as string | null) || null
 
@@ -29,6 +30,10 @@ export async function abrirCaixa(
     })
     if (error) return { ok: false, message: error.message }
 
+    await logAtividade('caixa.abrir', {
+      loja_id: lojaId,
+      valor_abertura: parseFloat(formData.get('valor_abertura') as string) || 0,
+    }, usuario, '/painel/pdv/operacao')
     redirect(`/painel/pdv/operacao?aberto=1${lojaId ? `&loja=${lojaId}` : ''}`)
   } catch (e: unknown) {
     if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e
@@ -41,7 +46,7 @@ export async function fecharCaixa(
   formData: FormData,
 ): Promise<ActionState> {
   try {
-    await requirePermissao('pdv', formData.get('access_token') as string)
+    const usuario = await requirePermissao('pdv', formData.get('access_token') as string)
     const id = formData.get('caixa_id') as string
     if (!id) return { ok: false, message: 'Caixa não identificado.' }
 
@@ -90,6 +95,12 @@ export async function fecharCaixa(
       .eq('status', 'aberto')
     if (error) return { ok: false, message: error.message }
 
+    await logAtividade('caixa.fechar', {
+      caixa_id: id,
+      valor_esperado: valorEsperado,
+      valor_contado: valorFechamento,
+      divergencia,
+    }, usuario, '/painel/pdv/operacao')
     redirect(`/painel/pdv/operacao?fechado=1&esperado=${valorEsperado}&contado=${valorFechamento}`)
   } catch (e: unknown) {
     if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e
@@ -102,7 +113,7 @@ export async function registrarReforco(
   formData: FormData,
 ): Promise<ActionState> {
   try {
-    await requirePermissao('pdv', formData.get('access_token') as string)
+    const usuario = await requirePermissao('pdv', formData.get('access_token') as string)
     const caixaId = formData.get('caixa_id') as string
     const valor = parseFloat(formData.get('valor') as string) || 0
     if (!caixaId) return { ok: false, message: 'Caixa não identificado.' }
@@ -121,6 +132,12 @@ export async function registrarReforco(
     })
     if (error) return { ok: false, message: error.message }
 
+    await logAtividade('caixa.reforco', {
+      caixa_id: caixaId,
+      forma: (formData.get('forma_pagamento') as string) || 'Dinheiro',
+      valor,
+      motivo: (formData.get('motivo') as string) || null,
+    }, usuario, '/painel/pdv/operacao')
     revalidatePath('/painel/pdv/operacao')
     return { ok: true, message: 'Reforço registrado com sucesso.' }
   } catch (e) {
@@ -133,7 +150,7 @@ export async function registrarRetirada(
   formData: FormData,
 ): Promise<ActionState> {
   try {
-    await requirePermissao('pdv', formData.get('access_token') as string)
+    const usuario = await requirePermissao('pdv', formData.get('access_token') as string)
     const caixaId = formData.get('caixa_id') as string
     const valor = parseFloat(formData.get('valor') as string) || 0
     if (!caixaId) return { ok: false, message: 'Caixa não identificado.' }
@@ -152,6 +169,12 @@ export async function registrarRetirada(
     })
     if (error) return { ok: false, message: error.message }
 
+    await logAtividade('caixa.retirada', {
+      caixa_id: caixaId,
+      forma: (formData.get('forma_pagamento') as string) || 'Dinheiro',
+      valor,
+      motivo: (formData.get('motivo') as string) || null,
+    }, usuario, '/painel/pdv/operacao')
     revalidatePath('/painel/pdv/operacao')
     return { ok: true, message: 'Retirada registrada com sucesso.' }
   } catch (e) {

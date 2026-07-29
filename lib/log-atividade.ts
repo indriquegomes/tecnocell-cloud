@@ -13,6 +13,8 @@ export type TipoAcao =
   | 'devolucao.criar'
   | 'caixa.abrir'
   | 'caixa.fechar'
+  | 'caixa.reforco'
+  | 'caixa.retirada'
 
 export async function logAtividade(
   tipo: TipoAcao | string,

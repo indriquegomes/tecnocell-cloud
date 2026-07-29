@@ -1,6 +1,7 @@
 'use server'
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { logAtividade } from '@/lib/log-atividade'
 
 export interface ItemVendaParaDevolucao {
   produto_id: string
@@ -216,7 +217,7 @@ export async function registrarDevolucao(
   accessToken: string,
   input: RegistrarDevolucaoInput,
 ): Promise<{ id: string }> {
-  await requirePermissao('devolucoes', accessToken)
+  const usuario = await requirePermissao('devolucoes', accessToken)
   const supabase = await createServiceClient()
 
   // Tudo numa transação atômica no RPC (migration 2026-07-03): devolução + itens +
@@ -278,6 +279,17 @@ export async function registrarDevolucao(
   if (input.motivo_tipo) {
     await supabase.from('devolucoes').update({ motivo_tipo: input.motivo_tipo }).eq('id', devolucaoId)
   }
+
+  // Câmera de segurança: registra QUEM devolveu, qual venda e quanto. Nunca derruba a
+  // devolução se o log falhar (a própria logAtividade engole o erro).
+  await logAtividade('devolucao.criar', {
+    devolucao_id: devolucaoId,
+    venda_id: input.venda_id,
+    pessoa_nome: input.pessoa_nome,
+    tipo_credito: input.tipo_credito,
+    motivo: input.motivo_tipo || input.motivo || null,
+    reembolso,
+  }, usuario, '/painel/devolucoes')
 
   return { id: devolucaoId }
 }
