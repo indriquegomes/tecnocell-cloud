@@ -109,6 +109,9 @@ export async function registrarReforco(
     if (valor <= 0) return { ok: false, message: 'Informe um valor maior que zero.' }
 
     const supabase = await createServiceClient()
+    // Trava: não registrar em caixa já fechado (corrida entre abas — fechou noutra tela)
+    const { data: cx } = await supabase.from('caixas').select('status').eq('id', caixaId).maybeSingle()
+    if (!cx || cx.status !== 'aberto') return { ok: false, message: 'Este caixa não está mais aberto.' }
     const { error } = await supabase.from('movimentos_caixa').insert({
       caixa_id: caixaId,
       tipo: 'reforco',
@@ -137,6 +140,9 @@ export async function registrarRetirada(
     if (valor <= 0) return { ok: false, message: 'Informe um valor maior que zero.' }
 
     const supabase = await createServiceClient()
+    // Trava: não registrar em caixa já fechado (corrida entre abas — fechou noutra tela)
+    const { data: cx } = await supabase.from('caixas').select('status').eq('id', caixaId).maybeSingle()
+    if (!cx || cx.status !== 'aberto') return { ok: false, message: 'Este caixa não está mais aberto.' }
     const { error } = await supabase.from('movimentos_caixa').insert({
       caixa_id: caixaId,
       tipo: 'retirada',

@@ -1169,9 +1169,11 @@ export function OperacaoClient({
     reforcosDinheiro -
     retiradasDinheiro -
     totalDevolucoes
-  // Tudo que o turno produziu, em qualquer forma (incl. fiado) — visão gerencial
+  // Tudo que o turno produziu (vendas de todas as formas, incl. fiado) — visão gerencial.
+  // Reforço/sangria contam SÓ em dinheiro (igual à gaveta e à devolução): reforço/sangria
+  // em cartão/PIX não é dinheiro que o turno produziu — antes inflava este total (Isa 29/07).
   const saldoTotal =
-    (caixaAberto?.valor_abertura ?? 0) + totalVendas + totalReforcos - totalRetiradas - totalDevolucoes
+    (caixaAberto?.valor_abertura ?? 0) + totalVendas + reforcosDinheiro - retiradasDinheiro - totalDevolucoes
 
   return (
     <div className="space-y-6">
