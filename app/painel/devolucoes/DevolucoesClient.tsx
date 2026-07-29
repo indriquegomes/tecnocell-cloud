@@ -36,6 +36,7 @@ export interface ItemDevolucaoLinha {
   motivo: string | null
   motivo_tipo: string | null
   status_produto?: string
+  loja: string
 }
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -80,13 +81,11 @@ type Step = 'buscar' | 'itens' | 'confirmar'
 
 // ── Componente principal ───────────────────────────────────────────────────────
 export function DevolucoesClient({
-  linhas, totalItens, totalValor, nDevolucoes, filtros, vendaInicial = null,
+  linhas, lojas, filtros, vendaInicial = null,
 }: {
   linhas: ItemDevolucaoLinha[]
-  totalItens: number
-  totalValor: number
-  nDevolucoes: number
-  filtros: { de: string; ate: string; q: string }
+  lojas: string[]
+  filtros: { de: string; ate: string; q: string; loja: string }
   /** ?venda=<id> — veio do botão "Devolver produto" no detalhe da venda: já abre nela. */
   vendaInicial?: string | null
 }) {
@@ -96,8 +95,16 @@ export function DevolucoesClient({
   const [busca, setBusca] = useState(filtros.q)
   const [filtroDe, setFiltroDe] = useState(filtros.de)
   const [filtroAte, setFiltroAte] = useState(filtros.ate)
+  const [filtroLoja, setFiltroLoja] = useState(filtros.loja)   // servidor (loja vem do banco)
+  const [filtroVendedor, setFiltroVendedor] = useState('')     // local, instantâneo
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
   const [filtroMotivo, setFiltroMotivo] = useState<string | null>(null)
+
+  // vendedores que aparecem nas devoluções carregadas (pra o dropdown local)
+  const vendedores = useMemo(
+    () => [...new Set(linhas.map(l => l.operador).filter(Boolean))].sort() as string[],
+    [linhas],
+  )
 
   // Conta por DEVOLUÇÃO (não por item): 3 peças numa devolução são UM motivo, não três.
   const contagemMotivos = useMemo(() => {
@@ -115,6 +122,7 @@ export function DevolucoesClient({
   const linhasFiltradas = useMemo(() => {
     let out = linhas
     if (filtroMotivo) out = out.filter(l => (l.motivo_tipo ?? '__sem__') === filtroMotivo)
+    if (filtroVendedor) out = out.filter(l => l.operador === filtroVendedor)
     if (!busca.trim()) return out
     const b = busca.toLowerCase()
     return out.filter(l =>
@@ -125,10 +133,17 @@ export function DevolucoesClient({
       l.motivo?.toLowerCase().includes(b) ||
       motivoDevolucao(l.motivo_tipo)?.label.toLowerCase().includes(b)
     )
-  }, [linhas, busca, filtroMotivo])
+  }, [linhas, busca, filtroMotivo, filtroVendedor])
+
+  // Cards recalculam pro recorte visível (loja no servidor + vendedor/motivo/busca no cliente)
+  const nDevolucoes = new Set(linhasFiltradas.map(l => l.devolucao_id)).size
+  const totalItens  = linhasFiltradas.reduce((s, l) => s + l.quantidade, 0)
+  const totalValor  = linhasFiltradas.reduce((s, l) => s + l.total_item, 0)
 
   const aplicarFiltros = () => {
-    router.push(`/painel/devolucoes?${new URLSearchParams({ de: filtroDe, ate: filtroAte, q: busca })}`)
+    const p = new URLSearchParams({ de: filtroDe, ate: filtroAte, q: busca })
+    if (filtroLoja) p.set('loja', filtroLoja)
+    router.push(`/painel/devolucoes?${p}`)
   }
 
   // ── modal nova devolução ───────────────────────────────────────────────────
@@ -392,16 +407,39 @@ export function DevolucoesClient({
       </div>
 
       {mostrarFiltros && (
-        <div className="flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
           <span className="text-xs font-semibold text-blue-700 uppercase">Período</span>
           <input type="date" value={filtroDe} onChange={(e) => setFiltroDe(e.target.value)}
             className="rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
           <span className="text-blue-300">—</span>
           <input type="date" value={filtroAte} onChange={(e) => setFiltroAte(e.target.value)}
             className="rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+
+          {lojas.length > 1 && (
+            <>
+              <span className="text-xs font-semibold text-blue-700 uppercase">Loja</span>
+              <select value={filtroLoja} onChange={(e) => setFiltroLoja(e.target.value)}
+                className="rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                <option value="">Todas</option>
+                {lojas.map(l => <option key={l} value={l}>{l}</option>)}
+              </select>
+            </>
+          )}
+
+          {vendedores.length > 1 && (
+            <>
+              <span className="text-xs font-semibold text-blue-700 uppercase">Vendedor</span>
+              <select value={filtroVendedor} onChange={(e) => setFiltroVendedor(e.target.value)}
+                className="rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                <option value="">Todos</option>
+                {vendedores.map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </>
+          )}
+
           <button onClick={aplicarFiltros}
             className="ml-auto rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-blue-700 transition">
-            Filtrar período
+            Filtrar
           </button>
         </div>
       )}
