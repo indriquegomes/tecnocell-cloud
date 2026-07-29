@@ -901,6 +901,7 @@ export async function buscarPedidosAbertos(accessToken: string): Promise<PedidoR
 
 export interface VendaResumo {
   id: string
+  numero: number | null
   total: number
   desconto: number
   created_at: string
@@ -914,7 +915,7 @@ export async function buscarVendas(accessToken: string, limite: number = 30): Pr
   const supabase = await createServiceClient()
   const { data, error } = await supabase
     .from('vendas')
-    .select('id, total, desconto, created_at, forma_pagamento_id, pessoa_id')
+    .select('id, numero, total, desconto, created_at, forma_pagamento_id, pessoa_id')
     .eq('status', 'concluida')
     .order('created_at', { ascending: false })
     .limit(limite)

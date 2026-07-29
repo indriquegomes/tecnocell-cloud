@@ -1494,6 +1494,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
   const vendasFiltradas = buscaVenda.trim()
     ? vendas.filter((v) =>
+        (v.numero != null && String(v.numero).includes(buscaVenda.trim())) ||
         v.id.slice(0, 8).toLowerCase().includes(buscaVenda.toLowerCase()) ||
         nomeCliente(v.pessoa_id).toLowerCase().includes(buscaVenda.toLowerCase())
       )
@@ -3401,7 +3402,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               <input
                 value={buscaVenda}
                 onChange={(e) => setBuscaVenda(e.target.value)}
-                placeholder="Filtrar por código ou cliente..."
+                placeholder="Filtrar por número, código ou cliente..."
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -3425,7 +3426,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                   <tbody className="divide-y divide-gray-50">
                     {vendasFiltradas.map((v) => (
                       <tr key={v.id} onClick={() => handleVerVenda(v.id)} className="cursor-pointer hover:bg-blue-50/60 transition">
-                        <td className="py-2.5 pr-3 font-mono text-xs text-gray-500">{v.id.slice(0, 8).toUpperCase()}</td>
+                        <td className="py-2.5 pr-3 font-mono text-xs text-gray-500">#{v.numero ?? v.id.slice(0, 8).toUpperCase()}</td>
                         <td className="py-2.5 pr-3 text-gray-600">
                           {new Date(v.created_at).toLocaleDateString('pt-BR')}{' '}
                           <span className="text-gray-400">{new Date(v.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>

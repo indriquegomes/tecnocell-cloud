@@ -133,12 +133,24 @@ export async function buscarVendasRecentes(
   await requirePermissao('devolucoes', accessToken)
   const supabase = await createServiceClient()
 
-  const { data, error } = await supabase
-    .from('vendas')
-    .select('id, numero, total, created_at, vendedor_nome, pessoa_id, pessoas!pessoa_id(nome)')
-    .eq('status', 'concluida')
-    .order('created_at', { ascending: false })
-    .limit(50)
+  // Busca no BANCO (não filtra 50 recentes na memória — assim acha QUALQUER venda):
+  // número → busca exata por `numero`; texto → nome do cliente (resolve os ids em pessoas)
+  // com fallback pro vendedor. Vazio → as 50 últimas (lista padrão do modal).
+  const b = busca.trim()
+  const sel = 'id, numero, total, created_at, vendedor_nome, pessoa_id, pessoas!pessoa_id(nome)'
+  let vsel
+  if (/^\d+$/.test(b)) {
+    vsel = await supabase.from('vendas').select(sel).eq('status', 'concluida').eq('numero', Number(b)).limit(20)
+  } else if (b) {
+    const { data: ps } = await supabase.from('pessoas').select('id').ilike('nome', `%${b}%`).limit(60)
+    const pids = (ps ?? []).map((p) => p.id as string)
+    vsel = pids.length
+      ? await supabase.from('vendas').select(sel).eq('status', 'concluida').in('pessoa_id', pids).order('created_at', { ascending: false }).limit(50)
+      : await supabase.from('vendas').select(sel).eq('status', 'concluida').ilike('vendedor_nome', `%${b}%`).order('created_at', { ascending: false }).limit(50)
+  } else {
+    vsel = await supabase.from('vendas').select(sel).eq('status', 'concluida').order('created_at', { ascending: false }).limit(50)
+  }
+  const { data, error } = vsel
 
   if (error) throw new Error(error.message)
 
@@ -155,7 +167,7 @@ export async function buscarVendasRecentes(
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let rows = (data ?? [])
+  const rows = (data ?? [])
     .filter((v: any) => (devolvidoPorVenda[v.id] ?? 0) < (v.total as number) - 0.01)
     .map((v: any) => ({
       id: v.id as string,
@@ -164,15 +176,6 @@ export async function buscarVendasRecentes(
       total: v.total as number,
       created_at: v.created_at as string,
     }))
-
-  if (busca.trim()) {
-    const b = busca.toLowerCase().trim()
-    const isNum = /^\d+$/.test(b)
-    rows = rows.filter((v) =>
-      v.pessoa_nome?.toLowerCase().includes(b) ||
-      (isNum && v.numero?.toString() === b)
-    )
-  }
 
   return rows
 }

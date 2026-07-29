@@ -4,7 +4,7 @@ import { IconPlus } from '@/components/icons'
 import { Spinner } from '@/components/Spinner'
 import { MOTIVOS_DEVOLUCAO, motivoDevolucao } from '@/lib/motivos'
 import { ResumoMotivos } from '@/components/ResumoMotivos'
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -180,16 +180,30 @@ export function DevolucoesClient({
     setMotivo(''); setMotivoTipo(''); setTipoCredito('dinheiro'); setErro('')
   }
 
-  const carregarVendas = useCallback(async (q: string) => {
+  // Busca da venda: DEBOUNCE (350ms) + "último venceu" (ignora resposta velha) + loading
+  // fica ligado até a busca CERTA voltar. Antes disparava a cada tecla (o Next serializa
+  // server actions → fila) e o loading desligava na 1ª resposta, mostrando "Nenhuma venda
+  // encontrada" antes do resultado certo chegar (reclamação da Isa 28/07).
+  const seqBusca = useRef(0)
+  useEffect(() => {
+    if (!open || step !== 'buscar') return
+    const seq = ++seqBusca.current
     setCarregandoBusca(true); setErro('')
-    try {
-      const t = await authToken()
-      if (!t) { setErro('Sessão expirada.'); return }
-      setVendas(await buscarVendasRecentes(t, q))
-    } catch (e) { setErro(e instanceof Error ? e.message : 'Erro ao buscar vendas.') }
-    finally { setCarregandoBusca(false) }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    const id = setTimeout(async () => {
+      try {
+        const t = await authToken()
+        if (!t) { if (seq === seqBusca.current) setErro('Sessão expirada.'); return }
+        const res = await buscarVendasRecentes(t, buscaVenda)
+        if (seq === seqBusca.current) setVendas(res)
+      } catch (e) {
+        if (seq === seqBusca.current) setErro(e instanceof Error ? e.message : 'Erro ao buscar vendas.')
+      } finally {
+        if (seq === seqBusca.current) setCarregandoBusca(false)
+      }
+    }, buscaVenda.trim() ? 350 : 0)   // vazio (abertura) carrega na hora
+    return () => clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buscaVenda, open, step])
 
   const selecionarVenda = async (id: string) => {
     setCarregandoVenda(true); setErro('')
@@ -320,7 +334,7 @@ export function DevolucoesClient({
           <p className="text-xs text-gray-400 mb-0.5">Vendas</p>
           <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Devoluções</h2>
         </div>
-        <button onClick={() => { setOpen(true); carregarVendas('') }}
+        <button onClick={() => setOpen(true)}
           className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700 active:scale-95 transition shadow-sm">
           <IconPlus className="h-4 w-4" />
           Nova Devolução
@@ -543,14 +557,23 @@ export function DevolucoesClient({
               {step === 'buscar' && (
                 <div className="space-y-3">
                   <input ref={buscaRef} value={buscaVenda}
-                    onChange={(e) => { setBuscaVenda(e.target.value); carregarVendas(e.target.value) }}
+                    onChange={(e) => setBuscaVenda(e.target.value)}
                     placeholder="Nome do cliente ou número da venda..."
                     className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   {erro && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{erro}</p>}
+                  {carregandoBusca && (
+                    <div className="h-1 w-full overflow-hidden rounded-full bg-blue-100">
+                      <div className="h-full w-1/3 rounded-full bg-blue-600" style={{ animation: 'barra 1s ease-in-out infinite' }} />
+                    </div>
+                  )}
                   {carregandoBusca
-                    ? <p className="py-8 text-center text-sm text-gray-400">Buscando...</p>
+                    ? <p className="py-8 text-center text-sm text-gray-400">Buscando venda...</p>
                     : vendas.length === 0
-                      ? <p className="py-8 text-center text-sm text-gray-400">Nenhuma venda encontrada.</p>
+                      ? <p className="py-8 text-center text-sm text-gray-400">{
+                          !buscaVenda.trim() ? 'Digite o número da venda ou o nome do cliente.'
+                          : /^\d+$/.test(buscaVenda.trim()) ? `Venda #${buscaVenda.trim()} não encontrada (ou já foi devolvida).`
+                          : 'Nenhuma venda encontrada.'
+                        }</p>
                       : (
                         <div className="divide-y divide-gray-50 rounded-xl border border-gray-100 overflow-hidden">
                           {vendas.map((v) => (
