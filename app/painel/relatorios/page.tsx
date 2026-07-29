@@ -21,6 +21,12 @@ const tipoLabel = (tipo: string | null): string => {
   if (tipo.includes('credito') || tipo.includes('loja')) return 'Crédito'
   return 'Outro'
 }
+const acaoLabel: Record<string, string> = {
+  'venda.finalizar': 'Venda', 'devolucao.criar': 'Devolução', 'caixa.abrir': 'Abriu caixa',
+  'caixa.fechar': 'Fechou caixa', 'caixa.reforco': 'Reforço', 'caixa.retirada': 'Retirada',
+}
+const ctxTexto = (c: Record<string, unknown> | null) =>
+  c ? Object.entries(c).filter(([, v]) => v != null && v !== '').map(([k, v]) => `${k}: ${v}`).join(' · ') || '—' : '—'
 const asRows = (a: unknown[]) => a as unknown as Record<string, unknown>[]
 
 type ItemVenda = {
@@ -686,6 +692,13 @@ export default async function RelatoriosPage({
     }
   }
 
+  // ---------- Registro de Atividades (log) ----------
+  const registros = aba === 'registro'
+    ? (await supabase.from('logs_atividade').select('created_at, usuario_email, tipo_acao, contexto')
+        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+        .order('created_at', { ascending: false }).limit(300)).data ?? []
+    : []
+
   const categorias: { cat: string; abas: { id: string; label: string }[] }[] = [
     { cat: 'Financeiro', abas: [
       { id: 'financeiro', label: 'Lançamentos' }, { id: 'fluxo', label: 'Fluxo de Caixa' },
@@ -707,6 +720,7 @@ export default async function RelatoriosPage({
       { id: 'inventario', label: 'Inventário' }, { id: 'movsaldo', label: 'Movimentações' },
     ] },
     { cat: 'Serviços', abas: [{ id: 'tecnicos', label: 'Performance Técnicos' }] },
+    { cat: 'Sistema', abas: [{ id: 'registro', label: 'Registro de Atividades' }] },
     { cat: 'Clientes', abas: [
       { id: 'inativos', label: 'Inativos' }, { id: 'aniversarios', label: 'Aniversariantes' },
       { id: 'contatos', label: 'Contatos' },
@@ -833,6 +847,20 @@ export default async function RelatoriosPage({
         fcHeader
           ? <FechamentoDetalhe header={fcHeader} movimentos={fcMovs} voltarHref={`/painel/relatorios?aba=fechamentocaixa&de=${dataInicio}&ate=${dataFim}&loja=${loja ?? 'todas'}`} />
           : <p className="rounded-xl border border-gray-200 bg-white p-6 text-center text-sm text-gray-400">Caixa não encontrado.</p>
+      )}
+
+      {aba === 'registro' && (
+        <Tabela vazio={registros.length === 0} vazioMsg="Nenhuma atividade no período."
+          head={['Quando', 'Usuário', 'Ação', 'Detalhe']} alinhas={['l', 'l', 'l', 'l']}>
+          {registros.map((r, i) => (
+            <tr key={i} className="hover:bg-blue-50/60">
+              <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{dtBR(r.created_at)}</td>
+              <td className="px-4 py-3 text-sm text-gray-600">{r.usuario_email ?? '—'}</td>
+              <td className="px-4 py-3 text-sm"><span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">{acaoLabel[r.tipo_acao] ?? r.tipo_acao}</span></td>
+              <td className="px-4 py-3 text-sm text-gray-500">{ctxTexto(r.contexto as Record<string, unknown> | null)}</td>
+            </tr>
+          ))}
+        </Tabela>
       )}
 
       {/* ---------------- Fluxo de Caixa ---------------- */}
