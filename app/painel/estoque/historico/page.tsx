@@ -25,6 +25,7 @@ type Linha = {
   produtoId: string
   produto: string
   parte: string
+  vendedor: string
   deposito: string
   qtd: number
   valorUnitario: number | null
@@ -40,6 +41,7 @@ export default async function MovimentacoesPage({
     tipo?: string
     produto?: string
     cliente?: string
+    vendedor?: string
     deposito?: string
     de?: string
     ate?: string
@@ -145,6 +147,7 @@ export default async function MovimentacoesPage({
       produtoId: m.produto_id,
       produto: p?.nome ?? m.produto_id,
       parte: '—',
+      vendedor: '—',
       deposito: depMap[m.deposito_id] ?? '—',
       qtd: m.quantidade,
       valorUnitario: m.operacao === 'perda' ? custo : null,
@@ -165,6 +168,7 @@ export default async function MovimentacoesPage({
       produtoId: it.produto_id as string,
       produto: nome,
       parte: (v.pessoa_id ? pessoaMap[v.pessoa_id] : null) ?? 'Cliente Final',
+      vendedor: (v.vendedor_nome as string) || '—',
       deposito: depMap[(v.deposito_id as string) ?? ''] ?? '—',
       qtd: it.quantidade as number,
       valorUnitario: it.preco_unitario as number | null,
@@ -184,6 +188,7 @@ export default async function MovimentacoesPage({
       produtoId: it.produto_id as string,
       produto: (it.nome as string) ?? (it.produto_id as string),
       parte: d.pessoa_nome ?? 'Cliente Final',
+      vendedor: (d.vendedor_nome as string) || '—',
       deposito: depMap[(d.deposito_id as string) ?? ''] ?? '—',
       qtd: it.quantidade as number,
       valorUnitario: it.preco_unitario as number | null,
@@ -194,8 +199,10 @@ export default async function MovimentacoesPage({
   }
 
   // 5. Filtros JS + ordenação
+  const vendedores = [...new Set(linhas.map((l) => l.vendedor).filter((v) => v && v !== '—'))].sort()
   let rows = linhas
   if (params.tipo) rows = rows.filter((r) => r.tipo === params.tipo)
+  if (params.vendedor) rows = rows.filter((r) => r.vendedor === params.vendedor)
   if (params.produto) {
     const t = params.produto.toLowerCase()
     rows = rows.filter((r) => r.produto.toLowerCase().includes(t))
@@ -231,6 +238,7 @@ export default async function MovimentacoesPage({
   if (params.tipo)     baseParams.tipo     = params.tipo
   if (params.produto)  baseParams.produto  = params.produto
   if (params.cliente)  baseParams.cliente  = params.cliente
+  if (params.vendedor) baseParams.vendedor = params.vendedor
   if (params.deposito) baseParams.deposito = params.deposito
   if (params.de)       baseParams.de       = params.de
   if (params.ate)      baseParams.ate      = params.ate
@@ -243,7 +251,7 @@ export default async function MovimentacoesPage({
     return { href: `/painel/estoque/historico?${qs}`, arrow, ativo }
   }
 
-  const advancedOn = !!(params.produto || params.cliente || params.deposito)
+  const advancedOn = !!(params.produto || params.cliente || params.deposito || params.vendedor)
 
   const fmtDate = (iso: string) =>
     new Date(iso).toLocaleString('pt-BR', {
@@ -380,6 +388,14 @@ export default async function MovimentacoesPage({
                 {(depositos ?? []).map((d) => (
                   <option key={d.id} value={d.id}>{d.nome}</option>
                 ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-500">Vendedor</label>
+              <select name="vendedor" defaultValue={params.vendedor ?? ''}
+                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">Todos os vendedores</option>
+                {vendedores.map((v) => <option key={v} value={v}>{v}</option>)}
               </select>
             </div>
           </div>
