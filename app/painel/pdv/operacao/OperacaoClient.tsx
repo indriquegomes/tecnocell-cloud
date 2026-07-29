@@ -1152,7 +1152,12 @@ export function OperacaoClient({
   // carrega o token do navegador 1x → o withToken usa ele síncrono no submit
   useEffect(() => { authToken().then((t) => { tokenCache = t }) }, [])
 
-  const formasFisicas = formas.filter((f) => !FORMAS_INVALIDAS.some((inv) => f.includes(inv)))
+  // Dinheiro PRIMEIRO — reforço/sangria é quase sempre em espécie, e o <select> usa o 1º
+  // como padrão. Antes ficava "Crédito PagBank" (as formas vêm ordenadas por nome), então
+  // a operadora fazia um reforço/retirada em cartão sem querer e não mexia na gaveta (Isa 29/07).
+  const formasFisicas = formas
+    .filter((f) => !FORMAS_INVALIDAS.some((inv) => f.includes(inv)))
+    .sort((a, b) => (/dinheiro/i.test(a) ? -1 : /dinheiro/i.test(b) ? 1 : 0))
   // Saldo da GAVETA = só dinheiro físico. PIX está no banco, cartão está na
   // maquininha, fiado é dívida — contar isso como cédula gerava divergência
   // falsa em cima de quem fecha o caixa (aconteceu: caixa 09→13/07, R$30 de
