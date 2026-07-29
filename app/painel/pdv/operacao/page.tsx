@@ -131,12 +131,15 @@ export default async function OperacaoPDVPage({
         // — por isso o fiado cancelado "voltava" como fantasma no total (Isa 29/07).
         supabase
           .from('lancamentos')
-          .select('venda_id')
+          .select('venda_id, valor')
           .eq('status', 'cancelado')
           .ilike('descricao', '%Fiado%')
           .in('venda_id', vendasRaw.map((v) => v.id)),
       ])
       const fiadoCancelado = new Set((fiadoCancRes.data ?? []).map((l) => l.venda_id as string))
+      // ...e o fiado cancelado também sai do TOTAL de vendas / total do turno — não só do
+      // "por forma". Senão o R$ do fiado devolvido ficava fantasma no total (Isa 29/07).
+      totalVendas -= (fiadoCancRes.data ?? []).reduce((s, l) => s + Number((l as { valor: number | null }).valor ?? 0), 0)
       const nomePessoa: Record<string, string> = Object.fromEntries((pessoasRes.data ?? []).map((p) => [p.id, p.nome]))
       const vendaPorId = Object.fromEntries(vendasRaw.map((v) => [v.id, v]))
 
@@ -278,6 +281,7 @@ export default async function OperacaoPDVPage({
       // Mesma verdade do caixa aberto: pagamentos_venda classificado por tipo
       const zPorForma: Record<string, number> = {}
       const zPorTipo: Record<string, number> = {}
+      let zFiadoCancValor = 0   // fiado cancelado/devolvido — sai do por-forma E do total
       if (zVendas.length > 0) {
         const [zPagsRes, zFiadoCancRes] = await Promise.all([
           supabase
@@ -287,12 +291,13 @@ export default async function OperacaoPDVPage({
           // mesmo motivo do caixa aberto: fiado cancelado/devolvido não conta
           supabase
             .from('lancamentos')
-            .select('venda_id')
+            .select('venda_id, valor')
             .eq('status', 'cancelado')
             .ilike('descricao', '%Fiado%')
             .in('venda_id', zVendas.map((v) => v.id)),
         ])
         const zFiadoCancelado = new Set((zFiadoCancRes.data ?? []).map((l) => l.venda_id as string))
+        zFiadoCancValor = (zFiadoCancRes.data ?? []).reduce((s, l) => s + Number((l as { valor: number | null }).valor ?? 0), 0)
         for (const pg of zPagsRes.data ?? []) {
           const nome = formasPorId[pg.forma_pagamento_id ?? ''] ?? 'Outras'
           const tipo = tipoPorId[pg.forma_pagamento_id ?? ''] ?? 'outros'
@@ -307,7 +312,7 @@ export default async function OperacaoPDVPage({
         fechado_em: ultimoCaixa.fechado_em ?? new Date().toISOString(),
         valor_abertura: ultimoCaixa.valor_abertura,
         obs_fechamento: ultimoCaixa.obs_fechamento ?? null,
-        totalVendas: zVendas.reduce((s, v) => s + (v.total ?? 0), 0),
+        totalVendas: zVendas.reduce((s, v) => s + (v.total ?? 0), 0) - zFiadoCancValor,
         qtdVendas: zVendas.length,
         totalReforcos: zMov.filter((m) => m.tipo === 'reforco').reduce((s, m) => s + m.valor, 0),
         totalRetiradas: zMov.filter((m) => m.tipo === 'retirada').reduce((s, m) => s + m.valor, 0),
