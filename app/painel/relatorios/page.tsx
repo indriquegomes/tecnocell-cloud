@@ -46,8 +46,9 @@ export default async function RelatoriosPage({
       .gte('data_vencimento', dataInicio).lte('data_vencimento', dataFim + 'T23:59:59')
       .order('data_vencimento').range(from, to))
   }
-  const totalReceber = lancamentos.filter((l) => l.tipo === 'receber').reduce((s, l) => s + l.valor, 0)
-  const totalPagar = lancamentos.filter((l) => l.tipo === 'pagar').reduce((s, l) => s + l.valor, 0)
+  // status 'cancelado' (ex.: fiado devolvido) NÃO é mais dívida — não soma em a receber/a pagar
+  const totalReceber = lancamentos.filter((l) => l.tipo === 'receber' && l.status !== 'cancelado').reduce((s, l) => s + l.valor, 0)
+  const totalPagar = lancamentos.filter((l) => l.tipo === 'pagar' && l.status !== 'cancelado').reduce((s, l) => s + l.valor, 0)
 
   // ---------- Vendas (lista) ----------
   let vendasLista: { id: string; total: number; desconto: number; created_at: string; status: string }[] = []
