@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { IconPlus, IconClipboard } from '@/components/icons'
 import Link from 'next/link'
 import { PedidosFiltros } from './PedidosFiltros'
@@ -36,9 +37,9 @@ type Linha = {
 export default async function PedidosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tipo?: string; status?: string; q?: string; ordem?: string; dir?: string }>
+  searchParams: Promise<{ tipo?: string; status?: string; q?: string; ordem?: string; dir?: string; loja?: string }>
 }) {
-  const { tipo, status, q, ordem, dir } = await searchParams
+  const { tipo, status, q, ordem, dir, loja } = await searchParams
   const supabase = await createServiceClient()
 
   const ordemAtual = ordem ?? 'cliente'
@@ -96,9 +97,15 @@ export default async function PedidosPage({
     })),
   ]
 
+  // Loja/empresa: gerente vê todas; atendente só a(s) permitida(s). Adendo Isa 29/07.
+  const { permitidas, todas: vemTodas } = await lojasDoUsuario()
+  const nomesPermitidos = permitidas.map((l) => l.nome)
+
   // filtros (o "tipo=venda" é novo; status casa nos dois vocabulários)
   const busca = q?.toLowerCase().trim() ?? ''
   const lista = linhas
+    .filter((l) => vemTodas || !l.loja || nomesPermitidos.includes(l.loja))
+    .filter((l) => !loja || l.loja === loja)
     .filter((l) => !tipo || l.tipo === tipo)
     .filter((l) => {
       if (!status) return true
@@ -149,6 +156,8 @@ export default async function PedidosPage({
         tipo={tipo ?? ''}
         status={status ?? ''}
         q={q ?? ''}
+        loja={loja ?? ''}
+        lojas={nomesPermitidos}
         total={lista.length}
       />
 

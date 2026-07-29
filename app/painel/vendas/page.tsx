@@ -1,5 +1,6 @@
 import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
+import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { VendasClient } from './VendasClient'
 
 export default async function PainelVendasPage({
@@ -43,14 +44,16 @@ export default async function PainelVendasPage({
   const formaMap = Object.fromEntries(formas.map(f => [f.id, f.nome]))
 
   // Loja de cada venda — via CAIXA (o depósito tem loja NULL em alguns). Isa 29/07.
-  const { data: lojasData } = await supabase.from('lojas').select('id, nome').order('nome')
+  // Respeita a permissão: gerente/master vê todas; atendente só a(s) permitida(s).
+  const { todasLojas, permitidas, todas: vemTodas } = await lojasDoUsuario()
   const caixaIds = [...new Set((vendasRaw ?? []).map(v => v.caixa_id).filter(Boolean))] as string[]
   const { data: caixasData } = caixaIds.length
     ? await supabase.from('caixas').select('id, loja_id').in('id', caixaIds)
     : { data: [] as { id: string; loja_id: string | null }[] }
-  const nomeLoja: Record<string, string> = Object.fromEntries((lojasData ?? []).map(l => [l.id, l.nome]))
+  const nomeLoja: Record<string, string> = Object.fromEntries(todasLojas.map(l => [l.id, l.nome]))
   const lojaDoCaixa: Record<string, string | null> = Object.fromEntries((caixasData ?? []).map(c => [c.id, c.loja_id]))
-  const lojas = (lojasData ?? []).map(l => l.nome as string)
+  const nomesPermitidos = permitidas.map(l => l.nome)
+  const lojas = nomesPermitidos
   const lojaDaVenda: Record<string, string> = Object.fromEntries((vendasRaw ?? []).map(v => [v.id, v.caixa_id ? (nomeLoja[lojaDoCaixa[v.caixa_id] ?? ''] ?? '') : '']))
 
   // Nomes de clientes
@@ -98,6 +101,7 @@ export default async function PainelVendasPage({
     forma_pagamento_nome: pagamentosMap[v.id] ?? (v.forma_pagamento_id ? (formaMap[v.forma_pagamento_id] ?? null) : null),
     loja: lojaDaVenda[v.id] ?? '',
   })).filter((v) => {
+    if (!vemTodas && v.loja && !nomesPermitidos.includes(v.loja)) return false
     if (loja && v.loja !== loja) return false
     if (forma && !(pagamentosIds[v.id]?.has(forma))) return false
     if (!busca) return true

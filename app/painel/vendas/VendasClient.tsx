@@ -210,13 +210,15 @@ export function VendasClient({
               <option value="cancelada">Canceladas</option>
             </select>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-gray-400 uppercase">Loja</label>
-            <select value={loja} onChange={e => setLoja(e.target.value)} className="field">
-              <option value="">Todas</option>
-              {lojas.map(l => <option key={l} value={l}>{l}</option>)}
-            </select>
-          </div>
+          {lojas.length > 1 && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-gray-400 uppercase">Loja</label>
+              <select value={loja} onChange={e => setLoja(e.target.value)} className="field">
+                <option value="">Todas</option>
+                {lojas.map(l => <option key={l} value={l}>{l}</option>)}
+              </select>
+            </div>
+          )}
           <button onClick={aplicarFiltros}
             className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-bold text-white hover:bg-blue-700 transition">
             Filtrar
