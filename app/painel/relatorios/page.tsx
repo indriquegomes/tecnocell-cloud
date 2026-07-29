@@ -52,11 +52,17 @@ export default async function RelatoriosPage({
 
   // ---------- Vendas (lista) ----------
   let vendasLista: { id: string; total: number; desconto: number; created_at: string; status: string }[] = []
+  let totalDevolucoesPeriodo = 0
   if (aba === 'vendas') {
     vendasLista = await fetchAll<{ id: string; total: number; desconto: number; created_at: string; status: string }>((from, to) => supabase.from('vendas')
       .select('id, total, desconto, created_at, status')
       .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
       .order('created_at', { ascending: false }).range(from, to))
+    // Devoluções processadas no período → Vendas líquidas = brutas − devoluções.
+    // Antes o faturamento contava a venda devolvida cheia (não descontava nada).
+    const devs = await fetchAll<{ valor_total: number | null }>((from, to) => supabase.from('devolucoes')
+      .select('valor_total').gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to))
+    totalDevolucoesPeriodo = (devs ?? []).reduce((s, d) => s + (d.valor_total ?? 0), 0)
   }
   const totalVendasLista = vendasLista.reduce((s, v) => s + v.total, 0)
 
@@ -782,7 +788,9 @@ export default async function RelatoriosPage({
       {aba === 'vendas' && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <Card label="Total Vendido" valor={fmt(totalVendasLista)} cor="text-blue-600" />
+            <Card label="Vendas brutas" valor={fmt(totalVendasLista)} cor="text-gray-800" />
+            <Card label="(−) Devoluções" valor={fmt(totalDevolucoesPeriodo)} cor="text-red-500" />
+            <Card label="Vendas líquidas" valor={fmt(totalVendasLista - totalDevolucoesPeriodo)} cor="text-blue-600" />
             <Card label="Nº de Vendas" valor={String(vendasLista.length)} cor="text-gray-800" />
             <Card label="Ticket Médio" valor={vendasLista.length > 0 ? fmt(totalVendasLista / vendasLista.length) : 'R$ 0,00'} cor="text-gray-800" />
           </div>
