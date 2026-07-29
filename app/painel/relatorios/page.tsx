@@ -53,7 +53,7 @@ export default async function RelatoriosPage({
   const periodo = { inicio: dataInicio + 'T00:00:00', fim: dataFim + 'T23:59:59' }
 
   const precisaItens = ['lucro', 'produtos', 'abc', 'dre'].includes(aba)
-  const precisaClientes = ['produtos', 'abc'].includes(aba)
+  const precisaClientes = ['produtos', 'abc', 'rankclientes'].includes(aba)
 
   // ---------- Financeiro (lançamentos por vencimento) ----------
   let lancamentos: { tipo: string; status: string; valor: number; data_vencimento: string; descricao: string; pessoa_nome: string }[] = []
@@ -722,6 +722,7 @@ export default async function RelatoriosPage({
     { cat: 'Serviços', abas: [{ id: 'tecnicos', label: 'Performance Técnicos' }] },
     { cat: 'Sistema', abas: [{ id: 'registro', label: 'Registro de Atividades' }] },
     { cat: 'Clientes', abas: [
+      { id: 'rankclientes', label: 'Ranking de vendas' },
       { id: 'inativos', label: 'Inativos' }, { id: 'aniversarios', label: 'Aniversariantes' },
       { id: 'contatos', label: 'Contatos' },
     ] },
@@ -847,6 +848,25 @@ export default async function RelatoriosPage({
         fcHeader
           ? <FechamentoDetalhe header={fcHeader} movimentos={fcMovs} voltarHref={`/painel/relatorios?aba=fechamentocaixa&de=${dataInicio}&ate=${dataFim}&loja=${loja ?? 'todas'}`} />
           : <p className="rounded-xl border border-gray-200 bg-white p-6 text-center text-sm text-gray-400">Caixa não encontrado.</p>
+      )}
+
+      {aba === 'rankclientes' && (
+        <RankingBox titulo="Ranking de vendas — clientes que mais compraram" filename={`ranking_clientes_${dataInicio}_${dataFim}.csv`}
+          cols={[{ key: 'nome', label: 'Cliente' }, { key: 'qtd', label: 'Compras' }, { key: 'total', label: 'Total', money: true }]}
+          rows={asRows(rankClientes)} head={['Cliente', 'Compras', 'Total']}>
+          {rankClientes.slice(0, 50).map((c, i) => (
+            <tr key={i} className="hover:bg-blue-50/60">
+              <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.nome}</td>
+              <td className="px-4 py-3 text-sm text-right text-gray-600">{c.qtd}</td>
+              <td className="px-4 py-3">
+                <div className="flex items-center justify-end gap-2">
+                  <div className="w-20 shrink-0"><Barra frac={c.total / maxCli} cor="#F47920" /></div>
+                  <span className="text-sm font-semibold text-gray-800">{fmt(c.total)}</span>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </RankingBox>
       )}
 
       {aba === 'registro' && (
