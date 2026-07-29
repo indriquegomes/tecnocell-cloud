@@ -243,7 +243,9 @@ export function DevolucoesClient({
   const totalCheio = venda
     ? venda.itens.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0)
     : 0
-  const fatorDesconto = venda && totalCheio > 0 ? venda.total / totalCheio : 1
+  // Base do reembolso = total SEM a taxa de cartão (a taxa é repasse do custo da
+  // maquininha, não valor de produto — não se devolve). Ver taxa_cartao na action.
+  const fatorDesconto = venda && totalCheio > 0 ? (venda.total - venda.taxa_cartao) / totalCheio : 1
   const totalSelecionado = venda
     ? venda.itens.reduce((s, i) => s + (itens.get(i.produto_id) ?? 0) * i.preco_unitario, 0) * fatorDesconto
     : 0

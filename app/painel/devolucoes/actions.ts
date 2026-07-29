@@ -15,6 +15,7 @@ export interface VendaParaDevolucao {
   id: string
   numero: number | null
   total: number
+  taxa_cartao: number   // taxa de cartão embutida no total — NÃO reembolsável na devolução
   created_at: string
   pessoa_id: string | null
   pessoa_nome: string | null
@@ -53,7 +54,7 @@ export async function buscarVendaParaDevolucao(
   await requirePermissao('devolucoes', accessToken)
   const supabase = await createServiceClient()
 
-  const [vendaRes, itensRes, lancRes, seriesRes] = await Promise.all([
+  const [vendaRes, itensRes, lancRes, seriesRes, pagRes] = await Promise.all([
     supabase
       .from('vendas')
       .select('id, numero, total, created_at, vendedor_nome, forma_pagamento_id, pessoa_id, deposito_id, pessoas!pessoa_id(nome)')
@@ -74,6 +75,10 @@ export async function buscarVendaParaDevolucao(
       .select('produto_id, serie')
       .eq('venda_id', vendaId)
       .eq('status', 'vendido'),
+    supabase
+      .from('pagamentos_venda')
+      .select('taxa')
+      .eq('venda_id', vendaId),
   ])
 
   // IMEIs vendidos agrupados por produto (aparelhos serializados desta venda)
@@ -86,6 +91,10 @@ export async function buscarVendaParaDevolucao(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const vRaw = vendaRes.data as any
   const pessoaNome = (vRaw.pessoas?.nome ?? vRaw.vendedor_nome ?? null) as string | null
+  // Taxa de cartão embutida no total (repasse do custo da maquininha). NÃO é valor de
+  // produto → não reembolsa na devolução (pedido Isa 28/07): a base do reembolso é
+  // `total − taxa`. Cartão TON etc. gravam taxa em pagamentos_venda; dinheiro/fiado = 0.
+  const taxaCartao = ((pagRes.data ?? []) as { taxa: number | null }[]).reduce((s, p) => s + (p.taxa ?? 0), 0)
 
   const [formaRes, depositoRes] = await Promise.all([
     vRaw.forma_pagamento_id
@@ -100,6 +109,7 @@ export async function buscarVendaParaDevolucao(
     id: vRaw.id,
     numero: vRaw.numero ?? null,
     total: vRaw.total,
+    taxa_cartao: taxaCartao,
     created_at: vRaw.created_at,
     pessoa_id: (vRaw.pessoa_id ?? null) as string | null,
     pessoa_nome: pessoaNome,
@@ -155,20 +165,28 @@ export async function buscarVendasRecentes(
   if (error) throw new Error(error.message)
 
   // Esconde vendas já totalmente devolvidas (evita devolução dupla).
-  // Soma o valor devolvido por venda e compara com o total.
+  // Soma o valor devolvido por venda e compara com o DEVOLVÍVEL = total − taxa de cartão
+  // (a taxa não é reembolsável, então o devolvido máximo é o valor de produto, não o total
+  // com taxa — senão a venda toda devolvida reaparecia por causa dos centavos da taxa).
   const ids = (data ?? []).map((v) => v.id as string)
   const devolvidoPorVenda: Record<string, number> = {}
+  const taxaPorVenda: Record<string, number> = {}
   if (ids.length) {
     const { data: devs } = await supabase
       .from('devolucoes').select('venda_id, valor_total').in('venda_id', ids)
     for (const d of (devs ?? []) as { venda_id: string | null; valor_total: number | null }[]) {
       if (d.venda_id) devolvidoPorVenda[d.venda_id] = (devolvidoPorVenda[d.venda_id] ?? 0) + (d.valor_total ?? 0)
     }
+    const { data: pgs } = await supabase
+      .from('pagamentos_venda').select('venda_id, taxa').in('venda_id', ids)
+    for (const p of (pgs ?? []) as { venda_id: string | null; taxa: number | null }[]) {
+      if (p.venda_id) taxaPorVenda[p.venda_id] = (taxaPorVenda[p.venda_id] ?? 0) + (p.taxa ?? 0)
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows = (data ?? [])
-    .filter((v: any) => (devolvidoPorVenda[v.id] ?? 0) < (v.total as number) - 0.01)
+    .filter((v: any) => (devolvidoPorVenda[v.id] ?? 0) < ((v.total as number) - (taxaPorVenda[v.id] ?? 0)) - 0.01)
     .map((v: any) => ({
       id: v.id as string,
       numero: v.numero as number | null,
