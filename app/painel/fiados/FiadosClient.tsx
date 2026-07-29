@@ -7,7 +7,7 @@ const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', curren
 const semAcento = (s: string) =>
   s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
 
-type Nota = { id: string; codigo: number | null; descricao: string | null; pecas: string | null; vendedor: string; valor: number; vencimento: string | null; venda_id: string | null; vencida: boolean }
+type Nota = { id: string; codigo: number | null; descricao: string | null; pecas: string | null; vendedor: string; loja: string; valor: number; vencimento: string | null; venda_id: string | null; vencida: boolean }
 type Cliente = { nome: string; total: number; vencido: number; qtd: number; telefone: string | null; notas: Nota[] }
 
 const fmtData = (d: string | null) => (d ? d.slice(0, 10).split('-').reverse().join('/') : '—')
@@ -46,14 +46,17 @@ export function FiadosClient({
   totalReceber,
   totalVencido,
   vendedores,
+  lojas,
 }: {
   clientes: Cliente[]
   totalReceber: number
   totalVencido: number
   vendedores: string[]
+  lojas: string[]
 }) {
   const [busca, setBusca] = useState('')
   const [vendedorSel, setVendedorSel] = useState('')   // '' = todos
+  const [lojaSel, setLojaSel] = useState('')            // '' = todas
   const [copiado, setCopiado] = useState<string | null>(null)
   const [aberto, setAberto] = useState<string | null>(null)
   const [ordem, setOrdem] = useState<'nome' | 'total'>('nome')   // Isa: padrão alfabético
@@ -62,10 +65,12 @@ export function FiadosClient({
   // conta escolhida. Assim a atendente vê (e cobra) só os fiados dela — e as vendas
   // de outra conta (ex.: a que rodou o robô) ficam numa opção à parte. Foi a mistura
   // de contas na mesma lista que confundiu a cobrança das meninas.
-  const clientesVend = vendedorSel
+  const temFiltro = !!(vendedorSel || lojaSel)
+  const clientesVend = temFiltro
     ? clientes
         .map((c) => {
-          const notas = c.notas.filter((n) => n.vendedor === vendedorSel)
+          const notas = c.notas.filter((n) =>
+            (!vendedorSel || n.vendedor === vendedorSel) && (!lojaSel || n.loja === lojaSel))
           const total = notas.reduce((s, n) => s + n.valor, 0)
           const vencido = notas.filter((n) => n.vencida).reduce((s, n) => s + n.valor, 0)
           return { ...c, notas, total, vencido, qtd: notas.length }
@@ -86,9 +91,9 @@ export function FiadosClient({
       : b.total - a.total,
   )
 
-  // totais refletem o filtro de vendedor
-  const totReceber = vendedorSel ? clientesVend.reduce((s, c) => s + c.total, 0) : totalReceber
-  const totVencido = vendedorSel ? clientesVend.reduce((s, c) => s + c.vencido, 0) : totalVencido
+  // totais refletem os filtros (vendedor + loja)
+  const totReceber = temFiltro ? clientesVend.reduce((s, c) => s + c.total, 0) : totalReceber
+  const totVencido = temFiltro ? clientesVend.reduce((s, c) => s + c.vencido, 0) : totalVencido
 
   const copiar = async (c: Cliente) => {
     try {
@@ -141,6 +146,17 @@ export function FiadosClient({
           <option value="">👤 Todos os vendedores</option>
           {vendedores.map((v) => <option key={v} value={v}>{v}</option>)}
         </select>
+        {lojas.length > 1 && (
+          <select
+            value={lojaSel}
+            onChange={(e) => setLojaSel(e.target.value)}
+            title="Loja"
+            className={`rounded-xl border bg-white px-4 py-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B6CA8]/30 sm:w-48 ${lojaSel ? 'border-[#1B6CA8] font-semibold text-[#1B6CA8]' : 'border-gray-200 text-gray-600'}`}
+          >
+            <option value="">🏬 Todas as lojas</option>
+            {lojas.map((l) => <option key={l} value={l}>{l}</option>)}
+          </select>
+        )}
         {/* Ordenação — alfabética por padrão (Isa) */}
         <div className="flex shrink-0 rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
           {([['nome', 'A→Z'], ['total', 'Maior dívida']] as const).map(([k, label]) => (

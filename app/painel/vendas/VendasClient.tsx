@@ -59,6 +59,7 @@ export function VendasClient({
   canceladas,
   formas,
   lojas,
+  vendedores,
   filtros,
 }: {
   vendas: Venda[]
@@ -68,7 +69,8 @@ export function VendasClient({
   canceladas: number
   formas: { id: string; nome: string }[]
   lojas: string[]
-  filtros: { de: string; ate: string; busca: string; forma: string; status: string; loja: string }
+  vendedores: string[]
+  filtros: { de: string; ate: string; busca: string; forma: string; status: string; loja: string; vendedor: string }
 }) {
   const router = useRouter()
 
@@ -96,6 +98,7 @@ export function VendasClient({
   const [forma, setForma] = useState(filtros.forma)
   const [status, setStatus] = useState(filtros.status)
   const [loja, setLoja] = useState(filtros.loja)
+  const [vendedor, setVendedor] = useState(filtros.vendedor)
 
   const [detalhe, setDetalhe] = useState<DetalheVendaCompleto | null>(null)
   const [carregando, setCarregando] = useState(false)
@@ -108,8 +111,9 @@ export function VendasClient({
     if (forma) p.set('forma', forma)
     if (status) p.set('status', status)
     if (loja) p.set('loja', loja)
+    if (vendedor) p.set('vendedor', vendedor)
     startTransition(() => router.push(`/painel/vendas?${p.toString()}`))
-  }, [de, ate, busca, forma, status, loja, router])
+  }, [de, ate, busca, forma, status, loja, vendedor, router])
 
   const abrirDetalhe = async (id: string) => {
     setCarregando(true)
@@ -219,6 +223,15 @@ export function VendasClient({
               </select>
             </div>
           )}
+          {vendedores.length > 1 && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-gray-400 uppercase">Vendedor</label>
+              <select value={vendedor} onChange={e => setVendedor(e.target.value)} className="field">
+                <option value="">Todos</option>
+                {vendedores.map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </div>
+          )}
           <button onClick={aplicarFiltros}
             className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-bold text-white hover:bg-blue-700 transition">
             Filtrar
@@ -226,7 +239,7 @@ export function VendasClient({
           <button onClick={() => {
             const ini = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
             const hj = hojeSP()
-            setDe(ini); setAte(hj); setBusca(''); setForma(''); setStatus(''); setLoja('')
+            setDe(ini); setAte(hj); setBusca(''); setForma(''); setStatus(''); setLoja(''); setVendedor('')
             startTransition(() => router.push('/painel/vendas'))
           }} className="rounded-xl border border-gray-200 px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 transition">
             Limpar

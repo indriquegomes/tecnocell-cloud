@@ -6,9 +6,9 @@ import { VendasClient } from './VendasClient'
 export default async function PainelVendasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ de?: string; ate?: string; busca?: string; forma?: string; status?: string; loja?: string }>
+  searchParams: Promise<{ de?: string; ate?: string; busca?: string; forma?: string; status?: string; loja?: string; vendedor?: string }>
 }) {
-  const { de, ate, busca, forma, status, loja } = await searchParams
+  const { de, ate, busca, forma, status, loja, vendedor } = await searchParams
   const supabase = await createServiceClient()
 
   const hoje = hojeSP()
@@ -82,7 +82,7 @@ export default async function PainelVendasPage({
     for (const [vid, set] of Object.entries(porVenda)) pagamentosMap[vid] = [...set].join(' + ')
   }
 
-  const vendas = (vendasRaw ?? []).map((v: {
+  const vendasBase = (vendasRaw ?? []).map((v: {
     id: string; numero: number | null; total: number; desconto: number
     created_at: string; status: string; vendedor_nome: string | null
     motivo_cancelamento?: string | null; observacoes?: string | null
@@ -113,6 +113,11 @@ export default async function PainelVendasPage({
     )
   })
 
+  // Vendedores da leva visível (pro filtro). Aplica o filtro de vendedor por último,
+  // pra a lista do dropdown não sumir quando ela escolhe um. Pedido da Isa 29/07.
+  const vendedores = [...new Set(vendasBase.map(v => v.vendedor_nome).filter(Boolean))].sort() as string[]
+  const vendas = vendedor ? vendasBase.filter(v => v.vendedor_nome === vendedor) : vendasBase
+
   const concluidas = vendas.filter(v => v.status === 'concluida')
   const totalGeral = concluidas.reduce((s, v) => s + v.total, 0)
   const totalDesconto = concluidas.reduce((s, v) => s + v.desconto, 0)
@@ -128,7 +133,8 @@ export default async function PainelVendasPage({
       canceladas={canceladas}
       formas={formas}
       lojas={lojas}
-      filtros={{ de: dataInicio, ate: dataFim, busca: busca ?? '', forma: forma ?? '', status: status ?? '', loja: loja ?? '' }}
+      vendedores={vendedores}
+      filtros={{ de: dataInicio, ate: dataFim, busca: busca ?? '', forma: forma ?? '', status: status ?? '', loja: loja ?? '', vendedor: vendedor ?? '' }}
     />
   )
 }

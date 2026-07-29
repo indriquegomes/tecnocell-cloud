@@ -1,0 +1,15 @@
+{
+ "url": "https://apiapp.sigecloud.com.br/v3/ReportPedidos/list-data?skip=0&limit=50",
+ "metodo": "POST",
+ "body": "{\"filtrarPor\":\"Data\",\"statusSistema\":\"\",\"exibirPedidosCancelados\":true,\"exibirPedidosComFiscalAtrelado\":\"\",\"ascending\":false,\"orderBy\":\"Data\",\"origemVenda\":\"\",\"periodoData\":10,\"dataInicial\":\"2026-07-01T03:00:00.000Z\",\"dataFinal\":\"2026-07-31T03:00:00.000Z\",\"empresa\":\"\",\"empresaID\":\"\",\"cliente\":\"\",\"clienteID\":\"\",\"status\":\"\",\"statusID\":\"\",\"categoria\":\"\",\"categoriaID\":\"\",\"tabelaDePreco\":\"\",\"tabelaDePrecoID\":\"\"}",
+ "headers": {
+  "sec-ch-ua-platform": "\"Windows\"",
+  "authorization": "Bearer a63396c522c878cd25e22ad7105a79e6",
+  "referer": "https://app.sigecloud.com.br/",
+  "sec-ch-ua": "\"Chromium\";v=\"149\", \"Not)A;Brand\";v=\"24\"",
+  "sec-ch-ua-mobile": "?0",
+  "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+  "accept": "application/json, text/plain, */*",
+  "content-type": "application/json; charset=UTF-8"
+ }
+}
