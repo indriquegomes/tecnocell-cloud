@@ -31,6 +31,7 @@ type Linha = {
   vendedor: string
   deposito: string
   qtd: number
+  custo: number
   valorUnitario: number | null
   valorTotal: number | null
   saldo: string | null
@@ -117,13 +118,17 @@ export default async function MovimentacoesPage({
       : Promise.resolve([] as Record<string, unknown>[]),
   ])
 
-  // 3. Nomes de produtos (manuais) e pessoas (vendas)
-  const prodIds = [...new Set((manuais ?? []).map((m) => m.produto_id).filter(Boolean))]
+  // 3. Nomes + CUSTO de produtos (manuais + venda + devolução) e pessoas (vendas). Isa 29/07: custo no relatório.
+  const prodIds = [...new Set([
+    ...(manuais ?? []).map((m) => m.produto_id),
+    ...(itensVenda ?? []).map((it) => it.produto_id as string),
+    ...(itensDev ?? []).map((it) => it.produto_id as string),
+  ].filter(Boolean))]
   const pessoaIds = [...new Set((vendas ?? []).map((v) => v.pessoa_id).filter(Boolean))] as string[]
-  const [{ data: prods }, { data: pessoas }] = await Promise.all([
+  const [prods, { data: pessoas }] = await Promise.all([
     prodIds.length
-      ? supabase.from('produtos').select('id, nome, codigo, preco_custo').in('id', prodIds)
-      : Promise.resolve({ data: [] as { id: string; nome: string; codigo: string | null; preco_custo: number | null }[] }),
+      ? fetchAllIn<{ id: string; nome: string; codigo: string | null; preco_custo: number | null }>(prodIds, (chunk, from, to) => supabase.from('produtos').select('id, nome, codigo, preco_custo').in('id', chunk).range(from, to))
+      : Promise.resolve([] as { id: string; nome: string; codigo: string | null; preco_custo: number | null }[]),
     pessoaIds.length
       ? supabase.from('pessoas').select('id, nome').in('id', pessoaIds)
       : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
@@ -153,6 +158,7 @@ export default async function MovimentacoesPage({
       vendedor: '—',
       deposito: depMap[m.deposito_id] ?? '—',
       qtd: m.quantidade,
+      custo: (Number(p?.preco_custo) || 0) * (Number(m.quantidade) || 0),
       valorUnitario: m.operacao === 'perda' ? custo : null,
       valorTotal: m.operacao === 'perda' ? custo * (Number(m.quantidade) || 0) : null,
       saldo: `${m.qtd_anterior} → ${m.qtd_nova}`,
@@ -174,6 +180,7 @@ export default async function MovimentacoesPage({
       vendedor: (v.vendedor_nome as string) || '—',
       deposito: depMap[(v.deposito_id as string) ?? ''] ?? '—',
       qtd: it.quantidade as number,
+      custo: (Number(prodMap[it.produto_id as string]?.preco_custo) || 0) * (Number(it.quantidade) || 0),
       valorUnitario: it.preco_unitario as number | null,
       valorTotal: it.total_item as number,
       saldo: null,
@@ -195,6 +202,7 @@ export default async function MovimentacoesPage({
       vendedor: (d.vendedor_nome as string) || '—',
       deposito: depMap[(d.deposito_id as string) ?? ''] ?? '—',
       qtd: it.quantidade as number,
+      custo: (Number(prodMap[it.produto_id as string]?.preco_custo) || 0) * (Number(it.quantidade) || 0),
       valorUnitario: it.preco_unitario as number | null,
       valorTotal: it.total_item as number,
       saldo: null,
@@ -430,13 +438,14 @@ export default async function MovimentacoesPage({
               })}
               <th data-col="vlr_unit"  className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Vlr. Unit.</th>
               <th data-col="vlr_total" className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Vlr. Total</th>
+              <th data-col="custo"     className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Custo</th>
               <th data-col="obs"       className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Observação</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-12 text-center text-sm text-gray-400">
+                <td colSpan={10} className="px-4 py-12 text-center text-sm text-gray-400">
                   Nenhuma movimentação no período.
                 </td>
               </tr>
@@ -464,6 +473,7 @@ export default async function MovimentacoesPage({
                     <td data-col="vlr_total" className="px-4 py-3 text-right text-sm font-medium text-gray-800">
                       {r.valorTotal != null ? formatBRL(r.valorTotal) : '—'}
                     </td>
+                    <td data-col="custo"     className="px-4 py-3 text-right text-sm text-orange-600">{r.custo > 0 ? formatBRL(r.custo) : '—'}</td>
                     <td data-col="obs"       className="px-4 py-3 text-sm text-gray-400">{r.obs || '—'}</td>
                   </tr>
                 )
