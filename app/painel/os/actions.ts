@@ -120,3 +120,39 @@ export async function buscarClientesOS(busca: string) {
     .limit(10)
   return (data ?? []) as { id: string; nome: string; telefone: string | null }[]
 }
+
+// ── Check-lists aplicados numa OS (Etapa 4) ──────────────────────────────────
+export type ItemChecklist = { texto: string; ok: boolean }
+export type ChecklistOS = { id: string; nome: string; itens: ItemChecklist[] }
+
+export async function listarChecklistsOS(osId: string): Promise<ChecklistOS[]> {
+  await requirePermissao('os')
+  const supabase = await createServiceClient()
+  const { data } = await supabase.from('os_checklists').select('id, nome, itens').eq('os_id', osId).order('created_at')
+  return (data ?? []).map((c) => ({ id: c.id, nome: c.nome, itens: (c.itens ?? []) as ItemChecklist[] }))
+}
+
+export async function aplicarChecklistOS(osId: string, modeloId: string): Promise<{ ok: boolean } | { error: string }> {
+  await requirePermissao('os')
+  const supabase = await createServiceClient()
+  const { data: modelo } = await supabase.from('checklists_modelo').select('nome, itens').eq('id', modeloId).maybeSingle()
+  if (!modelo) return { error: 'Modelo não encontrado.' }
+  const itens: ItemChecklist[] = ((modelo.itens ?? []) as string[]).map((texto) => ({ texto, ok: false }))
+  const { error } = await supabase.from('os_checklists').insert({ os_id: osId, nome: modelo.nome, itens })
+  if (error) return { error: error.message }
+  return { ok: true }
+}
+
+export async function salvarChecklistOS(id: string, itens: ItemChecklist[]): Promise<{ ok: boolean }> {
+  await requirePermissao('os')
+  const supabase = await createServiceClient()
+  await supabase.from('os_checklists').update({ itens }).eq('id', id)
+  return { ok: true }
+}
+
+export async function removerChecklistOS(id: string): Promise<{ ok: boolean }> {
+  await requirePermissao('os')
+  const supabase = await createServiceClient()
+  await supabase.from('os_checklists').delete().eq('id', id)
+  return { ok: true }
+}

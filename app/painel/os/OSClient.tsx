@@ -4,7 +4,7 @@ import { IconPlus } from '@/components/icons'
 import { useState, useMemo, useEffect } from 'react'
 import { Spinner } from '@/components/Spinner'
 import { useRouter } from 'next/navigation'
-import { criarOS, atualizarStatusOS, buscarClientesOS, type OrdemServico, type StatusOS } from './actions'
+import { criarOS, atualizarStatusOS, buscarClientesOS, listarChecklistsOS, aplicarChecklistOS, salvarChecklistOS, removerChecklistOS, type OrdemServico, type StatusOS, type ChecklistOS } from './actions'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtDt = (s: string) => new Date(s).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
@@ -49,7 +49,7 @@ function BadgeOS({ status }: { status: string }) {
   )
 }
 
-export function OSClient({ ordens, tecnicos = [], filtros }: { ordens: OrdemServico[]; tecnicos?: { id: string; nome: string }[]; filtros: { q: string; status: string } }) {
+export function OSClient({ ordens, tecnicos = [], modelosChecklist = [], filtros }: { ordens: OrdemServico[]; tecnicos?: { id: string; nome: string }[]; modelosChecklist?: { id: string; nome: string }[]; filtros: { q: string; status: string } }) {
   const router = useRouter()
   const [busca, setBusca] = useState(filtros.q)
   const [filtroStatus, setFiltroStatus] = useState(filtros.status)
@@ -65,6 +65,30 @@ export function OSClient({ ordens, tecnicos = [], filtros }: { ordens: OrdemServ
 
   // Modal gerenciar
   const [osDetalhe, setOsDetalhe] = useState<OrdemServico | null>(null)
+
+  // Check-lists aplicados na OS aberta (Etapa 4)
+  const [checklistsOS, setChecklistsOS] = useState<ChecklistOS[]>([])
+  const [aplicandoModelo, setAplicandoModelo] = useState('')
+  const carregarChecklists = async (osId: string) => setChecklistsOS(await listarChecklistsOS(osId))
+  useEffect(() => {
+    if (osDetalhe) carregarChecklists(osDetalhe.id); else setChecklistsOS([])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [osDetalhe?.id])
+  const aplicarChecklist = async () => {
+    if (!aplicandoModelo || !osDetalhe) return
+    await aplicarChecklistOS(osDetalhe.id, aplicandoModelo)
+    setAplicandoModelo('')
+    carregarChecklists(osDetalhe.id)
+  }
+  const toggleItemChecklist = async (cl: ChecklistOS, idx: number) => {
+    const novos = cl.itens.map((it, i) => (i === idx ? { ...it, ok: !it.ok } : it))
+    setChecklistsOS((prev) => prev.map((c) => (c.id === cl.id ? { ...c, itens: novos } : c)))
+    await salvarChecklistOS(cl.id, novos)
+  }
+  const removerChecklist = async (id: string) => {
+    setChecklistsOS((prev) => prev.filter((c) => c.id !== id))
+    await removerChecklistOS(id)
+  }
   const [atualizando, setAtualizando] = useState(false)
   const [sucesso, setSucesso] = useState('')
 
@@ -468,6 +492,46 @@ export function OSClient({ ordens, tecnicos = [], filtros }: { ordens: OrdemServ
                   </div>
                 </div>
               )}
+
+              {/* Check-lists desta OS (Etapa 4) */}
+              <div>
+                <p className="text-xs font-semibold uppercase text-gray-400 mb-2">Check-lists</p>
+                {checklistsOS.length === 0 && <p className="text-xs text-gray-400">Nenhum check-list aplicado.</p>}
+                <div className="space-y-3">
+                  {checklistsOS.map((cl) => {
+                    const feitos = cl.itens.filter((i) => i.ok).length
+                    return (
+                      <div key={cl.id} className="rounded-xl border border-gray-200 p-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold text-gray-800">{cl.nome} <span className="text-xs font-normal text-gray-400">· {feitos}/{cl.itens.length}</span></p>
+                          <button onClick={() => removerChecklist(cl.id)} className="text-xs text-gray-400 hover:text-red-500 transition">remover</button>
+                        </div>
+                        <div className="mt-2 space-y-1.5">
+                          {cl.itens.map((it, i) => (
+                            <label key={i} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                              <input type="checkbox" checked={it.ok} onChange={() => toggleItemChecklist(cl, i)}
+                                className="h-4 w-4 rounded border-gray-300 text-blue-600" />
+                              <span className={it.ok ? 'line-through text-gray-400' : ''}>{it.texto}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                {modelosChecklist.length > 0 ? (
+                  <div className="mt-3 flex gap-2">
+                    <select value={aplicandoModelo} onChange={(e) => setAplicandoModelo(e.target.value)} className="field flex-1 text-sm">
+                      <option value="">Aplicar um check-list…</option>
+                      {modelosChecklist.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                    </select>
+                    <button onClick={aplicarChecklist} disabled={!aplicandoModelo}
+                      className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">Aplicar</button>
+                  </div>
+                ) : (
+                  <a href="/painel/os/checklists" className="mt-2 inline-block text-xs text-blue-600 hover:underline">+ Criar modelos de check-list</a>
+                )}
+              </div>
             </div>
           </div>
         </div>

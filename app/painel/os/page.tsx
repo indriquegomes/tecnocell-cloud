@@ -10,15 +10,17 @@ export default async function OSPage({
   const { q, status } = await searchParams
   const supabase = await createServiceClient()
 
-  const [{ data }, { data: tecnicosData }] = await Promise.all([
+  const [{ data }, { data: tecnicosData }, { data: modelosData }] = await Promise.all([
     supabase
       .from('ordens_servico')
       .select('id, numero, pessoa_nome, pessoa_id, aparelho, modelo, imei, problema, observacoes, status, total, tecnico_nome, previsao_entrega, created_at')
       .order('created_at', { ascending: false })
       .limit(200),
     supabase.from('perfis').select('id, nome').not('nome', 'is', null).order('nome'),
+    supabase.from('checklists_modelo').select('id, nome').eq('ativo', true).order('nome'),
   ])
   const tecnicos = (tecnicosData ?? []) as { id: string; nome: string }[]
+  const modelosChecklist = (modelosData ?? []) as { id: string; nome: string }[]
 
   const ordens: OrdemServico[] = (data ?? []).map((o) => ({
     id:           o.id,
@@ -41,6 +43,7 @@ export default async function OSPage({
     <OSClient
       ordens={ordens}
       tecnicos={tecnicos}
+      modelosChecklist={modelosChecklist}
       filtros={{ q: q ?? '', status: status ?? '' }}
     />
   )
