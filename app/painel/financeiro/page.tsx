@@ -1,7 +1,7 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { FinanceiroTabs } from './FinanceiroTabs'
 import { IconWallet } from '@/components/icons'
-import { formatBRL, formatDate } from '@/lib/utils'
+import { formatBRL, formatDate, hojeSP } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { BuscaLista } from '@/components/BuscaLista'
 import { marcarPago, deletarLancamento } from './actions'
@@ -12,7 +12,7 @@ import { Dica } from '@/components/Dica'
 export default async function FinanceiroPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tipo?: string; busca?: string; ordem?: string; dir?: string }>
+  searchParams: Promise<{ tipo?: string; busca?: string; ordem?: string; dir?: string; status?: string; de?: string; ate?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
@@ -21,8 +21,11 @@ export default async function FinanceiroPage({
   const ordemDir = params.dir === 'desc'
   const camposDB: Record<string, string> = { data_vencimento: 'data_vencimento', valor: 'valor', descricao: 'descricao', pessoa_nome: 'pessoa_nome', tipo: 'tipo', status: 'status' }
   const baseParams: Record<string, string> = {}
-  if (params.tipo)  baseParams.tipo  = params.tipo
-  if (params.busca) baseParams.busca = params.busca
+  if (params.tipo)   baseParams.tipo   = params.tipo
+  if (params.busca)  baseParams.busca  = params.busca
+  if (params.status) baseParams.status = params.status
+  if (params.de)     baseParams.de     = params.de
+  if (params.ate)    baseParams.ate    = params.ate
   const sortLink = (o: string) => {
     const ativo = ordemAtual === o
     const nextDir = ativo ? (ordemDir ? 'asc' : 'desc') : 'asc'
@@ -45,6 +48,12 @@ export default async function FinanceiroPage({
     const palavras = params.busca.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
     for (const w of palavras) query = query.or(`descricao.ilike.%${w}%,pessoa_nome.ilike.%${w}%`)
   }
+  // Status (pago/pendente/vencido) + período de vencimento — Isa 29/07 ("tipo, data, se está pago ou não")
+  if (params.status === 'pago')     query = query.eq('status', 'pago')
+  else if (params.status === 'pendente') query = query.neq('status', 'pago')
+  else if (params.status === 'vencido')  query = query.neq('status', 'pago').lt('data_vencimento', hojeSP())
+  if (params.de)  query = query.gte('data_vencimento', params.de)
+  if (params.ate) query = query.lte('data_vencimento', params.ate)
 
   const { data: lancamentos } = await query
 
@@ -123,6 +132,37 @@ export default async function FinanceiroPage({
             A Pagar
           </Link>
         </div>
+      </form>
+
+      {/* Filtro por status + vencimento (Isa 29/07) */}
+      <form method="GET" className="flex flex-wrap items-end gap-3">
+        {params.tipo && <input type="hidden" name="tipo" value={params.tipo} />}
+        {params.busca && <input type="hidden" name="busca" value={params.busca} />}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold uppercase text-gray-400">Status</label>
+          <select name="status" defaultValue={params.status ?? ''}
+            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <option value="">Todos</option>
+            <option value="pendente">Pendente</option>
+            <option value="pago">Pago</option>
+            <option value="vencido">Vencido</option>
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold uppercase text-gray-400">Vencimento de</label>
+          <input type="date" name="de" defaultValue={params.de ?? ''}
+            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold uppercase text-gray-400">até</label>
+          <input type="date" name="ate" defaultValue={params.ate ?? ''}
+            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        </div>
+        <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">Filtrar</button>
+        {(params.status || params.de || params.ate) && (
+          <Link href={`/painel/financeiro${params.tipo ? '?tipo=' + params.tipo : ''}`}
+            className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 transition">Limpar</Link>
+        )}
       </form>
 
       {/* Tabela */}
