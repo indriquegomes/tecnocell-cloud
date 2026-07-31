@@ -65,7 +65,7 @@ export default async function RelatoriosPage({
     caixasDaLoja = (cxs ?? []).map((c) => c.id as string)
     if (caixasDaLoja.length === 0) caixasDaLoja = ['00000000-0000-0000-0000-000000000000']
   }
-  const abasComLoja = ['vendas', 'rankclientes', 'produtos', 'abc', 'inativos']
+  const abasComLoja = ['vendas', 'rankclientes', 'produtos', 'abc', 'inativos', 'lucro', 'dre', 'porvendedor', 'comissoes', 'itensvendedor', 'comparativo']
 
   // ---------- Financeiro (lançamentos por vencimento) ----------
   let lancamentos: { tipo: string; status: string; valor: number; data_vencimento: string; descricao: string; pessoa_nome: string }[] = []
@@ -102,10 +102,14 @@ export default async function RelatoriosPage({
   const porProduto: Record<string, ProdAgg> = {}
   let totalVendidoItens = 0, totalCustoItens = 0
   if (precisaItens) {
-    const data = await fetchAll((from, to) => supabase.from('itens_venda')
-      .select('quantidade, preco_unitario, total_item, produto_id, produtos(nome, preco_custo), vendas!inner(created_at, status, pessoa_id)')
-      .eq('vendas.status', 'concluida')
-      .gte('vendas.created_at', periodo.inicio).lte('vendas.created_at', periodo.fim).range(from, to))
+    const data = await fetchAll((from, to) => {
+      let q = supabase.from('itens_venda')
+        .select('quantidade, preco_unitario, total_item, produto_id, produtos(nome, preco_custo), vendas!inner(created_at, status, pessoa_id, caixa_id)')
+        .eq('vendas.status', 'concluida')
+        .gte('vendas.created_at', periodo.inicio).lte('vendas.created_at', periodo.fim)
+      if (caixasDaLoja) q = q.in('vendas.caixa_id', caixasDaLoja)
+      return q.range(from, to)
+    })
     for (const it of (data ?? []) as unknown as ItemVenda[]) {
       const nome = it.produtos?.nome ?? '—'
       const custoLinha = (it.produtos?.preco_custo ?? 0) * it.quantidade
@@ -346,8 +350,12 @@ export default async function RelatoriosPage({
   // ---------- Vendas por vendedor ----------
   let rankVendedores: { nome: string; total: number; qtd: number }[] = []
   if (aba === 'porvendedor') {
-    const data = await fetchAll<{ total: number; vendedor_nome: string | null }>((from, to) => supabase.from('vendas').select('total, vendedor_nome').eq('status', 'concluida')
-      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to))
+    const data = await fetchAll<{ total: number; vendedor_nome: string | null }>((from, to) => {
+      let q = supabase.from('vendas').select('total, vendedor_nome').eq('status', 'concluida')
+        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+      if (caixasDaLoja) q = q.in('caixa_id', caixasDaLoja)
+      return q.range(from, to)
+    })
     const mapa: Record<string, { total: number; qtd: number }> = {}
     for (const v of (data ?? []) as { total: number; vendedor_nome: string | null }[]) {
       const nome = v.vendedor_nome || 'Sem vendedor'
@@ -416,8 +424,12 @@ export default async function RelatoriosPage({
   if (aba === 'comissoes') {
     const [{ data: cfg }, vs] = await Promise.all([
       supabase.from('configuracoes').select('valor').eq('chave', 'pdv').maybeSingle(),
-      fetchAll<{ total: number; vendedor_nome: string | null }>((from, to) => supabase.from('vendas').select('total, vendedor_nome').eq('status', 'concluida')
-        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to)),
+      fetchAll<{ total: number; vendedor_nome: string | null }>((from, to) => {
+        let q = supabase.from('vendas').select('total, vendedor_nome').eq('status', 'concluida')
+          .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+        if (caixasDaLoja) q = q.in('caixa_id', caixasDaLoja)
+        return q.range(from, to)
+      }),
     ])
     comissaoPctG = Number((cfg?.valor as Record<string, number> | null)?.comissao_percentual ?? 0)
     const mapa: Record<string, number> = {}
@@ -456,7 +468,11 @@ export default async function RelatoriosPage({
     const prevIni = new Date(prevFim.getTime() - msLen)
     const janela = async (ini: string, fim: string): Promise<Comp> => {
       const [vs, ds] = await Promise.all([
-        fetchAll<{ total: number | null }>((from, to) => supabase.from('vendas').select('total').eq('status', 'concluida').gte('created_at', ini).lte('created_at', fim).range(from, to)),
+        fetchAll<{ total: number | null }>((from, to) => {
+          let q = supabase.from('vendas').select('total').eq('status', 'concluida').gte('created_at', ini).lte('created_at', fim)
+          if (caixasDaLoja) q = q.in('caixa_id', caixasDaLoja)
+          return q.range(from, to)
+        }),
         fetchAll<{ valor: number | null }>((from, to) => supabase.from('lancamentos').select('valor').eq('tipo', 'pagar').gte('data_vencimento', ini.slice(0, 10)).lte('data_vencimento', fim.slice(0, 10) + 'T23:59:59').range(from, to)),
       ])
       return { receita: (vs ?? []).reduce((s, v) => s + (v.total ?? 0), 0), despesas: (ds ?? []).reduce((s, l) => s + (l.valor ?? 0), 0), nvendas: (vs ?? []).length }
@@ -469,9 +485,13 @@ export default async function RelatoriosPage({
   // ---------- Itens por vendedor ----------
   let itensVendedor: { vendedor: string; itens: { nome: string; qtd: number; valor: number }[] }[] = []
   if (aba === 'itensvendedor') {
-    const data = await fetchAll((from, to) => supabase.from('itens_venda')
-      .select('quantidade, total_item, produtos(nome), vendas!inner(vendedor_nome, status, created_at)')
-      .eq('vendas.status', 'concluida').gte('vendas.created_at', periodo.inicio).lte('vendas.created_at', periodo.fim).range(from, to))
+    const data = await fetchAll((from, to) => {
+      let q = supabase.from('itens_venda')
+        .select('quantidade, total_item, produtos(nome), vendas!inner(vendedor_nome, status, created_at, caixa_id)')
+        .eq('vendas.status', 'concluida').gte('vendas.created_at', periodo.inicio).lte('vendas.created_at', periodo.fim)
+      if (caixasDaLoja) q = q.in('vendas.caixa_id', caixasDaLoja)
+      return q.range(from, to)
+    })
     const mapa: Record<string, Record<string, { nome: string; qtd: number; valor: number }>> = {}
     for (const it of (data ?? []) as unknown as { quantidade: number; total_item: number; produtos: { nome: string } | null; vendas: { vendedor_nome: string | null } | null }[]) {
       const vend = it.vendas?.vendedor_nome || 'Sem vendedor'
