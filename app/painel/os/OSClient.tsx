@@ -4,7 +4,7 @@ import { IconPlus } from '@/components/icons'
 import { useState, useMemo, useEffect } from 'react'
 import { Spinner } from '@/components/Spinner'
 import { useRouter } from 'next/navigation'
-import { criarOS, atualizarStatusOS, buscarClientesOS, criarClienteRapidoOS, atualizarValoresOS, listarChecklistsOS, aplicarChecklistOS, salvarChecklistOS, removerChecklistOS, type OrdemServico, type StatusOS, type ChecklistOS } from './actions'
+import { criarOS, atualizarStatusOS, buscarClientesOS, criarClienteRapidoOS, atualizarValoresOS, receberOS, listarChecklistsOS, aplicarChecklistOS, salvarChecklistOS, removerChecklistOS, type OrdemServico, type StatusOS, type ChecklistOS } from './actions'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtDt = (s: string) => new Date(s).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
@@ -49,7 +49,7 @@ function BadgeOS({ status }: { status: string }) {
   )
 }
 
-export function OSClient({ ordens, tecnicos = [], modelosChecklist = [], filtros }: { ordens: OrdemServico[]; tecnicos?: { id: string; nome: string }[]; modelosChecklist?: { id: string; nome: string }[]; filtros: { q: string; status: string } }) {
+export function OSClient({ ordens, tecnicos = [], modelosChecklist = [], lojas = [], formasReceb = [], filtros }: { ordens: OrdemServico[]; tecnicos?: { id: string; nome: string }[]; modelosChecklist?: { id: string; nome: string }[]; lojas?: { id: string; nome: string }[]; formasReceb?: string[]; filtros: { q: string; status: string } }) {
   const router = useRouter()
   const [busca, setBusca] = useState(filtros.q)
   const [filtroStatus, setFiltroStatus] = useState(filtros.status)
@@ -91,6 +91,24 @@ export function OSClient({ ordens, tecnicos = [], modelosChecklist = [], filtros
     await atualizarValoresOS(osDetalhe.id, total, custo)
     setSalvandoValores(false)
     setOsDetalhe({ ...osDetalhe, total, custo })
+  }
+
+  // Recebimento da OS (Opção A) — dinheiro no caixa da loja + OS quitada.
+  const [showReceber, setShowReceber] = useState(false)
+  const [formaReceb, setFormaReceb] = useState('')
+  const [lojaReceb, setLojaReceb] = useState(lojas[0]?.id ?? '')
+  const [recebendo, setRecebendo] = useState(false)
+  const [erroReceb, setErroReceb] = useState('')
+  const confirmarReceber = async () => {
+    if (!osDetalhe) return
+    setRecebendo(true); setErroReceb('')
+    const r = await receberOS(osDetalhe.id, formaReceb, lojaReceb)
+    setRecebendo(false)
+    if (r.ok) {
+      setOsDetalhe({ ...osDetalhe, recebido_em: new Date().toISOString(), forma_recebimento: formaReceb, status: 'entregue' })
+      setShowReceber(false)
+      router.refresh()
+    } else setErroReceb(r.erro ?? 'Erro ao receber.')
   }
   const aplicarChecklist = async () => {
     if (!aplicandoModelo || !osDetalhe) return
@@ -518,6 +536,21 @@ export function OSClient({ ordens, tecnicos = [], modelosChecklist = [], filtros
                     {salvandoValores ? 'Salvando…' : 'Salvar valores'}
                   </button>
                 </div>
+
+                {/* Recebimento (Opção A) */}
+                <div className="mt-3">
+                  {osDetalhe.recebido_em ? (
+                    <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-2.5 text-sm font-medium text-green-700">
+                      ✓ Recebido{osDetalhe.forma_recebimento ? ` via ${osDetalhe.forma_recebimento}` : ''} · {fmt(osDetalhe.total)}
+                    </div>
+                  ) : (
+                    <button onClick={() => { setFormaReceb(formasReceb[0] ?? ''); setLojaReceb(lojas[0]?.id ?? ''); setErroReceb(''); setShowReceber(true) }}
+                      disabled={osDetalhe.total <= 0}
+                      className="w-full rounded-xl bg-green-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50 transition">
+                      💰 Receber {osDetalhe.total > 0 ? fmt(osDetalhe.total) : '(defina o valor)'}
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -584,6 +617,40 @@ export function OSClient({ ordens, tecnicos = [], modelosChecklist = [], filtros
                 ) : (
                   <a href="/painel/os/checklists" className="mt-2 inline-block text-xs text-blue-600 hover:underline">+ Criar modelos de check-list</a>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mini-modal de recebimento da OS (Opção A) */}
+      {showReceber && osDetalhe && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={() => setShowReceber(false)}>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-gray-900">Receber OS #{String(osDetalhe.numero).padStart(4, '0')}</h3>
+            <p className="mt-1 text-2xl font-extrabold text-green-600">{fmt(osDetalhe.total)}</p>
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Forma de pagamento</label>
+                <select value={formaReceb} onChange={(e) => setFormaReceb(e.target.value)} className="field w-full">
+                  {formasReceb.map((f) => <option key={f} value={f}>{f}</option>)}
+                </select>
+              </div>
+              {lojas.length > 1 && (
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Loja (caixa que recebe)</label>
+                  <select value={lojaReceb} onChange={(e) => setLojaReceb(e.target.value)} className="field w-full">
+                    {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
+                  </select>
+                </div>
+              )}
+              {erroReceb && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{erroReceb}</p>}
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => setShowReceber(false)} className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">Cancelar</button>
+                <button onClick={confirmarReceber} disabled={recebendo || !formaReceb}
+                  className="flex-1 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50 transition">
+                  {recebendo ? 'Recebendo…' : 'Confirmar recebimento'}
+                </button>
               </div>
             </div>
           </div>

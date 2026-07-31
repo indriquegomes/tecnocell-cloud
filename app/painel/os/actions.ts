@@ -1,6 +1,8 @@
 'use server'
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { registrarNoCaixa } from '@/lib/caixa'
+import { hojeSP } from '@/lib/utils'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -24,6 +26,8 @@ export interface OrdemServico {
   custo: number
   tecnico_nome: string | null
   previsao_entrega: string | null
+  recebido_em: string | null
+  forma_recebimento: string | null
   created_at: string
 }
 
@@ -117,6 +121,45 @@ export async function atualizarValoresOS(osId: string, total: number, custo: num
   await supabase.from('ordens_servico').update({ total: Math.max(0, total), custo: Math.max(0, custo) }).eq('id', osId)
   revalidatePath('/painel/os')
   revalidatePath(`/painel/os/${osId}`)
+  return { ok: true }
+}
+
+// Recebimento da OS: dinheiro entra no caixa da loja + lançamento pago na conta
+// da forma (mesma mecânica do recebimento de fiado). Trava contra receber 2x.
+type SBOS = Awaited<ReturnType<typeof createServiceClient>>
+async function contaDaFormaOS(supabase: SBOS, texto: string): Promise<string | null> {
+  const t = (texto || '').trim().toLowerCase()
+  if (!t) return null
+  const { data } = await supabase.from('formas_pagamento').select('nome, tipo, conta_destino_id')
+  const f = (data ?? []).find((x) => (x.nome ?? '').toLowerCase() === t || (x.tipo ?? '').toLowerCase() === t)
+  return (f?.conta_destino_id as string | null) ?? null
+}
+
+export async function receberOS(osId: string, forma: string, lojaId: string): Promise<{ ok: boolean; erro?: string }> {
+  await requirePermissao('os')
+  const supabase = await createServiceClient()
+  const { data: os } = await supabase.from('ordens_servico').select('numero, total, pessoa_nome, recebido_em').eq('id', osId).maybeSingle()
+  if (!os) return { ok: false, erro: 'OS não encontrada.' }
+  if ((os as { recebido_em?: string | null }).recebido_em) return { ok: false, erro: 'Esta OS já foi recebida.' }
+  const total = Number(os.total) || 0
+  if (total <= 0) return { ok: false, erro: 'Defina o valor da OS antes de receber.' }
+  if (!forma) return { ok: false, erro: 'Escolha a forma de pagamento.' }
+  if (!lojaId) return { ok: false, erro: 'Escolha a loja do recebimento.' }
+
+  const today = hojeSP()
+  const now = new Date().toISOString()
+  // 1. caixa da loja (gaveta pra dinheiro; linha pra PIX/cartão)
+  await registrarNoCaixa(supabase, lojaId, total, forma, `Recebimento OS #${os.numero}`)
+  // 2. lançamento pago na conta da forma (entra no saldo da conta certa)
+  await supabase.from('lancamentos').insert({
+    descricao: `Recebimento OS #${os.numero}`, valor: total, tipo: 'receber',
+    status: 'pago', data_competencia: today, data_vencimento: today, data_pagamento: today,
+    forma_pagamento: forma, pessoa_nome: (os as { pessoa_nome?: string | null }).pessoa_nome ?? null,
+    conta_id: await contaDaFormaOS(supabase, forma),
+  })
+  // 3. marca a OS como recebida/entregue (trava)
+  await supabase.from('ordens_servico').update({ recebido_em: now, forma_recebimento: forma, status: 'entregue' }).eq('id', osId)
+  revalidatePath('/painel/os')
   return { ok: true }
 }
 

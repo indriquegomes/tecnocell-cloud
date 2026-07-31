@@ -10,17 +10,21 @@ export default async function OSPage({
   const { q, status } = await searchParams
   const supabase = await createServiceClient()
 
-  const [{ data }, { data: tecnicosData }, { data: modelosData }] = await Promise.all([
+  const [{ data }, { data: tecnicosData }, { data: modelosData }, { data: lojasData }, { data: formasData }] = await Promise.all([
     supabase
       .from('ordens_servico')
-      .select('id, numero, pessoa_nome, pessoa_id, aparelho, modelo, imei, problema, observacoes, status, total, custo, tecnico_nome, previsao_entrega, created_at')
+      .select('id, numero, pessoa_nome, pessoa_id, aparelho, modelo, imei, problema, observacoes, status, total, custo, tecnico_nome, previsao_entrega, recebido_em, forma_recebimento, created_at')
       .order('created_at', { ascending: false })
       .limit(200),
     supabase.from('perfis').select('id, nome').not('nome', 'is', null).order('nome'),
     supabase.from('checklists_modelo').select('id, nome').eq('ativo', true).order('nome'),
+    supabase.from('lojas').select('id, nome').order('nome'),
+    supabase.from('formas_pagamento').select('nome').eq('ativo', true).neq('tipo', 'fiado').order('nome'),
   ])
   const tecnicos = (tecnicosData ?? []) as { id: string; nome: string }[]
   const modelosChecklist = (modelosData ?? []) as { id: string; nome: string }[]
+  const lojas = (lojasData ?? []) as { id: string; nome: string }[]
+  const formasReceb = ((formasData ?? []) as { nome: string }[]).map((f) => f.nome)
 
   const ordens: OrdemServico[] = (data ?? []).map((o) => ({
     id:           o.id,
@@ -37,6 +41,8 @@ export default async function OSPage({
     custo:        o.custo ?? 0,
     tecnico_nome: o.tecnico_nome ?? null,
     previsao_entrega: o.previsao_entrega ?? null,
+    recebido_em:  o.recebido_em ?? null,
+    forma_recebimento: o.forma_recebimento ?? null,
     created_at:   o.created_at,
   }))
 
@@ -45,6 +51,8 @@ export default async function OSPage({
       ordens={ordens}
       tecnicos={tecnicos}
       modelosChecklist={modelosChecklist}
+      lojas={lojas}
+      formasReceb={formasReceb}
       filtros={{ q: q ?? '', status: status ?? '' }}
     />
   )
