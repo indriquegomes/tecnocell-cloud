@@ -81,6 +81,7 @@ const navCompleto: NavGroup[] = [
     group: 'Serviços',
     items: [
       { href: '/painel/os', label: 'Ordens de Serviço', permissao: 'os' },
+      { href: '/painel/os/checklists', label: 'Check-lists', permissao: 'os' },
     ],
   },
   {
