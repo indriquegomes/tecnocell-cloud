@@ -55,6 +55,18 @@ export default async function RelatoriosPage({
   const precisaItens = ['lucro', 'produtos', 'abc', 'dre'].includes(aba)
   const precisaClientes = ['produtos', 'abc', 'rankclientes'].includes(aba)
 
+  // Loja selecionada → filtra vendas pelo CAIXA daquela loja (a venda não tem loja
+  // direto; vem do caixa). Isa 29/07: relatórios por loja. Ver caixa-por-loja-gate-venda.
+  const { data: lojasAll } = await supabase.from('lojas').select('id, nome').order('nome')
+  const lojaSel = loja && loja !== 'todas' ? loja : null
+  let caixasDaLoja: string[] | null = null
+  if (lojaSel) {
+    const { data: cxs } = await supabase.from('caixas').select('id').eq('loja_id', lojaSel)
+    caixasDaLoja = (cxs ?? []).map((c) => c.id as string)
+    if (caixasDaLoja.length === 0) caixasDaLoja = ['00000000-0000-0000-0000-000000000000']
+  }
+  const abasComLoja = ['vendas', 'rankclientes', 'produtos', 'abc', 'inativos']
+
   // ---------- Financeiro (lançamentos por vencimento) ----------
   let lancamentos: { tipo: string; status: string; valor: number; data_vencimento: string; descricao: string; pessoa_nome: string }[] = []
   if (aba === 'financeiro') {
@@ -71,10 +83,12 @@ export default async function RelatoriosPage({
   let vendasLista: { id: string; total: number; desconto: number; created_at: string; status: string }[] = []
   let totalDevolucoesPeriodo = 0
   if (aba === 'vendas') {
-    vendasLista = await fetchAll<{ id: string; total: number; desconto: number; created_at: string; status: string }>((from, to) => supabase.from('vendas')
-      .select('id, total, desconto, created_at, status')
-      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
-      .order('created_at', { ascending: false }).range(from, to))
+    vendasLista = await fetchAll<{ id: string; total: number; desconto: number; created_at: string; status: string }>((from, to) => {
+      let q = supabase.from('vendas').select('id, total, desconto, created_at, status')
+        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+      if (caixasDaLoja) q = q.in('caixa_id', caixasDaLoja)
+      return q.order('created_at', { ascending: false }).range(from, to)
+    })
     // Devoluções processadas no período → Vendas líquidas = brutas − devoluções.
     // Antes o faturamento contava a venda devolvida cheia (não descontava nada).
     const devs = await fetchAll<{ valor_total: number | null }>((from, to) => supabase.from('devolucoes')
@@ -116,9 +130,12 @@ export default async function RelatoriosPage({
   type CliAgg = { nome: string; qtd: number; total: number }
   const porCliente: Record<string, CliAgg> = {}
   if (precisaClientes) {
-    const data = await fetchAll((from, to) => supabase.from('vendas')
-      .select('total, pessoa_id, pessoas(nome)').eq('status', 'concluida')
-      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to))
+    const data = await fetchAll((from, to) => {
+      let q = supabase.from('vendas').select('total, pessoa_id, pessoas(nome)').eq('status', 'concluida')
+        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+      if (caixasDaLoja) q = q.in('caixa_id', caixasDaLoja)
+      return q.range(from, to)
+    })
     for (const v of (data ?? []) as unknown as { total: number; pessoa_id: string | null; pessoas: { nome: string } | null }[]) {
       const key = v.pessoa_id ?? 'sem'
       const nome = v.pessoas?.nome ?? 'Sem cliente'
@@ -360,7 +377,11 @@ export default async function RelatoriosPage({
   let inativos: { nome: string; ultima: string; dias: number }[] = []
   if (aba === 'inativos') {
     const [vs, ps] = await Promise.all([
-      fetchAll<{ pessoa_id: string; created_at: string }>((from, to) => supabase.from('vendas').select('pessoa_id, created_at').eq('status', 'concluida').not('pessoa_id', 'is', null).range(from, to)),
+      fetchAll<{ pessoa_id: string; created_at: string }>((from, to) => {
+        let q = supabase.from('vendas').select('pessoa_id, created_at').eq('status', 'concluida').not('pessoa_id', 'is', null)
+        if (caixasDaLoja) q = q.in('caixa_id', caixasDaLoja)
+        return q.range(from, to)
+      }),
       fetchAll((from, to) => supabase.from('pessoas').select('id, nome').in('tipo', ['cliente', 'ambos']).eq('ativo', true).range(from, to)),
     ])
     const ultimaPorPessoa: Record<string, string> = {}
@@ -781,6 +802,15 @@ export default async function RelatoriosPage({
             <select name="loja" defaultValue={loja ?? 'todas'} className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="todas">Todas</option>
               {lojasFC.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
+            </select>
+          </div>
+        )}
+        {abasComLoja.includes(aba) && (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-600">Loja</label>
+            <select name="loja" defaultValue={loja ?? 'todas'} className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="todas">Todas</option>
+              {(lojasAll ?? []).map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
             </select>
           </div>
         )}
