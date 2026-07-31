@@ -90,6 +90,20 @@ export async function removerItemNota(itemId: string, notaId: string) {
   revalidatePath(`/painel/compras/${notaId}`)
 }
 
+export async function editarItemNota(itemId: string, notaId: string, formData: FormData) {
+  await requirePermissao('compras')
+  const supabase = await createServiceClient()
+  const quantidade = Math.round(parseFloat(formData.get('quantidade') as string)) || 1
+  const preco = parseFloat(formData.get('preco_unitario') as string) || 0
+  await supabase.from('itens_nota_entrada')
+    .update({ quantidade, preco_unitario: preco, total_item: quantidade * preco })
+    .eq('id', itemId)
+  const { data: itens } = await supabase.from('itens_nota_entrada').select('total_item').eq('nota_id', notaId)
+  const total = itens?.reduce((s, i) => s + (i.total_item ?? 0), 0) ?? 0
+  await supabase.from('notas_entrada').update({ valor_total: total }).eq('id', notaId)
+  revalidatePath(`/painel/compras/${notaId}`)
+}
+
 export async function adicionarItemNota(notaId: string, formData: FormData) {
   await requirePermissao('compras')
   const supabase = await createServiceClient()

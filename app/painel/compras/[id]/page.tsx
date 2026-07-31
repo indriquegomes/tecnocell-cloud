@@ -1,5 +1,5 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
-import { receberNota, estornarNota, editarNota, removerItemNota } from '../actions'
+import { receberNota, estornarNota, editarNota, removerItemNota, editarItemNota } from '../actions'
 import { ConfirmButton } from '@/components/ConfirmButton'
 import { SubmitButton } from '@/components/SubmitButton'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
@@ -149,12 +149,27 @@ export default async function NotaEntradaDetalhe({
                 <tr key={item.id} className="hover:bg-blue-50/60">
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">{prodNome.get(item.produto_id) ?? '—'}</td>
                   <td className="px-4 py-3 text-sm text-gray-500">{dep ? `${dep.loja ? dep.loja + ' · ' : ''}${dep.nome}` : '—'}</td>
-                  <td className="px-4 py-3 text-sm text-right text-gray-600">{item.quantidade}</td>
-                  <td className="px-4 py-3 text-sm text-right text-gray-600">{fmt(item.preco_unitario ?? 0)}</td>
+                  <td className="px-4 py-3 text-sm text-right text-gray-600">
+                    {pendente
+                      ? <input name="quantidade" type="number" step="1" min="1" defaultValue={item.quantidade ?? 1} form={`e${item.id}`}
+                          className="w-20 rounded border border-gray-200 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                      : item.quantidade}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-right text-gray-600">
+                    {pendente
+                      ? <input name="preco_unitario" type="number" step="0.01" min="0" defaultValue={item.preco_unitario ?? 0} form={`e${item.id}`}
+                          className="w-24 rounded border border-gray-200 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                      : fmt(item.preco_unitario ?? 0)}
+                  </td>
                   <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{fmt(item.total_item ?? 0)}</td>
                   {pendente && (
                     <td className="px-4 py-3 text-center">
-                      <BotaoExcluir action={removerItemNota.bind(null, item.id, id)} mensagem="Remover este item da nota?" />
+                      <div className="flex items-center justify-center gap-2">
+                        <form id={`e${item.id}`} action={editarItemNota.bind(null, item.id, id)}>
+                          <button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 transition">Salvar</button>
+                        </form>
+                        <BotaoExcluir action={removerItemNota.bind(null, item.id, id)} mensagem="Remover este item da nota?" />
+                      </div>
                     </td>
                   )}
                 </tr>
