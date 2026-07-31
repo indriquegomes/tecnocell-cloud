@@ -13,7 +13,7 @@ export default async function OSPage({
   const [{ data }, { data: tecnicosData }, { data: modelosData }] = await Promise.all([
     supabase
       .from('ordens_servico')
-      .select('id, numero, pessoa_nome, pessoa_id, aparelho, modelo, imei, problema, observacoes, status, total, tecnico_nome, previsao_entrega, created_at')
+      .select('id, numero, pessoa_nome, pessoa_id, aparelho, modelo, imei, problema, observacoes, status, total, custo, tecnico_nome, previsao_entrega, created_at')
       .order('created_at', { ascending: false })
       .limit(200),
     supabase.from('perfis').select('id, nome').not('nome', 'is', null).order('nome'),
@@ -34,6 +34,7 @@ export default async function OSPage({
     observacoes:  o.observacoes ?? null,
     status:       o.status as OrdemServico['status'],
     total:        o.total ?? 0,
+    custo:        o.custo ?? 0,
     tecnico_nome: o.tecnico_nome ?? null,
     previsao_entrega: o.previsao_entrega ?? null,
     created_at:   o.created_at,

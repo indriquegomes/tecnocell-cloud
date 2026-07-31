@@ -594,30 +594,31 @@ export default async function RelatoriosPage({
   }
 
   // ---------- Performance de Técnicos (OS) + resumo geral de serviços ----------
-  let tecnicos: { nome: string; os: number; total: number; concluidas: number }[] = []
-  let osResumo = { total: 0, faturado: 0, concluidas: 0 }
+  let tecnicos: { nome: string; os: number; total: number; custo: number; lucro: number; concluidas: number }[] = []
+  let osResumo = { total: 0, faturado: 0, custo: 0, lucro: 0, concluidas: 0 }
   let osPorStatus: { status: string; n: number; total: number }[] = []
   if (aba === 'tecnicos') {
-    const { data } = await supabase.from('ordens_servico').select('tecnico_nome, status, total')
+    const { data } = await supabase.from('ordens_servico').select('tecnico_nome, status, total, custo')
       .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
-    const mapa: Record<string, { nome: string; os: number; total: number; concluidas: number }> = {}
+    const mapa: Record<string, { nome: string; os: number; total: number; custo: number; lucro: number; concluidas: number }> = {}
     const stMap: Record<string, { status: string; n: number; total: number }> = {}
-    let totOS = 0, totF = 0, totConc = 0
-    for (const o of (data ?? []) as { tecnico_nome: string | null; status: string | null; total: number | null }[]) {
+    let totOS = 0, totF = 0, totCusto = 0, totConc = 0
+    for (const o of (data ?? []) as { tecnico_nome: string | null; status: string | null; total: number | null; custo: number | null }[]) {
       const nome = o.tecnico_nome || 'Sem técnico'
-      const t = (mapa[nome] ??= { nome, os: 0, total: 0, concluidas: 0 })
+      const t = (mapa[nome] ??= { nome, os: 0, total: 0, custo: 0, lucro: 0, concluidas: 0 })
       t.os++
       t.total += o.total ?? 0
+      t.custo += o.custo ?? 0
       const s = (o.status ?? '').toLowerCase()
       const conc = s.includes('conclu') || s.includes('entreg') || s.includes('finaliz')
       if (conc) t.concluidas++
       const stKey = o.status || '—'
       const sm = (stMap[stKey] ??= { status: stKey, n: 0, total: 0 })
       sm.n++; sm.total += o.total ?? 0
-      totOS++; totF += o.total ?? 0; if (conc) totConc++
+      totOS++; totF += o.total ?? 0; totCusto += o.custo ?? 0; if (conc) totConc++
     }
-    tecnicos = Object.values(mapa).sort((a, b) => b.os - a.os)
-    osResumo = { total: totOS, faturado: totF, concluidas: totConc }
+    tecnicos = Object.values(mapa).map((t) => ({ ...t, lucro: t.total - t.custo })).sort((a, b) => b.total - a.total)
+    osResumo = { total: totOS, faturado: totF, custo: totCusto, lucro: totF - totCusto, concluidas: totConc }
     osPorStatus = Object.values(stMap).sort((a, b) => b.n - a.n)
   }
 
@@ -1630,11 +1631,13 @@ export default async function RelatoriosPage({
       {/* ---------------- Performance Técnicos ---------------- */}
       {aba === 'tecnicos' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             <Card label="OS no período" valor={String(osResumo.total)} cor="text-gray-900" />
             <Card label="Concluídas" valor={String(osResumo.concluidas)} cor="text-green-600" />
-            <Card label="Faturado" valor={fmt(osResumo.faturado)} cor="text-blue-600" />
             <Card label="Ticket médio" valor={fmt(osResumo.total > 0 ? osResumo.faturado / osResumo.total : 0)} cor="text-gray-600" />
+            <Card label="Faturado" valor={fmt(osResumo.faturado)} cor="text-blue-600" />
+            <Card label="Custo (peças)" valor={fmt(osResumo.custo)} cor="text-orange-500" />
+            <Card label="Lucro" valor={fmt(osResumo.lucro)} cor={osResumo.lucro >= 0 ? 'text-green-600' : 'text-red-500'} />
           </div>
           {osPorStatus.length > 0 && (
             <Tabela vazio={false} head={['Status', 'OS', 'Faturado']} alinhas={['l', 'r', 'r']}>
@@ -1649,15 +1652,17 @@ export default async function RelatoriosPage({
           )}
           <div className="flex justify-end">
             <ExportCsv filename={`performance_tecnicos_${dataInicio}_${dataFim}.csv`}
-              cols={[{ key: 'nome', label: 'Técnico' }, { key: 'os', label: 'OS' }, { key: 'concluidas', label: 'Concluídas' }, { key: 'total', label: 'Faturado', money: true }]} rows={asRows(tecnicos)} />
+              cols={[{ key: 'nome', label: 'Técnico' }, { key: 'os', label: 'OS' }, { key: 'concluidas', label: 'Concluídas' }, { key: 'total', label: 'Faturado', money: true }, { key: 'custo', label: 'Custo', money: true }, { key: 'lucro', label: 'Lucro', money: true }]} rows={asRows(tecnicos)} />
           </div>
-          <Tabela vazio={tecnicos.length === 0} vazioMsg="Nenhuma OS no período." head={['Técnico', 'OS', 'Concluídas', 'Faturado']} alinhas={['l', 'r', 'r', 'r']}>
+          <Tabela vazio={tecnicos.length === 0} vazioMsg="Nenhuma OS no período." head={['Técnico', 'OS', 'Concluídas', 'Faturado', 'Custo', 'Lucro']} alinhas={['l', 'r', 'r', 'r', 'r', 'r']}>
             {tecnicos.map((t, i) => (
               <tr key={i} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{t.nome}</td>
                 <td className="px-4 py-3 text-sm text-right text-gray-700">{t.os}</td>
                 <td className="px-4 py-3 text-sm text-right text-green-600">{t.concluidas}</td>
                 <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{fmt(t.total)}</td>
+                <td className="px-4 py-3 text-sm text-right text-orange-500">{fmt(t.custo)}</td>
+                <td className={`px-4 py-3 text-sm text-right font-semibold ${t.lucro >= 0 ? 'text-green-600' : 'text-red-500'}`}>{fmt(t.lucro)}</td>
               </tr>
             ))}
           </Tabela>

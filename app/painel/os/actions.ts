@@ -21,6 +21,7 @@ export interface OrdemServico {
   observacoes: string | null
   status: StatusOS
   total: number
+  custo: number
   tecnico_nome: string | null
   previsao_entrega: string | null
   created_at: string
@@ -105,6 +106,15 @@ export async function atualizarStatusOS(osId: string, status: StatusOS) {
   const supabase = await createServiceClient()
   const { error } = await supabase.from('ordens_servico').update({ status }).eq('id', osId)
   if (error) return { error: error.message }
+  revalidatePath('/painel/os')
+  revalidatePath(`/painel/os/${osId}`)
+  return { ok: true }
+}
+
+export async function atualizarValoresOS(osId: string, total: number, custo: number): Promise<{ ok: boolean }> {
+  await requirePermissao('os')
+  const supabase = await createServiceClient()
+  await supabase.from('ordens_servico').update({ total: Math.max(0, total), custo: Math.max(0, custo) }).eq('id', osId)
   revalidatePath('/painel/os')
   revalidatePath(`/painel/os/${osId}`)
   return { ok: true }

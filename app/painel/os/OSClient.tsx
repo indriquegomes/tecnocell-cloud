@@ -4,7 +4,7 @@ import { IconPlus } from '@/components/icons'
 import { useState, useMemo, useEffect } from 'react'
 import { Spinner } from '@/components/Spinner'
 import { useRouter } from 'next/navigation'
-import { criarOS, atualizarStatusOS, buscarClientesOS, criarClienteRapidoOS, listarChecklistsOS, aplicarChecklistOS, salvarChecklistOS, removerChecklistOS, type OrdemServico, type StatusOS, type ChecklistOS } from './actions'
+import { criarOS, atualizarStatusOS, buscarClientesOS, criarClienteRapidoOS, atualizarValoresOS, listarChecklistsOS, aplicarChecklistOS, salvarChecklistOS, removerChecklistOS, type OrdemServico, type StatusOS, type ChecklistOS } from './actions'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtDt = (s: string) => new Date(s).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
@@ -71,10 +71,27 @@ export function OSClient({ ordens, tecnicos = [], modelosChecklist = [], filtros
   const [checklistsOS, setChecklistsOS] = useState<ChecklistOS[]>([])
   const [aplicandoModelo, setAplicandoModelo] = useState('')
   const carregarChecklists = async (osId: string) => setChecklistsOS(await listarChecklistsOS(osId))
+  // Valores da OS (valor cobrado + custo → lucro). Etapa lucro/custo.
+  const [valorInput, setValorInput] = useState('')
+  const [custoInput, setCustoInput] = useState('')
+  const [salvandoValores, setSalvandoValores] = useState(false)
   useEffect(() => {
-    if (osDetalhe) carregarChecklists(osDetalhe.id); else setChecklistsOS([])
+    if (osDetalhe) {
+      carregarChecklists(osDetalhe.id)
+      setValorInput(osDetalhe.total ? String(osDetalhe.total) : '')
+      setCustoInput(osDetalhe.custo ? String(osDetalhe.custo) : '')
+    } else setChecklistsOS([])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [osDetalhe?.id])
+  const salvarValores = async () => {
+    if (!osDetalhe) return
+    setSalvandoValores(true)
+    const total = parseFloat(valorInput) || 0
+    const custo = parseFloat(custoInput) || 0
+    await atualizarValoresOS(osDetalhe.id, total, custo)
+    setSalvandoValores(false)
+    setOsDetalhe({ ...osDetalhe, total, custo })
+  }
   const aplicarChecklist = async () => {
     if (!aplicandoModelo || !osDetalhe) return
     await aplicarChecklistOS(osDetalhe.id, aplicandoModelo)
@@ -479,6 +496,28 @@ export function OSClient({ ordens, tecnicos = [], modelosChecklist = [], filtros
               <div className="rounded-xl bg-gray-50 border border-gray-100 px-4 py-3">
                 <p className="text-xs font-semibold uppercase text-gray-400 mb-1">Problema</p>
                 <p className="text-sm text-gray-700">{osDetalhe.problema}</p>
+              </div>
+
+              {/* Valores: valor cobrado + custo → lucro (Isa 29/07) */}
+              <div>
+                <p className="text-xs font-semibold uppercase text-gray-400 mb-2">Valores</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] text-gray-500 mb-1">Valor cobrado</label>
+                    <input type="number" step="0.01" min="0" value={valorInput} onChange={e => setValorInput(e.target.value)} className="field w-full" placeholder="0,00" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-gray-500 mb-1">Custo (peças)</label>
+                    <input type="number" step="0.01" min="0" value={custoInput} onChange={e => setCustoInput(e.target.value)} className="field w-full" placeholder="0,00" />
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center justify-between">
+                  <span className="text-sm text-gray-500">Lucro: <b className={((parseFloat(valorInput) || 0) - (parseFloat(custoInput) || 0)) >= 0 ? 'text-green-600' : 'text-red-500'}>{fmt((parseFloat(valorInput) || 0) - (parseFloat(custoInput) || 0))}</b></span>
+                  <button onClick={salvarValores} disabled={salvandoValores}
+                    className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
+                    {salvandoValores ? 'Salvando…' : 'Salvar valores'}
+                  </button>
+                </div>
               </div>
 
               <div>
