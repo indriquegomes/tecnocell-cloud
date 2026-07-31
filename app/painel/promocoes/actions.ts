@@ -105,6 +105,21 @@ export async function togglePromocao(id: string, ativa: boolean) {
   revalidatePath(`/painel/promocoes/${id}`)
 }
 
+// Isa: promoção só valer em certas tabelas de preço. Lista vazia = vale em todas.
+export async function salvarTabelasPromo(promocaoId: string, tabelaIds: string[]): Promise<{ ok: boolean; erro?: string }> {
+  await requirePermissao('produtos')
+  const supabase = await createServiceClient()
+  await supabase.from('promocao_tabelas').delete().eq('promocao_id', promocaoId)
+  if (tabelaIds.length > 0) {
+    const { error } = await supabase.from('promocao_tabelas')
+      .insert(tabelaIds.map((tabela_id) => ({ promocao_id: promocaoId, tabela_id })))
+    if (error) return { ok: false, erro: error.message }
+  }
+  revalidatePath('/painel/pdv')
+  revalidatePath(`/painel/promocoes/${promocaoId}`)
+  return { ok: true }
+}
+
 export async function deletarPromocao(id: string) {
   await requirePermissao('produtos')
   const supabase = await createServiceClient()

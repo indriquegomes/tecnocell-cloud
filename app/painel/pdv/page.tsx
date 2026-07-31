@@ -32,6 +32,7 @@ export type PromoInfo = {
   y: number | null
   valor: number | null
   faixas?: { quantidade_minima: number; preco: number }[]  // tipo progressivo
+  tabelas?: string[]  // tabelas_preco em que vale; vazio/ausente = todas
 }
 
 export default async function PDVPage() {
@@ -91,6 +92,19 @@ export default async function PDVPage() {
     }
   }
 
+  // Tabelas em que cada promoção vale (vazio = todas). Tolerante à migration ainda
+  // não aplicada: se a tabela não existe, ninguém tem restrição → vale em todas.
+  const tabelasPorPromo: Record<string, string[]> = {}
+  if (promosAtivas.length > 0) {
+    const { data: vinc } = await supabase
+      .from('promocao_tabelas')
+      .select('promocao_id, tabela_id')
+      .in('promocao_id', promosAtivas.map(p => p.id))
+    for (const v of (vinc ?? []) as { promocao_id: string; tabela_id: string }[]) {
+      ;(tabelasPorPromo[v.promocao_id] ??= []).push(v.tabela_id)
+    }
+  }
+
   // Mapa unificado: produto_id → todas as promoções ativas que o incluem
   const promosPorProduto: Record<string, PromoInfo[]> = {}
   if (promosAtivas.length > 0) {
@@ -112,6 +126,7 @@ export default async function PDVPage() {
         y: promo.quantidade_y,
         valor: promo.valor,
         faixas: promo.tipo === 'progressivo' ? (faixasPorPromo[promo.id] ?? []) : undefined,
+        tabelas: tabelasPorPromo[promo.id],
       })
     }
   }

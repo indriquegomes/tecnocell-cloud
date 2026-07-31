@@ -2,6 +2,7 @@ import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { PromoDetalheClient } from './PromoDetalheClient'
+import { TabelasPromo } from './TabelasPromo'
 
 export default async function PromoDetalhe({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -69,6 +70,14 @@ export default async function PromoDetalhe({ params }: { params: Promise<{ id: s
 
   // A promoção é uma FOTO: produto novo na categoria não entra sozinho. Conta quantos
   // ficaram de fora pra tela poder avisar.
+  // Tabelas de preço em que a promoção vale (Isa). Tolerante à migration ainda não
+  // aplicada: se promocao_tabelas não existe, selecionadas fica vazia (= todas).
+  const [{ data: tabelasPreco }, { data: vincTabelas }] = await Promise.all([
+    supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).order('nome'),
+    supabase.from('promocao_tabelas').select('tabela_id').eq('promocao_id', id),
+  ])
+  const tabelasSelecionadas = (vincTabelas ?? []).map((v) => v.tabela_id as string)
+
   const categoriaAtual = (promo.categoria as string | null) ?? null
   const faltamNaCategoria = categoriaAtual
     ? (porCategoria[categoriaAtual] ?? []).filter((pid) => !jaNaPromo.has(pid)).length
@@ -89,6 +98,11 @@ export default async function PromoDetalhe({ params }: { params: Promise<{ id: s
         categoriaAtual={categoriaAtual}
         faltamNaCategoria={faltamNaCategoria}
         nomeCategoriaAtual={nomeCategoriaAtual}
+      />
+      <TabelasPromo
+        promocaoId={id}
+        tabelas={(tabelasPreco ?? []) as { id: string; nome: string }[]}
+        selecionadas={tabelasSelecionadas}
       />
     </div>
   )

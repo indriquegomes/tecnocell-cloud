@@ -761,12 +761,17 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
   // Quantidade total de um grupo (promo progressiva) somando TODAS as linhas do
   // carrinho cujo produto participa da promoção. É o que define a faixa de preço.
+  // Promoção só vale se não tiver restrição de tabela OU a tabela atual estiver na
+  // lista. tabelaId '' = Preço Padrão → promoção restrita a tabelas não aplica nele.
+  const promoValeNaTabela = (p: PromoInfo) => !p.tabelas || p.tabelas.length === 0 || p.tabelas.includes(tabelaId)
+  const promosDoProduto = (produtoId: string) => (promosPorProduto[produtoId] ?? []).filter(promoValeNaTabela)
+
   const grupoTotalProg = (promoId: string) =>
-    carrinho.reduce((s, i) => s + ((promosPorProduto[i.produto_id] ?? []).some((p) => p.id === promoId) ? i.quantidade : 0), 0)
+    carrinho.reduce((s, i) => s + (promosDoProduto(i.produto_id).some((p) => p.id === promoId) ? i.quantidade : 0), 0)
 
   // Promoção efetiva de uma linha (resolve 'auto' = melhor desconto na quantidade atual)
   const promoEfetiva = (item: ItemCarrinho): PromoInfo | null => {
-    const lista = promosPorProduto[item.produto_id] ?? []
+    const lista = promosDoProduto(item.produto_id)
     if (lista.length === 0 || item.promoSel === '') return null
     if (item.promoSel !== 'auto') return lista.find((p) => p.id === item.promoSel) ?? null
     let melhor: PromoInfo | null = null
@@ -2178,7 +2183,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                         Disponível: {item.estoque_disponivel}
                         {item.prateleira && <span className="text-blue-600 font-medium"> · 📦 {item.prateleira}</span>}
                       </p>
-                      {(promosPorProduto[item.produto_id]?.length ?? 0) > 0 && (() => {
+                      {promosDoProduto(item.produto_id).length > 0 && (() => {
                         const promoAtual = promoEfetiva(item)
                         return (
                           <select
@@ -2189,7 +2194,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                             }`}
                           >
                             <option value="auto">🏷️ Melhor desconto</option>
-                            {promosPorProduto[item.produto_id].map((p) => (
+                            {promosDoProduto(item.produto_id).map((p) => (
                               <option key={p.id} value={p.id}>{labelPromo(p)}</option>
                             ))}
                             <option value="">Sem promoção</option>
