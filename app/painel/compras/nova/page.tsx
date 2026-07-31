@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
 import { criarNotaEntrada } from '../actions'
 import { SubmitButton } from '@/components/SubmitButton'
+import { FornecedorSelect } from '../FornecedorSelect'
 import Link from 'next/link'
 
 export default async function NovaNotaPage({ searchParams }: { searchParams: Promise<{ erro?: string }> }) {
@@ -10,6 +11,9 @@ export default async function NovaNotaPage({ searchParams }: { searchParams: Pro
   // só fornecedores (97), filtrado no servidor — antes pegava 500 pessoas e perdia o resto
   const { data: fornecedoresRaw } = await supabase.from('pessoas').select('id, nome').in('tipo', ['fornecedor', 'ambos']).order('nome')
   const fornecedores = fornecedoresRaw ?? []
+  // Número automático pela contagem das notas anteriores (Isa 29/07) — editável.
+  const { count } = await supabase.from('notas_entrada').select('id', { count: 'exact', head: true })
+  const proximoNumero = String((count ?? 0) + 1)
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
@@ -26,7 +30,7 @@ export default async function NovaNotaPage({ searchParams }: { searchParams: Pro
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Número da NF</label>
-            <input name="numero" className="field" placeholder="Ex: 001234" />
+            <input name="numero" className="field" placeholder="Ex: 001234" defaultValue={proximoNumero} />
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Data de Entrada</label>
@@ -39,10 +43,7 @@ export default async function NovaNotaPage({ searchParams }: { searchParams: Pro
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Fornecedor</label>
-            <select name="fornecedor_id" className="field">
-              <option value="">— Selecione —</option>
-              {fornecedores.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
-            </select>
+            <FornecedorSelect fornecedores={fornecedores} />
           </div>
           <div className="sm:col-span-2">
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Observações</label>
