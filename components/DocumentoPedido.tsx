@@ -19,6 +19,7 @@ export type PedidoImpr = {
   observacoes: string | null
   desconto: number
   frete: number
+  forma_pagamento?: string | null
   itens: ItemImpr[]
 }
 
@@ -40,6 +41,7 @@ export function resumoPedidoTexto(p: PedidoImpr): string {
     (p.desconto ?? 0) > 0 ? `Desconto: - ${fmt(p.desconto)}` : '',
     (p.frete ?? 0) > 0 ? `Frete: ${fmt(p.frete)}` : '',
     `*TOTAL: ${fmt(tot)}*`,
+    p.forma_pagamento ? `Pagamento: ${p.forma_pagamento}` : '',
     p.observacoes ? `\nObs: ${p.observacoes}` : '',
   ].filter((l) => l !== '').join('\n')
 }
@@ -83,6 +85,7 @@ export function DocumentoPedido({ p, formato }: { p: PedidoImpr; formato: 'a4' |
         {(p.desconto ?? 0) > 0 && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Desconto</span><span>-{fmt(p.desconto)}</span></div>}
         {(p.frete ?? 0) > 0 && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Frete</span><span>{fmt(p.frete)}</span></div>}
         <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}><span>TOTAL</span><span>{fmt(tot)}</span></div>
+        {p.forma_pagamento && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Pagamento</span><span>{p.forma_pagamento}</span></div>}
         <div style={{ borderTop: '1px dashed #999', margin: '8px 0' }} />
         <div><b>Conferência:</b> ____________</div>
         <div><b>Separação:</b> ______________</div>
@@ -135,6 +138,7 @@ export function DocumentoPedido({ p, formato }: { p: PedidoImpr; formato: 'a4' |
         {(p.desconto ?? 0) > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}><span>Desconto</span><span>− {fmt(p.desconto)}</span></div>}
         {(p.frete ?? 0) > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}><span>Frete</span><span>{fmt(p.frete)}</span></div>}
         <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #1B6CA8', marginTop: 5, paddingTop: 6, fontWeight: 800, color: '#1B6CA8', fontSize: 16 }}><span>TOTAL</span><span>{fmt(tot)}</span></div>
+        {p.forma_pagamento && <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 6, fontSize: 12, color: '#555' }}><span>Pagamento</span><span>{p.forma_pagamento}</span></div>}
       </div>
       {p.observacoes && <div style={{ fontSize: 12, marginTop: 14, color: '#444' }}><b>Obs:</b> {p.observacoes}</div>}
       <div style={{ marginTop: 26, borderTop: '1px dashed #bbb', paddingTop: 16, display: 'flex', gap: 40 }}>

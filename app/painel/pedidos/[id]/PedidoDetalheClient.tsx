@@ -244,6 +244,7 @@ export function PedidoDetalheClient({
     id: pedido.id, numero: pedido.numero, tipo: pedido.tipo, pessoa_nome: pedido.pessoa_nome,
     vendedor_nome: pedido.vendedor_nome, created_at: pedido.created_at, data_validade: pedido.data_validade,
     referencia_cliente: pedido.referencia_cliente, observacoes: pedido.observacoes, desconto, frete,
+    forma_pagamento: formas.find((f) => f.id === infoFormaId)?.nome ?? pedido.forma_pagamento_nome ?? null,
     itens: itens.map((i) => ({ id: i.id, quantidade: i.quantidade, preco_unitario: i.preco_unitario, total_item: i.total_item ?? 0, nome: i.produtos?.nome ?? 'Produto' })),
   }
   const imprimir = (f: 'a4' | 'cupom') => { setFormatoImpr(f); setTimeout(() => window.print(), 60) }
