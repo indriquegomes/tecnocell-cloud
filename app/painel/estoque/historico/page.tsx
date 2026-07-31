@@ -6,7 +6,7 @@ import { ColunasToggler } from './ColunasToggler'
 import { NovaMovimentacaoForm } from './NovaMovimentacaoForm'
 import { Dica } from '@/components/Dica'
 
-type Tipo = 'venda' | 'devolucao' | 'entrada' | 'saida' | 'ajuste' | 'perda'
+type Tipo = 'venda' | 'devolucao' | 'entrada' | 'saida' | 'ajuste' | 'perda' | 'troca'
 
 const TIPO: Record<Tipo, { label: string; cls: string; sinal: string }> = {
   venda:     { label: 'Venda',     cls: 'text-red-700 bg-red-50 border-red-200',      sinal: '−' },
@@ -16,6 +16,9 @@ const TIPO: Record<Tipo, { label: string; cls: string; sinal: string }> = {
   ajuste:    { label: 'Ajuste',    cls: 'text-blue-700 bg-blue-50 border-blue-200',    sinal: '' },
   // Perda (quebra/sumiço/avaria): baixa igual à saída, mas separada pra somar no mês.
   perda:     { label: 'Perda',     cls: 'text-orange-700 bg-orange-50 border-orange-200', sinal: '−' },
+  // Troca/Defeito/Avaria numa devolução: o item NÃO volta ao estoque vendável (vai
+  // pro fornecedor). Sinal neutro pra não dobrar a saída (a venda já baixou). Isa 29/07.
+  troca:     { label: 'Troca · Saída', cls: 'text-orange-700 bg-orange-50 border-orange-200', sinal: '' },
 }
 
 type Linha = {
@@ -110,7 +113,7 @@ export default async function MovimentacoesPage({
       ? fetchAllIn<Record<string, unknown>>(vendaIds, (chunk, from, to) => supabase.from('itens_venda').select('venda_id, produto_id, quantidade, preco_unitario, total_item, produtos(nome)').in('venda_id', chunk).range(from, to))
       : Promise.resolve([] as Record<string, unknown>[]),
     devolucaoIds.length
-      ? fetchAllIn<Record<string, unknown>>(devolucaoIds, (chunk, from, to) => supabase.from('itens_devolucao').select('devolucao_id, produto_id, nome, quantidade, preco_unitario, total_item').in('devolucao_id', chunk).range(from, to))
+      ? fetchAllIn<Record<string, unknown>>(devolucaoIds, (chunk, from, to) => supabase.from('itens_devolucao').select('devolucao_id, produto_id, nome, quantidade, preco_unitario, total_item, status_produto').in('devolucao_id', chunk).range(from, to))
       : Promise.resolve([] as Record<string, unknown>[]),
   ])
 
@@ -184,7 +187,8 @@ export default async function MovimentacoesPage({
     linhas.push({
       key: 'd' + (it.devolucao_id as string) + (it.produto_id as string),
       data: d.created_at,
-      tipo: 'devolucao',
+      // 'ok' volta ao estoque (Devolução +); troca/defeito/avaria NÃO volta (Troca · Saída)
+      tipo: (((it.status_produto as string) ?? 'ok') === 'ok' ? 'devolucao' : 'troca'),
       produtoId: it.produto_id as string,
       produto: (it.nome as string) ?? (it.produto_id as string),
       parte: d.pessoa_nome ?? 'Cliente Final',
@@ -194,7 +198,7 @@ export default async function MovimentacoesPage({
       valorUnitario: it.preco_unitario as number | null,
       valorTotal: it.total_item as number,
       saldo: null,
-      obs: d.motivo || 'Devolução',
+      obs: (((it.status_produto as string) ?? 'ok') !== 'ok' ? 'Troca — não volta ao estoque' : (d.motivo || 'Devolução')),
     })
   }
 
@@ -336,6 +340,7 @@ export default async function MovimentacoesPage({
               <option value="saida">Saída</option>
               <option value="ajuste">Ajuste</option>
               <option value="perda">Perda</option>
+              <option value="troca">Troca · Saída</option>
             </select>
           </div>
           <div>
