@@ -11,6 +11,7 @@ const COLUNAS = [
   { key: 'qtd',       label: 'Quantidade',         padrao: true },
   { key: 'vlr_unit',  label: 'Valor Unitário',     padrao: true },
   { key: 'vlr_total', label: 'Valor Total',        padrao: true },
+  { key: 'custo',     label: 'Custo',              padrao: true },
   { key: 'obs',       label: 'Observações',        padrao: true },
 ]
 
