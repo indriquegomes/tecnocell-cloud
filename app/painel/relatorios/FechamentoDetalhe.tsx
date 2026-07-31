@@ -37,6 +37,11 @@ export function FechamentoDetalhe({
   const entrou = filtrados.filter((m) => m.valor > 0).reduce((s, m) => s + m.valor, 0)
   const saiu = filtrados.filter((m) => m.valor < 0).reduce((s, m) => s + m.valor, 0)
 
+  // Saldo líquido por forma de pagamento (como o "Saldos no Fechamento" do SIGE). Isa 29/07.
+  const porForma = Object.entries(
+    filtrados.reduce<Record<string, number>>((acc, m) => { acc[m.forma] = (acc[m.forma] ?? 0) + m.valor; return acc }, {}),
+  ).map(([forma, valor]) => ({ forma, valor })).sort((a, b) => b.valor - a.valor)
+
   const sel = 'rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500'
 
   return (
@@ -69,6 +74,19 @@ export function FechamentoDetalhe({
           <span>Saldo <b className="text-gray-800">{money(entrou + saiu)}</b></span>
           <span className="text-gray-400">{filtrados.length} movimento(s)</span>
         </div>
+
+        {porForma.length > 0 && (
+          <div className="border-b border-gray-100 px-5 py-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Saldo por forma de pagamento</p>
+            <div className="flex flex-wrap gap-2">
+              {porForma.map((f) => (
+                <span key={f.forma} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-600">
+                  {f.forma}: <b className={f.valor >= 0 ? 'text-gray-800' : 'text-red-500'}>{money(f.valor)}</b>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
