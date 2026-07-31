@@ -41,9 +41,9 @@ type ItemVenda = {
 export default async function RelatoriosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ aba?: string; de?: string; ate?: string; loja?: string; caixa?: string }>
+  searchParams: Promise<{ aba?: string; de?: string; ate?: string; loja?: string; caixa?: string; usuario?: string }>
 }) {
-  const { aba = 'financeiro', de, ate, loja, caixa } = await searchParams
+  const { aba = 'financeiro', de, ate, loja, caixa, usuario } = await searchParams
   const supabase = await createServiceClient()
 
   const hoje = hojeSP()
@@ -693,11 +693,13 @@ export default async function RelatoriosPage({
   }
 
   // ---------- Registro de Atividades (log) ----------
-  const registros = aba === 'registro'
-    ? (await supabase.from('logs_atividade').select('created_at, usuario_email, tipo_acao, contexto')
-        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
-        .order('created_at', { ascending: false }).limit(300)).data ?? []
-    : []
+  let registros: { created_at: string; usuario_email: string | null; tipo_acao: string | null; contexto: unknown }[] = []
+  if (aba === 'registro') {
+    let qReg = supabase.from('logs_atividade').select('created_at, usuario_email, tipo_acao, contexto')
+      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+    if (usuario) qReg = qReg.ilike('usuario_email', `%${usuario}%`)  // Isa 29/07: filtrar por usuário
+    registros = (await qReg.order('created_at', { ascending: false }).limit(300)).data ?? []
+  }
 
   const categorias: { cat: string; abas: { id: string; label: string }[] }[] = [
     { cat: 'Financeiro', abas: [
@@ -780,6 +782,13 @@ export default async function RelatoriosPage({
               <option value="todas">Todas</option>
               {lojasFC.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
             </select>
+          </div>
+        )}
+        {aba === 'registro' && (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-600">Usuário</label>
+            <input name="usuario" defaultValue={usuario ?? ''} placeholder="e-mail do usuário…"
+              className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
         )}
         <button type="submit" className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">Filtrar</button>
@@ -876,7 +885,7 @@ export default async function RelatoriosPage({
             <tr key={i} className="hover:bg-blue-50/60">
               <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{dtBR(r.created_at)}</td>
               <td className="px-4 py-3 text-sm text-gray-600">{r.usuario_email ?? '—'}</td>
-              <td className="px-4 py-3 text-sm"><span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">{acaoLabel[r.tipo_acao] ?? r.tipo_acao}</span></td>
+              <td className="px-4 py-3 text-sm"><span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">{acaoLabel[r.tipo_acao ?? ''] ?? r.tipo_acao ?? '—'}</span></td>
               <td className="px-4 py-3 text-sm text-gray-500">{ctxTexto(r.contexto as Record<string, unknown> | null)}</td>
             </tr>
           ))}
