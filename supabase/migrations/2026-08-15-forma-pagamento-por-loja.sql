@@ -1,0 +1,12 @@
+-- ============================================================
+-- Forma de pagamento por LOJA (Isa 29/07: "mandar os valores recebidos pra
+-- conta da loja"). O roteamento do dinheiro já é por conta_destino_id de cada
+-- forma — então basta criar formas separadas por loja (PIX Petrópolis, PIX
+-- Teresópolis...) apontando cada uma pra conta certa.
+--
+-- Esta coluna liga a forma a uma loja pra o PDV mostrar SÓ as formas daquela
+-- loja (evita a atendente escolher a forma da loja errada). NULL = aparece em
+-- todas as lojas (comportamento de hoje — nada muda até marcar uma loja).
+-- Idempotente; seguro reaplicar.
+-- ============================================================
+alter table formas_pagamento add column if not exists loja_id uuid references lojas(id);

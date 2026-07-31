@@ -110,6 +110,7 @@ interface FormaPagamento {
   tipo: string | null
   maquina_id: string | null
   prazo_recebimento: string | null
+  loja_id: string | null
 }
 
 interface Maquina {
@@ -521,6 +522,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   }
   const [lojaId, setLojaId] = useState(lojas[0]?.id ?? '')
   const [depositoId, setDepositoId] = useState(depoDefaultDaLoja(lojas[0]?.id ?? ''))
+  // Formas mostradas no PDV: sem loja aparecem sempre; com loja, só na loja delas.
+  // (Isa 29/07 — evita escolher "PIX Teresópolis" no caixa de Petrópolis.)
+  const formasVisiveis = formas.filter((f) => !f.loja_id || f.loja_id === lojaId)
   useEffect(() => {
     const lj = localStorage.getItem('pdv_loja')
     const dp = localStorage.getItem('pdv_deposito')
@@ -2362,7 +2366,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 <div className="flex-1 space-y-4 overflow-y-auto p-5">
               <div>
               <div className="grid grid-cols-2 gap-2.5">
-                {formas.map((f, i) => {
+                {formasVisiveis.map((f, i) => {
                   const ativa = pagamentos.length === 1 && pagamentos[0].forma_id === f.id
                   return (
                     <button key={f.id} type="button" onClick={() => escolherFormaGrid(f.id)}
@@ -2404,7 +2408,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                           className={`flex-1 rounded-lg border bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${p.forma_id ? 'border-gray-200' : 'border-amber-400 text-amber-700'}`}
                         >
                           <option value="" disabled>Selecione a forma…</option>
-                          {formas.map((f) => <option key={f.id} value={f.id}>{iconeForma(f.nome)} {f.nome}</option>)}
+                          {formasVisiveis.map((f) => <option key={f.id} value={f.id}>{iconeForma(f.nome)} {f.nome}</option>)}
                         </select>
                       ) : (
                         <span className="flex flex-1 items-center gap-1.5 text-sm font-semibold text-gray-700">
@@ -2746,7 +2750,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                     onChange={(e) => setFormaQuitar(e.target.value)}
                     className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    {formas.filter((f) => f.tipo !== 'fiado').map((f) => (
+                    {formasVisiveis.filter((f) => f.tipo !== 'fiado').map((f) => (
                       <option key={f.id} value={f.nome}>{f.nome}</option>
                     ))}
                   </select>
@@ -3004,7 +3008,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                   Forma de recebimento
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  {formas.filter((f) => f.tipo !== 'fiado').map((f) => (
+                  {formasVisiveis.filter((f) => f.tipo !== 'fiado').map((f) => (
                     <button
                       key={f.id}
                       type="button"
@@ -3080,7 +3084,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               {modoMistoReceb && (() => {
                 const somaMisto = Math.round(linhasMisto.reduce((s, l) => s + (parseFloat((l.valor || '').replace(',', '.')) || 0), 0) * 100) / 100
                 const faltam = Math.round((restanteReceb - somaMisto) * 100) / 100
-                const formasReais = formas.filter((f) => f.tipo !== 'fiado')
+                const formasReais = formasVisiveis.filter((f) => f.tipo !== 'fiado')
                 return (
                   <div className="space-y-2">
                     <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">Formas (soma tem que fechar o valor)</label>

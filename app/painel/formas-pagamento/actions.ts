@@ -17,6 +17,7 @@ function campos(formData: FormData) {
     maquina_id,
     prazo_recebimento: (formData.get('prazo_recebimento') as string) || 'a_vista',
     conta_destino_id,
+    loja_id: (formData.get('loja_id') as string) || null,
   }
 }
 

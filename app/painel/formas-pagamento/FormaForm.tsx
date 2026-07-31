@@ -8,7 +8,7 @@ import { SubmitButton } from '@/components/SubmitButton'
 
 type Maquina = { id: string; nome: string; taxa_debito: number; taxas_credito: number[]; max_parcelas: number }
 type Conta = { id: string; nome: string; tipo: string }
-type Editando = { id: string; nome: string; tipo: string; ativo: boolean; maquina_id: string | null; prazo_recebimento: string | null; conta_destino_id: string | null }
+type Editando = { id: string; nome: string; tipo: string; ativo: boolean; maquina_id: string | null; prazo_recebimento: string | null; conta_destino_id: string | null; loja_id: string | null }
 
 // Explicação em português de gente — o que acontece com o dinheiro em cada tipo
 const COMO_FUNCIONA: Record<string, string> = {
@@ -26,7 +26,7 @@ function resumoMaquina(m: Maquina): string {
   return `Débito ${m.taxa_debito}% · Crédito ${faixa} · até ${m.max_parcelas}x`
 }
 
-export function FormaForm({ maquinas, contas, editando, lockTipo }: { maquinas: Maquina[]; contas: Conta[]; editando?: Editando; lockTipo?: boolean }) {
+export function FormaForm({ maquinas, contas, lojas, editando, lockTipo }: { maquinas: Maquina[]; contas: Conta[]; lojas: { id: string; nome: string }[]; editando?: Editando; lockTipo?: boolean }) {
   const [tipo, setTipo] = useState(editando?.tipo ?? '')
   const [maquinaSel, setMaquinaSel] = useState(editando?.maquina_id ?? '')
   const usaMaquina = tipoUsaMaquina(tipo)
@@ -118,6 +118,15 @@ export function FormaForm({ maquinas, contas, editando, lockTipo }: { maquinas: 
               <p className="mt-1 text-[11px] text-gray-400">Onde esse valor fica de verdade. Cadastre em Financeiro → Contas.</p>
             </div>
           )}
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-gray-600">Loja desta forma</label>
+            <select name="loja_id" defaultValue={editando?.loja_id ?? ''} className="field">
+              <option value="">Todas as lojas</option>
+              {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
+            </select>
+            <p className="mt-1 text-[11px] text-gray-400">Se escolher uma loja, esta forma só aparece no PDV daquela loja.</p>
+          </div>
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-gray-600">Prazo de recebimento</label>

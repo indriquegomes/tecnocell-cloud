@@ -9,7 +9,7 @@ import Link from 'next/link'
 
 type Maquina = { id: string; nome: string; taxa_debito: number; taxas_credito: number[]; max_parcelas: number }
 type Conta = { id: string; nome: string; tipo: string }
-type Forma = { id: string; nome: string; tipo: string; ativo: boolean; maquina_id: string | null; prazo_recebimento: string | null; conta_destino_id: string | null }
+type Forma = { id: string; nome: string; tipo: string; ativo: boolean; maquina_id: string | null; prazo_recebimento: string | null; conta_destino_id: string | null; loja_id: string | null }
 
 // Formas que trazem dinheiro de verdade (têm conta destino)
 const RECEBIMENTOS: { tipo: string; icon: string }[] = [
@@ -42,15 +42,18 @@ export default async function FormasPagamentoPage({
   const { erro, editar, novo } = await searchParams
   const supabase = await createServiceClient()
 
-  const [{ data: formasData }, { data: maquinasData }, { data: contasData }] = await Promise.all([
-    supabase.from('formas_pagamento').select('id, nome, tipo, ativo, maquina_id, prazo_recebimento, conta_destino_id').order('nome'),
+  const [{ data: formasData }, { data: maquinasData }, { data: contasData }, { data: lojasData }] = await Promise.all([
+    supabase.from('formas_pagamento').select('id, nome, tipo, ativo, maquina_id, prazo_recebimento, conta_destino_id, loja_id').order('nome'),
     supabase.from('maquinas_cartao').select('id, nome, taxa_debito, taxas_credito, max_parcelas').eq('ativo', true).order('nome'),
     supabase.from('contas').select('id, nome, tipo').eq('ativa', true).order('created_at'),
+    supabase.from('lojas').select('id, nome').order('nome'),
   ])
 
   const formas = (formasData ?? []) as Forma[]
   const maquinas = (maquinasData ?? []) as Maquina[]
   const contas = (contasData ?? []) as Conta[]
+  const lojas = (lojasData ?? []) as { id: string; nome: string }[]
+  const nomeLojaForma = new Map(lojas.map((l) => [l.id, l.nome]))
   const maqById = new Map(maquinas.map((m) => [m.id, m]))
   const contaById = new Map(contas.map((c) => [c.id, c]))
 
@@ -82,7 +85,7 @@ export default async function FormasPagamentoPage({
       )}
 
       {/* Form aparece só ao configurar/adicionar */}
-      {mostrarForm && <FormaForm maquinas={maquinas} contas={contas} editando={editando} lockTipo={lockTipo} />}
+      {mostrarForm && <FormaForm maquinas={maquinas} contas={contas} lojas={lojas} editando={editando} lockTipo={lockTipo} />}
 
       {/* Recebimentos — trazem dinheiro, têm conta destino */}
       <section className="space-y-3">
