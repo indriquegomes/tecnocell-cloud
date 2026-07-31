@@ -4,7 +4,10 @@ import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
+// Status de reparo (originais) + os do fluxo da Isa (orçamento/finalizada/não
+// finalizada). 'vencida' NÃO é status guardado — é derivado da previsão vencida.
 export type StatusOS = 'aguardando' | 'em_reparo' | 'aguardando_peca' | 'pronto' | 'entregue' | 'cancelado'
+  | 'orcamento' | 'finalizada' | 'nao_finalizada'
 
 export interface OrdemServico {
   id: string
@@ -19,6 +22,7 @@ export interface OrdemServico {
   status: StatusOS
   total: number
   tecnico_nome: string | null
+  previsao_entrega: string | null
   created_at: string
 }
 

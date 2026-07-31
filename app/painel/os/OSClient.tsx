@@ -16,6 +16,9 @@ const STATUS_MAP: Record<StatusOS, { label: string; cor: string }> = {
   pronto:          { label: 'Pronto p/ retirada',cor: 'bg-green-50 text-green-700 border-green-200' },
   entregue:        { label: 'Entregue',          cor: 'bg-gray-100 text-gray-500 border-gray-200' },
   cancelado:       { label: 'Cancelado',         cor: 'bg-red-50 text-red-600 border-red-200' },
+  orcamento:       { label: 'Orçamento',         cor: 'bg-purple-50 text-purple-700 border-purple-200' },
+  finalizada:      { label: 'Finalizada',        cor: 'bg-green-50 text-green-700 border-green-200' },
+  nao_finalizada:  { label: 'Não finalizada',    cor: 'bg-amber-50 text-amber-700 border-amber-200' },
 }
 
 const PROXIMOS: Record<StatusOS, { status: StatusOS; label: string }[]> = {
@@ -25,6 +28,16 @@ const PROXIMOS: Record<StatusOS, { status: StatusOS; label: string }[]> = {
   pronto:          [{ status: 'entregue', label: 'Registrar entrega' }],
   entregue:        [],
   cancelado:       [],
+  orcamento:       [{ status: 'nao_finalizada', label: 'Aprovar (iniciar)' }, { status: 'cancelado', label: 'Cancelar' }],
+  nao_finalizada:  [{ status: 'finalizada', label: 'Finalizar' }, { status: 'cancelado', label: 'Cancelar' }],
+  finalizada:      [{ status: 'entregue', label: 'Registrar entrega' }],
+}
+
+// OS "vencida": previsão de entrega já passou e ainda está aberta (não finalizada/
+// entregue/pronta/cancelada). Derivado — não é status guardado. Isa 29/07.
+const ABERTAS = ['aguardando', 'em_reparo', 'aguardando_peca', 'orcamento', 'nao_finalizada']
+function estaVencida(o: { previsao_entrega: string | null; status: string }): boolean {
+  return !!o.previsao_entrega && new Date(o.previsao_entrega) < new Date() && ABERTAS.includes(o.status)
 }
 
 function BadgeOS({ status }: { status: string }) {
@@ -83,7 +96,8 @@ export function OSClient({ ordens, tecnicos = [], filtros }: { ordens: OrdemServ
         String(o.numero).includes(b)
       )
     }
-    if (filtroStatus) r = r.filter(o => o.status === filtroStatus)
+    if (filtroStatus === 'vencida') r = r.filter(estaVencida)
+    else if (filtroStatus) r = r.filter(o => o.status === filtroStatus)
     return r
   }, [ordens, busca, filtroStatus])
 
@@ -194,6 +208,10 @@ export function OSClient({ ordens, tecnicos = [], filtros }: { ordens: OrdemServ
                 {label}
               </button>
             ))}
+            <button onClick={() => setFiltroStatus(filtroStatus === 'vencida' ? '' : 'vencida')}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${filtroStatus === 'vencida' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-red-600 border-red-200 hover:border-red-300'}`}>
+              ⏰ Vencida
+            </button>
           </div>
         </div>
       )}
@@ -246,7 +264,7 @@ export function OSClient({ ordens, tecnicos = [], filtros }: { ordens: OrdemServ
                   <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
                     {o.tecnico_nome ?? <span className="text-gray-300">—</span>}
                   </td>
-                  <td className="px-4 py-3"><BadgeOS status={o.status} /></td>
+                  <td className="px-4 py-3"><BadgeOS status={o.status} />{estaVencida(o) && <span className="ml-1 inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600 whitespace-nowrap">⏰ Vencida</span>}</td>
                   <td className="px-4 py-3 text-right font-bold text-gray-800 whitespace-nowrap">
                     {o.total > 0 ? fmt(o.total) : <span className="text-gray-300 font-normal">—</span>}
                   </td>
@@ -285,7 +303,7 @@ export function OSClient({ ordens, tecnicos = [], filtros }: { ordens: OrdemServ
                     <td className="px-4 py-3"><span className="font-mono text-xs text-gray-400">#{String(o.numero).padStart(4, '0')}</span></td>
                     <td className="px-4 py-3 text-gray-700">{o.pessoa_nome ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-600">{o.aparelho ?? '—'}{o.modelo ? ` · ${o.modelo}` : ''}</td>
-                    <td className="px-4 py-3"><BadgeOS status={o.status} /></td>
+                    <td className="px-4 py-3"><BadgeOS status={o.status} />{estaVencida(o) && <span className="ml-1 inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600 whitespace-nowrap">⏰ Vencida</span>}</td>
                     <td className="px-4 py-3 text-gray-700">{o.total > 0 ? fmt(o.total) : '—'}</td>
                     <td className="px-4 py-3 text-xs text-gray-400">{fmtDt(o.created_at)}</td>
                   </tr>
