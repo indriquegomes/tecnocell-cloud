@@ -121,6 +121,17 @@ export async function buscarClientesOS(busca: string) {
   return (data ?? []) as { id: string; nome: string; telefone: string | null }[]
 }
 
+export async function criarClienteRapidoOS(nome: string): Promise<{ ok: true; id: string; nome: string } | { ok: false; erro: string }> {
+  await requirePermissao('os')
+  const limpo = nome.trim()
+  if (limpo.length < 2) return { ok: false, erro: 'Nome muito curto.' }
+  const supabase = await createServiceClient()
+  const id = crypto.randomUUID()
+  const { error } = await supabase.from('pessoas').insert({ id, nome: limpo, tipo: 'cliente', pessoa_fisica: true, ativo: true })
+  if (error) return { ok: false, erro: error.message }
+  return { ok: true, id, nome: limpo }
+}
+
 // ── Check-lists aplicados numa OS (Etapa 4) ──────────────────────────────────
 export type ItemChecklist = { texto: string; ok: boolean }
 export type ChecklistOS = { id: string; nome: string; itens: ItemChecklist[] }

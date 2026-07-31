@@ -4,7 +4,7 @@ import { IconPlus } from '@/components/icons'
 import { useState, useMemo, useEffect } from 'react'
 import { Spinner } from '@/components/Spinner'
 import { useRouter } from 'next/navigation'
-import { criarOS, atualizarStatusOS, buscarClientesOS, listarChecklistsOS, aplicarChecklistOS, salvarChecklistOS, removerChecklistOS, type OrdemServico, type StatusOS, type ChecklistOS } from './actions'
+import { criarOS, atualizarStatusOS, buscarClientesOS, criarClienteRapidoOS, listarChecklistsOS, aplicarChecklistOS, salvarChecklistOS, removerChecklistOS, type OrdemServico, type StatusOS, type ChecklistOS } from './actions'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtDt = (s: string) => new Date(s).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
@@ -59,6 +59,7 @@ export function OSClient({ ordens, tecnicos = [], modelosChecklist = [], filtros
   const [openNova, setOpenNova] = useState(false)
   const [pessoaId, setPessoaId] = useState<string | null>(null)
   const [pessoaNomeInput, setPessoaNomeInput] = useState('')
+  const [criandoCliente, setCriandoCliente] = useState(false)
   const [sugestoes, setSugestoes] = useState<{ id: string; nome: string; telefone: string | null }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [erroNova, setErroNova] = useState('')
@@ -371,6 +372,19 @@ export function OSClient({ ordens, tecnicos = [], modelosChecklist = [], filtros
                   )}
                 </div>
                 {pessoaId && <p className="mt-1 text-xs text-green-600">✓ {pessoaNomeInput} selecionado</p>}
+                {!pessoaId && sugestoes.length === 0 && pessoaNomeInput.trim().length >= 2 && (
+                  <button type="button" disabled={criandoCliente}
+                    onClick={async () => {
+                      setCriandoCliente(true)
+                      const r = await criarClienteRapidoOS(pessoaNomeInput)
+                      setCriandoCliente(false)
+                      if (r.ok) { setPessoaId(r.id); setPessoaNomeInput(r.nome); setSugestoes([]) }
+                      else setErroNova(r.erro)
+                    }}
+                    className="mt-1.5 rounded-lg border border-dashed border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 transition disabled:opacity-50">
+                    {criandoCliente ? 'Cadastrando…' : `+ Cadastrar "${pessoaNomeInput.trim()}" como novo cliente`}
+                  </button>
+                )}
               </div>
 
               {/* Aparelho */}
