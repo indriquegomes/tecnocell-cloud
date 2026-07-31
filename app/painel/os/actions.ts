@@ -52,11 +52,10 @@ export async function gerarOSDePedido(pedidoId: string) {
   const tecnicoNome = (perfil as { nome?: string } | null)?.nome ?? usuario.email ?? ''
 
   const { data: os, error } = await supabase.from('ordens_servico').insert({
-    pedido_id:    pedidoId,
     pessoa_id:    pedido.pessoa_id,
     pessoa_nome:  pessoaNome,
-    problema:     pedido.observacoes ?? pedido.referencia_cliente ?? 'Gerada a partir de pedido',
-    tecnico_id:   usuario.id,
+    equipamento:  'Serviço (do pedido)',
+    defeito_relatado: pedido.observacoes ?? pedido.referencia_cliente ?? 'Gerada a partir de pedido',
     tecnico_nome: tecnicoNome,
     total:        pedido.total ?? 0,
     status:       'aguardando',
@@ -89,12 +88,11 @@ export async function criarOS(formData: FormData) {
   const { data: os, error } = await supabase.from('ordens_servico').insert({
     pessoa_id:    pessoaId,
     pessoa_nome:  pessoaNome,
-    aparelho:     (formData.get('aparelho') as string) || null,
+    equipamento:  (formData.get('aparelho') as string) || 'Não informado',
     modelo:       (formData.get('modelo') as string) || null,
-    imei:         (formData.get('imei') as string) || null,
-    problema:     formData.get('problema') as string,
+    serial_imei:  (formData.get('imei') as string) || null,
+    defeito_relatado: (formData.get('problema') as string) || 'Não informado',
     observacoes:  (formData.get('observacoes') as string) || null,
-    tecnico_id:   tecnicoId,
     tecnico_nome: tecnicoNome,
     previsao_entrega: previsaoEntrega,
     status:       'aguardando',
