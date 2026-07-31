@@ -133,6 +133,17 @@ async function contaDaFormaOS(supabase: SBOS, texto: string): Promise<string | n
   return (f?.conta_destino_id as string | null) ?? null
 }
 
+// Busca OS por número pra receber no PDV (Opção B). Só as ainda NÃO recebidas.
+export async function buscarOSPorNumero(numero: number): Promise<{ id: string; numero: number; pessoa_nome: string | null; equipamento: string | null; total: number; recebido_em: string | null } | null> {
+  await requirePermissao('os')
+  const supabase = await createServiceClient()
+  const { data } = await supabase.from('ordens_servico')
+    .select('id, numero, pessoa_nome, equipamento, total, recebido_em')
+    .eq('numero', numero).maybeSingle()
+  if (!data) return null
+  return { ...data, total: Number(data.total) || 0 } as { id: string; numero: number; pessoa_nome: string | null; equipamento: string | null; total: number; recebido_em: string | null }
+}
+
 export async function receberOS(osId: string, forma: string, lojaId: string): Promise<{ ok: boolean; erro?: string }> {
   await requirePermissao('os')
   const supabase = await createServiceClient()

@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Spinner } from '@/components/Spinner'
 import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, carregarClientesPDV, buscarFiadoCliente, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, registrarPagamentoMisto, aplicarDescontoCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
 import { criarClientePDV } from '../clientes/actions'
+import { buscarOSPorNumero, receberOS } from '../os/actions'
 import { PoliticaCadastro } from '../clientes/politica'
 import { rotulaRotina } from '@/lib/rotina-pagamento'
 import { badgeTabela } from '@/lib/badge-tabela'
@@ -243,6 +244,33 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [buscaVenda, setBuscaVenda] = useState('')
   // F9 Crediário — modal de fiado/A Receber
   const [mostrarCrediario, setMostrarCrediario] = useState(false)
+
+  // Receber OS no PDV (Opção B) — reusa a ação segura receberOS (não mexe no carrinho)
+  const [mostrarReceberOS, setMostrarReceberOS] = useState(false)
+  const [osNumInput, setOsNumInput] = useState('')
+  const [osReceb, setOsReceb] = useState<{ id: string; numero: number; pessoa_nome: string | null; equipamento: string | null; total: number; recebido_em: string | null } | null>(null)
+  const [buscandoOS, setBuscandoOS] = useState(false)
+  const [formaOSReceb, setFormaOSReceb] = useState('')
+  const [recebendoOS, setRecebendoOS] = useState(false)
+  const [msgOSReceb, setMsgOSReceb] = useState('')
+  const buscarOS = async () => {
+    const n = parseInt(osNumInput, 10)
+    if (!n) return
+    setBuscandoOS(true); setMsgOSReceb(''); setOsReceb(null)
+    const os = await buscarOSPorNumero(n)
+    setBuscandoOS(false)
+    if (!os) setMsgOSReceb('OS não encontrada.')
+    else if (os.recebido_em) { setOsReceb(os); setMsgOSReceb('Esta OS já foi recebida.') }
+    else { setOsReceb(os); setFormaOSReceb(formasVisiveis.find((f) => f.tipo === 'dinheiro')?.nome ?? formasVisiveis[0]?.nome ?? '') }
+  }
+  const confirmarReceberOS = async () => {
+    if (!osReceb || osReceb.recebido_em) return
+    setRecebendoOS(true); setMsgOSReceb('')
+    const r = await receberOS(osReceb.id, formaOSReceb, lojaId)
+    setRecebendoOS(false)
+    if (r.ok) { setMsgOSReceb('✓ Recebido!'); setOsReceb({ ...osReceb, recebido_em: new Date().toISOString() }) }
+    else setMsgOSReceb(r.erro ?? 'Erro ao receber.')
+  }
   const [crediarioItens, setCrediarioItens] = useState<CrediarioItem[]>([])
   const [carregandoCrediario, setCarregandoCrediario] = useState(false)
   const [buscaCrediario, setBuscaCrediario] = useState('')
@@ -2597,8 +2625,45 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           <span><kbd className="rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 font-mono text-[11px] text-gray-600">F9</kbd> Crediário</span>
           <span><kbd className="rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 font-mono text-[11px] text-gray-600">Esc</kbd> Fechar</span>
           <a href="/painel/devolucoes" className="ml-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 transition"><kbd className="mr-1 rounded border border-gray-300 bg-white px-1 py-0.5 font-mono text-[10px]">F7</kbd> ↩ Devoluções</a>
+          <button type="button" onClick={() => { setOsNumInput(''); setOsReceb(null); setMsgOSReceb(''); setMostrarReceberOS(true) }}
+            className="rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 transition">🔧 Receber OS</button>
         </div>
       </div>
+
+      {/* Modal — Receber OS (Opção B, reusa receberOS) */}
+      {mostrarReceberOS && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" onClick={() => setMostrarReceberOS(false)}>
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900">🔧 Receber Ordem de Serviço</h3>
+              <button onClick={() => setMostrarReceberOS(false)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 transition">✕</button>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <input value={osNumInput} onChange={(e) => setOsNumInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && buscarOS()}
+                type="number" placeholder="Nº da OS" className="field flex-1" autoFocus />
+              <button onClick={buscarOS} disabled={buscandoOS} className="rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">{buscandoOS ? '...' : 'Buscar'}</button>
+            </div>
+            {osReceb && (
+              <div className="mt-4 rounded-xl border border-gray-200 p-3">
+                <p className="text-sm font-semibold text-gray-800">OS #{osReceb.numero} · {osReceb.pessoa_nome ?? 'Consumidor'}</p>
+                <p className="text-xs text-gray-500">{osReceb.equipamento ?? '—'}</p>
+                <p className="mt-1 text-2xl font-extrabold text-green-600">{formatBRL(osReceb.total)}</p>
+                {!osReceb.recebido_em && (
+                  <div className="mt-3">
+                    <label className="block text-xs text-gray-500 mb-1">Forma de pagamento</label>
+                    <select value={formaOSReceb} onChange={(e) => setFormaOSReceb(e.target.value)} className="field w-full">
+                      {formasVisiveis.filter((f) => f.tipo !== 'fiado').map((f) => <option key={f.id} value={f.nome}>{f.nome}</option>)}
+                    </select>
+                    <button onClick={confirmarReceberOS} disabled={recebendoOS || !formaOSReceb}
+                      className="mt-3 w-full rounded-xl bg-green-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50 transition">{recebendoOS ? 'Recebendo…' : 'Confirmar recebimento'}</button>
+                  </div>
+                )}
+              </div>
+            )}
+            {msgOSReceb && <p className={`mt-3 rounded-lg px-3 py-2 text-sm ${msgOSReceb.startsWith('✓') ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>{msgOSReceb}</p>}
+          </div>
+        </div>
+      )}
 
       {/* Modal de conferência da venda */}
       {mostrarConfirmacao && (
