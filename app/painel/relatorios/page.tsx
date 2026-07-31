@@ -41,9 +41,9 @@ type ItemVenda = {
 export default async function RelatoriosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ aba?: string; de?: string; ate?: string; loja?: string; caixa?: string; usuario?: string }>
+  searchParams: Promise<{ aba?: string; de?: string; ate?: string; loja?: string; caixa?: string; usuario?: string; vendedor?: string; forma?: string }>
 }) {
-  const { aba = 'financeiro', de, ate, loja, caixa, usuario } = await searchParams
+  const { aba = 'financeiro', de, ate, loja, caixa, usuario, vendedor, forma } = await searchParams
   const supabase = await createServiceClient()
 
   const hoje = hojeSP()
@@ -79,18 +79,62 @@ export default async function RelatoriosPage({
   const totalReceber = lancamentos.filter((l) => l.tipo === 'receber' && l.status !== 'cancelado').reduce((s, l) => s + l.valor, 0)
   const totalPagar = lancamentos.filter((l) => l.tipo === 'pagar' && l.status !== 'cancelado').reduce((s, l) => s + l.valor, 0)
 
-  // ---------- Vendas (lista) ----------
-  let vendasLista: { id: string; total: number; desconto: number; created_at: string; status: string }[] = []
+  // ---------- Vendas (Condensado — venda-a-venda + resumo por forma) ----------
+  type VendaCond = { id: string; numero: number | null; total: number; desconto: number; created_at: string; status: string; vendedor_nome: string | null; cliente_nome: string | null; forma_nome: string | null }
+  let vendasLista: VendaCond[] = []
   let totalDevolucoesPeriodo = 0
+  let resumoFormas: { nome: string; total: number; qtd: number }[] = []
+  let vendedoresVendas: string[] = []
+  let formasVendas: { id: string; nome: string }[] = []
   if (aba === 'vendas') {
-    vendasLista = await fetchAll<{ id: string; total: number; desconto: number; created_at: string; status: string }>((from, to) => {
-      let q = supabase.from('vendas').select('id, total, desconto, created_at, status')
+    const raw = await fetchAll<{ id: string; numero: number | null; total: number; desconto: number; created_at: string; status: string; vendedor_nome: string | null; pessoa_id: string | null; forma_pagamento_id: string | null }>((from, to) => {
+      let q = supabase.from('vendas').select('id, numero, total, desconto, created_at, status, vendedor_nome, pessoa_id, forma_pagamento_id')
         .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
       if (caixasDaLoja) q = q.in('caixa_id', caixasDaLoja)
       return q.order('created_at', { ascending: false }).range(from, to)
     })
+    // formas cadastradas (dropdown + nome)
+    const { data: formasCad } = await supabase.from('formas_pagamento').select('id, nome').order('nome')
+    formasVendas = (formasCad ?? []) as { id: string; nome: string }[]
+    const nomeForma = Object.fromEntries(formasVendas.map((f) => [f.id, f.nome]))
+    // clientes
+    const pids = [...new Set(raw.map((v) => v.pessoa_id).filter(Boolean))] as string[]
+    let nomeCliente: Record<string, string> = {}
+    if (pids.length) {
+      const ps = await fetchAllIn<{ id: string; nome: string }>(pids, (chunk, from, to) => supabase.from('pessoas').select('id, nome').in('id', chunk).range(from, to))
+      nomeCliente = Object.fromEntries(ps.map((p) => [p.id, p.nome]))
+    }
+    // pagamentos por venda (múltiplas formas — tabela filha pagamentos_venda)
+    const vids = raw.map((v) => v.id)
+    const pagsPorVenda: Record<string, { nome: string; valor: number }[]> = {}
+    const idsPorVenda: Record<string, Set<string>> = {}
+    if (vids.length) {
+      const pags = await fetchAllIn<{ venda_id: string; forma_pagamento_id: string | null; valor: number }>(vids, (chunk, from, to) => supabase.from('pagamentos_venda').select('venda_id, forma_pagamento_id, valor').in('venda_id', chunk).range(from, to))
+      for (const p of pags) {
+        const nome = (p.forma_pagamento_id && nomeForma[p.forma_pagamento_id]) || 'Não informado'
+        ;(pagsPorVenda[p.venda_id] ||= []).push({ nome, valor: p.valor ?? 0 })
+        if (p.forma_pagamento_id) (idsPorVenda[p.venda_id] ||= new Set()).add(p.forma_pagamento_id)
+      }
+    }
+    const base = raw.map((v) => ({
+      id: v.id, numero: v.numero, total: v.total ?? 0, desconto: v.desconto ?? 0,
+      created_at: v.created_at, status: v.status, vendedor_nome: v.vendedor_nome ?? null,
+      cliente_nome: v.pessoa_id ? (nomeCliente[v.pessoa_id] ?? null) : null,
+      forma_nome: pagsPorVenda[v.id] ? [...new Set(pagsPorVenda[v.id].map((p) => p.nome))].join(' + ') : (v.forma_pagamento_id ? (nomeForma[v.forma_pagamento_id] ?? null) : null),
+    })).filter((v) => (forma ? (idsPorVenda[v.id]?.has(forma) ?? false) : true))
+    // dropdown de vendedor sobre a leva visível; filtro por último pra a lista não sumir
+    vendedoresVendas = [...new Set(base.map((v) => v.vendedor_nome).filter(Boolean))].sort() as string[]
+    vendasLista = vendedor ? base.filter((v) => v.vendedor_nome === vendedor) : base
+    // resumo por forma sobre as vendas visíveis (respeita loja/vendedor/forma)
+    const mapaResumo: Record<string, { total: number; qtd: number }> = {}
+    for (const v of vendasLista) {
+      for (const pg of (pagsPorVenda[v.id] ?? [])) {
+        ;(mapaResumo[pg.nome] ??= { total: 0, qtd: 0 }).total += pg.valor
+        mapaResumo[pg.nome].qtd++
+      }
+    }
+    resumoFormas = Object.entries(mapaResumo).map(([nome, r]) => ({ nome, ...r })).sort((a, b) => b.total - a.total)
     // Devoluções processadas no período → Vendas líquidas = brutas − devoluções.
-    // Antes o faturamento contava a venda devolvida cheia (não descontava nada).
     const devs = await fetchAll<{ valor_total: number | null }>((from, to) => supabase.from('devolucoes')
       .select('valor_total').gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to))
     totalDevolucoesPeriodo = (devs ?? []).reduce((s, d) => s + (d.valor_total ?? 0), 0)
@@ -854,6 +898,24 @@ export default async function RelatoriosPage({
               className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
         )}
+        {aba === 'vendas' && (
+          <>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Vendedor</label>
+              <select name="vendedor" defaultValue={vendedor ?? ''} className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">Todos</option>
+                {vendedoresVendas.map((nm) => <option key={nm} value={nm}>{nm}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Forma</label>
+              <select name="forma" defaultValue={forma ?? ''} className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">Todas</option>
+                {formasVendas.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
+              </select>
+            </div>
+          </>
+        )}
         <button type="submit" className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">Filtrar</button>
       </form>
 
@@ -1085,18 +1147,36 @@ export default async function RelatoriosPage({
             <Card label="Nº de Vendas" valor={String(vendasLista.length)} cor="text-gray-800" />
             <Card label="Ticket Médio" valor={vendasLista.length > 0 ? fmt(totalVendasLista / vendasLista.length) : 'R$ 0,00'} cor="text-gray-800" />
           </div>
+          {resumoFormas.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">Resumo por forma de pagamento</p>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                {resumoFormas.map((f) => (
+                  <div key={f.nome} className="rounded-xl border border-gray-100 bg-white px-4 py-3">
+                    <p className="truncate text-xs font-medium text-gray-500" title={f.nome}>{f.nome}</p>
+                    <p className="mt-0.5 text-lg font-bold text-gray-800">{fmt(f.total)}</p>
+                    <p className="text-[11px] text-gray-400">{f.qtd} pagamento{f.qtd === 1 ? '' : 's'}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex justify-end">
             <ExportCsv filename={`vendas_${dataInicio}_${dataFim}.csv`}
-              cols={[{ key: 'created_at', label: 'Data' }, { key: 'total', label: 'Total', money: true }, { key: 'desconto', label: 'Desconto', money: true }, { key: 'status', label: 'Status' }]}
+              cols={[{ key: 'numero', label: 'Nº' }, { key: 'created_at', label: 'Data' }, { key: 'cliente_nome', label: 'Cliente' }, { key: 'vendedor_nome', label: 'Vendedor' }, { key: 'forma_nome', label: 'Forma' }, { key: 'desconto', label: 'Desconto', money: true }, { key: 'total', label: 'Total', money: true }, { key: 'status', label: 'Status' }]}
               rows={asRows(vendasLista)} />
           </div>
           <Tabela vazio={vendasLista.length === 0} vazioMsg="Nenhuma venda no período."
-            head={['Data', 'Total', 'Desconto', 'Status']} alinhas={['l', 'r', 'r', 'c']}>
+            head={['Nº', 'Data', 'Cliente', 'Vendedor', 'Forma', 'Desconto', 'Total', 'Status']} alinhas={['l', 'l', 'l', 'l', 'l', 'r', 'r', 'c']}>
             {vendasLista.map((v) => (
               <tr key={v.id} className="hover:bg-blue-50/60">
+                <td className="px-4 py-3 text-sm text-gray-500">{v.numero ?? '—'}</td>
                 <td className="px-4 py-3 text-sm text-gray-600">{new Date(v.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</td>
-                <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{fmt(v.total)}</td>
+                <td className="px-4 py-3 text-sm text-gray-700">{v.cliente_nome ?? '—'}</td>
+                <td className="px-4 py-3 text-sm text-gray-700">{v.vendedor_nome ?? '—'}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{v.forma_nome ?? '—'}</td>
                 <td className="px-4 py-3 text-sm text-right text-red-500">{fmt(v.desconto ?? 0)}</td>
+                <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{fmt(v.total)}</td>
                 <td className="px-4 py-3 text-center"><span className="inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700">{v.status}</span></td>
               </tr>
             ))}
