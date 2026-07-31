@@ -36,7 +36,7 @@ function BadgeOS({ status }: { status: string }) {
   )
 }
 
-export function OSClient({ ordens, filtros }: { ordens: OrdemServico[]; filtros: { q: string; status: string } }) {
+export function OSClient({ ordens, tecnicos = [], filtros }: { ordens: OrdemServico[]; tecnicos?: { id: string; nome: string }[]; filtros: { q: string; status: string } }) {
   const router = useRouter()
   const [busca, setBusca] = useState(filtros.q)
   const [filtroStatus, setFiltroStatus] = useState(filtros.status)
@@ -360,6 +360,21 @@ export function OSClient({ ordens, filtros }: { ordens: OrdemServico[]; filtros:
                 <label className="block text-xs font-semibold uppercase text-gray-500 mb-1.5">Observações internas</label>
                 <textarea name="observacoes" rows={2} placeholder="Anotações para o técnico..."
                   className="field w-full resize-none" />
+              </div>
+
+              {/* Técnico + previsão de entrega (Isa 29/07) */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-500 mb-1.5">Técnico responsável</label>
+                  <select name="tecnico_id" className="field w-full">
+                    <option value="">— Eu mesmo —</option>
+                    {tecnicos.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-500 mb-1.5">Previsão de entrega</label>
+                  <input type="datetime-local" name="previsao_entrega" className="field w-full" />
+                </div>
               </div>
 
               {erroNova && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{erroNova}</p>}

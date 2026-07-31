@@ -71,8 +71,11 @@ export async function criarOS(formData: FormData) {
     pessoaNome = (formData.get('pessoa_nome') as string) || null
   }
 
-  const { data: perfil } = await supabase.from('perfis').select('nome').eq('id', usuario.id).maybeSingle()
+  // técnico escolhido no form (senão o usuário logado). Isa 29/07.
+  const tecnicoId = (formData.get('tecnico_id') as string) || usuario.id
+  const { data: perfil } = await supabase.from('perfis').select('nome').eq('id', tecnicoId).maybeSingle()
   const tecnicoNome = (perfil as { nome?: string } | null)?.nome ?? usuario.email ?? ''
+  const previsaoEntrega = (formData.get('previsao_entrega') as string) || null
 
   const { data: os, error } = await supabase.from('ordens_servico').insert({
     pessoa_id:    pessoaId,
@@ -82,8 +85,9 @@ export async function criarOS(formData: FormData) {
     imei:         (formData.get('imei') as string) || null,
     problema:     formData.get('problema') as string,
     observacoes:  (formData.get('observacoes') as string) || null,
-    tecnico_id:   usuario.id,
+    tecnico_id:   tecnicoId,
     tecnico_nome: tecnicoNome,
+    previsao_entrega: previsaoEntrega,
     status:       'aguardando',
   }).select('id').single()
 
