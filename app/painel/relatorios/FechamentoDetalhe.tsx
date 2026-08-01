@@ -42,6 +42,16 @@ export function FechamentoDetalhe({
     filtrados.reduce<Record<string, number>>((acc, m) => { acc[m.forma] = (acc[m.forma] ?? 0) + m.valor; return acc }, {}),
   ).map(([forma, valor]) => ({ forma, valor })).sort((a, b) => b.valor - a.valor)
 
+  // Resumo por tipo de operação (blocos do PDF do SIGE: vendas / recebimentos /
+  // reforços / devoluções / retiradas). Isa 29/07 — espelhar o fechamento do SIGE.
+  const ordemOp = ['Venda', 'Recebimento', 'Reforço', 'Devolução', 'Retirada']
+  const porOperacao = Object.entries(
+    filtrados.reduce<Record<string, { qtd: number; total: number }>>((acc, m) => {
+      ;(acc[m.movimentacao] ??= { qtd: 0, total: 0 }); acc[m.movimentacao].qtd++; acc[m.movimentacao].total += m.valor; return acc
+    }, {}),
+  ).map(([tipo, r]) => ({ tipo, ...r }))
+    .sort((a, b) => ((ordemOp.indexOf(a.tipo) + 1) || 99) - ((ordemOp.indexOf(b.tipo) + 1) || 99))
+
   const sel = 'rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500'
 
   return (
@@ -74,6 +84,20 @@ export function FechamentoDetalhe({
           <span>Saldo <b className="text-gray-800">{money(entrou + saiu)}</b></span>
           <span className="text-gray-400">{filtrados.length} movimento(s)</span>
         </div>
+
+        {porOperacao.length > 0 && (
+          <div className="border-b border-gray-100 px-5 py-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Resumo por tipo de operação</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+              {porOperacao.map((o) => (
+                <div key={o.tipo} className="rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2">
+                  <p className="text-xs font-medium text-gray-500">{o.tipo} · {o.qtd}</p>
+                  <p className={`text-sm font-bold tabular-nums ${o.total >= 0 ? 'text-gray-800' : 'text-red-500'}`}>{o.total >= 0 ? '' : '−'}{money(Math.abs(o.total))}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {porForma.length > 0 && (
           <div className="border-b border-gray-100 px-5 py-3">
