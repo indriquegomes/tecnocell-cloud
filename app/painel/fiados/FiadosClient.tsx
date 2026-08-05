@@ -222,6 +222,7 @@ export function FiadosClient({
                   <thead>
                     <tr className="text-left text-xs font-semibold uppercase text-gray-400">
                       <th className="px-5 py-2">Nota</th>
+                      <th className="px-5 py-2">Loja</th>
                       <th className="px-5 py-2">Vencimento</th>
                       <th className="px-5 py-2 text-right">Valor</th>
                       <th className="px-5 py-2" />
@@ -231,6 +232,11 @@ export function FiadosClient({
                     {c.notas.map((n) => (
                       <tr key={n.id} className="hover:bg-white">
                         <td className="px-5 py-2.5 text-gray-700">{n.descricao ?? (n.codigo ? `Fiado #${n.codigo}` : 'Lançamento')}</td>
+                        <td className="px-5 py-2.5">
+                          {n.loja
+                            ? <span className="rounded-md bg-[#1B6CA8]/10 px-2 py-0.5 text-xs font-medium text-[#1B6CA8]">🏬 {n.loja}</span>
+                            : <span className="text-xs text-gray-300">—</span>}
+                        </td>
                         <td className={`px-5 py-2.5 ${n.vencida ? 'font-medium text-rose-600' : 'text-gray-500'}`}>
                           {fmtData(n.vencimento)}{n.vencida && ' · vencida'}
                         </td>
