@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { BuscaAvancada } from '@/components/BuscaAvancada'
 import { IconPlus, IconUsers } from '@/components/icons'
 import { BuscaPessoas } from './BuscaPessoas'
 import { Paginacao } from '@/components/Paginacao'
@@ -154,8 +155,12 @@ export default async function ClientesPage({
           <Link href={fotoLink('sem')}
             className={`px-3 py-2 border-l border-gray-200 transition ${params.foto === 'sem' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>Sem foto</Link>
         </div>
-        {/* Filtros detalhados (Isa 29/07): cidade, tabela, física/jurídica, período */}
-        <form method="GET" className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-sm">
+        <span className="ml-auto self-center text-sm text-gray-400">{total} registro{total === 1 ? '' : 's'}</span>
+      </div>
+
+      {/* 🔎 Busca Avançada (Isa 29/07): cidade, tabela, física/jurídica, período */}
+      <BuscaAvancada ativo={!!(params.cidade || params.tabela || params.pf || params.de || params.ate)}>
+        <form method="GET" className="flex flex-wrap items-center gap-2 text-sm">
           {params.busca && <input type="hidden" name="busca" value={params.busca} />}
           {params.tipo && <input type="hidden" name="tipo" value={params.tipo} />}
           {verInativos && <input type="hidden" name="status" value="inativos" />}
@@ -185,8 +190,7 @@ export default async function ClientesPage({
           <button type="submit" className="rounded bg-blue-600 px-3 py-1 font-medium text-white hover:bg-blue-700 transition">Filtrar</button>
           {(params.de || params.ate || params.cidade || params.tabela || params.pf) && <Link href="/painel/clientes" className="text-gray-400 hover:text-gray-600">Limpar</Link>}
         </form>
-        <span className="ml-auto self-center text-sm text-gray-400">{total} registro{total === 1 ? '' : 's'}</span>
-      </div>
+      </BuscaAvancada>
 
       {/* Tabela */}
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">

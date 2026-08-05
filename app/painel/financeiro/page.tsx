@@ -9,6 +9,7 @@ import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 import { ExportCsv } from '../relatorios/ExportCsv'
+import { BuscaAvancada } from '@/components/BuscaAvancada'
 
 export default async function FinanceiroPage({
   searchParams,
@@ -166,11 +167,8 @@ export default async function FinanceiroPage({
       </form>
 
       {/* 🔎 Busca Avançada (Isa 29/07 — espelha a do SIGE) */}
-      <details open={temFiltro} className="rounded-xl border border-gray-200 bg-white shadow-sm">
-        <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-gray-700">
-          🔎 Busca Avançada{temFiltro && <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">filtros ativos</span>}
-        </summary>
-        <form method="GET" className="grid gap-3 border-t border-gray-100 p-4 sm:grid-cols-2 lg:grid-cols-4">
+      <BuscaAvancada ativo={temFiltro}>
+        <form method="GET" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {params.tipo && <input type="hidden" name="tipo" value={params.tipo} />}
           {params.busca && <input type="hidden" name="busca" value={params.busca} />}
           <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Cliente / Fornecedor</label>
@@ -203,7 +201,7 @@ export default async function FinanceiroPage({
             {temFiltro && <Link href="/painel/financeiro" className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 transition">Limpar tudo</Link>}
           </div>
         </form>
-      </details>
+      </BuscaAvancada>
 
       {/* ✨ Totais do que está filtrado (não só o global) + exportar */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-gray-100 bg-gray-50/60 px-5 py-3 text-sm">

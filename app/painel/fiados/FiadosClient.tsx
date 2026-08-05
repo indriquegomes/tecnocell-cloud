@@ -1,6 +1,7 @@
 'use client'
 
 import { IconCard } from '@/components/icons'
+import { BuscaAvancada } from '@/components/BuscaAvancada'
 import { useState } from 'react'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -129,44 +130,48 @@ export function FiadosClient({
         </div>
       </div>
 
-      {/* Busca + filtro por vendedor */}
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <input
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          placeholder="Buscar cliente..."
-          className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B6CA8]/30"
-        />
-        <select
-          value={vendedorSel}
-          onChange={(e) => setVendedorSel(e.target.value)}
-          title="Quem vendeu"
-          className={`rounded-xl border bg-white px-4 py-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B6CA8]/30 sm:w-64 ${vendedorSel ? 'border-[#1B6CA8] font-semibold text-[#1B6CA8]' : 'border-gray-200 text-gray-600'}`}
-        >
-          <option value="">👤 Todos os vendedores</option>
-          {vendedores.map((v) => <option key={v} value={v}>{v}</option>)}
-        </select>
-        {lojas.length > 1 && (
+      {/* Busca principal */}
+      <input
+        value={busca}
+        onChange={(e) => setBusca(e.target.value)}
+        placeholder="Buscar cliente..."
+        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B6CA8]/30"
+      />
+
+      {/* 🔎 Busca Avançada: vendedor, loja, ordenação */}
+      <BuscaAvancada ativo={!!(vendedorSel || lojaSel)}>
+        <div className="flex flex-wrap items-center gap-2">
           <select
-            value={lojaSel}
-            onChange={(e) => setLojaSel(e.target.value)}
-            title="Loja"
-            className={`rounded-xl border bg-white px-4 py-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B6CA8]/30 sm:w-48 ${lojaSel ? 'border-[#1B6CA8] font-semibold text-[#1B6CA8]' : 'border-gray-200 text-gray-600'}`}
+            value={vendedorSel}
+            onChange={(e) => setVendedorSel(e.target.value)}
+            title="Quem vendeu"
+            className={`rounded-xl border bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B6CA8]/30 ${vendedorSel ? 'border-[#1B6CA8] font-semibold text-[#1B6CA8]' : 'border-gray-200 text-gray-600'}`}
           >
-            <option value="">🏬 Todas as lojas</option>
-            {lojas.map((l) => <option key={l} value={l}>{l}</option>)}
+            <option value="">👤 Todos os vendedores</option>
+            {vendedores.map((v) => <option key={v} value={v}>{v}</option>)}
           </select>
-        )}
-        {/* Ordenação — alfabética por padrão (Isa) */}
-        <div className="flex shrink-0 rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
-          {([['nome', 'A→Z'], ['total', 'Maior dívida']] as const).map(([k, label]) => (
-            <button key={k} type="button" onClick={() => setOrdem(k)}
-              className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${ordem === k ? 'bg-[#1B6CA8] text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
-              {label}
-            </button>
-          ))}
+          {lojas.length > 1 && (
+            <select
+              value={lojaSel}
+              onChange={(e) => setLojaSel(e.target.value)}
+              title="Loja"
+              className={`rounded-xl border bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B6CA8]/30 ${lojaSel ? 'border-[#1B6CA8] font-semibold text-[#1B6CA8]' : 'border-gray-200 text-gray-600'}`}
+            >
+              <option value="">🏬 Todas as lojas</option>
+              {lojas.map((l) => <option key={l} value={l}>{l}</option>)}
+            </select>
+          )}
+          {/* Ordenação — alfabética por padrão (Isa) */}
+          <div className="flex shrink-0 rounded-xl border border-gray-200 bg-white p-1">
+            {([['nome', 'A→Z'], ['total', 'Maior dívida']] as const).map(([k, label]) => (
+              <button key={k} type="button" onClick={() => setOrdem(k)}
+                className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${ordem === k ? 'bg-[#1B6CA8] text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      </BuscaAvancada>
 
       {/* Lista */}
       <div className="space-y-2">
