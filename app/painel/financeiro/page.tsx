@@ -8,24 +8,59 @@ import { marcarPago, deletarLancamento } from './actions'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
+import { ExportCsv } from '../relatorios/ExportCsv'
 
 export default async function FinanceiroPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tipo?: string; busca?: string; ordem?: string; dir?: string; status?: string; de?: string; ate?: string }>
+  searchParams: Promise<{ tipo?: string; busca?: string; ordem?: string; dir?: string; status?: string; de?: string; ate?: string; pessoa?: string; forma?: string; conta?: string; categoria?: string; valor_min?: string; valor_max?: string; campo?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
+
+  // Campo de data pelo qual filtrar o período (Busca Avançada, igual SIGE:
+  // Vencimento × Competência × Pagamento). Default vencimento.
+  const camposData = ['data_vencimento', 'data_competencia', 'data_pagamento']
+  const campoData = camposData.includes(params.campo ?? '') ? params.campo! : 'data_vencimento'
+
+  // Dropdowns da busca avançada
+  const [{ data: formasList }, { data: contasList }, { data: catsRaw }] = await Promise.all([
+    supabase.from('formas_pagamento').select('nome').order('nome'),
+    supabase.from('contas').select('id, nome').eq('ativa', true).order('nome'),
+    supabase.from('lancamentos').select('categoria').not('categoria', 'is', null).limit(2000),
+  ])
+  const formasOpc = [...new Set((formasList ?? []).map((f) => f.nome as string))]
+  const contasOpc = (contasList ?? []) as { id: string; nome: string }[]
+  const categoriasOpc = [...new Set((catsRaw ?? []).map((c) => c.categoria as string).filter(Boolean))].sort()
+
+  // Aplica TODOS os filtros da busca avançada a uma query (reusado na lista e nos totais)
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const aplica = (q: any): any => {
+    if (params.tipo === 'pagar' || params.tipo === 'receber') q = q.eq('tipo', params.tipo)
+    if (params.busca) { for (const w of params.busca.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)) q = q.or(`descricao.ilike.%${w}%,pessoa_nome.ilike.%${w}%`) }
+    if (params.pessoa) q = q.ilike('pessoa_nome', `%${params.pessoa}%`)
+    if (params.forma) q = q.eq('forma_pagamento', params.forma)
+    if (params.conta) q = q.eq('conta_id', params.conta)
+    if (params.categoria) q = q.eq('categoria', params.categoria)
+    if (params.valor_min) q = q.gte('valor', Number(params.valor_min))
+    if (params.valor_max) q = q.lte('valor', Number(params.valor_max))
+    if (params.status === 'pago') q = q.eq('status', 'pago')
+    else if (params.status === 'pendente') q = q.neq('status', 'pago')
+    else if (params.status === 'vencido') q = q.neq('status', 'pago').lt('data_vencimento', hojeSP())
+    if (params.de) q = q.gte(campoData, params.de)
+    if (params.ate) q = q.lte(campoData, params.ate)
+    return q
+  }
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+  const temFiltro = !!(params.busca || params.pessoa || params.forma || params.conta || params.categoria || params.valor_min || params.valor_max || params.status || params.de || params.ate || params.tipo)
 
   const ordemAtual = params.ordem ?? 'data_vencimento'
   const ordemDir = params.dir === 'desc'
   const camposDB: Record<string, string> = { data_vencimento: 'data_vencimento', valor: 'valor', descricao: 'descricao', pessoa_nome: 'pessoa_nome', tipo: 'tipo', status: 'status' }
   const baseParams: Record<string, string> = {}
-  if (params.tipo)   baseParams.tipo   = params.tipo
-  if (params.busca)  baseParams.busca  = params.busca
-  if (params.status) baseParams.status = params.status
-  if (params.de)     baseParams.de     = params.de
-  if (params.ate)    baseParams.ate    = params.ate
+  for (const k of ['tipo', 'busca', 'status', 'de', 'ate', 'pessoa', 'forma', 'conta', 'categoria', 'valor_min', 'valor_max', 'campo'] as const) {
+    if (params[k]) baseParams[k] = params[k]!
+  }
   const sortLink = (o: string) => {
     const ativo = ordemAtual === o
     const nextDir = ativo ? (ordemDir ? 'asc' : 'desc') : 'asc'
@@ -34,30 +69,26 @@ export default async function FinanceiroPage({
     return { href: `/painel/financeiro?${qs}`, arrow, ativo }
   }
 
-  let query = supabase
+  const listaQuery = supabase
     .from('lancamentos')
-    .select('id, codigo, descricao, valor, tipo, status, data_vencimento, data_pagamento, forma_pagamento, pessoa_nome')
+    .select('id, codigo, descricao, valor, tipo, status, data_vencimento, data_pagamento, data_competencia, forma_pagamento, pessoa_nome, categoria')
     .order(camposDB[ordemAtual] ?? 'data_vencimento', { ascending: !ordemDir })
     .limit(200)
+  const { data: lancamentos } = await aplica(listaQuery)
 
-  if (params.tipo && (params.tipo === 'pagar' || params.tipo === 'receber')) {
-    query = query.eq('tipo', params.tipo)
-  }
-  if (params.busca) {
-    // multi-palavra: cada palavra tem que aparecer na descrição OU no nome da pessoa
-    const palavras = params.busca.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
-    for (const w of palavras) query = query.or(`descricao.ilike.%${w}%,pessoa_nome.ilike.%${w}%`)
-  }
-  // Status (pago/pendente/vencido) + período de vencimento — Isa 29/07 ("tipo, data, se está pago ou não")
-  if (params.status === 'pago')     query = query.eq('status', 'pago')
-  else if (params.status === 'pendente') query = query.neq('status', 'pago')
-  else if (params.status === 'vencido')  query = query.neq('status', 'pago').lt('data_vencimento', hojeSP())
-  if (params.de)  query = query.gte('data_vencimento', params.de)
-  if (params.ate) query = query.lte('data_vencimento', params.ate)
+  type LancRow = { id: string; codigo: string | null; descricao: string | null; valor: number | null; tipo: string; status: string | null; data_vencimento: string | null; data_pagamento: string | null; data_competencia: string | null; forma_pagamento: string | null; pessoa_nome: string | null; categoria: string | null }
+  const todos = (lancamentos ?? []) as LancRow[]
 
-  const { data: lancamentos } = await query
-
-  const todos = lancamentos ?? []
+  // ✨ Totais DO FILTRO (não só os globais): soma exatamente o que está filtrado,
+  // sem o cap de 200 da lista. Isa: "quanto tenho a receber em PIX vencendo em agosto".
+  const filtrados = await fetchAll<{ valor: number | null; tipo: string; status: string | null }>(
+    (from, to) => aplica(supabase.from('lancamentos').select('valor, tipo, status')).range(from, to)
+  )
+  const fReceber = filtrados.filter((l) => l.tipo === 'receber').reduce((s, l) => s + (l.valor ?? 0), 0)
+  const fPagar = filtrados.filter((l) => l.tipo === 'pagar').reduce((s, l) => s + (l.valor ?? 0), 0)
+  const fCount = filtrados.length
+  const inp = 'w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400'
+  const labelCampo: Record<string, string> = { data_vencimento: 'Vencimento', data_competencia: 'Competência', data_pagamento: 'Pagamento' }
   // Cards de resumo somam TODOS os pendentes (globais), sem o cap de 200 da lista
   // nem o filtro de busca/tipo — senão os totais subcontam quando houver >200 lançamentos.
   const paraTotais = await fetchAll<{ valor: number | null; tipo: string; status: string | null }>(
@@ -134,36 +165,59 @@ export default async function FinanceiroPage({
         </div>
       </form>
 
-      {/* Filtro por status + vencimento (Isa 29/07) */}
-      <form method="GET" className="flex flex-wrap items-end gap-3">
-        {params.tipo && <input type="hidden" name="tipo" value={params.tipo} />}
-        {params.busca && <input type="hidden" name="busca" value={params.busca} />}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold uppercase text-gray-400">Status</label>
-          <select name="status" defaultValue={params.status ?? ''}
-            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-            <option value="">Todos</option>
-            <option value="pendente">Pendente</option>
-            <option value="pago">Pago</option>
-            <option value="vencido">Vencido</option>
-          </select>
+      {/* 🔎 Busca Avançada (Isa 29/07 — espelha a do SIGE) */}
+      <details open={temFiltro} className="rounded-xl border border-gray-200 bg-white shadow-sm">
+        <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-gray-700">
+          🔎 Busca Avançada{temFiltro && <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">filtros ativos</span>}
+        </summary>
+        <form method="GET" className="grid gap-3 border-t border-gray-100 p-4 sm:grid-cols-2 lg:grid-cols-4">
+          {params.tipo && <input type="hidden" name="tipo" value={params.tipo} />}
+          {params.busca && <input type="hidden" name="busca" value={params.busca} />}
+          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Cliente / Fornecedor</label>
+            <input name="pessoa" defaultValue={params.pessoa ?? ''} placeholder="nome…" className={inp} /></div>
+          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Forma de pagamento</label>
+            <select name="forma" defaultValue={params.forma ?? ''} className={inp}>
+              <option value="">Todas</option>{formasOpc.map((f) => <option key={f} value={f}>{f}</option>)}</select></div>
+          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Conta</label>
+            <select name="conta" defaultValue={params.conta ?? ''} className={inp}>
+              <option value="">Todas</option>{contasOpc.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
+          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Categoria</label>
+            <select name="categoria" defaultValue={params.categoria ?? ''} className={inp}>
+              <option value="">Todas</option>{categoriasOpc.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
+          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Situação</label>
+            <select name="status" defaultValue={params.status ?? ''} className={inp}>
+              <option value="">Todos</option><option value="pendente">Pendente</option><option value="pago">Pago</option><option value="vencido">Vencido</option></select></div>
+          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Valor de</label>
+            <input name="valor_min" type="number" step="0.01" defaultValue={params.valor_min ?? ''} placeholder="0,00" className={inp} /></div>
+          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Valor até</label>
+            <input name="valor_max" type="number" step="0.01" defaultValue={params.valor_max ?? ''} placeholder="0,00" className={inp} /></div>
+          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Filtrar período por</label>
+            <select name="campo" defaultValue={campoData} className={inp}>
+              {camposData.map((c) => <option key={c} value={c}>{labelCampo[c]}</option>)}</select></div>
+          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">De</label>
+            <input name="de" type="date" defaultValue={params.de ?? ''} className={inp} /></div>
+          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Até</label>
+            <input name="ate" type="date" defaultValue={params.ate ?? ''} className={inp} /></div>
+          <div className="flex items-end gap-2 sm:col-span-2">
+            <button type="submit" className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">Filtrar</button>
+            {temFiltro && <Link href="/painel/financeiro" className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 transition">Limpar tudo</Link>}
+          </div>
+        </form>
+      </details>
+
+      {/* ✨ Totais do que está filtrado (não só o global) + exportar */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-gray-100 bg-gray-50/60 px-5 py-3 text-sm">
+        <span className="font-semibold text-gray-500">No filtro atual:</span>
+        <span>A Receber <b className="text-green-600">{formatBRL(fReceber)}</b></span>
+        <span>A Pagar <b className="text-red-500">{formatBRL(fPagar)}</b></span>
+        <span>Saldo <b className={fReceber - fPagar >= 0 ? 'text-gray-800' : 'text-red-500'}>{formatBRL(fReceber - fPagar)}</b></span>
+        <span className="text-gray-400">{fCount} lançamento(s)</span>
+        <div className="ml-auto">
+          <ExportCsv filename={`financeiro_${hojeSP()}.csv`}
+            cols={[{ key: 'descricao', label: 'Descrição' }, { key: 'pessoa_nome', label: 'Pessoa' }, { key: 'data_vencimento', label: 'Vencimento' }, { key: 'data_competencia', label: 'Competência' }, { key: 'valor', label: 'Valor', money: true }, { key: 'tipo', label: 'Tipo' }, { key: 'status', label: 'Status' }, { key: 'forma_pagamento', label: 'Forma' }, { key: 'categoria', label: 'Categoria' }]}
+            rows={todos as unknown as Record<string, unknown>[]} />
         </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold uppercase text-gray-400">Vencimento de</label>
-          <input type="date" name="de" defaultValue={params.de ?? ''}
-            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold uppercase text-gray-400">até</label>
-          <input type="date" name="ate" defaultValue={params.ate ?? ''}
-            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-        </div>
-        <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">Filtrar</button>
-        {(params.status || params.de || params.ate) && (
-          <Link href={`/painel/financeiro${params.tipo ? '?tipo=' + params.tipo : ''}`}
-            className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 transition">Limpar</Link>
-        )}
-      </form>
+      </div>
 
       {/* Tabela */}
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
