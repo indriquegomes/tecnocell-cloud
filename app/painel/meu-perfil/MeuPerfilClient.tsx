@@ -79,7 +79,12 @@ export function MeuPerfilClient() {
     if (fotoRef.current) fotoRef.current.value = ''
   }
 
-  if (carregando) return <p className="text-sm text-gray-400">Carregando...</p>
+  if (carregando) return (
+    <div className="mx-auto max-w-xl space-y-4">
+      <h2 className="text-2xl font-bold text-gray-900">Meu Perfil</h2>
+      <p className="text-sm text-gray-400">Carregando...</p>
+    </div>
+  )
 
   const msgCls = (r: Res) => r.ok ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'
   const iniciais = nome.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?'
