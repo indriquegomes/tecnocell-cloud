@@ -83,10 +83,12 @@ export function FechamentoDetalhe({
       h1 { text-align: center; font-size: 17px; margin: 0 0 4px; }
       .sub { text-align: center; font-weight: bold; margin: 2px 0; }
       .box { text-align: center; font-weight: bold; margin: 10px 0; font-size: 11px; }
-      h3 { font-size: 12px; margin: 16px 0 4px; }
+      h3 { font-size: 12px; margin: 16px 0 4px; page-break-after: avoid; }
       table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
       th, td { border: 1px dashed #999; padding: 3px 5px; text-align: left; vertical-align: top; }
       th { font-weight: bold; }
+      thead { display: table-header-group; }   /* repete cabeçalho a cada página */
+      tr { page-break-inside: avoid; }
       .r { text-align: right; white-space: nowrap; }
       .foot { text-align: center; font-weight: bold; margin-top: 14px; }
       @media print { button { display: none; } }
