@@ -41,9 +41,9 @@ type ItemVenda = {
 export default async function RelatoriosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ aba?: string; de?: string; ate?: string; loja?: string; caixa?: string; usuario?: string; vendedor?: string; forma?: string }>
+  searchParams: Promise<{ aba?: string; de?: string; ate?: string; loja?: string; caixa?: string; usuario?: string; vendedor?: string; forma?: string; cliente?: string; vstatus?: string; vnum?: string; vmin?: string; vmax?: string }>
 }) {
-  const { aba = 'financeiro', de, ate, loja, caixa, usuario, vendedor, forma } = await searchParams
+  const { aba = 'financeiro', de, ate, loja, caixa, usuario, vendedor, forma, cliente, vstatus, vnum, vmin, vmax } = await searchParams
   const supabase = await createServiceClient()
 
   const hoje = hojeSP()
@@ -85,6 +85,7 @@ export default async function RelatoriosPage({
   let totalDevolucoesPeriodo = 0
   let resumoFormas: { nome: string; total: number; qtd: number }[] = []
   let vendedoresVendas: string[] = []
+  let statusVendas: string[] = []
   let formasVendas: { id: string; nome: string }[] = []
   if (aba === 'vendas') {
     const raw = await fetchAll<{ id: string; numero: number | null; total: number; desconto: number; created_at: string; status: string; vendedor_nome: string | null; pessoa_id: string | null; forma_pagamento_id: string | null }>((from, to) => {
@@ -121,9 +122,18 @@ export default async function RelatoriosPage({
       created_at: v.created_at, status: v.status, vendedor_nome: v.vendedor_nome ?? null,
       cliente_nome: v.pessoa_id ? (nomeCliente[v.pessoa_id] ?? null) : null,
       forma_nome: pagsPorVenda[v.id] ? [...new Set(pagsPorVenda[v.id].map((p) => p.nome))].join(' + ') : (v.forma_pagamento_id ? (nomeForma[v.forma_pagamento_id] ?? null) : null),
-    })).filter((v) => (forma ? (idsPorVenda[v.id]?.has(forma) ?? false) : true))
-    // dropdown de vendedor sobre a leva visível; filtro por último pra a lista não sumir
+    })).filter((v) => {
+      if (forma && !(idsPorVenda[v.id]?.has(forma))) return false
+      if (cliente && !(v.cliente_nome ?? '').toLowerCase().includes(cliente.toLowerCase())) return false
+      if (vstatus && v.status !== vstatus) return false
+      if (vnum && String(v.numero ?? '') !== vnum.trim()) return false
+      if (vmin && v.total < Number(vmin)) return false
+      if (vmax && v.total > Number(vmax)) return false
+      return true
+    })
+    // dropdowns sobre a leva visível; filtro de vendedor por último pra a lista não sumir
     vendedoresVendas = [...new Set(base.map((v) => v.vendedor_nome).filter(Boolean))].sort() as string[]
+    statusVendas = [...new Set(raw.map((v) => v.status).filter(Boolean))].sort() as string[]
     vendasLista = vendedor ? base.filter((v) => v.vendedor_nome === vendedor) : base
     // resumo por forma sobre as vendas visíveis (respeita loja/vendedor/forma)
     const mapaResumo: Record<string, { total: number; qtd: number }> = {}
@@ -913,6 +923,29 @@ export default async function RelatoriosPage({
                 <option value="">Todas</option>
                 {formasVendas.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
               </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Cliente</label>
+              <input name="cliente" defaultValue={cliente ?? ''} placeholder="nome…" className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Status</label>
+              <select name="vstatus" defaultValue={vstatus ?? ''} className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">Todos</option>
+                {statusVendas.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Nº</label>
+              <input name="vnum" defaultValue={vnum ?? ''} placeholder="nº" className="w-24 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Valor de</label>
+              <input name="vmin" type="number" step="0.01" defaultValue={vmin ?? ''} placeholder="0,00" className="w-28 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Valor até</label>
+              <input name="vmax" type="number" step="0.01" defaultValue={vmax ?? ''} placeholder="0,00" className="w-28 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
           </>
         )}
