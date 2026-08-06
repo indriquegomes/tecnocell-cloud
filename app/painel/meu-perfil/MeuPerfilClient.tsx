@@ -103,6 +103,7 @@ export function MeuPerfilClient() {
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
+      <h2 className="text-2xl font-bold text-gray-900">Meu Perfil</h2>
       {/* Hero com avatar */}
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
         <div className="h-24 bg-gradient-to-r from-blue-700 to-blue-500" />
