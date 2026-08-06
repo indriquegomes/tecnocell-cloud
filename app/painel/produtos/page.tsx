@@ -170,7 +170,7 @@ export default async function ProdutosPage({
           </Link>
           <div className="ml-auto flex items-center gap-3">
             <ColunasDeposito depositos={depositosReais.map((d) => ({ id: d.id, nome: d.nome }))} />
-            <span className="self-center text-sm text-gray-400">{produtos.length} registros</span>
+            <span className="self-center text-sm text-gray-400">{total} registros</span>
           </div>
         </div>
 
