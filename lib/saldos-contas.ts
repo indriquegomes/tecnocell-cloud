@@ -22,18 +22,28 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
     const caixaDaLoja: Record<string, string> = {}
     for (const c of contas) if (c.tipo === 'caixa' && c.loja_id) caixaDaLoja[c.loja_id] = c.id
 
-    const [{ data: formas }, pv, tr, lc] = await Promise.all([
+    const [{ data: formas }, { data: rotaRows }, pv, tr, lc] = await Promise.all([
       supabase.from('formas_pagamento').select('id, tipo, conta_destino_id'),
+      supabase.from('forma_conta_loja').select('forma_id, loja_id, conta_id'),   // vazio/inexistente = fallback p/ conta_destino_id
       fetchAll<{ valor: number; taxa: number | null; forma_pagamento_id: string | null; venda_id: string | null }>((from, to) => supabase.from('pagamentos_venda').select('valor, taxa, forma_pagamento_id, venda_id').eq('status', 'pago').range(from, to)),
       fetchAll<{ conta_origem_id: string; conta_destino_id: string; valor: number }>((from, to) => supabase.from('transferencias').select('conta_origem_id, conta_destino_id, valor').range(from, to)),
       fetchAll<{ tipo: string; valor: number; conta_id: string }>((from, to) => supabase.from('lancamentos').select('tipo, valor, conta_id, status').eq('status', 'pago').not('conta_id', 'is', null).range(from, to)),
     ])
     const formaById = Object.fromEntries((formas ?? []).map((f) => [f.id, f as { tipo: string | null; conta_destino_id: string | null }]))
 
-    // venda → loja (via depósito), só se houver caixa por loja + dinheiro a rotear
+    // Roteamento por loja (Isa): forma + loja da venda → conta daquela loja.
+    // Vazio = cai no conta_destino_id (comportamento atual). Backward-compatible.
+    const rota: Record<string, Record<string, string>> = {}
+    for (const r of (rotaRows ?? []) as { forma_id: string; loja_id: string; conta_id: string }[]) {
+      (rota[r.forma_id] ??= {})[r.loja_id] = r.conta_id
+    }
+    const temRota = Object.keys(rota).length > 0
+
+    // venda → loja (via depósito): precisa pra rotear DINHEIRO (caixa da loja) e,
+    // agora, cartão/PIX por loja quando houver rota configurada.
     const lojaDaVenda: Record<string, string | null> = {}
     const temDinheiro = (pv ?? []).some((p) => { const f = p.forma_pagamento_id ? formaById[p.forma_pagamento_id] : null; return f?.tipo === 'dinheiro' })
-    if (temDinheiro && Object.keys(caixaDaLoja).length) {
+    if (((temDinheiro && Object.keys(caixaDaLoja).length) || temRota) && (pv ?? []).length) {
       const vendaIds = [...new Set((pv ?? []).map((p) => p.venda_id).filter(Boolean))] as string[]
       const depDaVenda: Record<string, string | null> = {}
       for (let i = 0; i < vendaIds.length; i += 300) {
@@ -53,9 +63,11 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
       const f = p.forma_pagamento_id ? formaById[p.forma_pagamento_id] : null
       if (!f) continue
       let conta = f.conta_destino_id
-      if (f.tipo === 'dinheiro' && p.venda_id) {
-        const loja = lojaDaVenda[p.venda_id]
+      const loja = p.venda_id ? lojaDaVenda[p.venda_id] : null
+      if (f.tipo === 'dinheiro') {
         if (loja && caixaDaLoja[loja]) conta = caixaDaLoja[loja]   // dinheiro → caixa da loja
+      } else if (loja && p.forma_pagamento_id && rota[p.forma_pagamento_id]?.[loja]) {
+        conta = rota[p.forma_pagamento_id][loja]                    // cartão/PIX → conta da loja (Isa)
       }
       if (conta && conta in saldo) saldo[conta] += (p.valor ?? 0) - (p.taxa ?? 0)
     }
