@@ -42,9 +42,9 @@ type ItemVenda = {
 export default async function RelatoriosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ aba?: string; de?: string; ate?: string; loja?: string; caixa?: string; usuario?: string; vendedor?: string; forma?: string; cliente?: string; vstatus?: string; vnum?: string; vmin?: string; vmax?: string; catprod?: string }>
+  searchParams: Promise<{ aba?: string; de?: string; ate?: string; loja?: string; caixa?: string; usuario?: string; vendedor?: string; forma?: string; cliente?: string; vstatus?: string; vnum?: string; vmin?: string; vmax?: string; catprod?: string; tec?: string; osstatus?: string; tipoacao?: string }>
 }) {
-  const { aba = 'financeiro', de, ate, loja, caixa, usuario, vendedor, forma, cliente, vstatus, vnum, vmin, vmax, catprod } = await searchParams
+  const { aba = 'financeiro', de, ate, loja, caixa, usuario, vendedor, forma, cliente, vstatus, vnum, vmin, vmax, catprod, tec, osstatus, tipoacao } = await searchParams
   const supabase = await createServiceClient()
 
   const hoje = hojeSP()
@@ -689,9 +689,18 @@ export default async function RelatoriosPage({
   let tecnicos: { nome: string; os: number; total: number; custo: number; lucro: number; concluidas: number }[] = []
   let osResumo = { total: 0, faturado: 0, custo: 0, lucro: 0, concluidas: 0 }
   let osPorStatus: { status: string; n: number; total: number }[] = []
+  let tecnicosOpc: string[] = []
+  let statusOsOpc: string[] = []
   if (aba === 'tecnicos') {
-    const { data } = await supabase.from('ordens_servico').select('tecnico_nome, status, total, custo')
+    // listas pros dropdowns (sobre TODAS as OS do período, não a leva filtrada)
+    const { data: todasOs } = await supabase.from('ordens_servico').select('tecnico_nome, status').gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+    tecnicosOpc = [...new Set((todasOs ?? []).map((o) => o.tecnico_nome).filter(Boolean))].sort() as string[]
+    statusOsOpc = [...new Set((todasOs ?? []).map((o) => o.status).filter(Boolean))].sort() as string[]
+    let qOs = supabase.from('ordens_servico').select('tecnico_nome, status, total, custo')
       .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+    if (tec) qOs = qOs.ilike('tecnico_nome', `%${tec}%`)
+    if (osstatus) qOs = qOs.eq('status', osstatus)
+    const { data } = await qOs
     const mapa: Record<string, { nome: string; os: number; total: number; custo: number; lucro: number; concluidas: number }> = {}
     const stMap: Record<string, { status: string; n: number; total: number }> = {}
     let totOS = 0, totF = 0, totCusto = 0, totConc = 0
@@ -843,11 +852,20 @@ export default async function RelatoriosPage({
 
   // ---------- Registro de Atividades (log) ----------
   let registros: { created_at: string; usuario_email: string | null; tipo_acao: string | null; contexto: unknown }[] = []
+  let tiposAcaoOpc: string[] = []
+  let registroPorUsuario: { usuario: string; n: number }[] = []
   if (aba === 'registro') {
+    const { data: todasAtiv } = await supabase.from('logs_atividade').select('tipo_acao').gte('created_at', periodo.inicio).lte('created_at', periodo.fim).limit(2000)
+    tiposAcaoOpc = [...new Set((todasAtiv ?? []).map((a) => a.tipo_acao).filter(Boolean))].sort() as string[]
     let qReg = supabase.from('logs_atividade').select('created_at, usuario_email, tipo_acao, contexto')
       .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
     if (usuario) qReg = qReg.ilike('usuario_email', `%${usuario}%`)  // Isa 29/07: filtrar por usuário
+    if (tipoacao) qReg = qReg.eq('tipo_acao', tipoacao)
     registros = (await qReg.order('created_at', { ascending: false }).limit(300)).data ?? []
+    // total por usuário (quem fez quantas) — Isa: "quem fez e o total"
+    const uMap: Record<string, number> = {}
+    for (const r of registros) uMap[r.usuario_email || '—'] = (uMap[r.usuario_email || '—'] ?? 0) + 1
+    registroPorUsuario = Object.entries(uMap).map(([usuario, n]) => ({ usuario, n })).sort((a, b) => b.n - a.n)
   }
 
   const categorias: { cat: string; abas: { id: string; label: string }[] }[] = [
@@ -944,11 +962,38 @@ export default async function RelatoriosPage({
           </div>
         )}
         {aba === 'registro' && (
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">Usuário</label>
-            <input name="usuario" defaultValue={usuario ?? ''} placeholder="e-mail do usuário…"
-              className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
+          <>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Usuário</label>
+              <input name="usuario" defaultValue={usuario ?? ''} placeholder="e-mail do usuário…"
+                className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Tipo de ação</label>
+              <select name="tipoacao" defaultValue={tipoacao ?? ''} className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">Todas</option>
+                {tiposAcaoOpc.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          </>
+        )}
+        {aba === 'tecnicos' && (
+          <>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Técnico</label>
+              <select name="tec" defaultValue={tec ?? ''} className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">Todos</option>
+                {tecnicosOpc.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Status</label>
+              <select name="osstatus" defaultValue={osstatus ?? ''} className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">Todos</option>
+                {statusOsOpc.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </>
         )}
         {aba === 'lucro' && (
           <div>
@@ -1089,17 +1134,39 @@ export default async function RelatoriosPage({
       )}
 
       {aba === 'registro' && (
-        <Tabela vazio={registros.length === 0} vazioMsg="Nenhuma atividade no período."
-          head={['Quando', 'Usuário', 'Ação', 'Detalhe']} alinhas={['l', 'l', 'l', 'l']}>
-          {registros.map((r, i) => (
-            <tr key={i} className="hover:bg-blue-50/60">
-              <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{dtBR(r.created_at)}</td>
-              <td className="px-4 py-3 text-sm text-gray-600">{r.usuario_email ?? '—'}</td>
-              <td className="px-4 py-3 text-sm"><span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">{acaoLabel[r.tipo_acao ?? ''] ?? r.tipo_acao ?? '—'}</span></td>
-              <td className="px-4 py-3 text-sm text-gray-500">{ctxTexto(r.contexto as Record<string, unknown> | null)}</td>
-            </tr>
-          ))}
-        </Tabela>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+            <Card label="Atividades" valor={String(registros.length)} cor="text-gray-800" />
+            <Card label="Usuários" valor={String(registroPorUsuario.length)} cor="text-blue-600" />
+            <Card label="Tipos de ação" valor={String(new Set(registros.map((r) => r.tipo_acao)).size)} cor="text-gray-800" />
+          </div>
+          {registroPorUsuario.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Quem fez (total por usuário)</p>
+              <div className="flex flex-wrap gap-2">
+                {registroPorUsuario.map((u) => (
+                  <span key={u.usuario} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-600">{u.usuario}: <b className="text-gray-800">{u.n}</b></span>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end">
+            <ExportCsv filename={`atividades_${dataInicio}_${dataFim}.csv`}
+              cols={[{ key: 'created_at', label: 'Quando' }, { key: 'usuario_email', label: 'Usuário' }, { key: 'tipo_acao', label: 'Ação' }]}
+              rows={asRows(registros)} />
+          </div>
+          <Tabela vazio={registros.length === 0} vazioMsg="Nenhuma atividade no período (o log grava a partir das ações reais)."
+            head={['Quando', 'Usuário', 'Ação', 'Detalhe']} alinhas={['l', 'l', 'l', 'l']}>
+            {registros.map((r, i) => (
+              <tr key={i} className="hover:bg-blue-50/60">
+                <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{dtBR(r.created_at)}</td>
+                <td className="px-4 py-3 text-sm text-gray-600">{r.usuario_email ?? '—'}</td>
+                <td className="px-4 py-3 text-sm"><span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">{acaoLabel[r.tipo_acao ?? ''] ?? r.tipo_acao ?? '—'}</span></td>
+                <td className="px-4 py-3 text-sm text-gray-500">{ctxTexto(r.contexto as Record<string, unknown> | null)}</td>
+              </tr>
+            ))}
+          </Tabela>
+        </div>
       )}
 
       {/* ---------------- Fluxo de Caixa ---------------- */}
