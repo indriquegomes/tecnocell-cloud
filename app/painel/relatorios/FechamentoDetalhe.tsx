@@ -75,7 +75,10 @@ export function FechamentoDetalhe({
     corpo += secaoVenda('Devoluções Realizadas no Caixa', movimentos.filter((m) => m.movimentacao === 'Devolução'))
 
     const porFormaTodos = Object.entries(movimentos.reduce<Record<string, number>>((a, m) => { a[m.forma] = (a[m.forma] ?? 0) + m.valor; return a }, {})).sort((a, b) => b[1] - a[1])
-    const saldosFech = `<h3>Saldos no Fechamento do Caixa</h3><table><thead><tr><th>Forma Pagamento</th><th class="r">Saldo</th></tr></thead><tbody>${porFormaTodos.map(([f, v]) => `<tr><td>${f}</td><td class="r">${money(v)}</td></tr>`).join('')}</tbody></table>`
+    // Dinheiro FÍSICO na gaveta: abertura + tudo que é tipo Dinheiro (recebido − troco − retiradas).
+    const dinheiroGaveta = header.valorAbertura + movimentos.filter((m) => m.tipoForma === 'Dinheiro').reduce((s, m) => s + m.valor, 0)
+    const saldosFech = `<h3>Saldos no Fechamento do Caixa</h3><table><thead><tr><th>Somar nos totalizadores de Caixa</th><th>Forma Pagamento</th><th class="r">Saldo</th></tr></thead><tbody>${porFormaTodos.map(([f, v]) => `<tr><td>Sim</td><td>${f}</td><td class="r">${money(v)}</td></tr>`).join('')}</tbody></table>`
+    const gaveta = `<h3>Total em Dinheiro na Gaveta</h3><table><tbody><tr><td>Abertura + dinheiro recebido − troco/retiradas em dinheiro</td><td class="r"><b>${money(dinheiroGaveta)}</b></td></tr></tbody></table>`
 
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Demonstrativo de Fechamento — ${header.loja}</title><style>
       @page { size: A4; margin: 14mm; }
@@ -95,11 +98,12 @@ export function FechamentoDetalhe({
     </style></head><body>
       <h1>Demonstrativo de Fechamento de Caixa</h1>
       <p class="sub">${header.loja}</p>
-      <p class="box">Caixa aberto em ${dtFull(header.abriu)} com o valor de ${money(header.valorAbertura)}${header.obsAbertura ? ` pelo usuário: ${header.obsAbertura}` : header.operador !== '—' ? ` pelo usuário: ${header.operador}` : ''}</p>
+      <p class="box">Caixa aberto em ${dtFull(header.abriu)} com o valor de ${money(header.valorAbertura)}${(header.operador !== '—' ? header.operador : header.obsAbertura) ? ` pelo usuário: ${header.operador !== '—' ? header.operador : header.obsAbertura}` : ''}</p>
       <h3>Saldo na Abertura do Caixa</h3>
       <table><thead><tr><th>Forma Pagamento</th><th class="r">Saldo</th></tr></thead><tbody><tr><td>Dinheiro</td><td class="r">${money(header.valorAbertura)}</td></tr></tbody></table>
       ${corpo}
       ${saldosFech}
+      ${gaveta}
       <p class="foot">Caixa ${header.fechou ? `fechado em ${dtFull(header.fechou)}` : 'ainda ABERTO'} com o valor de ${money(saldo)}</p>
       <p style="text-align:center;margin-top:6px;font-size:10px;">TecnoCell Cloud PDV</p>
     </body></html>`
