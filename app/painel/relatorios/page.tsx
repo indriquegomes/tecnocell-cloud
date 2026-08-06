@@ -7,6 +7,7 @@ import { ExportCsv } from './ExportCsv'
 import { ExportCsvLazy } from './ExportCsvLazy'
 import { FluxoChart, ParetoChart, Donut, Barra } from './Charts'
 import { FechamentoDetalhe, type MovDetalhe } from './FechamentoDetalhe'
+import { BuscaAvancada } from '@/components/BuscaAvancada'
 
 const AMOSTRA = 200  // abas pesadas mostram só as primeiras N linhas; CSV sai completo
 
@@ -872,7 +873,8 @@ export default async function RelatoriosPage({
         ))}
       </div>
 
-      {/* Período */}
+      {/* Filtros do relatório — painel Busca Avançada colapsável (Isa/SIGE) */}
+      <BuscaAvancada ativo={!!((loja && loja !== 'todas') || vendedor || forma || cliente || vstatus || vnum || vmin || vmax || usuario || caixa)}>
       <form method="GET" className="flex flex-wrap gap-3 items-end">
         <input type="hidden" name="aba" value={aba} />
         <div>
@@ -951,6 +953,7 @@ export default async function RelatoriosPage({
         )}
         <button type="submit" className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">Filtrar</button>
       </form>
+      </BuscaAvancada>
 
       {/* ---------------- Financeiro ---------------- */}
       {aba === 'financeiro' && (
