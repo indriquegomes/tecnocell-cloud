@@ -19,7 +19,7 @@ const dtBR = (s: string) => new Date(s).toLocaleString('pt-BR', { timeZone: 'Ame
 export function FechamentoDetalhe({
   header, movimentos, voltarHref,
 }: {
-  header: { loja: string; operador: string; abriu: string; fechou: string | null }
+  header: { loja: string; operador: string; abriu: string; fechou: string | null; valorAbertura: number; valorFechamento: number; obsAbertura: string | null }
   movimentos: MovDetalhe[]
   voltarHref: string
 }) {
@@ -54,6 +54,59 @@ export function FechamentoDetalhe({
 
   const sel = 'rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500'
 
+  // 🖨️ Demonstrativo de Fechamento de Caixa — documento A4 espelhando o PDF do SIGE.
+  // Seções por tipo de operação (vendas por forma, recebimentos, reforços, retiradas,
+  // devoluções) com SALDO CORRENDO a partir do valor de abertura, + saldos por forma.
+  const imprimirDemonstrativo = () => {
+    const dtFull = (s: string) => new Date(s).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    let saldo = header.valorAbertura
+    const rowVenda = (m: MovDetalhe) => { saldo += m.valor; return `<tr><td>${m.rotulo}</td><td>${dtFull(m.data)}</td><td>${m.forma}</td><td class="r">${money(m.valor)}</td><td class="r">${money(saldo)}</td></tr>` }
+    const rowMot = (m: MovDetalhe) => { saldo += m.valor; return `<tr><td>${dtFull(m.data)}</td><td>${m.forma}</td><td>${m.rotulo}</td><td class="r">${money(m.valor)}</td><td class="r">${money(saldo)}</td></tr>` }
+    const secaoVenda = (titulo: string, rows: MovDetalhe[]) => rows.length ? `<h3>${titulo}</h3><table><thead><tr><th>Código</th><th>Data</th><th>Forma</th><th class="r">Valor</th><th class="r">Saldo</th></tr></thead><tbody>${rows.sort((a, b) => a.data.localeCompare(b.data)).map(rowVenda).join('')}</tbody></table>` : ''
+    const secaoMot = (titulo: string, rows: MovDetalhe[]) => rows.length ? `<h3>${titulo}</h3><table><thead><tr><th>Data</th><th>Forma</th><th>Motivo</th><th class="r">Valor</th><th class="r">Saldo</th></tr></thead><tbody>${rows.sort((a, b) => a.data.localeCompare(b.data)).map(rowMot).join('')}</tbody></table>` : ''
+
+    const vendas = movimentos.filter((m) => m.movimentacao === 'Venda')
+    const formasVenda = [...new Set(vendas.map((m) => m.forma))]
+    let corpo = ''
+    for (const f of formasVenda) corpo += secaoVenda(`Vendas Realizadas no PDV - ${f}`, vendas.filter((m) => m.forma === f))
+    corpo += secaoVenda('Pagamentos no Crediário', movimentos.filter((m) => m.movimentacao === 'Recebimento'))
+    corpo += secaoMot('Reforços no Caixa', movimentos.filter((m) => m.movimentacao === 'Reforço'))
+    corpo += secaoMot('Retiradas Realizadas no Caixa', movimentos.filter((m) => m.movimentacao === 'Retirada'))
+    corpo += secaoVenda('Devoluções Realizadas no Caixa', movimentos.filter((m) => m.movimentacao === 'Devolução'))
+
+    const porFormaTodos = Object.entries(movimentos.reduce<Record<string, number>>((a, m) => { a[m.forma] = (a[m.forma] ?? 0) + m.valor; return a }, {})).sort((a, b) => b[1] - a[1])
+    const saldosFech = `<h3>Saldos no Fechamento do Caixa</h3><table><thead><tr><th>Forma Pagamento</th><th class="r">Saldo</th></tr></thead><tbody>${porFormaTodos.map(([f, v]) => `<tr><td>${f}</td><td class="r">${money(v)}</td></tr>`).join('')}</tbody></table>`
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Demonstrativo de Fechamento — ${header.loja}</title><style>
+      @page { size: A4; margin: 14mm; }
+      body { font-family: 'Times New Roman', serif; font-size: 11px; color: #000; }
+      h1 { text-align: center; font-size: 17px; margin: 0 0 4px; }
+      .sub { text-align: center; font-weight: bold; margin: 2px 0; }
+      .box { text-align: center; font-weight: bold; margin: 10px 0; font-size: 11px; }
+      h3 { font-size: 12px; margin: 16px 0 4px; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+      th, td { border: 1px dashed #999; padding: 3px 5px; text-align: left; vertical-align: top; }
+      th { font-weight: bold; }
+      .r { text-align: right; white-space: nowrap; }
+      .foot { text-align: center; font-weight: bold; margin-top: 14px; }
+      @media print { button { display: none; } }
+    </style></head><body>
+      <h1>Demonstrativo de Fechamento de Caixa</h1>
+      <p class="sub">${header.loja}</p>
+      <p class="box">Caixa aberto em ${dtFull(header.abriu)} com o valor de ${money(header.valorAbertura)}${header.obsAbertura ? ` pelo usuário: ${header.obsAbertura}` : header.operador !== '—' ? ` pelo usuário: ${header.operador}` : ''}</p>
+      <h3>Saldo na Abertura do Caixa</h3>
+      <table><thead><tr><th>Forma Pagamento</th><th class="r">Saldo</th></tr></thead><tbody><tr><td>Dinheiro</td><td class="r">${money(header.valorAbertura)}</td></tr></tbody></table>
+      ${corpo}
+      ${saldosFech}
+      <p class="foot">Caixa ${header.fechou ? `fechado em ${dtFull(header.fechou)}` : 'ainda ABERTO'} com o valor de ${money(saldo)}</p>
+      <p style="text-align:center;margin-top:6px;font-size:10px;">TecnoCell Cloud PDV</p>
+    </body></html>`
+    const w = window.open('', '_blank')
+    if (!w) return
+    w.document.write(html); w.document.close()
+    setTimeout(() => w.print(), 300)
+  }
+
   return (
     <div className="space-y-4">
       <Link href={voltarHref} prefetch={false} className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:underline">← Voltar aos fechamentos</Link>
@@ -64,6 +117,10 @@ export function FechamentoDetalhe({
             <p className="text-base font-bold text-gray-900">🔍 Caixa {header.loja}</p>
             <p className="text-xs text-gray-500 mt-0.5">{dtBR(header.abriu)} → {header.fechou ? dtBR(header.fechou) : 'aberto'} · Operador: {header.operador}</p>
           </div>
+          <button onClick={imprimirDemonstrativo} title="Documento A4 no formato do SIGE"
+            className="rounded-lg bg-[#1B6CA8] px-3 py-2 text-sm font-semibold text-white hover:bg-[#155a8a] transition">
+            🖨️ Imprimir Demonstrativo
+          </button>
           <select className={sel} value={vend} onChange={(e) => setVend(e.target.value)}>
             <option value="">Vendedor: todos</option>
             {vendedores.map((v) => <option key={v} value={v}>{v}</option>)}

@@ -749,10 +749,10 @@ export default async function RelatoriosPage({
   }
 
   // ---------- Fechamento de Caixa — Nível 2 (detalhe de um caixa) ----------
-  let fcHeader: { loja: string; operador: string; abriu: string; fechou: string | null } | null = null
+  let fcHeader: { loja: string; operador: string; abriu: string; fechou: string | null; valorAbertura: number; valorFechamento: number; obsAbertura: string | null } | null = null
   const fcMovs: MovDetalhe[] = []
   if (aba === 'fechamentocaixa' && caixa) {
-    const { data: cx } = await supabase.from('caixas').select('loja_id, usuario_id, aberto_em, fechado_em').eq('id', caixa).maybeSingle()
+    const { data: cx } = await supabase.from('caixas').select('loja_id, usuario_id, aberto_em, fechado_em, valor_abertura, valor_fechamento, obs_abertura').eq('id', caixa).maybeSingle()
     if (cx) {
       const [lojaR, perfR, vendasR, movR, formasR] = await Promise.all([
         cx.loja_id ? supabase.from('lojas').select('nome').eq('id', cx.loja_id as string).maybeSingle() : Promise.resolve({ data: null }),
@@ -765,6 +765,9 @@ export default async function RelatoriosPage({
         loja: (lojaR.data as { nome: string } | null)?.nome ?? '—',
         operador: (perfR.data as { nome: string } | null)?.nome ?? '—',
         abriu: cx.aberto_em as string, fechou: (cx.fechado_em as string | null) ?? null,
+        valorAbertura: Number((cx as { valor_abertura?: number }).valor_abertura) || 0,
+        valorFechamento: Number((cx as { valor_fechamento?: number }).valor_fechamento) || 0,
+        obsAbertura: (cx as { obs_abertura?: string | null }).obs_abertura ?? null,
       }
       const vendas = vendasR.data ?? []
       const vendaIds = vendas.map((v) => v.id as string)
