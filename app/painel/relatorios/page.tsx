@@ -490,9 +490,13 @@ export default async function RelatoriosPage({
     }
     const nomeP = Object.fromEntries((ps ?? []).map((p) => [p.id, p.nome]))
     const agora = Date.now()
+    // Isa: filtrar por PERÍODO = clientes cuja ÚLTIMA compra caiu dentro do intervalo
+    // escolhido (candidatos a reativar). Antes usava dias>=60 fixo sobre TODA a história
+    // importada do SIGE → poluía com quem "nunca comprou de verdade". Loja já filtra via caixa.
+    const ini = new Date(periodo.inicio).getTime(), fim = new Date(periodo.fim).getTime()
     inativos = Object.entries(ultimaPorPessoa)
       .map(([id, ultima]) => ({ nome: nomeP[id], ultima, dias: Math.floor((agora - new Date(ultima).getTime()) / 86400000) }))
-      .filter((x) => x.nome && x.dias >= 60)
+      .filter((x) => { const t = new Date(x.ultima).getTime(); return x.nome && t >= ini && t <= fim })
       .sort((a, b) => b.dias - a.dias)
   }
 
@@ -1605,7 +1609,7 @@ export default async function RelatoriosPage({
       {/* ---------------- Clientes inativos ---------------- */}
       {aba === 'inativos' && (
         <div className="space-y-4">
-          <p className="text-[11px] text-gray-400">Clientes que já compraram mas não voltam há 60+ dias. Ligue e traga de volta.</p>
+          <p className="text-[11px] text-gray-400">Clientes cuja <b>última compra caiu no período selecionado</b> (e não voltaram desde então) — candidatos a reativar. Filtra por loja e período. Escolha um período passado pra achar quem sumiu.</p>
           <div className="flex justify-end">
             <ExportCsv filename={`clientes_inativos_${dataFim}.csv`}
               cols={[{ key: 'nome', label: 'Cliente' }, { key: 'dias', label: 'Dias sem comprar' }, { key: 'ultima', label: 'Última compra' }]} rows={asRows(inativos)} />
