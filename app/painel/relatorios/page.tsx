@@ -42,9 +42,9 @@ type ItemVenda = {
 export default async function RelatoriosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ aba?: string; de?: string; ate?: string; loja?: string; caixa?: string; usuario?: string; vendedor?: string; forma?: string; cliente?: string; vstatus?: string; vnum?: string; vmin?: string; vmax?: string }>
+  searchParams: Promise<{ aba?: string; de?: string; ate?: string; loja?: string; caixa?: string; usuario?: string; vendedor?: string; forma?: string; cliente?: string; vstatus?: string; vnum?: string; vmin?: string; vmax?: string; catprod?: string }>
 }) {
-  const { aba = 'financeiro', de, ate, loja, caixa, usuario, vendedor, forma, cliente, vstatus, vnum, vmin, vmax } = await searchParams
+  const { aba = 'financeiro', de, ate, loja, caixa, usuario, vendedor, forma, cliente, vstatus, vnum, vmin, vmax, catprod } = await searchParams
   const supabase = await createServiceClient()
 
   const hoje = hojeSP()
@@ -159,10 +159,11 @@ export default async function RelatoriosPage({
   if (precisaItens) {
     const data = await fetchAll((from, to) => {
       let q = supabase.from('itens_venda')
-        .select('quantidade, preco_unitario, total_item, produto_id, produtos(nome, preco_custo), vendas!inner(created_at, status, pessoa_id, caixa_id)')
+        .select('quantidade, preco_unitario, total_item, produto_id, produtos!inner(nome, preco_custo, categoria), vendas!inner(created_at, status, pessoa_id, caixa_id)')
         .eq('vendas.status', 'concluida')
         .gte('vendas.created_at', periodo.inicio).lte('vendas.created_at', periodo.fim)
       if (caixasDaLoja) q = q.in('vendas.caixa_id', caixasDaLoja)
+      if (catprod) q = q.eq('produtos.categoria', catprod)   // Condensado (Isa): filtro por categoria
       return q.range(from, to)
     })
     for (const it of (data ?? []) as unknown as ItemVenda[]) {
@@ -184,6 +185,42 @@ export default async function RelatoriosPage({
     .sort((a, b) => b.lucro - a.lucro)
   const rankQtd = Object.values(porProduto).slice().sort((a, b) => b.qtd - a.qtd)
   const rankValorProd = Object.values(porProduto).slice().sort((a, b) => b.vendido - a.vendido)
+
+  // ---------- Condensado (Isa): por produto + marca/fornecedor/categoria + estoque por depósito ----------
+  type CondRow = { nome: string; codigo: string | null; marca: string | null; fornecedor: string | null; qtd: number; precoCusto: number; custo: number; faturado: number; lucro: number; margem: number; estoquePorDep: Record<string, number>; estoqueTotal: number; valorEstoque: number }
+  let condensado: CondRow[] = []
+  let depositosCond: { id: string; nome: string }[] = []
+  let catsCond: { cod: string; nome: string }[] = []
+  const condTotais = { qtd: 0, custo: 0, faturado: 0, lucro: 0, estoqueTotal: 0, valorEstoque: 0 }
+  if (aba === 'lucro') {
+    const [{ data: deps }, { data: cats }] = await Promise.all([
+      supabase.from('depositos').select('id, nome').order('nome'),
+      supabase.from('categorias').select('hierarquia, nome').order('nome'),
+    ])
+    depositosCond = (deps ?? []) as { id: string; nome: string }[]
+    catsCond = (cats ?? []).map((c) => ({ cod: c.hierarquia as string, nome: c.nome as string }))
+    const pids = Object.keys(porProduto)
+    if (pids.length) {
+      const prodsMeta = await fetchAllIn<{ id: string; codigo: string | null; marca: string | null; fornecedor_id: string | null; preco_custo: number | null }>(pids, (chunk, from, to) => supabase.from('produtos').select('id, codigo, marca, fornecedor_id, preco_custo').in('id', chunk).range(from, to))
+      const metaById = Object.fromEntries(prodsMeta.map((p) => [p.id, p]))
+      const fornIds = [...new Set(prodsMeta.map((p) => p.fornecedor_id).filter(Boolean))] as string[]
+      let fornById: Record<string, string> = {}
+      if (fornIds.length) { const fs = await fetchAllIn<{ id: string; nome: string }>(fornIds, (chunk, from, to) => supabase.from('pessoas').select('id, nome').in('id', chunk).range(from, to)); fornById = Object.fromEntries(fs.map((f) => [f.id, f.nome])) }
+      const estoqueRows = await fetchAllIn<{ produto_id: string; deposito_id: string; quantidade: number }>(pids, (chunk, from, to) => supabase.from('estoque').select('produto_id, deposito_id, quantidade').in('produto_id', chunk).range(from, to))
+      const estoquePorProd: Record<string, Record<string, number>> = {}
+      for (const e of estoqueRows) { (estoquePorProd[e.produto_id] ??= {})[e.deposito_id] = (estoquePorProd[e.produto_id][e.deposito_id] ?? 0) + (e.quantidade ?? 0) }
+      condensado = pids.map((pid) => {
+        const agg = porProduto[pid]
+        const meta = metaById[pid] ?? {}
+        const estDep = estoquePorProd[pid] ?? {}
+        const estoqueTotal = Object.values(estDep).reduce((s, q) => s + q, 0)
+        const precoCusto = (meta.preco_custo ?? 0) || (agg.qtd ? agg.custo / agg.qtd : 0)
+        const lucro = agg.vendido - agg.custo
+        return { nome: agg.nome, codigo: meta.codigo ?? null, marca: meta.marca ?? null, fornecedor: meta.fornecedor_id ? (fornById[meta.fornecedor_id] ?? null) : null, qtd: agg.qtd, precoCusto, custo: agg.custo, faturado: agg.vendido, lucro, margem: agg.vendido > 0 ? (lucro / agg.vendido) * 100 : 0, estoquePorDep: estDep, estoqueTotal, valorEstoque: estoqueTotal * precoCusto }
+      }).sort((a, b) => b.faturado - a.faturado)
+      for (const r of condensado) { condTotais.qtd += r.qtd; condTotais.custo += r.custo; condTotais.faturado += r.faturado; condTotais.lucro += r.lucro; condTotais.estoqueTotal += r.estoqueTotal; condTotais.valorEstoque += r.valorEstoque }
+    }
+  }
 
   // ---------- Clientes (Produtos, ABC) ----------
   type CliAgg = { nome: string; qtd: number; total: number }
@@ -822,7 +859,7 @@ export default async function RelatoriosPage({
       { id: 'comparativo', label: 'Comparativo' },
     ] },
     { cat: 'Vendas', abas: [
-      { id: 'vendas', label: 'Vendas' }, { id: 'lucro', label: 'Lucro' }, { id: 'produtos', label: 'Mais vendidos' },
+      { id: 'vendas', label: 'Vendas' }, { id: 'lucro', label: 'Condensado' }, { id: 'produtos', label: 'Mais vendidos' },
       { id: 'abc', label: 'Curva ABC' }, { id: 'formas', label: 'Formas de pgto' }, { id: 'porloja', label: 'Por loja' },
       { id: 'porvendedor', label: 'Por vendedor' }, { id: 'itensvendedor', label: 'Itens por vendedor' },
       { id: 'periodicidade', label: 'Periodicidade' }, { id: 'precificacao', label: 'Precificação' },
@@ -911,6 +948,15 @@ export default async function RelatoriosPage({
             <label className="mb-1 block text-xs font-medium text-gray-600">Usuário</label>
             <input name="usuario" defaultValue={usuario ?? ''} placeholder="e-mail do usuário…"
               className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+        )}
+        {aba === 'lucro' && (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-600">Categoria</label>
+            <select name="catprod" defaultValue={catprod ?? ''} className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">Todas</option>
+              {catsCond.map((c) => <option key={c.cod} value={c.cod}>{c.nome}</option>)}
+            </select>
           </div>
         )}
         {aba === 'vendas' && (
@@ -1226,35 +1272,53 @@ export default async function RelatoriosPage({
       {/* ---------------- Lucro ---------------- */}
       {aba === 'lucro' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <Card label="Vendido" valor={fmt(totalVendidoItens)} cor="text-blue-600" />
-            <Card label="Custo" valor={fmt(totalCustoItens)} cor="text-orange-500" />
-            <Card label="Lucro" valor={fmt(lucroTotal)} cor={lucroTotal >= 0 ? 'text-green-600' : 'text-red-500'} />
-            <Card label="Margem" valor={`${margemTotal.toFixed(1)}%`} cor="text-gray-800" />
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+            <Card label="Qtd vendida" valor={String(condTotais.qtd)} cor="text-gray-800" />
+            <Card label="Faturado" valor={fmt(condTotais.faturado)} cor="text-blue-600" />
+            <Card label="Custo" valor={fmt(condTotais.custo)} cor="text-orange-500" />
+            <Card label="Lucro" valor={fmt(condTotais.lucro)} cor={condTotais.lucro >= 0 ? 'text-green-600' : 'text-red-500'} />
+            <Card label="Margem" valor={`${condTotais.faturado > 0 ? (condTotais.lucro / condTotais.faturado * 100).toFixed(1) : '0'}%`} cor="text-gray-800" />
           </div>
-          <p className="text-[11px] text-gray-400">Custo = preço de custo atual do produto × quantidade vendida.</p>
+          <p className="text-[11px] text-gray-400">Condensado por produto (Isa): faturamento, custo, lucro e estoque por depósito. Filtre por loja, categoria e período. Custo = preço de custo atual × qtd vendida.</p>
           <div className="flex justify-end">
-            <ExportCsv filename={`lucro_${dataInicio}_${dataFim}.csv`}
-              cols={[{ key: 'nome', label: 'Produto' }, { key: 'qtd', label: 'Qtd' }, { key: 'vendido', label: 'Vendido', money: true }, { key: 'custo', label: 'Custo', money: true }, { key: 'lucro', label: 'Lucro', money: true }, { key: 'margem', label: 'Margem %' }]}
-              rows={asRows(rankLucro)} />
+            <ExportCsv filename={`condensado_${dataInicio}_${dataFim}.csv`}
+              cols={[{ key: 'nome', label: 'Produto' }, { key: 'codigo', label: 'Código' }, { key: 'marca', label: 'Marca' }, { key: 'fornecedor', label: 'Fornecedor' }, { key: 'qtd', label: 'Qtd Vendida' }, { key: 'precoCusto', label: 'Preço Custo', money: true }, { key: 'custo', label: 'Custo das Vendas', money: true }, { key: 'faturado', label: 'Faturado', money: true }, { key: 'lucro', label: 'Lucro', money: true }, { key: 'margem', label: 'Lucro %' }, ...depositosCond.map((d) => ({ key: `dep_${d.id}`, label: d.nome })), { key: 'estoqueTotal', label: 'Estoque Total' }, { key: 'valorEstoque', label: 'Valor em Estoque', money: true }]}
+              rows={condensado.map((r) => ({ nome: r.nome, codigo: r.codigo, marca: r.marca, fornecedor: r.fornecedor, qtd: r.qtd, precoCusto: r.precoCusto, custo: r.custo, faturado: r.faturado, lucro: r.lucro, margem: r.margem.toFixed(1), ...Object.fromEntries(depositosCond.map((d) => [`dep_${d.id}`, r.estoquePorDep[d.id] ?? 0])), estoqueTotal: r.estoqueTotal, valorEstoque: r.valorEstoque }))} />
           </div>
-          <Tabela vazio={rankLucro.length === 0} vazioMsg="Sem vendas concluídas no período."
-            head={['Produto', 'Qtd', 'Vendido', 'Custo', 'Lucro', 'Margem']} alinhas={['l', 'r', 'r', 'r', 'r', 'r']}>
-            {rankLucro.map((p, i) => (
+          <Tabela vazio={condensado.length === 0} vazioMsg="Sem vendas concluídas no período/filtro."
+            head={['Produto', 'Cód.', 'Marca', 'Fornecedor', 'Qtd', 'Custo un.', 'Custo', 'Faturado', 'Lucro', 'Margem', ...depositosCond.map((d) => d.nome), 'Est. Total', 'Vlr Estoque']}
+            alinhas={['l', 'l', 'l', 'l', 'r', 'r', 'r', 'r', 'r', 'r', ...depositosCond.map(() => 'r' as const), 'r', 'r']}>
+            {condensado.map((r, i) => (
               <tr key={i} className="hover:bg-blue-50/60">
-                <td className="px-4 py-3 text-sm font-medium text-gray-800">{p.nome}</td>
-                <td className="px-4 py-3 text-sm text-right text-gray-600">{p.qtd}</td>
-                <td className="px-4 py-3 text-sm text-right text-gray-700">{fmt(p.vendido)}</td>
-                <td className="px-4 py-3 text-sm text-right text-orange-500">{fmt(p.custo)}</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center justify-end gap-2">
-                    <div className="w-20 shrink-0"><Barra frac={Math.max(0, p.lucro) / maxLuc} cor="#22c55e" /></div>
-                    <span className={`text-sm text-right font-semibold ${p.lucro >= 0 ? 'text-green-600' : 'text-red-500'}`}>{fmt(p.lucro)}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-sm text-right text-gray-600">{p.margem.toFixed(1)}%</td>
+                <td className="px-3 py-2 text-sm font-medium text-gray-800">{r.nome}</td>
+                <td className="px-3 py-2 text-sm text-gray-500 tabular-nums">{r.codigo ?? '—'}</td>
+                <td className="px-3 py-2 text-sm text-gray-500">{r.marca ?? '—'}</td>
+                <td className="px-3 py-2 text-sm text-gray-500">{r.fornecedor ?? '—'}</td>
+                <td className="px-3 py-2 text-sm text-right text-gray-700">{r.qtd}</td>
+                <td className="px-3 py-2 text-sm text-right text-gray-500">{fmt(r.precoCusto)}</td>
+                <td className="px-3 py-2 text-sm text-right text-orange-500">{fmt(r.custo)}</td>
+                <td className="px-3 py-2 text-sm text-right text-blue-600">{fmt(r.faturado)}</td>
+                <td className={`px-3 py-2 text-sm text-right font-semibold ${r.lucro >= 0 ? 'text-green-600' : 'text-red-500'}`}>{fmt(r.lucro)}</td>
+                <td className="px-3 py-2 text-sm text-right text-gray-600">{r.margem.toFixed(1)}%</td>
+                {depositosCond.map((d) => <td key={d.id} className="px-3 py-2 text-sm text-right text-gray-500 tabular-nums">{r.estoquePorDep[d.id] ?? 0}</td>)}
+                <td className="px-3 py-2 text-sm text-right font-medium text-gray-700 tabular-nums">{r.estoqueTotal}</td>
+                <td className="px-3 py-2 text-sm text-right text-gray-500">{fmt(r.valorEstoque)}</td>
               </tr>
             ))}
+            {condensado.length > 0 && (
+              <tr className="bg-gray-50 font-bold border-t-2 border-gray-200">
+                <td className="px-3 py-2 text-sm text-gray-800" colSpan={4}>TOTAIS / MÉDIA</td>
+                <td className="px-3 py-2 text-sm text-right text-gray-800">{condTotais.qtd}</td>
+                <td className="px-3 py-2" />
+                <td className="px-3 py-2 text-sm text-right text-orange-600">{fmt(condTotais.custo)}</td>
+                <td className="px-3 py-2 text-sm text-right text-blue-700">{fmt(condTotais.faturado)}</td>
+                <td className={`px-3 py-2 text-sm text-right ${condTotais.lucro >= 0 ? 'text-green-700' : 'text-red-600'}`}>{fmt(condTotais.lucro)}</td>
+                <td className="px-3 py-2 text-sm text-right text-gray-700">{condTotais.faturado > 0 ? (condTotais.lucro / condTotais.faturado * 100).toFixed(1) : '0'}%</td>
+                {depositosCond.map((d) => <td key={d.id} className="px-3 py-2" />)}
+                <td className="px-3 py-2 text-sm text-right text-gray-800 tabular-nums">{condTotais.estoqueTotal}</td>
+                <td className="px-3 py-2 text-sm text-right text-gray-700">{fmt(condTotais.valorEstoque)}</td>
+              </tr>
+            )}
           </Tabela>
         </div>
       )}
