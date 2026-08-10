@@ -16,6 +16,7 @@ const ANALISAR = [
   { href: '/painel/estoque', label: 'Estoque', exact: true },
   { href: '/painel/estoque/historico', label: 'Movimentações' },
   { href: '/painel/estoque/reposicao', label: 'Reposição' },
+  { href: '/painel/estoque/conferencia', label: 'Conferência' },
 ]
 const GERIR = [
   { href: '/painel/estoque/transferencias', label: 'Transferências' },
@@ -57,3 +58,4 @@ export function EstoqueNav() {
     </div>
   )
 }
+
