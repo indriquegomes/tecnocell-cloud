@@ -647,7 +647,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     if (!palavras.length) return []
     const achados = produtos.filter((p) => {
       const alvo = indiceNorm.get(p.id) ?? ''
-      return palavras.every((w) => alvo.includes(w))
+            return palavras.every((w) => alvo.includes(w)) && saldoNoDeposito(p) > 0
     })
     return ordenarPorEstoque(achados).slice(0, limite)
   }
