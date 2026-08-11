@@ -277,7 +277,7 @@ export async function finalizarVenda(
 > {
   if (itens.length === 0) return { erro: 'Carrinho vazio' }
   if (!deposito_id) return { erro: 'Depósito não selecionado' }
-  if (pagamentos.length === 0) return { erro: 'Selecione a forma de pagamento' }
+  if (pagamentos.length === 0 && credito_valor <= 0) return { erro: 'Selecione a forma de pagamento' }
 
   let usuario: { id: string; email: string | null }
   try {

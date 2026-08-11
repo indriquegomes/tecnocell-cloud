@@ -1029,7 +1029,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const abrirConfirmacao = async () => {
     if (carrinho.length === 0) { setErro('Adicione produtos ao carrinho.'); return }
     if (!depositoId) { setErro('Selecione a loja/depósito.'); return }
-    if (!pagamentos.some((p) => p.forma_id)) { setErro('Selecione a forma de pagamento.'); return }
+    if (faltamPg > 0.01 && !pagamentos.some((p) => p.forma_id)) { setErro('Selecione a forma de pagamento.'); return }
     if (faltamPg > 0.01) { setErro(`Faltam ${formatBRL(faltamPg)} para cobrir o total da venda.`); return }
     if (temFiado && !pessoaId) { setErro('Crédito Loja (Fiado) exige cliente selecionado.'); return }
     if (pagamentos.some((p) => isCartaoForma(p.forma_id) && !p.maquina)) {
