@@ -2536,8 +2536,14 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             </div>
 
             {/* Resumo multi-pagamento */}
-            {totalPagoDistribuido > 0 && (
+            {(totalPagoDistribuido > 0 || creditoAplicado > 0) && (
               <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 space-y-1 text-xs">
+                {creditoAplicado > 0 && (
+                  <div className="flex justify-between font-semibold text-green-700">
+                    <span>🏦 Crédito da loja</span>
+                    <span>− {formatBRL(creditoAplicado)}</span>
+                  </div>
+                )}
                 {totalTaxasPg > 0 && (
                   <div className="flex justify-between text-amber-600">
                     <span>Taxa(s) cartão</span>
