@@ -986,13 +986,46 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     parcelas: 1,
   })
 
-  // Aba 2 (tela de pagamento): clicar num botão-forma do grid define a forma como
-  // pagamento único, com o valor cheio do total. Cartão/split ainda são ajustáveis
-  // no detalhe abaixo do grid.
+  // Aba 2 (tela de pagamento): clicar num botão-forma do grid SOMA ao pagamento em vez
+  // de substituir — é assim que sai o misto (ex.: R$10 no Vale Crédito + R$6 no PIX,
+  // cada valor editável no detalhe abaixo do grid). Só vira forma única de novo quando
+  // ainda não há nada parcial montado (linha vazia, ou 1 linha já com o total).
   const escolherFormaGrid = (formaId: string) => {
     setErro(null)
-    setValorAuto(true)
-    setPagamentos([{ uid: '1', forma_id: formaId, valor: total.toFixed(2), maquina: maquinaDaForma(formaId), parcelas: 1 }])
+    const alvo = Math.max(0, total - creditoAplicado)
+    const pago = pagamentos.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0)
+    const falta = Math.max(0, alvo - pago)
+    const linhaDaForma = (valor: number): PagamentoItem => ({
+      ...novoPagamento(),
+      forma_id: formaId,
+      valor: valor.toFixed(2),
+      maquina: maquinaDaForma(formaId),
+    })
+
+    // 1 linha só e sem valor parcial (vazia ou já cobrindo tudo): troca por forma única
+    const primeira = pagamentos[0]
+    const valorPrimeira = parseFloat(primeira?.valor ?? '') || 0
+    const parcial = valorPrimeira > 0.005 && valorPrimeira < alvo - 0.005
+    if (pagamentos.length <= 1 && !parcial) {
+      setValorAuto(true)
+      setPagamentos([{ ...linhaDaForma(alvo), uid: primeira?.uid ?? '1' }])
+      return
+    }
+
+    // a partir daqui é misto: o valor é montado à mão, não segue mais o total sozinho
+    setValorAuto(false)
+
+    // já existe linha sem forma escolhida: preenche ELA com o que falta
+    const idxVazia = pagamentos.findIndex((p) => !p.forma_id)
+    if (idxVazia >= 0) {
+      setPagamentos(pagamentos.map((p, i) => (i === idxVazia
+        ? { ...p, forma_id: formaId, maquina: maquinaDaForma(formaId), valor: falta > 0.005 ? falta.toFixed(2) : p.valor }
+        : p)))
+      return
+    }
+
+    // todas já têm forma e ainda falta: adiciona uma linha nova com o restante
+    if (falta > 0.005) setPagamentos([...pagamentos, linhaDaForma(falta)])
   }
   // Cor do botão por TIPO da forma (grid da aba 2) — inspirado no modelo do SIGE,
   // mas na paleta do sistema. Fundo forte, texto branco.
