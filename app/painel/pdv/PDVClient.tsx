@@ -994,13 +994,18 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     parcelas: 1,
   })
 
+  // Quanto ainda tem que sair em FORMAS de pagamento (o vale já abateu a parte dele).
+  // Todo auto-preenchimento de valor tem que partir daqui: quem usa `total` cru enche a
+  // linha com a venda inteira e estoura o vale (era o que fazia o restante "zerar" o misto).
+  const aPagarEmFormas = Math.max(0, total - creditoAplicado)
+
   // Aba 2 (tela de pagamento): clicar num botão-forma do grid SOMA ao pagamento em vez
   // de substituir — é assim que sai o misto (ex.: R$10 no Vale Crédito + R$6 no PIX,
   // cada valor editável no detalhe abaixo do grid). Só vira forma única de novo quando
   // ainda não há nada parcial montado (linha vazia, ou 1 linha já com o total).
   const escolherFormaGrid = (formaId: string) => {
     setErro(null)
-    const alvo = Math.max(0, total - creditoAplicado)
+    const alvo = aPagarEmFormas
     const pago = pagamentos.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0)
     const falta = Math.max(0, alvo - pago)
     const linhaDaForma = (valor: number): PagamentoItem => ({
@@ -2517,13 +2522,15 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                     <div className="flex items-center gap-2">
                       {/* O dropdown de forma só aparece na DIVISÃO (2+ formas), pra escolher
                           a outra. Na venda de 1 forma o grid de botões acima já escolheu —
-                          senão seria a mesma coisa duas vezes (a Isa reparou). */}
-                      {pagamentos.length > 1 ? (
+                          senão seria a mesma coisa duas vezes (a Isa reparou).
+                          Com VALE aplicado também aparece: a linha que sobra é a "outra
+                          forma" da divisão e precisa ser escolhida em algum lugar. */}
+                      {pagamentos.length > 1 || creditoAplicado > 0 ? (
                         <select
                           value={p.forma_id}
                           onChange={(e) => setPagamentos((prev) => {
                             const outros = prev.filter((x) => x.uid !== p.uid).reduce((s, x) => s + (parseFloat(x.valor) || 0), 0)
-                            const restante = total - outros
+                            const restante = aPagarEmFormas - outros
                             return prev.map((x) =>
                               x.uid === p.uid
                                 ? { ...x, forma_id: e.target.value, maquina: maquinaDaForma(e.target.value), parcelas: 1,
@@ -2553,7 +2560,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                           onFocus={() => {
                             if (!p.valor) {
                               const outros = pagamentos.filter((x) => x.uid !== p.uid).reduce((s, x) => s + (parseFloat(x.valor) || 0), 0)
-                              const restante = total - outros
+                              const restante = aPagarEmFormas - outros
                               if (restante > 0) setPagamentos((prev) => prev.map((x) =>
                                 x.uid === p.uid ? { ...x, valor: restante.toFixed(2) } : x
                               ))
