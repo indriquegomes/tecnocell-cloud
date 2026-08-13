@@ -86,6 +86,8 @@ function iconeForma(nome: string) {
   if (n.includes('pix')) return '💠'
   if (n.includes('dinheiro')) return '💵'
   if (n.includes('fiado') || n.includes('crédito loja') || n.includes('credito loja')) return '🤝'
+  // antes do cartão: "Vale Crédito" contém "crédito" e cairia como 💳
+  if (n.includes('vale')) return '🎟️'
   if (n.includes('débito') || n.includes('debito') || n.includes('crédito') || n.includes('credito')) return '💳'
   return '•'
 }
@@ -261,7 +263,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     setBuscandoOS(false)
     if (!os) setMsgOSReceb('OS não encontrada.')
     else if (os.recebido_em) { setOsReceb(os); setMsgOSReceb('Esta OS já foi recebida.') }
-    else { setOsReceb(os); setFormaOSReceb(formasVisiveis.find((f) => f.tipo === 'dinheiro')?.nome ?? formasVisiveis[0]?.nome ?? '') }
+    else { setOsReceb(os); setFormaOSReceb(formasRecebimento.find((f) => f.tipo === 'dinheiro')?.nome ?? formasRecebimento[0]?.nome ?? '') }
   }
   const confirmarReceberOS = async () => {
     if (!osReceb || osReceb.recebido_em) return
@@ -327,18 +329,24 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [buscandoCepNovo, setBuscandoCepNovo] = useState(false)
   const [salvandoNovoCliente, setSalvandoNovoCliente] = useState(false)
 
-  // Crédito do cliente
+  // Crédito do cliente. NÃO existe estado "creditoAplicado" separado: o vale é uma LINHA
+  // de pagamento como qualquer outra (dá pra escolher no dropdown, editar o valor, ter
+  // várias). O quanto foi aplicado é derivado dessas linhas mais abaixo. Ter o vale em
+  // dois lugares (estado + linha) foi a origem de uma fila de bugs: sumia do dropdown,
+  // o auto-preenchimento não descontava, a conferência não fechava.
   const [saldoCredito, setSaldoCredito] = useState(0)
-  const [creditoAplicado, setCreditoAplicado] = useState(0)
   const [fiadoCliente, setFiadoCliente] = useState<{ limite: number; devendo: number; disponivel: number } | null>(null)
 
   const qtdRefs = useRef<Map<string, HTMLInputElement>>(new Map())
 
   // Busca saldo de crédito ao selecionar cliente
   useEffect(() => {
-    // Trocar de cliente (ou limpar) zera o crédito aplicado do anterior —
-    // senão o crédito do cliente A ficava "aplicado" na venda do cliente B.
-    setCreditoAplicado(0)
+    // Trocar de cliente (ou limpar) tira as linhas de vale do anterior — senão o
+    // crédito do cliente A ficava "aplicado" na venda do cliente B.
+    setPagamentos((prev) => {
+      const semVale = prev.filter((p) => formas.find((f) => f.id === p.forma_id)?.tipo !== 'vale_credito')
+      return semVale.length > 0 ? semVale : [{ uid: '1', forma_id: '', valor: '', maquina: '', parcelas: 1 }]
+    })
     if (!pessoaId) { setSaldoCredito(0); setFiadoCliente(null); return }
     authToken().then((t) => {
       if (!t) return
@@ -553,14 +561,16 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   // Formas mostradas no PDV: sem loja aparecem sempre; com loja, só na loja delas.
   // (Isa 29/07 — evita escolher "PIX Teresópolis" no caixa de Petrópolis.)
   //
-  // O Vale Crédito (FP_VALE) fica FORA desta lista de propósito: ele não é uma linha
-  // de pagamento comum. O valor dele vai pro RPC no parâmetro do crédito (que debita o
-  // saldo do cliente com lock) e a linha em pagamentos_venda é gravada lá dentro. Se
-  // entrasse aqui, viraria uma 2ª linha e a trava "pagamentos + crédito = total"
-  // recusaria a venda. Ele tem botão próprio no grid (abaixo) e sai dos dropdowns de
-  // recebimento, onde escolher "vale" não debitaria saldo nenhum.
-  const formasVisiveis = formas.filter((f) => (!f.loja_id || f.loja_id === lojaId) && f.tipo !== 'vale_credito')
-  const formaVale = formas.find((f) => f.tipo === 'vale_credito') ?? null
+  // O Vale Crédito (FP_VALE) entra aqui como forma normal — no grid E no dropdown das
+  // linhas — mas SÓ quando o cliente tem saldo: sem saldo é um botão morto que só gera
+  // "por que não deixa clicar". Na hora de finalizar, as linhas de vale são separadas e
+  // viram o parâmetro de crédito do RPC (ver handleFinalizar).
+  const formasVisiveis = formas.filter((f) =>
+    (!f.loja_id || f.loja_id === lojaId) && (f.tipo !== 'vale_credito' || saldoCredito > 0.01))
+  // Formas que servem pra RECEBER (fiado, OS). Fora: fiado (receber fiado com fiado não
+  // faz sentido) e vale (abate saldo do cliente numa venda, não é dinheiro entrando num
+  // recebimento — e escolhê-lo lá não debitaria saldo nenhum).
+  const formasRecebimento = formasVisiveis.filter((f) => f.tipo !== 'fiado' && f.tipo !== 'vale_credito')
   useEffect(() => {
     const lj = localStorage.getItem('pdv_loja')
     const dp = localStorage.getItem('pdv_deposito')
@@ -969,6 +979,22 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const isDebitoForma = (id: string) => tipoDaForma(id) === 'cartao_debito'
   const isFiadoForma = (id: string) => tipoDaForma(id) === 'fiado'
   const isDinheiroForma = (id: string) => tipoDaForma(id) === 'dinheiro'
+  const isValeForma = (id: string) => tipoDaForma(id) === 'vale_credito'
+
+  // Quanto do saldo do cliente está sendo usado = soma das linhas de vale. É isto que
+  // vai pro RPC no parâmetro do crédito (que debita o saldo com lock e grava a linha
+  // FP_VALE). As linhas de vale NÃO vão junto em p_pagamentos — se fossem, a trava
+  // "pagamentos + crédito = total" contaria o vale duas vezes e recusaria a venda.
+  const creditoAplicado = pagamentos
+    .filter((p) => isValeForma(p.forma_id))
+    .reduce((s, p) => s + (parseFloat(p.valor) || 0), 0)
+
+  // Teto de UMA linha de vale: o saldo do cliente menos o que as OUTRAS linhas de vale já
+  // consomem. É o que impede gastar mais crédito do que existe (o RPC também recusa, mas
+  // aí a venda já falhou no balcão).
+  const tetoValeLinha = (uid: string) => Math.max(0, saldoCredito - pagamentos
+    .filter((p) => isValeForma(p.forma_id) && p.uid !== uid)
+    .reduce((s, p) => s + (parseFloat(p.valor) || 0), 0))
 
   const maquinaById = (id: string) => maquinas.find((m) => m.id === id)
   // máquina fixada pela forma (Etapa 1): cartão não pede máquina de novo no PDV
@@ -994,19 +1020,24 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     parcelas: 1,
   })
 
-  // Quanto ainda tem que sair em FORMAS de pagamento (o vale já abateu a parte dele).
-  // Todo auto-preenchimento de valor tem que partir daqui: quem usa `total` cru enche a
-  // linha com a venda inteira e estoura o vale (era o que fazia o restante "zerar" o misto).
-  const aPagarEmFormas = Math.max(0, total - creditoAplicado)
-
   // Aba 2 (tela de pagamento): clicar num botão-forma do grid SOMA ao pagamento em vez
   // de substituir — é assim que sai o misto (ex.: R$10 no Vale Crédito + R$6 no PIX,
   // cada valor editável no detalhe abaixo do grid). Só vira forma única de novo quando
   // ainda não há nada parcial montado (linha vazia, ou 1 linha já com o total).
   const escolherFormaGrid = (formaId: string) => {
     setErro(null)
-    const alvo = aPagarEmFormas
-    const pago = pagamentos.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0)
+    const vale = isValeForma(formaId)
+    // As duas categorias (vale × formas normais) se dividem o total. Ao mexer numa, a
+    // outra é tratada como já resolvida — por isso o alvo desconta só a categoria oposta.
+    // O vale ainda tem o teto do saldo do cliente.
+    const outraCategoria = pagamentos
+      .filter((p) => isValeForma(p.forma_id) !== vale)
+      .reduce((s, p) => s + (parseFloat(p.valor) || 0), 0)
+    const bruto = Math.max(0, total - outraCategoria)
+    const alvo = vale ? Math.min(saldoCredito, bruto) : bruto
+
+    const mesmas = pagamentos.filter((p) => isValeForma(p.forma_id) === vale)
+    const pago = mesmas.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0)
     const falta = Math.max(0, alvo - pago)
     const linhaDaForma = (valor: number): PagamentoItem => ({
       ...novoPagamento(),
@@ -1015,13 +1046,19 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       maquina: maquinaDaForma(formaId),
     })
 
-    // 1 linha só e sem valor parcial (vazia ou já cobrindo tudo): troca por forma única
-    const primeira = pagamentos[0]
+    // 1 linha só NESTA categoria e sem valor parcial (vazia ou já cobrindo tudo): troca
+    // por forma única. As linhas da outra categoria ficam intactas — é o que impede o
+    // clique numa forma normal de apagar o vale (e vice-versa).
+    const primeira = mesmas[0]
     const valorPrimeira = parseFloat(primeira?.valor ?? '') || 0
     const parcial = valorPrimeira > 0.005 && valorPrimeira < alvo - 0.005
-    if (pagamentos.length <= 1 && !parcial) {
+    if (mesmas.length <= 1 && !parcial) {
       setValorAuto(true)
-      setPagamentos([{ ...linhaDaForma(alvo), uid: primeira?.uid ?? '1' }])
+      setPagamentos((prev) => {
+        const resto = prev.filter((p) => isValeForma(p.forma_id) !== vale)
+        const linha = { ...linhaDaForma(alvo), uid: primeira?.uid ?? String(Date.now() + Math.random()) }
+        return vale ? [linha, ...resto] : [...resto, linha]
+      })
       return
     }
 
@@ -1053,19 +1090,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     return 'bg-slate-500 hover:bg-slate-600'
   }
 
-  // Teto do vale: nunca mais que o saldo do cliente, nem mais que a venda.
-  const valeMaximo = total > 0.005 ? Math.min(saldoCredito, total) : saldoCredito
-
-  // Vale Crédito no grid: cobre a compra inteira se o saldo dá, senão entra com o saldo
-  // todo e o resto fica pra outra forma (a linha de pagamento se ajusta sozinha no
-  // useEffect abaixo). Clicar de novo tira. Só aparece com saldo > 0 — botão morto no
-  // balcão só gera pergunta de "por que não deixa clicar".
-  const aplicarVale = () => {
-    setErro(null)
-    setCreditoAplicado(creditoAplicado > 0 ? 0 : valeMaximo)
-  }
-
-  const totalPagoDistribuido = pagamentos.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0) + creditoAplicado
+  // O vale JÁ é uma das linhas de `pagamentos`, então somar creditoAplicado aqui contaria
+  // duas vezes.
+  const totalPagoDistribuido = pagamentos.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0)
   const totalTaxasPg = pagamentos.reduce((s, p) => s + taxaDoItem(p), 0)
   const totalCobrado = total + totalTaxasPg
   const faltamPg = Math.max(0, total - totalPagoDistribuido)
@@ -1074,12 +1101,18 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const trocoPg = temDinheiro && excessoPg > 0.005 ? excessoPg : 0
   const temFiado = pagamentos.some((p) => isFiadoForma(p.forma_id))
 
-  // Auto-preenche o valor do pagamento com o total do carrinho (Isa 15:44):
-  // enquanto for 1 forma só e o operador não digitou nada, o valor segue o total.
+  // Auto-preenche o valor do pagamento com o total do carrinho (Isa 15:44): enquanto for
+  // 1 forma só (fora o vale) e o operador não digitou nada, o valor segue o total menos o
+  // vale. É isto que faz "aplicou vale de R$10 numa venda de R$15 → a outra linha vira
+  // R$5" e que reajusta a outra linha quando o vale é editado.
   useEffect(() => {
-    if (!valorAuto || pagamentos.length !== 1) return
+    if (!valorAuto) return
+    const idx = pagamentos.findIndex((p) => !isValeForma(p.forma_id))
+    if (idx < 0 || pagamentos.filter((p) => !isValeForma(p.forma_id)).length !== 1) return
     const alvo = total > 0.005 ? Math.max(0, total - creditoAplicado).toFixed(2) : ''
-    setPagamentos((prev) => (prev.length === 1 && prev[0].valor !== alvo ? [{ ...prev[0], valor: alvo }] : prev))
+    setPagamentos((prev) => (prev[idx] && prev[idx].valor !== alvo
+      ? prev.map((p, i) => (i === idx ? { ...p, valor: alvo } : p))
+      : prev))
   }, [total, creditoAplicado, valorAuto, pagamentos.length])
 
   const exigeSenhaDesconto = descontoNum > 0 && !!lojaSel?.exige_senha_desconto
@@ -1124,7 +1157,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       setEtapa('venda')
       setCarrinho([])
       setPagamentos([{ uid: '1', forma_id: '', valor: '', maquina: '', parcelas: 1 }])
-      setValorAuto(true); setPessoaId(''); setDesconto(''); setSenhaDesconto(''); setObservacoes(''); setBuscaCliente(''); setDescontoTipo('valor'); setCreditoAplicado(0); setSaldoCredito(0); setFiadoCliente(null)
+      setValorAuto(true); setPessoaId(''); setDesconto(''); setSenhaDesconto(''); setObservacoes(''); setBuscaCliente(''); setDescontoTipo('valor'); setSaldoCredito(0); setFiadoCliente(null)
       setMsgOrc('✅ Orçamento salvo! Carregue de volta no F3 (Orçamento/Pedido) pra finalizar.')
       setTimeout(() => setMsgOrc(''), 6000)
     } catch (e) {
@@ -1147,13 +1180,17 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       const result = await finalizarVenda(
         token,
         carrinho.map(({ produto_id, nome, quantidade, preco_unitario }) => ({ produto_id, nome, quantidade, preco_unitario })),
-        // Linha de pagamento vazia não vai pro RPC. O PDV começa com uma linha em
-        // branco, e quando o crédito do cliente cobre a compra inteira ela fica com
-        // forma vazia e R$ 0 — o RPC recebia forma_pagamento_id '' e recusava a venda
-        // inteira, sem mensagem. Resultado: cliente com saldo suficiente não conseguia
-        // fechar a compra.
+        // ⚠️ AS LINHAS DE VALE NÃO VÃO AQUI. Elas viram o parâmetro de crédito (abaixo),
+        // que é quem debita o saldo do cliente com lock e grava a linha FP_VALE em
+        // pagamentos_venda. Mandar o vale nos dois lugares faria a trava do RPC
+        // ("pagamentos + crédito = total") contar o valor em dobro e recusar a venda —
+        // e mandar SÓ aqui gravaria o pagamento sem nunca debitar o saldo (crédito de graça).
+        //
+        // Linha vazia também não vai: o PDV começa com uma em branco, e quando o vale
+        // cobre a compra inteira ela fica com forma vazia e R$ 0 — o RPC recebia
+        // forma_pagamento_id '' e recusava a venda inteira, sem mensagem.
         pagamentos
-          .filter((p) => p.forma_id && (parseFloat(p.valor) || 0) > 0)
+          .filter((p) => p.forma_id && !isValeForma(p.forma_id) && (parseFloat(p.valor) || 0) > 0)
           .map((p): PagamentoInput => ({
             forma_pagamento_id: p.forma_id,
             valor: parseFloat(p.valor) || 0,
@@ -1167,7 +1204,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         observacoes,
         depositoId,
         carrinho.flatMap((i) => (i.series ?? []).map((serie) => ({ produto_id: i.produto_id, serie }))),
-        creditoAplicado,   // débito do crédito é atômico dentro do RPC (migration 2026-07-10)
+        creditoAplicado,   // = soma das linhas de vale. Débito atômico dentro do RPC (2026-07-10)
         descontoNum,       // desconto MANUAL (para checar permissão 'venda_desconto')
       )
       if ('erro' in result) { setErro(result.erro); return }
@@ -1176,21 +1213,17 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         numero: result.vendaNumero ?? null,
         // prateleira vai junto: quem separa a peça lê no cupom onde ela está guardada
         itens: carrinho.map(({ codigo, nome, quantidade, preco_unitario, prateleira }) => ({ codigo, nome, quantidade, preco_unitario, prateleira: prateleira ?? null })),
-        pagamentos: [
-          ...pagamentos.map((p) => ({
+        // O vale é uma linha como as outras, então entra no cupom naturalmente e o
+        // impresso na hora fecha com a 2ª via (que lê a linha FP_VALE do banco).
+        pagamentos: pagamentos
+          .filter((p) => p.forma_id && (parseFloat(p.valor) || 0) > 0)
+          .map((p) => ({
             forma_nome: formas.find((f) => f.id === p.forma_id)?.nome ?? p.forma_id,
             valor: parseFloat(p.valor) || 0,
             taxa: taxaDoItem(p),
             parcelas: p.parcelas,
-            status: isFiadoForma(p.forma_id) ? 'pendente' : 'pago',
+            status: isValeForma(p.forma_id) ? 'vale' : isFiadoForma(p.forma_id) ? 'pendente' : 'pago',
           })),
-          // O vale não está em `pagamentos` (vai pelo crédito), mas o cupom tem que
-          // fechar com o total — senão o impresso na hora fica diferente da 2ª via,
-          // que lê a linha FP_VALE do banco.
-          ...(creditoAplicado > 0
-            ? [{ forma_nome: formaVale?.nome ?? 'Vale Crédito', valor: creditoAplicado, taxa: 0, parcelas: 1, status: 'vale' }]
-            : []),
-        ],
         cliente: clienteSelecionado?.nome ?? null,
         clienteTelefone: clienteSelecionado?.telefone ?? null,
         clienteEndereco: (() => {
@@ -1233,7 +1266,6 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       setObservacoes('')
       setBuscaCliente('')
       setDescontoTipo('valor')
-      setCreditoAplicado(0)
       setSaldoCredito(0)
       // Atualiza o saldo local do depósito vendido sem router.refresh() (que dispara check de sessão)
       if (result.estoqueAtualizado) {
@@ -2015,7 +2047,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                   return b ? <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${b.cls}`}>{b.txt}</span> : null
                 })()}
                 {clienteSelecionado.cpf_cnpj && <span className="text-xs text-gray-400">{clienteSelecionado.cpf_cnpj}</span>}
-                <button type="button" onClick={() => { setPessoaId(''); setBuscaCliente(''); setCreditoAplicado(0) }}
+                <button type="button" onClick={() => { setPessoaId(''); setBuscaCliente('') }}
                   className="ml-auto text-xs font-medium text-red-400 hover:text-red-600">✕</button>
               </div>
               {/* Cliente problemático — AVISA, não bloqueia (decisão do Vitor) */}
@@ -2468,20 +2500,6 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                     </button>
                   )
                 })}
-                {/* Vale Crédito — só com saldo. Não entra em `pagamentos`: aplica o crédito
-                    do cliente, que o RPC debita e grava como linha FP_VALE na venda. */}
-                {formaVale && saldoCredito > 0.01 && (
-                  <button type="button" onClick={aplicarVale}
-                    className={`relative flex min-h-[82px] flex-col items-center justify-center gap-1.5 rounded-2xl px-2 py-3 font-bold text-white shadow-sm transition ${corFormaBtn(formaVale)} ${creditoAplicado > 0 ? 'scale-[1.03] ring-2 ring-[#1B6CA8] ring-offset-2' : 'opacity-95 hover:opacity-100 hover:shadow-md'}`}>
-                    <span className="absolute right-1.5 top-1.5 rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-bold leading-none">
-                      {formatBRL(saldoCredito)}
-                    </span>
-                    <span className="text-2xl leading-none">🎟️</span>
-                    <span className="text-center text-xs leading-tight">
-                      {creditoAplicado > 0 ? `−${formatBRL(creditoAplicado)}` : formaVale.nome}
-                    </span>
-                  </button>
-                )}
               </div>
             </div>
 
@@ -2491,26 +2509,6 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 Valor e ajustes <span className="font-normal">(cartão · dividir · troco)</span>
               </label>
               <div className="space-y-2">
-                {/* Vale Crédito — linha editável igual às outras formas, mas fora de
-                    `pagamentos`: o valor vai pro RPC como crédito. Nunca passa do saldo
-                    nem do total (valeMaximo). Baixar o vale aqui faz a linha de baixo
-                    crescer sozinha (useEffect do valorAuto), fechando vale + forma = total. */}
-                {creditoAplicado > 0 && (
-                  <div className="flex items-center gap-2 rounded-xl border border-purple-200 bg-purple-50 p-3">
-                    <span className="flex flex-1 items-center gap-1.5 text-sm font-semibold text-purple-800">
-                      🎟️ {formaVale?.nome ?? 'Vale Crédito'}
-                    </span>
-                    <div className="w-32">
-                      <CampoDinheiro
-                        value={creditoAplicado}
-                        onChange={(r) => setCreditoAplicado(Math.max(0, Math.min(r, valeMaximo)))}
-                        className="w-full"
-                      />
-                    </div>
-                    <button type="button" onClick={() => setCreditoAplicado(0)}
-                      className="shrink-0 text-xs text-red-400 hover:text-red-600 transition">✕</button>
-                  </div>
-                )}
                 {creditoAplicado > 0 && saldoCredito - creditoAplicado > 0.005 && (
                   <p className="px-1 text-[11px] text-purple-400">
                     Sobra {formatBRL(saldoCredito - creditoAplicado)} de saldo pro cliente usar depois.
@@ -2529,12 +2527,19 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                         <select
                           value={p.forma_id}
                           onChange={(e) => setPagamentos((prev) => {
+                            const novaForma = e.target.value
                             const outros = prev.filter((x) => x.uid !== p.uid).reduce((s, x) => s + (parseFloat(x.valor) || 0), 0)
-                            const restante = aPagarEmFormas - outros
+                            // virou vale: o valor não pode passar do saldo que sobra
+                            const bruto = total - outros
+                            const restante = isValeForma(novaForma) ? Math.min(bruto, tetoValeLinha(p.uid)) : bruto
                             return prev.map((x) =>
                               x.uid === p.uid
-                                ? { ...x, forma_id: e.target.value, maquina: maquinaDaForma(e.target.value), parcelas: 1,
-                                    valor: (!x.valor || parseFloat(x.valor) === 0) && restante > 0 ? restante.toFixed(2) : x.valor }
+                                ? { ...x, forma_id: novaForma, maquina: maquinaDaForma(novaForma), parcelas: 1,
+                                    valor: (!x.valor || parseFloat(x.valor) === 0) && restante > 0
+                                      ? restante.toFixed(2)
+                                      : (isValeForma(novaForma)
+                                          ? Math.min(parseFloat(x.valor) || 0, tetoValeLinha(p.uid)).toFixed(2)
+                                          : x.valor) }
                                 : x
                             )
                           })}
@@ -2551,16 +2556,25 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                       <div className="w-32">
                         <CampoDinheiro
                           value={parseFloat(p.valor) || 0}
-                          onChange={(r) => { setValorAuto(false); setPagamentos((prev) => prev.map((x) =>
-                            x.uid === p.uid ? { ...x, valor: String(r) } : x
-                          )) }}
+                          // Editar o VALE não sai do modo automático de propósito: assim a
+                          // outra linha reajusta sozinha (vale 10 → PIX 5; baixou o vale
+                          // pra 3 → PIX vira 12). Editar uma forma normal continua travando
+                          // o valor, como sempre foi.
+                          onChange={(r) => {
+                            const ehVale = isValeForma(p.forma_id)
+                            if (!ehVale) setValorAuto(false)
+                            const v = ehVale ? Math.min(r, tetoValeLinha(p.uid)) : r
+                            setPagamentos((prev) => prev.map((x) => (x.uid === p.uid ? { ...x, valor: String(v) } : x)))
+                          }}
                           // clicou num campo vazio: já joga o que falta pra fechar a venda.
                           // (p.valor continua '' até alguém digitar, então o auto-preencher
                           // não confunde o R$ 0,00 que a máscara mostra com um valor digitado.)
                           onFocus={() => {
                             if (!p.valor) {
                               const outros = pagamentos.filter((x) => x.uid !== p.uid).reduce((s, x) => s + (parseFloat(x.valor) || 0), 0)
-                              const restante = aPagarEmFormas - outros
+                              const restante = isValeForma(p.forma_id)
+                                ? Math.min(total - outros, tetoValeLinha(p.uid))
+                                : total - outros
                               if (restante > 0) setPagamentos((prev) => prev.map((x) =>
                                 x.uid === p.uid ? { ...x, valor: restante.toFixed(2) } : x
                               ))
@@ -2763,7 +2777,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                   <div className="mt-3">
                     <label className="block text-xs text-gray-500 mb-1">Forma de pagamento</label>
                     <select value={formaOSReceb} onChange={(e) => setFormaOSReceb(e.target.value)} className="field w-full">
-                      {formasVisiveis.filter((f) => f.tipo !== 'fiado').map((f) => <option key={f.id} value={f.nome}>{f.nome}</option>)}
+                      {formasRecebimento.map((f) => <option key={f.id} value={f.nome}>{f.nome}</option>)}
                     </select>
                     <button onClick={confirmarReceberOS} disabled={recebendoOS || !formaOSReceb}
                       className="mt-3 w-full rounded-xl bg-green-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50 transition">{recebendoOS ? 'Recebendo…' : 'Confirmar recebimento'}</button>
@@ -2804,18 +2818,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               </div>
 
               <div className="border-t border-gray-100 pt-3 space-y-1.5">
-                {/* O vale não está em `pagamentos` (vai pelo crédito), mas é forma de
-                    pagamento como as outras — sem ele aqui a conferência não fechava com
-                    o Total (vale 10 + PIX 5 numa venda de 15 mostrava só "PIX R$5"). */}
-                {creditoAplicado > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">🎟️ {formaVale?.nome ?? 'Vale Crédito'}</span>
-                    <span className="font-medium text-gray-800">{formatBRL(creditoAplicado)}</span>
-                  </div>
-                )}
-                {/* Só as linhas que vão MESMO virar pagamento (é o mesmo filtro do
-                    finalizarVenda). Quando o vale cobre a venda inteira sobra uma linha
-                    sem forma e com R$ 0,00 — mostrá-la faria a soma não bater. */}
+                {/* Só as linhas que vão MESMO virar pagamento. Quando o vale cobre a venda
+                    inteira sobra uma linha sem forma e com R$ 0,00 — mostrá-la faria a
+                    soma não bater. O vale aparece aqui como qualquer outra forma. */}
                 {pagamentos.filter((p) => p.forma_id && (parseFloat(p.valor) || 0) > 0).map((p) => {
                   const taxa = taxaDoItem(p)
                   const val = parseFloat(p.valor) || 0
@@ -2938,7 +2943,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                     onChange={(e) => setFormaQuitar(e.target.value)}
                     className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    {formasVisiveis.filter((f) => f.tipo !== 'fiado').map((f) => (
+                    {formasRecebimento.map((f) => (
                       <option key={f.id} value={f.nome}>{f.nome}</option>
                     ))}
                   </select>
@@ -3196,7 +3201,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                   Forma de recebimento
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  {formasVisiveis.filter((f) => f.tipo !== 'fiado').map((f) => (
+                  {formasRecebimento.map((f) => (
                     <button
                       key={f.id}
                       type="button"
@@ -3272,7 +3277,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               {modoMistoReceb && (() => {
                 const somaMisto = Math.round(linhasMisto.reduce((s, l) => s + (parseFloat((l.valor || '').replace(',', '.')) || 0), 0) * 100) / 100
                 const faltam = Math.round((restanteReceb - somaMisto) * 100) / 100
-                const formasReais = formasVisiveis.filter((f) => f.tipo !== 'fiado')
+                const formasReais = formasRecebimento
                 return (
                   <div className="space-y-2">
                     <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">Formas (soma tem que fechar o valor)</label>
