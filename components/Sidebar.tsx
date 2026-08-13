@@ -88,6 +88,7 @@ const navCompleto: NavGroup[] = [
     group: 'Estoque',
     items: [
       { href: '/painel/produtos',          label: 'Produtos',       permissao: 'produtos' },
+      { href: '/painel/produtos/importar', label: 'Importar Itens', permissao: 'produtos' },
       { href: '/painel/estoque',           label: 'Estoque',        permissao: 'estoque' },
       { href: '/painel/estoque/historico', label: 'Movimentações',  permissao: 'estoque' },
       { href: '/painel/depositos',         label: 'Depósitos',      permissao: 'estoque' },
