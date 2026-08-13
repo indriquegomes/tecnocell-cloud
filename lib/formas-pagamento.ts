@@ -7,6 +7,7 @@ export const TIPOS_PAGAMENTO = [
   { key: 'cartao_credito', label: 'Cartão de Crédito',     desc: 'Máquina + parcelas + taxa' },
   { key: 'cartao_debito',  label: 'Cartão de Débito',      desc: 'Máquina + taxa' },
   { key: 'fiado',          label: 'Crédito Loja (Fiado)',  desc: 'Vira pendência a receber' },
+  { key: 'vale_credito',   label: 'Vale Crédito',          desc: 'Abate do saldo do cliente' },
   { key: 'outro',          label: 'Outro',                 desc: 'Sem regra especial' },
 ] as const
 

@@ -168,7 +168,7 @@ function EmCaixaCard({
   const [aberto, setAberto] = useState<string | null>(null)
   const v = (t: string) => porTipo[t] ?? 0
   const outros = Object.entries(porTipo)
-    .filter(([t]) => !['dinheiro', 'pix', 'cartao_credito', 'cartao_debito', 'fiado'].includes(t))
+    .filter(([t]) => !['dinheiro', 'pix', 'cartao_credito', 'cartao_debito', 'fiado', 'vale_credito'].includes(t))
     .reduce((s, [, x]) => s + x, 0)
 
   const linhas = [
@@ -176,6 +176,7 @@ function EmCaixaCard({
     { tipo: 'cartao_credito', icone: '💳', nome: 'Cartão de Crédito', valor: v('cartao_credito'), conferir: 'maquininha', cor: 'text-gray-600' },
     { tipo: 'cartao_debito', icone: '💳', nome: 'Cartão de Débito', valor: v('cartao_debito'), conferir: 'maquininha', cor: 'text-gray-600' },
     { tipo: 'outros', icone: '💰', nome: 'Outros', valor: outros, conferir: null, cor: 'text-gray-600' },
+    { tipo: 'vale_credito', icone: '🎟️', nome: 'Vale Crédito', valor: v('vale_credito'), conferir: 'saiu do saldo do cliente — não é dinheiro', cor: 'text-purple-700' },
     { tipo: 'fiado', icone: '🏷️', nome: 'Crédito Loja (fiado)', valor: v('fiado'), conferir: 'é dívida — não é dinheiro', cor: 'text-orange-700' },
   ].filter((l) => l.valor > 0)
 

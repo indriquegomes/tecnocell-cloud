@@ -9,7 +9,7 @@ export type MovDetalhe = {
   movimentacao: string   // Venda | Reforço | Retirada | Devolução
   rotulo: string         // "Venda #508", "Reforço", ...
   forma: string          // nome da forma (Dinheiro, Crédito TON…)
-  tipoForma: string      // Dinheiro | Cartão | PIX | Fiado | Crédito | Outro
+  tipoForma: string      // Dinheiro | Cartão | PIX | Fiado | Crédito | Vale Crédito | Outro
   valor: number          // + entra, − sai
 }
 
@@ -76,8 +76,13 @@ export function FechamentoDetalhe({
 
     const porFormaTodos = Object.entries(movimentos.reduce<Record<string, number>>((a, m) => { a[m.forma] = (a[m.forma] ?? 0) + m.valor; return a }, {})).sort((a, b) => b[1] - a[1])
     // Dinheiro FÍSICO na gaveta: abertura + tudo que é tipo Dinheiro (recebido − troco − retiradas).
+    // Vale Crédito tem tipoForma próprio, então já fica de fora daqui — não é cédula.
     const dinheiroGaveta = header.valorAbertura + movimentos.filter((m) => m.tipoForma === 'Dinheiro').reduce((s, m) => s + m.valor, 0)
-    const saldosFech = `<h3>Saldos no Fechamento do Caixa</h3><table><thead><tr><th>Somar nos totalizadores de Caixa</th><th>Forma Pagamento</th><th class="r">Saldo</th></tr></thead><tbody>${porFormaTodos.map(([f, v]) => `<tr><td>Sim</td><td>${f}</td><td class="r">${money(v)}</td></tr>`).join('')}</tbody></table>`
+    // Vale Crédito aparece discriminado na lista, mas com "Não" no somatório do caixa:
+    // o dinheiro dele já entrou quando o crédito foi gerado (devolução/troca).
+    const tipoDaForma = Object.fromEntries(movimentos.map((m) => [m.forma, m.tipoForma]))
+    const somaNoCaixa = (f: string) => (tipoDaForma[f] === 'Vale Crédito' ? 'Não' : 'Sim')
+    const saldosFech = `<h3>Saldos no Fechamento do Caixa</h3><table><thead><tr><th>Somar nos totalizadores de Caixa</th><th>Forma Pagamento</th><th class="r">Saldo</th></tr></thead><tbody>${porFormaTodos.map(([f, v]) => `<tr><td>${somaNoCaixa(f)}</td><td>${f}</td><td class="r">${money(v)}</td></tr>`).join('')}</tbody></table>`
     const gaveta = `<h3>Total em Dinheiro na Gaveta</h3><table><tbody><tr><td>Abertura + dinheiro recebido − troco/retiradas em dinheiro</td><td class="r"><b>${money(dinheiroGaveta)}</b></td></tr></tbody></table>`
 
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Demonstrativo de Fechamento — ${header.loja}</title><style>

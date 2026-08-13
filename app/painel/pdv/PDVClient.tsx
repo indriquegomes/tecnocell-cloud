@@ -552,7 +552,15 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [depositoId, setDepositoId] = useState(depoDefaultDaLoja(lojas[0]?.id ?? ''))
   // Formas mostradas no PDV: sem loja aparecem sempre; com loja, só na loja delas.
   // (Isa 29/07 — evita escolher "PIX Teresópolis" no caixa de Petrópolis.)
-  const formasVisiveis = formas.filter((f) => !f.loja_id || f.loja_id === lojaId)
+  //
+  // O Vale Crédito (FP_VALE) fica FORA desta lista de propósito: ele não é uma linha
+  // de pagamento comum. O valor dele vai pro RPC no parâmetro do crédito (que debita o
+  // saldo do cliente com lock) e a linha em pagamentos_venda é gravada lá dentro. Se
+  // entrasse aqui, viraria uma 2ª linha e a trava "pagamentos + crédito = total"
+  // recusaria a venda. Ele tem botão próprio no grid (abaixo) e sai dos dropdowns de
+  // recebimento, onde escolher "vale" não debitaria saldo nenhum.
+  const formasVisiveis = formas.filter((f) => (!f.loja_id || f.loja_id === lojaId) && f.tipo !== 'vale_credito')
+  const formaVale = formas.find((f) => f.tipo === 'vale_credito') ?? null
   useEffect(() => {
     const lj = localStorage.getItem('pdv_loja')
     const dp = localStorage.getItem('pdv_deposito')
@@ -1036,7 +1044,20 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     if (t === 'cartao_credito') return 'bg-rose-500 hover:bg-rose-600'
     if (t === 'cartao_debito') return 'bg-[#1B6CA8] hover:bg-[#155a8c]'
     if (t === 'fiado') return 'bg-orange-500 hover:bg-orange-600'
+    if (t === 'vale_credito') return 'bg-purple-600 hover:bg-purple-700'
     return 'bg-slate-500 hover:bg-slate-600'
+  }
+
+  // Teto do vale: nunca mais que o saldo do cliente, nem mais que a venda.
+  const valeMaximo = total > 0.005 ? Math.min(saldoCredito, total) : saldoCredito
+
+  // Vale Crédito no grid: cobre a compra inteira se o saldo dá, senão entra com o saldo
+  // todo e o resto fica pra outra forma (a linha de pagamento se ajusta sozinha no
+  // useEffect abaixo). Clicar de novo tira. Só aparece com saldo > 0 — botão morto no
+  // balcão só gera pergunta de "por que não deixa clicar".
+  const aplicarVale = () => {
+    setErro(null)
+    setCreditoAplicado(creditoAplicado > 0 ? 0 : valeMaximo)
   }
 
   const totalPagoDistribuido = pagamentos.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0) + creditoAplicado
@@ -1150,13 +1171,21 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         numero: result.vendaNumero ?? null,
         // prateleira vai junto: quem separa a peça lê no cupom onde ela está guardada
         itens: carrinho.map(({ codigo, nome, quantidade, preco_unitario, prateleira }) => ({ codigo, nome, quantidade, preco_unitario, prateleira: prateleira ?? null })),
-        pagamentos: pagamentos.map((p) => ({
-          forma_nome: formas.find((f) => f.id === p.forma_id)?.nome ?? p.forma_id,
-          valor: parseFloat(p.valor) || 0,
-          taxa: taxaDoItem(p),
-          parcelas: p.parcelas,
-          status: isFiadoForma(p.forma_id) ? 'pendente' : 'pago',
-        })),
+        pagamentos: [
+          ...pagamentos.map((p) => ({
+            forma_nome: formas.find((f) => f.id === p.forma_id)?.nome ?? p.forma_id,
+            valor: parseFloat(p.valor) || 0,
+            taxa: taxaDoItem(p),
+            parcelas: p.parcelas,
+            status: isFiadoForma(p.forma_id) ? 'pendente' : 'pago',
+          })),
+          // O vale não está em `pagamentos` (vai pelo crédito), mas o cupom tem que
+          // fechar com o total — senão o impresso na hora fica diferente da 2ª via,
+          // que lê a linha FP_VALE do banco.
+          ...(creditoAplicado > 0
+            ? [{ forma_nome: formaVale?.nome ?? 'Vale Crédito', valor: creditoAplicado, taxa: 0, parcelas: 1, status: 'vale' }]
+            : []),
+        ],
         cliente: clienteSelecionado?.nome ?? null,
         clienteTelefone: clienteSelecionado?.telefone ?? null,
         clienteEndereco: (() => {
@@ -1993,22 +2022,13 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                   )}
                 </div>
               )}
+              {/* Saldo do vale: INFORMAÇÃO, sem botão. Aplicar é no botão Vale Crédito do
+                  grid de pagamento — ter dois lugares que aplicam o mesmo crédito só
+                  gerava dúvida sobre qual valia. */}
               {saldoCredito > 0.01 && (
-                <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 px-2.5 py-1.5">
-                  <span className="text-xs text-green-700 font-medium">🏦 Saldo em conta: {formatBRL(saldoCredito)}</span>
-                  {creditoAplicado === 0 ? (
-                    <button type="button"
-                      onClick={() => setCreditoAplicado(Math.min(saldoCredito, total > 0 ? total : saldoCredito))}
-                      className="ml-auto rounded-md bg-green-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-green-700 transition">
-                      Usar →
-                    </button>
-                  ) : (
-                    <span className="ml-auto text-xs font-bold text-green-700">-{formatBRL(creditoAplicado)} aplicado</span>
-                  )}
-                  {creditoAplicado > 0 && (
-                    <button type="button" onClick={() => setCreditoAplicado(0)}
-                      className="text-xs text-red-400 hover:text-red-600">✕</button>
-                  )}
+                <div className="flex items-center gap-2 rounded-lg bg-purple-50 border border-purple-200 px-2.5 py-1.5">
+                  <span className="text-xs font-medium text-purple-700">🎟️ Saldo em conta: {formatBRL(saldoCredito)}</span>
+                  <span className="ml-auto text-[11px] text-purple-400">use no botão Vale Crédito ao pagar</span>
                 </div>
               )}
               {fiadoCliente && fiadoCliente.devendo > 0.01 && (
@@ -2443,6 +2463,20 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                     </button>
                   )
                 })}
+                {/* Vale Crédito — só com saldo. Não entra em `pagamentos`: aplica o crédito
+                    do cliente, que o RPC debita e grava como linha FP_VALE na venda. */}
+                {formaVale && saldoCredito > 0.01 && (
+                  <button type="button" onClick={aplicarVale}
+                    className={`relative flex min-h-[82px] flex-col items-center justify-center gap-1.5 rounded-2xl px-2 py-3 font-bold text-white shadow-sm transition ${corFormaBtn(formaVale)} ${creditoAplicado > 0 ? 'scale-[1.03] ring-2 ring-[#1B6CA8] ring-offset-2' : 'opacity-95 hover:opacity-100 hover:shadow-md'}`}>
+                    <span className="absolute right-1.5 top-1.5 rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-bold leading-none">
+                      {formatBRL(saldoCredito)}
+                    </span>
+                    <span className="text-2xl leading-none">🎟️</span>
+                    <span className="text-center text-xs leading-tight">
+                      {creditoAplicado > 0 ? `−${formatBRL(creditoAplicado)}` : formaVale.nome}
+                    </span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -2452,6 +2486,32 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 Valor e ajustes <span className="font-normal">(cartão · dividir · troco)</span>
               </label>
               <div className="space-y-2">
+                {/* Vale Crédito — linha editável igual às outras formas, mas fora de
+                    `pagamentos`: o valor vai pro RPC como crédito. Nunca passa do saldo
+                    nem do total (valeMaximo). Baixar o vale aqui faz a linha de baixo
+                    crescer sozinha (useEffect do valorAuto), fechando vale + forma = total. */}
+                {creditoAplicado > 0 && (
+                  <div className="flex items-center gap-2 rounded-xl border border-purple-200 bg-purple-50 p-3">
+                    <span className="flex flex-1 items-center gap-1.5 text-sm font-semibold text-purple-800">
+                      🎟️ {formaVale?.nome ?? 'Vale Crédito'}
+                    </span>
+                    <div className="w-32">
+                      <CampoDinheiro
+                        value={creditoAplicado}
+                        onChange={(r) => setCreditoAplicado(Math.max(0, Math.min(r, valeMaximo)))}
+                        className="w-full"
+                      />
+                    </div>
+                    <button type="button" onClick={() => setCreditoAplicado(0)}
+                      className="shrink-0 text-xs text-red-400 hover:text-red-600 transition">✕</button>
+                  </div>
+                )}
+                {creditoAplicado > 0 && saldoCredito - creditoAplicado > 0.005 && (
+                  <p className="px-1 text-[11px] text-purple-400">
+                    Sobra {formatBRL(saldoCredito - creditoAplicado)} de saldo pro cliente usar depois.
+                  </p>
+                )}
+
                 {pagamentos.map((p) => (
                   <div key={p.uid} className="rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-2">
                     <div className="flex items-center gap-2">

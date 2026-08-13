@@ -19,6 +19,9 @@ const tipoLabel = (tipo: string | null): string => {
   if (tipo === 'pix') return 'PIX'
   if (tipo.startsWith('cartao')) return 'Cartão'
   if (tipo === 'fiado') return 'Fiado'
+  // ANTES do includes('credito') abaixo, senão 'vale_credito' casaria com ele e o
+  // vale viraria "Crédito" — misturado com o crédito loja no fechamento.
+  if (tipo === 'vale_credito') return 'Vale Crédito'
   if (tipo.includes('credito') || tipo.includes('loja')) return 'Crédito'
   return 'Outro'
 }
