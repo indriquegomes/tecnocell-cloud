@@ -34,7 +34,6 @@ export const ROTAS_PERMISSAO: Record<string, string> = {
   '/painel/fiados':           'financeiro',
   '/painel/promocoes':        'produtos',
   '/painel/loja':             'produtos',
-  '/painel/espelho':          'usuarios',
   '/painel/chat':             'chat_ia',
 }
 

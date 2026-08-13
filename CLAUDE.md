@@ -27,8 +27,8 @@ Módulos:
   concordar por concordar. Se a ideia tem problema, diga qual. Sério e objetivo.
 - **O usuário é iniciante em programação. Uma coisa por vez.** Não despejar
   várias mudanças ou vários conceitos na mesma resposta.
-- **Fase de teste — nada aqui é dado real.** O backup/importação do SIGE fica
-  para o fim do projeto.
+- **Fase de teste — nada aqui é dado real.** O banco tem só cadastro (pessoas,
+  produtos, preços, configuração); todo o movimento foi zerado em 13/08/2026.
 - **Não commitar sem pedir.** Confirmar que o type-check passou antes de
   qualquer commit.
 - **Preservar UTF-8 sempre.** Os arquivos têm acentos e emojis no código e nos
@@ -70,7 +70,6 @@ lib/                     regra de negócio pura + acesso a dados
 supabase/migrations/     SQL versionado por data (AAAA-MM-DD-nome.sql)
 proxy.ts                 middleware (Next 16 renomeou "middleware" → "proxy")
 bot/                     bot de comprovantes do Telegram (Node avulso, .mjs)
-extensao-sige/           extensão de navegador para o sistema antigo (SIGE)
 ```
 
 Convenção por módulo: `page.tsx` busca dados no servidor, `actions.ts` tem as
@@ -139,11 +138,21 @@ bater com o total, senão a venda inteira é recusada.
   `lucide-react` e `class-variance-authority`.
 - **Plugins no Claude Code:** superpowers, ponytail, claude-mem.
 
+- **Supabase conectado via MCP** (`.mcp.json`, token em `SUPABASE_ACCESS_TOKEN`
+  no ambiente do usuário). O Claude aplica migration direto — não precisa mais
+  colar no SQL Editor.
+- **Banco limpo e SIGE removido** (13/08/2026). Saíram as pastas `sige-deep/`,
+  `scripts-sige/`, `extensao-sige/`, as telas `/painel/espelho`, e as tabelas
+  `eventos_sige` e `sige_conferencia`. Todo o movimento foi truncado; sobrou só
+  cadastro. As migrations antigas do SIGE continuam em `supabase/migrations/`
+  porque são o registro de como o banco chegou aqui — não apagar.
+  ⚠️ Cuidado: "espelho" também aparece no RH (espelho de ponto) e no bot do
+  Telegram (planilha espelho) — nada a ver com SIGE.
+
 ## Próximos passos
 
-1. **Conectar o Supabase via MCP** para o Claude Code rodar SQL direto (hoje o
-   usuário cola migration por migration no SQL Editor).
-2. **Zerar o banco:** zerar **só os saldos** — estoque, dívidas de fiado e
-   vales — **mantendo todo o histórico** (vendas, compras, custos,
-   movimentações). Não é `truncate`.
-3. **Migrar os dados do SIGE** (arquivos que o usuário vai trazer).
+1. **Testar com poucos itens:** entrar estoque em alguns produtos e rodar
+   venda / devolução / fechamento de caixa do zero.
+2. **Trazer pagamentos e fiados atualizados** dos clientes (usuário vai passar).
+3. **Histórico de compras do cliente** — só pra medir relevância do cliente pelo
+   poder de compra. Entra depois da migração completa.

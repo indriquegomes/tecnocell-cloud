@@ -36,7 +36,7 @@ export default async function LojaGestaoPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">SIGE Loja</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Loja Virtual</h2>
         <a href="/loja" target="_blank" rel="noopener noreferrer"
           className="flex items-center gap-2 rounded-xl border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 transition">
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

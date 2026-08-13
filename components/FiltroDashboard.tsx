@@ -91,10 +91,9 @@ export function FiltroDashboard({
       className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/60 px-3 py-2 transition-opacity"
       style={pending ? { opacity: 0.55, pointerEvents: 'none' } : undefined}
     >
-      {/* "Hoje" é o atalho que a Isa realmente precisa: como o SIGE parou, só o dia
-          de hoje mostra as vendedoras de verdade (Mariana, Maria Eduarda, Brunna)
-          no ranking. Qualquer janela maior ainda é dominada pelo histórico do SIGE,
-          que só tinha login por LOJA ("ATENDIMENTO PETRÓPOLIS 01"). */}
+      {/* "Hoje" é o atalho que a Isa mais usa. O histórico importado que poluía o
+          ranking de vendedoras (login por LOJA, não por pessoa) foi removido em
+          13/08/2026 — agora qualquer janela mostra vendedora de verdade. */}
       <button type="button" onClick={() => atalho(1)} className={btn(ativoHoje)}>Hoje</button>
       <button type="button" onClick={() => atalho(7)} className={btn(ativoSemana)}>Esta semana</button>
       <button type="button" onClick={() => irMes(hoje.getMonth(), hoje.getFullYear())} className={btn(ativoMes)}>Este mês</button>
