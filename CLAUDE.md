@@ -148,6 +148,13 @@ bater com o total, senão a venda inteira é recusada.
   porque são o registro de como o banco chegou aqui — não apagar.
   ⚠️ Cuidado: "espelho" também aparece no RH (espelho de ponto) e no bot do
   Telegram (planilha espelho) — nada a ver com SIGE.
+- **Importador de itens do SIGE** (`app/painel/produtos/importar`). Sobe `.xlsx`,
+  mostra prévia do que muda, grava só depois de confirmar. Casa por
+  `Identificador` = `produtos.id` + sufixo `idproduto`. Atualiza e insere,
+  **nunca apaga**. Detalhes em [docs/2026-08-13-sessao.md](docs/2026-08-13-sessao.md).
+- **`lib/xlsx.ts`** — leitor de planilha próprio. O `exceljs` **trava** nas
+  exportações do SIGE (levou +2 min e não voltou); este faz o mesmo arquivo em
+  0,7s. Usar ele, não o exceljs, pra qualquer `.xlsx` novo.
 
 ## Próximos passos
 
