@@ -2,11 +2,24 @@
 
 # TecnoCell Cloud
 
-Sistema de gestão de loja de celulares (lojas de Petrópolis e Teresópolis).
+ERP online para comércio, varejo, prestação de serviços e indústria.
 Next.js + TypeScript + Supabase + Vercel.
+Uso próprio hoje: loja de celulares (Petrópolis e Teresópolis).
 
 - No ar: tecnocell-cloud.vercel.app
 - GitHub: indriquegomes/tecnocell-cloud (branch `main`)
+
+Módulos:
+
+- **Financeiro** — contas a pagar/receber, custos, fluxo de caixa
+- **Vendas e PDV** — online e offline, cupom fiscal, app de vendas
+- **Estoque e compras** — controle avançado, compras, produção
+- **CRM** — clientes e força de vendas
+- **Ordens de serviço** — assistência técnica
+- **Relatórios** — 100+
+- **Integrações** — e-commerce, marketplaces, pagamento, logística, loja
+  virtual, banco digital
+- **Extras** — tarefas/projetos, RH, documentos na nuvem, WhatsApp, Telegram, IA
 
 ## Regras de trabalho
 
@@ -118,7 +131,19 @@ bater com o total, senão a venda inteira é recusada.
   `handleFinalizar`, que tira as linhas de vale de `p_pagamentos` e manda a soma
   como crédito — mandar nos dois lugares conta em dobro, mandar só como pagamento
   não debita o saldo do cliente.
+  Migration `2026-08-25` já aplicada no Supabase.
+  Cliente de teste com saldo de vale: **SMART INK**.
 - **Conferência de estoque em massa por planilha** (`app/painel/estoque/conferencia`).
 - **Limpeza de código morto** (ponytail): removidos `lib/types.ts`,
   `lib/auditoria.ts`, componentes sem uso, assets órfãos e as dependências
   `lucide-react` e `class-variance-authority`.
+- **Plugins no Claude Code:** superpowers, ponytail, claude-mem.
+
+## Próximos passos
+
+1. **Conectar o Supabase via MCP** para o Claude Code rodar SQL direto (hoje o
+   usuário cola migration por migration no SQL Editor).
+2. **Zerar o banco:** zerar **só os saldos** — estoque, dívidas de fiado e
+   vales — **mantendo todo o histórico** (vendas, compras, custos,
+   movimentações). Não é `truncate`.
+3. **Migrar os dados do SIGE** (arquivos que o usuário vai trazer).
