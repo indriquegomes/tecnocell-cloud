@@ -2797,7 +2797,19 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               </div>
 
               <div className="border-t border-gray-100 pt-3 space-y-1.5">
-                {pagamentos.map((p) => {
+                {/* O vale não está em `pagamentos` (vai pelo crédito), mas é forma de
+                    pagamento como as outras — sem ele aqui a conferência não fechava com
+                    o Total (vale 10 + PIX 5 numa venda de 15 mostrava só "PIX R$5"). */}
+                {creditoAplicado > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">🎟️ {formaVale?.nome ?? 'Vale Crédito'}</span>
+                    <span className="font-medium text-gray-800">{formatBRL(creditoAplicado)}</span>
+                  </div>
+                )}
+                {/* Só as linhas que vão MESMO virar pagamento (é o mesmo filtro do
+                    finalizarVenda). Quando o vale cobre a venda inteira sobra uma linha
+                    sem forma e com R$ 0,00 — mostrá-la faria a soma não bater. */}
+                {pagamentos.filter((p) => p.forma_id && (parseFloat(p.valor) || 0) > 0).map((p) => {
                   const taxa = taxaDoItem(p)
                   const val = parseFloat(p.valor) || 0
                   return (
