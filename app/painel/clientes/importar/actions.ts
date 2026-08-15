@@ -47,8 +47,9 @@ export type ResultadoConferenciaPessoas =
 
 type PessoaBanco = {
   id: string; nome: string; tipo: string | null; pessoa_fisica: boolean | null; cpf_cnpj: string | null
-  email: string | null; telefone: string | null; celular: string | null; cidade: string | null
-  estado: string | null; ativo: boolean | null
+  email: string | null; telefone: string | null; celular: string | null
+  cep: string | null; endereco: string | null; numero: string | null; complemento: string | null; bairro: string | null
+  cidade: string | null; estado: string | null; ativo: boolean | null
 }
 
 export async function conferirImportacaoPessoas(formData: FormData): Promise<ResultadoConferenciaPessoas> {
@@ -82,7 +83,7 @@ export async function conferirImportacaoPessoas(formData: FormData): Promise<Res
   // de várias consultas .in(): mais simples e sem risco de maiúscula/minúscula
   // fazer a checagem de duplicata furar (Postgres .in() é case-sensitive).
   const todasPessoas = await fetchAll<PessoaBanco>((from, to) => supabase.from('pessoas')
-    .select('id, nome, tipo, pessoa_fisica, cpf_cnpj, email, telefone, celular, cidade, estado, ativo')
+    .select('id, nome, tipo, pessoa_fisica, cpf_cnpj, email, telefone, celular, cep, endereco, numero, complemento, bairro, cidade, estado, ativo')
     .range(from, to))
 
   const existentesPorId = new Map(todasPessoas.map((p) => [p.id, p]))
@@ -112,9 +113,14 @@ export async function conferirImportacaoPessoas(formData: FormData): Promise<Res
     if (idPlanilha && !atual) { erros.push(`Linha ${nLinha} (${nome}): ID "${idPlanilha}" não encontrado — deixe o ID em branco pra criar um cadastro novo.`); return }
 
     const tipoLabel = txt(linha[COL.tipo]).toLowerCase()
-    const tipo = tipoValido.has(tipoLabel) ? tipoPorLabel[tipoLabel] : 'cliente'
+    if (tipoLabel && !tipoValido.has(tipoLabel)) { erros.push(`Linha ${nLinha} (${nome}): Tipo "${linha[COL.tipo]}" não reconhecido — use Cliente, Fornecedor ou Ambos.`); return }
+    const tipo = tipoLabel ? tipoPorLabel[tipoLabel] : 'cliente'
 
     const pessoaFisicaLabel = txt(linha[COL.pessoaFisica]).toLowerCase()
+    if (pessoaFisicaLabel && !pessoaFisicaLabel.startsWith('fís') && !pessoaFisicaLabel.startsWith('fis') && !pessoaFisicaLabel.startsWith('jur')) {
+      erros.push(`Linha ${nLinha} (${nome}): "Pessoa Física ou Jurídica" com valor "${linha[COL.pessoaFisica]}" não reconhecido — use Física ou Jurídica.`)
+      return
+    }
     const pessoa_fisica = pessoaFisicaLabel.startsWith('jur') ? false : true
 
     const cpfCnpjLimpo = txt(linha[COL.cpfCnpj]).replace(/\D/g, '')
@@ -152,6 +158,11 @@ export async function conferirImportacaoPessoas(formData: FormData): Promise<Res
       email,
       telefone: txt(linha[COL.telefone]) || null,
       celular: txt(linha[COL.celular]) || null,
+      cep: txt(linha[COL.cep]) || null,
+      endereco: txt(linha[COL.endereco]) || null,
+      numero: txt(linha[COL.numero]) || null,
+      complemento: txt(linha[COL.complemento]) || null,
+      bairro: txt(linha[COL.bairro]) || null,
       cidade: txt(linha[COL.cidade]) || null,
       estado: txt(linha[COL.estado]) || null,
       ativo: simNao(linha[COL.ativo]) ?? true,
@@ -175,6 +186,11 @@ export async function conferirImportacaoPessoas(formData: FormData): Promise<Res
     compara('email', 'Email')
     compara('telefone', 'Telefone')
     compara('celular', 'Celular')
+    compara('cep', 'CEP')
+    compara('endereco', 'Endereço')
+    compara('numero', 'Número')
+    compara('complemento', 'Complemento')
+    compara('bairro', 'Bairro')
     compara('cidade', 'Cidade')
     compara('estado', 'Estado')
     compara('ativo', 'Ativo', (v) => (v ? 'sim' : 'não'))

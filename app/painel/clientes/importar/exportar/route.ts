@@ -1,20 +1,26 @@
 import { createServiceClient, fetchAll, requirePermissao } from '@/lib/supabase/server'
 import { COL } from '@/lib/planilha-clientes'
 import ExcelJS from 'exceljs'
+import type { NextRequest } from 'next/server'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     await requirePermissao('clientes')
   } catch {
     return new Response('Sem permissão.', { status: 403 })
   }
 
+  const tipo = req.nextUrl.searchParams.get('tipo') || undefined
+
   const supabase = await createServiceClient()
-  const pessoas = await fetchAll((from, to) => supabase
-    .from('pessoas')
-    .select('id, nome, tipo, pessoa_fisica, cpf_cnpj, email, telefone, celular, cidade, estado, ativo')
-    .order('nome')
-    .range(from, to))
+  const pessoas = await fetchAll((from, to) => {
+    let q = supabase
+      .from('pessoas')
+      .select('id, nome, tipo, pessoa_fisica, cpf_cnpj, email, telefone, celular, cep, endereco, numero, complemento, bairro, cidade, estado, ativo')
+      .order('nome')
+    if (tipo) q = q.eq('tipo', tipo)
+    return q.range(from, to)
+  })
 
   const wb = new ExcelJS.Workbook()
   const ws = wb.addWorksheet('Clientes')
@@ -26,8 +32,9 @@ export async function GET() {
 
   for (const p of pessoas as unknown as {
     id: string; nome: string; tipo: string | null; pessoa_fisica: boolean | null; cpf_cnpj: string | null
-    email: string | null; telefone: string | null; celular: string | null; cidade: string | null
-    estado: string | null; ativo: boolean | null
+    email: string | null; telefone: string | null; celular: string | null
+    cep: string | null; endereco: string | null; numero: string | null; complemento: string | null; bairro: string | null
+    cidade: string | null; estado: string | null; ativo: boolean | null
   }[]) {
     ws.addRow({
       [COL.id]: p.id,
@@ -38,6 +45,11 @@ export async function GET() {
       [COL.email]: p.email ?? '',
       [COL.telefone]: p.telefone ?? '',
       [COL.celular]: p.celular ?? '',
+      [COL.cep]: p.cep ?? '',
+      [COL.endereco]: p.endereco ?? '',
+      [COL.numero]: p.numero ?? '',
+      [COL.complemento]: p.complemento ?? '',
+      [COL.bairro]: p.bairro ?? '',
       [COL.cidade]: p.cidade ?? '',
       [COL.estado]: p.estado ?? '',
       [COL.ativo]: p.ativo ? 'SIM' : 'NÃO',

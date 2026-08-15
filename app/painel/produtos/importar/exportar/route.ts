@@ -1,26 +1,39 @@
 import { createServiceClient, fetchAll, requirePermissao } from '@/lib/supabase/server'
 import { COL } from '@/lib/planilha-produtos'
 import ExcelJS from 'exceljs'
+import type { NextRequest } from 'next/server'
 
 // Baixa o catálogo no mesmo formato que o importador (actions.ts) espera —
 // fecha o ciclo baixar → editar no Excel → reenviar em Importar Itens.
 // Exporta ativo e inativo: se filtrasse só ativo, reenviar sem querer
 // "reativaria" quem tinha sido desligado por engano.
+// Filtro de categoria/marca é só pra reduzir a planilha — não muda a regra
+// de importação (que continua "só mexe no que o arquivo traz").
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     await requirePermissao('produtos')
   } catch {
     return new Response('Sem permissão.', { status: 403 })
   }
 
+  const categoria = req.nextUrl.searchParams.get('categoria') || undefined
+  const marca = req.nextUrl.searchParams.get('marca') || undefined
+  const status = req.nextUrl.searchParams.get('status') || undefined
+
   const supabase = await createServiceClient()
   const [produtos, categorias] = await Promise.all([
-    fetchAll((from, to) => supabase
-      .from('produtos')
-      .select('id, codigo, nome, categoria, marca, preco, preco_custo, preco_minimo, ean, prateleira, modelo, unidade, ativo, controla_serie, visivel_catalogo')
-      .order('nome')
-      .range(from, to)),
+    fetchAll((from, to) => {
+      let q = supabase
+        .from('produtos')
+        .select('id, codigo, nome, categoria, marca, preco, preco_custo, preco_minimo, ean, prateleira, modelo, unidade, ativo, controla_serie, visivel_catalogo')
+        .order('nome')
+      if (categoria) q = q.eq('categoria', categoria)
+      if (marca) q = q.eq('marca', marca)
+      if (status === 'ativos') q = q.eq('ativo', true)
+      else if (status === 'inativos') q = q.eq('ativo', false)
+      return q.range(from, to)
+    }),
     supabase.from('categorias').select('hierarquia, nome'),
   ])
   const nomePorHierarquia = new Map((categorias.data ?? []).map((c) => [c.hierarquia, c.nome]))
