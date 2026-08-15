@@ -1,0 +1,70 @@
+import { createServiceClient, fetchAll, requirePermissao } from '@/lib/supabase/server'
+import { COL } from '@/lib/planilha-produtos'
+import ExcelJS from 'exceljs'
+
+// Baixa o catálogo no mesmo formato que o importador (actions.ts) espera —
+// fecha o ciclo baixar → editar no Excel → reenviar em Importar Itens.
+// Exporta ativo e inativo: se filtrasse só ativo, reenviar sem querer
+// "reativaria" quem tinha sido desligado por engano.
+
+export async function GET() {
+  try {
+    await requirePermissao('produtos')
+  } catch {
+    return new Response('Sem permissão.', { status: 403 })
+  }
+
+  const supabase = await createServiceClient()
+  const [produtos, categorias] = await Promise.all([
+    fetchAll((from, to) => supabase
+      .from('produtos')
+      .select('id, codigo, nome, categoria, marca, preco, preco_custo, preco_minimo, ean, prateleira, modelo, unidade, ativo, controla_serie, visivel_catalogo')
+      .order('nome')
+      .range(from, to)),
+    supabase.from('categorias').select('hierarquia, nome'),
+  ])
+  const nomePorHierarquia = new Map((categorias.data ?? []).map((c) => [c.hierarquia, c.nome]))
+
+  const wb = new ExcelJS.Workbook()
+  const ws = wb.addWorksheet('Produtos')
+  ws.columns = Object.values(COL).map((header) => ({ header, key: header, width: 20 }))
+  ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } }
+  ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B6CA8' } }
+
+  const simNao = (v: boolean | null) => (v ? 'SIM' : 'NÃO')
+
+  for (const p of produtos as unknown as {
+    id: string; codigo: string | null; nome: string; categoria: string | null; marca: string | null
+    preco: number | null; preco_custo: number | null; preco_minimo: number | null; ean: string | null
+    prateleira: string | null; modelo: string | null; unidade: string | null
+    ativo: boolean | null; controla_serie: boolean | null; visivel_catalogo: boolean | null
+  }[]) {
+    ws.addRow({
+      [COL.ident]: `${p.id}idproduto`,
+      [COL.codigo]: p.codigo ?? '',
+      [COL.nome]: p.nome,
+      [COL.categoria]: p.categoria ? (nomePorHierarquia.get(p.categoria) ?? '') : '',
+      [COL.marca]: p.marca ?? '',
+      [COL.custo]: p.preco_custo ?? 0,
+      [COL.preco]: p.preco ?? 0,
+      [COL.precoMin]: p.preco_minimo ?? 0,
+      [COL.ean]: p.ean ?? '',
+      [COL.prateleira]: p.prateleira ?? '',
+      [COL.modelo]: p.modelo ?? '',
+      [COL.unidade]: p.unidade ?? '',
+      [COL.inativo]: simNao(!p.ativo),
+      [COL.serie]: simNao(p.controla_serie),
+      [COL.catalogo]: simNao(p.visivel_catalogo),
+    })
+  }
+  ws.views = [{ state: 'frozen', ySplit: 1 }]
+
+  const buf = await wb.xlsx.writeBuffer()
+  return new Response(buf, {
+    headers: {
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="produtos.xlsx"',
+      'Cache-Control': 'no-store',
+    },
+  })
+}

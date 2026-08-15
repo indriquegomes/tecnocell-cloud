@@ -115,10 +115,16 @@ export default async function ClientesPage({
           <h2 className="text-2xl font-bold text-gray-900">Clientes e Fornecedores</h2>
           <Dica texto="Cadastro de pessoas físicas e jurídicas: clientes, fornecedores ou ambos. Usado no PDV, pedidos e financeiro." />
         </div>
-        <Link href="/painel/clientes/novo"
-          className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
-          <IconPlus className="h-4 w-4" /> Novo Cadastro
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/painel/clientes/importar"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">
+            Importar / Exportar
+          </Link>
+          <Link href="/painel/clientes/novo"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
+            <IconPlus className="h-4 w-4" /> Novo Cadastro
+          </Link>
+        </div>
       </div>
 
       {params.erro && (

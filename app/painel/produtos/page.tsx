@@ -132,10 +132,16 @@ export default async function ProdutosPage({
           <h2 className="text-2xl font-bold text-gray-900">Produtos</h2>
           <Dica texto="Catálogo completo de produtos para venda. Configure preço, custo, categoria, marca e controle de estoque mínimo." />
         </div>
-        <Link href="/painel/produtos/novo"
-          className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
-          <IconPlus className="h-4 w-4" /> Novo Produto
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/painel/produtos/importar"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">
+            Importar / Exportar
+          </Link>
+          <Link href="/painel/produtos/novo"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
+            <IconPlus className="h-4 w-4" /> Novo Produto
+          </Link>
+        </div>
       </div>
 
       {/* Filtros */}

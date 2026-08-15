@@ -2,6 +2,7 @@
 
 import { createServiceClient, requirePermissao, fetchAll } from '@/lib/supabase/server'
 import { lerXlsx } from '@/lib/xlsx'
+import { COL, VAZIO } from '@/lib/planilha-produtos'
 import { revalidatePath } from 'next/cache'
 
 // Importa a tabela de itens exportada do SIGE.
@@ -15,26 +16,6 @@ import { revalidatePath } from 'next/cache'
 //
 // A exportação é paginada (Produtos_1_ate_32.xlsx e por aí vai). Como cada
 // arquivo só mexe no que ele traz, dá pra subir os arquivos em qualquer ordem.
-
-const VAZIO = '---' // o SIGE escreve isso em vez de deixar a célula em branco
-
-const COL = {
-  ident: 'Identificador',
-  codigo: 'CodigoNFe',
-  nome: 'Nome',
-  categoria: 'Categoria',
-  marca: 'Marca',
-  custo: 'PrecoCusto',
-  preco: 'ValorPrecoFixado',
-  precoMin: 'PrecoMinimoVenda',
-  ean: 'EAN (Codigo Barras)',
-  prateleira: 'Prateleira',
-  modelo: 'Modelo',
-  unidade: 'EstoqueUnidade',
-  inativo: 'CadastroInativo',
-  serie: 'UnidadePossuiNumeroSerie',
-  catalogo: 'VisivelCatalogo',
-} as const
 
 export type Mudanca = {
   id: string

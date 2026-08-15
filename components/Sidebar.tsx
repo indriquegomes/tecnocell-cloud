@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import type { SVGProps, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { temPermissao } from '@/lib/permissoes'
@@ -108,6 +108,7 @@ const navCompleto: NavGroup[] = [
     group: 'Cadastros',
     items: [
       { href: '/painel/clientes',         label: 'Pessoas',             permissao: 'clientes' },
+      { href: '/painel/clientes/importar', label: 'Importar Clientes',  permissao: 'clientes' },
       { href: '/painel/lojas',            label: 'Lojas',               permissao: 'usuarios' },
       { href: '/painel/formas-pagamento', label: 'Formas de Pagamento', permissao: 'usuarios' },
       { href: '/painel/maquinas-cartao',  label: 'Máquinas de Cartão',   permissao: 'usuarios' },
@@ -140,6 +141,23 @@ export function Sidebar({ permissoes, isMaster }: { permissoes: string[]; isMast
 
   const podeVer = (item: NavItem) =>
     !item.permissao || temPermissao(permissoes, item.permissao, isMaster)
+
+  // Seções recolhíveis: padrão é FECHADO, só abre sozinha a seção onde você
+  // está (nunca esconde onde você está). Seção aberta manualmente fica salva
+  // no navegador — abre de novo mesmo depois de recarregar.
+  const [abertasManual, setAbertasManual] = useState<Record<string, boolean>>({})
+  useEffect(() => {
+    try {
+      setAbertasManual(JSON.parse(localStorage.getItem('tc-sidebar-abertas') ?? '{}'))
+    } catch { /* localStorage indisponível ou lixo salvo — ignora, fica tudo fechado */ }
+  }, [])
+  const alternarSecao = (grupo: string, aberta: boolean) => {
+    setAbertasManual((prev) => {
+      const proximo = { ...prev, [grupo]: aberta }
+      try { localStorage.setItem('tc-sidebar-abertas', JSON.stringify(proximo)) } catch { /* ignora */ }
+      return proximo
+    })
+  }
 
   // PRÉ-CARREGA TODAS as abas que a pessoa pode ver, ao abrir o painel (pedido do
   // Vitor: "carrega tudo no início e fica tranquilo"). O Next só prefetcha no hover;
@@ -181,11 +199,18 @@ export function Sidebar({ permissoes, isMaster }: { permissoes: string[]; isMast
         {navCompleto.map((section) => {
           const itensVisiveis = section.items.filter(podeVer)
           if (!itensVisiveis.length) return null
+          const temAtivo = itensVisiveis.some((item) => isActive(item.href))
+          const aberta = temAtivo || !!abertasManual[section.group]
           return (
-            <div key={section.group} className="mb-1">
-              <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+            <details key={section.group} open={aberta}
+              onToggle={(e) => alternarSecao(section.group, e.currentTarget.open)}
+              className="group/section mb-1">
+              <summary className="flex cursor-pointer select-none list-none items-center justify-between px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400 hover:text-gray-600 [&::-webkit-details-marker]:hidden">
                 {section.group}
-              </p>
+                <svg className="h-3 w-3 shrink-0 text-gray-300 transition-transform group-open/section:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </summary>
               {itensVisiveis.map((item) => {
                 const Ic = ICONS[item.href]
                 return (
@@ -210,7 +235,7 @@ export function Sidebar({ permissoes, isMaster }: { permissoes: string[]; isMast
                   </Link>
                 )
               })}
-            </div>
+            </details>
           )
         })}
 
