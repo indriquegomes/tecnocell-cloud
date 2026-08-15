@@ -1083,7 +1083,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     const t = forma.tipo
     if (t === 'dinheiro') return 'bg-emerald-600 hover:bg-emerald-700'
     if (t === 'pix') return 'bg-teal-500 hover:bg-teal-600'
-    if (t === 'cartao_credito') return 'bg-rose-500 hover:bg-rose-600'
+    if (t === 'cartao_credito') {
+      if (maquinaById(forma.maquina_id ?? '')?.nome?.toLowerCase().includes('pagbank')) return 'bg-yellow-400 hover:bg-yellow-500 text-gray-900'
+      return 'bg-rose-500 hover:bg-rose-600'
+    }
     if (t === 'cartao_debito') return 'bg-[#1B6CA8] hover:bg-[#155a8c]'
     if (t === 'fiado') return 'bg-orange-500 hover:bg-orange-600'
     if (t === 'vale_credito') return 'bg-purple-600 hover:bg-purple-700'
