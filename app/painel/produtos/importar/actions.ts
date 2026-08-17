@@ -124,6 +124,16 @@ export async function conferirImportacao(formData: FormData): Promise<ResultadoC
     supabase.from('categorias').select('hierarquia, nome').range(de, ate))
   const catPorNome = new Map(cats.map((c) => [(c.nome ?? '').trim().toUpperCase(), c.hierarquia]))
 
+  // Todos os códigos já cadastrados — serve só pra avisar quando um "cadastro
+  // novo" bate com o código de um produto que já existe sob OUTRO id (sinal
+  // de erro de digitação no Identificador, não bloqueia como o SIGE manda
+  // produto novo de verdade sem avisar antes).
+  const todosProdutos = await fetchAll<{ id: string; codigo: string | null }>((de, ate) =>
+    supabase.from('produtos').select('id, codigo').range(de, ate))
+  const idPorCodigo = new Map(
+    todosProdutos.filter((p) => p.codigo).map((p) => [p.codigo!.trim().toUpperCase(), p.id])
+  )
+
   const idsPlanilha = planilha.linhas
     .map((l) => txt(l[COL.ident]).replace(/idproduto$/, ''))
     .filter(Boolean)
@@ -140,6 +150,7 @@ export async function conferirImportacao(formData: FormData): Promise<ResultadoC
 
   const mudancas: Mudanca[] = []
   const erros: string[] = []
+  const avisos: string[] = []
   const categoriasFaltando = new Set<string>()
   const idNaPlanilha = new Map<string, number>() // id -> linha onde apareceu primeiro
   let semMudanca = 0
@@ -190,6 +201,14 @@ export async function conferirImportacao(formData: FormData): Promise<ResultadoC
 
     const atual = porId.get(id)
     if (!atual) {
+      const codigoLimpo = String(campos.codigo ?? '').trim().toUpperCase()
+      const donoCodigo = codigoLimpo ? idPorCodigo.get(codigoLimpo) : undefined
+      if (donoCodigo && donoCodigo !== id) {
+        avisos.push(
+          `Linha ${nLinha} (${nome}): ja existe um produto com o Codigo "${campos.codigo}" cadastrado sob outro Identificador — ` +
+          `confira se nao e erro de digitacao antes de confirmar (vai criar um produto duplicado).`
+        )
+      }
       mudancas.push({ id, codigo: String(campos.codigo ?? ''), nome, acao: 'novo', diffs: [], campos })
       return
     }
@@ -224,7 +243,6 @@ export async function conferirImportacao(formData: FormData): Promise<ResultadoC
     else mudancas.push({ id, codigo: String(campos.codigo ?? ''), nome, acao: 'atualizar', diffs, campos })
   })
 
-  const avisos: string[] = []
   if (categoriasFaltando.size > 0) {
     avisos.push(
       `Categoria nao cadastrada aqui: ${[...categoriasFaltando].join(', ')}. ` +
