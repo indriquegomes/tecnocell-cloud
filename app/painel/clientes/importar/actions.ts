@@ -111,6 +111,7 @@ export async function conferirImportacaoPessoas(formData: FormData): Promise<Res
   const erros: string[] = []
   const cpfNaPlanilha = new Map<string, number>() // cpf -> linha onde apareceu primeiro
   const emailNaPlanilha = new Map<string, number>()
+  const idNaPlanilha = new Map<string, number>()
   let semMudanca = 0
 
   planilha.linhas.forEach((linha, i) => {
@@ -121,6 +122,11 @@ export async function conferirImportacaoPessoas(formData: FormData): Promise<Res
     const idPlanilha = txt(linha[COL.id])
     const atual = idPlanilha ? existentesPorId.get(idPlanilha) : undefined
     if (idPlanilha && !atual) { erros.push(`Linha ${nLinha} (${nome}): ID "${idPlanilha}" não encontrado — deixe o ID em branco pra criar um cadastro novo.`); return }
+    if (idPlanilha) {
+      const primeiraLinha = idNaPlanilha.get(idPlanilha)
+      if (primeiraLinha) { erros.push(`Linha ${nLinha} (${nome}): ID repetido — já apareceu na linha ${primeiraLinha}.`); return }
+      idNaPlanilha.set(idPlanilha, nLinha)
+    }
 
     const tipoLabel = txt(linha[COL.tipo]).toLowerCase()
     if (tipoLabel && !tipoValido.has(tipoLabel)) { erros.push(`Linha ${nLinha} (${nome}): Tipo "${linha[COL.tipo]}" não reconhecido — use Cliente, Fornecedor ou Ambos.`); return }

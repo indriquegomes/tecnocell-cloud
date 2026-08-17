@@ -141,6 +141,7 @@ export async function conferirImportacao(formData: FormData): Promise<ResultadoC
   const mudancas: Mudanca[] = []
   const erros: string[] = []
   const categoriasFaltando = new Set<string>()
+  const idNaPlanilha = new Map<string, number>() // id -> linha onde apareceu primeiro
   let semMudanca = 0
   let ignoradas = 0
 
@@ -152,6 +153,9 @@ export async function conferirImportacao(formData: FormData): Promise<ResultadoC
     if (!id && !nome) { ignoradas++; return }
     if (!id) { erros.push(`Linha ${nLinha} (${nome || 'sem nome'}): sem Identificador.`); return }
     if (!nome) { erros.push(`Linha ${nLinha} (${id}): sem Nome.`); return }
+    const primeiraLinha = idNaPlanilha.get(id)
+    if (primeiraLinha) { erros.push(`Linha ${nLinha} (${id}): Identificador repetido — já apareceu na linha ${primeiraLinha}.`); return }
+    idNaPlanilha.set(id, nLinha)
 
     const nomeCat = txt(linha[COL.categoria])
     let categoria: string | null = null
