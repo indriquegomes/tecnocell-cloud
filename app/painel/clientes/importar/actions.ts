@@ -3,7 +3,7 @@
 import { createServiceClient, requirePermissao, fetchAll } from '@/lib/supabase/server'
 import { lerXlsx } from '@/lib/xlsx'
 import { validarCpfCnpj } from '@/lib/validacoes'
-import { COL } from '@/lib/planilha-clientes'
+import { COL, MARCA } from '@/lib/planilha-clientes'
 import { revalidatePath } from 'next/cache'
 
 // Planilha nativa (exportada por nós mesmos, não do SIGE). ID em branco =
@@ -69,11 +69,21 @@ export async function conferirImportacaoPessoas(formData: FormData): Promise<Res
     return { ok: false, erros: ['Nao consegui ler o arquivo. Precisa ser .xlsx.'] }
   }
 
-  const faltando = [COL.nome].filter((c) => !planilha.colunas.includes(c))
+  const faltando = [COL.nome, COL.tipoArquivo].filter((c) => !planilha.colunas.includes(c))
   if (faltando.length > 0) {
     return {
       ok: false,
       erros: [`A aba "${planilha.aba}" nao parece ser a planilha de clientes — falta a coluna: ${faltando.join(', ')}.`],
+    }
+  }
+
+  // As planilhas de Produtos e Clientes têm colunas com o mesmo nome ("Nome"),
+  // então confere aqui se não é a planilha errada no importador errado.
+  const marcaEncontrada = txt(planilha.linhas[0]?.[COL.tipoArquivo])
+  if (planilha.linhas.length > 0 && marcaEncontrada !== MARCA) {
+    return {
+      ok: false,
+      erros: [`Essa nao parece ser a planilha de Clientes — confira se nao subiu a planilha errada (ex: a de Produtos) por engano.`],
     }
   }
 

@@ -21,4 +21,10 @@ export const COL = {
   inativo: 'CadastroInativo',
   serie: 'UnidadePossuiNumeroSerie',
   catalogo: 'VisivelCatalogo',
+  tipoArquivo: 'TipoArquivo',
 } as const
+
+// Marca só a planilha exportada por nós — arquivo do SIGE não tem essa coluna,
+// e não pode ser exigida na importação (senão quebra o upload direto do SIGE).
+// Serve pra pegar o caso de alguém subir a planilha errada no importador errado.
+export const MARCA = 'PRODUTOS_TECNOCELL'

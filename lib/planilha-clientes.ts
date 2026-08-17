@@ -19,4 +19,9 @@ export const COL = {
   cidade: 'Cidade',
   estado: 'Estado',
   ativo: 'Ativo',
+  tipoArquivo: 'TipoArquivo',
 } as const
+
+// Marca a planilha como sendo de Clientes — pra rejeitar na hora se alguém
+// subir a planilha de Produtos aqui por engano (as duas têm coluna "Nome").
+export const MARCA = 'CLIENTES_TECNOCELL'

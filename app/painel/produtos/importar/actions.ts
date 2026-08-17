@@ -60,6 +60,18 @@ const num = (v: string | undefined): number | null => {
   return Number.isFinite(n) ? n : null
 }
 
+// Preço/Custo/Preço mín.: texto que não é número vira null pelo num() acima —
+// aqui a gente barra a linha em vez de deixar isso virar 0 escondido, e barra
+// negativo também.
+const numCampo = (v: string | undefined, rotulo: string, erros: string[], nLinha: number, nome: string): number | undefined => {
+  const s = txt(v)
+  if (!s) return 0
+  const n = num(v)
+  if (n === null) { erros.push(`Linha ${nLinha} (${nome}): ${rotulo} "${v}" não é um número válido.`); return undefined }
+  if (n < 0) { erros.push(`Linha ${nLinha} (${nome}): ${rotulo} não pode ser negativo.`); return undefined }
+  return n
+}
+
 const simNao = (v: string | undefined): boolean | null => {
   const s = txt(v).toUpperCase()
   if (s === 'SIM') return true
@@ -148,14 +160,19 @@ export async function conferirImportacao(formData: FormData): Promise<ResultadoC
       if (!categoria) categoriasFaltando.add(nomeCat)
     }
 
+    const preco = numCampo(linha[COL.preco], 'Preço', erros, nLinha, nome)
+    const preco_custo = numCampo(linha[COL.custo], 'Custo', erros, nLinha, nome)
+    const preco_minimo = numCampo(linha[COL.precoMin], 'Preço mín.', erros, nLinha, nome)
+    if (preco === undefined || preco_custo === undefined || preco_minimo === undefined) return
+
     const inativo = simNao(linha[COL.inativo])
     const campos: Record<string, unknown> = {
       codigo: txt(linha[COL.codigo]) || null,
       nome,
       marca: txt(linha[COL.marca]) || null,
-      preco: num(linha[COL.preco]) ?? 0,
-      preco_custo: num(linha[COL.custo]) ?? 0,
-      preco_minimo: num(linha[COL.precoMin]) ?? 0,
+      preco,
+      preco_custo,
+      preco_minimo,
       ean: txt(linha[COL.ean]) || null,
       prateleira: txt(linha[COL.prateleira]) || null,
       modelo: txt(linha[COL.modelo]) || null,

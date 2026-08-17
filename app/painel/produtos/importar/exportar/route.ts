@@ -1,5 +1,5 @@
 import { createServiceClient, fetchAll, requirePermissao } from '@/lib/supabase/server'
-import { COL } from '@/lib/planilha-produtos'
+import { COL, MARCA } from '@/lib/planilha-produtos'
 import ExcelJS from 'exceljs'
 import type { NextRequest } from 'next/server'
 
@@ -68,6 +68,7 @@ export async function GET(req: NextRequest) {
       [COL.inativo]: simNao(!p.ativo),
       [COL.serie]: simNao(p.controla_serie),
       [COL.catalogo]: simNao(p.visivel_catalogo),
+      [COL.tipoArquivo]: MARCA,
     })
   }
   ws.views = [{ state: 'frozen', ySplit: 1 }]

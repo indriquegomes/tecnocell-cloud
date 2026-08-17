@@ -1,5 +1,5 @@
 import { createServiceClient, fetchAll, requirePermissao } from '@/lib/supabase/server'
-import { COL } from '@/lib/planilha-clientes'
+import { COL, MARCA } from '@/lib/planilha-clientes'
 import ExcelJS from 'exceljs'
 import type { NextRequest } from 'next/server'
 
@@ -53,6 +53,7 @@ export async function GET(req: NextRequest) {
       [COL.cidade]: p.cidade ?? '',
       [COL.estado]: p.estado ?? '',
       [COL.ativo]: p.ativo ? 'SIM' : 'NÃO',
+      [COL.tipoArquivo]: MARCA,
     })
   }
   ws.views = [{ state: 'frozen', ySplit: 1 }]
