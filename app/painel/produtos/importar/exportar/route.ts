@@ -1,5 +1,6 @@
 import { createServiceClient, fetchAll, requirePermissao } from '@/lib/supabase/server'
 import { COL, MARCA } from '@/lib/planilha-produtos'
+import { linhaSegura } from '@/lib/xlsx'
 import ExcelJS from 'exceljs'
 import type { NextRequest } from 'next/server'
 
@@ -52,7 +53,7 @@ export async function GET(req: NextRequest) {
     prateleira: string | null; modelo: string | null; unidade: string | null
     ativo: boolean | null; controla_serie: boolean | null; visivel_catalogo: boolean | null
   }[]) {
-    ws.addRow({
+    ws.addRow(linhaSegura({
       [COL.ident]: `${p.id}idproduto`,
       [COL.codigo]: p.codigo ?? '',
       [COL.nome]: p.nome,
@@ -69,7 +70,7 @@ export async function GET(req: NextRequest) {
       [COL.serie]: simNao(p.controla_serie),
       [COL.catalogo]: simNao(p.visivel_catalogo),
       [COL.tipoArquivo]: MARCA,
-    })
+    }))
   }
   ws.views = [{ state: 'frozen', ySplit: 1 }]
 

@@ -1,5 +1,6 @@
 import { createServiceClient, fetchAll, requirePermissao } from '@/lib/supabase/server'
 import { COL, MARCA } from '@/lib/planilha-clientes'
+import { linhaSegura } from '@/lib/xlsx'
 import ExcelJS from 'exceljs'
 import type { NextRequest } from 'next/server'
 
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest) {
     cep: string | null; endereco: string | null; numero: string | null; complemento: string | null; bairro: string | null
     cidade: string | null; estado: string | null; ativo: boolean | null
   }[]) {
-    ws.addRow({
+    ws.addRow(linhaSegura({
       [COL.id]: p.id,
       [COL.nome]: p.nome,
       [COL.tipo]: tipoLabel[p.tipo ?? ''] ?? 'Cliente',
@@ -54,7 +55,7 @@ export async function GET(req: NextRequest) {
       [COL.estado]: p.estado ?? '',
       [COL.ativo]: p.ativo ? 'SIM' : 'NÃO',
       [COL.tipoArquivo]: MARCA,
-    })
+    }))
   }
   ws.views = [{ state: 'frozen', ySplit: 1 }]
 

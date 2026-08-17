@@ -18,6 +18,23 @@ export type Planilha = {
   linhas: Record<string, string>[]
 }
 
+// Célula que começa com =, +, - ou @ pode virar fórmula/comando ao reabrir no
+// Excel (ataque de "injeção de fórmula" — o mesmo golpe conhecido de CSV).
+// Aspas simples na frente força o Excel a tratar como texto puro.
+export function celulaSegura(v: string): string {
+  return /^[=+\-@]/.test(v) ? `'${v}` : v
+}
+
+/** Aplica celulaSegura em todo campo de texto de uma linha antes de exportar. */
+export function linhaSegura<T extends Record<string, unknown>>(linha: T): T {
+  const out = { ...linha }
+  for (const k in out) {
+    const v = out[k]
+    if (typeof v === 'string') out[k] = celulaSegura(v) as T[Extract<keyof T, string>]
+  }
+  return out
+}
+
 const decodar = (s: string) =>
   s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
