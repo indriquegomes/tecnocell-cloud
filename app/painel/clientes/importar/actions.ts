@@ -1,7 +1,7 @@
 'use server'
 
 import { createServiceClient, requirePermissao, fetchAll } from '@/lib/supabase/server'
-import { lerXlsx } from '@/lib/xlsx'
+import { lerXlsx, desfazerCelulaSegura } from '@/lib/xlsx'
 import { validarCpfCnpj } from '@/lib/validacoes'
 import { COL, MARCA } from '@/lib/planilha-clientes'
 import { revalidatePath } from 'next/cache'
@@ -10,7 +10,7 @@ import { revalidatePath } from 'next/cache'
 // cadastro novo; ID preenchido = atualiza aquele. Mesma lógica de conferência
 // do importador de produtos: mostra o que muda, só grava depois de confirmar.
 
-const txt = (v: string | undefined): string => (v ?? '').trim()
+const txt = (v: string | undefined): string => desfazerCelulaSegura((v ?? '').trim())
 
 const simNao = (v: string | undefined): boolean | null => {
   const s = txt(v).toUpperCase()

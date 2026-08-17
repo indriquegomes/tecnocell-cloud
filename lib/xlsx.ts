@@ -35,6 +35,12 @@ export function linhaSegura<T extends Record<string, unknown>>(linha: T): T {
   return out
 }
 
+// Desfaz celulaSegura() na leitura — senão baixar a planilha e reenviar sem
+// mexer em nada aparece como "mudança" só por causa do apóstrofo de proteção.
+export function desfazerCelulaSegura(v: string): string {
+  return /^'[=+\-@]/.test(v) ? v.slice(1) : v
+}
+
 const decodar = (s: string) =>
   s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")

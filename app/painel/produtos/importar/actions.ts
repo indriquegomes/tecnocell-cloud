@@ -1,7 +1,7 @@
 'use server'
 
 import { createServiceClient, requirePermissao, fetchAll } from '@/lib/supabase/server'
-import { lerXlsx } from '@/lib/xlsx'
+import { lerXlsx, desfazerCelulaSegura } from '@/lib/xlsx'
 import { COL, VAZIO } from '@/lib/planilha-produtos'
 import { revalidatePath } from 'next/cache'
 
@@ -44,7 +44,7 @@ export type ResultadoConferencia =
   | { ok: true; conferencia: Conferencia }
 
 const txt = (v: string | undefined): string => {
-  const s = (v ?? '').trim()
+  const s = desfazerCelulaSegura((v ?? '').trim())
   return s === VAZIO || s === '' ? '' : s
 }
 
