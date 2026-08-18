@@ -36,6 +36,15 @@ export const ROTAS_PERMISSAO: Record<string, string> = {
   '/painel/promocoes':        'produtos',
   '/painel/loja':             'produtos',
   '/painel/chat':             'chat_ia',
+  '/painel/integracoes':                    'integracoes',
+  '/painel/integracoes/lojas':               'integracoes',
+  '/painel/integracoes/produtos':            'integracoes',
+  '/painel/integracoes/pedidos':             'integracoes',
+  '/painel/integracoes/sincronizacoes':      'integracoes',
+  '/painel/integracoes/mensagens':           'integracoes',
+  '/painel/integracoes/financeiras':         'integracoes',
+  '/painel/integracoes/expedicao':           'integracoes',
+  '/painel/integracoes/drop-shipping':       'integracoes',
 }
 
 export const TODAS_PERMISSOES = [
@@ -56,6 +65,7 @@ export const TODAS_PERMISSOES = [
   { grupo: 'Módulos',  key: 'lembretes',  label: 'Lembretes',            desc: 'Criar e editar as rotinas que o sistema cobra da equipe' },
   { grupo: 'Módulos',  key: 'usuarios',   label: 'Usuários',             desc: 'Gerenciar contas e permissões' },
   { grupo: 'Módulos',  key: 'chat_ia',    label: 'Chat com IA',          desc: 'Usar o assistente de IA (enxerga estoque, financeiro e clientes)' },
+  { grupo: 'Módulos',  key: 'integracoes', label: 'Integrações',          desc: 'E-commerce, marketplace, pagamento, logística e drop shipping' },
 
   // Limites de operação — o que pode FAZER dentro do módulo (segurança de balcão)
   { grupo: 'Limites',  key: 'venda_desconto',   label: 'Dar desconto',            desc: 'Aplicar desconto na venda no PDV' },

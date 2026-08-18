@@ -80,3 +80,6 @@ export const IconStore = (p: SVGProps<SVGSVGElement>) => (
 export const IconPlus = (p: SVGProps<SVGSVGElement>) => (
   <Base {...p}><path d="M5 12h14" /><path d="M12 5v14" /></Base>
 )
+export const IconIntegracao = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}><path d="M12 22v-5" /><path d="M9 8V2" /><path d="M15 8V2" /><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z" /></Base>
+)
