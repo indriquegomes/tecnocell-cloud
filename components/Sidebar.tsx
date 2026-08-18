@@ -9,7 +9,7 @@ import { temPermissao } from '@/lib/permissoes'
 import {
   IconDashboard, IconUser, IconCart, IconCalculator, IconChart, IconClipboard,
   IconReturn, IconTarget, IconTag, IconWrench, IconPackage, IconSwap, IconBank,
-  IconFile, IconWallet, IconCard, IconUsers, IconShield, IconSettings, IconStore,
+  IconFile, IconWallet, IconCard, IconUsers, IconShield, IconSettings, IconStore, IconIntegracao,
 } from '@/components/icons'
 
 type IconComp = (p: SVGProps<SVGSVGElement>) => ReactNode
@@ -49,6 +49,15 @@ const ICONS: Record<string, IconComp> = {
   '/painel/cargos': IconShield,
   '/painel/configuracoes': IconSettings,
   '/painel/componentes': IconSettings,
+  '/painel/integracoes':                IconIntegracao,
+  '/painel/integracoes/lojas':          IconStore,
+  '/painel/integracoes/produtos':       IconPackage,
+  '/painel/integracoes/pedidos':        IconClipboard,
+  '/painel/integracoes/sincronizacoes': IconSwap,
+  '/painel/integracoes/mensagens':      IconFile,
+  '/painel/integracoes/financeiras':    IconWallet,
+  '/painel/integracoes/expedicao':      IconSwap,
+  '/painel/integracoes/drop-shipping':  IconPackage,
 }
 
 type NavItem = { href: string; label: string; permissao?: string }
@@ -117,6 +126,20 @@ const navCompleto: NavGroup[] = [
     ],
   },
   {
+    group: 'Integrações',
+    items: [
+      { href: '/painel/integracoes',                label: 'Dashboard',                permissao: 'integracoes' },
+      { href: '/painel/integracoes/lojas',           label: 'Minhas Lojas',             permissao: 'integracoes' },
+      { href: '/painel/integracoes/produtos',        label: 'Meus Produtos',            permissao: 'integracoes' },
+      { href: '/painel/integracoes/pedidos',         label: 'Meus Pedidos',             permissao: 'integracoes' },
+      { href: '/painel/integracoes/sincronizacoes',  label: 'Sincronizações Pendentes', permissao: 'integracoes' },
+      { href: '/painel/integracoes/mensagens',       label: 'Mensagens Automáticas',    permissao: 'integracoes' },
+      { href: '/painel/integracoes/financeiras',     label: 'Financeiras',              permissao: 'integracoes' },
+      { href: '/painel/integracoes/expedicao',       label: 'Expedição',                permissao: 'integracoes' },
+      { href: '/painel/integracoes/drop-shipping',   label: 'Drop Shipping',            permissao: 'integracoes' },
+    ],
+  },
+  {
     group: 'Admin',
     items: [
       { href: '/painel/relatorios',    label: 'Relatórios',    permissao: 'relatorios' },
@@ -135,7 +158,7 @@ const navEmConstrucao: NavGroup[] = []
 export function Sidebar({ permissoes, isMaster }: { permissoes: string[]; isMaster: boolean }) {
   const pathname = usePathname()
   const router = useRouter()
-  const exactOnly = ['/painel', '/painel/estoque']
+  const exactOnly = ['/painel', '/painel/estoque', '/painel/integracoes']
   const isActive = (href: string) =>
     exactOnly.includes(href) ? pathname === href : pathname.startsWith(href)
 
