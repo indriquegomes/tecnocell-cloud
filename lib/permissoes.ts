@@ -65,7 +65,7 @@ export const TODAS_PERMISSOES = [
   { grupo: 'Módulos',  key: 'lembretes',  label: 'Lembretes',            desc: 'Criar e editar as rotinas que o sistema cobra da equipe' },
   { grupo: 'Módulos',  key: 'usuarios',   label: 'Usuários',             desc: 'Gerenciar contas e permissões' },
   { grupo: 'Módulos',  key: 'chat_ia',    label: 'Chat com IA',          desc: 'Usar o assistente de IA (enxerga estoque, financeiro e clientes)' },
-  { grupo: 'Módulos',  key: 'integracoes', label: 'Integrações',          desc: 'E-commerce, marketplace, pagamento, logística e drop shipping' },
+  { grupo: 'Módulos',  key: 'integracoes', label: 'Integrações',          desc: 'E-commerce, marketplace, pagamento, logística e drop shipping (inclui ver o catálogo com preço de venda e estoque)' },
 
   // Limites de operação — o que pode FAZER dentro do módulo (segurança de balcão)
   { grupo: 'Limites',  key: 'venda_desconto',   label: 'Dar desconto',            desc: 'Aplicar desconto na venda no PDV' },
