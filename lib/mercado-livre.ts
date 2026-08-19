@@ -129,6 +129,46 @@ export async function buscarAnunciosDoVendedor(mlUserId: string) {
   return itens
 }
 
+const DEPOSITO_PETROPOLIS_LOJA = '63d9054d59a9c829747233d4'
+
+// Chamar depois de QUALQUER mudança em estoque do depósito Petrópolis Loja
+// (venda de balcão, devolução, ajuste manual, venda do próprio Mercado
+// Livre). Fire-and-forget por design: nunca deixa uma falha na API do ML
+// derrubar a operação de estoque/venda que já aconteceu de verdade —
+// mesmo princípio já usado neste projeto pra escrita de caixa na
+// devolução (ver app/painel/devolucoes/actions.ts).
+export async function sincronizarEstoqueML(produtoId: string): Promise<void> {
+  try {
+    const conexao = await conexaoAtual()
+    if (!conexao) return // nao conectado, nada a fazer
+
+    const supabase = await createServiceClient()
+    const [{ data: anuncio }, { data: estoque }] = await Promise.all([
+      supabase
+        .from('integracoes_mercado_livre_anuncios')
+        .select('ml_item_id')
+        .eq('produto_id', produtoId)
+        .maybeSingle(),
+      supabase
+        .from('estoque')
+        .select('quantidade')
+        .eq('produto_id', produtoId)
+        .eq('deposito_id', DEPOSITO_PETROPOLIS_LOJA)
+        .maybeSingle(),
+    ])
+    if (!anuncio) return // produto nao tem anuncio no ML, nada a fazer
+
+    const quantidade = Math.max(0, Math.round(estoque?.quantidade ?? 0))
+    await chamarML(`/items/${anuncio.ml_item_id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ available_quantity: quantidade }),
+    })
+  } catch (e) {
+    console.error(`Falha ao sincronizar estoque do produto ${produtoId} com o Mercado Livre:`, e)
+  }
+}
+
 export function urlAutorizacao(state: string, codeChallenge: string, redirectUri: string): string {
   const clientId = process.env.MERCADOLIVRE_CLIENT_ID
   if (!clientId) throw new Error('MERCADOLIVRE_CLIENT_ID/SECRET não configurados')
