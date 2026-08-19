@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   const cookieStore = await cookies()
   cookieStore.set('ml_oauth_pkce', JSON.stringify({ verifier, state }), {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     maxAge: 600,
     path: '/',
