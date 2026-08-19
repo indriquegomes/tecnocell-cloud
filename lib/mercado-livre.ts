@@ -92,6 +92,43 @@ export async function chamarML<T>(path: string, init: RequestInit = {}): Promise
   return resp.json() as Promise<T>
 }
 
+type BuscaItensResp = { results: string[]; paging: { total: number; offset: number; limit: number } }
+type ItemResp = {
+  id: string
+  title: string
+  price: number
+  seller_custom_field: string | null
+  attributes?: { id: string; value_name: string | null }[]
+}
+
+// Busca todos os anúncios ativos do vendedor e devolve o SKU (seller_custom_field,
+// ou o atributo SELLER_SKU quando o custom field vem vazio — o Mercado Livre
+// migrou pra esse atributo em parte do catálogo).
+export async function buscarAnunciosDoVendedor(mlUserId: string) {
+  const itens: { ml_item_id: string; titulo: string; preco: number; sku: string | null }[] = []
+  let offset = 0
+  const limite = 50
+  while (true) {
+    const pagina = await chamarML<BuscaItensResp>(
+      `/users/${mlUserId}/items/search?offset=${offset}&limit=${limite}`
+    )
+    if (pagina.results.length === 0) break
+    for (const id of pagina.results) {
+      const item = await chamarML<ItemResp>(`/items/${id}`)
+      const skuAtributo = item.attributes?.find((a) => a.id === 'SELLER_SKU')?.value_name ?? null
+      itens.push({
+        ml_item_id: item.id,
+        titulo: item.title,
+        preco: item.price,
+        sku: item.seller_custom_field ?? skuAtributo,
+      })
+    }
+    offset += limite
+    if (offset >= pagina.paging.total) break
+  }
+  return itens
+}
+
 export function urlAutorizacao(state: string, codeChallenge: string, redirectUri: string): string {
   const clientId = process.env.MERCADOLIVRE_CLIENT_ID
   if (!clientId) throw new Error('MERCADOLIVRE_CLIENT_ID/SECRET não configurados')
