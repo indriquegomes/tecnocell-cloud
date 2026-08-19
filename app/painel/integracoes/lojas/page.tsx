@@ -2,6 +2,7 @@ import { IconStore } from '@/components/icons'
 import { Dica } from '@/components/Dica'
 import { BotaoIndisponivel } from '@/components/BotaoIndisponivel'
 import { conexaoAtual } from '@/lib/mercado-livre'
+import { ImportarAnunciosBotao } from './ImportarAnunciosBotao'
 
 export default async function IntegracoesLojasPage() {
   const conexaoML = await conexaoAtual()
@@ -22,6 +23,9 @@ export default async function IntegracoesLojasPage() {
               <p className="text-sm text-gray-500">Conectado como {conexaoML.ml_nickname ?? conexaoML.ml_user_id}</p>
             </div>
             <span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Ativo</span>
+          </div>
+          <div className="mt-4">
+            <ImportarAnunciosBotao />
           </div>
         </div>
       ) : (
