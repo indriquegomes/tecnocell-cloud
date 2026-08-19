@@ -1,6 +1,7 @@
 'use server'
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { sincronizarEstoqueML } from '@/lib/mercado-livre'
 import { revalidatePath } from 'next/cache'
 import ExcelJS from 'exceljs'
 
@@ -167,6 +168,7 @@ export async function aplicarConferencia(payload: {
     if (error) {
       return { ok: false, aplicadas, erro: `Erro no produto ${m.nome}: ${error.message}. Foram aplicadas ${aplicadas} antes de parar.` }
     }
+    void sincronizarEstoqueML(m.produto_id)
     aplicadas++
   }
 

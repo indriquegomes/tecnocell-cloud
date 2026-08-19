@@ -1,6 +1,7 @@
 'use server'
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { sincronizarEstoqueML } from '@/lib/mercado-livre'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -90,6 +91,7 @@ export async function registrarMovimento(formData: FormData) {
     p_created_at: createdAt,
   })
   if (error) redirect(`/painel/estoque/historico?erro=${encodeURIComponent(error.message)}`)
+  void sincronizarEstoqueML(produto_id)
 
   revalidatePath('/painel/estoque')
   revalidatePath('/painel/estoque/historico')
@@ -209,6 +211,7 @@ export async function registrarMovimentos(formData: FormData) {
     })
     if (error) { erroRpc = error.message; break }
     imeisDuplicados += (data as { duplicados?: number })?.duplicados ?? 0
+    void sincronizarEstoqueML(produtoId)
   }
 
   revalidatePath('/painel/estoque')

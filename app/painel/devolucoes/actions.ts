@@ -2,6 +2,7 @@
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { logAtividade } from '@/lib/log-atividade'
+import { sincronizarEstoqueML } from '@/lib/mercado-livre'
 
 export interface ItemVendaParaDevolucao {
   produto_id: string
@@ -245,6 +246,10 @@ export async function registrarDevolucao(
 
   const devolucaoId = (data as { devolucao_id: string }).devolucao_id
   const reembolso = Number((data as { reembolso?: number }).reembolso ?? 0)
+
+  for (const item of input.itens) {
+    void sincronizarEstoqueML(item.produto_id)
+  }
 
   // DINHEIRO devolvido SAI DA GAVETA — registra a saída no caixa aberto da loja.
   // O RPC já não cria lançamento financeiro pra dinheiro (migration de 15/07): o

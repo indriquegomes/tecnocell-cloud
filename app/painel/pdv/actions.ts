@@ -5,6 +5,7 @@ import { createServiceClient, fetchAll, requirePermissao, permissoesEfetivas } f
 import { temPermissao } from '@/lib/permissoes'
 import { logAtividade } from '@/lib/log-atividade'
 import { hojeSP } from '@/lib/utils'
+import { sincronizarEstoqueML } from '@/lib/mercado-livre'
 
 // Itens de UMA tabela de preço, sob demanda (o PDV não embute mais os 45k itens
 // de todas as tabelas — carrega só a escolhida). Ordena por id p/ paginação estável.
@@ -367,6 +368,12 @@ export async function finalizarVenda(
   // Amarra a venda ao caixa aberto (pro fechamento X/Z reconciliar por caixa).
   // Silencioso se a coluna caixa_id ainda não existe (pré-migração).
   try { await supabase.from('vendas').update({ caixa_id: caixaId }).eq('id', data.venda_id as string) } catch { /* pré-migração */ }
+
+  // Estoque mudou pra cada item vendido — avisa o Mercado Livre se algum
+  // deles tiver anúncio linkado (fire-and-forget, nunca falha a venda).
+  for (const item of itens) {
+    void sincronizarEstoqueML(item.produto_id)
+  }
 
   // Vendedor (rastreabilidade), fiado vinculado e baixa de IMEI já nascem
   // dentro do RPC finalizar_venda — sem escrita posterior nem race.
