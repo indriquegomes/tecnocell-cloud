@@ -37,8 +37,8 @@ Decisões de negócio confirmadas com o usuário antes desta spec:
 
 ```sql
 create table if not exists integracoes_mercado_livre (
-  id                uuid primary key default gen_random_uuid(),
-  ml_user_id        text not null unique,   -- id do vendedor no Mercado Livre
+  id                text primary key default 'principal',  -- singleton, ver abaixo
+  ml_user_id        text not null,           -- id do vendedor no Mercado Livre
   ml_nickname       text,                    -- nome de usuário/loja no ML, só exibição
   access_token      text not null,
   refresh_token     text not null,
@@ -49,13 +49,19 @@ create table if not exists integracoes_mercado_livre (
 );
 ```
 
-Só uma linha ativa esperada (uma conta ML pro negócio todo) — não precisa
-de índice único global além do `ml_user_id`, mas a tela só usa a mais
-recente/única linha existente. `access_token`/`refresh_token` ficam em
-texto puro, mesmo padrão de todo dado sensível do banco hoje (acesso só
-via `createServiceClient()`, sem RLS pública) — não há precedente de
-criptografia em coluna neste projeto, não introduzir um novo padrão aqui
-sem necessidade.
+**Singleton de propósito**: o negócio só tem uma conta Mercado Livre, então
+a tabela nunca tem mais de uma linha — `id` é sempre a constante
+`'principal'`, não um uuid gerado. O callback do OAuth grava com
+`upsert({ id: 'principal', ... }, { onConflict: 'id' })`. Isso evita o caso
+de alguém autorizar com uma conta ML diferente por engano e o sistema
+acabar com duas linhas "conectadas" ao mesmo tempo sem saber qual vale —
+conectar de novo sempre **substitui** a conexão anterior, que é o
+comportamento correto (só existe uma conta de verdade).
+
+`access_token`/`refresh_token` ficam em texto puro, mesmo padrão de todo
+dado sensível do banco hoje (acesso só via `createServiceClient()`, sem
+RLS pública) — não há precedente de criptografia em coluna neste projeto,
+não introduzir um novo padrão aqui sem necessidade.
 
 ### Fluxo OAuth (Authorization Code + PKCE)
 
@@ -159,6 +165,25 @@ padrão de uma function da Vercel. Se o volume crescer a ponto de isso
 virar problema, é uma otimização pra revisar depois — não construir agora
 pra um volume que não existe ainda.
 
+**A rota não exige autenticação** (o Mercado Livre não assina o payload
+do webhook). Isso é seguro por construção: o corpo da notificação só diz
+"olha esse `resource`" — a rota nunca confia em dado vindo do POST em si,
+sempre busca a verdade direto na API do Mercado Livre com o nosso token.
+Um POST forjado só consegue apontar pra um pedido que já existe de
+verdade (harmless — reprocessa, a trava de idempotência barra duplicata)
+ou um recurso que não existe/não é nosso (a API do ML recusa). Única
+defesa extra: descarta rápido qualquer `topic` diferente de `orders_v2`
+sem gastar chamada à API, pra não desperdiçar limite de requisição em
+lixo.
+
+**Caixa não precisa estar aberto.** Conferido no código do
+`finalizar_venda`: a função não checa caixa nenhum — quem amarra a venda
+ao caixa aberto é um passo *depois* do RPC, só no fluxo do PDV (ver
+`app/painel/pdv/actions.ts`). O fluxo do Mercado Livre nunca dá esse
+passo, então funciona mesmo com a loja fechada ou o caixa de Petrópolis
+sem abrir ainda — correto, porque venda no Mercado Livre acontece a
+qualquer hora, loja física aberta ou não.
+
 1. Responde `200` pro Mercado Livre assim que o processamento abaixo
    terminar (sem fila — ver acima).
 2. Quando `topic = "orders_v2"`: `GET` no `resource` com o token válido,
@@ -178,6 +203,15 @@ pra um volume que não existe ainda.
      nunca entra na conferência de caixa físico.
    - Grava `vendas.ml_order_id = order.id` (coluna nova) pra idempotência
      (webhook duplicado não cria venda duplicada).
+4. **Se `finalizar_venda` falhar** (ex: estoque local zerado por alguma
+   divergência, produto sem correspondência) — o pedido já aconteceu de
+   verdade no Mercado Livre, não tem como "desacontecer" daqui. A rota
+   grava o pedido em `integracoes_mercado_livre_pedidos_pendentes` (id do
+   pedido, motivo do erro, payload) em vez de deixar o erro sumir num log
+   que ninguém olha, e ainda responde `200` pro Mercado Livre (reenviar
+   não vai resolver uma falta de estoque real — é revisão manual, não
+   retry automático). Esses pedidos pendentes aparecem em "Meus Pedidos"
+   com um status visível de "precisa revisar".
 
 ### Forma de pagamento nova
 
@@ -197,6 +231,23 @@ Pago) — mesmo filtro de "dinheiro real" que o resto do sistema já usa.
 
 ```sql
 alter table vendas add column if not exists ml_order_id text unique;
+```
+
+### Tabela nova: `integracoes_mercado_livre_pedidos_pendentes`
+
+Pedidos que o Mercado Livre confirmou como pagos mas que `finalizar_venda`
+não conseguiu processar (estoque insuficiente, item sem correspondência
+de produto) — ficam aqui pra revisão manual, nunca somem silenciosamente.
+
+```sql
+create table if not exists integracoes_mercado_livre_pedidos_pendentes (
+  id            uuid primary key default gen_random_uuid(),
+  ml_order_id   text not null unique,
+  motivo        text not null,       -- ex: "Estoque insuficiente", "Item sem produto correspondente"
+  payload       jsonb not null,      -- pedido completo, pra reprocessar manualmente sem consultar o ML de novo
+  resolvido     boolean not null default false,
+  criado_em     timestamptz not null default now()
+);
 ```
 
 ## Peça 4 — Sincronizar estoque
@@ -247,3 +298,6 @@ A regra que motivou tudo isso: **nunca vender a mesma peça duas vezes**.
 | Webhook duplicado criar venda duplicada | `vendas.ml_order_id unique` + checa existência antes de chamar `finalizar_venda` |
 | Importar anúncio errado por nome parecido | Casamento só por código/SKU exato, nunca por título |
 | Token expirado no meio de uma sincronização | `tokenValido()` centraliza renovação, chamado antes de toda requisição à API do ML |
+| Webhook forjado (rota é pública, sem assinatura) | A rota nunca confia no corpo do POST — sempre busca a verdade na API do ML com nosso token; forjar só aponta pra pedido real (idempotente) ou inexistente (recusado pela API) |
+| Pedido pago no ML mas `finalizar_venda` falha (sem estoque, item sem produto) | Nunca some — vai pra `integracoes_mercado_livre_pedidos_pendentes`, aparece em "Meus Pedidos" pra revisão manual |
+| Duas contas ML conectadas sem querer (autorizou com login errado) | Tabela é singleton (`id = 'principal'`) — conectar de novo sempre substitui, nunca duplica |
