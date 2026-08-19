@@ -36,12 +36,17 @@ export async function conexaoAtual(): Promise<ConexaoML | null> {
 // menos de 5min de expirar. Lança erro se não houver conexão — quem chama
 // decide o que fazer (webhook grava pendência, tela mostra "conecte primeiro").
 export async function tokenValido(): Promise<string> {
+  const clientId = process.env.MERCADOLIVRE_CLIENT_ID
+  const clientSecret = process.env.MERCADOLIVRE_CLIENT_SECRET
+  if (!clientId || !clientSecret) throw new Error('MERCADOLIVRE_CLIENT_ID/SECRET não configurados')
+
   const supabase = await createServiceClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('integracoes_mercado_livre')
     .select('*')
     .eq('id', 'principal')
     .maybeSingle()
+  if (error) throw new Error(`Falha ao ler conexão do Mercado Livre: ${error.message}`)
   const conexao = data as LinhaConexao | null
   if (!conexao) throw new Error('Mercado Livre não está conectado')
 
@@ -54,20 +59,24 @@ export async function tokenValido(): Promise<string> {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       grant_type: 'refresh_token',
-      client_id: process.env.MERCADOLIVRE_CLIENT_ID!,
-      client_secret: process.env.MERCADOLIVRE_CLIENT_SECRET!,
+      client_id: clientId,
+      client_secret: clientSecret,
       refresh_token: conexao.refresh_token,
     }),
   })
   if (!resp.ok) throw new Error(`Falha ao renovar token do Mercado Livre: ${await resp.text()}`)
   const novo = await resp.json() as { access_token: string; refresh_token: string; expires_in: number }
 
-  await supabase.from('integracoes_mercado_livre').update({
+  // refresh_token do ML é de uso único — se este update falhar, o banco fica
+  // com o refresh_token antigo (já queimado) e a próxima renovação quebra em
+  // silêncio. Por isso lança em vez de devolver o token como se tivesse persistido.
+  const { error: updateError } = await supabase.from('integracoes_mercado_livre').update({
     access_token: novo.access_token,
     refresh_token: novo.refresh_token,
     expira_em: new Date(Date.now() + novo.expires_in * 1000).toISOString(),
     atualizado_em: new Date().toISOString(),
   }).eq('id', 'principal')
+  if (updateError) throw new Error(`Falha ao salvar token renovado do Mercado Livre: ${updateError.message}`)
 
   return novo.access_token
 }
@@ -84,9 +93,11 @@ export async function chamarML<T>(path: string, init: RequestInit = {}): Promise
 }
 
 export function urlAutorizacao(state: string, codeChallenge: string, redirectUri: string): string {
+  const clientId = process.env.MERCADOLIVRE_CLIENT_ID
+  if (!clientId) throw new Error('MERCADOLIVRE_CLIENT_ID/SECRET não configurados')
   const params = new URLSearchParams({
     response_type: 'code',
-    client_id: process.env.MERCADOLIVRE_CLIENT_ID!,
+    client_id: clientId,
     redirect_uri: redirectUri,
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
