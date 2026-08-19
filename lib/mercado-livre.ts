@@ -1,0 +1,96 @@
+import { createServiceClient } from '@/lib/supabase/server'
+
+// Cliente da API do Mercado Livre. TUDO que fala com api.mercadolibre.com
+// passa por aqui — nunca lê access_token direto do banco em outro lugar.
+// Conexão é singleton (id sempre 'principal', ver migration).
+
+const ML_API = 'https://api.mercadolibre.com'
+const ML_AUTH = 'https://auth.mercadolivre.com.br'
+
+export type ConexaoML = {
+  ml_user_id: string
+  ml_nickname: string | null
+  expira_em: string
+}
+
+type LinhaConexao = {
+  id: string
+  ml_user_id: string
+  ml_nickname: string | null
+  access_token: string
+  refresh_token: string
+  expira_em: string
+}
+
+export async function conexaoAtual(): Promise<ConexaoML | null> {
+  const supabase = await createServiceClient()
+  const { data } = await supabase
+    .from('integracoes_mercado_livre')
+    .select('ml_user_id, ml_nickname, expira_em')
+    .eq('id', 'principal')
+    .maybeSingle()
+  return (data as ConexaoML | null) ?? null
+}
+
+// Devolve um access_token válido, renovando via refresh_token se estiver a
+// menos de 5min de expirar. Lança erro se não houver conexão — quem chama
+// decide o que fazer (webhook grava pendência, tela mostra "conecte primeiro").
+export async function tokenValido(): Promise<string> {
+  const supabase = await createServiceClient()
+  const { data } = await supabase
+    .from('integracoes_mercado_livre')
+    .select('*')
+    .eq('id', 'principal')
+    .maybeSingle()
+  const conexao = data as LinhaConexao | null
+  if (!conexao) throw new Error('Mercado Livre não está conectado')
+
+  const expiraEm = new Date(conexao.expira_em).getTime()
+  const cincoMinutos = 5 * 60 * 1000
+  if (expiraEm - Date.now() > cincoMinutos) return conexao.access_token
+
+  const resp = await fetch(`${ML_API}/oauth/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: process.env.MERCADOLIVRE_CLIENT_ID!,
+      client_secret: process.env.MERCADOLIVRE_CLIENT_SECRET!,
+      refresh_token: conexao.refresh_token,
+    }),
+  })
+  if (!resp.ok) throw new Error(`Falha ao renovar token do Mercado Livre: ${await resp.text()}`)
+  const novo = await resp.json() as { access_token: string; refresh_token: string; expires_in: number }
+
+  await supabase.from('integracoes_mercado_livre').update({
+    access_token: novo.access_token,
+    refresh_token: novo.refresh_token,
+    expira_em: new Date(Date.now() + novo.expires_in * 1000).toISOString(),
+    atualizado_em: new Date().toISOString(),
+  }).eq('id', 'principal')
+
+  return novo.access_token
+}
+
+// Chamada genérica autenticada à API do Mercado Livre.
+export async function chamarML<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const token = await tokenValido()
+  const resp = await fetch(path.startsWith('http') ? path : `${ML_API}${path}`, {
+    ...init,
+    headers: { ...init.headers, Authorization: `Bearer ${token}` },
+  })
+  if (!resp.ok) throw new Error(`Mercado Livre API ${resp.status}: ${await resp.text()}`)
+  return resp.json() as Promise<T>
+}
+
+export function urlAutorizacao(state: string, codeChallenge: string, redirectUri: string): string {
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: process.env.MERCADOLIVRE_CLIENT_ID!,
+    redirect_uri: redirectUri,
+    code_challenge: codeChallenge,
+    code_challenge_method: 'S256',
+    state,
+  })
+  return `${ML_AUTH}/authorization?${params.toString()}`
+}
