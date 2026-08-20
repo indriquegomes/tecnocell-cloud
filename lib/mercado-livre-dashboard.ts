@@ -146,8 +146,9 @@ export async function buscarAnunciosAguardandoAjuste(): Promise<AnuncioAguardand
       if (item.status !== 'under_review') continue
       const subStatus = item.sub_status.find((s) => s === 'warning' || s === 'waiting_for_patch')
       if (subStatus) resultado.push({ titulo: item.title, mlItemId: item.id, subStatus })
-    } catch {
+    } catch (e) {
       // um item falhar não deve derrubar o painel inteiro — ignora e segue os outros
+      console.error(`Falha ao consultar status do anúncio ${a.ml_item_id} no Mercado Livre:`, e)
       continue
     }
   }
