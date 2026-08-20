@@ -243,6 +243,11 @@ export function urlAutorizacao(state: string, codeChallenge: string, redirectUri
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
     state,
+    // Experimental: parâmetro padrão OAuth2/OIDC pra forçar a tela de login
+    // mesmo com sessão ativa no navegador — não documentado pelo Mercado
+    // Livre, sem garantia de que eles respeitam. Se não fizer efeito, tira
+    // essa linha (não quebra o fluxo hoje, o ML deve simplesmente ignorar).
+    prompt: 'login',
   })
   return `${ML_AUTH}/authorization?${params.toString()}`
 }
