@@ -4,11 +4,6 @@ import { createServiceClient, requirePermissao, fetchAll } from '@/lib/supabase/
 import { buscarAnunciosDoVendedor, buscarConexao } from '@/lib/mercado-livre'
 import { revalidatePath } from 'next/cache'
 
-// Um catálogo grande ainda pode levar mais que o padrão da Vercel mesmo
-// buscando em lote — 60s é o máximo permitido no plano Hobby, então é o teto
-// seguro que funciona em qualquer plano sem dar erro de configuração.
-export const maxDuration = 60
-
 export async function importarAnuncios(conexaoId: string) {
   await requirePermissao('integracoes')
   const conexao = await buscarConexao(conexaoId)

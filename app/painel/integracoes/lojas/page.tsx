@@ -4,6 +4,14 @@ import { listarConexoes } from '@/lib/mercado-livre'
 import { ImportarAnunciosBotao } from './ImportarAnunciosBotao'
 import { DesconectarBotao } from './DesconectarBotao'
 
+// Um catálogo grande ainda pode levar mais que o padrão da Vercel mesmo
+// buscando em lote — 60s é o máximo permitido no plano Hobby, então é o teto
+// seguro que funciona em qualquer plano sem dar erro de configuração.
+// (Precisa estar aqui, na page, não em actions.ts — Server Actions herdam o
+// maxDuration da página que os chama, e um arquivo 'use server' só pode
+// exportar funções async; um export const ali quebra o build inteiro.)
+export const maxDuration = 60
+
 export default async function IntegracoesLojasPage() {
   const conexoes = await listarConexoes()
 
