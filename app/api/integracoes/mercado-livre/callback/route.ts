@@ -56,7 +56,6 @@ export async function GET(req: Request) {
 
   const supabase = await createServiceClient()
   const { error } = await supabase.from('integracoes_mercado_livre').upsert({
-    id: 'principal',
     ml_user_id: String(token.user_id),
     ml_nickname: me.nickname ?? null,
     access_token: token.access_token,
@@ -64,7 +63,7 @@ export async function GET(req: Request) {
     expira_em: new Date(Date.now() + token.expires_in * 1000).toISOString(),
     conectado_por: usuarioId,
     atualizado_em: new Date().toISOString(),
-  }, { onConflict: 'id' })
+  }, { onConflict: 'ml_user_id' })
   if (error) redirect('/painel/integracoes?ml=erro')
 
   redirect('/painel/integracoes?ml=conectado')
