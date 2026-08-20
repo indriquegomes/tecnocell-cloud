@@ -19,7 +19,9 @@ export default async function IntegracoesLojasPage() {
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-semibold text-gray-800">Mercado Livre</p>
+              <a href="/painel/integracoes/lojas/mercado-livre" className="font-semibold text-gray-800 hover:text-blue-600 hover:underline">
+                Mercado Livre
+              </a>
               <p className="text-sm text-gray-500">Conectado como {conexaoML.ml_nickname ?? conexaoML.ml_user_id}</p>
             </div>
             <span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Ativo</span>
