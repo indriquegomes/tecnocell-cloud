@@ -12,14 +12,26 @@ export function ImportarAnunciosBotao() {
   const handleClick = async () => {
     setCarregando(true)
     setMensagem('')
-    const res = await importarAnuncios()
-    setMensagem(
-      res.ok
-        ? `${res.casados} anúncio(s) casado(s) com produto, ${res.semCorrespondencia} sem correspondência.`
-        : res.erro ?? 'Erro ao importar.'
-    )
-    setCarregando(false)
-    router.refresh()
+    try {
+      const res = await importarAnuncios()
+      setMensagem(
+        res.ok
+          ? `${res.casados} anúncio(s) casado(s) com produto, ${res.semCorrespondencia} sem correspondência.`
+          : res.erro ?? 'Erro ao importar.'
+      )
+    } catch (e) {
+      // Sem isso, um catálogo grande que estoure o tempo da function deixa o
+      // botão travado em "Importando..." pra sempre — o usuário não sabe se
+      // deu certo, deu erro, ou se ainda está rodando.
+      setMensagem(
+        e instanceof Error
+          ? `Falha ao importar: ${e.message}`
+          : 'Falha ao importar — tente de novo.'
+      )
+    } finally {
+      setCarregando(false)
+      router.refresh()
+    }
   }
 
   return (

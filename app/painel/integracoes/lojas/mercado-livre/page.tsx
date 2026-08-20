@@ -5,6 +5,11 @@ import {
 } from '@/lib/mercado-livre-dashboard'
 import PainelAguardandoAjuste from './PainelAguardandoAjuste'
 
+// Painel "Aguardando Ajuste" consulta a API do ML ao vivo pra cada anúncio
+// (em lote, mas ainda pode ser lento com catálogo grande) — 60s é o teto do
+// plano Hobby, então é a margem segura em qualquer plano.
+export const maxDuration = 60
+
 export default async function DashboardLojaMLPage() {
   const [visao, semEstoque, fluxo, maisVendidos] = await Promise.all([
     buscarVisaoGeral(),

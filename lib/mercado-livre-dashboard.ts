@@ -1,6 +1,6 @@
 import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server'
 import { diaSP } from '@/lib/utils'
-import { DEPOSITO_PETROPOLIS_LOJA, chamarML } from '@/lib/mercado-livre'
+import { DEPOSITO_PETROPOLIS_LOJA, buscarDetalhesEmLote } from '@/lib/mercado-livre'
 
 // Conta tolerando tabela ainda não criada nesta etapa do plano (Partes 4/6
 // entram nas Tarefas 8 e 10) — devolve 0 em vez de quebrar o Dashboard.
@@ -123,11 +123,11 @@ export async function buscarMaisVendidos(): Promise<AnuncioMaisVendido[]> {
     .slice(0, 10)
 }
 
-type StatusItemML = { id: string; title: string; status: string; sub_status: string[] }
-
 export type AnuncioAguardandoAjuste = { titulo: string; mlItemId: string; subStatus: string }
 
-// Consulta ao vivo na API (sem cache — mesma decisão de volume da spec).
+// Consulta ao vivo na API, em lote (buscarDetalhesEmLote — até 20 por
+// chamada, ver lib/mercado-livre.ts). Um catálogo com centenas de anúncios
+// checado item por item estourava o tempo da function na Vercel.
 // Item em status 'under_review' com sub_status 'warning' ou
 // 'waiting_for_patch' é o que o Mercado Livre chama de "aguardando ajuste"
 // (item fica ativo com pendência de correção por até 2 dias antes de ser ocultado).
@@ -137,18 +137,19 @@ export async function buscarAnunciosAguardandoAjuste(): Promise<AnuncioAguardand
     supabase.from('integracoes_mercado_livre_anuncios').select('ml_item_id').range(de, ate))
   if (anuncios.length === 0) return []
 
-  const resultado: AnuncioAguardandoAjuste[] = []
-  for (const a of anuncios) {
-    try {
-      const item = await chamarML<StatusItemML>(`/items/${a.ml_item_id}`)
-      if (item.status !== 'under_review') continue
-      const subStatus = item.sub_status.find((s) => s === 'warning' || s === 'waiting_for_patch')
-      if (subStatus) resultado.push({ titulo: item.title, mlItemId: item.id, subStatus })
-    } catch (e) {
-      // um item falhar não deve derrubar o painel inteiro — ignora e segue os outros
-      console.error(`Falha ao consultar status do anúncio ${a.ml_item_id} no Mercado Livre:`, e)
-      continue
-    }
+  let detalhes: Awaited<ReturnType<typeof buscarDetalhesEmLote>> = []
+  try {
+    detalhes = await buscarDetalhesEmLote(anuncios.map((a) => a.ml_item_id))
+  } catch (e) {
+    // Falha geral (token, rede) não deve derrubar o Dashboard inteiro — painel
+    // fica vazio em vez de quebrar a página.
+    console.error('Falha ao consultar status dos anúncios no Mercado Livre:', e)
+    return []
   }
-  return resultado
+
+  return detalhes.flatMap((item) => {
+    if (item.status !== 'under_review') return []
+    const subStatus = item.sub_status.find((s) => s === 'warning' || s === 'waiting_for_patch')
+    return subStatus ? [{ titulo: item.title, mlItemId: item.id, subStatus }] : []
+  })
 }

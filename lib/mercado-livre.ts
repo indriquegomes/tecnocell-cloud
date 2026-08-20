@@ -93,7 +93,7 @@ export async function chamarML<T>(path: string, init: RequestInit = {}): Promise
 }
 
 type BuscaItensResp = { results: string[]; paging: { total: number; offset: number; limit: number } }
-type ItemResp = {
+export type ItemResp = {
   id: string
   title: string
   price: number
@@ -101,16 +101,35 @@ type ItemResp = {
   attributes?: { id: string; value_name: string | null }[]
   catalog_listing?: boolean
   catalog_product_id?: string | null
+  status: string
+  sub_status: string[]
+}
+
+type MultigetResp = { code: number; body: ItemResp }[]
+
+// Pega os detalhes de até 20 anúncios numa chamada só (multiget da API do ML —
+// GET /items?ids=... — em vez de um GET /items/{id} por item). Pra um vendedor
+// com centenas de anúncios, um por um estourava o tempo da function na Vercel
+// (importar anúncios travava em "Importando..." pra sempre, e o painel de
+// "Aguardando Ajuste" do Dashboard tinha o mesmo problema). Reaproveitada
+// pelos dois — mesmo endpoint, só muda o que cada um lê do corpo do item.
+export async function buscarDetalhesEmLote(ids: string[]): Promise<ItemResp[]> {
+  const resultado: ItemResp[] = []
+  for (let i = 0; i < ids.length; i += 20) {
+    const lote = ids.slice(i, i + 20)
+    const respostas = await chamarML<MultigetResp>(`/items?ids=${lote.join(',')}`)
+    for (const r of respostas) {
+      if (r.code === 200) resultado.push(r.body)
+    }
+  }
+  return resultado
 }
 
 // Busca todos os anúncios ativos do vendedor e devolve o SKU (seller_custom_field,
 // ou o atributo SELLER_SKU quando o custom field vem vazio — o Mercado Livre
 // migrou pra esse atributo em parte do catálogo).
 export async function buscarAnunciosDoVendedor(mlUserId: string) {
-  const itens: {
-    ml_item_id: string; titulo: string; preco: number; sku: string | null
-    catalogo: boolean; catalogProductId: string | null
-  }[] = []
+  const ids: string[] = []
   let offset = 0
   const limite = 50
   while (true) {
@@ -118,22 +137,23 @@ export async function buscarAnunciosDoVendedor(mlUserId: string) {
       `/users/${mlUserId}/items/search?offset=${offset}&limit=${limite}`
     )
     if (pagina.results.length === 0) break
-    for (const id of pagina.results) {
-      const item = await chamarML<ItemResp>(`/items/${id}`)
-      const skuAtributo = item.attributes?.find((a) => a.id === 'SELLER_SKU')?.value_name ?? null
-      itens.push({
-        ml_item_id: item.id,
-        titulo: item.title,
-        preco: item.price,
-        sku: item.seller_custom_field ?? skuAtributo,
-        catalogo: item.catalog_listing ?? false,
-        catalogProductId: item.catalog_product_id ?? null,
-      })
-    }
+    ids.push(...pagina.results)
     offset += limite
     if (offset >= pagina.paging.total) break
   }
-  return itens
+
+  const detalhes = await buscarDetalhesEmLote(ids)
+  return detalhes.map((item) => {
+    const skuAtributo = item.attributes?.find((a) => a.id === 'SELLER_SKU')?.value_name ?? null
+    return {
+      ml_item_id: item.id,
+      titulo: item.title,
+      preco: item.price,
+      sku: item.seller_custom_field ?? skuAtributo,
+      catalogo: item.catalog_listing ?? false,
+      catalogProductId: item.catalog_product_id ?? null,
+    }
+  })
 }
 
 export const DEPOSITO_PETROPOLIS_LOJA = '63d9054d59a9c829747233d4'

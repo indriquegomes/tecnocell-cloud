@@ -4,6 +4,10 @@ import { chamarML } from '@/lib/mercado-livre'
 type AnuncioCatalogo = { ml_item_id: string; titulo_ml: string; catalog_product_id: string }
 type ProdutoCatalogo = { buy_box_winner: { item_id: string } | null }
 
+// Consulta a API do ML ao vivo, um item de catálogo por vez (sem multiget —
+// /products/{id} não tem lote como /items). 60s é o teto do plano Hobby.
+export const maxDuration = 60
+
 export default async function CatalogoMLPage() {
   const supabase = await createServiceClient()
   const { data } = await supabase
