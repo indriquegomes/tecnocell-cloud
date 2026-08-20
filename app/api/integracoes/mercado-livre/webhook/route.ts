@@ -1,5 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import { chamarML } from '@/lib/mercado-livre'
+import { chamarML, DEPOSITO_PETROPOLIS_LOJA } from '@/lib/mercado-livre'
 import type { NextRequest } from 'next/server'
 
 type Notificacao = { topic: string; resource: string; user_id: number; sent: string }
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   // atacante. Qualquer coisa fora de RESOURCE_VALIDO é tratada como payload
   // não confiável, mesmo esquema do corpo ilegível acima (200 silencioso,
   // sem processar).
-  if (!RESOURCE_VALIDO.test(body.resource)) {
+  if (!RESOURCE_VALIDO.test(body?.resource ?? '')) {
     return new Response('ok', { status: 200 })
   }
 
@@ -102,7 +102,6 @@ async function processarPedido(
     preco_unitario: i.unit_price,
   }))
 
-  const DEPOSITO_PETROPOLIS_LOJA = '63d9054d59a9c829747233d4'
   const { data, error } = await supabase.rpc('finalizar_venda', {
     p_itens: itens,
     p_pagamentos: [{ forma_pagamento_id: 'FP_MERCADOLIVRE', valor: pedido.total_amount, taxa: 0, status: 'pago' }],
@@ -139,7 +138,7 @@ async function processarPergunta(
   body: Notificacao,
 ) {
   const pergunta = await chamarML<PerguntaML>(body.resource)
-  await supabase.from('integracoes_mercado_livre_perguntas').upsert({
+  const { error } = await supabase.from('integracoes_mercado_livre_perguntas').upsert({
     ml_question_id: String(pergunta.id),
     ml_item_id: pergunta.item_id,
     texto: pergunta.text,
@@ -150,6 +149,7 @@ async function processarPergunta(
     // volta a aparecer como pendente e responder de novo dá erro no ML).
     ...(pergunta.status !== 'UNANSWERED' ? { respondida: true } : {}),
   }, { onConflict: 'ml_question_id' })
+  if (error) console.error(`Falha ao salvar pergunta ${pergunta.id} do Mercado Livre:`, error)
 }
 
 async function processarMensagem(
@@ -174,7 +174,7 @@ async function processarMensagem(
 
   for (const msg of pack.messages) {
     const autor = String(msg.from.user_id) === conexao.ml_user_id ? 'vendedor' : 'comprador'
-    await supabase.from('integracoes_mercado_livre_mensagens').upsert({
+    const { error } = await supabase.from('integracoes_mercado_livre_mensagens').upsert({
       ml_message_id: msg.message_id,
       ml_pack_id: packId,
       autor,
@@ -187,5 +187,7 @@ async function processarMensagem(
       // default `false` da coluna cobre o caso real de mensagem não lida.
       ...(autor === 'vendedor' ? { lida: true } : {}),
     }, { onConflict: 'ml_message_id' })
+    // Uma mensagem falhar não deve derrubar as outras do mesmo pack — loga e segue.
+    if (error) console.error(`Falha ao salvar mensagem ${msg.message_id} do pack ${packId}:`, error)
   }
 }

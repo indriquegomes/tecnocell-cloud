@@ -168,7 +168,7 @@ export function Sidebar({
 }) {
   const pathname = usePathname()
   const router = useRouter()
-  const exactOnly = ['/painel', '/painel/estoque', '/painel/integracoes']
+  const exactOnly = ['/painel', '/painel/estoque', '/painel/integracoes', '/painel/integracoes/lojas']
   const isActive = (href: string) =>
     exactOnly.includes(href) ? pathname === href : pathname.startsWith(href)
 

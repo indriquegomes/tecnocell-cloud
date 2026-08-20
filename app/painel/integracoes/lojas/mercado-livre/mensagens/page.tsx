@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { formatDate } from '@/lib/utils'
 import { ResponderMensagemForm } from './ResponderMensagemForm'
+import { marcarConversaLida } from './actions'
 
 type MensagemLinha = { id: string; ml_pack_id: string; autor: string; texto: string; lida: boolean; criado_em: string }
 
@@ -21,6 +22,13 @@ export default async function MensagensMLPage() {
     const lista = porPack.get(m.ml_pack_id) ?? []
     lista.push(m)
     porPack.set(m.ml_pack_id, lista)
+  }
+
+  // Abrir a aba já marca como lida toda conversa mostrada — não há
+  // expandir/recolher por conversa nesta versão, então "abrir" a tela é
+  // "abrir" a conversa.
+  for (const packId of porPack.keys()) {
+    await marcarConversaLida(packId)
   }
 
   return (

@@ -12,15 +12,19 @@ export default async function CatalogoMLPage() {
     .eq('is_catalogo', true)
   const anuncios = (data ?? []) as AnuncioCatalogo[]
 
-  const comStatus = await Promise.all(anuncios.map(async (a) => {
+  // Sequencial, não Promise.all: cada chamarML pode disparar renovação de
+  // token, e o refresh_token do ML é de uso único — em paralelo, N chamadas
+  // corririam pra renovar o mesmo token e só uma venceria.
+  const comStatus: (AnuncioCatalogo & { ganhando: boolean | null })[] = []
+  for (const a of anuncios) {
     try {
       const produto = await chamarML<ProdutoCatalogo>(`/products/${a.catalog_product_id}`)
       const ganhando = produto.buy_box_winner?.item_id === a.ml_item_id
-      return { ...a, ganhando }
+      comStatus.push({ ...a, ganhando })
     } catch {
-      return { ...a, ganhando: null as boolean | null }
+      comStatus.push({ ...a, ganhando: null })
     }
-  }))
+  }
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">

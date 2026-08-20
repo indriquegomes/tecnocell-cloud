@@ -22,11 +22,12 @@ export async function responderPergunta(perguntaId: string, texto: string): Prom
     return { ok: false, erro: e instanceof Error ? e.message : 'Falha ao responder no Mercado Livre.' }
   }
 
-  await supabase.from('integracoes_mercado_livre_perguntas').update({
+  const { error } = await supabase.from('integracoes_mercado_livre_perguntas').update({
     respondida: true,
     resposta_texto: texto,
     respondida_em: new Date().toISOString(),
   }).eq('id', perguntaId)
+  if (error) return { ok: false, erro: 'Resposta enviada ao Mercado Livre, mas falhou ao atualizar aqui — recarregue a página.' }
 
   revalidatePath('/painel/integracoes/lojas/mercado-livre/perguntas')
   return { ok: true }

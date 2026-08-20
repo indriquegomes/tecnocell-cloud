@@ -2,8 +2,6 @@ import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server
 import { diaSP } from '@/lib/utils'
 import { DEPOSITO_PETROPOLIS_LOJA, chamarML } from '@/lib/mercado-livre'
 
-export { DEPOSITO_PETROPOLIS_LOJA }
-
 // Conta tolerando tabela ainda não criada nesta etapa do plano (Partes 4/6
 // entram nas Tarefas 8 e 10) — devolve 0 em vez de quebrar o Dashboard.
 async function contarTolerante(

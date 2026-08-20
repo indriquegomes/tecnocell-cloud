@@ -187,6 +187,10 @@ export async function responderPerguntaML(mlQuestionId: string, texto: string): 
 type PackMensagensML = { messages: { from: { user_id: number } }[] }
 
 export async function responderMensagemML(packId: string, texto: string): Promise<void> {
+  // packId vem de um argumento de server action fornecido pelo cliente —
+  // valida antes de interpolar na URL do chamarML.
+  if (!/^\d+$/.test(packId)) throw new Error('packId inválido')
+
   const conexao = await conexaoAtual()
   if (!conexao) throw new Error('Mercado Livre não está conectado')
 
