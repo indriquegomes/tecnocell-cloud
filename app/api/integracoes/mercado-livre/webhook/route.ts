@@ -20,6 +20,17 @@ export async function POST(req: NextRequest) {
     return new Response('ok', { status: 200 }) // corpo ilegível — não é nosso problema, so 200 e ignora
   }
 
+  // `resource` vem do corpo, que qualquer um pode forjar (ML não assina o
+  // payload — ver comentário acima). `chamarML` manda o token de acesso pra
+  // qualquer URL que comece com "http", então sem essa validação um resource
+  // tipo "https://attacker.example/x" vaza o token do Mercado Livre pro
+  // atacante. ML só manda o formato "/orders/123" ou "/questions/123" —
+  // qualquer coisa fora disso é tratada como payload não confiável, mesmo
+  // esquema do corpo ilegível acima (200 silencioso, sem processar).
+  if (!/^\/(orders|questions)\/\d+$/.test(body.resource)) {
+    return new Response('ok', { status: 200 })
+  }
+
   const supabase = await createServiceClient()
 
   try {
@@ -119,8 +130,11 @@ async function processarPergunta(
     ml_question_id: String(pergunta.id),
     ml_item_id: pergunta.item_id,
     texto: pergunta.text,
-    // Já respondida por outro canal (app do ML, etc.) ou deletada — não
-    // mostrar como pendente aqui.
-    respondida: pergunta.status !== 'UNANSWERED',
+    // Só manda `respondida: true` quando o ML confirma que foi respondida.
+    // Se vier UNANSWERED, omite a chave — o status do ML é eventualmente
+    // consistente, e uma notificação atrasada não pode sobrescrever
+    // `respondida: true` de uma pergunta que já respondemos aqui (senão ela
+    // volta a aparecer como pendente e responder de novo dá erro no ML).
+    ...(pergunta.status !== 'UNANSWERED' ? { respondida: true } : {}),
   }, { onConflict: 'ml_question_id' })
 }
