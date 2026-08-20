@@ -169,6 +169,14 @@ export async function sincronizarEstoqueML(produtoId: string): Promise<void> {
   }
 }
 
+export async function responderPerguntaML(mlQuestionId: string, texto: string): Promise<void> {
+  await chamarML('/answers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question_id: Number(mlQuestionId), text: texto }),
+  })
+}
+
 export function urlAutorizacao(state: string, codeChallenge: string, redirectUri: string): string {
   const clientId = process.env.MERCADOLIVRE_CLIENT_ID
   if (!clientId) throw new Error('MERCADOLIVRE_CLIENT_ID/SECRET não configurados')

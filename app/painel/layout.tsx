@@ -66,6 +66,7 @@ export default async function PainelLayout({ children }: { children: React.React
   //    avisava ninguém.
   let avisosCaixa: AvisoCaixa[] = []
   let rotinas: LembretePendente[] = []
+  let badges: Record<string, number> = {}
 
   if (userId) {
     try {
@@ -105,6 +106,14 @@ export default async function PainelLayout({ children }: { children: React.React
         userId,
         (meuRes.data?.cargo_id as string | null) ?? null,
       )
+
+      const { count: perguntasPendentes } = await supabase
+        .from('integracoes_mercado_livre_perguntas')
+        .select('*', { count: 'exact', head: true })
+        .eq('respondida', false)
+      if (perguntasPendentes) {
+        badges['/painel/integracoes/lojas/mercado-livre/perguntas'] = perguntasPendentes
+      }
     } catch {}
   }
 
@@ -118,6 +127,7 @@ export default async function PainelLayout({ children }: { children: React.React
         isMaster={isMaster}
         avisosCaixa={avisosCaixa}
         rotinas={rotinas}
+        badges={badges}
       >
         {children}
       </PainelShell>

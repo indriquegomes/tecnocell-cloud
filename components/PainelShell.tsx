@@ -15,7 +15,7 @@ import type { LembretePendente } from '@/lib/lembretes'
 const PDV_PATHS = ['/painel/pdv', '/painel/pdv/operacao']
 
 export function PainelShell({
-  children, email, nome, permissoes, isMaster, avisosCaixa = [], rotinas = [],
+  children, email, nome, permissoes, isMaster, avisosCaixa = [], rotinas = [], badges = {},
 }: {
   children: React.ReactNode
   email: string
@@ -24,6 +24,7 @@ export function PainelShell({
   isMaster: boolean
   avisosCaixa?: AvisoCaixa[]
   rotinas?: LembretePendente[]
+  badges?: Record<string, number>
 }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -114,7 +115,7 @@ export function PainelShell({
           aberta ? 'translate-x-0 lg:w-60' : '-translate-x-full lg:w-0 lg:translate-x-0',
         )}
       >
-        <Sidebar permissoes={permissoes} isMaster={isMaster} />
+        <Sidebar permissoes={permissoes} isMaster={isMaster} badges={badges} />
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">

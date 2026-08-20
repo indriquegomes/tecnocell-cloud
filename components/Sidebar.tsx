@@ -58,6 +58,7 @@ const ICONS: Record<string, IconComp> = {
   '/painel/integracoes/financeiras':    IconWallet,
   '/painel/integracoes/expedicao':      IconSwap,
   '/painel/integracoes/drop-shipping':  IconPackage,
+  '/painel/integracoes/lojas/mercado-livre/perguntas': IconFile,
 }
 
 type NavItem = { href: string; label: string; permissao?: string }
@@ -130,6 +131,7 @@ const navCompleto: NavGroup[] = [
     items: [
       { href: '/painel/integracoes',                label: 'Dashboard',                permissao: 'integracoes' },
       { href: '/painel/integracoes/lojas',           label: 'Minhas Lojas',             permissao: 'integracoes' },
+      { href: '/painel/integracoes/lojas/mercado-livre/perguntas', label: 'Perguntas ML', permissao: 'integracoes' },
       { href: '/painel/integracoes/produtos',        label: 'Meus Produtos',            permissao: 'integracoes' },
       { href: '/painel/integracoes/pedidos',         label: 'Meus Pedidos',             permissao: 'integracoes' },
       { href: '/painel/integracoes/sincronizacoes',  label: 'Sincronizações Pendentes', permissao: 'integracoes' },
@@ -155,7 +157,13 @@ const navCompleto: NavGroup[] = [
 
 const navEmConstrucao: NavGroup[] = []
 
-export function Sidebar({ permissoes, isMaster }: { permissoes: string[]; isMaster: boolean }) {
+export function Sidebar({
+  permissoes, isMaster, badges = {},
+}: {
+  permissoes: string[]
+  isMaster: boolean
+  badges?: Record<string, number>
+}) {
   const pathname = usePathname()
   const router = useRouter()
   const exactOnly = ['/painel', '/painel/estoque', '/painel/integracoes']
@@ -255,6 +263,11 @@ export function Sidebar({ permissoes, isMaster }: { permissoes: string[]; isMast
                         )} />
                       : <span className={cn('h-1.5 w-1.5 rounded-full', isActive(item.href) ? 'bg-accent-500' : 'bg-gray-300')} />}
                     {item.label}
+                    {badges[item.href] > 0 && (
+                      <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                        {badges[item.href]}
+                      </span>
+                    )}
                   </Link>
                 )
               })}
