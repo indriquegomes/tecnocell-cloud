@@ -58,8 +58,8 @@ const ICONS: Record<string, IconComp> = {
   '/painel/integracoes/financeiras':    IconWallet,
   '/painel/integracoes/expedicao':      IconSwap,
   '/painel/integracoes/drop-shipping':  IconPackage,
-  '/painel/integracoes/lojas/mercado-livre/perguntas': IconFile,
-  '/painel/integracoes/lojas/mercado-livre/mensagens': IconFile,
+  '/painel/integracoes/mercado-livre/perguntas': IconFile,
+  '/painel/integracoes/mercado-livre/mensagens': IconFile,
 }
 
 type NavItem = { href: string; label: string; permissao?: string }
@@ -132,8 +132,8 @@ const navCompleto: NavGroup[] = [
     items: [
       { href: '/painel/integracoes',                label: 'Dashboard',                permissao: 'integracoes' },
       { href: '/painel/integracoes/lojas',           label: 'Minhas Lojas',             permissao: 'integracoes' },
-      { href: '/painel/integracoes/lojas/mercado-livre/perguntas', label: 'Perguntas ML', permissao: 'integracoes' },
-      { href: '/painel/integracoes/lojas/mercado-livre/mensagens', label: 'Mensagens ML', permissao: 'integracoes' },
+      { href: '/painel/integracoes/mercado-livre/perguntas', label: 'Perguntas ML', permissao: 'integracoes' },
+      { href: '/painel/integracoes/mercado-livre/mensagens', label: 'Mensagens ML', permissao: 'integracoes' },
       { href: '/painel/integracoes/produtos',        label: 'Meus Produtos',            permissao: 'integracoes' },
       { href: '/painel/integracoes/pedidos',         label: 'Meus Pedidos',             permissao: 'integracoes' },
       { href: '/painel/integracoes/sincronizacoes',  label: 'Sincronizações Pendentes', permissao: 'integracoes' },

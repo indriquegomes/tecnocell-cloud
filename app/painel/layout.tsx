@@ -112,7 +112,7 @@ export default async function PainelLayout({ children }: { children: React.React
         .select('*', { count: 'exact', head: true })
         .eq('respondida', false)
       if (perguntasPendentes) {
-        badges['/painel/integracoes/lojas/mercado-livre/perguntas'] = perguntasPendentes
+        badges['/painel/integracoes/mercado-livre/perguntas'] = perguntasPendentes
       }
 
       const { count: mensagensNaoLidas } = await supabase
@@ -121,7 +121,7 @@ export default async function PainelLayout({ children }: { children: React.React
         .eq('lida', false)
         .eq('autor', 'comprador')
       if (mensagensNaoLidas) {
-        badges['/painel/integracoes/lojas/mercado-livre/mensagens'] = mensagensNaoLidas
+        badges['/painel/integracoes/mercado-livre/mensagens'] = mensagensNaoLidas
       }
     } catch {}
   }
