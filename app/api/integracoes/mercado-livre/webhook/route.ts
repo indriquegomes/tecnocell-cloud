@@ -11,6 +11,19 @@ type PedidoML = {
   order_items: { item: { id: string }; quantity: number; unit_price: number }[]
 }
 type PerguntaML = { id: number; item_id: string; text: string; status: string }
+type PackMensagensML = {
+  messages: {
+    message_id: string
+    text: { plain: string }
+    from: { user_id: number }
+    to: { user_id: number }
+  }[]
+}
+
+// ML só manda "/orders/123", "/questions/123" ou, pro topic 'messages',
+// "/messages/packs/{pack_id}/sellers/{seller_id}" — qualquer coisa fora
+// disso é payload não confiável (ver comentário abaixo).
+const RESOURCE_VALIDO = /^\/(orders|questions)\/\d+$|^\/messages\/packs\/\d+\/sellers\/\d+$/
 
 export async function POST(req: NextRequest) {
   let body: Notificacao
@@ -24,10 +37,10 @@ export async function POST(req: NextRequest) {
   // payload — ver comentário acima). `chamarML` manda o token de acesso pra
   // qualquer URL que comece com "http", então sem essa validação um resource
   // tipo "https://attacker.example/x" vaza o token do Mercado Livre pro
-  // atacante. ML só manda o formato "/orders/123" ou "/questions/123" —
-  // qualquer coisa fora disso é tratada como payload não confiável, mesmo
-  // esquema do corpo ilegível acima (200 silencioso, sem processar).
-  if (!/^\/(orders|questions)\/\d+$/.test(body.resource)) {
+  // atacante. Qualquer coisa fora de RESOURCE_VALIDO é tratada como payload
+  // não confiável, mesmo esquema do corpo ilegível acima (200 silencioso,
+  // sem processar).
+  if (!RESOURCE_VALIDO.test(body.resource)) {
     return new Response('ok', { status: 200 })
   }
 
@@ -36,7 +49,7 @@ export async function POST(req: NextRequest) {
   try {
     if (body.topic === 'orders_v2') await processarPedido(supabase, body)
     else if (body.topic === 'questions') await processarPergunta(supabase, body)
-    // outros topics (ex: 'messages', adicionado na Tarefa 10) entram como novo `else if` aqui
+    else if (body.topic === 'messages') await processarMensagem(supabase, body)
     return new Response('ok', { status: 200 })
   } catch (e) {
     // Falha ao buscar o pedido na API do ML, token indisponível, etc. — não
@@ -137,4 +150,36 @@ async function processarPergunta(
     // volta a aparecer como pendente e responder de novo dá erro no ML).
     ...(pergunta.status !== 'UNANSWERED' ? { respondida: true } : {}),
   }, { onConflict: 'ml_question_id' })
+}
+
+async function processarMensagem(
+  supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  body: Notificacao,
+) {
+  // body.resource pro topic 'messages' é algo como
+  // '/messages/packs/{pack_id}/sellers/{seller_id}' — extrai o pack_id.
+  const packId = body.resource.split('/packs/')[1]?.split('/')[0]
+  if (!packId) return
+
+  const { data: conexao } = await supabase
+    .from('integracoes_mercado_livre')
+    .select('ml_user_id')
+    .eq('id', 'principal')
+    .maybeSingle()
+  if (!conexao) return
+
+  const pack = await chamarML<PackMensagensML>(
+    `/messages/packs/${packId}/sellers/${conexao.ml_user_id}?tag=post_sale&mark_as_read=false`
+  )
+
+  for (const msg of pack.messages) {
+    const autor = String(msg.from.user_id) === conexao.ml_user_id ? 'vendedor' : 'comprador'
+    await supabase.from('integracoes_mercado_livre_mensagens').upsert({
+      ml_message_id: msg.message_id,
+      ml_pack_id: packId,
+      autor,
+      texto: msg.text.plain,
+      lida: autor === 'vendedor', // mensagem do próprio vendedor não conta como não lida
+    }, { onConflict: 'ml_message_id' })
+  }
 }

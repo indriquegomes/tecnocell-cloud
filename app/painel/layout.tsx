@@ -114,6 +114,15 @@ export default async function PainelLayout({ children }: { children: React.React
       if (perguntasPendentes) {
         badges['/painel/integracoes/lojas/mercado-livre/perguntas'] = perguntasPendentes
       }
+
+      const { count: mensagensNaoLidas } = await supabase
+        .from('integracoes_mercado_livre_mensagens')
+        .select('*', { count: 'exact', head: true })
+        .eq('lida', false)
+        .eq('autor', 'comprador')
+      if (mensagensNaoLidas) {
+        badges['/painel/integracoes/lojas/mercado-livre/mensagens'] = mensagensNaoLidas
+      }
     } catch {}
   }
 

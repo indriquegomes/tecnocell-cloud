@@ -184,6 +184,16 @@ export async function responderPerguntaML(mlQuestionId: string, texto: string): 
   })
 }
 
+export async function responderMensagemML(packId: string, texto: string): Promise<void> {
+  const conexao = await conexaoAtual()
+  if (!conexao) throw new Error('Mercado Livre não está conectado')
+  await chamarML(`/messages/packs/${packId}/sellers/${conexao.ml_user_id}?tag=post_sale`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: { user_id: Number(conexao.ml_user_id) }, text: texto }),
+  })
+}
+
 export function urlAutorizacao(state: string, codeChallenge: string, redirectUri: string): string {
   const clientId = process.env.MERCADOLIVRE_CLIENT_ID
   if (!clientId) throw new Error('MERCADOLIVRE_CLIENT_ID/SECRET não configurados')
