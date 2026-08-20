@@ -1,7 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { formatDate } from '@/lib/utils'
 import { ResponderMensagemForm } from './ResponderMensagemForm'
-import { marcarConversaLida } from './actions'
 
 type MensagemLinha = { id: string; ml_pack_id: string; autor: string; texto: string; lida: boolean; criado_em: string }
 
@@ -26,9 +25,14 @@ export default async function MensagensMLPage() {
 
   // Abrir a aba já marca como lida toda conversa mostrada — não há
   // expandir/recolher por conversa nesta versão, então "abrir" a tela é
-  // "abrir" a conversa.
-  for (const packId of porPack.keys()) {
-    await marcarConversaLida(packId)
+  // "abrir" a conversa. Update inline (sem server action / revalidatePath):
+  // chamar revalidatePath durante o render lança erro do Next. O badge de
+  // não lidas na sidebar só reflete isso na próxima navegação — aceito.
+  if (porPack.size > 0) {
+    await supabase.from('integracoes_mercado_livre_mensagens')
+      .update({ lida: true })
+      .in('ml_pack_id', [...porPack.keys()])
+      .eq('autor', 'comprador')
   }
 
   return (

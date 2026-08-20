@@ -21,10 +21,3 @@ export async function responderMensagem(packId: string, texto: string): Promise<
   revalidatePath('/painel/integracoes/lojas/mercado-livre/mensagens')
   return { ok: true }
 }
-
-export async function marcarConversaLida(packId: string): Promise<void> {
-  await requirePermissao('integracoes')
-  const supabase = await createServiceClient()
-  await supabase.from('integracoes_mercado_livre_mensagens').update({ lida: true }).eq('ml_pack_id', packId).eq('autor', 'comprador')
-  revalidatePath('/painel/integracoes/lojas/mercado-livre/mensagens')
-}
