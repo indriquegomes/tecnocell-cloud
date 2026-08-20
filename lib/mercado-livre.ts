@@ -99,13 +99,18 @@ type ItemResp = {
   price: number
   seller_custom_field: string | null
   attributes?: { id: string; value_name: string | null }[]
+  catalog_listing?: boolean
+  catalog_product_id?: string | null
 }
 
 // Busca todos os anúncios ativos do vendedor e devolve o SKU (seller_custom_field,
 // ou o atributo SELLER_SKU quando o custom field vem vazio — o Mercado Livre
 // migrou pra esse atributo em parte do catálogo).
 export async function buscarAnunciosDoVendedor(mlUserId: string) {
-  const itens: { ml_item_id: string; titulo: string; preco: number; sku: string | null }[] = []
+  const itens: {
+    ml_item_id: string; titulo: string; preco: number; sku: string | null
+    catalogo: boolean; catalogProductId: string | null
+  }[] = []
   let offset = 0
   const limite = 50
   while (true) {
@@ -121,6 +126,8 @@ export async function buscarAnunciosDoVendedor(mlUserId: string) {
         titulo: item.title,
         preco: item.price,
         sku: item.seller_custom_field ?? skuAtributo,
+        catalogo: item.catalog_listing ?? false,
+        catalogProductId: item.catalog_product_id ?? null,
       })
     }
     offset += limite
