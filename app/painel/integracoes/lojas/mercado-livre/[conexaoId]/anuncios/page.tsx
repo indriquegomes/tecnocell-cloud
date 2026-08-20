@@ -1,7 +1,6 @@
 import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server'
 import { formatBRL } from '@/lib/utils'
 import { BuscaLista } from '@/components/BuscaLista'
-import { ImportarAnunciosBotao } from '@/app/painel/integracoes/lojas/ImportarAnunciosBotao'
 
 type AnuncioLinha = {
   ml_item_id: string
@@ -38,10 +37,7 @@ export default async function MeusAnunciosMLPage({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <BuscaLista basePath={`/painel/integracoes/lojas/mercado-livre/${conexaoId}/anuncios`} placeholder="Buscar anúncio..." />
-        <ImportarAnunciosBotao conexaoId={conexaoId} />
-      </div>
+      <BuscaLista basePath={`/painel/integracoes/lojas/mercado-livre/${conexaoId}/anuncios`} placeholder="Buscar anúncio..." />
 
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-gray-100">

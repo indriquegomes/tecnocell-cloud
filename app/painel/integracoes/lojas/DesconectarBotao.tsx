@@ -14,12 +14,17 @@ export function DesconectarBotao({ conexaoId }: { conexaoId: string }) {
     setErro('')
     try {
       const res = await desconectarMercadoLivre(conexaoId)
-      if (!res.ok) setErro(res.erro ?? 'Erro ao desconectar.')
+      if (res.ok) {
+        // A página atual é dessa conexão, que acabou de deixar de existir —
+        // ficar aqui e só dar refresh() levaria a um 404.
+        router.push('/painel/integracoes/lojas')
+        return
+      }
+      setErro(res.erro ?? 'Erro ao desconectar.')
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Falha ao desconectar — tente de novo.')
     } finally {
       setCarregando(false)
-      router.refresh()
     }
   }
 
