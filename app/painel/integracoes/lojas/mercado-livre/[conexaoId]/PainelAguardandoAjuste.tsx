@@ -1,12 +1,7 @@
 import { buscarAnunciosAguardandoAjuste } from '@/lib/mercado-livre-dashboard'
 
-// Painel isolado num Suspense próprio (ver page.tsx) porque
-// buscarAnunciosAguardandoAjuste faz uma chamada ao vivo na API do ML por
-// anúncio importado, em sequência — pode levar dezenas de segundos com um
-// catálogo grande. Se ficasse no mesmo Promise.all dos painéis rápidos
-// (só banco local), um catálogo grande travaria a Dashboard inteira.
-export default async function PainelAguardandoAjuste() {
-  const aguardandoAjuste = await buscarAnunciosAguardandoAjuste()
+export default async function PainelAguardandoAjuste({ conexaoId }: { conexaoId: string }) {
+  const aguardandoAjuste = await buscarAnunciosAguardandoAjuste(conexaoId)
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">

@@ -5,17 +5,19 @@ import {
 } from '@/lib/mercado-livre-dashboard'
 import PainelAguardandoAjuste from './PainelAguardandoAjuste'
 
-// Painel "Aguardando Ajuste" consulta a API do ML ao vivo pra cada anúncio
-// (em lote, mas ainda pode ser lento com catálogo grande) — 60s é o teto do
-// plano Hobby, então é a margem segura em qualquer plano.
 export const maxDuration = 60
 
-export default async function DashboardLojaMLPage() {
+export default async function DashboardLojaMLPage({
+  params,
+}: {
+  params: Promise<{ conexaoId: string }>
+}) {
+  const { conexaoId } = await params
   const [visao, semEstoque, fluxo, maisVendidos] = await Promise.all([
-    buscarVisaoGeral(),
-    buscarAnunciosSemEstoque(),
-    buscarFluxoVendas(),
-    buscarMaisVendidos(),
+    buscarVisaoGeral(conexaoId),
+    buscarAnunciosSemEstoque(conexaoId),
+    buscarFluxoVendas(conexaoId),
+    buscarMaisVendidos(conexaoId),
   ])
 
   const maxFaturamento = Math.max(1, ...fluxo.map((p) => p.faturamento))
@@ -97,7 +99,7 @@ export default async function DashboardLojaMLPage() {
           <p className="text-sm text-gray-400">Carregando...</p>
         </div>
       }>
-        <PainelAguardandoAjuste />
+        <PainelAguardandoAjuste conexaoId={conexaoId} />
       </Suspense>
     </div>
   )

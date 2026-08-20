@@ -2,8 +2,6 @@ import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server
 import { diaSP } from '@/lib/utils'
 import { DEPOSITO_PETROPOLIS_LOJA, buscarDetalhesEmLote } from '@/lib/mercado-livre'
 
-// Conta tolerando tabela ainda não criada nesta etapa do plano (Partes 4/6
-// entram nas Tarefas 8 e 10) — devolve 0 em vez de quebrar o Dashboard.
 async function contarTolerante(
   query: PromiseLike<{ count: number | null; error: unknown }>
 ): Promise<number> {
@@ -19,13 +17,13 @@ export type VisaoGeralML = {
   mensagensNaoLidas: number
 }
 
-export async function buscarVisaoGeral(): Promise<VisaoGeralML> {
+export async function buscarVisaoGeral(conexaoId: string): Promise<VisaoGeralML> {
   const supabase = await createServiceClient()
   const [importados, catalogo, perguntas, mensagens] = await Promise.all([
-    contarTolerante(supabase.from('integracoes_mercado_livre_anuncios').select('*', { count: 'exact', head: true })),
-    contarTolerante(supabase.from('integracoes_mercado_livre_anuncios').select('*', { count: 'exact', head: true }).eq('is_catalogo', true)),
-    contarTolerante(supabase.from('integracoes_mercado_livre_perguntas').select('*', { count: 'exact', head: true }).eq('respondida', false)),
-    contarTolerante(supabase.from('integracoes_mercado_livre_mensagens').select('*', { count: 'exact', head: true }).eq('lida', false)),
+    contarTolerante(supabase.from('integracoes_mercado_livre_anuncios').select('*', { count: 'exact', head: true }).eq('conexao_id', conexaoId)),
+    contarTolerante(supabase.from('integracoes_mercado_livre_anuncios').select('*', { count: 'exact', head: true }).eq('conexao_id', conexaoId).eq('is_catalogo', true)),
+    contarTolerante(supabase.from('integracoes_mercado_livre_perguntas').select('*', { count: 'exact', head: true }).eq('conexao_id', conexaoId).eq('respondida', false)),
+    contarTolerante(supabase.from('integracoes_mercado_livre_mensagens').select('*', { count: 'exact', head: true }).eq('conexao_id', conexaoId).eq('lida', false)),
   ])
   return {
     anunciosImportados: importados,
@@ -38,11 +36,12 @@ export async function buscarVisaoGeral(): Promise<VisaoGeralML> {
 
 export type AnuncioSemEstoque = { titulo: string; codigoProduto: string | null; mlItemId: string }
 
-export async function buscarAnunciosSemEstoque(): Promise<AnuncioSemEstoque[]> {
+export async function buscarAnunciosSemEstoque(conexaoId: string): Promise<AnuncioSemEstoque[]> {
   const supabase = await createServiceClient()
   const anuncios = await fetchAll<{ ml_item_id: string; titulo_ml: string; produto_id: string | null }>((de, ate) =>
     supabase.from('integracoes_mercado_livre_anuncios')
       .select('ml_item_id, titulo_ml, produto_id')
+      .eq('conexao_id', conexaoId)
       .not('produto_id', 'is', null)
       .range(de, ate))
   if (anuncios.length === 0) return []
@@ -69,12 +68,12 @@ export async function buscarAnunciosSemEstoque(): Promise<AnuncioSemEstoque[]> {
 
 export type PontoFluxoVendas = { dia: string; faturamento: number; quantidade: number }
 
-export async function buscarFluxoVendas(): Promise<PontoFluxoVendas[]> {
+export async function buscarFluxoVendas(conexaoId: string): Promise<PontoFluxoVendas[]> {
   const supabase = await createServiceClient()
   const desde = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
   const vendas = await fetchAll<{ total: number; created_at: string }>((de, ate) =>
     supabase.from('vendas').select('total, created_at')
-      .not('ml_order_id', 'is', null).gte('created_at', desde).range(de, ate))
+      .eq('ml_conexao_id', conexaoId).gte('created_at', desde).range(de, ate))
 
   const porDia = new Map<string, { faturamento: number; quantidade: number }>()
   for (const v of vendas) {
@@ -91,10 +90,10 @@ export async function buscarFluxoVendas(): Promise<PontoFluxoVendas[]> {
 
 export type AnuncioMaisVendido = { titulo: string; mlItemId: string; quantidadeVendida: number }
 
-export async function buscarMaisVendidos(): Promise<AnuncioMaisVendido[]> {
+export async function buscarMaisVendidos(conexaoId: string): Promise<AnuncioMaisVendido[]> {
   const supabase = await createServiceClient()
   const vendas = await fetchAll<{ id: string }>((de, ate) =>
-    supabase.from('vendas').select('id').not('ml_order_id', 'is', null).range(de, ate))
+    supabase.from('vendas').select('id').eq('ml_conexao_id', conexaoId).range(de, ate))
   if (vendas.length === 0) return []
   const vendaIds = vendas.map((v) => v.id)
 
@@ -109,9 +108,12 @@ export async function buscarMaisVendidos(): Promise<AnuncioMaisVendido[]> {
   const produtoIds = [...somaPorProduto.keys()]
   if (produtoIds.length === 0) return []
 
+  // Filtra por conexao_id também: o mesmo produto pode estar anunciado em
+  // mais de uma conta agora — sem isso o título mostrado podia vir do
+  // anúncio errado.
   const anuncios = await fetchAllIn<{ ml_item_id: string; titulo_ml: string; produto_id: string | null }>(produtoIds, (chunk, de, ate) =>
     supabase.from('integracoes_mercado_livre_anuncios')
-      .select('ml_item_id, titulo_ml, produto_id').in('produto_id', chunk).range(de, ate))
+      .select('ml_item_id, titulo_ml, produto_id').eq('conexao_id', conexaoId).in('produto_id', chunk).range(de, ate))
 
   return anuncios
     .map((a) => ({
@@ -126,23 +128,17 @@ export async function buscarMaisVendidos(): Promise<AnuncioMaisVendido[]> {
 export type AnuncioAguardandoAjuste = { titulo: string; mlItemId: string; subStatus: string }
 
 // Consulta ao vivo na API, em lote (buscarDetalhesEmLote — até 20 por
-// chamada, ver lib/mercado-livre.ts). Um catálogo com centenas de anúncios
-// checado item por item estourava o tempo da function na Vercel.
-// Item em status 'under_review' com sub_status 'warning' ou
-// 'waiting_for_patch' é o que o Mercado Livre chama de "aguardando ajuste"
-// (item fica ativo com pendência de correção por até 2 dias antes de ser ocultado).
-export async function buscarAnunciosAguardandoAjuste(): Promise<AnuncioAguardandoAjuste[]> {
+// chamada, ver lib/mercado-livre.ts).
+export async function buscarAnunciosAguardandoAjuste(conexaoId: string): Promise<AnuncioAguardandoAjuste[]> {
   const supabase = await createServiceClient()
   const anuncios = await fetchAll<{ ml_item_id: string }>((de, ate) =>
-    supabase.from('integracoes_mercado_livre_anuncios').select('ml_item_id').range(de, ate))
+    supabase.from('integracoes_mercado_livre_anuncios').select('ml_item_id').eq('conexao_id', conexaoId).range(de, ate))
   if (anuncios.length === 0) return []
 
   let detalhes: Awaited<ReturnType<typeof buscarDetalhesEmLote>> = []
   try {
-    detalhes = await buscarDetalhesEmLote(anuncios.map((a) => a.ml_item_id))
+    detalhes = await buscarDetalhesEmLote(conexaoId, anuncios.map((a) => a.ml_item_id))
   } catch (e) {
-    // Falha geral (token, rede) não deve derrubar o Dashboard inteiro — painel
-    // fica vazio em vez de quebrar a página.
     console.error('Falha ao consultar status dos anúncios no Mercado Livre:', e)
     return []
   }
