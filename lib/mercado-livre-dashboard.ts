@@ -1,6 +1,6 @@
 import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server'
 import { diaSP } from '@/lib/utils'
-import { DEPOSITO_PETROPOLIS_LOJA } from '@/lib/mercado-livre'
+import { DEPOSITO_PETROPOLIS_LOJA, chamarML } from '@/lib/mercado-livre'
 
 export { DEPOSITO_PETROPOLIS_LOJA }
 
@@ -123,4 +123,33 @@ export async function buscarMaisVendidos(): Promise<AnuncioMaisVendido[]> {
     }))
     .sort((a, b) => b.quantidadeVendida - a.quantidadeVendida)
     .slice(0, 10)
+}
+
+type StatusItemML = { id: string; title: string; status: string; sub_status: string[] }
+
+export type AnuncioAguardandoAjuste = { titulo: string; mlItemId: string; subStatus: string }
+
+// Consulta ao vivo na API (sem cache — mesma decisão de volume da spec).
+// Item em status 'under_review' com sub_status 'warning' ou
+// 'waiting_for_patch' é o que o Mercado Livre chama de "aguardando ajuste"
+// (item fica ativo com pendência de correção por até 2 dias antes de ser ocultado).
+export async function buscarAnunciosAguardandoAjuste(): Promise<AnuncioAguardandoAjuste[]> {
+  const supabase = await createServiceClient()
+  const anuncios = await fetchAll<{ ml_item_id: string }>((de, ate) =>
+    supabase.from('integracoes_mercado_livre_anuncios').select('ml_item_id').range(de, ate))
+  if (anuncios.length === 0) return []
+
+  const resultado: AnuncioAguardandoAjuste[] = []
+  for (const a of anuncios) {
+    try {
+      const item = await chamarML<StatusItemML>(`/items/${a.ml_item_id}`)
+      if (item.status !== 'under_review') continue
+      const subStatus = item.sub_status.find((s) => s === 'warning' || s === 'waiting_for_patch')
+      if (subStatus) resultado.push({ titulo: item.title, mlItemId: item.id, subStatus })
+    } catch {
+      // um item falhar não deve derrubar o painel inteiro — ignora e segue os outros
+      continue
+    }
+  }
+  return resultado
 }

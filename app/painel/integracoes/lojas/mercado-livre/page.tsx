@@ -1,14 +1,16 @@
 import { formatBRL } from '@/lib/utils'
 import {
   buscarVisaoGeral, buscarAnunciosSemEstoque, buscarFluxoVendas, buscarMaisVendidos,
+  buscarAnunciosAguardandoAjuste,
 } from '@/lib/mercado-livre-dashboard'
 
 export default async function DashboardLojaMLPage() {
-  const [visao, semEstoque, fluxo, maisVendidos] = await Promise.all([
+  const [visao, semEstoque, fluxo, maisVendidos, aguardandoAjuste] = await Promise.all([
     buscarVisaoGeral(),
     buscarAnunciosSemEstoque(),
     buscarFluxoVendas(),
     buscarMaisVendidos(),
+    buscarAnunciosAguardandoAjuste(),
   ])
 
   const maxFaturamento = Math.max(1, ...fluxo.map((p) => p.faturamento))
@@ -79,6 +81,22 @@ export default async function DashboardLojaMLPage() {
               <li key={a.mlItemId} className="flex items-center justify-between py-2 text-sm">
                 <span className="text-gray-700">{a.titulo}</span>
                 <span className="text-gray-400">{a.codigoProduto ?? '—'}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <p className="mb-3 font-semibold text-gray-800">Anúncios Aguardando Ajuste Solicitado pelo Mercado Livre</p>
+        {aguardandoAjuste.length === 0 ? (
+          <p className="text-sm text-gray-400">Nenhum anúncio com pendência.</p>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {aguardandoAjuste.map((a) => (
+              <li key={a.mlItemId} className="flex items-center justify-between py-2 text-sm">
+                <span className="text-gray-700">{a.titulo}</span>
+                <span className="text-xs font-medium text-amber-600">{a.subStatus}</span>
               </li>
             ))}
           </ul>
