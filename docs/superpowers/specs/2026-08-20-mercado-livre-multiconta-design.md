@@ -79,6 +79,23 @@ create index if not exists idx_ml_perguntas_conexao on integracoes_mercado_livre
 create index if not exists idx_ml_mensagens_conexao on integracoes_mercado_livre_mensagens(conexao_id);
 ```
 
+`vendas` também precisa saber de qual conta veio — sem isso a aba "Minhas
+Vendas" de uma conexão específica não tem como filtrar as vendas dela
+(hoje só existe `ml_order_id`, que identifica o pedido no Mercado Livre,
+não de qual das nossas contas ele veio):
+
+```sql
+alter table vendas
+  add column if not exists ml_conexao_id uuid references integracoes_mercado_livre(id);
+create index if not exists idx_vendas_ml_conexao on vendas(ml_conexao_id) where ml_conexao_id is not null;
+```
+
+Nula pra toda venda que não veio do Mercado Livre (o `on delete cascade`
+das outras tabelas **não** se aplica aqui — não faz sentido apagar uma
+venda que já aconteceu de verdade só porque a conexão foi desconectada
+depois; por isso é `references` simples, sem cascade, e a coluna fica
+nula em vez de a linha sumir).
+
 `on delete cascade`: desconectar uma conta apaga os anúncios/pendências
 dela junto — comportamento já era esse no fluxo de "Desconectar" de hoje
 (o singleton sendo apagado deixava tudo órfão sem querer; agora fica
@@ -112,7 +129,10 @@ if (!conexao) return new Response('ok', { status: 200 }) // notificacao de conta
 
 `processarPedido`/`processarPergunta`/`processarMensagem` passam a receber
 essa `conexao` (não mais ler o singleton internamente) e gravar
-`conexao_id: conexao.id` em cada linha que criam.
+`conexao_id: conexao.id` em cada linha que criam. `processarPedido`
+especificamente grava `ml_conexao_id: conexao.id` também no
+`update` de `vendas` que já faz hoje (junto com `ml_order_id`) — mesmo
+UPDATE, um campo a mais.
 
 ### `tokenValido`/`conexaoAtual`: de zero-argumento pra por-conexão
 
@@ -143,6 +163,7 @@ receber ou descobrir o `conexaoId`, caso a caso:
 | Página de Anúncios do Catálogo | Mesmo — vem do `[conexaoId]` da URL |
 | `responderPerguntaML()` / `responderMensagemML()` | Parâmetro novo — a pergunta/mensagem, na caixa de entrada agregada, já carrega seu próprio `conexao_id` (veio junto no `select`), passa direto |
 | `sincronizarEstoqueML(produtoId)` | **Não muda de assinatura.** Ela já busca o anúncio pelo `produto_id` antes de chamar a API — esse anúncio agora vem com `conexao_id` junto no mesmo `select`, então descobre sozinha qual conexão usar sem o chamador (PDV, devolução, estoque) precisar saber nada sobre contas Mercado Livre |
+| `buscarVendasML()` | Ganha parâmetro opcional `conexaoId?: string` — sem ele, filtra só por `ml_order_id not null` (comportamento de hoje, usado por "Meus Pedidos" da Central de Integrações, que é agregado); com ele, soma `.eq('ml_conexao_id', conexaoId)`, usado pela aba "Minhas Vendas" de uma conta específica |
 | Webhook (`processarPedido`/`processarPergunta`/`processarMensagem`) | Já descoberto no passo de roteamento por `user_id` acima, passado direto |
 
 ## Parte 3 — Conectar sempre cria conta nova
@@ -183,7 +204,9 @@ sempre visível no topo.
 `app/painel/integracoes/lojas/mercado-livre/[conexaoId]/` — as 5 abas que
 já existem (Dashboard, Meus Anúncios, Minhas Vendas, Perguntas e
 Respostas, Anúncios do Catálogo) continuam idênticas, só que toda consulta
-dentro delas ganha `.eq('conexao_id', conexaoId)`. O layout que hoje
+dentro delas passa a filtrar por essa conexão (`conexao_id` nas tabelas de
+anúncios/perguntas, `ml_conexao_id` em `vendas` — ver tabela da Parte 2
+pra saber exatamente qual função ganha o quê). O layout que hoje
 resolve "tem conexão? não tem?" via singleton passa a resolver via esse id
 da URL (404/mensagem clara se o id não existir ou não pertencer a nenhuma
 conexão real).
