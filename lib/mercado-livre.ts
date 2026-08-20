@@ -105,7 +105,7 @@ export async function chamarML<T>(conexaoId: string, path: string, init: Request
   return resp.json() as Promise<T>
 }
 
-type BuscaItensResp = { results: string[]; paging: { total: number; offset: number; limit: number } }
+type BuscaItensResp = { results: string[]; scroll_id?: string; paging: { total: number; offset: number; limit: number } }
 export type ItemResp = {
   id: string
   title: string
@@ -139,17 +139,22 @@ export async function buscarDetalhesEmLote(conexaoId: string, ids: string[]): Pr
 // ou o atributo SELLER_SKU quando o custom field vem vazio — o Mercado Livre
 // migrou pra esse atributo em parte do catálogo).
 export async function buscarAnunciosDoVendedor(conexaoId: string, mlUserId: string) {
+  // A paginação normal (offset/limit) do ML recusa offset+limit acima de
+  // 1000 ("Invalid limit and offset values") — trava vendedores com
+  // catálogo grande. search_type=scan + scroll_id não tem esse teto: cada
+  // resposta devolve um scroll_id novo pra pedir a próxima página, até
+  // vir uma página vazia.
   const ids: string[] = []
-  let offset = 0
-  const limite = 50
+  let scrollId: string | undefined
   while (true) {
-    const pagina = await chamarML<BuscaItensResp>(
-      conexaoId, `/users/${mlUserId}/items/search?offset=${offset}&limit=${limite}`
-    )
+    const query = scrollId
+      ? `search_type=scan&scroll_id=${encodeURIComponent(scrollId)}`
+      : 'search_type=scan'
+    const pagina = await chamarML<BuscaItensResp>(conexaoId, `/users/${mlUserId}/items/search?${query}`)
     if (pagina.results.length === 0) break
     ids.push(...pagina.results)
-    offset += limite
-    if (offset >= pagina.paging.total) break
+    scrollId = pagina.scroll_id
+    if (!scrollId) break
   }
 
   const detalhes = await buscarDetalhesEmLote(conexaoId, ids)
