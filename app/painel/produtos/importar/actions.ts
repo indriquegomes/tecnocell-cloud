@@ -103,7 +103,7 @@ export async function conferirImportacao(formData: FormData): Promise<ResultadoC
   } catch {
     return {
       ok: false,
-      erros: ['Nao consegui ler o arquivo. Precisa ser .xlsx — se o SIGE exportou .xls ou .csv, abra no Excel e salve como "Pasta de Trabalho do Excel (.xlsx)".'],
+      erros: ['Nao consegui ler o arquivo. Precisa ser .xlsx — se o sistema antigo exportou .xls ou .csv, abra no Excel e salve como "Pasta de Trabalho do Excel (.xlsx)".'],
     }
   }
 
@@ -112,7 +112,7 @@ export async function conferirImportacao(formData: FormData): Promise<ResultadoC
     return {
       ok: false,
       erros: [
-        `A aba "${planilha.aba}" nao parece ser a exportacao de produtos do SIGE — faltam as colunas: ${faltando.join(', ')}.`,
+        `A aba "${planilha.aba}" nao parece ser a exportacao de produtos do sistema antigo — faltam as colunas: ${faltando.join(', ')}.`,
         planilha.abas.length > 1 ? `Abas do arquivo: ${planilha.abas.join(', ')}.` : 'O arquivo so tem uma aba.',
       ],
     }

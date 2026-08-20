@@ -103,7 +103,7 @@ export default async function EditarClientePage({
       <div>
         <h3 className="mb-2 text-sm font-semibold text-gray-500 uppercase tracking-wide">
           Histórico de compras
-          {comprasSige.length > 0 && <span className="ml-2 normal-case font-normal text-gray-400">· últimas {compras.length} (SIGE importado)</span>}
+          {comprasSige.length > 0 && <span className="ml-2 normal-case font-normal text-gray-400">· últimas {compras.length} (histórico importado)</span>}
         </h3>
         <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
           <table className="min-w-full divide-y divide-gray-100">

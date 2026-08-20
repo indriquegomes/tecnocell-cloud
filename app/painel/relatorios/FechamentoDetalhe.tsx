@@ -128,7 +128,7 @@ export function FechamentoDetalhe({
             <p className="text-base font-bold text-gray-900">🔍 Caixa {header.loja}</p>
             <p className="text-xs text-gray-500 mt-0.5">{dtBR(header.abriu)} → {header.fechou ? dtBR(header.fechou) : 'aberto'} · Operador: {header.operador}</p>
           </div>
-          <button onClick={imprimirDemonstrativo} title="Documento A4 no formato do SIGE"
+          <button onClick={imprimirDemonstrativo} title="Documento A4 no formato do sistema antigo"
             className="rounded-lg bg-[#1B6CA8] px-3 py-2 text-sm font-semibold text-white hover:bg-[#155a8a] transition">
             🖨️ Imprimir Demonstrativo
           </button>
