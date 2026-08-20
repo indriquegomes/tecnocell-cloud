@@ -32,6 +32,14 @@ export function hojeSP(offsetDias = 0): string {
   return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
 }
 
+// Data (YYYY-MM-DD) de um timestamp ISO qualquer, no fuso America/Sao_Paulo —
+// mesma lógica de hojeSP, mas pra converter um timestamp já existente (ex:
+// agrupar vendas por dia), não "agora". Nunca usar .slice(0,10) num ISO: isso
+// pega o dia em UTC, que vira o dia seguinte depois das 21h em SP.
+export function diaSP(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+}
+
 export function slugify(text: string): string {
   return text
     .toLowerCase()

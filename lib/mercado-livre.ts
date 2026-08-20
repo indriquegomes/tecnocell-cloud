@@ -129,7 +129,7 @@ export async function buscarAnunciosDoVendedor(mlUserId: string) {
   return itens
 }
 
-const DEPOSITO_PETROPOLIS_LOJA = '63d9054d59a9c829747233d4'
+export const DEPOSITO_PETROPOLIS_LOJA = '63d9054d59a9c829747233d4'
 
 // Chamar depois de QUALQUER mudança em estoque do depósito Petrópolis Loja
 // (venda de balcão, devolução, ajuste manual, venda do próprio Mercado
