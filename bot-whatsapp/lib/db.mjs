@@ -46,3 +46,8 @@ export const jaAvisouHoje = (loja, telefoneTruncado) =>
 export const marcaAvisoHoje = (loja, telefoneTruncado) =>
   q('insert or ignore into avisos_diarios (loja, telefone_truncado, dia) values (?, ?, ?)')
     .run(loja, telefoneTruncado, diaHoje())
+
+export function fechaBanco() {
+  try { db.exec('pragma wal_checkpoint(TRUNCATE);') } catch { /* nada */ }
+  try { db.close() } catch { /* nada */ }
+}

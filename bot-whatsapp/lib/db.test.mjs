@@ -7,7 +7,7 @@ const DB_TESTE = path.join(process.cwd(), 'bot-whatsapp', 'data', 'teste.db')
 fs.rmSync(DB_TESTE, { force: true })
 process.env.BOT_WHATSAPP_DB = DB_TESTE
 
-const { registraTroca, jaAvisouHoje, marcaAvisoHoje } = await import('./db.mjs')
+const { registraTroca, jaAvisouHoje, marcaAvisoHoje, fechaBanco } = await import('./db.mjs')
 
 test('registraTroca grava e nao derruba com campos ausentes', () => {
   registraTroca({ loja: 'petropolis', telefoneTruncado: '1234', pergunta: 'tem tela do note 12?', produtoBuscado: 'tela note 12', resultado: 'respondido', resposta: 'Sim, temos! R$ 120,00' })
@@ -22,4 +22,7 @@ test('aviso do dia: comeca falso, marca, vira verdadeiro, nao mistura loja/telef
   assert.equal(jaAvisouHoje('teresopolis', '1234'), false)
 })
 
-fs.rmSync(DB_TESTE, { force: true })
+test.after(() => {
+  fechaBanco()
+  fs.rmSync(DB_TESTE, { force: true })
+})
