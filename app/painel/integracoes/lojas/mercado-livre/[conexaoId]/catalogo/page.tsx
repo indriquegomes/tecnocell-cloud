@@ -4,25 +4,28 @@ import { chamarML } from '@/lib/mercado-livre'
 type AnuncioCatalogo = { ml_item_id: string; titulo_ml: string; catalog_product_id: string }
 type ProdutoCatalogo = { buy_box_winner: { item_id: string } | null }
 
-// Consulta a API do ML ao vivo, um item de catálogo por vez (sem multiget —
-// /products/{id} não tem lote como /items). 60s é o teto do plano Hobby.
 export const maxDuration = 60
 
-export default async function CatalogoMLPage() {
+export default async function CatalogoMLPage({
+  params,
+}: {
+  params: Promise<{ conexaoId: string }>
+}) {
+  const { conexaoId } = await params
   const supabase = await createServiceClient()
   const { data } = await supabase
     .from('integracoes_mercado_livre_anuncios')
     .select('ml_item_id, titulo_ml, catalog_product_id')
+    .eq('conexao_id', conexaoId)
     .eq('is_catalogo', true)
   const anuncios = (data ?? []) as AnuncioCatalogo[]
 
   // Sequencial, não Promise.all: cada chamarML pode disparar renovação de
-  // token, e o refresh_token do ML é de uso único — em paralelo, N chamadas
-  // corririam pra renovar o mesmo token e só uma venceria.
+  // token, e o refresh_token do ML é de uso único.
   const comStatus: (AnuncioCatalogo & { ganhando: boolean | null })[] = []
   for (const a of anuncios) {
     try {
-      const produto = await chamarML<ProdutoCatalogo>(`/products/${a.catalog_product_id}`)
+      const produto = await chamarML<ProdutoCatalogo>(conexaoId, `/products/${a.catalog_product_id}`)
       const ganhando = produto.buy_box_winner?.item_id === a.ml_item_id
       comStatus.push({ ...a, ganhando })
     } catch {

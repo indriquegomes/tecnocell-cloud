@@ -11,16 +11,19 @@ type AnuncioLinha = {
 }
 
 export default async function MeusAnunciosMLPage({
-  searchParams,
+  params, searchParams,
 }: {
+  params: Promise<{ conexaoId: string }>
   searchParams: Promise<{ busca?: string }>
 }) {
+  const { conexaoId } = await params
   const { busca } = await searchParams
   const supabase = await createServiceClient()
 
   let q = supabase
     .from('integracoes_mercado_livre_anuncios')
     .select('ml_item_id, titulo_ml, preco_ml, produto_id')
+    .eq('conexao_id', conexaoId)
     .order('titulo_ml')
 
   const termo = busca?.trim()
@@ -36,8 +39,8 @@ export default async function MeusAnunciosMLPage({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
-        <BuscaLista basePath="/painel/integracoes/lojas/mercado-livre/anuncios" placeholder="Buscar anúncio..." />
-        <ImportarAnunciosBotao />
+        <BuscaLista basePath={`/painel/integracoes/lojas/mercado-livre/${conexaoId}/anuncios`} placeholder="Buscar anúncio..." />
+        <ImportarAnunciosBotao conexaoId={conexaoId} />
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">

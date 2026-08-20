@@ -1,8 +1,13 @@
 import { buscarVendasML } from '@/lib/mercado-livre'
 import { formatBRL, formatDate } from '@/lib/utils'
 
-export default async function MinhasVendasMLPage() {
-  const { vendas, pendentes } = await buscarVendasML()
+export default async function MinhasVendasMLPage({
+  params,
+}: {
+  params: Promise<{ conexaoId: string }>
+}) {
+  const { conexaoId } = await params
+  const { vendas, pendentes } = await buscarVendasML(conexaoId)
 
   return (
     <div className="space-y-6">
