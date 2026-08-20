@@ -2,12 +2,15 @@ import { createServiceClient } from '@/lib/supabase/server'
 
 // Cliente da API do Mercado Livre. TUDO que fala com api.mercadolibre.com
 // passa por aqui — nunca lê access_token direto do banco em outro lugar.
-// Conexão é singleton (id sempre 'principal', ver migration).
+// Múltiplas contas podem estar conectadas ao mesmo tempo — toda função
+// que precisa de token recebe qual conexão usar como parâmetro, nunca
+// assume "a" conexão.
 
 const ML_API = 'https://api.mercadolibre.com'
 const ML_AUTH = 'https://auth.mercadolivre.com.br'
 
 export type ConexaoML = {
+  id: string
   ml_user_id: string
   ml_nickname: string | null
   expira_em: string
@@ -22,20 +25,29 @@ type LinhaConexao = {
   expira_em: string
 }
 
-export async function conexaoAtual(): Promise<ConexaoML | null> {
+export async function listarConexoes(): Promise<ConexaoML[]> {
   const supabase = await createServiceClient()
   const { data } = await supabase
     .from('integracoes_mercado_livre')
-    .select('ml_user_id, ml_nickname, expira_em')
-    .eq('id', 'principal')
+    .select('id, ml_user_id, ml_nickname, expira_em')
+    .order('conectado_em')
+  return (data ?? []) as ConexaoML[]
+}
+
+export async function buscarConexao(conexaoId: string): Promise<ConexaoML | null> {
+  const supabase = await createServiceClient()
+  const { data } = await supabase
+    .from('integracoes_mercado_livre')
+    .select('id, ml_user_id, ml_nickname, expira_em')
+    .eq('id', conexaoId)
     .maybeSingle()
   return (data as ConexaoML | null) ?? null
 }
 
-// Devolve um access_token válido, renovando via refresh_token se estiver a
-// menos de 5min de expirar. Lança erro se não houver conexão — quem chama
-// decide o que fazer (webhook grava pendência, tela mostra "conecte primeiro").
-export async function tokenValido(): Promise<string> {
+// Devolve um access_token válido pra ESSA conexão, renovando via
+// refresh_token se estiver a menos de 5min de expirar. Lança erro se a
+// conexão não existir — quem chama decide o que fazer.
+export async function tokenValido(conexaoId: string): Promise<string> {
   const clientId = process.env.MERCADOLIVRE_CLIENT_ID
   const clientSecret = process.env.MERCADOLIVRE_CLIENT_SECRET
   if (!clientId || !clientSecret) throw new Error('MERCADOLIVRE_CLIENT_ID/SECRET não configurados')
@@ -44,11 +56,11 @@ export async function tokenValido(): Promise<string> {
   const { data, error } = await supabase
     .from('integracoes_mercado_livre')
     .select('*')
-    .eq('id', 'principal')
+    .eq('id', conexaoId)
     .maybeSingle()
   if (error) throw new Error(`Falha ao ler conexão do Mercado Livre: ${error.message}`)
   const conexao = data as LinhaConexao | null
-  if (!conexao) throw new Error('Mercado Livre não está conectado')
+  if (!conexao) throw new Error('Conexão do Mercado Livre não encontrada')
 
   const expiraEm = new Date(conexao.expira_em).getTime()
   const cincoMinutos = 5 * 60 * 1000
@@ -75,15 +87,16 @@ export async function tokenValido(): Promise<string> {
     refresh_token: novo.refresh_token,
     expira_em: new Date(Date.now() + novo.expires_in * 1000).toISOString(),
     atualizado_em: new Date().toISOString(),
-  }).eq('id', 'principal')
+  }).eq('id', conexaoId)
   if (updateError) throw new Error(`Falha ao salvar token renovado do Mercado Livre: ${updateError.message}`)
 
   return novo.access_token
 }
 
-// Chamada genérica autenticada à API do Mercado Livre.
-export async function chamarML<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = await tokenValido()
+// Chamada genérica autenticada à API do Mercado Livre, sempre pra uma
+// conexão específica.
+export async function chamarML<T>(conexaoId: string, path: string, init: RequestInit = {}): Promise<T> {
+  const token = await tokenValido(conexaoId)
   const resp = await fetch(path.startsWith('http') ? path : `${ML_API}${path}`, {
     ...init,
     headers: { ...init.headers, Authorization: `Bearer ${token}` },
@@ -109,15 +122,12 @@ type MultigetResp = { code: number; body: ItemResp }[]
 
 // Pega os detalhes de até 20 anúncios numa chamada só (multiget da API do ML —
 // GET /items?ids=... — em vez de um GET /items/{id} por item). Pra um vendedor
-// com centenas de anúncios, um por um estourava o tempo da function na Vercel
-// (importar anúncios travava em "Importando..." pra sempre, e o painel de
-// "Aguardando Ajuste" do Dashboard tinha o mesmo problema). Reaproveitada
-// pelos dois — mesmo endpoint, só muda o que cada um lê do corpo do item.
-export async function buscarDetalhesEmLote(ids: string[]): Promise<ItemResp[]> {
+// com centenas de anúncios, um por um estourava o tempo da function na Vercel.
+export async function buscarDetalhesEmLote(conexaoId: string, ids: string[]): Promise<ItemResp[]> {
   const resultado: ItemResp[] = []
   for (let i = 0; i < ids.length; i += 20) {
     const lote = ids.slice(i, i + 20)
-    const respostas = await chamarML<MultigetResp>(`/items?ids=${lote.join(',')}`)
+    const respostas = await chamarML<MultigetResp>(conexaoId, `/items?ids=${lote.join(',')}`)
     for (const r of respostas) {
       if (r.code === 200) resultado.push(r.body)
     }
@@ -128,13 +138,13 @@ export async function buscarDetalhesEmLote(ids: string[]): Promise<ItemResp[]> {
 // Busca todos os anúncios ativos do vendedor e devolve o SKU (seller_custom_field,
 // ou o atributo SELLER_SKU quando o custom field vem vazio — o Mercado Livre
 // migrou pra esse atributo em parte do catálogo).
-export async function buscarAnunciosDoVendedor(mlUserId: string) {
+export async function buscarAnunciosDoVendedor(conexaoId: string, mlUserId: string) {
   const ids: string[] = []
   let offset = 0
   const limite = 50
   while (true) {
     const pagina = await chamarML<BuscaItensResp>(
-      `/users/${mlUserId}/items/search?offset=${offset}&limit=${limite}`
+      conexaoId, `/users/${mlUserId}/items/search?offset=${offset}&limit=${limite}`
     )
     if (pagina.results.length === 0) break
     ids.push(...pagina.results)
@@ -142,7 +152,7 @@ export async function buscarAnunciosDoVendedor(mlUserId: string) {
     if (offset >= pagina.paging.total) break
   }
 
-  const detalhes = await buscarDetalhesEmLote(ids)
+  const detalhes = await buscarDetalhesEmLote(conexaoId, ids)
   return detalhes.map((item) => {
     const skuAtributo = item.attributes?.find((a) => a.id === 'SELLER_SKU')?.value_name ?? null
     return {
@@ -161,19 +171,17 @@ export const DEPOSITO_PETROPOLIS_LOJA = '63d9054d59a9c829747233d4'
 // Chamar depois de QUALQUER mudança em estoque do depósito Petrópolis Loja
 // (venda de balcão, devolução, ajuste manual, venda do próprio Mercado
 // Livre). Fire-and-forget por design: nunca deixa uma falha na API do ML
-// derrubar a operação de estoque/venda que já aconteceu de verdade —
-// mesmo princípio já usado neste projeto pra escrita de caixa na
-// devolução (ver app/painel/devolucoes/actions.ts).
+// derrubar a operação de estoque/venda que já aconteceu de verdade.
+// Descobre sozinha qual conexão usar via o conexao_id do próprio anúncio
+// — quem chama (PDV, devolução, estoque) nunca precisa saber nada sobre
+// contas Mercado Livre.
 export async function sincronizarEstoqueML(produtoId: string): Promise<void> {
   try {
-    const conexao = await conexaoAtual()
-    if (!conexao) return // nao conectado, nada a fazer
-
     const supabase = await createServiceClient()
     const [{ data: anuncio }, { data: estoque }] = await Promise.all([
       supabase
         .from('integracoes_mercado_livre_anuncios')
-        .select('ml_item_id')
+        .select('ml_item_id, conexao_id')
         .eq('produto_id', produtoId)
         .maybeSingle(),
       supabase
@@ -183,10 +191,10 @@ export async function sincronizarEstoqueML(produtoId: string): Promise<void> {
         .eq('deposito_id', DEPOSITO_PETROPOLIS_LOJA)
         .maybeSingle(),
     ])
-    if (!anuncio) return // produto nao tem anuncio no ML, nada a fazer
+    if (!anuncio || !anuncio.conexao_id) return // produto nao tem anuncio no ML, nada a fazer
 
     const quantidade = Math.max(0, Math.round(estoque?.quantidade ?? 0))
-    await chamarML(`/items/${anuncio.ml_item_id}`, {
+    await chamarML(anuncio.conexao_id, `/items/${anuncio.ml_item_id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ available_quantity: quantidade }),
@@ -196,8 +204,8 @@ export async function sincronizarEstoqueML(produtoId: string): Promise<void> {
   }
 }
 
-export async function responderPerguntaML(mlQuestionId: string, texto: string): Promise<void> {
-  await chamarML('/answers', {
+export async function responderPerguntaML(conexaoId: string, mlQuestionId: string, texto: string): Promise<void> {
+  await chamarML(conexaoId, '/answers', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ question_id: Number(mlQuestionId), text: texto }),
@@ -206,23 +214,23 @@ export async function responderPerguntaML(mlQuestionId: string, texto: string): 
 
 type PackMensagensML = { messages: { from: { user_id: number } }[] }
 
-export async function responderMensagemML(packId: string, texto: string): Promise<void> {
+export async function responderMensagemML(conexaoId: string, packId: string, texto: string): Promise<void> {
   // packId vem de um argumento de server action fornecido pelo cliente —
   // valida antes de interpolar na URL do chamarML.
   if (!/^\d+$/.test(packId)) throw new Error('packId inválido')
 
-  const conexao = await conexaoAtual()
-  if (!conexao) throw new Error('Mercado Livre não está conectado')
+  const conexao = await buscarConexao(conexaoId)
+  if (!conexao) throw new Error('Conexão do Mercado Livre não encontrada')
 
   // A API de mensagens pós-venda exige `to.user_id` (o comprador) — não dá
   // pra descobrir sem buscar o pack. Mesma chamada que o webhook já usa.
   const pack = await chamarML<PackMensagensML>(
-    `/messages/packs/${packId}/sellers/${conexao.ml_user_id}?tag=post_sale&mark_as_read=false`
+    conexaoId, `/messages/packs/${packId}/sellers/${conexao.ml_user_id}?tag=post_sale&mark_as_read=false`
   )
   const mensagemDoComprador = pack.messages.find((m) => String(m.from.user_id) !== conexao.ml_user_id)
   if (!mensagemDoComprador) throw new Error('Não foi possível identificar o comprador deste pack de mensagens')
 
-  await chamarML(`/messages/packs/${packId}/sellers/${conexao.ml_user_id}?tag=post_sale`, {
+  await chamarML(conexaoId, `/messages/packs/${packId}/sellers/${conexao.ml_user_id}?tag=post_sale`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -256,24 +264,28 @@ export type VendaML = { id: string; numero: number; total: number; created_at: s
 export type PedidoPendenteML = { id: string; ml_order_id: string; motivo: string; criado_em: string; resolvido: boolean }
 
 // Vendas do Mercado Livre + pedidos pagos que finalizar_venda não conseguiu
-// processar (ver integracoes_mercado_livre_pedidos_pendentes). Usada tanto
-// em "Meus Pedidos" (Central de Integrações) quanto na aba "Minhas Vendas"
-// do dashboard desta loja — mesma consulta, um lugar só.
-export async function buscarVendasML(): Promise<{ vendas: VendaML[]; pendentes: PedidoPendenteML[] }> {
+// processar. Sem conexaoId: agregado de todas as contas (usado por "Meus
+// Pedidos" da Central de Integrações). Com conexaoId: só dessa conta
+// (usado pela aba "Minhas Vendas" do dashboard por conexão).
+export async function buscarVendasML(conexaoId?: string): Promise<{ vendas: VendaML[]; pendentes: PedidoPendenteML[] }> {
   const supabase = await createServiceClient()
-  const [{ data: vendas }, { data: pendentes }] = await Promise.all([
-    supabase
-      .from('vendas')
-      .select('id, numero, total, created_at, ml_order_id')
-      .not('ml_order_id', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(100),
-    supabase
-      .from('integracoes_mercado_livre_pedidos_pendentes')
-      .select('id, ml_order_id, motivo, criado_em, resolvido')
-      .eq('resolvido', false)
-      .order('criado_em', { ascending: false }),
-  ])
+
+  let vendasQuery = supabase
+    .from('vendas')
+    .select('id, numero, total, created_at, ml_order_id')
+    .not('ml_order_id', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(100)
+  if (conexaoId) vendasQuery = vendasQuery.eq('ml_conexao_id', conexaoId)
+
+  let pendentesQuery = supabase
+    .from('integracoes_mercado_livre_pedidos_pendentes')
+    .select('id, ml_order_id, motivo, criado_em, resolvido')
+    .eq('resolvido', false)
+    .order('criado_em', { ascending: false })
+  if (conexaoId) pendentesQuery = pendentesQuery.eq('conexao_id', conexaoId)
+
+  const [{ data: vendas }, { data: pendentes }] = await Promise.all([vendasQuery, pendentesQuery])
   return {
     vendas: (vendas ?? []) as VendaML[],
     pendentes: (pendentes ?? []) as PedidoPendenteML[],
