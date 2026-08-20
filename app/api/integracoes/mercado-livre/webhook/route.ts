@@ -34,22 +34,31 @@ export async function POST(req: NextRequest) {
   }
 
   // `resource` vem do corpo, que qualquer um pode forjar (ML não assina o
-  // payload — ver comentário acima). `chamarML` manda o token de acesso pra
-  // qualquer URL que comece com "http", então sem essa validação um resource
-  // tipo "https://attacker.example/x" vaza o token do Mercado Livre pro
-  // atacante. Qualquer coisa fora de RESOURCE_VALIDO é tratada como payload
-  // não confiável, mesmo esquema do corpo ilegível acima (200 silencioso,
-  // sem processar).
+  // payload). `chamarML` manda o token de acesso pra qualquer URL que
+  // comece com "http", então sem essa validação um resource tipo
+  // "https://attacker.example/x" vaza o token do Mercado Livre pro
+  // atacante. Qualquer coisa fora de RESOURCE_VALIDO é tratada como
+  // payload não confiável, mesmo esquema do corpo ilegível acima.
   if (!RESOURCE_VALIDO.test(body?.resource ?? '')) {
     return new Response('ok', { status: 200 })
   }
 
   const supabase = await createServiceClient()
 
+  // Roteamento por conta: o próprio Mercado Livre manda o user_id do
+  // vendedor dono do evento — usa isso pra achar qual das nossas
+  // conexões (pode ter várias agora) é a dona da notificação.
+  const { data: conexao } = await supabase
+    .from('integracoes_mercado_livre')
+    .select('id, ml_user_id')
+    .eq('ml_user_id', String(body.user_id))
+    .maybeSingle()
+  if (!conexao) return new Response('ok', { status: 200 }) // conta que a gente nao tem (ou desconectou)
+
   try {
-    if (body.topic === 'orders_v2') await processarPedido(supabase, body)
-    else if (body.topic === 'questions') await processarPergunta(supabase, body)
-    else if (body.topic === 'messages') await processarMensagem(supabase, body)
+    if (body.topic === 'orders_v2') await processarPedido(supabase, conexao.id, body)
+    else if (body.topic === 'questions') await processarPergunta(supabase, conexao.id, body)
+    else if (body.topic === 'messages') await processarMensagem(supabase, conexao, body)
     return new Response('ok', { status: 200 })
   } catch (e) {
     // Falha ao buscar o pedido na API do ML, token indisponível, etc. — não
@@ -63,9 +72,10 @@ export async function POST(req: NextRequest) {
 
 async function processarPedido(
   supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  conexaoId: string,
   body: Notificacao,
 ) {
-  const pedido = await chamarML<PedidoML>(body.resource)
+  const pedido = await chamarML<PedidoML>(conexaoId, body.resource)
   if (pedido.status !== 'paid') return
 
   const { data: jaExiste } = await supabase
@@ -91,7 +101,7 @@ async function processarPedido(
 
   const itemSemProduto = pedido.order_items.find((i) => !produtoPorItem.get(i.item.id))
   if (itemSemProduto) {
-    await registrarPendencia(supabase, pedido, 'Item sem produto correspondente cadastrado')
+    await registrarPendencia(supabase, conexaoId, pedido, 'Item sem produto correspondente cadastrado')
     return
   }
 
@@ -112,22 +122,27 @@ async function processarPedido(
   })
 
   if (error || !data) {
-    await registrarPendencia(supabase, pedido, error?.message ?? 'finalizar_venda retornou vazio')
+    await registrarPendencia(supabase, conexaoId, pedido, error?.message ?? 'finalizar_venda retornou vazio')
     return
   }
 
   // Sem UPDATE de caixa_id de propósito — venda do ML nunca entra na
-  // conferência de caixa físico (ver spec, Peça 3).
-  await supabase.from('vendas').update({ ml_order_id: String(pedido.id) }).eq('id', data.venda_id as string)
+  // conferência de caixa físico.
+  await supabase.from('vendas').update({
+    ml_order_id: String(pedido.id),
+    ml_conexao_id: conexaoId,
+  }).eq('id', data.venda_id as string)
 }
 
 async function registrarPendencia(
   supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  conexaoId: string,
   pedido: PedidoML,
   motivo: string
 ) {
   await supabase.from('integracoes_mercado_livre_pedidos_pendentes').insert({
     ml_order_id: String(pedido.id),
+    conexao_id: conexaoId,
     motivo,
     payload: pedido,
   })
@@ -135,18 +150,19 @@ async function registrarPendencia(
 
 async function processarPergunta(
   supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  conexaoId: string,
   body: Notificacao,
 ) {
-  const pergunta = await chamarML<PerguntaML>(body.resource)
+  const pergunta = await chamarML<PerguntaML>(conexaoId, body.resource)
   const { error } = await supabase.from('integracoes_mercado_livre_perguntas').upsert({
     ml_question_id: String(pergunta.id),
     ml_item_id: pergunta.item_id,
+    conexao_id: conexaoId,
     texto: pergunta.text,
     // Só manda `respondida: true` quando o ML confirma que foi respondida.
     // Se vier UNANSWERED, omite a chave — o status do ML é eventualmente
     // consistente, e uma notificação atrasada não pode sobrescrever
-    // `respondida: true` de uma pergunta que já respondemos aqui (senão ela
-    // volta a aparecer como pendente e responder de novo dá erro no ML).
+    // `respondida: true` de uma pergunta que já respondemos aqui.
     ...(pergunta.status !== 'UNANSWERED' ? { respondida: true } : {}),
   }, { onConflict: 'ml_question_id' })
   if (error) console.error(`Falha ao salvar pergunta ${pergunta.id} do Mercado Livre:`, error)
@@ -154,6 +170,7 @@ async function processarPergunta(
 
 async function processarMensagem(
   supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  conexao: { id: string; ml_user_id: string },
   body: Notificacao,
 ) {
   // body.resource pro topic 'messages' é algo como
@@ -161,15 +178,8 @@ async function processarMensagem(
   const packId = body.resource.split('/packs/')[1]?.split('/')[0]
   if (!packId) return
 
-  const { data: conexao } = await supabase
-    .from('integracoes_mercado_livre')
-    .select('ml_user_id')
-    .eq('id', 'principal')
-    .maybeSingle()
-  if (!conexao) return
-
   const pack = await chamarML<PackMensagensML>(
-    `/messages/packs/${packId}/sellers/${conexao.ml_user_id}?tag=post_sale&mark_as_read=false`
+    conexao.id, `/messages/packs/${packId}/sellers/${conexao.ml_user_id}?tag=post_sale&mark_as_read=false`
   )
 
   for (const msg of pack.messages) {
@@ -177,17 +187,12 @@ async function processarMensagem(
     const { error } = await supabase.from('integracoes_mercado_livre_mensagens').upsert({
       ml_message_id: msg.message_id,
       ml_pack_id: packId,
+      conexao_id: conexao.id,
       autor,
       texto: msg.text.plain,
-      // Mesmo caso de processarPergunta acima: ML re-notifica e esta função
-      // refaz o pack inteiro a cada notificação. Se mandasse `lida: false`
-      // sempre que autor === 'comprador', uma mensagem já lida aqui voltava a
-      // aparecer como não lida a cada re-notificação. Omite a chave nesse
-      // caso — on conflict preserva o valor atual, e num insert novo o
-      // default `false` da coluna cobre o caso real de mensagem não lida.
+      // Mesmo caso de processarPergunta acima.
       ...(autor === 'vendedor' ? { lida: true } : {}),
     }, { onConflict: 'ml_message_id' })
-    // Uma mensagem falhar não deve derrubar as outras do mesmo pack — loga e segue.
     if (error) console.error(`Falha ao salvar mensagem ${msg.message_id} do pack ${packId}:`, error)
   }
 }
