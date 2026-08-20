@@ -54,7 +54,11 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
       if (!elegivel(msg)) continue
       const texto = textoDaMensagem(msg)
       if (!texto) continue
-      await processaMensagem(sock, { slug, depositoId }, msg.key.remoteJid, texto)
+      try {
+        await processaMensagem(sock, { slug, depositoId }, msg.key.remoteJid, texto)
+      } catch (e) {
+        console.error(`[${slug}] falha ao processar mensagem:`, e?.message || e) // não deixa uma mensagem derrubar a sessão inteira
+      }
     }
   })
 }
