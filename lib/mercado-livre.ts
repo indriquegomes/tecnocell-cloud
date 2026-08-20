@@ -178,12 +178,11 @@ export const DEPOSITO_PETROPOLIS_LOJA = '63d9054d59a9c829747233d4'
 export async function sincronizarEstoqueML(produtoId: string): Promise<void> {
   try {
     const supabase = await createServiceClient()
-    const [{ data: anuncio }, { data: estoque }] = await Promise.all([
+    const [{ data: anuncios }, { data: estoque }] = await Promise.all([
       supabase
         .from('integracoes_mercado_livre_anuncios')
         .select('ml_item_id, conexao_id')
-        .eq('produto_id', produtoId)
-        .maybeSingle(),
+        .eq('produto_id', produtoId),
       supabase
         .from('estoque')
         .select('quantidade')
@@ -191,14 +190,23 @@ export async function sincronizarEstoqueML(produtoId: string): Promise<void> {
         .eq('deposito_id', DEPOSITO_PETROPOLIS_LOJA)
         .maybeSingle(),
     ])
-    if (!anuncio || !anuncio.conexao_id) return // produto nao tem anuncio no ML, nada a fazer
+    if (!anuncios || anuncios.length === 0) return // produto nao tem anuncio no ML, nada a fazer
 
     const quantidade = Math.max(0, Math.round(estoque?.quantidade ?? 0))
-    await chamarML(anuncio.conexao_id, `/items/${anuncio.ml_item_id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ available_quantity: quantidade }),
-    })
+    // Mesmo produto pode estar anunciado em varias contas ML ao mesmo tempo
+    // (o motivo de existir esse plano de multiconta) — atualiza o estoque em
+    // CADA anuncio, nao so no primeiro.
+    for (const anuncio of anuncios) {
+      if (!anuncio.conexao_id) {
+        console.error(`Anuncio ML ${anuncio.ml_item_id} do produto ${produtoId} sem conexao_id — pulando`)
+        continue
+      }
+      await chamarML(anuncio.conexao_id, `/items/${anuncio.ml_item_id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ available_quantity: quantidade }),
+      })
+    }
   } catch (e) {
     console.error(`Falha ao sincronizar estoque do produto ${produtoId} com o Mercado Livre:`, e)
   }
