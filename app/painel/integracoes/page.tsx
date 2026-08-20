@@ -2,11 +2,10 @@ import { IconIntegracao } from '@/components/icons'
 import { Dica } from '@/components/Dica'
 import { BotaoIndisponivel } from '@/components/BotaoIndisponivel'
 import { PLATAFORMAS } from '@/lib/integracoes'
-import { conexaoAtual } from '@/lib/mercado-livre'
-import { desconectarMercadoLivre } from './actions'
+import { listarConexoes } from '@/lib/mercado-livre'
 
 export default async function IntegracoesDashboardPage() {
-  const conexaoML = await conexaoAtual()
+  const conexoes = await listarConexoes()
 
   return (
     <div className="space-y-6">
@@ -19,13 +18,14 @@ export default async function IntegracoesDashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {PLATAFORMAS.map((p) => {
           const isML = p.chave === 'mercado-livre'
+          const temConexao = isML && conexoes.length > 0
           return (
             <div key={p.chave} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="font-semibold text-gray-800">{p.nome}</p>
-                {isML && conexaoML ? (
+                {temConexao ? (
                   <span className="inline-flex shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                    Conectado
+                    {conexoes.length} conta{conexoes.length > 1 ? 's' : ''}
                   </span>
                 ) : (
                   <span className="inline-flex shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
@@ -33,19 +33,10 @@ export default async function IntegracoesDashboardPage() {
                   </span>
                 )}
               </div>
-              {isML && conexaoML ? (
-                <div className="space-y-2">
-                  <p className="text-xs text-gray-500">Conectado como <strong>{conexaoML.ml_nickname ?? conexaoML.ml_user_id}</strong></p>
-                  <form action={desconectarMercadoLivre}>
-                    <button type="submit" className="w-full rounded-xl border border-red-200 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 transition">
-                      Desconectar
-                    </button>
-                  </form>
-                </div>
-              ) : isML ? (
-                <a href="/api/integracoes/mercado-livre/autorizar"
+              {isML ? (
+                <a href="/painel/integracoes/lojas"
                   className="block w-full rounded-xl border border-blue-200 py-2 text-center text-sm font-semibold text-blue-600 hover:bg-blue-50 transition">
-                  Conectar
+                  {temConexao ? 'Gerenciar contas' : 'Conectar'}
                 </a>
               ) : (
                 <BotaoIndisponivel

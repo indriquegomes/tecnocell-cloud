@@ -1,7 +1,7 @@
 'use server'
 
 import { createServiceClient, requirePermissao, fetchAll } from '@/lib/supabase/server'
-import { buscarAnunciosDoVendedor, conexaoAtual } from '@/lib/mercado-livre'
+import { buscarAnunciosDoVendedor, buscarConexao } from '@/lib/mercado-livre'
 import { revalidatePath } from 'next/cache'
 
 // Um catálogo grande ainda pode levar mais que o padrão da Vercel mesmo
@@ -9,14 +9,14 @@ import { revalidatePath } from 'next/cache'
 // seguro que funciona em qualquer plano sem dar erro de configuração.
 export const maxDuration = 60
 
-export async function importarAnuncios() {
+export async function importarAnuncios(conexaoId: string) {
   await requirePermissao('integracoes')
-  const conexao = await conexaoAtual()
-  if (!conexao) return { ok: false, casados: 0, semCorrespondencia: 0, erro: 'Mercado Livre não está conectado.' }
+  const conexao = await buscarConexao(conexaoId)
+  if (!conexao) return { ok: false, casados: 0, semCorrespondencia: 0, erro: 'Conexão não encontrada.' }
 
   const supabase = await createServiceClient()
   const [anuncios, produtos] = await Promise.all([
-    buscarAnunciosDoVendedor(conexao.ml_user_id),
+    buscarAnunciosDoVendedor(conexaoId, conexao.ml_user_id),
     fetchAll<{ id: string; codigo: string | null }>((de, ate) =>
       supabase.from('produtos').select('id, codigo').range(de, ate)),
   ])
@@ -33,6 +33,7 @@ export async function importarAnuncios() {
     else semCorrespondencia++
     return {
       ml_item_id: a.ml_item_id,
+      conexao_id: conexaoId,
       produto_id: produtoId,
       titulo_ml: a.titulo,
       preco_ml: a.preco,
@@ -51,4 +52,12 @@ export async function importarAnuncios() {
 
   revalidatePath('/painel/integracoes/lojas')
   return { ok: true, casados, semCorrespondencia }
+}
+
+export async function desconectarMercadoLivre(conexaoId: string) {
+  await requirePermissao('integracoes')
+  const supabase = await createServiceClient()
+  await supabase.from('integracoes_mercado_livre').delete().eq('id', conexaoId)
+  revalidatePath('/painel/integracoes')
+  revalidatePath('/painel/integracoes/lojas')
 }

@@ -1,41 +1,52 @@
-import { IconStore } from '@/components/icons'
+import { IconStore, IconPlus } from '@/components/icons'
 import { Dica } from '@/components/Dica'
-import { BotaoIndisponivel } from '@/components/BotaoIndisponivel'
-import { conexaoAtual } from '@/lib/mercado-livre'
+import { listarConexoes } from '@/lib/mercado-livre'
 import { ImportarAnunciosBotao } from './ImportarAnunciosBotao'
+import { desconectarMercadoLivre } from './actions'
 
 export default async function IntegracoesLojasPage() {
-  const conexaoML = await conexaoAtual()
+  const conexoes = await listarConexoes()
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <IconStore className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
-        <h2 className="text-2xl font-bold text-gray-900">Minhas Lojas</h2>
-        <Dica texto="Lojas virtuais e marketplaces conectados. Cada loja conectada mostra anúncios, vendas, perguntas e catálogo — só depois de conectada de verdade." />
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <IconStore className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
+          <h2 className="text-2xl font-bold text-gray-900">Minhas Lojas</h2>
+          <Dica texto="Contas Mercado Livre conectadas. Cada uma mostra anúncios, vendas, perguntas e catálogo próprios — pode conectar quantas contas precisar." />
+        </div>
+        <a href="/api/integracoes/mercado-livre/autorizar"
+          className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
+          <IconPlus className="h-4 w-4" /> Conectar Mercado Livre
+        </a>
       </div>
 
-      {conexaoML ? (
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <a href="/painel/integracoes/lojas/mercado-livre" className="font-semibold text-gray-800 hover:text-blue-600 hover:underline">
-                Mercado Livre
-              </a>
-              <p className="text-sm text-gray-500">Conectado como {conexaoML.ml_nickname ?? conexaoML.ml_user_id}</p>
-            </div>
-            <span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Ativo</span>
-          </div>
-          <div className="mt-4">
-            <ImportarAnunciosBotao />
-          </div>
+      {conexoes.length === 0 ? (
+        <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center shadow-sm">
+          <p className="text-sm text-gray-500">Nenhuma conta conectada ainda.</p>
         </div>
       ) : (
-        <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center shadow-sm">
-          <p className="text-sm text-gray-500">Nenhuma loja conectada ainda.</p>
-          <div className="mt-4 flex justify-center">
-            <BotaoIndisponivel label="+ Adicionar Loja" />
-          </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {conexoes.map((c) => (
+            <div key={c.id} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <a href={`/painel/integracoes/lojas/mercado-livre/${c.id}`}
+                    className="font-semibold text-gray-800 hover:text-blue-600 hover:underline">
+                    Mercado Livre
+                  </a>
+                  <p className="text-sm text-gray-500">Conectado como {c.ml_nickname ?? c.ml_user_id}</p>
+                </div>
+                <span className="inline-flex shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Ativo</span>
+              </div>
+              <ImportarAnunciosBotao conexaoId={c.id} />
+              <form action={desconectarMercadoLivre.bind(null, c.id)}>
+                <button type="submit" className="w-full rounded-xl border border-red-200 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 transition">
+                  Desconectar
+                </button>
+              </form>
+            </div>
+          ))}
         </div>
       )}
     </div>

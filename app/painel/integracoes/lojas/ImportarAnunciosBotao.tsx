@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { importarAnuncios } from './actions'
 
-export function ImportarAnunciosBotao() {
+export function ImportarAnunciosBotao({ conexaoId }: { conexaoId: string }) {
   const router = useRouter()
   const [carregando, setCarregando] = useState(false)
   const [mensagem, setMensagem] = useState('')
@@ -13,7 +13,7 @@ export function ImportarAnunciosBotao() {
     setCarregando(true)
     setMensagem('')
     try {
-      const res = await importarAnuncios()
+      const res = await importarAnuncios(conexaoId)
       setMensagem(
         res.ok
           ? `${res.casados} anúncio(s) casado(s) com produto, ${res.semCorrespondencia} sem correspondência.`
