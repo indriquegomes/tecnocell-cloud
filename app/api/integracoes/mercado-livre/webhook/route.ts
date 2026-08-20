@@ -179,7 +179,13 @@ async function processarMensagem(
       ml_pack_id: packId,
       autor,
       texto: msg.text.plain,
-      lida: autor === 'vendedor', // mensagem do próprio vendedor não conta como não lida
+      // Mesmo caso de processarPergunta acima: ML re-notifica e esta função
+      // refaz o pack inteiro a cada notificação. Se mandasse `lida: false`
+      // sempre que autor === 'comprador', uma mensagem já lida aqui voltava a
+      // aparecer como não lida a cada re-notificação. Omite a chave nesse
+      // caso — on conflict preserva o valor atual, e num insert novo o
+      // default `false` da coluna cobre o caso real de mensagem não lida.
+      ...(autor === 'vendedor' ? { lida: true } : {}),
     }, { onConflict: 'ml_message_id' })
   }
 }

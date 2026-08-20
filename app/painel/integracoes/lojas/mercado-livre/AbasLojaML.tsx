@@ -9,6 +9,7 @@ const ABAS = [
   { href: '/painel/integracoes/lojas/mercado-livre/anuncios',    label: 'Meus Anúncios' },
   { href: '/painel/integracoes/lojas/mercado-livre/vendas',      label: 'Minhas Vendas' },
   { href: '/painel/integracoes/lojas/mercado-livre/perguntas',   label: 'Perguntas e Respostas' },
+  { href: '/painel/integracoes/lojas/mercado-livre/mensagens',   label: 'Mensagens' },
   { href: '/painel/integracoes/lojas/mercado-livre/catalogo',    label: 'Anúncios do Catálogo' },
 ]
 

@@ -184,13 +184,28 @@ export async function responderPerguntaML(mlQuestionId: string, texto: string): 
   })
 }
 
+type PackMensagensML = { messages: { from: { user_id: number } }[] }
+
 export async function responderMensagemML(packId: string, texto: string): Promise<void> {
   const conexao = await conexaoAtual()
   if (!conexao) throw new Error('Mercado Livre não está conectado')
+
+  // A API de mensagens pós-venda exige `to.user_id` (o comprador) — não dá
+  // pra descobrir sem buscar o pack. Mesma chamada que o webhook já usa.
+  const pack = await chamarML<PackMensagensML>(
+    `/messages/packs/${packId}/sellers/${conexao.ml_user_id}?tag=post_sale&mark_as_read=false`
+  )
+  const mensagemDoComprador = pack.messages.find((m) => String(m.from.user_id) !== conexao.ml_user_id)
+  if (!mensagemDoComprador) throw new Error('Não foi possível identificar o comprador deste pack de mensagens')
+
   await chamarML(`/messages/packs/${packId}/sellers/${conexao.ml_user_id}?tag=post_sale`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: { user_id: Number(conexao.ml_user_id) }, text: texto }),
+    body: JSON.stringify({
+      from: { user_id: Number(conexao.ml_user_id) },
+      to: { user_id: mensagemDoComprador.from.user_id },
+      text: texto,
+    }),
   })
 }
 

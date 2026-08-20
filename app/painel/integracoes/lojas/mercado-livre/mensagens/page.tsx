@@ -9,8 +9,12 @@ export default async function MensagensMLPage() {
   const { data } = await supabase
     .from('integracoes_mercado_livre_mensagens')
     .select('id, ml_pack_id, autor, texto, lida, criado_em')
-    .order('criado_em', { ascending: true })
-  const mensagens = (data ?? []) as MensagemLinha[]
+    .order('criado_em', { ascending: false })
+    .limit(300)
+  // Busca as 300 mais recentes (senão o corte de 1000 linhas do Supabase
+  // prende a tela nas conversas mais ANTIGAS); reverte pra exibir cada
+  // conversa da mais antiga pra mais nova, como leitura normal de chat.
+  const mensagens = ((data ?? []) as MensagemLinha[]).reverse()
 
   const porPack = new Map<string, MensagemLinha[]>()
   for (const m of mensagens) {
