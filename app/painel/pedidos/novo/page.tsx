@@ -10,7 +10,11 @@ export default async function NovoPedidoPage({ searchParams }: { searchParams: P
   const [{ data: depositos }, { data: tabelas }, { data: formas }] = await Promise.all([
     supabase.from('depositos').select('id, nome').order('nome'),
     supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).order('nome'),
-    supabase.from('formas_pagamento').select('id, nome').eq('ativo', true).order('nome'),
+    // marketplace (Mercado Livre) fica de fora: faturar um pedido chama
+    // finalizar_venda direto com essa forma_pagamento_id (ver actions.ts) — se
+    // pudesse escolher aqui, um pedido de balcão viraria venda "paga pelo
+    // Mercado Livre" sem ter passado por lá.
+    supabase.from('formas_pagamento').select('id, nome').eq('ativo', true).neq('tipo', 'marketplace').order('nome'),
   ])
 
   return (

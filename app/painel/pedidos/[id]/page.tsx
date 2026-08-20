@@ -23,7 +23,9 @@ export default async function PedidoDetalhePage({
       .eq('pedido_id', id),
     fetchAll((from, to) => supabase.from('produtos').select('id, nome, preco').eq('ativo', true).order('nome').range(from, to)),
     supabase.from('depositos').select('id, nome').order('nome'),
-    supabase.from('formas_pagamento').select('id, nome').eq('ativo', true).order('nome'),
+    // marketplace (Mercado Livre) fica de fora — mesmo motivo de pedidos/novo:
+    // faturar chama finalizar_venda direto com essa forma_pagamento_id.
+    supabase.from('formas_pagamento').select('id, nome').eq('ativo', true).neq('tipo', 'marketplace').order('nome'),
   ])
 
   if (!pedido) notFound()

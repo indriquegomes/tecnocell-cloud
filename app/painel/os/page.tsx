@@ -19,7 +19,10 @@ export default async function OSPage({
     supabase.from('perfis').select('id, nome').not('nome', 'is', null).order('nome'),
     supabase.from('checklists_modelo').select('id, nome').eq('ativo', true).order('nome'),
     supabase.from('lojas').select('id, nome').order('nome'),
-    supabase.from('formas_pagamento').select('nome').eq('ativo', true).neq('tipo', 'fiado').order('nome'),
+    // marketplace (Mercado Livre) fica de fora: é dinheiro que o marketplace já
+    // recebeu por fora, gravado só pelo webhook — nunca uma forma que o
+    // técnico escolhe manualmente ao receber uma OS no balcão.
+    supabase.from('formas_pagamento').select('nome').eq('ativo', true).neq('tipo', 'fiado').neq('tipo', 'marketplace').order('nome'),
   ])
   const tecnicos = (tecnicosData ?? []) as { id: string; nome: string }[]
   const modelosChecklist = (modelosData ?? []) as { id: string; nome: string }[]

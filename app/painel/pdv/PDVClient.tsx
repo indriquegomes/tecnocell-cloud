@@ -565,8 +565,14 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   // linhas — mas SÓ quando o cliente tem saldo: sem saldo é um botão morto que só gera
   // "por que não deixa clicar". Na hora de finalizar, as linhas de vale são separadas e
   // viram o parâmetro de crédito do RPC (ver handleFinalizar).
+  //
+  // Marketplace (FP_MERCADOLIVRE) nunca aparece aqui: é dinheiro que o Mercado Livre já
+  // recebeu por fora, gravado só pelo webhook (ver app/api/integracoes/mercado-livre/webhook).
+  // Se aparecesse no grid, o caixa podia marcar uma venda de balcão como "paga pelo Mercado
+  // Livre" sem receber nada de verdade — a venda fecha como paga, conta como faturamento e
+  // não aparece na gaveta pra ninguém notar a falta.
   const formasVisiveis = formas.filter((f) =>
-    (!f.loja_id || f.loja_id === lojaId) && (f.tipo !== 'vale_credito' || saldoCredito > 0.01))
+    (!f.loja_id || f.loja_id === lojaId) && (f.tipo !== 'vale_credito' || saldoCredito > 0.01) && f.tipo !== 'marketplace')
   // Formas que servem pra RECEBER (fiado, OS). Fora: fiado (receber fiado com fiado não
   // faz sentido) e vale (abate saldo do cliente numa venda, não é dinheiro entrando num
   // recebimento — e escolhê-lo lá não debitaria saldo nenhum).

@@ -38,7 +38,9 @@ const fmtDate = (d: string) => new Date(d).toLocaleString('pt-BR', { timeZone: '
 const fmtHora = (d: string) =>
   new Date(d).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
 
-const FORMAS_INVALIDAS = ['Crédito Loja (Fiado)', 'Crediário', 'Crédito Loja']
+// Mercado Livre entra aqui pelo mesmo motivo do fiado: reforço/retirada é
+// movimento manual da gaveta física, e essa forma só existe pro webhook usar.
+const FORMAS_INVALIDAS = ['Crédito Loja (Fiado)', 'Crediário', 'Crédito Loja', 'Mercado Livre']
 
 // Cada tipo de pagamento tem uma cor fixa no fechamento — o operador aprende a
 // reconhecer de relance (verde = gaveta, azul = PIX, roxo = maquininha, âmbar = dívida).
