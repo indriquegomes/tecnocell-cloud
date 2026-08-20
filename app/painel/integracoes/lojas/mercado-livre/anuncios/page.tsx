@@ -1,4 +1,4 @@
-import { createServiceClient, fetchAllIn } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server'
 import { formatBRL } from '@/lib/utils'
 import { BuscaLista } from '@/components/BuscaLista'
 import { ImportarAnunciosBotao } from '@/app/painel/integracoes/lojas/ImportarAnunciosBotao'
@@ -26,8 +26,7 @@ export default async function MeusAnunciosMLPage({
   const termo = busca?.trim()
   if (termo) q = q.ilike('titulo_ml', `%${termo}%`)
 
-  const { data } = await q
-  const anuncios = (data ?? []) as AnuncioLinha[]
+  const anuncios = await fetchAll<AnuncioLinha>((de, ate) => q.range(de, ate))
 
   const produtoIds = anuncios.map((a) => a.produto_id).filter((id): id is string => !!id)
   const produtos = await fetchAllIn<{ id: string; codigo: string | null }>(produtoIds, (chunk, de, ate) =>
