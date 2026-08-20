@@ -73,3 +73,6 @@ supabase/.temp/
 # extras que o superpowers jogou dentro da minha skill systematic-debugging
 .claude/skills/systematic-debugging/*
 !.claude/skills/systematic-debugging/SKILL.md
+
+# bot-whatsapp: sessão do WhatsApp e banco de log local — nunca versionar
+bot-whatsapp/data/
