@@ -1,23 +1,15 @@
 import { buscarVendasML } from '@/lib/mercado-livre'
 import { formatBRL, formatDate } from '@/lib/utils'
-import { IconClipboard } from '@/components/icons'
-import { Dica } from '@/components/Dica'
 
-export default async function IntegracoesPedidosPage() {
+export default async function MinhasVendasMLPage() {
   const { vendas, pendentes } = await buscarVendasML()
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <IconClipboard className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
-        <h2 className="text-2xl font-bold text-gray-900">Meus Pedidos</h2>
-        <Dica texto="Pedidos importados das lojas/marketplaces conectados." />
-      </div>
-
       {pendentes.length > 0 && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 space-y-2">
           <p className="text-sm font-semibold text-amber-800">
-            {pendentes.length} pedido(s) do Mercado Livre precisam de revisão manual
+            {pendentes.length} pedido(s) precisam de revisão manual
           </p>
           <ul className="space-y-1 text-sm text-amber-700">
             {pendentes.map((p) => (
@@ -39,7 +31,7 @@ export default async function IntegracoesPedidosPage() {
           </thead>
           <tbody className="divide-y divide-gray-50">
             {vendas.length === 0 ? (
-              <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">Nenhum pedido — conecte uma loja pra importar pedidos.</td></tr>
+              <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">Nenhuma venda ainda.</td></tr>
             ) : vendas.map((v) => (
               <tr key={v.id} className="hover:bg-blue-50/60 transition">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{v.ml_order_id}</td>

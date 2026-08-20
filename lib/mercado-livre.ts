@@ -182,3 +182,31 @@ export function urlAutorizacao(state: string, codeChallenge: string, redirectUri
   })
   return `${ML_AUTH}/authorization?${params.toString()}`
 }
+
+export type VendaML = { id: string; numero: number; total: number; created_at: string; ml_order_id: string }
+export type PedidoPendenteML = { id: string; ml_order_id: string; motivo: string; criado_em: string; resolvido: boolean }
+
+// Vendas do Mercado Livre + pedidos pagos que finalizar_venda não conseguiu
+// processar (ver integracoes_mercado_livre_pedidos_pendentes). Usada tanto
+// em "Meus Pedidos" (Central de Integrações) quanto na aba "Minhas Vendas"
+// do dashboard desta loja — mesma consulta, um lugar só.
+export async function buscarVendasML(): Promise<{ vendas: VendaML[]; pendentes: PedidoPendenteML[] }> {
+  const supabase = await createServiceClient()
+  const [{ data: vendas }, { data: pendentes }] = await Promise.all([
+    supabase
+      .from('vendas')
+      .select('id, numero, total, created_at, ml_order_id')
+      .not('ml_order_id', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(100),
+    supabase
+      .from('integracoes_mercado_livre_pedidos_pendentes')
+      .select('id, ml_order_id, motivo, criado_em, resolvido')
+      .eq('resolvido', false)
+      .order('criado_em', { ascending: false }),
+  ])
+  return {
+    vendas: (vendas ?? []) as VendaML[],
+    pendentes: (pendentes ?? []) as PedidoPendenteML[],
+  }
+}
