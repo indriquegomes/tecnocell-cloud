@@ -6,7 +6,17 @@
 
 **Architecture:** Pasta nova `bot-whatsapp/`, irmã de `bot/` (bot de comprovantes que já existe), mesmo padrão: processo Node local com `.mjs`, não Vercel. Cada mensagem individual recebida passa por uma classificação com Claude Haiku ("é pergunta de produto? qual?"); se for, busca no Supabase (mesma lógica de busca sem acento já usada no painel) e responde; se não for, o bot ignora e não loga nada.
 
-**Tech Stack:** Node 24 (`node:sqlite` nativo), `@whiskeysockets/baileys` (WhatsApp via QR code), `@anthropic-ai/sdk` (já é dependência), `@supabase/supabase-js` (já é dependência, cliente direto — não o `lib/supabase/server.ts`, que depende de `next/headers` e só funciona dentro do Next.js).
+**Tech Stack:** Node 24 (`node:sqlite` nativo), `@whiskeysockets/baileys` (WhatsApp via QR code), DeepSeek via `fetch` puro (API compatível com formato OpenAI, sem SDK novo — ver nota na Task 4), `@supabase/supabase-js` (já é dependência, cliente direto — não o `lib/supabase/server.ts`, que depende de `next/headers` e só funciona dentro do Next.js).
+
+**Nota de execução (20/08, durante a implementação):** a Task 4 foi escrita
+originalmente pra usar Claude Haiku (`ANTHROPIC_API_KEY`), igual o
+`bot/lib/ia.mjs` já existente. Essa chave não existe no `.env.local` desta
+máquina (só tem Supabase/ML/Vercel) — bloqueou a Task 4 na primeira
+tentativa. O usuário decidiu usar DeepSeek em vez de reconfigurar a
+Anthropic; `DEEPSEEK_API_KEY` foi adicionada ao `.env.local` e testada
+(`curl` direto no endpoint, respondeu "ok"). A Task 4 abaixo foi reescrita
+pra refletir essa troca — nada mais no plano muda (o resto do bot não sabe
+nem se importa com qual provedor de IA faz a classificação).
 
 **Spec:** `docs/superpowers/specs/2026-08-20-whatsapp-ia-atendimento-design.md`
 
@@ -20,7 +30,7 @@
 - Atraso antes de responder (não instantâneo) — reduz padrão de bot.
 - Log local trunca o telefone (só os 4 últimos dígitos) — nunca grava o número completo.
 - Pasta de sessão do WhatsApp e banco de log ficam fora do git.
-- Nenhuma credencial nova: reaproveita `ANTHROPIC_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, já em `.env.local`.
+- Credenciais em `.env.local`: `DEEPSEEK_API_KEY` (nova — ver nota de execução acima), `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (já existiam).
 - Este projeto não usa suíte de teste automatizada para os scripts `.mjs` (ver `bot/testa.mjs`) — cada task usa `node --test` só pra função pura sem I/O, e script de teste manual (rodável, não no CI) pra qualquer coisa que toque rede/banco/WhatsApp de verdade.
 
 ---
@@ -280,25 +290,27 @@ git commit -m "Adiciona busca de produto e estoque pro bot de WhatsApp"
 
 ---
 
-### Task 4: Classificação da pergunta (Claude Haiku)
+### Task 4: Classificação da pergunta (DeepSeek)
 
 **Files:**
 - Create: `bot-whatsapp/lib/ia.mjs`
 - Create: `bot-whatsapp/testa-ia.mjs` (script manual)
 
 **Interfaces:**
-- Consumes: `@anthropic-ai/sdk` (já é dependência); `env` de `../../bot/lib/env.mjs`; `primeiroJson` de `../../bot/lib/util.mjs`.
+- Consumes: `fetch` nativo (sem SDK — a API da DeepSeek é compatível com o
+  formato OpenAI, e o projeto já usa `fetch` puro pra chamadas HTTP fora da
+  Anthropic, ver `blocoDeLink` em `bot/lib/ia.mjs`); `env` de
+  `../../bot/lib/env.mjs`; `primeiroJson` de `../../bot/lib/util.mjs`.
 - Produces: `export async function classificaPergunta(texto)` → `{ ehPerguntaProduto: boolean, textoBusca: string | null }`. Consumido pela Task 6.
 
 - [ ] **Step 1: Escrever `bot-whatsapp/lib/ia.mjs`**
 
 ```js
-import Anthropic from '@anthropic-ai/sdk'
 import { env } from '../../bot/lib/env.mjs'
 import { primeiroJson } from '../../bot/lib/util.mjs'
 
-const ai = new Anthropic({ apiKey: env('ANTHROPIC_API_KEY'), timeout: 15000, maxRetries: 2 })
-const MODELO = env('BOT_WHATSAPP_MODELO', 'claude-haiku-4-5')
+const DEEPSEEK_API_KEY = env('DEEPSEEK_API_KEY')
+const MODELO = env('BOT_WHATSAPP_MODELO', 'deepseek-chat')
 
 // Termina em "Mensagem do cliente: " de propósito — classificaPergunta() concatena
 // o texto (via JSON.stringify, pra aspas dentro da mensagem do cliente não quebrar
@@ -317,13 +329,24 @@ null se eh_pergunta_produto for false>"}
 Mensagem do cliente: `
 
 export async function classificaPergunta(texto) {
+  if (!DEEPSEEK_API_KEY) throw new Error('DEEPSEEK_API_KEY não configurada')
   const prompt = PROMPT_BASE + JSON.stringify(texto)
-  const r = await ai.messages.create({
-    model: MODELO,
-    max_tokens: 200,
-    messages: [{ role: 'user', content: prompt }],
+  const resp = await fetch('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: MODELO,
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 200,
+    }),
   })
-  const j = primeiroJson(r.content.find((b) => b.type === 'text')?.text || '')
+  if (!resp.ok) throw new Error(`DeepSeek API ${resp.status}: ${await resp.text()}`)
+  const data = await resp.json()
+  const textoResposta = data.choices?.[0]?.message?.content || ''
+  const j = primeiroJson(textoResposta)
   if (!j) return { ehPerguntaProduto: false, textoBusca: null }
   return {
     ehPerguntaProduto: j.eh_pergunta_produto === true,
@@ -332,11 +355,17 @@ export async function classificaPergunta(texto) {
 }
 ```
 
-Repara no `PROMPT`: escrever a interpolação de string diretamente (com \`${texto}\`)
+Repara no `PROMPT_BASE`: escrever a interpolação de string diretamente (com \`${texto}\`)
 deixaria a mensagem do cliente colada sem escapar aspas, o que pode quebrar o
 prompt se o cliente mandar `"` na mensagem. Por isso o texto entra via
 `JSON.stringify(texto)` (sempre uma string JSON válida e escapada) no lugar do
 placeholder — **não** monte o prompt com template string simples aqui.
+
+`primeiroJson` (de `bot/lib/util.mjs`) só olha o campo `text`/`content` da
+resposta pra achar o primeiro `{...}` balanceado — funciona igual em cima do
+texto que a DeepSeek devolve, mesmo formato de resposta solta-com-JSON-no-meio
+que a Anthropic às vezes devolve. Nada nessa função precisa saber de qual
+provedor veio o texto.
 
 - [ ] **Step 2: Escrever o script de teste manual**
 
