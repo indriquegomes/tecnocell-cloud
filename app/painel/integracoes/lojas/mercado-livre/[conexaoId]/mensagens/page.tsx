@@ -4,16 +4,19 @@ import { ResponderMensagemForm } from './ResponderMensagemForm'
 
 type MensagemLinha = { id: string; ml_pack_id: string; autor: string; texto: string; lida: boolean; criado_em: string }
 
-export default async function MensagensMLPage() {
+export default async function MensagensMLPage({
+  params,
+}: {
+  params: Promise<{ conexaoId: string }>
+}) {
+  const { conexaoId } = await params
   const supabase = await createServiceClient()
   const { data } = await supabase
     .from('integracoes_mercado_livre_mensagens')
     .select('id, ml_pack_id, autor, texto, lida, criado_em')
+    .eq('conexao_id', conexaoId)
     .order('criado_em', { ascending: false })
     .limit(300)
-  // Busca as 300 mais recentes (senão o corte de 1000 linhas do Supabase
-  // prende a tela nas conversas mais ANTIGAS); reverte pra exibir cada
-  // conversa da mais antiga pra mais nova, como leitura normal de chat.
   const mensagens = ((data ?? []) as MensagemLinha[]).reverse()
 
   const porPack = new Map<string, MensagemLinha[]>()
@@ -23,14 +26,13 @@ export default async function MensagensMLPage() {
     porPack.set(m.ml_pack_id, lista)
   }
 
-  // Abrir a aba já marca como lida toda conversa mostrada — não há
-  // expandir/recolher por conversa nesta versão, então "abrir" a tela é
-  // "abrir" a conversa. Update inline (sem server action / revalidatePath):
-  // chamar revalidatePath durante o render lança erro do Next. O badge de
-  // não lidas na sidebar só reflete isso na próxima navegação — aceito.
+  // Abrir a aba já marca como lida toda conversa mostrada — ver nota
+  // original desta lógica: revalidatePath durante o render lança erro do
+  // Next, por isso é update inline sem server action aqui.
   if (porPack.size > 0) {
     await supabase.from('integracoes_mercado_livre_mensagens')
       .update({ lida: true })
+      .eq('conexao_id', conexaoId)
       .in('ml_pack_id', [...porPack.keys()])
       .eq('autor', 'comprador')
   }
@@ -56,7 +58,7 @@ export default async function MensagensMLPage() {
               </li>
             ))}
           </ul>
-          <ResponderMensagemForm packId={packId} />
+          <ResponderMensagemForm conexaoId={conexaoId} packId={packId} />
         </div>
       ))}
     </div>

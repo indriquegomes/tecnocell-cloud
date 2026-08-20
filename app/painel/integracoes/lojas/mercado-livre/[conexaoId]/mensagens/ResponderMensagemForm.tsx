@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { responderMensagem } from './actions'
 
-export function ResponderMensagemForm({ packId }: { packId: string }) {
+export function ResponderMensagemForm({ conexaoId, packId }: { conexaoId: string; packId: string }) {
   const [texto, setTexto] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState('')
@@ -12,7 +12,7 @@ export function ResponderMensagemForm({ packId }: { packId: string }) {
     e.preventDefault()
     setEnviando(true)
     setErro('')
-    const res = await responderMensagem(packId, texto)
+    const res = await responderMensagem(conexaoId, packId, texto)
     if (!res.ok) setErro(res.erro ?? 'Erro ao enviar.')
     else setTexto('')
     setEnviando(false)
