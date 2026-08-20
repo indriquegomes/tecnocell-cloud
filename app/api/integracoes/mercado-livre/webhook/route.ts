@@ -25,6 +25,18 @@ type PackMensagensML = {
 // disso é payload não confiável (ver comentário abaixo).
 const RESOURCE_VALIDO = /^\/(orders|questions)\/\d+$|^\/messages\/packs\/\d+\/sellers\/\d+$/
 
+// Teste manual antes de confiar nisso em produção (mexe com dinheiro e
+// estoque de verdade, sem suíte automatizada pra cobrir):
+// 1. Conectar duas contas diferentes do Mercado Livre.
+// 2. Fazer um pedido pago de teste em cada uma.
+// 3. Confirmar duas vendas separadas em `vendas`, cada uma com o
+//    `ml_conexao_id` apontando pra conta certa.
+// 4. Confirmar que o estoque baixou exatamente uma vez, no depósito
+//    Petrópolis Loja, por pedido.
+// 5. Confirmar que nenhuma das duas vendas ficou com `caixa_id` setado.
+// 6. Reentregar a mesma notificação do webhook uma segunda vez e confirmar
+//    que não duplica a venda.
+
 export async function POST(req: NextRequest) {
   let body: Notificacao
   try {
@@ -48,11 +60,20 @@ export async function POST(req: NextRequest) {
   // Roteamento por conta: o próprio Mercado Livre manda o user_id do
   // vendedor dono do evento — usa isso pra achar qual das nossas
   // conexões (pode ter várias agora) é a dona da notificação.
-  const { data: conexao } = await supabase
+  const { data: conexao, error: erroConexao } = await supabase
     .from('integracoes_mercado_livre')
     .select('id, ml_user_id')
     .eq('ml_user_id', String(body.user_id))
     .maybeSingle()
+  if (erroConexao) {
+    // Falha na consulta (rede, pool esgotado, etc.) não é a mesma coisa que
+    // "conta que a gente não tem" — se tratar igual, um pedido pago some em
+    // silêncio. Loga pra dar pra achar depois; 200 mesmo assim porque ML não
+    // reenvia de forma confiável num status diferente (mesmo motivo do catch
+    // lá embaixo).
+    console.error('Falha ao buscar conexao do Mercado Livre pro webhook:', erroConexao)
+    return new Response('ok', { status: 200 })
+  }
   if (!conexao) return new Response('ok', { status: 200 }) // conta que a gente nao tem (ou desconectou)
 
   try {
@@ -162,7 +183,8 @@ async function processarPergunta(
     // Só manda `respondida: true` quando o ML confirma que foi respondida.
     // Se vier UNANSWERED, omite a chave — o status do ML é eventualmente
     // consistente, e uma notificação atrasada não pode sobrescrever
-    // `respondida: true` de uma pergunta que já respondemos aqui.
+    // `respondida: true` de uma pergunta que já respondemos aqui (senão ela
+    // volta a aparecer como pendente e responder de novo dá erro no ML).
     ...(pergunta.status !== 'UNANSWERED' ? { respondida: true } : {}),
   }, { onConflict: 'ml_question_id' })
   if (error) console.error(`Falha ao salvar pergunta ${pergunta.id} do Mercado Livre:`, error)
@@ -190,9 +212,15 @@ async function processarMensagem(
       conexao_id: conexao.id,
       autor,
       texto: msg.text.plain,
-      // Mesmo caso de processarPergunta acima.
+      // Mesmo caso de processarPergunta acima: ML re-notifica e esta função
+      // refaz o pack inteiro a cada notificação. Se mandasse `lida: false`
+      // sempre que autor === 'comprador', uma mensagem já lida aqui voltava a
+      // aparecer como não lida a cada re-notificação. Omite a chave nesse
+      // caso — on conflict preserva o valor atual, e num insert novo o
+      // default `false` da coluna cobre o caso real de mensagem não lida.
       ...(autor === 'vendedor' ? { lida: true } : {}),
     }, { onConflict: 'ml_message_id' })
+    // Uma mensagem falhar não deve derrubar as outras do mesmo pack — loga e segue.
     if (error) console.error(`Falha ao salvar mensagem ${msg.message_id} do pack ${packId}:`, error)
   }
 }
