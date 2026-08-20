@@ -5,7 +5,7 @@ import { Dica } from '@/components/Dica'
 import { ResponderMensagemForm } from '@/app/painel/integracoes/lojas/mercado-livre/[conexaoId]/mensagens/ResponderMensagemForm'
 
 type MensagemLinha = {
-  id: string; ml_pack_id: string; conexao_id: string; autor: string; texto: string; criado_em: string
+  id: string; ml_pack_id: string; conexao_id: string | null; autor: string; texto: string; criado_em: string
   conexao: { ml_nickname: string | null; ml_user_id: string } | null
 }
 
@@ -61,7 +61,11 @@ export default async function MensagensMLAgregadoPage() {
                 </li>
               ))}
             </ul>
-            <ResponderMensagemForm conexaoId={msgs[0].conexao_id} packId={packId} />
+            {msgs[0].conexao_id ? (
+              <ResponderMensagemForm conexaoId={msgs[0].conexao_id} packId={packId} />
+            ) : (
+              <p className="mt-2 text-xs text-gray-400">Conta desconhecida — não é possível responder por aqui.</p>
+            )}
           </div>
         ))}
       </div>

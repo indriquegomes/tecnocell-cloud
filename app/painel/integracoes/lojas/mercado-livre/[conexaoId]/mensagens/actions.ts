@@ -15,7 +15,7 @@ export async function responderMensagem(conexaoId: string, packId: string, texto
   }
 
   const supabase = await createServiceClient()
-  const { error } = await supabase.from('integracoes_mercado_livre_mensagens').update({ lida: true }).eq('ml_pack_id', packId)
+  const { error } = await supabase.from('integracoes_mercado_livre_mensagens').update({ lida: true }).eq('ml_pack_id', packId).eq('conexao_id', conexaoId)
   if (error) return { ok: false, erro: 'Resposta enviada ao Mercado Livre, mas falhou ao atualizar aqui — recarregue a página.' }
 
   revalidatePath(`/painel/integracoes/lojas/mercado-livre/${conexaoId}/mensagens`)

@@ -54,10 +54,12 @@ export async function importarAnuncios(conexaoId: string) {
   return { ok: true, casados, semCorrespondencia }
 }
 
-export async function desconectarMercadoLivre(conexaoId: string) {
+export async function desconectarMercadoLivre(conexaoId: string): Promise<{ ok: boolean; erro?: string }> {
   await requirePermissao('integracoes')
   const supabase = await createServiceClient()
-  await supabase.from('integracoes_mercado_livre').delete().eq('id', conexaoId)
+  const { error } = await supabase.from('integracoes_mercado_livre').delete().eq('id', conexaoId)
+  if (error) return { ok: false, erro: error.message }
   revalidatePath('/painel/integracoes')
   revalidatePath('/painel/integracoes/lojas')
+  return { ok: true }
 }

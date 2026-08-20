@@ -2,7 +2,7 @@ import { IconStore, IconPlus } from '@/components/icons'
 import { Dica } from '@/components/Dica'
 import { listarConexoes } from '@/lib/mercado-livre'
 import { ImportarAnunciosBotao } from './ImportarAnunciosBotao'
-import { desconectarMercadoLivre } from './actions'
+import { DesconectarBotao } from './DesconectarBotao'
 
 export default async function IntegracoesLojasPage() {
   const conexoes = await listarConexoes()
@@ -40,11 +40,7 @@ export default async function IntegracoesLojasPage() {
                 <span className="inline-flex shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Ativo</span>
               </div>
               <ImportarAnunciosBotao conexaoId={c.id} />
-              <form action={desconectarMercadoLivre.bind(null, c.id)}>
-                <button type="submit" className="w-full rounded-xl border border-red-200 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 transition">
-                  Desconectar
-                </button>
-              </form>
+              <DesconectarBotao conexaoId={c.id} />
             </div>
           ))}
         </div>
