@@ -4,11 +4,17 @@ import { ResponderPerguntaForm } from './ResponderPerguntaForm'
 
 type PerguntaLinha = { id: string; texto: string; criado_em: string }
 
-export default async function PerguntasMLPage() {
+export default async function PerguntasMLPage({
+  params,
+}: {
+  params: Promise<{ conexaoId: string }>
+}) {
+  const { conexaoId } = await params
   const supabase = await createServiceClient()
   const { data } = await supabase
     .from('integracoes_mercado_livre_perguntas')
     .select('id, texto, criado_em')
+    .eq('conexao_id', conexaoId)
     .eq('respondida', false)
     .order('criado_em', { ascending: true })
   const perguntas = (data ?? []) as PerguntaLinha[]

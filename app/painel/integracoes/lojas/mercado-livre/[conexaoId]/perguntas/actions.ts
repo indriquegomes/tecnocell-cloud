@@ -11,13 +11,13 @@ export async function responderPergunta(perguntaId: string, texto: string): Prom
   const supabase = await createServiceClient()
   const { data: pergunta } = await supabase
     .from('integracoes_mercado_livre_perguntas')
-    .select('ml_question_id')
+    .select('ml_question_id, conexao_id')
     .eq('id', perguntaId)
     .maybeSingle()
-  if (!pergunta) return { ok: false, erro: 'Pergunta não encontrada.' }
+  if (!pergunta || !pergunta.conexao_id) return { ok: false, erro: 'Pergunta não encontrada.' }
 
   try {
-    await responderPerguntaML(pergunta.ml_question_id, texto)
+    await responderPerguntaML(pergunta.conexao_id, pergunta.ml_question_id, texto)
   } catch (e) {
     return { ok: false, erro: e instanceof Error ? e.message : 'Falha ao responder no Mercado Livre.' }
   }
@@ -29,6 +29,7 @@ export async function responderPergunta(perguntaId: string, texto: string): Prom
   }).eq('id', perguntaId)
   if (error) return { ok: false, erro: 'Resposta enviada ao Mercado Livre, mas falhou ao atualizar aqui — recarregue a página.' }
 
-  revalidatePath('/painel/integracoes/lojas/mercado-livre/perguntas')
+  revalidatePath(`/painel/integracoes/lojas/mercado-livre/${pergunta.conexao_id}/perguntas`)
+  revalidatePath('/painel/integracoes/mercado-livre/perguntas')
   return { ok: true }
 }
