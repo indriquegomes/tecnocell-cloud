@@ -1,8 +1,10 @@
+import { Suspense } from 'react'
 import { IconStore } from '@/components/icons'
 import { Dica } from '@/components/Dica'
 import { listarConexoes } from '@/lib/mercado-livre'
 import { SeletorLoja } from './SeletorLoja'
 import { AdicionarLojaDropdown } from './AdicionarLojaDropdown'
+import { AvisoConexaoML } from './AvisoConexaoML'
 
 export default async function MinhasLojasLayout({ children }: { children: React.ReactNode }) {
   const conexoes = await listarConexoes()
@@ -20,6 +22,9 @@ export default async function MinhasLojasLayout({ children }: { children: React.
           <AdicionarLojaDropdown />
         </div>
       </div>
+      <Suspense fallback={null}>
+        <AvisoConexaoML />
+      </Suspense>
       {children}
     </div>
   )

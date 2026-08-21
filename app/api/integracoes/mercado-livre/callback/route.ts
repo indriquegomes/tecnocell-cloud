@@ -11,7 +11,7 @@ export async function GET(req: Request) {
   const raw = cookieStore.get('ml_oauth_pkce')?.value
   cookieStore.delete('ml_oauth_pkce')
 
-  if (!code || !state || !raw) redirect('/painel/integracoes?ml=erro')
+  if (!code || !state || !raw) redirect('/painel/integracoes/lojas?ml=erro')
 
   // Parse do cookie + chamadas à API do ML podem falhar de várias formas
   // (cookie corrompido, DNS, timeout, resposta não-JSON) — tudo isso cai no
@@ -24,7 +24,7 @@ export async function GET(req: Request) {
   try {
     const { verifier, state: stateEsperado, nome } = JSON.parse(raw) as { verifier: string; state: string; nome: string | null }
     nomeLoja = nome
-    if (state !== stateEsperado) redirect('/painel/integracoes?ml=erro')
+    if (state !== stateEsperado) redirect('/painel/integracoes/lojas?ml=erro')
 
     const redirectUri = new URL('/api/integracoes/mercado-livre/callback', req.url).toString()
     const tokenResp = await fetch('https://api.mercadolibre.com/oauth/token', {
@@ -39,7 +39,7 @@ export async function GET(req: Request) {
         code_verifier: verifier,
       }),
     })
-    if (!tokenResp.ok) redirect('/painel/integracoes?ml=erro')
+    if (!tokenResp.ok) redirect('/painel/integracoes/lojas?ml=erro')
     token = await tokenResp.json() as {
       access_token: string; refresh_token: string; expires_in: number; user_id: number
     }
@@ -50,7 +50,7 @@ export async function GET(req: Request) {
     me = meResp.ok ? await meResp.json() as { nickname?: string } : {}
   } catch (err) {
     unstable_rethrow(err) // deixa o redirect() de state/tokenResp passar direto
-    redirect('/painel/integracoes?ml=erro')
+    redirect('/painel/integracoes/lojas?ml=erro')
   }
 
   let usuarioId: string | null = null
@@ -69,7 +69,7 @@ export async function GET(req: Request) {
     // reautorização (token expirado etc) que não passa pelo formulário.
     ...(nomeLoja ? { nome_loja: nomeLoja } : {}),
   }, { onConflict: 'ml_user_id' })
-  if (error) redirect('/painel/integracoes?ml=erro')
+  if (error) redirect('/painel/integracoes/lojas?ml=erro')
 
-  redirect('/painel/integracoes?ml=conectado')
+  redirect('/painel/integracoes/lojas?ml=conectado')
 }
