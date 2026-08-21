@@ -35,7 +35,24 @@ export async function buscaProdutos(termo) {
     if (error) throw error
   }
 
-  return (data ?? []).map((p) => ({ id: p.id, nome: p.nome, preco: p.preco ?? 0 }))
+  let resultado = data ?? []
+
+  // Desempate: nomes hierárquicos ("IPHONE 11" / "IPHONE 11 PRO" / "IPHONE 11
+  // PRO MAX") sempre batem juntos na busca por trecho, porque um nome é
+  // substring do outro. Se o cliente digitou o nome EXATO de uma das opções
+  // (mesmo conjunto de palavras, nem mais nem menos), isso desempata sem
+  // precisar lembrar da conversa anterior — sem isso o bot repete a mesma
+  // pergunta ambígua pra sempre, mesmo quando o cliente já respondeu certo.
+  if (resultado.length > 1) {
+    const alvo = new Set(palavras)
+    const exatos = resultado.filter((p) => {
+      const palavrasNome = new Set(semAcento(p.nome).split(/\s+/).filter(Boolean))
+      return palavrasNome.size === alvo.size && [...alvo].every((w) => palavrasNome.has(w))
+    })
+    if (exatos.length === 1) resultado = exatos
+  }
+
+  return resultado.map((p) => ({ id: p.id, nome: p.nome, preco: p.preco ?? 0 }))
 }
 
 export async function buscaEstoque(produtoId, depositoId) {
