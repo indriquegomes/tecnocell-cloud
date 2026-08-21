@@ -168,7 +168,11 @@ export function Sidebar({
 }) {
   const pathname = usePathname()
   const router = useRouter()
-  const exactOnly = ['/painel', '/painel/estoque', '/painel/integracoes', '/painel/integracoes/lojas']
+  // '/painel/integracoes/lojas' NÃO é exactOnly de propósito: a página
+  // sempre redireciona pra dentro de mercado-livre/[conexaoId] quando há
+  // conexão, então "exact" nunca bateria e "Minhas Lojas" nunca ficaria
+  // destacada estando na própria tela da loja.
+  const exactOnly = ['/painel', '/painel/estoque', '/painel/integracoes']
   const isActive = (href: string) =>
     exactOnly.includes(href) ? pathname === href : pathname.startsWith(href)
 
