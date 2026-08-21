@@ -264,11 +264,13 @@ export function urlAutorizacao(state: string, codeChallenge: string, redirectUri
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
     state,
-    // Experimental: parâmetro padrão OAuth2/OIDC pra forçar a tela de login
+    // Experimental: parâmetro padrão OAuth2/OIDC pra forçar escolha de conta
     // mesmo com sessão ativa no navegador — não documentado pelo Mercado
-    // Livre, sem garantia de que eles respeitam. Se não fizer efeito, tira
-    // essa linha (não quebra o fluxo hoje, o ML deve simplesmente ignorar).
-    prompt: 'login',
+    // Livre, sem garantia de que eles respeitam. 'login' sozinho já foi
+    // testado (20/08) e não fez efeito; tentando 'select_account' (padrão
+    // do Google) antes de aceitar que só dá pra trocar de conta deslogando
+    // do Mercado Livre no navegador entre uma conexão e outra.
+    prompt: 'select_account',
   })
   return `${ML_AUTH}/authorization?${params.toString()}`
 }
