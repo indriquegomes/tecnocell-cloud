@@ -100,25 +100,41 @@ async function processarPedido(
   const pedido = await chamarML<PedidoML>(conexaoId, body.resource)
   if (pedido.status !== 'paid') return
 
-  const { data: jaExiste } = await supabase
+  const { data: jaExiste, error: erroJaExiste } = await supabase
     .from('vendas')
     .select('id')
     .eq('ml_order_id', String(pedido.id))
     .maybeSingle()
+  // Falha na consulta não pode virar "não existe" — o ML reentrega a mesma
+  // notificação, e tratar erro como "pode processar" arrisca duplicar a
+  // venda (estoque baixado duas vezes, receita registrada em dobro) bem no
+  // caso que essa checagem existe pra evitar. Prefere pular e logar.
+  if (erroJaExiste) {
+    console.error('Falha ao checar idempotência (vendas) do pedido ML:', pedido.id, erroJaExiste.message)
+    return
+  }
   if (jaExiste) return // idempotencia
 
-  const { data: jaPendente } = await supabase
+  const { data: jaPendente, error: erroJaPendente } = await supabase
     .from('integracoes_mercado_livre_pedidos_pendentes')
     .select('id')
     .eq('ml_order_id', String(pedido.id))
     .maybeSingle()
+  if (erroJaPendente) {
+    console.error('Falha ao checar idempotência (pendentes) do pedido ML:', pedido.id, erroJaPendente.message)
+    return
+  }
   if (jaPendente) return
 
   const mlItemIds = pedido.order_items.map((i) => i.item.id)
-  const { data: anuncios } = await supabase
+  const { data: anuncios, error: erroAnuncios } = await supabase
     .from('integracoes_mercado_livre_anuncios')
     .select('ml_item_id, produto_id')
     .in('ml_item_id', mlItemIds)
+  // Uma falha aqui já cai no caminho seguro (vira pendência, não processa
+  // sozinho) — só loga pra não confundir com um caso real de "produto não
+  // cadastrado" na hora de investigar.
+  if (erroAnuncios) console.error('Falha ao buscar anúncios pro pedido ML:', pedido.id, erroAnuncios.message)
   const produtoPorItem = new Map((anuncios ?? []).map((a) => [a.ml_item_id, a.produto_id]))
 
   const itemSemProduto = pedido.order_items.find((i) => !produtoPorItem.get(i.item.id))
