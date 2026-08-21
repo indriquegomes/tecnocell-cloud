@@ -322,3 +322,100 @@ export async function buscarVendasML(conexaoId?: string): Promise<{ vendas: Vend
     pendentes: (pendentes ?? []) as PedidoPendenteML[],
   }
 }
+
+// ── Publicar anúncio novo (ver docs/superpowers/specs/2026-08-21-publicar-anuncio-mercado-livre-design.md) ──
+
+export type CategoriaML = { id: string; nome: string }
+
+// categoriaId null = raiz do site. Devolve [] quando a categoria passada é
+// folha (sem filhas) — é assim que quem chama sabe que chegou no fim da
+// árvore, não tem um campo "é folha" separado pra isso.
+export async function buscarCategoriasFilhas(conexaoId: string, categoriaId: string | null): Promise<CategoriaML[]> {
+  if (!categoriaId) {
+    const raiz = await chamarML<{ id: string; name: string }[]>(conexaoId, '/sites/MLB/categories')
+    return raiz.map((c) => ({ id: c.id, nome: c.name }))
+  }
+  const cat = await chamarML<{ children_categories: { id: string; name: string }[] }>(conexaoId, `/categories/${categoriaId}`)
+  return cat.children_categories.map((c) => ({ id: c.id, nome: c.name }))
+}
+
+export type ValorAtributoML = { id: string; nome: string }
+export type AtributoCategoriaML = {
+  id: string
+  nome: string
+  obrigatorio: boolean
+  valorMaximo: number | null
+  // Presente = escolha de uma lista fixa (o ML define, mesmo em atributos
+  // "value_type: string" como BRAND) — vira <select>. Ausente/vazio = texto livre.
+  valores: ValorAtributoML[]
+  dica: string | null
+}
+
+type AtributoCategoriaMLResp = {
+  id: string
+  name: string
+  tags?: { required?: boolean; conditional_required?: boolean }
+  value_max_length?: number
+  values?: { id: string; name: string }[]
+  hint?: string
+}
+
+export async function buscarAtributosCategoria(conexaoId: string, categoriaId: string): Promise<AtributoCategoriaML[]> {
+  const attrs = await chamarML<AtributoCategoriaMLResp[]>(conexaoId, `/categories/${categoriaId}/attributes`)
+  return attrs.map((a) => ({
+    id: a.id,
+    nome: a.name,
+    // conditional_required também vira obrigatório aqui: é mais seguro pedir
+    // de mais (usuário preenche à toa) do que de menos (Mercado Livre recusa
+    // o anúncio na hora de publicar com um erro que já era previsível).
+    obrigatorio: !!(a.tags?.required || a.tags?.conditional_required),
+    valorMaximo: a.value_max_length ?? null,
+    valores: (a.values ?? []).map((v) => ({ id: v.id, nome: v.name })),
+    dica: a.hint ?? null,
+  }))
+}
+
+export type PublicarAnuncioInput = {
+  titulo: string
+  categoriaId: string
+  preco: number
+  quantidade: number
+  fotos: string[]
+  atributos: { id: string; valorTexto?: string; valorId?: string }[]
+}
+
+// Nem toda conta pode usar todo tipo de anúncio em toda categoria — pega o
+// mais barato disponível pra essa conta+categoria em vez de chutar um fixo
+// (ex: "gold_special" pode não existir pra contas novas/categorias novas).
+async function tipoAnuncioDisponivel(conexaoId: string, mlUserId: string, categoriaId: string): Promise<string> {
+  const tipos = await chamarML<{ id: string }[]>(
+    conexaoId, `/users/${mlUserId}/available_listing_types?category_id=${categoriaId}`
+  )
+  if (tipos.length === 0) throw new Error('Nenhum tipo de anúncio disponível pra essa categoria nesta conta.')
+  return tipos[0].id
+}
+
+export async function publicarAnuncio(conexaoId: string, mlUserId: string, input: PublicarAnuncioInput): Promise<{ id: string }> {
+  const listingTypeId = await tipoAnuncioDisponivel(conexaoId, mlUserId, input.categoriaId)
+  const payload = {
+    title: input.titulo,
+    category_id: input.categoriaId,
+    price: input.preco,
+    currency_id: 'BRL',
+    available_quantity: input.quantidade,
+    buying_mode: 'buy_it_now',
+    listing_type_id: listingTypeId,
+    condition: 'new',
+    pictures: input.fotos.map((url) => ({ source: url })),
+    attributes: input.atributos.map((a) => ({
+      id: a.id,
+      ...(a.valorId ? { value_id: a.valorId } : {}),
+      ...(a.valorTexto ? { value_name: a.valorTexto } : {}),
+    })),
+  }
+  return chamarML<{ id: string }>(conexaoId, '/items', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}

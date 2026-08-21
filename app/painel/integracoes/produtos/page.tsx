@@ -4,6 +4,8 @@ import { IconPackage } from '@/components/icons'
 import { Dica } from '@/components/Dica'
 import { BuscaLista } from '@/components/BuscaLista'
 import { Paginacao } from '@/components/Paginacao'
+import { listarConexoes } from '@/lib/mercado-livre'
+import { PublicarMLBotao } from './PublicarMLBotao'
 
 const POR_PAGINA = 30
 
@@ -18,9 +20,9 @@ type ProdutoLinha = {
 export default async function IntegracoesProdutosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ busca?: string; pagina?: string }>
+  searchParams: Promise<{ busca?: string; pagina?: string; erro?: string }>
 }) {
-  const { busca, pagina: paginaStr } = await searchParams
+  const { busca, pagina: paginaStr, erro } = await searchParams
   const pagina = Math.max(1, Number(paginaStr) || 1)
   const supabase = await createServiceClient()
 
@@ -43,18 +45,37 @@ export default async function IntegracoesProdutosPage({
   }
 
   const de = (pagina - 1) * POR_PAGINA
-  const { data, count } = await q.range(de, de + POR_PAGINA - 1)
+  const [{ data, count }, conexoes] = await Promise.all([
+    q.range(de, de + POR_PAGINA - 1),
+    listarConexoes(),
+  ])
   const produtos = (data ?? []) as unknown as ProdutoLinha[]
   const total = count ?? 0
   const totalPaginas = Math.max(1, Math.ceil(total / POR_PAGINA))
+
+  const produtoIds = produtos.map((p) => p.id)
+  const { data: anunciosData } = produtoIds.length
+    ? await supabase
+        .from('integracoes_mercado_livre_anuncios')
+        .select('produto_id, conexao:integracoes_mercado_livre(nome_loja, ml_nickname, ml_user_id)')
+        .in('produto_id', produtoIds)
+    : { data: [] as unknown[] }
+  const anuncioPorProduto = new Map(
+    (anunciosData ?? []).map((a) => {
+      const linha = a as unknown as { produto_id: string; conexao: { nome_loja: string | null; ml_nickname: string | null; ml_user_id: string } | null }
+      return [linha.produto_id, linha.conexao?.nome_loja ?? linha.conexao?.ml_nickname ?? linha.conexao?.ml_user_id ?? 'Mercado Livre']
+    })
+  )
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
         <IconPackage className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
         <h2 className="text-2xl font-bold text-gray-900">Meus Produtos</h2>
-        <Dica texto="Catálogo do TecnoCell, pronto pra anunciar quando alguma integração for conectada de verdade. Nenhum produto está integrado ainda." />
+        <Dica texto="Catálogo do TecnoCell. Escolha um produto pra publicar como anúncio novo no Mercado Livre." />
       </div>
+
+      {erro && <p className="rounded-xl bg-red-50 px-4 py-2 text-sm font-medium text-red-700">{erro}</p>}
 
       <BuscaLista basePath="/painel/integracoes/produtos" placeholder="Buscar produto..." />
 
@@ -74,6 +95,7 @@ export default async function IntegracoesProdutosPage({
               <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">Nenhum produto encontrado.</td></tr>
             ) : produtos.map((p) => {
               const estoqueTotal = (p.estoque ?? []).reduce((soma, e) => soma + (e.quantidade ?? 0), 0)
+              const integradoCom = anuncioPorProduto.get(p.id)
               return (
                 <tr key={p.id} className="hover:bg-blue-50/60 transition">
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">{p.nome}</td>
@@ -81,7 +103,13 @@ export default async function IntegracoesProdutosPage({
                   <td className="px-4 py-3 text-sm text-right text-gray-600">{formatBRL(p.preco ?? 0)}</td>
                   <td className="px-4 py-3 text-sm text-center text-gray-600">{estoqueTotal}</td>
                   <td className="px-4 py-3 text-center">
-                    <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">Não integrado</span>
+                    {integradoCom ? (
+                      <span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">{integradoCom}</span>
+                    ) : conexoes.length > 0 ? (
+                      <PublicarMLBotao produtoId={p.id} conexoes={conexoes.map((c) => ({ id: c.id, nome: c.nome_loja ?? c.ml_nickname ?? c.ml_user_id }))} />
+                    ) : (
+                      <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">Não integrado</span>
+                    )}
                   </td>
                 </tr>
               )
