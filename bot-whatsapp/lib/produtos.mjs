@@ -19,25 +19,32 @@ export async function buscaProdutos(termo) {
   const palavras = semAcento(t).replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
   if (palavras.length === 0) return []
 
-  let q = supabase.from('produtos').select('id, nome, preco').eq('ativo', true)
+  let q = supabase.from('produtos').select('id, nome, preco').eq('ativo', true).eq('visivel_catalogo', true)
   for (const w of palavras) q = q.ilike('busca_norm', `%${w}%`)
   let { data, error } = await q.order('nome').limit(5)
 
-  if (error && (error.code === '42703' || error.message?.includes('busca_norm'))) {
-    let f = supabase.from('produtos').select('id, nome, preco').eq('ativo', true)
+  // Erro real (rede, 5xx, chave expirada) não pode virar "[]" em silêncio — o bot
+  // diria "não encontrei" sobre um produto que existe. Só a ausência da coluna
+  // busca_norm (banco sem a migration) tenta o fallback; qualquer outro erro sobe.
+  if (error && !(error.code === '42703' || error.message?.includes('busca_norm'))) throw error
+
+  if (error) {
+    let f = supabase.from('produtos').select('id, nome, preco').eq('ativo', true).eq('visivel_catalogo', true)
     for (const w of palavras) f = f.or(`nome.ilike.%${w}%,codigo.ilike.%${w}%`)
-    ;({ data } = await f.order('nome').limit(5))
+    ;({ data, error } = await f.order('nome').limit(5))
+    if (error) throw error
   }
 
   return (data ?? []).map((p) => ({ id: p.id, nome: p.nome, preco: p.preco ?? 0 }))
 }
 
 export async function buscaEstoque(produtoId, depositoId) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('estoque')
     .select('quantidade')
     .eq('produto_id', produtoId)
     .eq('deposito_id', depositoId)
     .maybeSingle()
+  if (error) throw error // erro de rede/permissão não pode virar "quantidade: 0" — o bot diria "sem estoque" de um produto que pode estar na prateleira
   return data?.quantidade ?? 0
 }
