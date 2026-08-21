@@ -28,20 +28,26 @@ type LinhaConexao = {
 
 export async function listarConexoes(): Promise<ConexaoML[]> {
   const supabase = await createServiceClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('integracoes_mercado_livre')
     .select('id, ml_user_id, ml_nickname, nome_loja, expira_em')
     .order('conectado_em')
+  // Uma falha de consulta (rede, RLS) não pode se disfarçar de "nenhuma
+  // conta conectada" — quem chama não teria como distinguir os dois casos.
+  if (error) console.error('listarConexoes falhou:', error.message)
   return (data ?? []) as ConexaoML[]
 }
 
 export async function buscarConexao(conexaoId: string): Promise<ConexaoML | null> {
   const supabase = await createServiceClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('integracoes_mercado_livre')
     .select('id, ml_user_id, ml_nickname, nome_loja, expira_em')
     .eq('id', conexaoId)
     .maybeSingle()
+  // Idem: sem isso, uma falha de consulta vira notFound() no layout da loja
+  // como se a conexão tivesse sido apagada.
+  if (error) console.error('buscarConexao falhou:', conexaoId, error.message)
   return (data as ConexaoML | null) ?? null
 }
 
@@ -301,7 +307,10 @@ export async function buscarVendasML(conexaoId?: string): Promise<{ vendas: Vend
     .order('criado_em', { ascending: false })
   if (conexaoId) pendentesQuery = pendentesQuery.eq('conexao_id', conexaoId)
 
-  const [{ data: vendas }, { data: pendentes }] = await Promise.all([vendasQuery, pendentesQuery])
+  const [{ data: vendas, error: erroVendas }, { data: pendentes, error: erroPendentes }] =
+    await Promise.all([vendasQuery, pendentesQuery])
+  if (erroVendas) console.error('buscarVendasML (vendas) falhou:', conexaoId, erroVendas.message)
+  if (erroPendentes) console.error('buscarVendasML (pendentes) falhou:', conexaoId, erroPendentes.message)
   return {
     vendas: (vendas ?? []) as VendaML[],
     pendentes: (pendentes ?? []) as PedidoPendenteML[],
