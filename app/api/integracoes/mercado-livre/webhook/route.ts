@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { chamarML, DEPOSITO_PETROPOLIS_LOJA } from '@/lib/mercado-livre'
+import { hojeSP } from '@/lib/utils'
 import type { NextRequest } from 'next/server'
 
 type Notificacao = { topic: string; resource: string; user_id: number; sent: string }
@@ -8,7 +9,7 @@ type PedidoML = {
   status: string
   total_amount: number
   buyer: { nickname: string }
-  order_items: { item: { id: string }; quantity: number; unit_price: number }[]
+  order_items: { item: { id: string }; quantity: number; unit_price: number; sale_fee?: number }[]
 }
 type PerguntaML = { id: number; item_id: string; text: string; status: string }
 type PackMensagensML = {
@@ -153,6 +154,32 @@ async function processarPedido(
     ml_order_id: String(pedido.id),
     ml_conexao_id: conexaoId,
   }).eq('id', data.venda_id as string)
+
+  // Comissão do Mercado Livre como despesa separada — não mexe no valor da
+  // venda (o comprador pagou o total cheio) nem em conta_id (não é uma
+  // saída de caixa/banco rastreada aqui, o ML já desconta por fora). Serve
+  // só pra aparecer no financeiro e mostrar quanto foi de comissão.
+  const taxaTotal = pedido.order_items.reduce((soma, i) => soma + (i.sale_fee ?? 0) * i.quantity, 0)
+  if (taxaTotal > 0) {
+    const hoje = hojeSP()
+    const { error: erroLancamento } = await supabase.from('lancamentos').insert({
+      descricao: `Comissão Mercado Livre — pedido #${pedido.id}`,
+      valor: taxaTotal,
+      tipo: 'pagar',
+      categoria: 'Comissão Marketplace',
+      data_competencia: hoje,
+      data_vencimento: hoje,
+      status: 'pago',
+      data_pagamento: hoje,
+      valor_pago: taxaTotal,
+      venda_id: data.venda_id as string,
+      updated_at: new Date().toISOString(),
+    })
+    // A venda já está lançada e o estoque já baixou — não desfaz nada por
+    // uma falha aqui, só loga: sem isso a comissão só fica sem registro,
+    // não perde a venda.
+    if (erroLancamento) console.error('Falha ao lançar comissão ML:', erroLancamento.message, pedido.id)
+  }
 }
 
 async function registrarPendencia(
