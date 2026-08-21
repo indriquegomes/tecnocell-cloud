@@ -21,8 +21,22 @@ node bot-whatsapp/run.mjs
 ```
 
 Escaneia o QR code que aparece no terminal com esse celular de teste
-(WhatsApp → Aparelhos conectados → Conectar um aparelho). Manda, desse
-mesmo celular, pra ele mesmo (ou de outro número pra esse), o roteiro:
+(WhatsApp → Aparelhos conectados → Conectar um aparelho).
+
+**Se o QR do terminal não escanear** (letras/caracteres de terminal
+distorcem a leitura pela câmera com frequência), use o script abaixo em
+vez do `run.mjs` — ele salva o QR como imagem PNG, bem mais confiável de
+escanear:
+
+```powershell
+node bot-whatsapp/testa-qr.mjs
+```
+
+Abre o arquivo `bot-whatsapp/data/qr_<loja>.png` gerado e escaneia normal.
+O terminal avisa "conectado" e encerra sozinho — depois disso já pode
+rodar o `run.mjs` de verdade, a sessão salva já fica valendo.
+
+Manda, desse mesmo celular, pra ele mesmo (ou de outro número pra esse), o roteiro:
 
 1. Pergunta direta com nome exato de um produto que existe no catálogo.
 2. Pergunta com nome ambíguo (bate em mais de um produto).
