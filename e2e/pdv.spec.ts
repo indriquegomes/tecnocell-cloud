@@ -1,26 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
-import * as fs from 'fs'
-import * as path from 'path'
-import { login } from './helpers'
-
-// ── Carrega variáveis do .env.local ──────────────────────────────────────────
-function carregarEnv(): Record<string, string> {
-  const envPath = path.resolve(__dirname, '..', '.env.local')
-  const conteudo = fs.readFileSync(envPath, 'utf-8')
-  const env: Record<string, string> = {}
-  for (const linha of conteudo.split('\n')) {
-    const trimmed = linha.trim()
-    if (!trimmed || trimmed.startsWith('#')) continue
-    const idx = trimmed.indexOf('=')
-    if (idx === -1) continue
-    env[trimmed.substring(0, idx).trim()] = trimmed
-      .substring(idx + 1)
-      .trim()
-      .replace(/^["']|["']$/g, '')
-  }
-  return env
-}
+import { login, carregarEnv } from './helpers'
 
 const env = carregarEnv()
 
