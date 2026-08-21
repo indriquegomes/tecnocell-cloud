@@ -10,6 +10,10 @@ export function DesconectarBotao({ conexaoId }: { conexaoId: string }) {
   const [erro, setErro] = useState('')
 
   const handleClick = async () => {
+    // Botão fica ao lado de "Importar Anúncios" no cabeçalho, visível em
+    // qualquer aba — sem essa confirmação, um clique errado apaga a conexão
+    // (os dois tokens juntos), só recuperável logando no Mercado Livre de novo.
+    if (!confirm('Desconectar esta loja? Você vai precisar logar no Mercado Livre de novo pra reconectar.')) return
     setCarregando(true)
     setErro('')
     try {
@@ -31,7 +35,7 @@ export function DesconectarBotao({ conexaoId }: { conexaoId: string }) {
   return (
     <div className="space-y-2">
       <button onClick={handleClick} disabled={carregando}
-        className="w-full rounded-xl border border-red-200 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60 transition">
+        className="rounded-xl border border-red-200 px-5 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60 transition">
         {carregando ? 'Desconectando...' : 'Desconectar'}
       </button>
       {erro && <p className="text-sm text-red-600">{erro}</p>}

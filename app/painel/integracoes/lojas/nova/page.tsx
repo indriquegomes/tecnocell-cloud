@@ -1,13 +1,6 @@
-import { IconStore } from '@/components/icons'
-
 export default function NovaLojaMercadoLivrePage() {
   return (
     <div className="mx-auto max-w-lg space-y-4">
-      <div className="flex items-center gap-2">
-        <IconStore className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
-        <h2 className="text-2xl font-bold text-gray-900">Mercado Livre</h2>
-      </div>
-
       <form action="/api/integracoes/mercado-livre/autorizar" method="get"
         className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <label className="block space-y-1">

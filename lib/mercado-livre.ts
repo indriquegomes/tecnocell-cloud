@@ -32,8 +32,9 @@ export async function listarConexoes(): Promise<ConexaoML[]> {
     .from('integracoes_mercado_livre')
     .select('id, ml_user_id, ml_nickname, nome_loja, expira_em')
     .order('conectado_em')
-  // Uma falha de consulta (rede, RLS) não pode se disfarçar de "nenhuma
-  // conta conectada" — quem chama não teria como distinguir os dois casos.
+  // Continua devolvendo [] numa falha de consulta (rede, RLS) — quem chama
+  // ainda não distingue "sem conta" de "consulta falhou". O log pelo menos
+  // deixa rastro pra investigar depois; não impede o efeito colateral.
   if (error) console.error('listarConexoes falhou:', error.message)
   return (data ?? []) as ConexaoML[]
 }
@@ -45,8 +46,9 @@ export async function buscarConexao(conexaoId: string): Promise<ConexaoML | null
     .select('id, ml_user_id, ml_nickname, nome_loja, expira_em')
     .eq('id', conexaoId)
     .maybeSingle()
-  // Idem: sem isso, uma falha de consulta vira notFound() no layout da loja
-  // como se a conexão tivesse sido apagada.
+  // Idem: continua virando notFound() no layout da loja numa falha de
+  // consulta, como se a conexão tivesse sido apagada — o log só ajuda a
+  // diferenciar isso de uma desconexão de verdade quando investigar depois.
   if (error) console.error('buscarConexao falhou:', conexaoId, error.message)
   return (data as ConexaoML | null) ?? null
 }
@@ -153,7 +155,11 @@ export async function buscarAnunciosDoVendedor(conexaoId: string, mlUserId: stri
   // vir uma página vazia.
   const ids: string[] = []
   let scrollId: string | undefined
-  while (true) {
+  // Teto de segurança: se o ML devolver um scroll_id que nunca esvazia (ex:
+  // scroll expirado sendo reservido), isso evita loop infinito até a
+  // function estourar os 60s — 200 páginas de 50 = 10 mil anúncios, folga
+  // grande sobre qualquer catálogo real.
+  for (let pagina_n = 0; pagina_n < 200; pagina_n++) {
     const query = scrollId
       ? `search_type=scan&scroll_id=${encodeURIComponent(scrollId)}`
       : 'search_type=scan'

@@ -15,7 +15,11 @@ export async function GET(req: Request) {
     return new Response('Sem permissão.', { status: 403 })
   }
 
-  const nome = new URL(req.url).searchParams.get('nome')?.trim() || null
+  // O maxLength do formulário é só do lado do navegador — sem limitar aqui
+  // também, um nome gigante estoura o limite de ~4KB do cookie (o valor
+  // acentuado ainda fica maior depois do encodeURIComponent), o cookie some
+  // sem aviso, e o callback falha com "?ml=erro" sem pista nenhuma do motivo.
+  const nome = new URL(req.url).searchParams.get('nome')?.trim().slice(0, 60) || null
 
   const verifier = base64url(randomBytes(48))
   const challenge = base64url(createHash('sha256').update(verifier).digest())

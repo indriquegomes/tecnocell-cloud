@@ -14,7 +14,10 @@ export function SeletorLoja({ conexoes }: { conexoes: Conexao[] }) {
 
   if (conexoes.length === 0) return null
 
-  const match = pathname.match(/\/mercado-livre\/([^/]+)/)
+  // Ancorada no início — sem isso, /painel/integracoes/mercado-livre/perguntas
+  // (a caixa de entrada agregada, fora desta árvore de rotas) também bateria
+  // e "perguntas" viraria um ativoId que não bate com nenhuma opção da lista.
+  const match = pathname.match(/^\/painel\/integracoes\/lojas\/mercado-livre\/([^/]+)/)
   const ativoId = match?.[1] ?? ''
 
   return (
