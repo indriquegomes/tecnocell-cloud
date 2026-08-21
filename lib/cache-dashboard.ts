@@ -19,7 +19,10 @@ export async function getFaturamentoMetas(de: string, ate: string): Promise<Vend
       // (migration dashboard_faturamento_metas). Antes puxava todas as vendas +
       // pagamentos + histórico pro Node e somava aqui: várias viagens, muitas linhas.
       const sb = await createServiceClient()
-      const { data } = await sb.rpc('dashboard_faturamento_metas', { p_de: de, p_ate: ate })
+      const { data, error } = await sb.rpc('dashboard_faturamento_metas', { p_de: de, p_ate: ate })
+      // Sem isso, uma falha do RPC vira silenciosamente "faturamento zero" no
+      // dashboard de metas — indistinguível de um período sem venda nenhuma.
+      if (error) console.error('dashboard_faturamento_metas falhou:', de, ate, error.message)
       return ((data ?? []) as { loja_id: string; dia: string; valor: number }[]).map((r) => ({
         lojaId: r.loja_id,
         dia: (r.dia ?? '').slice(0, 10),
