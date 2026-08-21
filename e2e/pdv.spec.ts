@@ -134,9 +134,13 @@ test('Fluxo completo de venda: login → PDV → estoque → caixa', async ({ pa
   console.log('✅ Login realizado')
 
   // PASSO 2: Consulta estoque ANTES da venda direto no Supabase
+  // (estoque não é coluna de produtos — é a tabela `estoque`, por depósito.
+  // Soma todos os depósitos do produto: uma venda baixa só o do depósito
+  // que a PDV usa, então a soma antes/depois ainda cai exatamente 1, sem
+  // precisar saber de qual depósito é o usuário de teste.)
   const { data: produtoAntes, error: erroProdutoAntes } = await supabase
     .from('produtos')
-    .select('id, nome, preco, quantidade_estoque')
+    .select('id, nome, preco')
     .ilike('nome', `%${PRODUTO_BUSCA}%`)
     .single()
 
@@ -147,9 +151,16 @@ test('Fluxo completo de venda: login → PDV → estoque → caixa', async ({ pa
     )
   }
 
-  const estoqueInicial = produtoAntes.quantidade_estoque
-  const precoProduto   = produtoAntes.preco
-  const produtoId      = produtoAntes.id
+  const precoProduto = produtoAntes.preco
+  const produtoId     = produtoAntes.id
+
+  const somaEstoque = async (): Promise<number> => {
+    const { data, error } = await supabase.from('estoque').select('quantidade').eq('produto_id', produtoId)
+    if (error) throw new Error(`❌ Erro ao consultar estoque: ${error.message}`)
+    return (data ?? []).reduce((soma, r) => soma + Number(r.quantidade), 0)
+  }
+
+  const estoqueInicial = await somaEstoque()
 
   console.log(`✅ Produto: ${produtoAntes.nome}`)
   console.log(`   Estoque inicial : ${estoqueInicial}`)
@@ -178,17 +189,7 @@ test('Fluxo completo de venda: login → PDV → estoque → caixa', async ({ pa
   console.log('✅ Venda registrada na tela')
 
   // PASSO 4: Verifica estoque DEPOIS da venda no Supabase
-  const { data: produtoDepois, error: erroDepois } = await supabase
-    .from('produtos')
-    .select('quantidade_estoque')
-    .eq('id', produtoId)
-    .single()
-
-  if (erroDepois || !produtoDepois) {
-    throw new Error(`❌ Erro ao consultar estoque após venda: ${erroDepois?.message}`)
-  }
-
-  const estoqueDepois   = produtoDepois.quantidade_estoque
+  const estoqueDepois   = await somaEstoque()
   const estoqueEsperado = estoqueInicial - 1
 
   if (estoqueDepois !== estoqueEsperado) {
