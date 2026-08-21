@@ -31,7 +31,9 @@ create table if not exists avisos_diarios (
 `)
 
 const q = (sql) => db.prepare(sql)
-const diaHoje = () => new Date().toISOString().slice(0, 10)
+// en-CA formata como AAAA-MM-DD direto. new Date().toISOString() é UTC — o dia
+// virava às 21h de Brasília, não à meia-noite local (CLAUDE.md já documenta essa armadilha).
+const diaHoje = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
 
 export function registraTroca(t) {
   q(`insert into conversas (loja, telefone_truncado, pergunta, produto_buscado, resultado, resposta)

@@ -27,6 +27,16 @@ test('zero produtos', () => {
   assert.match(txt, /não encontrei/i)
 })
 
+test('um produto, preco zero ou ausente: nao cota, pede confirmacao', () => {
+  const txt = montaResposta({
+    produtos: [{ id: 'p1', nome: 'Capinha Redmi Note 12', preco: 0 }],
+    estoquePorId: new Map([['p1', 5]]),
+    comAviso: false,
+  })
+  assert.doesNotMatch(txt, /R\$/)
+  assert.match(txt, /confirmar/i)
+})
+
 test('mais de um produto: lista ate 3 e pergunta', () => {
   const produtos = [
     { id: 'p1', nome: 'Tela Redmi Note 12', preco: 200 },
