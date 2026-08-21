@@ -55,6 +55,46 @@ export async function buscaProdutos(termo) {
   return resultado.map((p) => ({ id: p.id, nome: p.nome, preco: p.preco ?? 0 }))
 }
 
+// Busca ampla (OR em vez de AND): só entra quando buscaProdutos() volta vazio.
+// "16 pro max oled" não bate em nada por AND se o produto no catálogo não tem
+// a palavra "oled" no nome — aqui qualquer palavra em comum já traz o produto
+// como candidato. Nunca usada como resultado final sozinha — é só uma rede
+// maior de candidatos pra IA (escolheProduto, em ia.mjs) escolher; ela é quem
+// decide se algum bate de verdade ou se é tudo ruído.
+//
+// OR puro devolvido em ordem alfabética é ruído demais: palavras curtas como
+// "pro"/"max"/"16" aparecem por acaso dentro de nomes sem nenhuma relação
+// ("ISOPROPILICO" contém "pro"). Por isso busca um lote maior (60) e reordena
+// localmente por quantas palavras da busca aparecem em cada nome — só os
+// candidatos mais relevantes (mesma pontuação do melhor) sobem pra IA.
+export async function buscaProdutosAmplo(termo) {
+  const t = (termo || '').trim()
+  if (!t) return []
+  const palavras = semAcento(t).replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
+  if (palavras.length === 0) return []
+
+  const orNorm = palavras.map((w) => `busca_norm.ilike.%${w}%`).join(',')
+  let { data, error } = await supabase.from('produtos').select('id, nome, preco')
+    .eq('ativo', true).eq('visivel_catalogo', true).or(orNorm).limit(60)
+
+  if (error && !(error.code === '42703' || error.message?.includes('busca_norm'))) throw error
+
+  if (error) {
+    const orNome = palavras.map((w) => `nome.ilike.%${w}%`).join(',')
+    ;({ data, error } = await supabase.from('produtos').select('id, nome, preco')
+      .eq('ativo', true).eq('visivel_catalogo', true).or(orNome).limit(60))
+    if (error) throw error
+  }
+
+  const pontuados = (data ?? [])
+    .map((p) => ({ produto: { id: p.id, nome: p.nome, preco: p.preco ?? 0 }, acertos: palavras.filter((w) => semAcento(p.nome).includes(w)).length }))
+    .filter((x) => x.acertos > 0)
+    .sort((a, b) => b.acertos - a.acertos)
+
+  const melhorPontuacao = pontuados[0]?.acertos ?? 0
+  return pontuados.filter((x) => x.acertos === melhorPontuacao).slice(0, 8).map((x) => x.produto)
+}
+
 export async function buscaEstoque(produtoId, depositoId) {
   const { data, error } = await supabase
     .from('estoque')

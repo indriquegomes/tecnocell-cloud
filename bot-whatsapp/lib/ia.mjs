@@ -23,9 +23,8 @@ null se eh_pergunta_produto for false>"}
 
 Mensagem do cliente: `
 
-export async function classificaPergunta(texto) {
+async function chamaDeepSeek(prompt, maxTokens) {
   if (!DEEPSEEK_API_KEY) throw new Error('DEEPSEEK_API_KEY não configurada')
-  const prompt = PROMPT_BASE + JSON.stringify(texto)
   const resp = await fetch('https://api.deepseek.com/chat/completions', {
     method: 'POST',
     headers: {
@@ -35,16 +34,52 @@ export async function classificaPergunta(texto) {
     body: JSON.stringify({
       model: MODELO,
       messages: [{ role: 'user', content: prompt }],
-      max_tokens: 200,
+      max_tokens: maxTokens,
     }),
   })
   if (!resp.ok) throw new Error(`DeepSeek API ${resp.status}: ${await resp.text()}`)
   const data = await resp.json()
-  const textoResposta = data.choices?.[0]?.message?.content || ''
-  const j = primeiroJson(textoResposta)
+  return data.choices?.[0]?.message?.content || ''
+}
+
+export async function classificaPergunta(texto) {
+  const prompt = PROMPT_BASE + JSON.stringify(texto)
+  const j = primeiroJson(await chamaDeepSeek(prompt, 200))
   if (!j) return { ehPerguntaProduto: false, textoBusca: null }
   return {
     ehPerguntaProduto: j.eh_pergunta_produto === true,
     textoBusca: j.eh_pergunta_produto === true ? (j.texto_busca || texto) : null,
   }
+}
+
+// Termina em "Mensagem do cliente: " pelo mesmo motivo do PROMPT_BASE acima —
+// concatenar depois via JSON.stringify, nunca template string aqui dentro.
+const PROMPT_ESCOLHE_BASE = `Um cliente de uma loja de celulares está perguntando sobre um produto.
+Aqui está uma lista de produtos do catálogo que podem ser o que ele quer:
+
+`
+
+// Deixa a IA escolher entre candidatos usando entendimento de verdade (sinônimo,
+// termo comum, cor, apelido — não precisa bater palavra por palavra como a busca
+// no banco exige). Só narra UMA escolha quando está confiante; ambíguo continua
+// ambíguo — quem chama trata "indice: null" como "ainda não sei", nunca chuta.
+export async function escolheProduto(textoCliente, candidatos) {
+  if (!candidatos || candidatos.length === 0) return { indice: null }
+  if (candidatos.length === 1) return { indice: 1 }
+
+  const lista = candidatos.map((p, i) => `${i + 1}. ${p.nome}`).join('\n')
+  const prompt = PROMPT_ESCOLHE_BASE + lista +
+    `\n\nMensagem do cliente: ` + JSON.stringify(textoCliente) +
+    `\n\nQual desses produtos (se algum) é o que o cliente quer? Considere sinônimo,
+termo comum, cor, apelido, resposta curta tipo "a primeira" ou "o pro max" —
+não precisa bater palavra por palavra. Responda SÓ JSON:
+{"indice": <número de 1 a ${candidatos.length}, ou null se nenhum bate com
+confiança, ou mais de um ainda parece possível>}`
+
+  const j = primeiroJson(await chamaDeepSeek(prompt, 60))
+  const indice = j?.indice
+  if (typeof indice !== 'number' || !Number.isInteger(indice) || indice < 1 || indice > candidatos.length) {
+    return { indice: null }
+  }
+  return { indice }
 }

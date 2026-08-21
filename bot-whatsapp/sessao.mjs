@@ -2,13 +2,16 @@ import { createHash } from 'node:crypto'
 import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion } from '@whiskeysockets/baileys'
 import { pino } from 'pino'
 import qrcode from 'qrcode-terminal'
-import { classificaPergunta } from './lib/ia.mjs'
-import { buscaProdutos, buscaEstoque } from './lib/produtos.mjs'
+import { classificaPergunta, escolheProduto } from './lib/ia.mjs'
+import { buscaProdutos, buscaProdutosAmplo, buscaEstoque } from './lib/produtos.mjs'
 import { montaResposta } from './lib/resposta.mjs'
 import { registraTroca, jaAvisouHoje, marcaAvisoHoje } from './lib/db.mjs'
+import { guardaPendente, pegaPendente, limpaPendente } from './lib/estado.mjs'
 import { dorme } from '../bot/lib/util.mjs'
+import { env } from '../bot/lib/env.mjs'
 
 const logger = pino({ level: 'silent' })
+const LINK_ENCOMENDAS = env('BOT_WHATSAPP_LINK_ENCOMENDAS')
 
 // 401 loggedOut, 403 forbidden (conta banida), 440 connectionReplaced (WhatsApp
 // Web aberto em outro lugar) e 500 badSession não se resolvem tentando de novo —
@@ -83,6 +86,32 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
   })
 }
 
+// Tenta resolver a resposta do cliente contra a lista ambígua que o bot já
+// ofereceu antes ("1", "a segunda", "o pro max"...). Número bate na hora, sem
+// gastar chamada de IA; texto livre passa pela mesma escolheProduto() usada na
+// busca nova. Devolve null se não conseguiu resolver — quem chama trata como
+// pergunta nova (a lista pendente já foi limpa nesse caso, pra não interferir
+// com o assunto novo).
+async function tentaResolverPendente(loja, jid, texto) {
+  const pendente = pegaPendente(loja.slug, jid)
+  if (!pendente) return null
+
+  const n = Number(texto.trim())
+  if (Number.isInteger(n) && n >= 1 && n <= pendente.length) {
+    limpaPendente(loja.slug, jid)
+    return [pendente[n - 1]]
+  }
+
+  const { indice } = await escolheProduto(texto, pendente).catch(() => ({ indice: null }))
+  if (indice) {
+    limpaPendente(loja.slug, jid)
+    return [pendente[indice - 1]]
+  }
+
+  limpaPendente(loja.slug, jid) // não resolveu — abandona a pendência, trata como assunto novo
+  return null
+}
+
 async function processaMensagem(sock, loja, jid, texto) {
   const telefone = jid.split('@')[0]
   const telefoneTruncado = telefone.slice(-4)
@@ -92,23 +121,42 @@ async function processaMensagem(sock, loja, jid, texto) {
   // servindo só pra exibição/log em registraTroca (não muda o schema do banco).
   const chaveAviso = createHash('sha256').update(jid).digest('hex').slice(0, 16)
 
-  let classificacao
-  try {
-    classificacao = await classificaPergunta(texto)
-  } catch (e) {
-    console.error(`[${loja.slug}] [ERRO IA] falha ao classificar mensagem:`, e?.message || e)
-    return // erro de IA nunca deve fazer o bot responder algo errado — só ignora
-  }
-  if (!classificacao.ehPerguntaProduto) return // fora do escopo: sem log, sem resposta
+  let produtos = await tentaResolverPendente(loja, jid, texto)
+  let buscaDescricao = null
 
-  const produtos = await buscaProdutos(classificacao.textoBusca)
+  if (!produtos) {
+    let classificacao
+    try {
+      classificacao = await classificaPergunta(texto)
+    } catch (e) {
+      console.error(`[${loja.slug}] [ERRO IA] falha ao classificar mensagem:`, e?.message || e)
+      return // erro de IA nunca deve fazer o bot responder algo errado — só ignora
+    }
+    if (!classificacao.ehPerguntaProduto) return // fora do escopo: sem log, sem resposta
+    buscaDescricao = classificacao.textoBusca
+
+    let candidatos = await buscaProdutos(classificacao.textoBusca)
+    // Busca estrita (AND) veio vazia: tenta de novo com rede mais larga (OR) e
+    // deixa a IA decidir semanticamente — cobre "16 pro max oled" quando o
+    // catálogo não tem a palavra "oled" no nome.
+    if (candidatos.length === 0) candidatos = await buscaProdutosAmplo(classificacao.textoBusca)
+
+    if (candidatos.length > 1) {
+      const { indice } = await escolheProduto(texto, candidatos).catch(() => ({ indice: null }))
+      if (indice) candidatos = [candidatos[indice - 1]]
+    }
+
+    produtos = candidatos
+    if (produtos.length > 1) guardaPendente(loja.slug, jid, produtos)
+  }
+
   const estoquePorId = new Map()
   if (produtos.length === 1) {
     estoquePorId.set(produtos[0].id, await buscaEstoque(produtos[0].id, loja.depositoId))
   }
 
   const comAviso = !jaAvisouHoje(loja.slug, chaveAviso)
-  const resposta = montaResposta({ produtos, estoquePorId, comAviso })
+  const resposta = montaResposta({ produtos, estoquePorId, comAviso, linkEncomendas: LINK_ENCOMENDAS })
 
   await dorme(2000 + Math.random() * 2000) // parece digitação humana, não resposta instantânea
   await sock.sendMessage(jid, { text: resposta })
@@ -118,7 +166,7 @@ async function processaMensagem(sock, loja, jid, texto) {
     loja: loja.slug,
     telefoneTruncado,
     pergunta: texto,
-    produtoBuscado: classificacao.textoBusca,
+    produtoBuscado: buscaDescricao ?? produtos[0]?.nome ?? null,
     resultado: produtos.length === 1 ? 'respondido' : 'pediu_esclarecimento',
     resposta,
   })
