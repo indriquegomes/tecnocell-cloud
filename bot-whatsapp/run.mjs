@@ -1,6 +1,16 @@
 import path from 'node:path'
 import { iniciaSessao } from './sessao.mjs'
-import { RAIZ_REPO } from '../bot/lib/env.mjs'
+import { RAIZ_REPO, env } from '../bot/lib/env.mjs'
+
+// Rede de segurança final: iniciaSessao() é async e roda solta (sem await); qualquer
+// rejeição que escape de um .catch() aqui perto não pode derrubar o processo Node em
+// silêncio — as duas lojas compartilham esse processo, então um erro assim tiraria as duas do ar.
+process.on('unhandledRejection', (e) => console.error('[bot-whatsapp] rejeicao nao tratada:', e))
+
+if (!env('DEEPSEEK_API_KEY')) {
+  console.error('[bot-whatsapp] DEEPSEEK_API_KEY não configurada no .env.local — sem ela o bot classifica toda mensagem como erro e fica mudo, indistinguível de estar funcionando bem. Não vou subir assim.')
+  process.exit(1)
+}
 
 const DIR_DATA = path.join(RAIZ_REPO, 'bot-whatsapp', 'data')
 
@@ -18,4 +28,4 @@ const LOJAS = MODO_TESTE
 
 console.log(MODO_TESTE ? '[bot-whatsapp] MODO TESTE — uma sessão só, pasta auth_teste' : '[bot-whatsapp] modo normal — Petrópolis + Teresópolis')
 
-for (const loja of LOJAS) iniciaSessao(loja)
+for (const loja of LOJAS) iniciaSessao(loja).catch((e) => console.error(`[${loja.slug}] falha ao iniciar sessão:`, e))
