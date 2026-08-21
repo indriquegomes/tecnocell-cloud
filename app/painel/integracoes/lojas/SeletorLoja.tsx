@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation'
 
-type Conexao = { id: string; ml_nickname: string | null; ml_user_id: string }
+type Conexao = { id: string; ml_nickname: string | null; ml_user_id: string; nome_loja: string | null }
 
 // Dropdown "Selecione uma Loja" no topo de Minhas Lojas — troca qual conexão
 // está sendo exibida navegando pra rota daquela conexão (a página em si é
@@ -27,7 +27,7 @@ export function SeletorLoja({ conexoes }: { conexoes: Conexao[] }) {
       >
         {!ativoId && <option value="" disabled>Escolha uma loja</option>}
         {conexoes.map((c) => (
-          <option key={c.id} value={c.id}>{c.ml_nickname ?? c.ml_user_id}</option>
+          <option key={c.id} value={c.id}>{c.nome_loja ?? c.ml_nickname ?? c.ml_user_id}</option>
         ))}
       </select>
     </label>

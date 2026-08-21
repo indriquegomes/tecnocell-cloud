@@ -6,14 +6,14 @@ import { ResponderMensagemForm } from '@/app/painel/integracoes/lojas/mercado-li
 
 type MensagemLinha = {
   id: string; ml_pack_id: string; conexao_id: string | null; autor: string; texto: string; criado_em: string
-  conexao: { ml_nickname: string | null; ml_user_id: string } | null
+  conexao: { nome_loja: string | null; ml_nickname: string | null; ml_user_id: string } | null
 }
 
 export default async function MensagensMLAgregadoPage() {
   const supabase = await createServiceClient()
   const { data } = await supabase
     .from('integracoes_mercado_livre_mensagens')
-    .select('id, ml_pack_id, conexao_id, autor, texto, criado_em, conexao:integracoes_mercado_livre(ml_nickname, ml_user_id)')
+    .select('id, ml_pack_id, conexao_id, autor, texto, criado_em, conexao:integracoes_mercado_livre(nome_loja, ml_nickname, ml_user_id)')
     .order('criado_em', { ascending: false })
     .limit(300)
   const mensagens = (((data ?? []) as unknown as MensagemLinha[])).reverse()
@@ -47,7 +47,7 @@ export default async function MensagensMLAgregadoPage() {
         ) : [...porPack.entries()].map(([packId, msgs]) => (
           <div key={packId} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
-              {msgs[0].conexao?.ml_nickname ?? msgs[0].conexao?.ml_user_id ?? 'Conta desconhecida'} · Pedido / pack {packId}
+              {msgs[0].conexao?.nome_loja ?? msgs[0].conexao?.ml_nickname ?? msgs[0].conexao?.ml_user_id ?? 'Conta desconhecida'} · Pedido / pack {packId}
             </p>
             <ul className="space-y-2">
               {msgs.map((m) => (

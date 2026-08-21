@@ -13,6 +13,7 @@ export type ConexaoML = {
   id: string
   ml_user_id: string
   ml_nickname: string | null
+  nome_loja: string | null
   expira_em: string
 }
 
@@ -29,7 +30,7 @@ export async function listarConexoes(): Promise<ConexaoML[]> {
   const supabase = await createServiceClient()
   const { data } = await supabase
     .from('integracoes_mercado_livre')
-    .select('id, ml_user_id, ml_nickname, expira_em')
+    .select('id, ml_user_id, ml_nickname, nome_loja, expira_em')
     .order('conectado_em')
   return (data ?? []) as ConexaoML[]
 }
@@ -38,7 +39,7 @@ export async function buscarConexao(conexaoId: string): Promise<ConexaoML | null
   const supabase = await createServiceClient()
   const { data } = await supabase
     .from('integracoes_mercado_livre')
-    .select('id, ml_user_id, ml_nickname, expira_em')
+    .select('id, ml_user_id, ml_nickname, nome_loja, expira_em')
     .eq('id', conexaoId)
     .maybeSingle()
   return (data as ConexaoML | null) ?? null

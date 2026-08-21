@@ -22,15 +22,20 @@ export default async function LojaMercadoLivreLayout({
   const conexao = await buscarConexao(conexaoId)
   if (!conexao) notFound()
 
+  const nomeLoja = conexao.nome_loja ?? conexao.ml_nickname ?? conexao.ml_user_id
+  const contaML = conexao.ml_nickname ?? conexao.ml_user_id
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <IconStore className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
-          <h2 className="text-2xl font-bold text-gray-900">Mercado Livre</h2>
-          <span className="inline-flex shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-            {conexao.ml_nickname ?? conexao.ml_user_id}
-          </span>
+          <h2 className="text-2xl font-bold text-gray-900">{nomeLoja}</h2>
+          {conexao.nome_loja && (
+            <span className="inline-flex shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+              {contaML}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <ImportarAnunciosBotao conexaoId={conexaoId} />

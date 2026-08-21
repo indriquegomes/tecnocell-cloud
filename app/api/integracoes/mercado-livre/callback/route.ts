@@ -20,8 +20,10 @@ export async function GET(req: Request) {
   // ser pego por este catch.
   let token: { access_token: string; refresh_token: string; expires_in: number; user_id: number }
   let me: { nickname?: string }
+  let nomeLoja: string | null = null
   try {
-    const { verifier, state: stateEsperado } = JSON.parse(raw) as { verifier: string; state: string }
+    const { verifier, state: stateEsperado, nome } = JSON.parse(raw) as { verifier: string; state: string; nome: string | null }
+    nomeLoja = nome
     if (state !== stateEsperado) redirect('/painel/integracoes?ml=erro')
 
     const redirectUri = new URL('/api/integracoes/mercado-livre/callback', req.url).toString()
@@ -63,6 +65,9 @@ export async function GET(req: Request) {
     expira_em: new Date(Date.now() + token.expires_in * 1000).toISOString(),
     conectado_por: usuarioId,
     atualizado_em: new Date().toISOString(),
+    // Só grava se veio nome — evita apagar o nome já escolhido numa
+    // reautorização (token expirado etc) que não passa pelo formulário.
+    ...(nomeLoja ? { nome_loja: nomeLoja } : {}),
   }, { onConflict: 'ml_user_id' })
   if (error) redirect('/painel/integracoes?ml=erro')
 

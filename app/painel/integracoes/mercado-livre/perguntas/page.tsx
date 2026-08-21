@@ -4,13 +4,13 @@ import { IconFile } from '@/components/icons'
 import { Dica } from '@/components/Dica'
 import { ResponderPerguntaForm } from '@/app/painel/integracoes/lojas/mercado-livre/[conexaoId]/perguntas/ResponderPerguntaForm'
 
-type PerguntaLinha = { id: string; texto: string; criado_em: string; conexao: { ml_nickname: string | null; ml_user_id: string } | null }
+type PerguntaLinha = { id: string; texto: string; criado_em: string; conexao: { nome_loja: string | null; ml_nickname: string | null; ml_user_id: string } | null }
 
 export default async function PerguntasMLAgregadoPage() {
   const supabase = await createServiceClient()
   const { data } = await supabase
     .from('integracoes_mercado_livre_perguntas')
-    .select('id, texto, criado_em, conexao:integracoes_mercado_livre(ml_nickname, ml_user_id)')
+    .select('id, texto, criado_em, conexao:integracoes_mercado_livre(nome_loja, ml_nickname, ml_user_id)')
     .eq('respondida', false)
     .order('criado_em', { ascending: true })
   const perguntas = (data ?? []) as unknown as PerguntaLinha[]
@@ -30,7 +30,7 @@ export default async function PerguntasMLAgregadoPage() {
             {perguntas.map((p) => (
               <li key={p.id} className="py-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                  {p.conexao?.ml_nickname ?? p.conexao?.ml_user_id ?? 'Conta desconhecida'}
+                  {p.conexao?.nome_loja ?? p.conexao?.ml_nickname ?? p.conexao?.ml_user_id ?? 'Conta desconhecida'}
                 </p>
                 <p className="text-sm text-gray-800">{p.texto}</p>
                 <p className="text-xs text-gray-400">{formatDate(p.criado_em)}</p>
