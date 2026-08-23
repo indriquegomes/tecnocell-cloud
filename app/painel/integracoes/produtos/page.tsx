@@ -54,16 +54,29 @@ export default async function IntegracoesProdutosPage({
   const totalPaginas = Math.max(1, Math.ceil(total / POR_PAGINA))
 
   const produtoIds = produtos.map((p) => p.id)
-  const { data: anunciosData } = produtoIds.length
-    ? await supabase
-        .from('integracoes_mercado_livre_anuncios')
-        .select('produto_id, conexao:integracoes_mercado_livre(nome_loja, ml_nickname, ml_user_id)')
-        .in('produto_id', produtoIds)
-    : { data: [] as unknown[] }
+  const [{ data: anunciosData }, { data: rascunhosData }] = produtoIds.length
+    ? await Promise.all([
+        supabase
+          .from('integracoes_mercado_livre_anuncios')
+          .select('produto_id, conexao:integracoes_mercado_livre(nome_loja, ml_nickname, ml_user_id)')
+          .in('produto_id', produtoIds),
+        supabase
+          .from('rascunhos_anuncio_ml')
+          .select('id, produto_id, conexao_id')
+          .in('produto_id', produtoIds)
+          .neq('status', 'publicado'),
+      ])
+    : [{ data: [] as unknown[] }, { data: [] as unknown[] }]
   const anuncioPorProduto = new Map(
     (anunciosData ?? []).map((a) => {
       const linha = a as unknown as { produto_id: string; conexao: { nome_loja: string | null; ml_nickname: string | null; ml_user_id: string } | null }
       return [linha.produto_id, linha.conexao?.nome_loja ?? linha.conexao?.ml_nickname ?? linha.conexao?.ml_user_id ?? 'Mercado Livre']
+    })
+  )
+  const rascunhoPorProduto = new Map(
+    (rascunhosData ?? []).map((r) => {
+      const linha = r as unknown as { id: string; produto_id: string; conexao_id: string }
+      return [linha.produto_id, linha]
     })
   )
 
@@ -96,6 +109,7 @@ export default async function IntegracoesProdutosPage({
             ) : produtos.map((p) => {
               const estoqueTotal = (p.estoque ?? []).reduce((soma, e) => soma + (e.quantidade ?? 0), 0)
               const integradoCom = anuncioPorProduto.get(p.id)
+              const rascunho = rascunhoPorProduto.get(p.id)
               return (
                 <tr key={p.id} className="hover:bg-blue-50/60 transition">
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">{p.nome}</td>
@@ -105,6 +119,11 @@ export default async function IntegracoesProdutosPage({
                   <td className="px-4 py-3 text-center">
                     {integradoCom ? (
                       <span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">{integradoCom}</span>
+                    ) : rascunho ? (
+                      <a href={`/painel/integracoes/lojas/mercado-livre/${rascunho.conexao_id}/anuncios/rascunho/${rascunho.id}`}
+                        className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 hover:bg-amber-200">
+                        Continuar rascunho
+                      </a>
                     ) : conexoes.length > 0 ? (
                       <PublicarMLBotao produtoId={p.id} conexoes={conexoes.map((c) => ({ id: c.id, nome: c.nome_loja ?? c.ml_nickname ?? c.ml_user_id }))} />
                     ) : (
