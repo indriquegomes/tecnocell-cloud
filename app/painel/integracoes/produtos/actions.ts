@@ -35,6 +35,19 @@ export async function criarRascunhoEIrPraEdicao(produtoId: string, formData: For
     criado_por: criadoPor,
   }).select('id').single()
 
+  if (error?.code === '23505') {
+    // Dois cliques quase juntos passaram pela checagem acima antes de
+    // qualquer um inserir — o índice único no banco barrou o segundo.
+    // Não é erro de verdade: só significa que o primeiro já criou o
+    // rascunho, então manda pra ele.
+    const { data: criadoPeloOutro } = await supabase
+      .from('rascunhos_anuncio_ml').select('id')
+      .eq('produto_id', produtoId).eq('conexao_id', conexaoId)
+      .neq('status', 'publicado')
+      .order('created_at', { ascending: false }).limit(1).maybeSingle()
+    if (criadoPeloOutro) redirect(`/painel/integracoes/lojas/mercado-livre/${conexaoId}/anuncios/rascunho/${criadoPeloOutro.id}`)
+  }
+
   if (error || !data) {
     redirect(`/painel/integracoes/produtos?erro=${encodeURIComponent('Não deu pra iniciar o anúncio: ' + (error?.message ?? 'erro desconhecido'))}`)
   }
