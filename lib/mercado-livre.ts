@@ -403,7 +403,12 @@ export type PublicarAnuncioInput = {
 
 export async function publicarAnuncio(conexaoId: string, input: PublicarAnuncioInput): Promise<{ id: string }> {
   const payload = {
-    title: input.titulo,
+    // Achado testando de verdade: pra CRIAR um anúncio (diferente de ler um
+    // que já existe) o Mercado Livre quer family_name, não title — manda os
+    // dois juntos e ele recusa com "The fields [title] are invalid". Corta
+    // em 60 (mesmo teto que o formulário já usa) porque o ML rejeita
+    // family_name maior que isso.
+    family_name: input.titulo.slice(0, 60),
     category_id: input.categoriaId,
     price: input.preco,
     currency_id: 'BRL',
