@@ -335,8 +335,8 @@ export async function buscarCategoriasFilhas(conexaoId: string, categoriaId: str
     const raiz = await chamarML<{ id: string; name: string }[]>(conexaoId, '/sites/MLB/categories')
     return raiz.map((c) => ({ id: c.id, nome: c.name }))
   }
-  const cat = await chamarML<{ children_categories: { id: string; name: string }[] }>(conexaoId, `/categories/${categoriaId}`)
-  return cat.children_categories.map((c) => ({ id: c.id, nome: c.name }))
+  const cat = await chamarML<{ children_categories?: { id: string; name: string }[] }>(conexaoId, `/categories/${categoriaId}`)
+  return (cat.children_categories ?? []).map((c) => ({ id: c.id, nome: c.name }))
 }
 
 export type ValorAtributoML = { id: string; nome: string }
@@ -354,7 +354,7 @@ export type AtributoCategoriaML = {
 type AtributoCategoriaMLResp = {
   id: string
   name: string
-  tags?: { required?: boolean; conditional_required?: boolean }
+  tags?: { required?: boolean; conditional_required?: boolean; read_only?: boolean }
   value_max_length?: number
   values?: { id: string; name: string }[]
   hint?: string
@@ -362,17 +362,25 @@ type AtributoCategoriaMLResp = {
 
 export async function buscarAtributosCategoria(conexaoId: string, categoriaId: string): Promise<AtributoCategoriaML[]> {
   const attrs = await chamarML<AtributoCategoriaMLResp[]>(conexaoId, `/categories/${categoriaId}/attributes`)
-  return attrs.map((a) => ({
-    id: a.id,
-    nome: a.name,
-    // conditional_required também vira obrigatório aqui: é mais seguro pedir
-    // de mais (usuário preenche à toa) do que de menos (Mercado Livre recusa
-    // o anúncio na hora de publicar com um erro que já era previsível).
-    obrigatorio: !!(a.tags?.required || a.tags?.conditional_required),
-    valorMaximo: a.value_max_length ?? null,
-    valores: (a.values ?? []).map((v) => ({ id: v.id, nome: v.name })),
-    dica: a.hint ?? null,
-  }))
+  return attrs
+    // read_only é preenchido pelo próprio Mercado Livre — mandar de volta no
+    // POST /items faz o anúncio ser recusado (achado testando de verdade:
+    // categoria "Outros" tem 54 atributos, só 7 não são read_only/hidden).
+    // ITEM_CONDITION sai também: duplica o campo `condition` do payload e
+    // conflita com ele. Não filtra por "hidden" sozinho — EMPTY_GTIN_REASON
+    // é hidden mas NÃO é read_only, e é obrigatório de verdade.
+    .filter((a) => !a.tags?.read_only && a.id !== 'ITEM_CONDITION')
+    .map((a) => ({
+      id: a.id,
+      nome: a.name,
+      // conditional_required também vira obrigatório aqui: é mais seguro pedir
+      // de mais (usuário preenche à toa) do que de menos (Mercado Livre recusa
+      // o anúncio na hora de publicar com um erro que já era previsível).
+      obrigatorio: !!(a.tags?.required || a.tags?.conditional_required),
+      valorMaximo: a.value_max_length ?? null,
+      valores: (a.values ?? []).map((v) => ({ id: v.id, nome: v.name })),
+      dica: a.hint ?? null,
+    }))
 }
 
 export type TipoAnuncioML = { id: string; nome: string; restanteGratis: number | null }

@@ -70,7 +70,16 @@ export function RascunhoEditor({
     setNavegando(true)
     setCaminho([])
     if (historico.length === 0) carregarNivel(null)
-    else setOpcoesAtuais(historico[0])
+    else {
+      // Sem truncar aqui, um segundo "escolher categoria folha → trocar
+      // categoria → navegar nível 2" ficava com historico maior que
+      // caminho — as migalhas de pão passavam a apontar pro nível errado
+      // (achado na revisão: navegar de novo depois de já ter escolhido uma
+      // categoria folha antes deixava o breadcrumb mostrando a árvore
+      // errada, silenciosamente).
+      setOpcoesAtuais(historico[0])
+      setHistorico((prev) => prev.slice(0, 1))
+    }
   }
 
   const escolherCategoria = async (cat: CategoriaML) => {
@@ -79,11 +88,21 @@ export function RascunhoEditor({
     try {
       const filhas = await buscarCategoriasFilhasAction(rascunho.conexao_id, cat.id)
       if (filhas.length === 0) {
-        // Categoria folha — fim da navegação.
+        // Categoria folha — fim da navegação. Trocar de categoria invalida
+        // os atributos e o tipo de anúncio já preenchidos (são específicos
+        // da categoria anterior) — sem isso, valor de uma categoria vazava
+        // pro payload de outra e o Mercado Livre recusava o anúncio.
+        if (cat.id !== categoriaId) {
+          setValoresAtributos({})
+          setListingTypeId('')
+        }
         setCategoriaId(cat.id)
         setCategoriaNome(cat.nome)
         setNavegando(false)
-        await salvarRascunho(rascunho.id, { categoriaId: cat.id, categoriaNome: cat.nome })
+        await salvarRascunho(rascunho.id, {
+          categoriaId: cat.id, categoriaNome: cat.nome,
+          ...(cat.id !== categoriaId ? { atributos: {}, listingTypeId: null } : {}),
+        })
         carregarAtributos(cat.id)
         carregarTiposAnuncio(cat.id)
       } else {

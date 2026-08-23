@@ -54,7 +54,7 @@ export default async function IntegracoesProdutosPage({
   const totalPaginas = Math.max(1, Math.ceil(total / POR_PAGINA))
 
   const produtoIds = produtos.map((p) => p.id)
-  const [{ data: anunciosData }, { data: rascunhosData }] = produtoIds.length
+  const [{ data: anunciosData, error: erroAnuncios }, { data: rascunhosData, error: erroRascunhos }] = produtoIds.length
     ? await Promise.all([
         supabase
           .from('integracoes_mercado_livre_anuncios')
@@ -66,7 +66,13 @@ export default async function IntegracoesProdutosPage({
           .in('produto_id', produtoIds)
           .neq('status', 'publicado'),
       ])
-    : [{ data: [] as unknown[] }, { data: [] as unknown[] }]
+    : [{ data: [] as unknown[], error: null }, { data: [] as unknown[], error: null }]
+  // Uma falha aqui não pode virar silenciosamente "não integrado" — senão o
+  // botão "Publicar no Mercado Livre" reaparece pra um produto que já TEM
+  // anúncio, e um clique cria um segundo anúncio real por engano.
+  if (erroAnuncios) console.error('Falha ao buscar status de integração ML em Meus Produtos:', erroAnuncios.message)
+  if (erroRascunhos) console.error('Falha ao buscar rascunhos ML em Meus Produtos:', erroRascunhos.message)
+  const statusIndisponivel = !!erroAnuncios
   const anuncioPorProduto = new Map(
     (anunciosData ?? []).map((a) => {
       const linha = a as unknown as { produto_id: string; conexao: { nome_loja: string | null; ml_nickname: string | null; ml_user_id: string } | null }
@@ -124,6 +130,10 @@ export default async function IntegracoesProdutosPage({
                         className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 hover:bg-amber-200">
                         Continuar rascunho
                       </a>
+                    ) : statusIndisponivel ? (
+                      <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-400" title="Não deu pra confirmar o status de integração agora">
+                        Status indisponível
+                      </span>
                     ) : conexoes.length > 0 ? (
                       <PublicarMLBotao produtoId={p.id} conexoes={conexoes.map((c) => ({ id: c.id, nome: c.nome_loja ?? c.ml_nickname ?? c.ml_user_id }))} />
                     ) : (
