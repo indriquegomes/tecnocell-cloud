@@ -2,8 +2,11 @@ import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server
 import { formatBRL } from '@/lib/utils'
 import { BuscaLista } from '@/components/BuscaLista'
 import { DEPOSITO_PETROPOLIS_LOJA } from '@/lib/mercado-livre'
+import { criarRascunhoEIrPraEdicao } from '@/app/painel/integracoes/produtos/actions'
+import { AcoesAnuncio } from './AcoesAnuncio'
 
 type AnuncioLinha = {
+  id: string
   ml_item_id: string
   titulo_ml: string
   preco_ml: number | null
@@ -24,7 +27,7 @@ export default async function MeusAnunciosMLPage({
 
   let q = supabase
     .from('integracoes_mercado_livre_anuncios')
-    .select('ml_item_id, titulo_ml, preco_ml, produto_id, is_catalogo, catalog_product_id')
+    .select('id, ml_item_id, titulo_ml, preco_ml, produto_id, is_catalogo, catalog_product_id')
     .eq('conexao_id', conexaoId)
     .order('titulo_ml')
 
@@ -55,15 +58,16 @@ export default async function MeusAnunciosMLPage({
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">ID</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Nome</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tipo</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Vínculo com Catálogo</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Catálogo</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Produto no TecnoCell</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Preço</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Estoque</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {anuncios.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-gray-400">Nenhum anúncio importado ainda.</td></tr>
+              <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-gray-400">Nenhum anúncio importado ainda.</td></tr>
             ) : anuncios.map((a) => {
               const produto = a.produto_id ? produtoPorId.get(a.produto_id) : null
               return (
@@ -76,7 +80,15 @@ export default async function MeusAnunciosMLPage({
                   </td>
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">{a.titulo_ml}</td>
                   <td className="px-4 py-3 text-sm text-gray-600">{a.is_catalogo ? 'Catálogo' : 'Comum'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{a.is_catalogo ? (a.catalog_product_id ?? '—') : '—'}</td>
+                  <td className="px-4 py-3 text-sm">
+                    {a.is_catalogo ? (
+                      <span className="text-gray-600">Vinculado ({a.catalog_product_id})</span>
+                    ) : a.catalog_product_id ? (
+                      <span className="font-medium text-emerald-600">Elegível ({a.catalog_product_id})</span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-sm text-gray-600">
                     {produto
                       ? <>{produto.nome} <span className="text-gray-400">({produto.codigo ?? a.produto_id})</span></>
@@ -85,6 +97,20 @@ export default async function MeusAnunciosMLPage({
                   <td className="px-4 py-3 text-sm text-right text-gray-600">{a.preco_ml != null ? formatBRL(a.preco_ml) : '—'}</td>
                   <td className="px-4 py-3 text-sm text-center text-gray-600">
                     {a.produto_id ? (estoquePorProduto.get(a.produto_id) ?? 0) : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    <div className="flex flex-col items-start gap-1">
+                      <AcoesAnuncio anuncioId={a.id} mlItemId={a.ml_item_id} conexaoId={conexaoId} precoAtual={a.preco_ml ?? 0} />
+                      {a.produto_id && (
+                        <form action={criarRascunhoEIrPraEdicao.bind(null, a.produto_id)}>
+                          <input type="hidden" name="conexaoId" value={conexaoId} />
+                          <button type="submit"
+                            className="rounded-lg px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 transition">
+                            Gerar novo anúncio
+                          </button>
+                        </form>
+                      )}
+                    </div>
                   </td>
                 </tr>
               )
