@@ -2,9 +2,9 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import type { CategoriaML, AtributoCategoriaML } from '@/lib/mercado-livre'
+import type { CategoriaML, AtributoCategoriaML, TipoAnuncioML } from '@/lib/mercado-livre'
 import {
-  buscarCategoriasFilhasAction, buscarAtributosCategoriaAction,
+  buscarCategoriasFilhasAction, buscarAtributosCategoriaAction, buscarTiposAnuncioAction,
   salvarRascunho, uploadFotoAnuncio, publicarRascunho, excluirRascunho,
 } from '../actions'
 import type { RascunhoAnuncio } from './page'
@@ -37,6 +37,11 @@ export function RascunhoEditor({
   const [atributos, setAtributos] = useState<AtributoCategoriaML[]>([])
   const [valoresAtributos, setValoresAtributos] = useState<Record<string, string>>(rascunho.atributos ?? {})
   const [carregandoAtributos, setCarregandoAtributos] = useState(false)
+
+  const [tiposAnuncio, setTiposAnuncio] = useState<TipoAnuncioML[]>([])
+  const [listingTypeId, setListingTypeId] = useState(rascunho.listing_type_id ?? '')
+  const [carregandoTipos, setCarregandoTipos] = useState(false)
+  const [condicao, setCondicao] = useState<'new' | 'used'>(rascunho.condicao ?? 'new')
 
   const [titulo, setTitulo] = useState(rascunho.titulo ?? produtoNome)
   const [preco, setPreco] = useState(String(rascunho.preco ?? ''))
@@ -80,6 +85,7 @@ export function RascunhoEditor({
         setNavegando(false)
         await salvarRascunho(rascunho.id, { categoriaId: cat.id, categoriaNome: cat.nome })
         carregarAtributos(cat.id)
+        carregarTiposAnuncio(cat.id)
       } else {
         setCaminho((prev) => [...prev, { id: cat.id, nome: cat.nome }])
         setHistorico((prev) => [...prev, filhas])
@@ -111,6 +117,22 @@ export function RascunhoEditor({
     }
   }
 
+  const carregarTiposAnuncio = async (catId: string) => {
+    setCarregandoTipos(true)
+    try {
+      const lista = await buscarTiposAnuncioAction(rascunho.conexao_id, catId)
+      setTiposAnuncio(lista)
+      // Se o rascunho ainda não tinha um tipo escolhido, sugere o primeiro
+      // da lista em vez de deixar em branco — mas nunca troca uma escolha
+      // que o usuário já fez antes.
+      setListingTypeId((atual) => atual || lista[0]?.id || '')
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Falha ao buscar tipos de anúncio disponíveis.')
+    } finally {
+      setCarregandoTipos(false)
+    }
+  }
+
   // No mount: se já tem categoria escolhida (rascunho salvo antes), busca
   // os atributos direto; senão, já carrega as categorias-raiz pra navegação
   // começar sem precisar de um clique extra. eslint-disable: deve rodar só
@@ -118,8 +140,10 @@ export function RascunhoEditor({
   // escolherCategoria, que já cuida de buscar os atributos sozinho.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (rascunho.categoria_ml_id) carregarAtributos(rascunho.categoria_ml_id)
-    else carregarNivel(null)
+    if (rascunho.categoria_ml_id) {
+      carregarAtributos(rascunho.categoria_ml_id)
+      carregarTiposAnuncio(rascunho.categoria_ml_id)
+    } else carregarNivel(null)
   }, [])
 
   const handleUploadFoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -147,6 +171,7 @@ export function RascunhoEditor({
     setErro('')
     const res = await salvarRascunho(rascunho.id, {
       titulo, preco: parseFloat(preco.replace(',', '.')) || null, atributos: valoresAtributos, fotos,
+      listingTypeId: listingTypeId || null, condicao,
     })
     setSalvando(false)
     if (res.ok) setMensagem('Rascunho salvo.')
@@ -160,6 +185,7 @@ export function RascunhoEditor({
     // Garante que o que está na tela foi salvo antes de publicar.
     await salvarRascunho(rascunho.id, {
       titulo, preco: parseFloat(preco.replace(',', '.')) || null, atributos: valoresAtributos, fotos,
+      listingTypeId: listingTypeId || null, condicao,
     })
     const res = await publicarRascunho(rascunho.id)
     setPublicando(false)
@@ -285,6 +311,34 @@ export function RascunhoEditor({
           <input type="text" inputMode="decimal" value={preco} onChange={(e) => setPreco(e.target.value)}
             className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" />
         </label>
+
+        <label className="block space-y-1">
+          <span className="text-sm font-medium text-gray-700">Condição do produto</span>
+          <select value={condicao} onChange={(e) => setCondicao(e.target.value as 'new' | 'used')}
+            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+            <option value="new">Novo</option>
+            <option value="used">Usado</option>
+          </select>
+        </label>
+
+        {categoriaId && (
+          <label className="block space-y-1">
+            <span className="text-sm font-medium text-gray-700">Tipo de anúncio</span>
+            {carregandoTipos ? (
+              <p className="text-sm text-gray-400">Carregando opções disponíveis...</p>
+            ) : (
+              <select value={listingTypeId} onChange={(e) => setListingTypeId(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                <option value="" disabled>Selecione...</option>
+                {tiposAnuncio.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nome}{t.restanteGratis != null ? ` (${t.restanteGratis} grátis restantes)` : ''}
+                  </option>
+                ))}
+              </select>
+            )}
+          </label>
+        )}
 
         <div className="space-y-2">
           <span className="text-sm font-medium text-gray-700">Fotos</span>

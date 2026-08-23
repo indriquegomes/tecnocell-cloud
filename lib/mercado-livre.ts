@@ -375,28 +375,33 @@ export async function buscarAtributosCategoria(conexaoId: string, categoriaId: s
   }))
 }
 
+export type TipoAnuncioML = { id: string; nome: string; restanteGratis: number | null }
+
+// Nem toda conta pode usar todo tipo de anúncio em toda categoria, e os
+// nomes variam (achado testando de verdade: a resposta é um objeto com
+// campo "available", não uma lista direta como parecia pela documentação —
+// {category_id, available: [{id, name, remaining_listings}]}). Devolve a
+// lista pra quem chama escolher, não escolhe sozinho — grátis, clássico e
+// premium têm custo/alcance bem diferentes, é decisão do vendedor.
+export async function buscarTiposAnuncioDisponiveis(conexaoId: string, mlUserId: string, categoriaId: string): Promise<TipoAnuncioML[]> {
+  const resp = await chamarML<{ available: { id: string; name: string; remaining_listings: number | null }[] }>(
+    conexaoId, `/users/${mlUserId}/available_listing_types?category_id=${categoriaId}`
+  )
+  return resp.available.map((t) => ({ id: t.id, nome: t.name, restanteGratis: t.remaining_listings }))
+}
+
 export type PublicarAnuncioInput = {
   titulo: string
   categoriaId: string
   preco: number
   quantidade: number
   fotos: string[]
+  listingTypeId: string
+  condicao: 'new' | 'used'
   atributos: { id: string; valorTexto?: string; valorId?: string }[]
 }
 
-// Nem toda conta pode usar todo tipo de anúncio em toda categoria — pega o
-// mais barato disponível pra essa conta+categoria em vez de chutar um fixo
-// (ex: "gold_special" pode não existir pra contas novas/categorias novas).
-async function tipoAnuncioDisponivel(conexaoId: string, mlUserId: string, categoriaId: string): Promise<string> {
-  const tipos = await chamarML<{ id: string }[]>(
-    conexaoId, `/users/${mlUserId}/available_listing_types?category_id=${categoriaId}`
-  )
-  if (tipos.length === 0) throw new Error('Nenhum tipo de anúncio disponível pra essa categoria nesta conta.')
-  return tipos[0].id
-}
-
-export async function publicarAnuncio(conexaoId: string, mlUserId: string, input: PublicarAnuncioInput): Promise<{ id: string }> {
-  const listingTypeId = await tipoAnuncioDisponivel(conexaoId, mlUserId, input.categoriaId)
+export async function publicarAnuncio(conexaoId: string, input: PublicarAnuncioInput): Promise<{ id: string }> {
   const payload = {
     title: input.titulo,
     category_id: input.categoriaId,
@@ -404,8 +409,8 @@ export async function publicarAnuncio(conexaoId: string, mlUserId: string, input
     currency_id: 'BRL',
     available_quantity: input.quantidade,
     buying_mode: 'buy_it_now',
-    listing_type_id: listingTypeId,
-    condition: 'new',
+    listing_type_id: input.listingTypeId,
+    condition: input.condicao,
     pictures: input.fotos.map((url) => ({ source: url })),
     attributes: input.atributos.map((a) => ({
       id: a.id,

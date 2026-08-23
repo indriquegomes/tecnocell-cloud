@@ -22,6 +22,8 @@ export type RascunhoAnuncio = {
   status: 'rascunho' | 'publicado' | 'erro'
   ml_item_id: string | null
   erro_publicacao: string | null
+  listing_type_id: string | null
+  condicao: 'new' | 'used'
 }
 
 export default async function RascunhoAnuncioPage({
@@ -34,7 +36,7 @@ export default async function RascunhoAnuncioPage({
 
   const { data: rascunho } = await supabase
     .from('rascunhos_anuncio_ml')
-    .select('id, produto_id, conexao_id, categoria_ml_id, categoria_ml_nome, titulo, atributos, fotos, preco, status, ml_item_id, erro_publicacao')
+    .select('id, produto_id, conexao_id, categoria_ml_id, categoria_ml_nome, titulo, atributos, fotos, preco, status, ml_item_id, erro_publicacao, listing_type_id, condicao')
     .eq('id', rascunhoId)
     .eq('conexao_id', conexaoId)
     .maybeSingle()

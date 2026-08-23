@@ -2,8 +2,8 @@
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import {
-  buscarCategoriasFilhas, buscarAtributosCategoria, publicarAnuncio, buscarConexao,
-  type CategoriaML, type AtributoCategoriaML,
+  buscarCategoriasFilhas, buscarAtributosCategoria, buscarTiposAnuncioDisponiveis, publicarAnuncio, buscarConexao,
+  type CategoriaML, type AtributoCategoriaML, type TipoAnuncioML,
 } from '@/lib/mercado-livre'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
@@ -18,6 +18,13 @@ export async function buscarAtributosCategoriaAction(conexaoId: string, categori
   return buscarAtributosCategoria(conexaoId, categoriaId)
 }
 
+export async function buscarTiposAnuncioAction(conexaoId: string, categoriaId: string): Promise<TipoAnuncioML[]> {
+  await requirePermissao('integracoes')
+  const conexao = await buscarConexao(conexaoId)
+  if (!conexao) throw new Error('Conexão do Mercado Livre não encontrada.')
+  return buscarTiposAnuncioDisponiveis(conexaoId, conexao.ml_user_id, categoriaId)
+}
+
 type RascunhoUpdate = {
   categoriaId?: string | null
   categoriaNome?: string | null
@@ -25,6 +32,8 @@ type RascunhoUpdate = {
   preco?: number | null
   atributos?: Record<string, string>
   fotos?: string[]
+  listingTypeId?: string | null
+  condicao?: 'new' | 'used'
 }
 
 export async function salvarRascunho(rascunhoId: string, dados: RascunhoUpdate): Promise<{ ok: boolean; erro?: string }> {
@@ -37,6 +46,8 @@ export async function salvarRascunho(rascunhoId: string, dados: RascunhoUpdate):
     ...(dados.preco !== undefined ? { preco: dados.preco } : {}),
     ...(dados.atributos !== undefined ? { atributos: dados.atributos } : {}),
     ...(dados.fotos !== undefined ? { fotos: dados.fotos } : {}),
+    ...(dados.listingTypeId !== undefined ? { listing_type_id: dados.listingTypeId } : {}),
+    ...(dados.condicao !== undefined ? { condicao: dados.condicao } : {}),
     updated_at: new Date().toISOString(),
   }).eq('id', rascunhoId)
   if (error) return { ok: false, erro: error.message }
@@ -71,6 +82,7 @@ export async function publicarRascunho(rascunhoId: string): Promise<{ ok: boolea
   if (!rascunho.categoria_ml_id) return { ok: false, erro: 'Escolha uma categoria antes de publicar.' }
   if (!rascunho.titulo?.trim()) return { ok: false, erro: 'Preencha o título antes de publicar.' }
   if (!rascunho.preco || rascunho.preco <= 0) return { ok: false, erro: 'Preencha um preço válido antes de publicar.' }
+  if (!rascunho.listing_type_id) return { ok: false, erro: 'Escolha o tipo de anúncio (grátis, clássico, premium...) antes de publicar.' }
   const fotos = (rascunho.fotos ?? []) as string[]
   if (fotos.length === 0) return { ok: false, erro: 'Adicione pelo menos uma foto antes de publicar.' }
 
@@ -89,12 +101,14 @@ export async function publicarRascunho(rascunhoId: string): Promise<{ ok: boolea
     .map(([id, valor]) => ({ id, valorTexto: valor }))
 
   try {
-    const publicado = await publicarAnuncio(rascunho.conexao_id, conexao.ml_user_id, {
+    const publicado = await publicarAnuncio(rascunho.conexao_id, {
       titulo: rascunho.titulo,
       categoriaId: rascunho.categoria_ml_id,
       preco: rascunho.preco,
       quantidade,
       fotos,
+      listingTypeId: rascunho.listing_type_id,
+      condicao: rascunho.condicao === 'used' ? 'used' : 'new',
       atributos: atributosPayload,
     })
 
