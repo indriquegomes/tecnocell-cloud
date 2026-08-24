@@ -26,46 +26,55 @@ export async function registrarNoCaixa(
   motivo: string,
 ): Promise<void> {
   if (!lojaId || !(valor > 0)) return
-  const { data: caixa } = await supabase
+  const { data: caixa, error: erroCaixa } = await supabase
     .from('caixas')
     .select('id')
     .eq('status', 'aberto')
     .eq('loja_id', lojaId)
     .maybeSingle()
+  // Uma falha aqui não pode virar silenciosamente "sem caixa aberto" — é
+  // exatamente o buraco que este arquivo existe pra fechar (ver comentário
+  // acima). Não trava o recebimento (o dinheiro já entrou de verdade), mas
+  // precisa ficar visível no log pra alguém conferir a gaveta na mão.
+  if (erroCaixa) { console.error('registrarNoCaixa: falha ao buscar caixa aberto:', erroCaixa.message); return }
   if (!caixa) return
-  await supabase.from('movimentos_caixa').insert({
+  const { error: erroMovimento } = await supabase.from('movimentos_caixa').insert({
     caixa_id: caixa.id,
     tipo: 'recebimento',
     motivo,
     forma_pagamento: formaTexto || 'Dinheiro',
     valor,
   })
+  if (erroMovimento) console.error('registrarNoCaixa: falha ao registrar movimento:', erroMovimento.message)
 }
 
 // De qual loja é este lançamento? O Financeiro só conhece o id do lançamento, então o
 // caminho é lançamento → venda → depósito → loja. Fiado avulso (sem venda) não tem loja
 // e por isso não gera movimento — é o mesmo critério de "não sei de qual gaveta saiu".
 export async function lojaDoLancamento(supabase: SB, lancamentoId: string): Promise<string | null> {
-  const { data: lanc } = await supabase
+  const { data: lanc, error: erroLanc } = await supabase
     .from('lancamentos')
     .select('venda_id')
     .eq('id', lancamentoId)
     .maybeSingle()
+  if (erroLanc) { console.error('lojaDoLancamento: falha ao buscar lançamento:', erroLanc.message); return null }
   const vendaId = (lanc as { venda_id?: string | null } | null)?.venda_id
   if (!vendaId) return null
 
-  const { data: venda } = await supabase
+  const { data: venda, error: erroVenda } = await supabase
     .from('vendas')
     .select('deposito_id')
     .eq('id', vendaId)
     .maybeSingle()
+  if (erroVenda) { console.error('lojaDoLancamento: falha ao buscar venda:', erroVenda.message); return null }
   const depositoId = (venda as { deposito_id?: string | null } | null)?.deposito_id
   if (!depositoId) return null
 
-  const { data: dep } = await supabase
+  const { data: dep, error: erroDep } = await supabase
     .from('depositos')
     .select('loja_id')
     .eq('id', depositoId)
     .maybeSingle()
+  if (erroDep) { console.error('lojaDoLancamento: falha ao buscar depósito:', erroDep.message); return null }
   return (dep as { loja_id?: string | null } | null)?.loja_id ?? null
 }

@@ -81,11 +81,15 @@ export async function editarLancamento(id: string, formData: FormData) {
 export async function marcarPago(id: string) {
   const usuario = await requirePermissao('financeiro')
   const supabase = await createServiceClient()
-  const { data: antes } = await supabase
+  const { data: antes, error: erroAntes } = await supabase
     .from('lancamentos')
     .select('valor, valor_pago, forma_pagamento, pessoa_nome')
     .eq('id', id)
     .maybeSingle()
+  // Sem essa checagem, uma falha na consulta virava "antes = undefined" e o
+  // valor pago descia pra 0 silenciosamente — o lançamento saía da cobrança
+  // como se tivesse sido pago, mas nada entrava na gaveta.
+  if (erroAntes) throw new Error(erroAntes.message)
   await logAtividade('pagamento.marcar_pago', {
     lancamento_id: id,
     valor: antes?.valor ?? null,
