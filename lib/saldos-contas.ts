@@ -98,6 +98,49 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
       if (!(l.conta_id in saldo)) continue
       saldo[l.conta_id] += l.tipo === 'receber' ? (l.valor ?? 0) : -(l.valor ?? 0)
     }
+
+    // Reembolso de devolução: registrar_devolucao grava o reembolso SEM
+    // conta_id (PIX/cartão vira lançamento com conta_id null; dinheiro nem
+    // lançamento tem, só movimentos_caixa) — por isso nunca entravam na soma
+    // acima, e toda devolução deixava a conta inflada pra sempre com o valor
+    // da venda original, sem nunca descontar o reembolso.
+    //
+    // DINHEIRO: sem ambiguidade — sempre a gaveta da loja do caixa, igual venda.
+    const movDev = await fetchAll<{ caixa_id: string; valor: number }>((from, to) =>
+      supabase.from('movimentos_caixa').select('caixa_id, valor').eq('tipo', 'devolucao').range(from, to))
+    if (movDev.length) {
+      const caixaIds = [...new Set(movDev.map((m) => m.caixa_id))]
+      const { data: caixasRows } = await supabase.from('caixas').select('id, loja_id').in('id', caixaIds)
+      const lojaPorCaixa = Object.fromEntries((caixasRows ?? []).map((c) => [c.id, (c as { loja_id: string | null }).loja_id]))
+      for (const m of movDev) {
+        const loja = lojaPorCaixa[m.caixa_id]
+        const conta = loja ? caixaDaLoja[loja] : null
+        if (conta && conta in saldo) saldo[conta] -= m.valor ?? 0
+      }
+    }
+
+    // PIX/DÉBITO/CRÉDITO: a devolução só grava o texto do meio (p_tipo_credito:
+    // 'pix'|'debito'|'credito'), não qual conta/maquininha específica recebeu o
+    // reembolso de volta — informação que o RPC nunca teve. Aproximação: acha a
+    // primeira forma_pagamento do tipo correspondente e usa a conta dela. Com 2+
+    // maquininhas de cartão isso pode cair na conta errada entre elas (mas
+    // sempre numa conta de cartão, nunca fica de fora como hoje).
+    const lancDev = await fetchAll<{ valor: number; forma_pagamento: string | null }>((from, to) =>
+      supabase.from('lancamentos').select('valor, forma_pagamento')
+        .eq('tipo', 'pagar').eq('status', 'pago').is('conta_id', null)
+        .ilike('descricao', 'Devolução —%').range(from, to))
+    if (lancDev.length) {
+      const tipoPorTextoCredito: Record<string, string> = { pix: 'pix', debito: 'cartao_debito', credito: 'cartao_credito' }
+      const contaPorTipo: Record<string, string> = {}
+      for (const f of (formas ?? []) as { tipo: string | null; conta_destino_id: string | null }[]) {
+        if (f.tipo && f.conta_destino_id && !(f.tipo in contaPorTipo)) contaPorTipo[f.tipo] = f.conta_destino_id
+      }
+      for (const l of lancDev) {
+        const tipo = tipoPorTextoCredito[(l.forma_pagamento ?? '').toLowerCase()]
+        const conta = tipo ? contaPorTipo[tipo] : null
+        if (conta && conta in saldo) saldo[conta] -= l.valor ?? 0
+      }
+    }
   } catch { /* colunas novas ainda não existem — mostra só o inicial */ }
   return saldo
 }
