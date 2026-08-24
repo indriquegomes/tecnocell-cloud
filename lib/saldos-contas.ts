@@ -40,26 +40,38 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
     const temRota = Object.keys(rota).length > 0
 
     // venda → loja (via depósito): precisa pra rotear DINHEIRO (caixa da loja) e,
-    // agora, cartão/PIX por loja quando houver rota configurada.
+    // agora, cartão/PIX por loja quando houver rota configurada. Também traz o
+    // status da venda — cancelar_venda desfaz estoque/fiado/crédito mas NUNCA
+    // apaga as linhas de pagamentos_venda (fica o registro de que a maquininha
+    // foi passada), então sem filtrar por status uma venda cancelada continuava
+    // somando pra sempre no saldo da conta, mesmo com o dinheiro nunca tendo
+    // ficado com a loja.
     const lojaDaVenda: Record<string, string | null> = {}
+    const statusDaVenda: Record<string, string | null> = {}
     const temDinheiro = (pv ?? []).some((p) => { const f = p.forma_pagamento_id ? formaById[p.forma_pagamento_id] : null; return f?.tipo === 'dinheiro' })
-    if (((temDinheiro && Object.keys(caixaDaLoja).length) || temRota) && (pv ?? []).length) {
-      const vendaIds = [...new Set((pv ?? []).map((p) => p.venda_id).filter(Boolean))] as string[]
+    const vendaIds = [...new Set((pv ?? []).map((p) => p.venda_id).filter(Boolean))] as string[]
+    if (vendaIds.length) {
       const depDaVenda: Record<string, string | null> = {}
       for (let i = 0; i < vendaIds.length; i += 300) {
-        const { data } = await supabase.from('vendas').select('id, deposito_id').in('id', vendaIds.slice(i, i + 300))
-        for (const v of data ?? []) depDaVenda[v.id] = (v as { deposito_id: string | null }).deposito_id
+        const { data } = await supabase.from('vendas').select('id, deposito_id, status').in('id', vendaIds.slice(i, i + 300))
+        for (const v of data ?? []) {
+          depDaVenda[v.id] = (v as { deposito_id: string | null }).deposito_id
+          statusDaVenda[v.id] = (v as { status: string | null }).status
+        }
       }
-      const depIds = [...new Set(Object.values(depDaVenda).filter(Boolean))] as string[]
-      const lojaDoDep: Record<string, string | null> = {}
-      if (depIds.length) {
-        const { data } = await supabase.from('depositos').select('id, loja_id').in('id', depIds)
-        for (const d of data ?? []) lojaDoDep[d.id] = (d as { loja_id: string | null }).loja_id
+      if ((temDinheiro && Object.keys(caixaDaLoja).length) || temRota) {
+        const depIds = [...new Set(Object.values(depDaVenda).filter(Boolean))] as string[]
+        const lojaDoDep: Record<string, string | null> = {}
+        if (depIds.length) {
+          const { data } = await supabase.from('depositos').select('id, loja_id').in('id', depIds)
+          for (const d of data ?? []) lojaDoDep[d.id] = (d as { loja_id: string | null }).loja_id
+        }
+        for (const vid of vendaIds) { const dep = depDaVenda[vid]; lojaDaVenda[vid] = dep ? (lojaDoDep[dep] ?? null) : null }
       }
-      for (const vid of vendaIds) { const dep = depDaVenda[vid]; lojaDaVenda[vid] = dep ? (lojaDoDep[dep] ?? null) : null }
     }
 
     for (const p of (pv ?? [])) {
+      if (p.venda_id && statusDaVenda[p.venda_id] === 'cancelada') continue
       const f = p.forma_pagamento_id ? formaById[p.forma_pagamento_id] : null
       if (!f) continue
       let conta = f.conta_destino_id
