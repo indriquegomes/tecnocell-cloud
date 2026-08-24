@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import type { SVGProps, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
@@ -167,7 +167,6 @@ export function Sidebar({
   badges?: Record<string, number>
 }) {
   const pathname = usePathname()
-  const router = useRouter()
   // '/painel/integracoes/lojas' NÃO é exactOnly de propósito: a página
   // sempre redireciona pra dentro de mercado-livre/[conexaoId] quando há
   // conexão, então "exact" nunca bateria e "Minhas Lojas" nunca ficaria
@@ -195,27 +194,6 @@ export function Sidebar({
       return proximo
     })
   }
-
-  // PRÉ-CARREGA TODAS as abas que a pessoa pode ver, ao abrir o painel (pedido do
-  // Vitor: "carrega tudo no início e fica tranquilo"). O Next só prefetcha no hover;
-  // aqui a gente força todas. Escalonado (uma a cada 250ms, quando o navegador está
-  // ocioso) pra não brigar com o carregamento da tela atual. Roda uma vez.
-  useEffect(() => {
-    const rotas = navCompleto.flatMap((s) => s.items).filter(podeVer).map((i) => i.href)
-    let i = 0
-    let parar = false
-    const agenda = (fn: () => void) =>
-      (window.requestIdleCallback ?? ((f: () => void) => window.setTimeout(f, 300)))(fn)
-    const proxima = () => {
-      if (parar || i >= rotas.length) return
-      router.prefetch(rotas[i])
-      i++
-      window.setTimeout(() => agenda(proxima), 250)
-    }
-    const t = window.setTimeout(() => agenda(proxima), 1200) // deixa a tela atual carregar primeiro
-    return () => { parar = true; window.clearTimeout(t) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   return (
     <aside className="flex h-full w-60 flex-col border-r border-gray-200 bg-white">
