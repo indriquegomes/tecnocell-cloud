@@ -1186,6 +1186,31 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         setLoading(false)
         return
       }
+      // Troco: o operador digita o valor RECEBIDO em dinheiro (ex: R$100 numa venda de
+      // R$80), mas o RPC exige que soma(pagamentos)+crédito bata exatamente com o total —
+      // ele não sabe de troco. Sem abater aqui, TODA venda com troco era recusada
+      // ("os pagamentos não fecham com a venda"), obrigando a redigitar o valor exato.
+      // Abate da(s) linha(s) de dinheiro o que sobra além do total — é também o valor
+      // certo pra gaveta: do R$100 recebido, R$20 volta de troco, só R$80 fica de verdade.
+      let trocoRestante = trocoPg
+      const pagamentosPayload: PagamentoInput[] = pagamentos
+        .filter((p) => p.forma_id && !isValeForma(p.forma_id) && (parseFloat(p.valor) || 0) > 0)
+        .map((p): PagamentoInput => {
+          let valor = parseFloat(p.valor) || 0
+          if (trocoRestante > 0.005 && isDinheiroForma(p.forma_id)) {
+            const abatido = Math.min(valor, trocoRestante)
+            valor -= abatido
+            trocoRestante -= abatido
+          }
+          return {
+            forma_pagamento_id: p.forma_id,
+            valor,
+            taxa: taxaDoItem(p),
+            maquina: maquinaById(p.maquina)?.nome ?? '',   // grava o nome legível
+            parcelas: p.parcelas,
+            status: isFiadoForma(p.forma_id) ? 'pendente' : 'pago',
+          }
+        })
       const result = await finalizarVenda(
         token,
         carrinho.map(({ produto_id, nome, quantidade, preco_unitario }) => ({ produto_id, nome, quantidade, preco_unitario })),
@@ -1198,16 +1223,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         // Linha vazia também não vai: o PDV começa com uma em branco, e quando o vale
         // cobre a compra inteira ela fica com forma vazia e R$ 0 — o RPC recebia
         // forma_pagamento_id '' e recusava a venda inteira, sem mensagem.
-        pagamentos
-          .filter((p) => p.forma_id && !isValeForma(p.forma_id) && (parseFloat(p.valor) || 0) > 0)
-          .map((p): PagamentoInput => ({
-            forma_pagamento_id: p.forma_id,
-            valor: parseFloat(p.valor) || 0,
-            taxa: taxaDoItem(p),
-            maquina: maquinaById(p.maquina)?.nome ?? '',   // grava o nome legível
-            parcelas: p.parcelas,
-            status: isFiadoForma(p.forma_id) ? 'pendente' : 'pago',
-          })),
+        pagamentosPayload,
         pessoaId || null,
         descontoNum + descontoPromo,
         observacoes,
