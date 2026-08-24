@@ -147,7 +147,7 @@ export async function buscarOSPorNumero(numero: number): Promise<{ id: string; n
 export async function receberOS(osId: string, forma: string, lojaId: string): Promise<{ ok: boolean; erro?: string }> {
   await requirePermissao('os')
   const supabase = await createServiceClient()
-  const { data: os } = await supabase.from('ordens_servico').select('numero, total, pessoa_nome, recebido_em').eq('id', osId).maybeSingle()
+  const { data: os } = await supabase.from('ordens_servico').select('numero, total, pessoa_nome, status, recebido_em').eq('id', osId).maybeSingle()
   if (!os) return { ok: false, erro: 'OS não encontrada.' }
   if ((os as { recebido_em?: string | null }).recebido_em) return { ok: false, erro: 'Esta OS já foi recebida.' }
   const total = Number(os.total) || 0
@@ -157,17 +157,38 @@ export async function receberOS(osId: string, forma: string, lojaId: string): Pr
 
   const today = hojeSP()
   const now = new Date().toISOString()
-  // 1. caixa da loja (gaveta pra dinheiro; linha pra PIX/cartão)
+  const statusAnterior = (os as { status: string }).status
+
+  // Trava atômica: marca 'entregue' ANTES de lançar o dinheiro, condicionado a
+  // ainda não ter recebido_em. Se dois cliques caírem juntos, só um consegue
+  // (o outro não acha linha pra atualizar) — mesmo padrão do faturarPedido,
+  // que existe pra isso. Sem essa trava, os dois passavam pela checagem acima
+  // e duplicavam o lançamento no Financeiro.
+  const { data: marcado, error: eStatus } = await supabase.from('ordens_servico')
+    .update({ recebido_em: now, forma_recebimento: forma, status: 'entregue' })
+    .eq('id', osId).is('recebido_em', null)
+    .select('id').maybeSingle()
+  if (eStatus) return { ok: false, erro: 'Não deu pra marcar como recebida: ' + eStatus.message }
+  if (!marcado) return { ok: false, erro: 'Esta OS já foi recebida.' }
+
+  // Caixa é fire-and-forget por design (lib/caixa.ts): dinheiro já entrou de
+  // verdade na gaveta, travar o recebimento por causa disso seria pior.
   await registrarNoCaixa(supabase, lojaId, total, forma, `Recebimento OS #${os.numero}`)
-  // 2. lançamento pago na conta da forma (entra no saldo da conta certa)
-  await supabase.from('lancamentos').insert({
+
+  // O lançamento É o registro oficial no Financeiro — se ele falhar, desfaz a
+  // marca de recebida pra não ficar "entregue" sem o dinheiro registrado, e
+  // deixa a pessoa tentar de novo.
+  const { error: eLancamento } = await supabase.from('lancamentos').insert({
     descricao: `Recebimento OS #${os.numero}`, valor: total, tipo: 'receber',
     status: 'pago', data_competencia: today, data_vencimento: today, data_pagamento: today,
     forma_pagamento: forma, pessoa_nome: (os as { pessoa_nome?: string | null }).pessoa_nome ?? null,
     conta_id: await contaDaFormaOS(supabase, forma),
   })
-  // 3. marca a OS como recebida/entregue (trava)
-  await supabase.from('ordens_servico').update({ recebido_em: now, forma_recebimento: forma, status: 'entregue' }).eq('id', osId)
+  if (eLancamento) {
+    await supabase.from('ordens_servico').update({ recebido_em: null, forma_recebimento: null, status: statusAnterior }).eq('id', osId)
+    return { ok: false, erro: 'Não deu pra registrar o lançamento no Financeiro: ' + eLancamento.message }
+  }
+
   revalidatePath('/painel/os')
   return { ok: true }
 }
