@@ -38,22 +38,27 @@ export async function estornarCredito(id: string) {
   await requirePermissao('financeiro')
   const supabase = await createServiceClient()
 
-  const { data: lanc } = await supabase
+  const { data: lanc, error: erroLanc } = await supabase
     .from('creditos_clientes')
     .select('pessoa_id, pessoa_nome, valor, tipo')
     .eq('id', id)
     .maybeSingle()
+  if (erroLanc) redirect(`/painel/vales-credito?erro=${encodeURIComponent(erroLanc.message)}`)
 
   if (!lanc || lanc.tipo !== 'credito') return
 
   // Idempotente: estornar 2x criaria 2 linhas de 'estorno' e jogaria o saldo
   // do cliente pra negativo (estorno subtrai). Marca a origem no descricao.
+  // Se a checagem falhar não dá pra saber se já foi estornado — travar aqui
+  // é mais seguro que deixar passar e arriscar duplicar (diferente de outros
+  // pontos do sistema onde travar seria pior; aqui o risco é inverso).
   const marca = `Estorno de crédito #${id}`
-  const { count: jaEstornado } = await supabase
+  const { count: jaEstornado, error: erroCheck } = await supabase
     .from('creditos_clientes')
     .select('id', { count: 'exact', head: true })
     .eq('tipo', 'estorno')
     .eq('descricao', marca)
+  if (erroCheck) redirect(`/painel/vales-credito?erro=${encodeURIComponent('Não deu pra confirmar se este crédito já foi estornado. Tente de novo.')}`)
   if (jaEstornado && jaEstornado > 0) {
     redirect(`/painel/vales-credito?erro=${encodeURIComponent('Este crédito já foi estornado.')}`)
   }
