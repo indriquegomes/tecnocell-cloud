@@ -34,6 +34,7 @@ export async function importarAnuncios(conexaoId: string) {
       preco_ml: a.preco,
       is_catalogo: a.catalogo,
       catalog_product_id: a.catalogProductId,
+      sku: a.sku,
       atualizado_em: new Date().toISOString(),
     }
   })

@@ -13,6 +13,7 @@ type AnuncioLinha = {
   produto_id: string | null
   is_catalogo: boolean
   catalog_product_id: string | null
+  sku: string | null
 }
 
 export default async function MeusAnunciosMLPage({
@@ -27,7 +28,7 @@ export default async function MeusAnunciosMLPage({
 
   let q = supabase
     .from('integracoes_mercado_livre_anuncios')
-    .select('id, ml_item_id, titulo_ml, preco_ml, produto_id, is_catalogo, catalog_product_id')
+    .select('id, ml_item_id, titulo_ml, preco_ml, produto_id, is_catalogo, catalog_product_id, sku')
     .eq('conexao_id', conexaoId)
     .order('titulo_ml')
 
@@ -56,6 +57,7 @@ export default async function MeusAnunciosMLPage({
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">ID</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">SKU</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Nome</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tipo</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Catálogo</th>
@@ -67,7 +69,7 @@ export default async function MeusAnunciosMLPage({
           </thead>
           <tbody className="divide-y divide-gray-50">
             {anuncios.length === 0 ? (
-              <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-gray-400">Nenhum anúncio importado ainda.</td></tr>
+              <tr><td colSpan={9} className="px-4 py-10 text-center text-sm text-gray-400">Nenhum anúncio importado ainda.</td></tr>
             ) : anuncios.map((a) => {
               const produto = a.produto_id ? produtoPorId.get(a.produto_id) : null
               return (
@@ -78,6 +80,7 @@ export default async function MeusAnunciosMLPage({
                       {a.ml_item_id}
                     </a>
                   </td>
+                  <td className="px-4 py-3 text-sm text-gray-500">{a.sku ?? '—'}</td>
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">{a.titulo_ml}</td>
                   <td className="px-4 py-3 text-sm text-gray-600">{a.is_catalogo ? 'Catálogo' : 'Comum'}</td>
                   <td className="px-4 py-3 text-sm">

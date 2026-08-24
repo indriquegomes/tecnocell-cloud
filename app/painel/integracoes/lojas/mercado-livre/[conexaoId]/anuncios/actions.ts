@@ -30,11 +30,14 @@ export async function atualizarAnuncioDoML(_prev: ActionState, fd: FormData): Pr
     const [item] = await buscarDetalhesEmLote(conexaoId, [mlItemId])
     if (!item) return { ok: false, message: 'Anúncio não encontrado no Mercado Livre.' }
     const supabase = await createServiceClient()
+    // mesma regra de sku que buscarAnunciosDoVendedor usa na importação
+    const skuAtributo = item.attributes?.find((a) => a.id === 'SELLER_SKU')?.value_name ?? null
     const { error } = await supabase.from('integracoes_mercado_livre_anuncios').update({
       titulo_ml: item.title,
       preco_ml: item.price,
       is_catalogo: item.catalog_listing ?? false,
       catalog_product_id: item.catalog_product_id ?? null,
+      sku: item.seller_custom_field ?? skuAtributo,
       atualizado_em: new Date().toISOString(),
     }).eq('id', anuncioId)
     if (error) return { ok: false, message: error.message }
