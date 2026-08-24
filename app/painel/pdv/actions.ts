@@ -649,22 +649,37 @@ export async function pagarLancamentos(
     const today = hojeSP()
     const contaId = await contaDaFormaTexto(supabase, formaPagamento)
 
-    // pega o que sobrou de cada um ANTES de quitar — é esse valor que entra no caixa
+    // pega o que sobrou de cada um ANTES de quitar — é esse valor que entra no caixa.
+    // Só os ainda pendentes: sem isso, um clique duplo (ou um segundo terminal com a
+    // mesma lista F9 desatualizada) passava os dois pela falta de trava — o segundo
+    // recalculava "quanto sobrou" do jeito antigo (valor_pago nunca era gravado) e
+    // registrava o mesmo dinheiro de novo no caixa.
     const { data: antes } = await supabase
       .from('lancamentos')
       .select('id, valor, valor_pago, pessoa_nome')
       .in('id', ids)
+      .eq('status', 'pendente')
+    if (!antes || antes.length === 0) throw new Error('Este(s) lançamento(s) já foram pagos.')
 
-    const { data, error } = await supabase
-      .from('lancamentos')
-      .update({ status: 'pago', data_pagamento: today, forma_pagamento: formaPagamento, conta_id: contaId, updated_at: new Date().toISOString() })
-      .in('id', ids)
-      .select('id')
-    if (error) throw new Error(error.message)
-    if (!data || data.length === 0) throw new Error('Pagamento não registrado — sem permissão ou lançamento não encontrado.')
+    // Update por linha (não em lote): cada uma trava na sua própria condição
+    // status='pendente', então uma corrida entre duas chamadas só deixa a
+    // primeira ganhar cada lançamento — a segunda não acha linha pra mudar.
+    const quitados: typeof antes = []
+    for (const l of antes) {
+      const valorPago = Number(l.valor) || 0
+      const { data: linha, error: eLinha } = await supabase
+        .from('lancamentos')
+        .update({ status: 'pago', data_pagamento: today, forma_pagamento: formaPagamento, conta_id: contaId, valor_pago: valorPago, updated_at: new Date().toISOString() })
+        .eq('id', l.id).eq('status', 'pendente')
+        .select('id')
+        .maybeSingle()
+      if (eLinha) throw new Error(eLinha.message)
+      if (linha) quitados.push(l)
+    }
+    if (quitados.length === 0) throw new Error('Este(s) lançamento(s) já foram pagos.')
 
-    const total = (antes ?? []).reduce((s, l) => s + Math.max(0, (Number(l.valor) || 0) - (Number(l.valor_pago) || 0)), 0)
-    const quem = (antes ?? []).length === 1 ? ((antes ?? [])[0].pessoa_nome ?? 'cliente') : `${(antes ?? []).length} fiados`
+    const total = quitados.reduce((s, l) => s + Math.max(0, (Number(l.valor) || 0) - (Number(l.valor_pago) || 0)), 0)
+    const quem = quitados.length === 1 ? (quitados[0].pessoa_nome ?? 'cliente') : `${quitados.length} fiados`
     await registrarNoCaixa(supabase, lojaId, Math.round(total * 100) / 100, formaPagamento, `Fiado recebido — ${quem}`)
     return { ok: true }
   } catch (e) {
