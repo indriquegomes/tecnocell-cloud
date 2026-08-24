@@ -18,17 +18,20 @@ export default async function PainelLayout({ children }: { children: React.React
   let permissoes: string[] = []
   let isMaster    = false
   let ativo       = true
+  let cargoId: string | null = null
 
   if (userId) {
     try {
       const supabase = await createServiceClient()
       const { data } = await supabase.from('perfis').select('nome').eq('id', userId).maybeSingle()
       if (data) nome = data.nome ?? nome
-      // permissões efetivas (via cargo dinâmico, se houver)
+      // permissões efetivas (via cargo dinâmico, se houver) — já traz cargoId
+      // junto, pra não precisar consultar perfis de novo lá embaixo.
       const ef = await permissoesEfetivas(userId)
       permissoes = ef.permissoes
       isMaster   = ef.isMaster
       ativo      = ef.ativo
+      cargoId    = ef.cargoId
     } catch {}
   }
 
@@ -78,11 +81,10 @@ export default async function PainelLayout({ children }: { children: React.React
       // cada round-trip extra aqui se repete em TODA navegação do painel.
       // Juntando tudo num Promise.all só: mesmo tanto de consultas, mas em
       // paralelo em vez de uma fila.
-      const [caixasRes, cfgRes, lojasRes, meuRes, lembretesRes, feitosRes, perguntasRes, mensagensRes] = await Promise.all([
+      const [caixasRes, cfgRes, lojasRes, lembretesRes, feitosRes, perguntasRes, mensagensRes] = await Promise.all([
         podePdv ? supabase.from('caixas').select('id, aberto_em, loja_id').eq('status', 'aberto') : Promise.resolve({ data: [] }),
         podePdv ? supabase.from('configuracoes').select('valor').eq('chave', 'pdv').maybeSingle() : Promise.resolve({ data: null }),
         podePdv ? supabase.from('lojas').select('id, nome') : Promise.resolve({ data: [] }),
-        supabase.from('perfis').select('cargo_id').eq('id', userId).maybeSingle(),
         supabase.from('lembretes').select('id, titulo, descricao, perfil_id, cargo_id, hora, dias, ativo').eq('ativo', true),
         supabase.from('lembretes_feitos').select('lembrete_id, perfil_id, feito_em').eq('data', hoje),
         supabase.from('integracoes_mercado_livre_perguntas').select('*', { count: 'exact', head: true }).eq('respondida', false),
@@ -110,7 +112,7 @@ export default async function PainelLayout({ children }: { children: React.React
         (lembretesRes.data ?? []) as Lembrete[],
         feitosRes.data ?? [],
         userId,
-        (meuRes.data?.cargo_id as string | null) ?? null,
+        cargoId,
       )
 
       if (perguntasRes.count) {

@@ -118,7 +118,7 @@ export async function requireAuth(accessToken?: string): Promise<{ id: string; e
 // Sem cargo (ou cargo inativo), usa as permissões individuais do perfil.
 export async function permissoesEfetivas(
   userId: string
-): Promise<{ permissoes: string[]; isMaster: boolean; ativo: boolean }> {
+): Promise<{ permissoes: string[]; isMaster: boolean; ativo: boolean; cargoId: string | null }> {
   const service = await createServiceClient()
   // Antes eram 2 consultas separadas na MESMA tabela/linha (uma pegava
   // permissoes/is_master/ativo, outra pegava cargo_id) por medo de a coluna
@@ -130,16 +130,16 @@ export async function permissoesEfetivas(
     .select('permissoes, is_master, ativo, cargo_id')
     .eq('id', userId)
     .maybeSingle()
-  if (!perfil) return { permissoes: [], isMaster: false, ativo: false }
-  const base = { permissoes: perfil.permissoes ?? [], isMaster: perfil.is_master ?? false, ativo: perfil.ativo !== false }
+  if (!perfil) return { permissoes: [], isMaster: false, ativo: false, cargoId: null }
+  const cargoId = (perfil as { cargo_id?: string | null }).cargo_id ?? null
+  const base = { permissoes: perfil.permissoes ?? [], isMaster: perfil.is_master ?? false, ativo: perfil.ativo !== false, cargoId }
 
   // cargo dinâmico — tolerante (se a tabela cargos não existir/quebrar, ignora)
   try {
-    const cargoId = (perfil as { cargo_id?: string | null }).cargo_id
     if (cargoId) {
       const { data: cargo } = await service.from('cargos').select('permissoes, is_master, ativo').eq('id', cargoId).maybeSingle()
       if (cargo && cargo.ativo !== false) {
-        return { permissoes: cargo.permissoes ?? [], isMaster: cargo.is_master ?? false, ativo: base.ativo }
+        return { permissoes: cargo.permissoes ?? [], isMaster: cargo.is_master ?? false, ativo: base.ativo, cargoId }
       }
     }
   } catch { /* tabela cargos ainda não existe — usa as permissões individuais */ }
