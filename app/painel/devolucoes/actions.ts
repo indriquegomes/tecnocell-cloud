@@ -259,21 +259,31 @@ export async function registrarDevolucao(
   // gaveta). Fora do RPC de propósito: uma escrita de caixa não deve reverter a
   // devolução (estoque/crédito) se der ruim — ela é secundária ao ato de devolver.
   if (input.tipo_credito === 'dinheiro' && reembolso > 0.005 && input.deposito_id) {
-    const { data: dep } = await supabase.from('depositos').select('loja_id').eq('id', input.deposito_id).maybeSingle()
+    const { data: dep, error: erroDep } = await supabase.from('depositos').select('loja_id').eq('id', input.deposito_id).maybeSingle()
+    if (erroDep) console.error(`Devolução ${devolucaoId}: reembolso de ${reembolso} em dinheiro sem registro nenhum — falha ao buscar loja do depósito:`, erroDep.message)
     const lojaId = (dep as { loja_id: string | null } | null)?.loja_id ?? null
     if (lojaId) {
-      const { data: caixa } = await supabase
+      const { data: caixa, error: erroCaixa } = await supabase
         .from('caixas').select('id').eq('status', 'aberto').eq('loja_id', lojaId)
         .order('aberto_em', { ascending: false }).limit(1).maybeSingle()
+      if (erroCaixa) console.error(`Devolução ${devolucaoId}: reembolso de ${reembolso} em dinheiro sem registro nenhum — falha ao buscar caixa aberto:`, erroCaixa.message)
       const caixaId = (caixa as { id: string } | null)?.id ?? null
       if (caixaId) {
-        await supabase.from('movimentos_caixa').insert({
+        const { error: erroMov } = await supabase.from('movimentos_caixa').insert({
           caixa_id: caixaId,
           tipo: 'devolucao',
           forma_pagamento: 'Dinheiro',
           valor: reembolso,
           motivo: `Devolução — ${input.pessoa_nome ?? 'Cliente'}`,
         })
+        if (erroMov) console.error(`Devolução ${devolucaoId}: reembolso de ${reembolso} em dinheiro não gravou no caixa:`, erroMov.message)
+      } else if (!erroCaixa) {
+        // Nenhum caixa aberto nesta loja — o RPC não cria lançamento pra
+        // dinheiro (é evento de caixa, não conta a pagar), então sem isto o
+        // reembolso não fica registrado em NENHUM lugar. Não trava a
+        // devolução por causa disso (estoque/crédito já foram revertidos de
+        // verdade), mas precisa ficar visível pra alguém conferir na mão.
+        console.error(`Devolução ${devolucaoId}: reembolso de ${reembolso} em dinheiro NÃO tem registro nenhum — nenhum caixa aberto na loja ${lojaId} no momento da devolução.`)
       }
     }
   }
