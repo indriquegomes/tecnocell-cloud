@@ -120,26 +120,29 @@ export async function permissoesEfetivas(
   userId: string
 ): Promise<{ permissoes: string[]; isMaster: boolean; ativo: boolean }> {
   const service = await createServiceClient()
-  // base do perfil (sem cargo_id, pra não quebrar caso a migration ainda não tenha rodado)
+  // Antes eram 2 consultas separadas na MESMA tabela/linha (uma pegava
+  // permissoes/is_master/ativo, outra pegava cargo_id) por medo de a coluna
+  // cargo_id não existir ainda numa migração antiga. Ela já existe (conferido
+  // antes de juntar isto) — cada round-trip extra aqui é tempo repetido em
+  // TODA navegação do painel, então uma consulta só é bem melhor.
   const { data: perfil } = await service
     .from('perfis')
-    .select('permissoes, is_master, ativo')
+    .select('permissoes, is_master, ativo, cargo_id')
     .eq('id', userId)
     .maybeSingle()
   if (!perfil) return { permissoes: [], isMaster: false, ativo: false }
   const base = { permissoes: perfil.permissoes ?? [], isMaster: perfil.is_master ?? false, ativo: perfil.ativo !== false }
 
-  // cargo dinâmico — query separada e tolerante (se a coluna/tabela não existir, ignora)
+  // cargo dinâmico — tolerante (se a tabela cargos não existir/quebrar, ignora)
   try {
-    const { data: pc } = await service.from('perfis').select('cargo_id').eq('id', userId).maybeSingle()
-    const cargoId = (pc as { cargo_id?: string | null } | null)?.cargo_id
+    const cargoId = (perfil as { cargo_id?: string | null }).cargo_id
     if (cargoId) {
       const { data: cargo } = await service.from('cargos').select('permissoes, is_master, ativo').eq('id', cargoId).maybeSingle()
       if (cargo && cargo.ativo !== false) {
         return { permissoes: cargo.permissoes ?? [], isMaster: cargo.is_master ?? false, ativo: base.ativo }
       }
     }
-  } catch { /* coluna/tabela ainda não existe — usa as permissões individuais */ }
+  } catch { /* tabela cargos ainda não existe — usa as permissões individuais */ }
 
   return base
 }

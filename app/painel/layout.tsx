@@ -74,13 +74,19 @@ export default async function PainelLayout({ children }: { children: React.React
       const podePdv = temPermissao(permissoes, 'pdv', isMaster)
       const hoje = hojeSP().data
 
-      const [caixasRes, cfgRes, lojasRes, meuRes, lembretesRes, feitosRes] = await Promise.all([
+      // As 2 contagens de badge rodavam SEQUENCIALMENTE depois deste bloco —
+      // cada round-trip extra aqui se repete em TODA navegação do painel.
+      // Juntando tudo num Promise.all só: mesmo tanto de consultas, mas em
+      // paralelo em vez de uma fila.
+      const [caixasRes, cfgRes, lojasRes, meuRes, lembretesRes, feitosRes, perguntasRes, mensagensRes] = await Promise.all([
         podePdv ? supabase.from('caixas').select('id, aberto_em, loja_id').eq('status', 'aberto') : Promise.resolve({ data: [] }),
         podePdv ? supabase.from('configuracoes').select('valor').eq('chave', 'pdv').maybeSingle() : Promise.resolve({ data: null }),
         podePdv ? supabase.from('lojas').select('id, nome') : Promise.resolve({ data: [] }),
         supabase.from('perfis').select('cargo_id').eq('id', userId).maybeSingle(),
         supabase.from('lembretes').select('id, titulo, descricao, perfil_id, cargo_id, hora, dias, ativo').eq('ativo', true),
         supabase.from('lembretes_feitos').select('lembrete_id, perfil_id, feito_em').eq('data', hoje),
+        supabase.from('integracoes_mercado_livre_perguntas').select('*', { count: 'exact', head: true }).eq('respondida', false),
+        supabase.from('integracoes_mercado_livre_mensagens').select('*', { count: 'exact', head: true }).eq('lida', false).eq('autor', 'comprador'),
       ])
 
       if (podePdv) {
@@ -107,21 +113,11 @@ export default async function PainelLayout({ children }: { children: React.React
         (meuRes.data?.cargo_id as string | null) ?? null,
       )
 
-      const { count: perguntasPendentes } = await supabase
-        .from('integracoes_mercado_livre_perguntas')
-        .select('*', { count: 'exact', head: true })
-        .eq('respondida', false)
-      if (perguntasPendentes) {
-        badges['/painel/integracoes/mercado-livre/perguntas'] = perguntasPendentes
+      if (perguntasRes.count) {
+        badges['/painel/integracoes/mercado-livre/perguntas'] = perguntasRes.count
       }
-
-      const { count: mensagensNaoLidas } = await supabase
-        .from('integracoes_mercado_livre_mensagens')
-        .select('*', { count: 'exact', head: true })
-        .eq('lida', false)
-        .eq('autor', 'comprador')
-      if (mensagensNaoLidas) {
-        badges['/painel/integracoes/mercado-livre/mensagens'] = mensagensNaoLidas
+      if (mensagensRes.count) {
+        badges['/painel/integracoes/mercado-livre/mensagens'] = mensagensRes.count
       }
     } catch {}
   }
