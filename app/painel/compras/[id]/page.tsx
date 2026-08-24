@@ -1,9 +1,11 @@
+import { Fragment } from 'react'
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { receberNota, estornarNota, editarNota, removerItemNota, editarItemNota } from '../actions'
 import { ConfirmButton } from '@/components/ConfirmButton'
 import { SubmitButton } from '@/components/SubmitButton'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { AddItemNota } from './AddItemNota'
+import { SeriesItemNota } from './SeriesItemNota'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -29,7 +31,7 @@ export default async function NotaEntradaDetalhe({
       .select('*')
       .eq('nota_id', id)
       .order('id'),
-    fetchAll((from, to) => supabase.from('produtos').select('id, nome, codigo, marca, preco_custo').eq('ativo', true).order('nome').order('id').range(from, to)),
+    fetchAll((from, to) => supabase.from('produtos').select('id, nome, codigo, marca, preco_custo, controla_serie').eq('ativo', true).order('nome').order('id').range(from, to)),
     supabase.from('depositos').select('id, nome, loja_id').order('nome'),
     supabase.from('pessoas').select('id, nome, tipo').in('tipo', ['fornecedor', 'ambos']).eq('ativo', true).order('nome'),
     supabase.from('lojas').select('id, nome'),
@@ -44,6 +46,7 @@ export default async function NotaEntradaDetalhe({
   const lojaNome = new Map((lojas ?? []).map((l) => [l.id, l.nome]))
   const depMap = new Map((depositos ?? []).map((d) => [d.id, { nome: d.nome, loja: d.loja_id ? (lojaNome.get(d.loja_id) ?? null) : null }]))
   const prodNome = new Map((produtos ?? []).map((p) => [p.id, p.nome]))
+  const prodControlaSerie = new Map((produtos ?? []).map((p) => [p.id, p.controla_serie ?? false]))
   const pendente = nota.status === 'pendente'
 
   return (
@@ -145,8 +148,10 @@ export default async function NotaEntradaDetalhe({
               <tr><td colSpan={pendente ? 6 : 5} className="px-4 py-10 text-center text-sm text-gray-400">Nenhum item adicionado.</td></tr>
             ) : (itens ?? []).map((item) => {
               const dep = depMap.get(item.deposito_id)
+              const controlaSerie = item.produto_id ? (prodControlaSerie.get(item.produto_id) ?? false) : false
               return (
-                <tr key={item.id} className="hover:bg-blue-50/60">
+                <Fragment key={item.id}>
+                <tr className="hover:bg-blue-50/60">
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">{prodNome.get(item.produto_id) ?? '—'}</td>
                   <td className="px-4 py-3 text-sm text-gray-500">{dep ? `${dep.loja ? dep.loja + ' · ' : ''}${dep.nome}` : '—'}</td>
                   <td className="px-4 py-3 text-sm text-right text-gray-600">
@@ -173,6 +178,14 @@ export default async function NotaEntradaDetalhe({
                     </td>
                   )}
                 </tr>
+                {pendente && controlaSerie && (
+                  <tr key={`${item.id}-series`}>
+                    <td colSpan={6} className="px-4 pb-3">
+                      <SeriesItemNota itemId={item.id} notaId={id} quantidade={item.quantidade ?? 1} seriesIniciais={Array.isArray(item.series) ? item.series : []} />
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               )
             })}
           </tbody>

@@ -29,12 +29,44 @@ export async function criarNotaEntrada(formData: FormData) {
 export async function receberNota(id: string) {
   await requirePermissao('compras')
   const supabase = await createServiceClient()
-  // entrada atômica no estoque + atualiza custo do produto (tudo ou nada)
+
+  // Checagem antecipada: produto com controla_serie precisa ter um IMEI
+  // cadastrado pra cada unidade da nota. O RPC também trava isso (defesa em
+  // profundidade), mas checar aqui antes dá uma mensagem com o nome do
+  // produto — o RPC só tem o id.
+  const { data: itens } = await supabase.from('itens_nota_entrada').select('produto_id, quantidade, series').eq('nota_id', id)
+  if (itens && itens.length > 0) {
+    const produtoIds = [...new Set(itens.map((i) => i.produto_id).filter(Boolean))] as string[]
+    const { data: produtos } = await supabase.from('produtos').select('id, nome, controla_serie').in('id', produtoIds)
+    const produtoPorId = new Map((produtos ?? []).map((p) => [p.id, p]))
+    for (const item of itens) {
+      const produto = item.produto_id ? produtoPorId.get(item.produto_id) : null
+      if (!produto?.controla_serie) continue
+      const qtdSeries = Array.isArray(item.series) ? item.series.length : 0
+      if (qtdSeries !== item.quantidade) {
+        redirect(`/painel/compras/${id}?erro=${encodeURIComponent(`"${produto.nome}" controla IMEI: faltam ${item.quantidade - qtdSeries} de ${item.quantidade} pra cadastrar antes de confirmar.`)}`)
+      }
+    }
+  }
+
+  // entrada atômica no estoque + IMEIs + atualiza custo do produto (tudo ou nada)
   const { error } = await supabase.rpc('receber_nota_entrada', { p_nota_id: id })
   if (error) redirect(`/painel/compras/${id}?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/compras')
   revalidatePath(`/painel/compras/${id}`)
   revalidatePath('/painel/estoque')
+}
+
+// Salva a lista de IMEIs digitados/lidos pra um item da nota (produto
+// controla_serie). Substitui a lista inteira — mais simples que diff.
+export async function salvarSeriesItem(itemId: string, notaId: string, series: string[]) {
+  await requirePermissao('compras')
+  const supabase = await createServiceClient()
+  const limpas = [...new Set(series.map((s) => s.trim()).filter(Boolean))]
+  const { error } = await supabase.from('itens_nota_entrada').update({ series: limpas }).eq('id', itemId)
+  if (error) return { ok: false, erro: error.message }
+  revalidatePath(`/painel/compras/${notaId}`)
+  return { ok: true }
 }
 
 export async function estornarNota(id: string) {
