@@ -236,7 +236,11 @@ export async function adicionarCategoriaPromocao(
     (from, to) => supabase.from('produtos').select('id, preco')
       .eq('ativo', true).eq('categoria', hierarquia).order('id').range(from, to),
   )
-  const { data: itens } = await supabase.from('itens_promocao').select('produto_id').eq('promocao_id', promocaoId)
+  // itens_promocao não tem constraint única — se essa consulta falhar e
+  // seguir como "nenhum já cadastrado", os produtos da categoria entrariam
+  // duplicados na promoção.
+  const { data: itens, error: erroItens } = await supabase.from('itens_promocao').select('produto_id').eq('promocao_id', promocaoId)
+  if (erroItens) throw new Error(erroItens.message)
   const ja = new Set((itens ?? []).map((i) => i.produto_id))
 
   const novos = daCategoria.filter((p) => !ja.has(p.id))
