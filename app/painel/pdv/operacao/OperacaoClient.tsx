@@ -116,6 +116,7 @@ interface Props {
   formas: string[]
   porForma: Record<string, number>
   porTipo: Record<string, number>
+  totalTaxaCartao: number
   vendasPorTipo: Record<string, VendaConferencia[]>
   vendasDetalhe: VendaDetalhe[]
   erro?: string
@@ -133,6 +134,7 @@ interface Props {
     totalCrediario: number
     porForma: Record<string, number>
     porTipo: Record<string, number>
+    totalTaxaCartao: number
     movimentos: { tipo: string; motivo: string | null; forma_pagamento: string; valor: number; created_at: string }[]
     valorEsperado: number
     valorContado: number
@@ -670,6 +672,7 @@ function XReportPanel({
   movimentos,
   porForma,
   porTipo,
+  totalTaxaCartao,
   vendasPorTipo,
   reforcosDinheiro,
   retiradasDinheiro,
@@ -684,6 +687,7 @@ function XReportPanel({
   movimentos: Movimento[]
   porForma: Record<string, number>
   porTipo: Record<string, number>
+  totalTaxaCartao: number
   vendasPorTipo: Record<string, VendaConferencia[]>
   reforcosDinheiro: number
   retiradasDinheiro: number
@@ -758,6 +762,11 @@ function XReportPanel({
                 )
               })}
             </div>
+          )}
+          {totalTaxaCartao > 0.005 && (
+            <p className="mt-3 text-xs text-gray-400">
+              Cartão mostrado aqui é o valor líquido do produto. A maquininha cobrou <span className="font-semibold text-gray-600">{fmt(totalTaxaCartao)}</span> a mais de taxa hoje — bata Cartão + essa taxa contra o extrato da maquininha.
+            </p>
           )}
         </div>
 
@@ -952,6 +961,7 @@ function ZReportPanel({ z }: {
     totalCrediario: number
     porForma: Record<string, number>
     porTipo: Record<string, number>
+    totalTaxaCartao: number
     movimentos: { tipo: string; motivo: string | null; forma_pagamento: string; valor: number; created_at: string }[]
     valorEsperado: number
     valorContado: number
@@ -1044,7 +1054,8 @@ function ZReportPanel({ z }: {
                 ))}
               </div>
               <p className="mt-3 text-[11px] text-gray-400">
-                Conferência: dinheiro na gaveta · PIX nos comprovantes do WhatsApp · cartão na maquininha · Crédito Loja é dívida (não é dinheiro).
+                Conferência: dinheiro na gaveta · PIX nos comprovantes do WhatsApp · cartão na maquininha (valor líquido acima
+                {z.totalTaxaCartao > 0.005 && <> + <span className="font-semibold text-gray-500">{fmt(z.totalTaxaCartao)}</span> de taxa</>}) · Crédito Loja é dívida (não é dinheiro).
               </p>
             </div>
           )}
@@ -1142,6 +1153,7 @@ export function OperacaoClient({
   formas,
   porForma,
   porTipo,
+  totalTaxaCartao,
   vendasPorTipo,
   vendasDetalhe,
   erro,
@@ -1372,6 +1384,7 @@ export function OperacaoClient({
               movimentos={movimentos}
               porForma={porForma}
               porTipo={porTipo}
+              totalTaxaCartao={totalTaxaCartao}
               vendasPorTipo={vendasPorTipo}
               reforcosDinheiro={reforcosDinheiro}
               retiradasDinheiro={retiradasDinheiro}

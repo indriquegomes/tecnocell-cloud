@@ -81,7 +81,14 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
       } else if (loja && p.forma_pagamento_id && rota[p.forma_pagamento_id]?.[loja]) {
         conta = rota[p.forma_pagamento_id][loja]                    // cartão/PIX → conta da loja (Isa)
       }
-      if (conta && conta in saldo) saldo[conta] += (p.valor ?? 0) - (p.taxa ?? 0)
+      // pagamentos_venda.valor JÁ é o valor líquido do produto — a taxa é
+      // cobrada A MAIS do cliente (confirmado com o dono: quem paga R$100 no
+      // cartão é passado R$105 se a taxa for 5%), não descontada da loja. A
+      // trava do finalizar_venda também confirma isso: soma(valor) precisa
+      // bater com o total dos PRODUTOS, sem taxa. Subtrair taxa aqui cobrava
+      // a taxa 2x: uma do cliente (na maquininha) e outra da própria loja
+      // (no saldo da conta).
+      if (conta && conta in saldo) saldo[conta] += (p.valor ?? 0)
     }
     for (const t of (tr ?? [])) {
       if (t.conta_destino_id in saldo) saldo[t.conta_destino_id] += t.valor ?? 0

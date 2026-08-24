@@ -83,6 +83,11 @@ export default async function OperacaoPDVPage({
   let vendasDia: { id: string; total: number; created_at: string; forma_pagamento_id: string | null; forma_pagamento: string }[] = []
   let porForma: Record<string, number> = {}
   let porTipo: Record<string, number> = {}
+  // Taxa cobrada A MAIS do cliente no cartão (repassada, não absorvida pela
+  // loja — confirmado com o dono). porTipo/porForma mostram o valor LÍQUIDO
+  // do produto (pra bater com Total Vendido), então informa a taxa à parte
+  // pra conferir com a maquininha: Cartão (líquido) + Taxa = fatura da maquininha.
+  let totalTaxaCartao = 0
   // vendas de cada tipo, pra conferência (bater comprovante de PIX com a venda)
   const vendasPorTipo: Record<string, { id: string; numero: number | null; hora: string; cliente: string | null; valorForma: number; totalVenda: number; fiado?: boolean }[]> = {}
   let vendasDetalhe: { id: string; numero: number | null; hora: string; cliente: string | null; total: number; pagamentos: { nome: string; tipo: string; valor: number }[] }[] = []
@@ -120,7 +125,7 @@ export default async function OperacaoPDVPage({
       const [pagsRes, pessoasRes, fiadoCancRes] = await Promise.all([
         supabase
           .from('pagamentos_venda')
-          .select('venda_id, forma_pagamento_id, valor')
+          .select('venda_id, forma_pagamento_id, valor, taxa')
           .in('venda_id', vendasRaw.map((v) => v.id)),
         supabase
           .from('pessoas')
@@ -172,6 +177,7 @@ export default async function OperacaoPDVPage({
         const valor = pg.valor ?? 0
         porForma[nome] = (porForma[nome] ?? 0) + valor
         porTipo[tipo] = (porTipo[tipo] ?? 0) + valor
+        if (tipo === 'cartao_credito' || tipo === 'cartao_debito') totalTaxaCartao += (pg as { taxa: number | null }).taxa ?? 0
 
         // Lista de CONFERÊNCIA: a Duda bate comprovante por comprovante. Pra isso ela
         // precisa da VENDA (nº, hora, cliente) e de quanto DAQUELA forma entrou nela —
@@ -242,6 +248,7 @@ export default async function OperacaoPDVPage({
     totalCrediario: number
     porForma: Record<string, number>
     porTipo: Record<string, number>
+    totalTaxaCartao: number
     movimentos: { tipo: string; motivo: string | null; forma_pagamento: string; valor: number; created_at: string }[]
     valorEsperado: number
     valorContado: number
@@ -282,11 +289,12 @@ export default async function OperacaoPDVPage({
       const zPorForma: Record<string, number> = {}
       const zPorTipo: Record<string, number> = {}
       let zFiadoCancValor = 0   // fiado cancelado/devolvido — sai do por-forma E do total
+      let zTotalTaxaCartao = 0
       if (zVendas.length > 0) {
         const [zPagsRes, zFiadoCancRes] = await Promise.all([
           supabase
             .from('pagamentos_venda')
-            .select('venda_id, forma_pagamento_id, valor')
+            .select('venda_id, forma_pagamento_id, valor, taxa')
             .in('venda_id', zVendas.map((v) => v.id)),
           // mesmo motivo do caixa aberto: fiado cancelado/devolvido não conta
           supabase
@@ -304,6 +312,7 @@ export default async function OperacaoPDVPage({
           if (tipo === 'fiado' && zFiadoCancelado.has(pg.venda_id)) continue
           zPorForma[nome] = (zPorForma[nome] ?? 0) + (pg.valor ?? 0)
           zPorTipo[tipo] = (zPorTipo[tipo] ?? 0) + (pg.valor ?? 0)
+          if (tipo === 'cartao_credito' || tipo === 'cartao_debito') zTotalTaxaCartao += (pg as { taxa: number | null }).taxa ?? 0
         }
       }
 
@@ -319,6 +328,7 @@ export default async function OperacaoPDVPage({
         totalCrediario: zPorTipo['fiado'] ?? 0,
         porForma: zPorForma,
         porTipo: zPorTipo,
+        totalTaxaCartao: zTotalTaxaCartao,
         movimentos: zMov,
         valorEsperado: parseFloat(esperado),
         valorContado: parseFloat(contado),
@@ -359,6 +369,7 @@ export default async function OperacaoPDVPage({
       formas={formas.length > 0 ? formas : ['Dinheiro', 'PIX', 'Cartão de Débito', 'Cartão de Crédito']}
       porForma={porForma}
       porTipo={porTipo}
+      totalTaxaCartao={totalTaxaCartao}
       vendasPorTipo={vendasPorTipo}
       vendasDetalhe={vendasDetalhe}
       erro={erro}
