@@ -1,9 +1,12 @@
-import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server'
+import { createServiceClient, fetchAllIn } from '@/lib/supabase/server'
 import { formatBRL } from '@/lib/utils'
 import { BuscaLista } from '@/components/BuscaLista'
+import { Paginacao } from '@/components/Paginacao'
 import { DEPOSITO_PETROPOLIS_LOJA } from '@/lib/mercado-livre'
 import { criarRascunhoEIrPraEdicao } from '@/app/painel/integracoes/produtos/actions'
 import { AcoesAnuncio } from './AcoesAnuncio'
+
+const POR_PAGINA = 30
 
 type AnuncioLinha = {
   id: string
@@ -20,22 +23,30 @@ export default async function MeusAnunciosMLPage({
   params, searchParams,
 }: {
   params: Promise<{ conexaoId: string }>
-  searchParams: Promise<{ busca?: string }>
+  searchParams: Promise<{ busca?: string; pagina?: string }>
 }) {
   const { conexaoId } = await params
-  const { busca } = await searchParams
+  const { busca, pagina: paginaStr } = await searchParams
+  const pagina = Math.max(1, Number(paginaStr) || 1)
   const supabase = await createServiceClient()
 
+  // Sem paginação isto renderizava TODOS os anúncios de uma vez (a conta
+  // principal já passa de 1000) — com o menu de ações novo (3 formulários
+  // interativos por linha), o navegador travava de verdade ao abrir a aba.
   let q = supabase
     .from('integracoes_mercado_livre_anuncios')
-    .select('id, ml_item_id, titulo_ml, preco_ml, produto_id, is_catalogo, catalog_product_id, sku')
+    .select('id, ml_item_id, titulo_ml, preco_ml, produto_id, is_catalogo, catalog_product_id, sku', { count: 'exact' })
     .eq('conexao_id', conexaoId)
     .order('titulo_ml')
 
   const termo = busca?.trim()
   if (termo) q = q.ilike('titulo_ml', `%${termo}%`)
 
-  const anuncios = await fetchAll<AnuncioLinha>((de, ate) => q.range(de, ate))
+  const de = (pagina - 1) * POR_PAGINA
+  const { data, count } = await q.range(de, de + POR_PAGINA - 1)
+  const anuncios = (data ?? []) as AnuncioLinha[]
+  const total = count ?? 0
+  const totalPaginas = Math.max(1, Math.ceil(total / POR_PAGINA))
 
   const produtoIds = anuncios.map((a) => a.produto_id).filter((id): id is string => !!id)
   const produtos = await fetchAllIn<{ id: string; codigo: string | null; nome: string | null }>(produtoIds, (chunk, de, ate) =>
@@ -120,6 +131,13 @@ export default async function MeusAnunciosMLPage({
             })}
           </tbody>
         </table>
+        <Paginacao
+          pagina={pagina}
+          totalPaginas={totalPaginas}
+          total={total}
+          params={termo ? { busca: termo } : {}}
+          basePath={`/painel/integracoes/lojas/mercado-livre/${conexaoId}/anuncios`}
+        />
       </div>
     </div>
   )
