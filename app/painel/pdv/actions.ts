@@ -366,8 +366,11 @@ export async function finalizarVenda(
   if (!data) return { erro: 'RPC retornou vazio. Verifique o banco.' }
 
   // Amarra a venda ao caixa aberto (pro fechamento X/Z reconciliar por caixa).
-  // Silencioso se a coluna caixa_id ainda não existe (pré-migração).
-  try { await supabase.from('vendas').update({ caixa_id: caixaId }).eq('id', data.venda_id as string) } catch { /* pré-migração */ }
+  // supabase-js NUNCA lança (retorna {error}), então um try/catch aqui nunca
+  // pegava nada de verdade — uma falha real neste update ficava
+  // completamente invisível, e a venda sumia do fechamento sem nenhum rastro.
+  const { error: eCaixaVenda } = await supabase.from('vendas').update({ caixa_id: caixaId }).eq('id', data.venda_id as string)
+  if (eCaixaVenda) console.error('finalizarVenda: falha ao amarrar venda ao caixa:', eCaixaVenda.message, 'venda_id:', data.venda_id)
 
   // Estoque mudou pra cada item vendido — avisa o Mercado Livre se algum
   // deles tiver anúncio linkado (fire-and-forget, nunca falha a venda).

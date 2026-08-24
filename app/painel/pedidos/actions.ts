@@ -103,7 +103,10 @@ export async function faturarPedido(id: string): Promise<{ ok: boolean; msg: str
   }
 
   const { data: forma } = await supabase.from('formas_pagamento').select('tipo, nome').eq('id', pedido.forma_pagamento_id).maybeSingle()
-  const isFiado = (forma?.tipo === 'credito_loja') || /fiado/i.test(forma?.nome ?? '')
+  // tipo real da forma fiado é 'fiado' (conferido em PDVClient.tsx) — 'credito_loja'
+  // nunca bate com nada, então essa checagem dependia só do regex no nome; se
+  // a forma fosse renomeada sem "fiado" no nome, a venda ia gravar como paga.
+  const isFiado = (forma?.tipo === 'fiado') || /fiado/i.test(forma?.nome ?? '')
 
   const desconto = pedido.desconto ?? 0
   const totalItens = lista.reduce((s, i) => s + (i.total_item ?? i.preco_unitario * i.quantidade), 0)
@@ -134,6 +137,22 @@ export async function faturarPedido(id: string): Promise<{ ok: boolean; msg: str
     // venda falhou → devolve o pedido pro status anterior
     await supabase.from('pedidos').update({ status: pedido.status }).eq('id', id)
     return { ok: false, msg: error.message }
+  }
+
+  // Amarra a venda ao caixa aberto da loja (mesmo passo que o PDV faz em
+  // finalizarVenda) — sem isso a venda fica invisível no fechamento X/Z:
+  // dinheiro entra na gaveta de verdade, mas a conferência por caixa_id
+  // nunca encontra essa venda, e a contagem acusa sobra. Não trava o
+  // faturamento se não achar caixa aberto (mesmo espírito não-bloqueante
+  // do resto do sistema) — só não amarra.
+  const { data: depo } = await supabase.from('depositos').select('loja_id').eq('id', pedido.deposito_id).maybeSingle()
+  const lojaPedido = (depo as { loja_id?: string | null } | null)?.loja_id ?? null
+  if (lojaPedido) {
+    const { data: cx } = await supabase.from('caixas').select('id').eq('status', 'aberto').eq('loja_id', lojaPedido).limit(1).maybeSingle()
+    if (cx) {
+      const { error: eCaixaVenda } = await supabase.from('vendas').update({ caixa_id: cx.id }).eq('id', data.venda_id as string)
+      if (eCaixaVenda) console.error('faturarPedido: falha ao amarrar venda ao caixa:', eCaixaVenda.message, 'venda_id:', data.venda_id)
+    }
   }
 
   await logAtividade('pedido.faturar', {
