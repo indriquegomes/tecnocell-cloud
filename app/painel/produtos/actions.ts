@@ -25,7 +25,11 @@ export async function criarProduto(formData: FormData) {
   // evita cadastrar produto com código já existente (duplicidade)
   const codigoNovo = (formData.get('codigo') as string)?.trim() || null
   if (codigoNovo) {
-    const { data: dup } = await supabase.from('produtos').select('nome').eq('codigo', codigoNovo).eq('ativo', true).maybeSingle()
+    // Não há constraint única em produtos.codigo no banco — essa checagem é a
+    // única coisa que evita duplicidade. Se ela falhar, não dá pra saber se
+    // já existe outro com o mesmo código, então trava em vez de arriscar.
+    const { data: dup, error: erroDup } = await supabase.from('produtos').select('nome').eq('codigo', codigoNovo).eq('ativo', true).maybeSingle()
+    if (erroDup) throw new Error('Não deu pra checar se o código já existe: ' + erroDup.message)
     if (dup) throw new Error(`Já existe um produto ativo com o código "${codigoNovo}" (${dup.nome}).`)
   }
   const id = crypto.randomUUID()
