@@ -618,12 +618,21 @@ export async function buscarCupomVenda(accessToken: string, vendaId: string): Pr
 
 // Resolve em qual conta o dinheiro do fiado recebido cai, a partir do texto da forma
 // (ex: 'dinheiro' → forma "Dinheiro" → conta_destino_id). Assim o saldo da conta é atualizado.
-async function contaDaFormaTexto(supabase: Awaited<ReturnType<typeof createServiceClient>>, texto: string): Promise<string | null> {
+async function contaDaFormaTexto(supabase: Awaited<ReturnType<typeof createServiceClient>>, texto: string, lojaId?: string | null): Promise<string | null> {
   const t = (texto || '').trim().toLowerCase()
   if (!t) return null
   const { data } = await supabase.from('formas_pagamento').select('nome, tipo, conta_destino_id')
   const f = (data ?? []).find((x) => (x.nome ?? '').toLowerCase() === t || (x.tipo ?? '').toLowerCase() === t)
-  return (f?.conta_destino_id as string | null) ?? null
+  if (!f) return null
+  // Dinheiro sempre cai no CAIXA DA LOJA — mesma regra que toda venda em
+  // dinheiro já segue (ver lib/saldos-contas.ts). Sem isto, fiado recebido em
+  // dinheiro caía em formas_pagamento.conta_destino_id, que aponta pra uma
+  // conta bancária inativa ("Dinheiro (antigo)"), em vez do caixa de verdade.
+  if (f.tipo === 'dinheiro' && lojaId) {
+    const { data: caixa } = await supabase.from('contas').select('id').eq('tipo', 'caixa').eq('loja_id', lojaId).maybeSingle()
+    if (caixa) return caixa.id
+  }
+  return (f.conta_destino_id as string | null) ?? null
 }
 
 
@@ -647,7 +656,7 @@ export async function pagarLancamentos(
     await requirePermissao('crediario_receber', accessToken)
     const supabase = await createServiceClient()
     const today = hojeSP()
-    const contaId = await contaDaFormaTexto(supabase, formaPagamento)
+    const contaId = await contaDaFormaTexto(supabase, formaPagamento, lojaId)
 
     // pega o que sobrou de cada um ANTES de quitar — é esse valor que entra no caixa.
     // Só os ainda pendentes: sem isso, um clique duplo (ou um segundo terminal com a
@@ -728,7 +737,7 @@ export async function registrarPagamentoParcial(
     if (quitado) {
       update.status = 'pago'
       update.data_pagamento = today
-      update.conta_id = await contaDaFormaTexto(supabase, formaPagamento)
+      update.conta_id = await contaDaFormaTexto(supabase, formaPagamento, lojaId)
     }
 
     const { error } = await supabase.from('lancamentos').update(update).eq('id', id)
@@ -797,7 +806,7 @@ export async function registrarPagamentoMisto(
     if (quitado) {
       update.status = 'pago'
       update.data_pagamento = today
-      update.conta_id = await contaDaFormaTexto(supabase, linhas[0].forma)
+      update.conta_id = await contaDaFormaTexto(supabase, linhas[0].forma, lojaId)
     }
 
     const { error } = await supabase.from('lancamentos').update(update).eq('id', id)

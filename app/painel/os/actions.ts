@@ -125,12 +125,20 @@ export async function atualizarValoresOS(osId: string, total: number, custo: num
 // Recebimento da OS: dinheiro entra no caixa da loja + lançamento pago na conta
 // da forma (mesma mecânica do recebimento de fiado). Trava contra receber 2x.
 type SBOS = Awaited<ReturnType<typeof createServiceClient>>
-async function contaDaFormaOS(supabase: SBOS, texto: string): Promise<string | null> {
+async function contaDaFormaOS(supabase: SBOS, texto: string, lojaId?: string | null): Promise<string | null> {
   const t = (texto || '').trim().toLowerCase()
   if (!t) return null
   const { data } = await supabase.from('formas_pagamento').select('nome, tipo, conta_destino_id')
   const f = (data ?? []).find((x) => (x.nome ?? '').toLowerCase() === t || (x.tipo ?? '').toLowerCase() === t)
-  return (f?.conta_destino_id as string | null) ?? null
+  if (!f) return null
+  // Dinheiro sempre cai no CAIXA DA LOJA, mesma regra de contaDaFormaTexto
+  // (pdv/actions.ts) e de lib/saldos-contas.ts — sem isto caía na conta
+  // bancária inativa "Dinheiro (antigo)".
+  if (f.tipo === 'dinheiro' && lojaId) {
+    const { data: caixa } = await supabase.from('contas').select('id').eq('tipo', 'caixa').eq('loja_id', lojaId).maybeSingle()
+    if (caixa) return caixa.id
+  }
+  return (f.conta_destino_id as string | null) ?? null
 }
 
 // Busca OS por número pra receber no PDV (Opção B). Só as ainda NÃO recebidas.
@@ -182,7 +190,7 @@ export async function receberOS(osId: string, forma: string, lojaId: string): Pr
     descricao: `Recebimento OS #${os.numero}`, valor: total, tipo: 'receber',
     status: 'pago', data_competencia: today, data_vencimento: today, data_pagamento: today,
     forma_pagamento: forma, pessoa_nome: (os as { pessoa_nome?: string | null }).pessoa_nome ?? null,
-    conta_id: await contaDaFormaOS(supabase, forma),
+    conta_id: await contaDaFormaOS(supabase, forma, lojaId),
   })
   if (eLancamento) {
     await supabase.from('ordens_servico').update({ recebido_em: null, forma_recebimento: null, status: statusAnterior }).eq('id', osId)
