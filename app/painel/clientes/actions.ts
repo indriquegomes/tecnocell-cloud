@@ -63,17 +63,22 @@ export async function criarPessoa(formData: FormData) {
   await requirePermissao('clientes')
   const supabase = await createServiceClient()
 
+  // pessoas não tem constraint única em cpf_cnpj/email — essas checagens são a
+  // única coisa que evita duplicidade. Erro descartado deixava passar sem
+  // confirmar se já existe outro cadastro igual.
   const cpfCnpj = (formData.get('cpf_cnpj') as string)?.trim()
   if (cpfCnpj) {
     const { valido } = validarCpfCnpj(cpfCnpj)
     if (!valido) redirect(`/painel/clientes/novo?erro=${encodeURIComponent('CPF ou CNPJ inválido.')}`)
-    const { data: existente } = await supabase.from('pessoas').select('id').eq('cpf_cnpj', cpfCnpj).maybeSingle()
+    const { data: existente, error: erroDup } = await supabase.from('pessoas').select('id').eq('cpf_cnpj', cpfCnpj).maybeSingle()
+    if (erroDup) redirect(`/painel/clientes/novo?erro=${encodeURIComponent('Não deu pra checar duplicidade: ' + erroDup.message)}`)
     if (existente) redirect(`/painel/clientes/novo?erro=${encodeURIComponent('Já existe um cadastro com este CPF/CNPJ.')}`)
   }
 
   const email = (formData.get('email') as string)?.trim()
   if (email) {
-    const { data: existente } = await supabase.from('pessoas').select('id').eq('email', email).maybeSingle()
+    const { data: existente, error: erroDup } = await supabase.from('pessoas').select('id').eq('email', email).maybeSingle()
+    if (erroDup) redirect(`/painel/clientes/novo?erro=${encodeURIComponent('Não deu pra checar duplicidade: ' + erroDup.message)}`)
     if (existente) redirect(`/painel/clientes/novo?erro=${encodeURIComponent('Já existe um cadastro com este e-mail.')}`)
   }
 
@@ -99,13 +104,15 @@ export async function editarPessoa(id: string, formData: FormData) {
   if (cpfCnpj) {
     const { valido } = validarCpfCnpj(cpfCnpj)
     if (!valido) redirect(`/painel/clientes/${id}/editar?erro=${encodeURIComponent('CPF ou CNPJ inválido.')}`)
-    const { data: existente } = await supabase.from('pessoas').select('id').eq('cpf_cnpj', cpfCnpj).neq('id', id).maybeSingle()
+    const { data: existente, error: erroDup } = await supabase.from('pessoas').select('id').eq('cpf_cnpj', cpfCnpj).neq('id', id).maybeSingle()
+    if (erroDup) redirect(`/painel/clientes/${id}/editar?erro=${encodeURIComponent('Não deu pra checar duplicidade: ' + erroDup.message)}`)
     if (existente) redirect(`/painel/clientes/${id}/editar?erro=${encodeURIComponent('Já existe outro cadastro com este CPF/CNPJ.')}`)
   }
 
   const email = (formData.get('email') as string)?.trim()
   if (email) {
-    const { data: existente } = await supabase.from('pessoas').select('id').eq('email', email).neq('id', id).maybeSingle()
+    const { data: existente, error: erroDup } = await supabase.from('pessoas').select('id').eq('email', email).neq('id', id).maybeSingle()
+    if (erroDup) redirect(`/painel/clientes/${id}/editar?erro=${encodeURIComponent('Não deu pra checar duplicidade: ' + erroDup.message)}`)
     if (existente) redirect(`/painel/clientes/${id}/editar?erro=${encodeURIComponent('Já existe outro cadastro com este e-mail.')}`)
   }
 
@@ -122,11 +129,15 @@ export async function editarPessoa(id: string, formData: FormData) {
 }
 
 // Quem já movimentou (venda ou crédito) não pode ser apagado — perderia histórico.
+// Se a checagem falhar, trata como SE TIVESSE movimento (bloqueia o apagar) —
+// o risco de travar uma exclusão à toa é bem menor que apagar um cliente com
+// histórico de verdade por causa de uma falha de banco não detectada.
 async function temMovimento(supabase: Awaited<ReturnType<typeof createServiceClient>>, id: string) {
-  const [{ count: nv }, { count: nc }] = await Promise.all([
+  const [{ count: nv, error: ev }, { count: nc, error: ec }] = await Promise.all([
     supabase.from('vendas').select('id', { count: 'exact', head: true }).eq('pessoa_id', id),
     supabase.from('creditos_clientes').select('id', { count: 'exact', head: true }).eq('pessoa_id', id),
   ])
+  if (ev || ec) return true
   return (nv ?? 0) > 0 || (nc ?? 0) > 0
 }
 
@@ -161,7 +172,8 @@ export async function criarClientePDV(accessToken: string, formData: FormData): 
     if (cpfCnpj) {
       const { valido } = validarCpfCnpj(cpfCnpj)
       if (!valido) return { ok: false, erro: 'CPF ou CNPJ inválido.' }
-      const { data: existente } = await supabase.from('pessoas').select('id, nome').eq('cpf_cnpj', cpfCnpj).maybeSingle()
+      const { data: existente, error: erroDup } = await supabase.from('pessoas').select('id, nome').eq('cpf_cnpj', cpfCnpj).maybeSingle()
+      if (erroDup) return { ok: false, erro: 'Não deu pra checar duplicidade: ' + erroDup.message }
       if (existente) return { ok: false, erro: `Já existe cadastro com este CPF/CNPJ (${existente.nome}).` }
     }
 
