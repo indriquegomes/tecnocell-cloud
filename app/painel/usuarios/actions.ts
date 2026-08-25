@@ -112,7 +112,7 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
   const bloqDomingo = fd.getAll('acesso_bloqueia_domingo').includes('1')
   const bloqFeriado = fd.getAll('acesso_bloqueia_feriado').includes('1')
   const metaRaw = parseFloat((fd.get('meta_venda_mensal') as string) || '0')
-  const metaVendaMensal = isNaN(metaRaw) ? 0 : metaRaw
+  const metaVendaMensal = isNaN(metaRaw) ? 0 : Math.max(0, metaRaw)
 
   const supabase = await createServiceClient()
   const { error } = await supabase.from('perfis').update({

@@ -21,7 +21,10 @@ export async function criarLancamento(formData: FormData) {
   await requirePermissao('financeiro')
   const supabase = await createServiceClient()
   const quitado = formData.getAll('quitado').includes('1')
-  const valorTotal = parseFloat((formData.get('valor') as string) || '0')
+  // Math.max(0, ...): campo de dinheiro mascarado não digita negativo pela UI normal,
+  // mas o valor real vem de input escondido -- sem essa trava dava pra forçar um
+  // lançamento negativo (confirmado em teste 25/08, mesmo buraco achado em produtos).
+  const valorTotal = Math.max(0, parseFloat((formData.get('valor') as string) || '0'))
   const hoje = hojeSP()
   const descricao = formData.get('descricao') as string
   const tipo = formData.get('tipo') as string
@@ -63,7 +66,7 @@ export async function editarLancamento(id: string, formData: FormData) {
   const supabase = await createServiceClient()
   const { error } = await supabase.from('lancamentos').update({
     descricao: formData.get('descricao') as string,
-    valor: parseFloat((formData.get('valor') as string) || '0'),
+    valor: Math.max(0, parseFloat((formData.get('valor') as string) || '0')),
     tipo: formData.get('tipo') as string,
     data_competencia: (formData.get('data_competencia') as string) || null,
     data_vencimento: (formData.get('data_vencimento') as string) || null,

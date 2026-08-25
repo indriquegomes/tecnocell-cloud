@@ -61,8 +61,11 @@ export async function registrarMovimento(formData: FormData) {
     redirect('/painel/estoque/historico?erro=produto-nao-encontrado')
   }
 
-  // quantidade: coluna é integer — Math.round evita erro de tipo no banco
-  const quantidade = Math.round(parseFloat(formData.get('quantidade') as string))
+  // quantidade: coluna é integer — Math.round evita erro de tipo no banco. Math.max(0,
+  // ...): negativa aqui inverteria a operação escondido (uma "entrada" negativa vira
+  // saída de verdade sem aparecer como saída no histórico) -- o min="0" do form é só
+  // client-side, não impede forçar direto na requisição.
+  const quantidade = Math.max(0, Math.round(parseFloat(formData.get('quantidade') as string)))
   const operacao = formData.get('operacao') as string
   const notaFiscal = (formData.get('nota_fiscal') as string | null)?.trim() || null
   const obsRaw = (formData.get('observacao') as string | null)?.trim() || null
@@ -128,7 +131,7 @@ export async function transferirEstoque(formData: FormData) {
 
   const quantidade = series.length > 0
     ? series.length
-    : Math.round(parseFloat(formData.get('quantidade') as string) || 0)
+    : Math.max(0, Math.round(parseFloat(formData.get('quantidade') as string) || 0))
 
   const { error } = await supabase.rpc('transferir_estoque', {
     p_produto_id: produtoId,

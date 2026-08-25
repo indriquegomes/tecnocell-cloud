@@ -125,8 +125,10 @@ export async function removerItemNota(itemId: string, notaId: string) {
 export async function editarItemNota(itemId: string, notaId: string, formData: FormData) {
   await requirePermissao('compras')
   const supabase = await createServiceClient()
-  const quantidade = Math.round(parseFloat(formData.get('quantidade') as string)) || 1
-  const preco = parseFloat(formData.get('preco_unitario') as string) || 0
+  // Math.max: mesmo buraco achado em produtos/financeiro (25/08) -- sem isso dava
+  // pra forcar quantidade/preco negativo direto no campo escondido do form.
+  const quantidade = Math.max(1, Math.round(parseFloat(formData.get('quantidade') as string)) || 1)
+  const preco = Math.max(0, parseFloat(formData.get('preco_unitario') as string) || 0)
   await supabase.from('itens_nota_entrada')
     .update({ quantidade, preco_unitario: preco, total_item: quantidade * preco })
     .eq('id', itemId)
@@ -139,8 +141,10 @@ export async function editarItemNota(itemId: string, notaId: string, formData: F
 export async function adicionarItemNota(notaId: string, formData: FormData) {
   await requirePermissao('compras')
   const supabase = await createServiceClient()
-  const quantidade = Math.round(parseFloat(formData.get('quantidade') as string)) || 1
-  const preco = parseFloat(formData.get('preco_unitario') as string) || 0
+  // Math.max: mesmo buraco achado em produtos/financeiro (25/08) -- sem isso dava
+  // pra forcar quantidade/preco negativo direto no campo escondido do form.
+  const quantidade = Math.max(1, Math.round(parseFloat(formData.get('quantidade') as string)) || 1)
+  const preco = Math.max(0, parseFloat(formData.get('preco_unitario') as string) || 0)
 
   await supabase.from('itens_nota_entrada').insert({
     nota_id: notaId,

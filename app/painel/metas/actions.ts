@@ -22,7 +22,7 @@ export async function salvarMeta(formData: FormData) {
   const valores = formData.getAll('faixa_valor') as string[]
   const premios = formData.getAll('faixa_premio') as string[]
   const faixas = nomes
-    .map((n, i) => ({ nome: (n || '').trim(), valor: parseFloat(valores[i] || '0') || 0, premio: parseFloat(premios[i] || '0') || 0 }))
+    .map((n, i) => ({ nome: (n || '').trim(), valor: parseFloat(valores[i] || '0') || 0, premio: Math.max(0, parseFloat(premios[i] || '0') || 0) }))
     .filter((f) => f.nome && f.valor > 0)
     .sort((a, b) => a.valor - b.valor)
     .map((f, i) => ({ ...f, ordem: i }))

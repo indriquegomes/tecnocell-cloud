@@ -40,9 +40,13 @@ export async function criarProduto(formData: FormData) {
     id,
     nome: formData.get('nome') as string,
     descricao: (formData.get('descricao') as string) || null,
-    preco: parseFloat((formData.get('preco') as string) || '0'),
-    preco_custo: podeCusto ? parseFloat((formData.get('preco_custo') as string) || '0') : 0,
-    preco_minimo: podeCusto ? parseFloat((formData.get('preco_minimo') as string) || '0') : 0,
+    // Math.max(0, ...): campo de dinheiro é mascarado no form (não digita negativo
+    // pela UI normal), mas o valor real vem de um input escondido — alguém manipulando
+    // a requisição direto (ou um bug de outro tipo) conseguia mandar negativo sem essa
+    // trava. Confirmado em teste 25/08: preço -50 foi aceito e virou produto de verdade.
+    preco: Math.max(0, parseFloat((formData.get('preco') as string) || '0')),
+    preco_custo: podeCusto ? Math.max(0, parseFloat((formData.get('preco_custo') as string) || '0')) : 0,
+    preco_minimo: podeCusto ? Math.max(0, parseFloat((formData.get('preco_minimo') as string) || '0')) : 0,
     categoria: (formData.get('categoria') as string) || null,
     marca: (formData.get('marca') as string) || null,
     modelo: (formData.get('modelo') as string) || null,
@@ -51,7 +55,7 @@ export async function criarProduto(formData: FormData) {
     unidade: (formData.get('unidade') as string) || 'UN',
     fornecedor_id: (formData.get('fornecedor_id') as string) || null,
     prateleira: (formData.get('prateleira') as string) || null,
-    estoque_minimo: parseInt((formData.get('estoque_minimo') as string) || '0', 10),
+    estoque_minimo: Math.max(0, parseInt((formData.get('estoque_minimo') as string) || '0', 10)),
     controla_serie: formData.get('controla_serie') === 'true',
     ativo: formData.get('ativo') === 'true',
     visivel_catalogo: formData.get('visivel_catalogo') === 'true',
@@ -73,11 +77,11 @@ export async function editarProduto(id: string, formData: FormData) {
   const updates: Record<string, unknown> = {
     nome: formData.get('nome') as string,
     descricao: (formData.get('descricao') as string) || null,
-    preco: parseFloat((formData.get('preco') as string) || '0'),
+    preco: Math.max(0, parseFloat((formData.get('preco') as string) || '0')),
     // sem permissão de custo: não mexe no custo nem no piso (preserva os existentes)
     ...(podeCusto ? {
-      preco_custo: parseFloat((formData.get('preco_custo') as string) || '0'),
-      preco_minimo: parseFloat((formData.get('preco_minimo') as string) || '0'),
+      preco_custo: Math.max(0, parseFloat((formData.get('preco_custo') as string) || '0')),
+      preco_minimo: Math.max(0, parseFloat((formData.get('preco_minimo') as string) || '0')),
     } : {}),
     categoria: (formData.get('categoria') as string) || null,
     marca: (formData.get('marca') as string) || null,
@@ -87,7 +91,7 @@ export async function editarProduto(id: string, formData: FormData) {
     unidade: (formData.get('unidade') as string) || 'UN',
     fornecedor_id: (formData.get('fornecedor_id') as string) || null,
     prateleira: (formData.get('prateleira') as string) || null,
-    estoque_minimo: parseInt((formData.get('estoque_minimo') as string) || '0', 10),
+    estoque_minimo: Math.max(0, parseInt((formData.get('estoque_minimo') as string) || '0', 10)),
     controla_serie: formData.get('controla_serie') === 'true',
     ativo: formData.get('ativo') === 'true',
     visivel_catalogo: formData.get('visivel_catalogo') === 'true',

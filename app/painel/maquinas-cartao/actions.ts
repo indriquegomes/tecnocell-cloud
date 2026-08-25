@@ -9,13 +9,13 @@ function campos(formData: FormData) {
   let taxas: number[] = []
   try {
     taxas = (JSON.parse((formData.get('taxas_credito') as string) || '[]') as unknown[])
-      .map((x) => Number(x) || 0)
+      .map((x) => Math.max(0, Number(x) || 0))
   } catch {}
   // garante tamanho = max_parcelas (preenche com 0 o que faltar)
   const taxasCredito = Array.from({ length: maxP }, (_, i) => taxas[i] ?? 0)
   return {
     nome: formData.get('nome') as string,
-    taxa_debito: parseFloat(formData.get('taxa_debito') as string) || 0,
+    taxa_debito: Math.max(0, parseFloat(formData.get('taxa_debito') as string) || 0),
     taxas_credito: taxasCredito,
     max_parcelas: maxP,
   }

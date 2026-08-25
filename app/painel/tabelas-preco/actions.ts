@@ -79,8 +79,8 @@ export async function adicionarItemTabela(tabelaId: string, formData: FormData) 
   const { error } = await supabase.from('itens_tabela_preco').insert({
     tabela_id: tabelaId,
     produto_id: formData.get('produto_id') as string,
-    preco: parseFloat(formData.get('preco') as string) || 0,
-    quantidade_minima: parseInt(formData.get('quantidade_minima') as string) || 1,
+    preco: Math.max(0, parseFloat(formData.get('preco') as string) || 0),
+    quantidade_minima: Math.max(1, parseInt(formData.get('quantidade_minima') as string) || 1),
   })
 
   if (error) return { error: /duplicate|unique/i.test(error.message) ? 'Já existe uma faixa com essa quantidade mínima pra esse produto.' : error.message }

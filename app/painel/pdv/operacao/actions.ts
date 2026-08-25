@@ -23,7 +23,7 @@ export async function abrirCaixa(
     if (existente) return { ok: false, message: 'Já existe um caixa aberto nesta loja.' }
 
     const { error } = await supabase.from('caixas').insert({
-      valor_abertura: parseFloat(formData.get('valor_abertura') as string) || 0,
+      valor_abertura: Math.max(0, parseFloat(formData.get('valor_abertura') as string) || 0),
       obs_abertura: (formData.get('obs_abertura') as string) || null,
       status: 'aberto',
       loja_id: lojaId,
@@ -32,7 +32,7 @@ export async function abrirCaixa(
 
     await logAtividade('caixa.abrir', {
       loja_id: lojaId,
-      valor_abertura: parseFloat(formData.get('valor_abertura') as string) || 0,
+      valor_abertura: Math.max(0, parseFloat(formData.get('valor_abertura') as string) || 0),
     }, usuario, '/painel/pdv/operacao')
     redirect(`/painel/pdv/operacao?aberto=1${lojaId ? `&loja=${lojaId}` : ''}`)
   } catch (e: unknown) {
@@ -52,7 +52,7 @@ export async function fecharCaixa(
 
     const raw = formData.get('valor_fechamento') as string
     const valorFechamento = parseFloat(raw)
-    if (raw === '' || isNaN(valorFechamento)) {
+    if (raw === '' || isNaN(valorFechamento) || valorFechamento < 0) {
       return { ok: false, message: 'Informe o valor contado no caixa.' }
     }
 

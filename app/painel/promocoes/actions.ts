@@ -41,7 +41,7 @@ export async function criarPromocao(formData: FormData) {
   const { data, error } = await supabase.from('promocoes').insert({
     nome: formData.get('nome') as string,
     tipo,
-    valor: parseFloat(formData.get('valor') as string) || 0,
+    valor: Math.max(0, parseFloat(formData.get('valor') as string) || 0),
     data_inicio: formData.get('data_inicio') as string || null,
     data_fim: formData.get('data_fim') as string || null,
     descricao: formData.get('descricao') as string || null,

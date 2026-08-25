@@ -23,8 +23,8 @@ export async function salvarConfiguracoes(_prev: State, formData: FormData): Pro
   const limiteDivergenciaRaw = parseFloat(formData.get('limite_divergencia') as string)
   const comissaoRaw = parseFloat(formData.get('comissao_percentual') as string)
   const valorPdv = {
-    limite_divergencia: isNaN(limiteDivergenciaRaw) ? 0 : limiteDivergenciaRaw,
-    comissao_percentual: isNaN(comissaoRaw) ? 0 : comissaoRaw,
+    limite_divergencia: isNaN(limiteDivergenciaRaw) ? 0 : Math.max(0, limiteDivergenciaRaw),
+    comissao_percentual: isNaN(comissaoRaw) ? 0 : Math.max(0, comissaoRaw),
     // horários do lembrete de fechar o caixa (loja fecha 19h na semana / 17h no sábado)
     hora_fechar_semana: (formData.get('hora_fechar_semana') as string) || '18:30',
     hora_fechar_sabado: (formData.get('hora_fechar_sabado') as string) || '16:30',

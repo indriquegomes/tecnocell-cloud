@@ -171,8 +171,8 @@ export async function faturarPedido(id: string): Promise<{ ok: boolean; msg: str
 export async function adicionarItemPedido(pedidoId: string, formData: FormData) {
   await requirePermissao('pedidos')
   const supabase = await createServiceClient()
-  const quantidade = Math.round(parseFloat(formData.get('quantidade') as string)) || 1
-  const preco = parseFloat(formData.get('preco_unitario') as string) || 0
+  const quantidade = Math.max(1, Math.round(parseFloat(formData.get('quantidade') as string)) || 1)
+  const preco = Math.max(0, parseFloat(formData.get('preco_unitario') as string) || 0)
   const total = quantidade * preco
 
   const { error } = await supabase.from('itens_pedido').insert({
@@ -194,8 +194,13 @@ export async function adicionarItemPedido(pedidoId: string, formData: FormData) 
   return { ok: true }
 }
 
-export async function atualizarDescontoFrete(id: string, desconto: number, frete: number) {
+export async function atualizarDescontoFrete(id: string, descontoRaw: number, freteRaw: number) {
   await requirePermissao('pedidos')
+  // desconto negativo vira acréscimo escondido (subtotal - (-x) = subtotal + x) e frete
+  // negativo abate o total sem motivo -- os dois têm que ser >= 0, o total já é
+  // clampado mas os campos guardados ficavam com valor sem sentido.
+  const desconto = Math.max(0, descontoRaw)
+  const frete = Math.max(0, freteRaw)
   const supabase = await createServiceClient()
   // recalcula total com os itens existentes
   const { data: itens } = await supabase.from('itens_pedido').select('total_item').eq('pedido_id', id)

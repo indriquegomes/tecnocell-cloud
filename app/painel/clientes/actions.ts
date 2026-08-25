@@ -46,7 +46,7 @@ function camposPessoa(formData: FormData, cpfCnpj: string, email: string) {
     cidade: txt('cidade'),
     estado: txt('estado'),
     tabela_preco_id: txt('tabela_preco_id'),
-    limite_credito: parseFloat(formData.get('limite_credito') as string) || 0,
+    limite_credito: Math.max(0, parseFloat(formData.get('limite_credito') as string) || 0),
     // combinado de pagamento do fiado ("paga no fim do dia") — mostrado no crediário do PDV
     rotina_pagamento: txt('rotina_pagamento'),
     // cliente problemático (antes era digitado no nome). getAll() porque o campo tem
