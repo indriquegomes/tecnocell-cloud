@@ -7,17 +7,25 @@ import { validarCpfCnpj } from '@/lib/validacoes'
 
 // Foto de comprovação do cliente — vai pro bucket PRIVADO `clientes`. Guardamos só o
 // caminho (ex: "<id>.jpg"); a exibição gera URL assinada. Devolve o path ou null.
+//
+// Extensão vem do content-type observado, não do nome do arquivo (que o cliente
+// escolhe livremente — "malicioso.html" renomeado pra ".jpg" passava antes disso).
+// Bucket privado deixa o risco menor que em produtos (público), mas mesma correção.
+const EXT_POR_TIPO: Record<string, string> = {
+  'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif',
+}
 async function uploadFotoCliente(
   supabase: Awaited<ReturnType<typeof createServiceClient>>,
   file: File | null,
   id: string,
 ): Promise<string | null> {
   if (!file || file.size === 0) return null
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+  const ext = EXT_POR_TIPO[file.type]
+  if (!ext) return null
   const path = `${id}.${ext}`
   const buffer = Buffer.from(await file.arrayBuffer())
   const { error } = await supabase.storage.from('clientes').upload(path, buffer, {
-    contentType: file.type || 'image/jpeg',
+    contentType: file.type,
     upsert: true,
   })
   if (error) return null

@@ -4,9 +4,20 @@ import { createServiceClient, requirePermissao, podeAcao } from '@/lib/supabase/
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
+// Extensão do NOME do arquivo (file.name) é o que o cliente digita — só trocar
+// "malicioso.html" pra "malicioso.jpg" já bastava antes disso. Bucket "produtos"
+// é público: um .html/.svg com <script> vira link real, visitável, hospedado no
+// domínio do Supabase. Confirmado em teste 25/08 (mesmo buraco em clientes,
+// bucket privado lá, risco menor, mas corrigido igual). Deriva a extensão do
+// content-type do arquivo, que também vem do cliente mas pelo menos trava o
+// que é aceito numa lista de imagem de verdade — não confia no nome do arquivo.
+const EXT_POR_TIPO: Record<string, string> = {
+  'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif',
+}
 async function uploadImagem(supabase: Awaited<ReturnType<typeof createServiceClient>>, file: File, id: string): Promise<string | null> {
   if (!file || file.size === 0) return null
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+  const ext = EXT_POR_TIPO[file.type]
+  if (!ext) return null
   const path = `${id}.${ext}`
   const buffer = Buffer.from(await file.arrayBuffer())
   const { error } = await supabase.storage.from('produtos').upload(path, buffer, {

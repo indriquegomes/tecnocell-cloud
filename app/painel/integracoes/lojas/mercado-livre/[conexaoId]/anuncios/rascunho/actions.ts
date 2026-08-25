@@ -60,8 +60,12 @@ export async function uploadFotoAnuncio(formData: FormData): Promise<{ ok: boole
   const file = formData.get('file') as File | null
   if (!file || file.size === 0) return { ok: false, erro: 'Nenhum arquivo enviado.' }
 
+  // extensão do content-type observado, não do nome escolhido pelo cliente — mesmo
+  // buraco de upload achado e corrigido em produtos/clientes (25/08). Bucket público.
+  const EXT_POR_TIPO: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' }
+  const ext = EXT_POR_TIPO[file.type]
+  if (!ext) return { ok: false, erro: 'Envie uma imagem (jpg, png, webp ou gif).' }
   const supabase = await createServiceClient()
-  const ext = file.name.split('.').pop() ?? 'jpg'
   const nome = `${crypto.randomUUID()}.${ext}`
   const bytes = await file.arrayBuffer()
 
