@@ -73,7 +73,15 @@ export async function criarProduto(formData: FormData) {
     imagem_url,
     updated_at: new Date().toISOString(),
   })
-  if (error) throw new Error(error.message)
+  // 23505 = unique_violation. Pega a corrida que a checagem de duplicidade lá em
+  // cima não pega sozinha (duas criações quase juntas com o mesmo código passam
+  // as duas pela checagem antes de qualquer uma inserir) — migration
+  // 2026-08-25-produtos-codigo-unico-ativo.sql trava isso no banco; aqui só troca
+  // o erro cru do Postgres por uma mensagem que a pessoa entende.
+  if (error) {
+    if (error.code === '23505') throw new Error(`Já existe um produto ativo com o código "${codigoNovo}".`)
+    throw new Error(error.message)
+  }
   revalidatePath('/painel/produtos')
   redirect('/painel/produtos')
 }
@@ -111,7 +119,13 @@ export async function editarProduto(id: string, formData: FormData) {
   if (novaImagem) updates.imagem_url = novaImagem
 
   const { error } = await supabase.from('produtos').update(updates).eq('id', id)
-  if (error) throw new Error(error.message)
+  if (error) {
+    // editarProduto nunca checou duplicidade de código antes de salvar (só
+    // criarProduto checava) — a trava nova no banco (23505) agora pega isso
+    // também, então precisa da mesma mensagem amigável em vez do erro cru.
+    if (error.code === '23505') throw new Error(`Já existe outro produto ativo com o código "${updates.codigo}".`)
+    throw new Error(error.message)
+  }
   revalidatePath('/painel/produtos')
   redirect('/painel/produtos')
 }
