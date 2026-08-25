@@ -43,9 +43,12 @@ export async function POST(req: NextRequest) {
   let contexto: Record<string, unknown> = {}
 
   if (tipo === 'funcionario') {
-    const [{ data: produtos }, { data: estoque }, { data: lancamentos }] = await Promise.all([
+    // count exact + head:true: só o total, sem trazer as linhas — evita o cap de
+    // 1000 do Supabase (que fazia "itensEmEstoque" mentir depois da tabela crescer
+    // pra 32 mil+ linhas na importação do SIGE, ver CLAUDE.md sobre paginação).
+    const [{ data: produtos }, { count: itensEmEstoque }, { data: lancamentos }] = await Promise.all([
       supabase.from('produtos').select('id, nome, preco, categoria, marca, ativo').limit(50),
-      supabase.from('estoque').select('produto_id, quantidade, deposito_id'),
+      supabase.from('estoque').select('id', { count: 'exact', head: true }).gt('quantidade', 0),
       supabase.from('lancamentos').select('valor, tipo, status, data_vencimento').limit(100),
     ])
 
@@ -60,7 +63,7 @@ export async function POST(req: NextRequest) {
     contexto = {
       totalProdutos: produtos?.length ?? 0,
       produtosAtivos: produtos?.filter((p) => p.ativo).length ?? 0,
-      itensEmEstoque: estoque?.length ?? 0,
+      itensEmEstoque: itensEmEstoque ?? 0,
       financeiro: { aReceber, aPagar },
       produtosAmostra: produtos?.slice(0, 10),
     }

@@ -24,7 +24,12 @@ export default async function DepositosPage({
 
   const [{ data: depositos }, estoqueRaw, { data: lojas }] = await Promise.all([
     qDepositos,
-    fetchAll<{ deposito_id: string; quantidade: number; produto_id: string }>((from, to) => supabase.from('estoque').select('deposito_id, quantidade, produto_id').range(from, to)),
+    // gt('quantidade', 0): produto com 0 unidade não conta como "no depósito" pra
+    // essa contagem — e reduz muito o que precisa vir do banco. Confirmado em
+    // check-up 25/08: depois da importação do SIGE a tabela `estoque` tem uma
+    // linha por produto×depósito mesmo sem estoque real (32.913 linhas, 6.696 com
+    // quantidade > 0) — buscar tudo deixava esta tela levando 3-4,5s pra carregar.
+    fetchAll<{ deposito_id: string; quantidade: number; produto_id: string }>((from, to) => supabase.from('estoque').select('deposito_id, quantidade, produto_id').gt('quantidade', 0).range(from, to)),
     supabase.from('lojas').select('id, nome').eq('ativa', true).order('nome'),
   ])
 

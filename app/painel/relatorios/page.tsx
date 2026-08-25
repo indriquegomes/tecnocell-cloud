@@ -678,7 +678,7 @@ export default async function RelatoriosPage({
     const [{ data: movs }, est] = await Promise.all([
       supabase.from('movimentacoes_estoque').select('produto_id, operacao, quantidade, produtos(nome)')
         .gte('created_at', periodo.inicio).lte('created_at', periodo.fim),
-      fetchAll((from, to) => supabase.from('estoque').select('produto_id, quantidade').range(from, to)),
+      fetchAll((from, to) => supabase.from('estoque').select('produto_id, quantidade').gt('quantidade', 0).range(from, to)),
     ])
     const saldoAtual: Record<string, number> = {}
     for (const e of (est ?? []) as { produto_id: string; quantidade: number }[]) saldoAtual[e.produto_id] = (saldoAtual[e.produto_id] ?? 0) + e.quantidade
