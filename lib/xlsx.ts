@@ -9,6 +9,11 @@
 // Aguenta o que o Excel e o SIGE geram. Se um dia aparecer arquivo que ele não
 // leia, o caminho é trocar por um parser de verdade aqui dentro — a interface
 // (`lerXlsx`) não muda.
+//
+// Tags aceitam prefixo de namespace opcional (`<x:row>`, `<x:c>`...) — o
+// exportador de "Estoque" do SIGE usa `x:` em tudo, diferente das outras
+// exportações do SIGE (sem prefixo) que este leitor já lia. Confirmado
+// 24/08 com "Estoque_de_1_ate_8228 PT.xlsx".
 import JSZip from 'jszip'
 
 export type Planilha = {
@@ -75,14 +80,22 @@ async function mapaDeAbas(zip: JSZip): Promise<{ nome: string; caminho: string }
       .sort((a, b) => Number(a.match(/\d+/)![0]) - Number(b.match(/\d+/)![0]))
       .map((caminho, i) => ({ nome: `Planilha${i + 1}`, caminho }))
   }
+  // Atributo por regex própria (não uma sequência fixa "Id...Target"): o
+  // exportador de "Estoque" do SIGE escreve Target antes de Id na tag
+  // Relationship — ordem contrária ao que as outras planilhas do SIGE usam.
+  // Confirmado 24/08 com "Estoque_de_1_ate_8228 PT.xlsx".
   const alvoPorId = new Map<string, string>()
-  for (const m of rels.matchAll(/<Relationship[^>]*Id="([^"]+)"[^>]*Target="([^"]+)"/g)) {
-    alvoPorId.set(m[1], m[2].replace(/^\/?(xl\/)?/, ''))
+  for (const m of rels.matchAll(/<Relationship\b[^>]*\/?>/g)) {
+    const id = /\bId="([^"]+)"/.exec(m[0])?.[1]
+    const target = /\bTarget="([^"]+)"/.exec(m[0])?.[1]
+    if (id && target) alvoPorId.set(id, target.replace(/^\/?(xl\/)?/, ''))
   }
   const out: { nome: string; caminho: string }[] = []
-  for (const m of wb.matchAll(/<sheet[^>]*name="([^"]*)"[^>]*r:id="([^"]+)"/g)) {
-    const alvo = alvoPorId.get(m[2])
-    if (alvo) out.push({ nome: decodar(m[1]), caminho: 'xl/' + alvo })
+  for (const m of wb.matchAll(/<(?:\w+:)?sheet\b[^>]*\/?>/g)) {
+    const nome = /\bname="([^"]*)"/.exec(m[0])?.[1]
+    const rid = /\br:id="([^"]+)"/.exec(m[0])?.[1]
+    const alvo = rid && alvoPorId.get(rid)
+    if (nome !== undefined && alvo) out.push({ nome: decodar(nome), caminho: 'xl/' + alvo })
   }
   return out
 }
@@ -113,13 +126,13 @@ export async function lerXlsx(buffer: ArrayBuffer, nomeAba?: string): Promise<Pl
 
   const celulasDaLinha = (corpo: string): Map<string, string> => {
     const out = new Map<string, string>()
-    for (const c of corpo.matchAll(/<c r="([A-Z]+)\d+"(?:[^>]*t="([^"]*)")?[^>]*>([\s\S]*?)<\/c>/g)) {
+    for (const c of corpo.matchAll(/<(?:\w+:)?c r="([A-Z]+)\d+"(?:[^>]*t="([^"]*)")?[^>]*>([\s\S]*?)<\/(?:\w+:)?c>/g)) {
       const [, col, tipo, dentro] = c
       let valor = ''
       if (tipo === 'inlineStr') {
-        valor = [...dentro.matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map((m) => decodar(m[1])).join('')
+        valor = [...dentro.matchAll(/<(?:\w+:)?t[^>]*>([\s\S]*?)<\/(?:\w+:)?t>/g)].map((m) => decodar(m[1])).join('')
       } else {
-        const v = /<v>([\s\S]*?)<\/v>/.exec(dentro)
+        const v = /<(?:\w+:)?v>([\s\S]*?)<\/(?:\w+:)?v>/.exec(dentro)
         if (v) valor = tipo === 's' ? (compartilhadas[Number(v[1])] ?? '') : decodar(v[1])
       }
       if (valor !== '') out.set(col, valor.trim())
@@ -127,7 +140,7 @@ export async function lerXlsx(buffer: ArrayBuffer, nomeAba?: string): Promise<Pl
     return out
   }
 
-  const linhasXml = [...xml.matchAll(/<row[^>]*r="(\d+)"[^>]*>([\s\S]*?)<\/row>/g)]
+  const linhasXml = [...xml.matchAll(/<(?:\w+:)?row[^>]*r="(\d+)"[^>]*>([\s\S]*?)<\/(?:\w+:)?row>/g)]
   if (linhasXml.length === 0) return { aba: escolhida.nome, abas: abas.map((a) => a.nome), colunas: [], linhas: [] }
 
   // Cabeçalho = primeira linha com pelo menos 2 células preenchidas.

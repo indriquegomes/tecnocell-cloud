@@ -139,11 +139,21 @@ async function processaMensagem(sock, loja, jid, texto) {
     // Busca estrita (AND) veio vazia: tenta de novo com rede mais larga (OR) e
     // deixa a IA decidir semanticamente — cobre "16 pro max oled" quando o
     // catálogo não tem a palavra "oled" no nome.
-    if (candidatos.length === 0) candidatos = await buscaProdutosAmplo(classificacao.textoBusca)
+    let veioDaBuscaAmpla = candidatos.length === 0
+    if (veioDaBuscaAmpla) candidatos = await buscaProdutosAmplo(classificacao.textoBusca)
 
-    if (candidatos.length > 1) {
-      const { indice } = await escolheProduto(texto, candidatos).catch(() => ({ indice: null }))
+    // Busca estrita com 1 resultado: toda palavra do cliente bateu literalmente
+    // no nome do produto, dá pra confiar sem gastar chamada de IA. Busca ampla
+    // com 1 resultado NÃO tem essa garantia — ela pontua por palavra solta e
+    // pode "ganhar" ignorando uma palavra que não bateu em nada (cliente digitou
+    // "fro g24" abreviando "frontal", nenhum produto tem "fro", ela achou 1
+    // tampa só pelo "g24" e respondeu como se "fro" nem existisse). Por isso
+    // busca ampla sempre passa pela checagem de tipo, mesmo com 1 resultado só.
+    if (candidatos.length > 1 || (veioDaBuscaAmpla && candidatos.length === 1)) {
+      const { indice, nenhumServe } = await escolheProduto(texto, candidatos).catch(() => ({ indice: null, nenhumServe: false }))
       if (indice) candidatos = [candidatos[indice - 1]]
+      else if (nenhumServe) candidatos = [] // achou só por bater no modelo/marca, não na peça pedida — não é opção de verdade
+      else if (candidatos.length === 1) candidatos = [] // 1 candidato ampla, IA não confirmou nem descartou — não responde sem certeza
     }
 
     produtos = candidatos

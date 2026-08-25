@@ -13,14 +13,90 @@ function semAcento(t) {
   return t.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
 }
 
+// Preposição solta ("do", "de"...) bate sem querer dentro de pedaço de outra
+// palavra ("do" em "aplicaDOr") e traz produto errado como candidato.
+// Confirmado em produção 24/08: "tampa do a30" trouxe aplicador de solda.
+// Cortar por TAMANHO da palavra (ex.: descartar tudo < 3 letras) foi tentado
+// e quebrou sigla de modelo curta de verdade ("xr" de iPhone XR virou
+// "frontal iphone" sozinho e bateu em produto errado) — por isso é lista
+// fechada de preposição, não regra de tamanho.
+const CONECTORES = new Set(['de', 'da', 'do', 'das', 'dos', 'para', 'pra', 'com', 'sem', 'uma', 'um', 'no', 'na'])
+function palavrasBusca(t) {
+  return semAcento(t).replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean)
+    .filter((w) => !CONECTORES.has(w))
+    .slice(0, 6)
+}
+
+// busca_norm inclui o código interno do produto (ex.: "tampa iphone 8 branca
+// 06618 apple") pra permitir busca por SKU nas telas internas. Palavra
+// puramente numérica ("8") como pedaço solto bate em qualquer código que
+// contenha aquele dígito ("06598") — confirmado em produção 24/08: "tampa 8"
+// escondeu as tampas de iPhone 8 de verdade atrás de tampas de Asus/iPhone
+// 16 cujo único ponto em comum era o código interno. Número exige palavra
+// inteira (`\y...\y`, regex do Postgres) pra só bater em modelo de verdade.
+const numerica = (w) => /^\d+$/.test(w)
+
+// Trava fixa, sem IA: se o cliente pede um TIPO de peça conhecido, o produto
+// tem que ter essa mesma palavra — senão nunca vira opção, ponto. A checagem
+// via IA (nenhumServe em escolheProduto) tentou resolver isso e falhou de
+// forma inconsistente em produção 24/08 ("frontal iphone 13 pro max" acertou,
+// "frontal s20 fe" e "fro g24" erraram, mesmo já sem "frontal"/"tela" nenhum
+// produto de celular do catálogo) — IA varia de pergunta pra pergunta, não dá
+// pra confiar só nela pra essa garantia. Lista tirada do catálogo real
+// (primeira palavra mais comum: TAMPA, ARO, CARCAÇA, CAPA...). Cliente
+// digitando "fro" (abreviação) ainda bate: usa prefixo, não palavra inteira.
+const CATEGORIAS = [
+  'tampa', 'aro', 'carcaca', 'capa', 'case', 'placa', 'chave', 'pinca', 'espatula',
+  'fluxo', 'solda', 'carregador', 'fio', 'multimetro', 'ponta', 'alicate', 'fita',
+  'cabo', 'suporte', 'alcool', 'estacao', 'manta', 'malha', 'maquina', 'separadora',
+  'ativador', 'pasta', 'estilete', 'fonte', 'organizador', 'soprador', 'esponja',
+  'estanho', 'bateria', 'tela', 'frontal', 'display', 'flex', 'conector', 'microfone',
+  'camera', 'antena', 'chip', 'vidro', 'pelicula',
+]
+
+// Abreviação de 2 letras não entra na regra geral de prefixo — abrir prefixo
+// pra tudo >=2 colide: "mi" (Xiaomi Mi) seria prefixo de "microfone" e
+// quebraria busca de aparelho Xiaomi de verdade. Só abreviação CONFIRMADA em
+// produção entra explícita. "fr" -> frontal: confirmado 24/08 ("fr g20", "fr
+// ip 13" passavam sem filtro nenhum com a regra de 3 letras).
+const ABREVIACOES_CURTAS = { fr: 'frontal' }
+
+function categoriaDe(palavra) {
+  if (ABREVIACOES_CURTAS[palavra]) return ABREVIACOES_CURTAS[palavra]
+  if (palavra.length < 3) return null
+  return CATEGORIAS.find((c) => c.startsWith(palavra) || palavra.startsWith(c)) ?? null
+}
+
+function categoriasPedidas(palavras) {
+  return [...new Set(palavras.map(categoriaDe).filter(Boolean))]
+}
+
+// Sem categoria conhecida na pergunta: não filtra (deixa "16 pro max oled"
+// funcionar mesmo sem "oled" no nome — isso é detalhe descritivo, não tipo de
+// peça). Com categoria: exige a MESMA categoria nas DUAS PRIMEIRAS palavras do
+// nome — não em qualquer lugar do texto. Checar o nome inteiro pega falso
+// positivo: "CARCAÇA IPHONE 12 PRO MAX... CÂMERA FRONTAL..." tem a palavra
+// "frontal" (descrevendo peça que vem junto), mas o produto não É uma tela, é
+// carcaça — confirmado em produção 24/08 que isso passava pelo filtro antigo.
+// Só a primeira palavra é curto demais: "CAPAS CASE IPHONE 17 AIR" tem o tipo
+// espalhado nas 2 primeiras ("capas" + "case"). No catálogo real o tipo
+// sempre está bem no início, então 2 palavras é preciso e continua rápido.
+function bateCategoria(nomeSemAcento, categorias) {
+  if (categorias.length === 0) return true
+  const inicio = nomeSemAcento.split(/\s+/).slice(0, 2).filter(Boolean)
+  return categorias.some((cat) => inicio.some((w) => w.startsWith(cat) || cat.startsWith(w)))
+}
+
 export async function buscaProdutos(termo) {
   const t = (termo || '').trim()
   if (!t) return []
-  const palavras = semAcento(t).replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
+  const palavras = palavrasBusca(t)
   if (palavras.length === 0) return []
 
   let q = supabase.from('produtos').select('id, nome, preco').eq('ativo', true).eq('visivel_catalogo', true)
-  for (const w of palavras) q = q.ilike('busca_norm', `%${w}%`)
+  for (const w of palavras) {
+    q = numerica(w) ? q.filter('busca_norm', 'imatch', `\\y${w}\\y`) : q.ilike('busca_norm', `%${w}%`)
+  }
   let { data, error } = await q.order('nome').limit(5)
 
   // Erro real (rede, 5xx, chave expirada) não pode virar "[]" em silêncio — o bot
@@ -52,6 +128,9 @@ export async function buscaProdutos(termo) {
     if (exatos.length === 1) resultado = exatos
   }
 
+  const categorias = categoriasPedidas(palavras)
+  resultado = resultado.filter((p) => bateCategoria(semAcento(p.nome), categorias))
+
   return resultado.map((p) => ({ id: p.id, nome: p.nome, preco: p.preco ?? 0 }))
 }
 
@@ -70,10 +149,10 @@ export async function buscaProdutos(termo) {
 export async function buscaProdutosAmplo(termo) {
   const t = (termo || '').trim()
   if (!t) return []
-  const palavras = semAcento(t).replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
+  const palavras = palavrasBusca(t)
   if (palavras.length === 0) return []
 
-  const orNorm = palavras.map((w) => `busca_norm.ilike.%${w}%`).join(',')
+  const orNorm = palavras.map((w) => numerica(w) ? `busca_norm.imatch.\\y${w}\\y` : `busca_norm.ilike.%${w}%`).join(',')
   let { data, error } = await supabase.from('produtos').select('id, nome, preco')
     .eq('ativo', true).eq('visivel_catalogo', true).or(orNorm).limit(60)
 
@@ -86,7 +165,9 @@ export async function buscaProdutosAmplo(termo) {
     if (error) throw error
   }
 
+  const categorias = categoriasPedidas(palavras)
   const pontuados = (data ?? [])
+    .filter((p) => bateCategoria(semAcento(p.nome), categorias))
     .map((p) => ({ produto: { id: p.id, nome: p.nome, preco: p.preco ?? 0 }, acertos: palavras.filter((w) => semAcento(p.nome).includes(w)).length }))
     .filter((x) => x.acertos > 0)
     .sort((a, b) => b.acertos - a.acertos)
