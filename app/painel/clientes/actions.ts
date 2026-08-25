@@ -67,6 +67,14 @@ function camposPessoa(formData: FormData, cpfCnpj: string, email: string) {
   }
 }
 
+// Traduz o erro cru do Postgres (nome do índice único) pra mensagem que a pessoa
+// entende. Índice vem de supabase/migrations/2026-08-25-pessoas-cpf-email-unico.sql.
+function mensagemDuplicidade(msgPostgres: string): string {
+  if (msgPostgres.includes('pessoas_cpf_cnpj_unique')) return 'Já existe um cadastro com este CPF/CNPJ.'
+  if (msgPostgres.includes('pessoas_email_unique')) return 'Já existe um cadastro com este e-mail.'
+  return 'Já existe um cadastro com esses dados.'
+}
+
 export async function criarPessoa(formData: FormData) {
   await requirePermissao('clientes')
   const supabase = await createServiceClient()
@@ -99,6 +107,10 @@ export async function criarPessoa(formData: FormData) {
     ...campos,
     foto_url,
   })
+  // 23505 = unique_violation. Pega a corrida que a checagem lá em cima sozinha não
+  // pega (migrations 2026-08-25-pessoas-cpf-email-unico.sql) -- mensagem amigável
+  // em vez do erro cru do Postgres.
+  if (error?.code === '23505') redirect(`/painel/clientes/novo?erro=${encodeURIComponent(mensagemDuplicidade(error.message))}`)
   if (error) redirect(`/painel/clientes/novo?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/clientes')
   redirect('/painel/clientes')
@@ -131,6 +143,7 @@ export async function editarPessoa(id: string, formData: FormData) {
   const novaFoto = await uploadFotoCliente(supabase, formData.get('foto') as File | null, id)
   if (novaFoto) campos.foto_url = novaFoto
   const { error } = await supabase.from('pessoas').update(campos).eq('id', id)
+  if (error?.code === '23505') redirect(`/painel/clientes/${id}/editar?erro=${encodeURIComponent(mensagemDuplicidade(error.message))}`)
   if (error) redirect(`/painel/clientes/${id}/editar?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/clientes')
   redirect('/painel/clientes')
@@ -211,7 +224,7 @@ export async function criarClientePDV(accessToken: string, formData: FormData): 
       tabela_preco_id: txt('tabela_preco_id'),
       foto_url,
     }).select('id, nome, cpf_cnpj, tabela_preco_id').single()
-    if (error) return { ok: false, erro: error.message }
+    if (error) return { ok: false, erro: error.code === '23505' ? mensagemDuplicidade(error.message) : error.message }
 
     revalidatePath('/painel/clientes')
     return { ok: true, pessoa: data }
