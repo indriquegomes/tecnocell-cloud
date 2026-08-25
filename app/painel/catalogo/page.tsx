@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { palavrasBusca, aplicaBusca } from '@/lib/busca-produtos'
 import { Paginacao } from '@/components/Paginacao'
 import { BuscaLista } from '@/components/BuscaLista'
 import { SubmitButton } from '@/components/SubmitButton'
@@ -28,9 +29,7 @@ export default async function CatalogoPage({
 
   if (busca) {
     // multi-palavra + sem acento via produtos.busca_norm (nome+código+marca)
-    const semAcento = busca.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
-    const palavras = semAcento.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
-    for (const w of palavras) query = query.ilike('busca_norm', `%${w}%`)
+    query = aplicaBusca(query, 'busca_norm', palavrasBusca(busca))
   }
   if (categoria) query = query.eq('categoria', categoria)
   if (marca) query = query.eq('marca', marca)

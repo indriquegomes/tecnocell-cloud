@@ -6,6 +6,7 @@ import { temPermissao } from '@/lib/permissoes'
 import { logAtividade } from '@/lib/log-atividade'
 import { hojeSP } from '@/lib/utils'
 import { sincronizarEstoqueML } from '@/lib/mercado-livre'
+import { aplicaBusca } from '@/lib/busca-produtos'
 
 // Itens de UMA tabela de preço, sob demanda (o PDV não embute mais os 45k itens
 // de todas as tabelas — carrega só a escolhida). Ordena por id p/ paginação estável.
@@ -79,7 +80,7 @@ export async function buscarProdutosPDV(
   // ninguém via, porque nada na tela indicava.
   const sel = 'id, nome, preco, preco_custo, codigo, marca, categoria, descricao, imagem_url, controla_serie, prateleira, estoque(deposito_id, quantidade)'
   let q = supabase.from('produtos').select(sel).eq('ativo', true)
-  for (const w of palavras) q = q.ilike('busca_norm', `%${w}%`)
+  q = aplicaBusca(q, 'busca_norm', palavras)
   let { data, error } = await q.order('nome').limit(60)
   // Fallback se a migration do busca_norm ainda não rodou: busca por nome/código/marca
   // (com acento). Depois de rodar a migration, o caminho de cima (sem acento) assume.

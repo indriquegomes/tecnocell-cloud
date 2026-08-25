@@ -1,6 +1,7 @@
 'use server'
 
 import { createServiceClient, fetchAll, requirePermissao } from '@/lib/supabase/server'
+import { palavrasBusca, aplicaBusca } from '@/lib/busca-produtos'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import ExcelJS from 'exceljs'
@@ -15,11 +16,10 @@ export async function buscarProdutosParaTabela(
   const t = termo.trim()
   if (t.length < 1) return []
   const supabase = await createServiceClient()
-  const semAcento = t.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
-  const palavras = semAcento.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
+  const palavras = palavrasBusca(t)
   if (palavras.length === 0) return []
   let q = supabase.from('produtos').select('id, nome, preco, preco_custo').eq('ativo', true)
-  for (const w of palavras) q = q.ilike('busca_norm', `%${w}%`)
+  q = aplicaBusca(q, 'busca_norm', palavras)
   let { data, error } = await q.order('nome').limit(15)
   if (error && (error.code === '42703' || error.message?.includes('busca_norm'))) {
     let f = supabase.from('produtos').select('id, nome, preco, preco_custo').eq('ativo', true)

@@ -1,4 +1,5 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { palavrasBusca, aplicaBusca } from '@/lib/busca-produtos'
 import { IconPlus, IconPackage } from '@/components/icons'
 import { formatBRL } from '@/lib/utils'
 import { Paginacao } from '@/components/Paginacao'
@@ -66,9 +67,7 @@ export default async function ProdutosPage({
     if (ordemAtual !== 'nome' && !ordemEstoque) q = q.order('nome')
     if (params.busca) {
       // multi-palavra + sem acento: cada palavra tem que aparecer em busca_norm (nome+código+marca)
-      const semAcento = params.busca.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
-      const palavras = semAcento.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
-      for (const w of palavras) q = q.ilike('busca_norm', `%${w}%`)
+      q = aplicaBusca(q, 'busca_norm', palavrasBusca(params.busca))
     }
     if (params.categoria === '__sem__') q = q.or('categoria.is.null,categoria.eq.')
     else if (params.categoria)  q = q.eq('categoria', params.categoria)

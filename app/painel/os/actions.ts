@@ -63,7 +63,7 @@ export async function gerarOSDePedido(pedidoId: string) {
 
   if (error) return { error: error.message }
   revalidatePath('/painel/os')
-  redirect(`/painel/os/${os!.id}`)
+  redirect('/painel/os')
 }
 
 export async function criarOS(formData: FormData) {
@@ -100,7 +100,7 @@ export async function criarOS(formData: FormData) {
 
   if (error) return { error: error.message }
   revalidatePath('/painel/os')
-  redirect(`/painel/os/${os!.id}`)
+  redirect('/painel/os')
 }
 
 export async function atualizarStatusOS(osId: string, status: StatusOS) {
@@ -187,6 +187,7 @@ export async function receberOS(osId: string, forma: string, lojaId: string): Pr
   // marca de recebida pra não ficar "entregue" sem o dinheiro registrado, e
   // deixa a pessoa tentar de novo.
   const { error: eLancamento } = await supabase.from('lancamentos').insert({
+    id: crypto.randomUUID(),
     descricao: `Recebimento OS #${os.numero}`, valor: total, tipo: 'receber',
     status: 'pago', data_competencia: today, data_vencimento: today, data_pagamento: today,
     forma_pagamento: forma, pessoa_nome: (os as { pessoa_nome?: string | null }).pessoa_nome ?? null,
