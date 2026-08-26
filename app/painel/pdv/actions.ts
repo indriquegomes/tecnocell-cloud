@@ -416,6 +416,7 @@ export interface CrediarioItem {
   codigo: number | null
   venda_id: string | null
   venda_numero: number | null
+  pessoa_id: string | null
   historico_pagamentos: PagamentoHistorico[] | null
 }
 
@@ -455,20 +456,30 @@ export async function buscarCrediario(
   // crediário cai no fatiado do UUID (#FF275D) e não bate com o número dos Pedidos.
   // NÃO há FK lancamentos→vendas (embed falha), então busca em lote; fatiar o .in()
   // por 200 evita estourar a URL do PostgREST. Ver [[bug-in-muitos-ids-url-limit]].
+  // pessoa_id vem da VENDA (FK de verdade), nunca por nome — nome duplicado
+  // já é problema conhecido no cadastro, usar por texto pra debitar crédito
+  // arriscava descontar saldo do cliente errado.
   const numeroPorVenda: Record<string, number> = {}
+  const pessoaPorVenda: Record<string, string | null> = {}
   const vendaIds = [...new Set(itens.map((i) => i.venda_id).filter(Boolean))] as string[]
   if (vendaIds.length) {
     try {
       for (let i = 0; i < vendaIds.length; i += 200) {
         const { data: vs } = await supabase
           .from('vendas')
-          .select('id, numero')
+          .select('id, numero, pessoa_id')
           .in('id', vendaIds.slice(i, i + 200))
-        for (const v of vs ?? []) if (v.numero != null) numeroPorVenda[v.id as string] = v.numero as number
+        for (const v of vs ?? []) {
+          if (v.numero != null) numeroPorVenda[v.id as string] = v.numero as number
+          pessoaPorVenda[v.id as string] = (v.pessoa_id as string | null) ?? null
+        }
       }
-    } catch { /* sem número — o código cai no fallback (descrição/UUID) */ }
+    } catch { /* sem número/pessoa — o código cai no fallback (descrição/UUID), vale-crédito só não aparece */ }
   }
-  for (const it of itens) it.venda_numero = (it.venda_id && numeroPorVenda[it.venda_id]) || null
+  for (const it of itens) {
+    it.venda_numero = (it.venda_id && numeroPorVenda[it.venda_id]) || null
+    it.pessoa_id = (it.venda_id && pessoaPorVenda[it.venda_id]) || null
+  }
 
   // limite/rotina das pessoas dos fiados — nunca derruba a lista se falhar
   const infoPessoas: Record<string, { limite: number; rotina: string | null }> = {}
@@ -820,6 +831,67 @@ export async function registrarPagamentoMisto(
     return { ok: true, quitado }
   } catch (e) {
     return { ok: false, erro: e instanceof Error && e.message ? e.message : 'Erro ao registrar pagamento.' }
+  }
+}
+
+// PAGAR FIADO COM VALE-CRÉDITO — o vale já existia como forma de pagamento
+// numa venda NOVA (F9/PDV), mas nunca dava pra usar o mesmo saldo pra abater
+// um fiado já em aberto (achado testando de propósito 26/08). Igual ao
+// Desconto: NÃO é dinheiro de verdade entrando na gaveta/conta, então não
+// passa por registrarNoCaixa — só abate o saldo do cliente (via RPC atômica,
+// mesma trava/lock do uso de crédito em finalizar_venda) e sobe o valor_pago.
+export async function registrarPagamentoValeCredito(
+  accessToken: string,
+  id: string,
+  pessoaId: string,
+  valorPago: number,
+): Promise<ResultadoReceb> {
+  try {
+    await requirePermissao('crediario_receber', accessToken)
+    const supabase = await createServiceClient()
+
+    const { data: lanc, error: errBusca } = await supabase
+      .from('lancamentos')
+      .select('valor, valor_pago, historico_pagamentos, pessoa_nome, codigo')
+      .eq('id', id)
+      .single()
+    if (errBusca || !lanc) throw new Error('Lançamento não encontrado.')
+
+    const restante = Math.round(((Number(lanc.valor) || 0) - (Number(lanc.valor_pago) || 0)) * 100) / 100
+    const valor = Math.round((Math.min(valorPago, restante)) * 100) / 100
+    if (!(valor > 0)) throw new Error('Valor inválido.')
+
+    // trava + débito atômicos no banco — recusa se o saldo não cobrir
+    const { error: erroCredito } = await supabase.rpc('usar_credito_cliente', {
+      p_pessoa_id: pessoaId,
+      p_valor: valor,
+      p_descricao: `Uso no fiado #${lanc.codigo ?? id}`,
+    })
+    if (erroCredito) throw new Error(erroCredito.message)
+
+    const totalPagoAtualizado = Math.round(((Number(lanc.valor_pago) || 0) + valor) * 100) / 100
+    const quitado = totalPagoAtualizado >= (Number(lanc.valor) || 0) - 0.01
+    const historicoAtual = Array.isArray(lanc.historico_pagamentos) ? (lanc.historico_pagamentos as PagamentoHistorico[]) : []
+    const novoRegistro: PagamentoHistorico = { valor, forma: 'Vale Crédito', data: new Date().toISOString() }
+
+    const update: Record<string, unknown> = {
+      valor_pago: totalPagoAtualizado,
+      forma_pagamento: 'Vale Crédito',
+      historico_pagamentos: [...historicoAtual, novoRegistro],
+      updated_at: new Date().toISOString(),
+    }
+    if (quitado) {
+      update.status = 'pago'
+      update.data_pagamento = hojeSP()
+      // vale-crédito não passa por conta bancária nenhuma — não seta conta_id
+    }
+
+    const { error } = await supabase.from('lancamentos').update(update).eq('id', id)
+    if (error) throw new Error(error.message)
+
+    return { ok: true, quitado }
+  } catch (e) {
+    return { ok: false, erro: e instanceof Error && e.message ? e.message : 'Erro ao usar o vale-crédito.' }
   }
 }
 

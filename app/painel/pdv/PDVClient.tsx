@@ -5,7 +5,7 @@ import { formatBRL, hojeSP } from '@/lib/utils'
 import { labelPrazo } from '@/lib/formas-pagamento'
 import { createClient } from '@/lib/supabase/client'
 import { Spinner } from '@/components/Spinner'
-import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, carregarClientesPDV, buscarFiadoCliente, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, registrarPagamentoMisto, aplicarDescontoCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
+import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, carregarClientesPDV, buscarFiadoCliente, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, registrarPagamentoMisto, registrarPagamentoValeCredito, aplicarDescontoCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
 import { criarClientePDV } from '../clientes/actions'
 import { buscarOSPorNumero, receberOS } from '../os/actions'
 import { PoliticaCadastro } from '../clientes/politica'
@@ -16,6 +16,10 @@ import { badgeTabela } from '@/lib/badge-tabela'
 // mas NÃO é forma de pagamento: não entra dinheiro, ele abate a dívida. Id falso pra
 // não colidir com nenhuma forma real do banco.
 const DESCONTO_ID = '__desconto__'
+// Vale-crédito no recebimento de fiado: mesmo raciocínio do desconto — não é
+// uma "forma" da tabela formas_pagamento sendo escolhida ali, é uma ação
+// diferente (debita o saldo do cliente em vez de mandar pro caixa).
+const VALE_RECEB_ID = '__vale_receb__'
 import { buscarSaldoCredito } from '@/app/painel/creditos/actions'
 import type { PromoInfo } from './page'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
@@ -289,6 +293,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [parcelasRecebimento, setParcelasRecebimento] = useState(1)
   const [valorRecebido, setValorRecebido] = useState<string>('')
   const [motivoDesconto, setMotivoDesconto] = useState('')
+  // Saldo de vale-crédito do cliente DESTE fiado — separado do `saldoCredito` da
+  // venda nova de propósito, pra abrir o recebimento nunca mexer no estado de
+  // uma venda em andamento no carrinho.
+  const [saldoCreditoReceb, setSaldoCreditoReceb] = useState(0)
   // Recebimento MISTO — quitar um fiado com várias formas (dinheiro + Pix…) de uma vez.
   // Cada linha é { forma_id, valor }. Vazio/off = fluxo simples de uma forma só.
   const [modoMistoReceb, setModoMistoReceb] = useState(false)
@@ -1413,6 +1421,13 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     setLinhasMisto([])
     const restante = item.valor - (item.valor_pago ?? 0)
     setValorRecebido(restante.toFixed(2).replace('.', ','))
+    setSaldoCreditoReceb(0)
+    if (item.pessoa_id) {
+      authToken().then((t) => {
+        if (!t) return
+        buscarSaldoCredito(t, item.pessoa_id!).then(({ saldo }) => setSaldoCreditoReceb(saldo)).catch(() => {})
+      })
+    }
   }
 
   // Recebimento misto: soma as linhas e chama a action única. Cada forma vira uma
@@ -1469,6 +1484,26 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           setCrediarioItens((prev) => prev.filter((i) => i.id !== recebendoItem.id))
         } else {
           setCrediarioItens((prev) => prev.map((i) => (i.id === recebendoItem.id ? { ...i, valor: novoValor ?? i.valor } : i)))
+        }
+        setRecebendoItem(null)
+        setPagoCrediarioOk(true)
+        setTimeout(() => setPagoCrediarioOk(false), 3000)
+        return
+      }
+
+      // VALE-CRÉDITO: debita o saldo do cliente (RPC trava saldo insuficiente),
+      // não entra na gaveta/conta — mesma ideia do Desconto, mas é dinheiro
+      // real que o cliente já tinha guardado, não perdão de dívida.
+      if (formaRecebimento === VALE_RECEB_ID) {
+        if (!recebendoItem.pessoa_id) { setErro('Este fiado não tem cliente identificado pra usar vale-crédito.'); return }
+        const res = await registrarPagamentoValeCredito(await authToken(), recebendoItem.id, recebendoItem.pessoa_id, valorNum)
+        if (!res.ok) { setErro(res.erro); return }
+        if (res.quitado) {
+          setCrediarioItens((prev) => prev.filter((i) => i.id !== recebendoItem.id))
+        } else {
+          setCrediarioItens((prev) => prev.map((i) =>
+            i.id === recebendoItem.id ? { ...i, valor_pago: (i.valor_pago ?? 0) + valorNum } : i
+          ))
         }
         setRecebendoItem(null)
         setPagoCrediarioOk(true)
@@ -3236,6 +3271,17 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                       {iconeForma(f.nome)} {f.nome}
                     </button>
                   ))}
+                  {/* Vale-crédito — só aparece se o cliente do fiado tem saldo. Igual
+                      Desconto: não é dinheiro de verdade, abate o saldo do cliente. */}
+                  {recebendoItem.pessoa_id && saldoCreditoReceb > 0.01 && (
+                    <button
+                      type="button"
+                      onClick={() => { setFormaRecebimento(VALE_RECEB_ID); setParcelasRecebimento(1) }}
+                      className={`rounded-xl border py-2.5 text-sm font-semibold transition ${formaRecebimento === VALE_RECEB_ID ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-200 bg-white text-gray-600 hover:border-purple-300 hover:text-purple-700'}`}
+                    >
+                      🎟️ Vale Crédito
+                    </button>
+                  )}
                   {/* Desconto — fica junto das formas porque é aqui que se procura, mas é
                       abatimento de dívida, não dinheiro. Âmbar pra não parecer pagamento. */}
                   <button
@@ -3246,6 +3292,12 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                     🏷️ Desconto
                   </button>
                 </div>
+                {formaRecebimento === VALE_RECEB_ID && (
+                  <p className="mt-3 rounded-lg bg-purple-50 px-3 py-2 text-xs text-purple-700">
+                    Saldo do cliente: <b className="tabular-nums">{formatBRL(saldoCreditoReceb)}</b>.
+                    {' '}Abate a dívida sem entrar dinheiro na gaveta/conta.
+                  </p>
+                )}
 
                 {ehDesconto && (
                   <div className="mt-3 space-y-2">
