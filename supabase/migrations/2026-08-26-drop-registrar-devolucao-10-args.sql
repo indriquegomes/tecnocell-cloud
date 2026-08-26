@@ -1,0 +1,12 @@
+-- Ao adicionar p_reembolsos com DEFAULT na registrar_devolucao, o Postgres criou
+-- uma SOBRECARGA em vez de substituir: ficaram duas funções (10 e 11 argumentos).
+-- Chamada sem p_reembolsos passa a ser ambígua, e pior — poderia cair na versão
+-- velha, que não conhece o reembolso misto e devolveria tudo por uma forma só.
+--
+-- Mesmíssima armadilha da migration 2026-08-24-drop-registrar-devolucao-obsoleta
+-- (naquela vez sobrou a de 9 args). Some com a de 10 e fica só a atual.
+--
+-- Já aplicada. Conferido depois: sobrou só
+-- registrar_devolucao(uuid,text,text,text,text,text,text,jsonb,boolean,jsonb,jsonb)
+-- e os dois modos seguem funcionando (sem p_reembolsos = uma forma; com = misto).
+drop function if exists public.registrar_devolucao(uuid, text, text, text, text, text, text, jsonb, boolean, jsonb);

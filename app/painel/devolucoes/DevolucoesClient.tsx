@@ -58,6 +58,7 @@ const CREDITO_LABEL: Record<string, string> = {
   credito_conta: 'Crédito conta', dinheiro: 'Dinheiro', pix: 'PIX',
   debito: 'Débito', credito: 'Crédito',
   cancelamento_fiado: 'Cancelou fiado', sem_reembolso: 'Sem reembolso',
+  misto: 'Misto',   // reembolso dividido em várias formas
 }
 const CREDITO_COR: Record<string, string> = {
   credito_conta: 'bg-green-50 text-green-700 border-green-200',
@@ -67,6 +68,7 @@ const CREDITO_COR: Record<string, string> = {
   credito: 'bg-purple-50 text-purple-700 border-purple-200',
   cancelamento_fiado: 'bg-orange-50 text-orange-700 border-orange-200',
   sem_reembolso: 'bg-gray-100 text-gray-500 border-gray-200',
+  misto: 'bg-indigo-50 text-indigo-700 border-indigo-200',
 }
 const CREDITO_OPTS = [
   { key: 'credito_conta', label: 'Crédito na conta', icon: '🏦', destaque: true },
@@ -160,6 +162,10 @@ export function DevolucoesClient({
   const [motivo, setMotivo] = useState('')
   const [motivoTipo, setMotivoTipo] = useState('')   // motivo FECHADO (o texto livre virou detalhe)
   const [tipoCredito, setTipoCredito] = useState('dinheiro')
+  // Reembolso MISTO: devolver parte em dinheiro, parte em PIX, parte como crédito.
+  // Fora do modo misto tudo segue como antes (uma forma só, `tipoCredito`).
+  const [modoMistoReemb, setModoMistoReemb] = useState(false)
+  const [linhasReemb, setLinhasReemb] = useState<{ tipo: string; valor: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
   const [sucesso, setSucesso] = useState(false)
@@ -193,6 +199,7 @@ export function DevolucoesClient({
     setOpen(false); setStep('buscar'); setBuscaVenda(''); setVendas([])
     setVenda(null); setItens(new Map()); setStatusProduto(new Map()); setSeriesSel(new Map())
     setMotivo(''); setMotivoTipo(''); setTipoCredito('dinheiro'); setErro('')
+    setModoMistoReemb(false); setLinhasReemb([])
   }
 
   // Busca da venda: DEBOUNCE (350ms) + "último venceu" (ignora resposta velha) + loading
@@ -269,6 +276,36 @@ export function DevolucoesClient({
   const abateFiado = venda ? Math.min(totalSelecionado, venda.fiado_restante) : 0
   const reembolso = Math.max(0, totalSelecionado - abateFiado)
 
+  // O tipo da forma na VENDA e o da opção de reembolso têm nomes diferentes
+  // (cartao_debito ↔ debito). Sem traduzir, espelhar a venda escolheria uma
+  // opção que não existe na lista e a linha vinha vazia.
+  const tipoVendaParaReembolso = (t: string) =>
+    t === 'cartao_debito' ? 'debito' : t === 'cartao_credito' ? 'credito' : t
+
+  // Sugestão do misto: divide o reembolso entre as formas que PAGARAM a venda,
+  // na mesma proporção. Devolução total de venda toda paga → espelho exato.
+  // Parcial → cada forma devolve sua fatia. O último absorve o centavo do
+  // arredondamento pra soma fechar certinho com o reembolso.
+  const sugestaoMisto = (): { tipo: string; valor: string }[] => {
+    const pagos = venda?.pagamentos ?? []
+    const soma = pagos.reduce((s, p) => s + p.valor, 0)
+    if (pagos.length === 0 || soma <= 0) return [{ tipo: 'dinheiro', valor: reembolso.toFixed(2).replace('.', ',') }]
+    let acumulado = 0
+    return pagos.map((p, i) => {
+      const ultimo = i === pagos.length - 1
+      const v = ultimo
+        ? Math.round((reembolso - acumulado) * 100) / 100
+        : Math.round((p.valor / soma) * reembolso * 100) / 100
+      acumulado += v
+      return { tipo: tipoVendaParaReembolso(p.tipo), valor: v.toFixed(2).replace('.', ',') }
+    })
+  }
+
+  const somaReemb = Math.round(
+    linhasReemb.reduce((s, l) => s + (parseFloat((l.valor || '').replace(',', '.')) || 0), 0) * 100,
+  ) / 100
+  const faltaReemb = Math.round((reembolso - somaReemb) * 100) / 100
+
   // Serializado: marca/desmarca IMEIs (quantidade = nº de IMEIs escolhidos)
   const toggleSerie = (produtoId: string, serie: string) => {
     setSeriesSel((prev) => {
@@ -302,12 +339,31 @@ export function DevolucoesClient({
       if (!itensDev.length) { setErro('Selecione ao menos um item.'); return }
       const semImei = itensDev.find((i) => venda.itens.find((x) => x.produto_id === i.produto_id)!.series.length > 0 && i.series.length === 0)
       if (semImei) { setErro(`Escolha o(s) IMEI(s) a devolver de "${semImei.nome}".`); return }
+      // Misto: valida a soma AQUI também, pra dar mensagem clara antes de ir ao
+      // banco (o RPC tem a mesma trava e recusa a devolução inteira se não bater).
+      const usaMisto = modoMistoReemb && reembolso > 0.01
+      if (usaMisto) {
+        const linhas = linhasReemb
+          .map((l) => ({ tipo: l.tipo, valor: Math.round((parseFloat((l.valor || '').replace(',', '.')) || 0) * 100) / 100 }))
+          .filter((l) => l.valor > 0)
+        if (linhas.length === 0) { setErro('Preencha ao menos uma forma de reembolso.'); return }
+        const soma = Math.round(linhas.reduce((s, l) => s + l.valor, 0) * 100) / 100
+        if (Math.abs(soma - reembolso) > 0.01) {
+          setErro(`As formas somam ${fmt(soma)}, mas o reembolso é ${fmt(reembolso)}.`)
+          return
+        }
+      }
       await registrarDevolucao(t, {
         venda_id: venda.id, deposito_id: venda.deposito_id,
         pessoa_id: venda.pessoa_id, pessoa_nome: venda.pessoa_nome,
         vendedor_nome: venda.vendedor_nome, motivo, motivo_tipo: motivoTipo,
         // se não sobra reembolso (devolução só de fiado), registra como cancelamento de fiado
-        tipo_credito: reembolso > 0.01 ? tipoCredito : 'cancelamento_fiado',
+        tipo_credito: reembolso > 0.01 ? (usaMisto ? 'misto' : tipoCredito) : 'cancelamento_fiado',
+        reembolsos: usaMisto
+          ? linhasReemb
+              .map((l) => ({ tipo: l.tipo, valor: Math.round((parseFloat((l.valor || '').replace(',', '.')) || 0) * 100) / 100 }))
+              .filter((l) => l.valor > 0)
+          : undefined,
         itens: itensDev, lancamento_pendente: venda.lancamento_pendente,
       })
       fechar(); setSucesso(true)
@@ -878,6 +934,44 @@ export function DevolucoesClient({
                       <div className="rounded-xl border-2 border-orange-200 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-700">
                         🤝 Só abate a dívida do cliente — sem reembolso (nada foi pago por esses itens).
                       </div>
+                    ) : modoMistoReemb ? (
+                      /* MISTO: uma linha por forma. Já vem sugerido espelhando como
+                         a venda foi paga — a operadora só confirma, ou muda se o
+                         cliente pedir diferente ("prefiro tudo em crédito"). */
+                      <div className="space-y-2">
+                        {linhasReemb.map((l, idx) => (
+                          <div key={idx} className="flex gap-2">
+                            <select
+                              value={l.tipo}
+                              onChange={(e) => setLinhasReemb((p) => p.map((x, i) => i === idx ? { ...x, tipo: e.target.value } : x))}
+                              className="flex-1 rounded-xl border border-gray-200 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                              {CREDITO_OPTS.filter((op) => op.key !== 'sem_reembolso' && (op.key !== 'credito_conta' || venda.pessoa_id)).map((op) => (
+                                <option key={op.key} value={op.key}>{op.icon} {op.label}</option>
+                              ))}
+                            </select>
+                            <div className="relative w-28">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">R$</span>
+                              <input type="text" inputMode="decimal" value={l.valor} placeholder="0,00"
+                                onChange={(e) => setLinhasReemb((p) => p.map((x, i) => i === idx ? { ...x, valor: e.target.value } : x))}
+                                className="w-full rounded-xl border border-gray-200 py-2 pl-7 pr-2 text-right text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            {linhasReemb.length > 1 && (
+                              <button type="button" onClick={() => setLinhasReemb((p) => p.filter((_, i) => i !== idx))}
+                                className="shrink-0 rounded-lg border border-gray-200 px-2 text-gray-400 hover:bg-gray-50 hover:text-red-500">✕</button>
+                            )}
+                          </div>
+                        ))}
+                        <div className="flex items-center justify-between pt-1">
+                          <button type="button"
+                            onClick={() => setLinhasReemb((p) => [...p, { tipo: 'dinheiro', valor: faltaReemb > 0 ? faltaReemb.toFixed(2).replace('.', ',') : '' }])}
+                            className="text-xs font-semibold text-blue-600 hover:text-blue-800">+ adicionar forma</button>
+                          <span className={`text-xs font-semibold tabular-nums ${Math.abs(faltaReemb) < 0.01 ? 'text-green-600' : faltaReemb < 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                            {Math.abs(faltaReemb) < 0.01 ? '✓ fecha certinho' : faltaReemb > 0 ? `faltam ${fmt(faltaReemb)}` : `passou ${fmt(-faltaReemb)}`}
+                          </span>
+                        </div>
+                        <button type="button" onClick={() => { setModoMistoReemb(false); setLinhasReemb([]) }}
+                          className="text-xs text-gray-400 hover:text-gray-600">← voltar pra uma forma só</button>
+                      </div>
                     ) : (
                       <div className="space-y-2">
                         <button onClick={() => venda.pessoa_id ? setTipoCredito('credito_conta') : null}
@@ -928,6 +1022,19 @@ export function DevolucoesClient({
                             ? '— Sem devolução de valor (troca ou cortesia).'
                             : ''}
                         </p>
+                        {/* Atalho pro misto. Só faz sentido oferecer quando a venda
+                            entrou por mais de uma forma OU quando quem atende quer
+                            dividir de qualquer jeito (cliente pede metade crédito). */}
+                        <button type="button"
+                          onClick={() => { setLinhasReemb(sugestaoMisto()); setModoMistoReemb(true) }}
+                          className="mt-1 text-xs font-semibold text-blue-600 hover:text-blue-800">
+                          ⚡ Dividir em várias formas
+                          {venda.pagamentos.length > 1 && (
+                            <span className="ml-1 font-normal text-gray-400">
+                              (a venda foi paga em {venda.pagamentos.length} formas)
+                            </span>
+                          )}
+                        </button>
                       </div>
                     )}
                   </div>

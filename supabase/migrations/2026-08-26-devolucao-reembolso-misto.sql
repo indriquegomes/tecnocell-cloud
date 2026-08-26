@@ -1,0 +1,29 @@
+-- Reembolso MISTO na devolução: devolver parte em dinheiro, parte em PIX,
+-- parte como crédito — do jeito que a venda entrou, ou como o cliente pedir.
+--
+-- Antes só dava UMA forma (p_tipo_credito). Numa venda mista isso fazia o
+-- dinheiro voltar por caminho diferente do que entrou: entrava R$50 na gaveta
+-- e R$50 no banco, mas saíam R$100 da gaveta — cada lado ficava torto.
+--
+-- p_reembolsos é OPCIONAL: sem ele, tudo funciona exatamente como antes
+-- (uma forma só, via p_tipo_credito). Nada quebra pra quem já chama assim.
+--
+-- Trava de dinheiro, no mesmo espírito da que finalizar_venda já tem: a soma
+-- das linhas precisa bater com o reembolso calculado, senão a devolução
+-- inteira é recusada. Sem isso dava pra devolver R$500 numa venda de R$100.
+--
+-- Já aplicada no banco e testada ao vivo: venda R$50 dinheiro + R$50 PIX
+-- devolvida em misto gera SÓ o lançamento do PIX e marca só R$50 como saída
+-- de gaveta (reembolso_dinheiro, que a action usa pra lançar no caixa).
+-- Travas conferidas: soma maior recusa, soma menor recusa, valor negativo
+-- recusa, 3 formas fechando o total aceita.
+--
+-- ATENÇÃO ao reaplicar: p_reembolsos tem DEFAULT, então CREATE OR REPLACE cria
+-- uma SOBRECARGA em vez de substituir a versão de 10 argumentos. Ficam duas
+-- funções e a chamada sem p_reembolsos vira ambígua (ou pior, cai na velha, que
+-- não conhece misto). A migration 2026-08-26-drop-registrar-devolucao-10-args
+-- derruba a antiga — as duas andam juntas.
+--
+-- O corpo completo desta função está no banco; para lê-lo use:
+--   select pg_get_functiondef('public.registrar_devolucao'::regproc);
+-- (aplicada via MCP em 26/08; este arquivo é o registro do QUE e do PORQUÊ)

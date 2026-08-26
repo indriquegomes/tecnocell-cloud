@@ -27,6 +27,13 @@ export interface VendaParaDevolucao {
   forma_pagamento_nome: string | null
   lancamento_pendente: boolean
   fiado_restante: number   // quanto da venda ainda é dívida (fiado em aberto)
+  /**
+   * Como a venda foi PAGA de verdade (só o que trouxe dinheiro — fiado e vale
+   * ficam de fora). A tela usa pra já sugerir o reembolso do mesmo jeito que
+   * entrou: entrou R$50 dinheiro + R$50 PIX → devolve igual, sem a operadora
+   * ter que lembrar. Ela pode mudar tudo depois se o cliente pedir diferente.
+   */
+  pagamentos: { tipo: string; nome: string; valor: number }[]
   itens: ItemVendaParaDevolucao[]
 }
 
@@ -79,7 +86,7 @@ export async function buscarVendaParaDevolucao(
       .eq('status', 'vendido'),
     supabase
       .from('pagamentos_venda')
-      .select('taxa')
+      .select('taxa, valor, status, forma_pagamento_id, formas_pagamento(nome, tipo)')
       .eq('venda_id', vendaId),
   ])
 
@@ -97,6 +104,23 @@ export async function buscarVendaParaDevolucao(
   // produto → não reembolsa na devolução (pedido Isa 28/07): a base do reembolso é
   // `total − taxa`. Cartão TON etc. gravam taxa em pagamentos_venda; dinheiro/fiado = 0.
   const taxaCartao = ((pagRes.data ?? []) as { taxa: number | null }[]).reduce((s, p) => s + (p.taxa ?? 0), 0)
+
+  // Formas que trouxeram dinheiro de verdade: status 'pago'. Fiado ('pendente')
+  // é dívida e o vale ('vale') saiu do saldo do cliente — nenhum dos dois entra
+  // no reembolso, a devolução trata cada um no seu lugar.
+  type FormaEmb = { nome: string | null; tipo: string | null }
+  const embForma = (p: unknown): FormaEmb | null => {
+    const f = (p as { formas_pagamento?: FormaEmb | FormaEmb[] | null }).formas_pagamento
+    return Array.isArray(f) ? (f[0] ?? null) : (f ?? null)
+  }
+  const pagamentosPagos = ((pagRes.data ?? []) as unknown[])
+    .filter((p) => (p as { status: string | null }).status === 'pago')
+    .map((p) => ({
+      tipo: embForma(p)?.tipo ?? 'outros',
+      nome: embForma(p)?.nome ?? 'Outra forma',
+      valor: Number((p as { valor: number | null }).valor ?? 0),
+    }))
+    .filter((p) => p.valor > 0 && p.tipo !== 'fiado' && p.tipo !== 'vale_credito')
 
   const [formaRes, depositoRes] = await Promise.all([
     vRaw.forma_pagamento_id
@@ -124,6 +148,7 @@ export async function buscarVendaParaDevolucao(
       (s, l) => s + (((l as { valor: number | null }).valor ?? 0) - ((l as { valor_pago: number | null }).valor_pago ?? 0)),
       0,
     ),
+    pagamentos: pagamentosPagos,
     itens: ((itensRes.data ?? []) as unknown as {
       produto_id: string; quantidade: number; preco_unitario: number
       total_item: number; produtos: { nome: string } | null
@@ -210,6 +235,12 @@ export interface RegistrarDevolucaoInput {
   /** motivo FECHADO (teste | defeito_alegado | cliente_desistiu | peca_errada | outro) */
   motivo_tipo: string
   tipo_credito: string
+  /**
+   * Reembolso MISTO: parte em dinheiro, parte em PIX, parte como crédito.
+   * Opcional — sem isto, usa `tipo_credito` (uma forma só), como sempre foi.
+   * A soma tem que fechar com o reembolso; o RPC recusa a devolução se não bater.
+   */
+  reembolsos?: { tipo: string; valor: number }[]
   itens: { produto_id: string; nome: string; quantidade: number; preco_unitario: number; total_item: number; status_produto: string; series?: string[] }[]
   lancamento_pendente: boolean
 }
@@ -240,12 +271,17 @@ export async function registrarDevolucao(
     p_itens: input.itens,
     p_lancamento_pendente: input.lancamento_pendente,
     p_series: series,
+    p_reembolsos: input.reembolsos && input.reembolsos.length > 0 ? input.reembolsos : null,
   })
   if (error) throw new Error(error.message)
   if (!data) throw new Error('RPC registrar_devolucao retornou vazio.')
 
   const devolucaoId = (data as { devolucao_id: string }).devolucao_id
   const reembolso = Number((data as { reembolso?: number }).reembolso ?? 0)
+  // Só a fatia em DINHEIRO sai da gaveta. No misto, o resto já virou crédito ou
+  // lançamento dentro do RPC — usar o reembolso cheio aqui tiraria do caixa
+  // dinheiro que na verdade voltou por PIX/cartão.
+  const reembolsoDinheiro = Number((data as { reembolso_dinheiro?: number }).reembolso_dinheiro ?? 0)
 
   for (const item of input.itens) {
     void sincronizarEstoqueML(item.produto_id)
@@ -258,32 +294,32 @@ export async function registrarDevolucao(
   // fechamento acusava falta. Débito/crédito/PIX NÃO passam por aqui (não saem da
   // gaveta). Fora do RPC de propósito: uma escrita de caixa não deve reverter a
   // devolução (estoque/crédito) se der ruim — ela é secundária ao ato de devolver.
-  if (input.tipo_credito === 'dinheiro' && reembolso > 0.005 && input.deposito_id) {
+  if (reembolsoDinheiro > 0.005 && input.deposito_id) {
     const { data: dep, error: erroDep } = await supabase.from('depositos').select('loja_id').eq('id', input.deposito_id).maybeSingle()
-    if (erroDep) console.error(`Devolução ${devolucaoId}: reembolso de ${reembolso} em dinheiro sem registro nenhum — falha ao buscar loja do depósito:`, erroDep.message)
+    if (erroDep) console.error(`Devolução ${devolucaoId}: reembolso de ${reembolsoDinheiro} em dinheiro sem registro nenhum — falha ao buscar loja do depósito:`, erroDep.message)
     const lojaId = (dep as { loja_id: string | null } | null)?.loja_id ?? null
     if (lojaId) {
       const { data: caixa, error: erroCaixa } = await supabase
         .from('caixas').select('id').eq('status', 'aberto').eq('loja_id', lojaId)
         .order('aberto_em', { ascending: false }).limit(1).maybeSingle()
-      if (erroCaixa) console.error(`Devolução ${devolucaoId}: reembolso de ${reembolso} em dinheiro sem registro nenhum — falha ao buscar caixa aberto:`, erroCaixa.message)
+      if (erroCaixa) console.error(`Devolução ${devolucaoId}: reembolso de ${reembolsoDinheiro} em dinheiro sem registro nenhum — falha ao buscar caixa aberto:`, erroCaixa.message)
       const caixaId = (caixa as { id: string } | null)?.id ?? null
       if (caixaId) {
         const { error: erroMov } = await supabase.from('movimentos_caixa').insert({
           caixa_id: caixaId,
           tipo: 'devolucao',
           forma_pagamento: 'Dinheiro',
-          valor: reembolso,
+          valor: reembolsoDinheiro,
           motivo: `Devolução — ${input.pessoa_nome ?? 'Cliente'}`,
         })
-        if (erroMov) console.error(`Devolução ${devolucaoId}: reembolso de ${reembolso} em dinheiro não gravou no caixa:`, erroMov.message)
+        if (erroMov) console.error(`Devolução ${devolucaoId}: reembolso de ${reembolsoDinheiro} em dinheiro não gravou no caixa:`, erroMov.message)
       } else if (!erroCaixa) {
         // Nenhum caixa aberto nesta loja — o RPC não cria lançamento pra
         // dinheiro (é evento de caixa, não conta a pagar), então sem isto o
         // reembolso não fica registrado em NENHUM lugar. Não trava a
         // devolução por causa disso (estoque/crédito já foram revertidos de
         // verdade), mas precisa ficar visível pra alguém conferir na mão.
-        console.error(`Devolução ${devolucaoId}: reembolso de ${reembolso} em dinheiro NÃO tem registro nenhum — nenhum caixa aberto na loja ${lojaId} no momento da devolução.`)
+        console.error(`Devolução ${devolucaoId}: reembolso de ${reembolsoDinheiro} em dinheiro NÃO tem registro nenhum — nenhum caixa aberto na loja ${lojaId} no momento da devolução.`)
       }
     }
   }
