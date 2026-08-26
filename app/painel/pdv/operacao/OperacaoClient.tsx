@@ -94,6 +94,8 @@ interface VendaDetalhe {
   hora: string
   cliente: string | null
   total: number
+  /** fiado cancelado por devolução — não é dinheiro e já saiu do total do turno */
+  devolvida: boolean
   pagamentos: { nome: string; tipo: string; valor: number }[]
 }
 
@@ -1453,7 +1455,12 @@ export function OperacaoClient({
                         <td className="px-4 py-2.5 text-gray-600">{v.cliente ?? <span className="text-gray-300">—</span>}</td>
                         <td className="px-4 py-2.5">
                           <div className="flex flex-wrap gap-1">
-                            {v.pagamentos.length === 0 && <span className="text-gray-300">—</span>}
+                            {v.devolvida && (
+                              <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-1.5 py-0.5 text-[11px] font-medium text-rose-700">
+                                ↩ Devolvida — fiado cancelado
+                              </span>
+                            )}
+                            {!v.devolvida && v.pagamentos.length === 0 && <span className="text-gray-300">—</span>}
                             {v.pagamentos.map((pg, i) => (
                               <span
                                 key={i}
@@ -1465,7 +1472,10 @@ export function OperacaoClient({
                             ))}
                           </div>
                         </td>
-                        <td className="px-6 py-2.5 text-right font-bold tabular-nums text-gray-900">{fmt(v.total)}</td>
+                        {/* Devolvida: valor riscado e apagado — ele NÃO entra no
+                            total do turno lá em cima, então mostrar em preto
+                            forte fazia a soma da tela nunca fechar. */}
+                        <td className={`px-6 py-2.5 text-right font-bold tabular-nums ${v.devolvida ? 'text-gray-300 line-through' : 'text-gray-900'}`}>{fmt(v.total)}</td>
                       </tr>
                     ))}
                   </tbody>

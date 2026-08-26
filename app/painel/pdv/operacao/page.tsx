@@ -90,7 +90,7 @@ export default async function OperacaoPDVPage({
   let totalTaxaCartao = 0
   // vendas de cada tipo, pra conferência (bater comprovante de PIX com a venda)
   const vendasPorTipo: Record<string, { id: string; numero: number | null; hora: string; cliente: string | null; valorForma: number; totalVenda: number; fiado?: boolean }[]> = {}
-  let vendasDetalhe: { id: string; numero: number | null; hora: string; cliente: string | null; total: number; pagamentos: { nome: string; tipo: string; valor: number }[] }[] = []
+  let vendasDetalhe: { id: string; numero: number | null; hora: string; cliente: string | null; total: number; devolvida: boolean; pagamentos: { nome: string; tipo: string; valor: number }[] }[] = []
 
   if (caixaAberto) {
     const [vendasResult, movResult] = await Promise.all([
@@ -167,6 +167,12 @@ export default async function OperacaoPDVPage({
         hora: v.created_at,
         cliente: v.pessoa_id ? (nomePessoa[v.pessoa_id] ?? null) : null,
         total: v.total ?? 0,
+        // Fiado cancelado por devolução: a etiqueta da forma é escondida logo
+        // acima (não é dinheiro) e o valor já saiu do total do turno. Sem
+        // marcar aqui, a linha ficava só com um "—" mudo e o valor cheio do
+        // lado — parecia venda sem forma de pagamento, e as contas da tela
+        // não fechavam com o total do cabeçalho.
+        devolvida: fiadoCancelado.has(v.id),
         pagamentos: pagsDaVenda[v.id] ?? [],
       }))
 
