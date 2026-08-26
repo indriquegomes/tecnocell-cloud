@@ -845,9 +845,24 @@ export function DevolucoesClient({
                   {/* Split: abate dívida × reembolso */}
                   {(abateFiado > 0.01 || reembolso > 0.01) && (
                     <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm space-y-1">
-                      {abateFiado > 0.01 && (
-                        <div className="flex justify-between"><span className="text-gray-600">🤝 Abate da dívida (fiado)</span><span className="font-semibold text-orange-600">{fmt(abateFiado)}</span></div>
-                      )}
+                      {/* Quando o abate cobre a divida INTEIRA, o lancamento e
+                          marcado como cancelado — nao "abatido". Chamar os dois
+                          casos de "abate" fazia parecer que sobrava divida mesmo
+                          quando ela tinha sido apagada (duvida real do dono em
+                          26/08: "como vai abater algo que esta sendo apagado?"). */}
+                      {abateFiado > 0.01 && (() => {
+                        const restaDivida = Math.round((venda!.fiado_restante - abateFiado) * 100) / 100
+                        const quitou = restaDivida <= 0.01
+                        return (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">
+                              🤝 {quitou ? 'Dívida cancelada (fiado)' : 'Abate da dívida (fiado)'}
+                              {!quitou && <span className="text-gray-400"> · resta {fmt(restaDivida)}</span>}
+                            </span>
+                            <span className="font-semibold text-orange-600">{fmt(abateFiado)}</span>
+                          </div>
+                        )
+                      })()}
                       {reembolso > 0.01 && (
                         <div className="flex justify-between"><span className="text-gray-600">💵 Reembolso (parte que o cliente pagou)</span><span className="font-semibold text-blue-600">{fmt(reembolso)}</span></div>
                       )}
