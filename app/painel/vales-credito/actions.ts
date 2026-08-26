@@ -48,29 +48,22 @@ export async function estornarCredito(id: string) {
   if (!lanc || lanc.tipo !== 'credito') return
 
   // Idempotente: estornar 2x criaria 2 linhas de 'estorno' e jogaria o saldo
-  // do cliente pra negativo (estorno subtrai). Marca a origem no descricao.
-  // Se a checagem falhar não dá pra saber se já foi estornado — travar aqui
-  // é mais seguro que deixar passar e arriscar duplicar (diferente de outros
-  // pontos do sistema onde travar seria pior; aqui o risco é inverso).
-  const marca = `Estorno de crédito #${id}`
-  const { count: jaEstornado, error: erroCheck } = await supabase
-    .from('creditos_clientes')
-    .select('id', { count: 'exact', head: true })
-    .eq('tipo', 'estorno')
-    .eq('descricao', marca)
-  if (erroCheck) redirect(`/painel/vales-credito?erro=${encodeURIComponent('Não deu pra confirmar se este crédito já foi estornado. Tente de novo.')}`)
-  if (jaEstornado && jaEstornado > 0) {
-    redirect(`/painel/vales-credito?erro=${encodeURIComponent('Este crédito já foi estornado.')}`)
-  }
-
+  // do cliente pra negativo (estorno subtrai). `estorna_credito_id` + índice
+  // único parcial (migration 2026-08-26) travam isso no BANCO — antes era um
+  // SELECT (texto em descricao) + INSERT sem trava nenhuma, que um duplo-clique
+  // quase simultâneo conseguia passar pelos dois antes de qualquer um inserir.
   const { error } = await supabase.from('creditos_clientes').insert({
     pessoa_id: lanc.pessoa_id,
     pessoa_nome: lanc.pessoa_nome,
     valor: lanc.valor,
     tipo: 'estorno',
-    descricao: marca,
+    descricao: `Estorno de crédito #${id}`,
+    estorna_credito_id: id,
   })
-  if (error) redirect(`/painel/vales-credito?erro=${encodeURIComponent(error.message)}`)
+  if (error) {
+    if (error.code === '23505') redirect(`/painel/vales-credito?erro=${encodeURIComponent('Este crédito já foi estornado.')}`)
+    redirect(`/painel/vales-credito?erro=${encodeURIComponent(error.message)}`)
+  }
 
   revalidatePath('/painel/vales-credito')
   redirect('/painel/vales-credito')
