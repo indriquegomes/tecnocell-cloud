@@ -59,7 +59,7 @@ export default async function ProdutosPage({
       .from('produtos')
       .select(`
         id, nome, descricao, preco, preco_custo, marca, categoria, ativo, codigo, imagem_url,
-        estoque_minimo,
+        estoque_minimo, prateleira,
         cat:categorias!categoria ( nome ),
         estoque ( quantidade, deposito_id )
       `, withCount ? { count: 'exact' as const } : undefined)
@@ -302,7 +302,11 @@ export default async function ProdutosPage({
                         )}
                         <div>
                           <p className="text-sm font-medium text-gray-800">{p.nome as string}</p>
-                          {p.codigo != null && <p className="text-xs text-gray-400">#{String(p.codigo)}</p>}
+                          <p className="text-xs text-gray-400">
+                            {p.codigo != null && <>#{String(p.codigo)}</>}
+                            {p.codigo != null && p.prateleira ? ' · ' : ''}
+                            {(p.prateleira as string) ? <>📍 {p.prateleira as string}</> : ''}
+                          </p>
                         </div>
                       </div>
                     </td>
