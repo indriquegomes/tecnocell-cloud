@@ -1437,6 +1437,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     const restante = Math.round((recebendoItem.valor - (recebendoItem.valor_pago ?? 0)) * 100) / 100
     const pagamentos = linhasMisto
       .map((l) => {
+        // Vale-crédito não é uma forma real da tabela — resolve pelo id sentinela.
+        if (l.formaId === VALE_RECEB_ID) return { forma: 'Vale Crédito', valor: parseFloat((l.valor || '').replace(',', '.')) || 0 }
         const f = formas.find((x) => x.id === l.formaId)
         return { forma: f?.nome ?? '', valor: parseFloat((l.valor || '').replace(',', '.')) || 0 }
       })
@@ -1444,10 +1446,15 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     if (pagamentos.length === 0) { setErro('Adicione ao menos uma forma com valor.'); return }
     const soma = Math.round(pagamentos.reduce((s, p) => s + p.valor, 0) * 100) / 100
     if (soma > restante + 0.01) { setErro(`Somou ${formatBRL(soma)}, maior que o saldo em aberto (${formatBRL(restante)}).`); return }
+    const valeMisto = pagamentos.find((p) => p.forma === 'Vale Crédito')
+    if (valeMisto && valeMisto.valor > saldoCreditoReceb + 0.01) {
+      setErro(`Vale-crédito: ${formatBRL(valeMisto.valor)} é mais do que o saldo do cliente (${formatBRL(saldoCreditoReceb)}).`)
+      return
+    }
 
     setPagandoCrediario(true)
     try {
-      const res = await registrarPagamentoMisto(await authToken(), recebendoItem.id, pagamentos, lojaId)
+      const res = await registrarPagamentoMisto(await authToken(), recebendoItem.id, pagamentos, lojaId, recebendoItem.pessoa_id)
       if (!res.ok) { setErro(res.erro); return }
       if (res.quitado) {
         setCrediarioItens((prev) => prev.filter((i) => i.id !== recebendoItem.id))
@@ -3354,7 +3361,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               {modoMistoReceb && (() => {
                 const somaMisto = Math.round(linhasMisto.reduce((s, l) => s + (parseFloat((l.valor || '').replace(',', '.')) || 0), 0) * 100) / 100
                 const faltam = Math.round((restanteReceb - somaMisto) * 100) / 100
-                const formasReais = formasRecebimento
+                // Vale-crédito entra na lista do misto igual às formas reais — só
+                // aparece se o cliente do fiado tem saldo (mesma regra do "Uma forma").
+                const formasReais = recebendoItem.pessoa_id && saldoCreditoReceb > 0.01
+                  ? [...formasRecebimento, { id: VALE_RECEB_ID, nome: 'Vale Crédito' }]
+                  : formasRecebimento
                 return (
                   <div className="space-y-2">
                     <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">Formas (soma tem que fechar o valor)</label>

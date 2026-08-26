@@ -770,11 +770,14 @@ export async function registrarPagamentoParcial(
 //   - vira uma linha no historico_pagamentos (detalhe preservado)
 //   - entra separada no caixa (dinheiro na gaveta, Pix na linha do Pix) via registrarNoCaixa
 // e o valor_pago sobe pela SOMA. Quita se cobrir o total.
+const FORMA_VALE_TXT = 'Vale Crédito'
+
 export async function registrarPagamentoMisto(
   accessToken: string,
   id: string,
   pagamentos: { forma: string; valor: number }[],
   lojaId?: string | null,
+  pessoaId?: string | null,
 ): Promise<ResultadoReceb> {
   try {
     await requirePermissao('crediario_receber', accessToken)
@@ -785,9 +788,12 @@ export async function registrarPagamentoMisto(
       .filter((p) => p.forma && p.valor > 0)
     if (linhas.length === 0) throw new Error('Informe ao menos uma forma com valor.')
 
+    const linhaVale = linhas.find((p) => p.forma === FORMA_VALE_TXT)
+    if (linhaVale && !pessoaId) throw new Error('Cliente não identificado pra usar vale-crédito.')
+
     const { data: lanc, error: errBusca } = await supabase
       .from('lancamentos')
-      .select('valor, valor_pago, historico_pagamentos, pessoa_nome')
+      .select('valor, valor_pago, historico_pagamentos, pessoa_nome, codigo')
       .eq('id', id)
       .single()
     if (errBusca || !lanc) throw new Error('Lançamento não encontrado.')
@@ -799,6 +805,18 @@ export async function registrarPagamentoMisto(
     // trava: não deixar receber mais do que o cliente deve (viraria crédito fantasma no caixa)
     if (totalPago > restante + 0.01) {
       throw new Error(`Total das formas (${totalPago.toFixed(2)}) maior que o saldo devedor (${restante.toFixed(2)}).`)
+    }
+
+    // débito do vale-crédito PRIMEIRO, antes de tocar no lançamento/caixa — se o
+    // saldo não cobrir, nada mais deste recebimento é aplicado (sem estado
+    // parcial: dinheiro contado na gaveta mas o vale falhando no meio).
+    if (linhaVale) {
+      const { error: erroCredito } = await supabase.rpc('usar_credito_cliente', {
+        p_pessoa_id: pessoaId,
+        p_valor: linhaVale.valor,
+        p_descricao: `Uso no fiado #${lanc.codigo ?? id}`,
+      })
+      if (erroCredito) throw new Error(erroCredito.message)
     }
 
     const totalPagoAtualizado = Math.round((pagoAntes + totalPago) * 100) / 100
@@ -818,14 +836,19 @@ export async function registrarPagamentoMisto(
     if (quitado) {
       update.status = 'pago'
       update.data_pagamento = today
-      update.conta_id = await contaDaFormaTexto(supabase, linhas[0].forma, lojaId)
+      // conta de uma forma REAL (vale-crédito não passa por conta nenhuma) — se
+      // for só vale, fica sem conta_id mesmo (dinheiro nenhum entrou de fato)
+      const formaRealParaConta = linhas.find((p) => p.forma !== FORMA_VALE_TXT)?.forma
+      update.conta_id = formaRealParaConta ? await contaDaFormaTexto(supabase, formaRealParaConta, lojaId) : null
     }
 
     const { error } = await supabase.from('lancamentos').update(update).eq('id', id)
     if (error) throw new Error(error.message)
 
-    // caixa: uma linha por forma (mesma regra do recebimento simples)
+    // caixa: uma linha por forma REAL (mesma regra do recebimento simples) —
+    // vale-crédito já foi debitado acima, não é dinheiro entrando na gaveta/conta.
     for (const p of linhas) {
+      if (p.forma === FORMA_VALE_TXT) continue
       await registrarNoCaixa(supabase, lojaId, p.valor, p.forma, `Fiado recebido — ${lanc.pessoa_nome ?? 'cliente'}`)
     }
     return { ok: true, quitado }
@@ -872,11 +895,11 @@ export async function registrarPagamentoValeCredito(
     const totalPagoAtualizado = Math.round(((Number(lanc.valor_pago) || 0) + valor) * 100) / 100
     const quitado = totalPagoAtualizado >= (Number(lanc.valor) || 0) - 0.01
     const historicoAtual = Array.isArray(lanc.historico_pagamentos) ? (lanc.historico_pagamentos as PagamentoHistorico[]) : []
-    const novoRegistro: PagamentoHistorico = { valor, forma: 'Vale Crédito', data: new Date().toISOString() }
+    const novoRegistro: PagamentoHistorico = { valor, forma: FORMA_VALE_TXT, data: new Date().toISOString() }
 
     const update: Record<string, unknown> = {
       valor_pago: totalPagoAtualizado,
-      forma_pagamento: 'Vale Crédito',
+      forma_pagamento: FORMA_VALE_TXT,
       historico_pagamentos: [...historicoAtual, novoRegistro],
       updated_at: new Date().toISOString(),
     }
