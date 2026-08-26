@@ -8,6 +8,10 @@ export type PagamentoDetalhe = {
   valor: number
   parcelas: number
   maquina: string | null
+  /** dinheiro | pix | cartao_debito | cartao_credito | fiado | vale_credito … */
+  tipo: string
+  /** pago = dinheiro entrou de verdade · pendente = fiado · vale = saiu do saldo */
+  status: string
 }
 
 export type DetalheVendaCompleto = {
@@ -41,7 +45,7 @@ export async function buscarDetalheVendaPublic(vendaId: string): Promise<Detalhe
       .eq('venda_id', vendaId),
     supabase
       .from('pagamentos_venda')
-      .select('forma_pagamento_id, valor, parcelas, maquina')
+      .select('forma_pagamento_id, valor, parcelas, maquina, status')
       .eq('venda_id', vendaId),
   ])
 
@@ -55,9 +59,14 @@ export async function buscarDetalheVendaPublic(vendaId: string): Promise<Detalhe
   // Nomes de formas de pagamento
   const formaIds = [...new Set((pagamentosRes.data ?? []).map((p: { forma_pagamento_id: string }) => p.forma_pagamento_id).filter(Boolean))]
   let formaMap: Record<string, string> = {}
+  // tipo da forma: é ele que diz COMO devolver o dinheiro se a venda for
+  // cancelada (gaveta, PIX de volta, estorno na maquininha) — o nome sozinho
+  // não serve, porque a loja renomeia forma ("TON 2", "PIX Teresópolis"…).
+  let tipoMap: Record<string, string> = {}
   if (formaIds.length > 0) {
-    const { data: formas } = await supabase.from('formas_pagamento').select('id, nome').in('id', formaIds)
+    const { data: formas } = await supabase.from('formas_pagamento').select('id, nome, tipo').in('id', formaIds)
     formaMap = Object.fromEntries((formas ?? []).map(f => [f.id, f.nome]))
+    tipoMap = Object.fromEntries((formas ?? []).map(f => [f.id, (f as { tipo: string | null }).tipo ?? 'outros']))
   }
 
   // Nome do cliente
@@ -86,11 +95,13 @@ export async function buscarDetalheVendaPublic(vendaId: string): Promise<Detalhe
     vendedor_nome: v.vendedor_nome,
     pessoa_id: v.pessoa_id,
     pessoa_nome: pessoaNome,
-    pagamentos: (pagamentosRes.data ?? []).map((p: { forma_pagamento_id: string; valor: number; parcelas: number; maquina: string | null }) => ({
+    pagamentos: (pagamentosRes.data ?? []).map((p: { forma_pagamento_id: string; valor: number; parcelas: number; maquina: string | null; status: string | null }) => ({
       forma_nome: formaMap[p.forma_pagamento_id] ?? p.forma_pagamento_id,
       valor: p.valor,
       parcelas: p.parcelas ?? 1,
       maquina: p.maquina,
+      tipo: tipoMap[p.forma_pagamento_id] ?? 'outros',
+      status: p.status ?? 'pago',
     })),
     itens: (itensRes.data ?? []).map((i: { produto_id: string; quantidade: number; preco_unitario: number; desconto_item: number; total_item: number }) => ({
       produto_id: i.produto_id,
@@ -125,6 +136,45 @@ export async function cancelarVenda(
 ): Promise<ResultadoCancelamento> {
   await requirePermissao('vendas')
   const supabase = await createServiceClient()
+
+  // TRAVA: cancelar NÃO devolve dinheiro — só desfaz estoque, dívida e crédito.
+  // Se a venda já recebeu dinheiro de verdade, cancelar deixaria o valor solto
+  // (na gaveta, na conta do PIX ou na maquininha) sem registro nenhum de que
+  // ele é do cliente — e o caixa fecharia com sobra que ninguém explica.
+  // Pra esse caso o certo é Devolução, que sabe tirar o dinheiro do lugar
+  // certo. Ela cobre até o caso de "marquei a forma errada e nada entrou":
+  // é só escolher "sem reembolso", que nada sai do caixa.
+  const { data: pagos, error: erroPagos } = await supabase
+    .from('pagamentos_venda')
+    .select('valor, status, formas_pagamento(nome, tipo)')
+    .eq('venda_id', vendaId)
+  if (erroPagos) return { ok: false, erro: 'Não deu pra conferir as formas de pagamento desta venda: ' + erroPagos.message }
+
+  // o embed do PostgREST às vezes vem como array, às vezes como objeto
+  type FormaEmbed = { nome: string | null; tipo: string | null }
+  const daForma = (p: unknown): FormaEmbed | null => {
+    const f = (p as { formas_pagamento?: FormaEmbed | FormaEmbed[] | null }).formas_pagamento
+    return Array.isArray(f) ? (f[0] ?? null) : (f ?? null)
+  }
+
+  const comDinheiro = (pagos ?? []).filter((p) => {
+    const tipo = daForma(p)?.tipo ?? 'outros'
+    // fiado = dívida (não entrou); vale = saldo do cliente (o RPC já estorna)
+    return (p as { status: string | null }).status === 'pago' && tipo !== 'fiado' && tipo !== 'vale_credito'
+  })
+
+  if (comDinheiro.length > 0) {
+    const lista = comDinheiro
+      .map((p) => {
+        const v = Number((p as { valor: number | null }).valor ?? 0)
+        return `${daForma(p)?.nome ?? 'forma desconhecida'} R$ ${v.toFixed(2).replace('.', ',')}`
+      })
+      .join(' + ')
+    return {
+      ok: false,
+      erro: `Esta venda já recebeu dinheiro (${lista}). Cancelar não devolve esse valor — use Devolução, que tira o dinheiro do lugar certo. Se na verdade nada foi pago, faça a Devolução escolhendo "sem reembolso".`,
+    }
+  }
 
   const { data, error } = await supabase.rpc('cancelar_venda', {
     p_venda_id: vendaId,

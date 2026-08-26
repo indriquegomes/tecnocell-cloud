@@ -464,7 +464,49 @@ export function VendasClient({
 
                 {/* Cancelar venda — devolve estoque/IMEI, tira do financeiro e estorna
                     o crédito usado. A venda fica no histórico como 'cancelada'. */}
-                {detalhe.status !== 'cancelada' && (
+                {detalhe.status !== 'cancelada' && (() => {
+                  // Dinheiro que ENTROU de verdade: fiado é dívida (não entrou) e
+                  // vale sai do saldo do cliente (o cancelamento já estorna sozinho).
+                  const recebidos = detalhe.pagamentos.filter(
+                    (p) => p.status === 'pago' && p.tipo !== 'fiado' && p.tipo !== 'vale_credito',
+                  )
+                  const comoDevolver = (p: typeof recebidos[number]) =>
+                    p.tipo === 'dinheiro' ? 'devolver da gaveta'
+                    : p.tipo === 'pix' ? 'fazer o PIX de volta'
+                    : p.tipo === 'cartao_debito' || p.tipo === 'cartao_credito'
+                      ? `estornar na maquininha${p.maquina ? ' ' + p.maquina : ''}`
+                      : 'devolver ao cliente'
+
+                  // Já recebeu dinheiro → cancelar é o caminho errado (não devolve
+                  // nada). Em vez de deixar clicar e tomar erro, a tela já explica
+                  // e manda pra Devolução, que sabe tirar do lugar certo.
+                  if (recebidos.length > 0) {
+                    return (
+                      <div className="border-t border-gray-100 pt-3">
+                        <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                          <p className="text-xs font-semibold text-amber-800">Esta venda não pode ser cancelada — ela já recebeu dinheiro.</p>
+                          <ul className="space-y-0.5">
+                            {recebidos.map((p, i) => (
+                              <li key={i} className="text-xs text-amber-800">
+                                • <b>{fmt(p.valor)}</b> em {p.forma_nome} → precisa {comoDevolver(p)}
+                              </li>
+                            ))}
+                          </ul>
+                          <p className="text-xs text-amber-700">
+                            Cancelar <b>não devolve</b> esse dinheiro — ele ficaria solto e o caixa fecharia com sobra.
+                            Use <b>Devolução</b>, que tira do lugar certo. Se na verdade nada foi pago, faça a Devolução
+                            escolhendo <b>&quot;sem reembolso&quot;</b>.
+                          </p>
+                          <Link href={`/painel/devolucoes?venda=${detalhe.id}`}
+                            className="block rounded-xl bg-amber-600 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-amber-700 transition">
+                            Ir para Devolução
+                          </Link>
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  return (
                   <div className="border-t border-gray-100 pt-3">
                     {!confCancelar ? (
                       <button type="button" onClick={() => setConfCancelar(true)}
@@ -519,7 +561,8 @@ export function VendasClient({
                       </div>
                     )}
                   </div>
-                )}
+                  )
+                })()}
               </div>
             ) : null}
           </div>
