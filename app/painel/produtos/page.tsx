@@ -34,6 +34,7 @@ export default async function ProdutosPage({
     : ordemAtual === 'preco'     ? 'preco'
     : ordemAtual === 'custo'     ? 'preco_custo'
     : ordemAtual === 'status'    ? 'ativo'
+    : ordemAtual === 'prateleira' ? 'prateleira'
     : 'nome'
 
   const ordemEstoque = ordemAtual === 'estoque'
@@ -63,7 +64,10 @@ export default async function ProdutosPage({
         cat:categorias!categoria ( nome ),
         estoque ( quantidade, deposito_id )
       `, withCount ? { count: 'exact' as const } : undefined)
-      .order(ordemCampo, { ascending: !ordemDir })
+      // nullsFirst: false — campo vazio (prateleira, marca, categoria…) vai
+      // SEMPRE pro fim, nos dois sentidos. Sem isso, o Postgres joga os nulos
+      // na frente quando é decrescente e a primeira página fica só de traço.
+      .order(ordemCampo, { ascending: !ordemDir, nullsFirst: false })
     if (ordemAtual !== 'nome' && !ordemEstoque) q = q.order('nome')
     if (params.busca) {
       // multi-palavra + sem acento: cada palavra tem que aparecer em busca_norm (nome+código+marca)
@@ -241,9 +245,10 @@ export default async function ProdutosPage({
           <thead className="bg-gray-50">
             <tr>
               {[
-                { label: 'Produto',   ordem: 'nome',      align: 'text-left' },
-                { label: 'Marca',     ordem: 'marca',     align: 'text-left' },
-                { label: 'Categoria', ordem: 'categoria', align: 'text-left' },
+                { label: 'Produto',    ordem: 'nome',       align: 'text-left' },
+                { label: 'Prateleira', ordem: 'prateleira', align: 'text-left' },
+                { label: 'Marca',      ordem: 'marca',      align: 'text-left' },
+                { label: 'Categoria',  ordem: 'categoria',  align: 'text-left' },
                 { label: 'Preço',     ordem: 'preco',     align: 'text-right' },
                 { label: 'Custo',     ordem: 'custo',     align: 'text-right' },
                 { label: depFiltrado ? `Estoque · ${depFiltrado.nome}` : 'Estoque', ordem: 'estoque', align: 'text-center' },
@@ -278,7 +283,7 @@ export default async function ProdutosPage({
           <tbody className="divide-y divide-gray-50">
             {produtos.length === 0 ? (
               <tr>
-                <td colSpan={8 + depositosReais.length} className="px-4 py-12 text-center text-sm text-gray-400">
+                <td colSpan={9 + depositosReais.length} className="px-4 py-12 text-center text-sm text-gray-400">
                   Nenhum produto encontrado. <Link href="/painel/produtos/novo" className="text-blue-500 hover:underline">Cadastrar produto</Link>.
                 </td>
               </tr>
@@ -302,13 +307,14 @@ export default async function ProdutosPage({
                         )}
                         <div>
                           <p className="text-sm font-medium text-gray-800">{p.nome as string}</p>
-                          <p className="text-xs text-gray-400">
-                            {p.codigo != null && <>#{String(p.codigo)}</>}
-                            {p.codigo != null && p.prateleira ? ' · ' : ''}
-                            {(p.prateleira as string) ? <>📍 {p.prateleira as string}</> : ''}
-                          </p>
+                          {p.codigo != null && <p className="text-xs text-gray-400">#{String(p.codigo)}</p>}
                         </div>
                       </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap">
+                      {(p.prateleira as string)
+                        ? <span className="rounded-md bg-gray-100 px-2 py-1 font-medium text-gray-700 tabular-nums">{p.prateleira as string}</span>
+                        : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{(p.marca as string) || '—'}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">
