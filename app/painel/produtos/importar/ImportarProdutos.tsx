@@ -3,6 +3,13 @@
 import { useState, useTransition } from 'react'
 import { conferirImportacao, aplicarImportacao, type Conferencia } from './actions'
 
+// Teto do envio, alinhado com o bodySizeLimit do next.config.ts (4mb). Checar
+// AQUI, antes de mandar, é o que transforma "a tela morreu" em "o arquivo é
+// grande demais, divide em dois": passar do limite fazia o Next recusar o POST
+// com 400 antes de rodar qualquer código nosso, e a promessa rejeitada
+// derrubava a página inteira. Folga de 100kb pro peso do resto do formulário.
+const LIMITE_ENVIO = 3.9 * 1024 * 1024
+
 export function ImportarProdutos() {
   const [erros, setErros] = useState<string[]>([])
   const [conf, setConf] = useState<Conferencia | null>(null)
@@ -12,13 +19,28 @@ export function ImportarProdutos() {
 
   function conferir(file: File, aba?: string) {
     setErros([]); setConf(null); setSucesso(null)
+    if (file.size > LIMITE_ENVIO) {
+      const mb = (file.size / 1024 / 1024).toFixed(1)
+      setErros([
+        `A planilha tem ${mb}MB e o limite de envio é 4MB — nada foi enviado.`,
+        'A exportação do sistema antigo pode ser feita em partes (ex: de 1 a 5000, de 5001 em diante). Envie um arquivo de cada vez, em qualquer ordem: cada um só mexe nos produtos que ele traz.',
+      ])
+      return
+    }
     const fd = new FormData()
     fd.set('arquivo', file)
     if (aba) fd.set('aba', aba)
     startTransition(async () => {
-      const res = await conferirImportacao(fd)
-      if (res.ok) setConf(res.conferencia)
-      else setErros(res.erros)
+      // try/catch: sem isso, qualquer recusa do servidor (arquivo grande demais,
+      // sessão caída, oscilação no meio do upload) virava promessa rejeitada e
+      // levava a tela toda pro erro genérico do Next, sem dizer o que houve.
+      try {
+        const res = await conferirImportacao(fd)
+        if (res.ok) setConf(res.conferencia)
+        else setErros(res.erros)
+      } catch {
+        setErros(['Não consegui enviar a planilha — nada foi gravado. Confira a internet e tente de novo; se o arquivo for muito grande, exporte em partes.'])
+      }
     })
   }
 
@@ -32,9 +54,14 @@ export function ImportarProdutos() {
   function onAplicar() {
     if (!conf || conf.mudancas.length === 0) return
     startTransition(async () => {
-      const res = await aplicarImportacao(conf.mudancas)
-      if (res.ok) { setSucesso({ novos: res.novos, atualizados: res.atualizados }); setConf(null) }
-      else { setErros([res.erro ?? 'Erro ao aplicar.']); setConf(null) }
+      try {
+        const res = await aplicarImportacao(conf.mudancas)
+        if (res.ok) { setSucesso({ novos: res.novos, atualizados: res.atualizados }); setConf(null) }
+        else { setErros([res.erro ?? 'Erro ao aplicar.']); setConf(null) }
+      } catch {
+        setErros(['Não consegui gravar agora. Nada foi alterado — confira a internet e tente de novo.'])
+        setConf(null)
+      }
     })
   }
 
