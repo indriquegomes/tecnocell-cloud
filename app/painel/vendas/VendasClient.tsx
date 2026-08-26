@@ -477,6 +477,31 @@ export function VendasClient({
                       ? `estornar na maquininha${p.maquina ? ' ' + p.maquina : ''}`
                       : 'devolver ao cliente'
 
+                  // Fiado pago depois da venda (no F9, em dinheiro/PIX/vale) não
+                  // aparece em `pagamentos` — mora no lançamento. Cancelar apagaria
+                  // esse pagamento junto com a dívida, sem devolver nada.
+                  const fiadoPago = detalhe.fiado_ja_pago ?? 0
+                  if (recebidos.length === 0 && fiadoPago > 0.005) {
+                    return (
+                      <div className="border-t border-gray-100 pt-3">
+                        <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                          <p className="text-xs font-semibold text-amber-800">Esta venda não pode ser cancelada — o cliente já pagou parte do fiado.</p>
+                          <p className="text-xs text-amber-800">
+                            Já foi pago: <b>{fmt(fiadoPago)}</b> de {fmt(detalhe.total)}.
+                          </p>
+                          <p className="text-xs text-amber-700">
+                            Cancelar apagaria a dívida <b>e esse pagamento junto</b>, sem devolver nada pro cliente.
+                            Use <b>Devolução</b>: ela abate o que ele ainda deve e devolve o que sobrar.
+                          </p>
+                          <Link href={`/painel/devolucoes?venda=${detalhe.id}`}
+                            className="block rounded-xl bg-amber-600 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-amber-700 transition">
+                            Ir para Devolução
+                          </Link>
+                        </div>
+                      </div>
+                    )
+                  }
+
                   // Já recebeu dinheiro → cancelar é o caminho errado (não devolve
                   // nada). Em vez de deixar clicar e tomar erro, a tela já explica
                   // e manda pra Devolução, que sabe tirar do lugar certo.

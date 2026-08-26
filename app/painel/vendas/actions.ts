@@ -26,6 +26,12 @@ export type DetalheVendaCompleto = {
   pessoa_id: string | null
   pessoa_nome: string | null
   pagamentos: PagamentoDetalhe[]
+  /**
+   * Quanto do FIADO desta venda o cliente já pagou depois (no F9, em dinheiro,
+   * PIX ou vale). Fica no lançamento, não em pagamentos_venda — por isso é
+   * separado. Se > 0, cancelar apagaria esse pagamento junto com a dívida.
+   */
+  fiado_ja_pago: number
   itens: { produto_id: string; nome: string; quantidade: number; preco_unitario: number; desconto_item: number; total_item: number }[]
 }
 
@@ -33,7 +39,7 @@ export async function buscarDetalheVendaPublic(vendaId: string): Promise<Detalhe
   await requirePermissao('vendas')
   const supabase = await createServiceClient()
 
-  const [vendaRes, itensRes, pagamentosRes] = await Promise.all([
+  const [vendaRes, itensRes, pagamentosRes, lancRes] = await Promise.all([
     supabase
       .from('vendas')
       .select('id, numero, total, desconto, created_at, status, observacoes, vendedor_nome, pessoa_id')
@@ -47,6 +53,12 @@ export async function buscarDetalheVendaPublic(vendaId: string): Promise<Detalhe
       .from('pagamentos_venda')
       .select('forma_pagamento_id, valor, parcelas, maquina, status')
       .eq('venda_id', vendaId),
+    // pagamento do FIADO feito depois da venda — mora aqui, não em pagamentos_venda
+    supabase
+      .from('lancamentos')
+      .select('valor_pago')
+      .eq('venda_id', vendaId)
+      .eq('tipo', 'receber'),
   ])
 
   if (!vendaRes.data) return null
@@ -95,6 +107,8 @@ export async function buscarDetalheVendaPublic(vendaId: string): Promise<Detalhe
     vendedor_nome: v.vendedor_nome,
     pessoa_id: v.pessoa_id,
     pessoa_nome: pessoaNome,
+    fiado_ja_pago: (lancRes.data ?? []).reduce(
+      (s: number, l: { valor_pago: number | null }) => s + Number(l.valor_pago ?? 0), 0),
     pagamentos: (pagamentosRes.data ?? []).map((p: { forma_pagamento_id: string; valor: number; parcelas: number; maquina: string | null; status: string | null }) => ({
       forma_nome: formaMap[p.forma_pagamento_id] ?? p.forma_pagamento_id,
       valor: p.valor,
@@ -173,6 +187,37 @@ export async function cancelarVenda(
     return {
       ok: false,
       erro: `Esta venda já recebeu dinheiro (${lista}). Cancelar não devolve esse valor — use Devolução, que tira o dinheiro do lugar certo. Se na verdade nada foi pago, faça a Devolução escolhendo "sem reembolso".`,
+    }
+  }
+
+  // SEGUNDA TRAVA — o fiado já recebeu pagamento?
+  //
+  // A checagem acima olha pagamentos_venda, que guarda como a venda foi FECHADA.
+  // Numa venda fiado ela diz "Crédito Loja · pendente" pra sempre: o pagamento
+  // do fiado vem depois e é anotado no LANÇAMENTO (valor_pago), nunca ali.
+  // Resultado: venda fiado que o cliente já pagou em parte (dinheiro no F9, PIX
+  // ou vale-crédito) passava batido, e o cancelamento APAGA o lançamento — junto
+  // com o registro do que ele pagou. O cliente devolvia a mercadoria, ficava sem
+  // o dinheiro, e o valor sobrava na gaveta sem dono.
+  // Caso real: DIEGO PALMA perdeu R$14 de vale-crédito assim, em 26/08.
+  const { data: lancs, error: erroLanc } = await supabase
+    .from('lancamentos')
+    .select('valor, valor_pago, historico_pagamentos')
+    .eq('venda_id', vendaId)
+    .eq('tipo', 'receber')
+  if (erroLanc) return { ok: false, erro: 'Não deu pra conferir os pagamentos do fiado desta venda: ' + erroLanc.message }
+
+  const jaPago = (lancs ?? []).reduce((s, l) => s + Number((l as { valor_pago: number | null }).valor_pago ?? 0), 0)
+  if (jaPago > 0.005) {
+    // mostra em que forma(s) ele pagou, quando o histórico tiver
+    const formas = (lancs ?? []).flatMap((l) => {
+      const h = (l as { historico_pagamentos: unknown }).historico_pagamentos
+      return Array.isArray(h) ? (h as { forma?: string }[]).map((x) => x.forma).filter(Boolean) : []
+    })
+    const detalhe = formas.length ? ` (${[...new Set(formas)].join(', ')})` : ''
+    return {
+      ok: false,
+      erro: `O cliente já pagou R$ ${jaPago.toFixed(2).replace('.', ',')} desta venda${detalhe}. Cancelar apagaria a dívida e esse pagamento junto, sem devolver nada pra ele. Use Devolução, que abate o que ele deve e devolve o resto.`,
     }
   }
 
