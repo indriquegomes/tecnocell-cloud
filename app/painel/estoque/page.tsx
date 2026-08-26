@@ -72,7 +72,7 @@ export default async function EstoquePage({
   const linhas = (estoque ?? []) as unknown as {
     id: string; quantidade: number
     produto: { id: string; nome: string; marca: string | null } | null
-    deposito: { nome: string } | null
+    deposito: { id: string; nome: string } | null
   }[]
 
   return (
@@ -176,6 +176,7 @@ export default async function EstoquePage({
               linhas.map((e) => {
                 const qtd = e.quantidade
                 const prodId = e.produto?.id
+                const depId = e.deposito?.id
                 return (
                   <tr key={e.id} className="hover:bg-blue-50/60 transition">
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">{e.produto?.nome ?? '—'}</td>
@@ -194,7 +195,7 @@ export default async function EstoquePage({
                     <td className="px-4 py-3 text-center">
                       {prodId && (
                         <Link
-                          href={`/painel/estoque/movimentar?produto_id=${prodId}`}
+                          href={`/painel/estoque/movimentar?produto_id=${prodId}${depId ? `&deposito_id=${depId}` : ''}`}
                           className="rounded-lg px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 transition"
                         >
                           Ajustar
