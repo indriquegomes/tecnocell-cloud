@@ -319,6 +319,16 @@ export default async function MovimentacoesPage({
           Produto não encontrado. Selecione um produto da lista de sugestões.
         </div>
       )}
+      {/* Qualquer outro erro (ex: "Estoque insuficiente para dar baixa...") — a
+          action manda o texto pronto em ?erro=, mas só o código
+          'produto-nao-encontrado' tinha banner; o resto ficava mudo (achado
+          testando de propósito 26/08: trava de estoque insuficiente
+          funcionava mas a tela não avisava nada). */}
+      {params.erro && params.erro !== 'produto-nao-encontrado' && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {params.erro}
+        </div>
+      )}
       {params.aviso === 'imeis-duplicados' && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           {params.n} {Number(params.n) === 1 ? 'IMEI já estava' : 'IMEIs já estavam'} cadastrado(s) e foram ignorados. O restante entrou normalmente.
