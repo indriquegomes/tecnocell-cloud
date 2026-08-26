@@ -43,7 +43,9 @@ export async function deletarDeposito(id: string) {
   await requirePermissao('estoque')
   const supabase = await createServiceClient()
   const { error } = await supabase.from('depositos').delete().eq('id', id)
-  if (error) throw new Error(error.message)
+  // redirect (não throw): mesmo bug de produtos/financeiro — BotaoExcluir é
+  // um <form action> por baixo, throw derruba a tela inteira.
+  if (error) redirect(`/painel/depositos?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/depositos')
   revalidateTag('depositos', 'max')
 }

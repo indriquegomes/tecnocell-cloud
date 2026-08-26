@@ -169,7 +169,9 @@ export async function deletarPessoa(id: string) {
     redirect(`/painel/clientes?erro=${encodeURIComponent('Este cadastro já tem histórico (venda/crédito) e não pode ser excluído. Use Inativar.')}`)
   }
   const { error } = await supabase.from('pessoas').delete().eq('id', id)
-  if (error) throw new Error(error.message)
+  // redirect (não throw): mesmo bug de produtos/financeiro — BotaoExcluir é
+  // um <form action> por baixo, throw derruba a tela inteira.
+  if (error) redirect(`/painel/clientes?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/clientes')
 }
 

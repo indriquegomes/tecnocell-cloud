@@ -52,6 +52,9 @@ export async function deletarFormaPagamento(id: string) {
   await requirePermissao('usuarios')
   const supabase = await createServiceClient()
   const { error } = await supabase.from('formas_pagamento').delete().eq('id', id)
-  if (error) throw new Error(error.message)
+  // redirect (não throw): chamado pelo BotaoExcluir, que é um <form
+  // action={...}> por baixo — throw derruba a tela inteira em vez de mostrar
+  // o motivo (achado do mesmo bug em produtos/financeiro, 26/08).
+  if (error) redirect(`/painel/formas-pagamento?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/formas-pagamento')
 }
