@@ -240,7 +240,7 @@ export interface RegistrarDevolucaoInput {
    * Opcional — sem isto, usa `tipo_credito` (uma forma só), como sempre foi.
    * A soma tem que fechar com o reembolso; o RPC recusa a devolução se não bater.
    */
-  reembolsos?: { tipo: string; valor: number }[]
+  reembolsos?: { tipo: string; valor: number; conta_id?: string | null }[]
   itens: { produto_id: string; nome: string; quantidade: number; preco_unitario: number; total_item: number; status_produto: string; series?: string[] }[]
   lancamento_pendente: boolean
 }

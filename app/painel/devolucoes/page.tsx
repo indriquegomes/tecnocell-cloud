@@ -84,12 +84,30 @@ export default async function DevolucoesPage({
     (vemTodas || !l.loja || nomesPermitidos.includes(l.loja)) &&
     (!loja || l.loja === loja))
 
+  // Contas de BANCO pro reembolso em PIX/cartão: quem devolve escolhe de qual
+  // conta o dinheiro sai. Antes a devolução gravava só a palavra "pix" e o
+  // saldo era descontado de um chute (a primeira conta daquele tipo) — com
+  // PIX/TON/PagBank em duas lojas, dava pra tirar de Petrópolis um reembolso
+  // feito em Teresópolis. Dinheiro NÃO entra aqui: continua saindo da gaveta
+  // do caixa aberto, como sangria (decisão do dono em 26/08).
+  const { data: contasBanco } = await supabase
+    .from('contas')
+    .select('id, nome, loja_id')
+    .eq('tipo', 'banco')
+    .eq('ativa', true)
+    .order('nome')
+
   return (
     <DevolucoesClient
       linhas={linhasVisiveis}
       lojas={nomesPermitidos}
       filtros={{ de: dataInicio, ate: dataFim, q: q ?? '', loja: loja ?? '' }}
       vendaInicial={venda ?? null}
+      contas={(contasBanco ?? []).map((c) => ({
+        id: c.id as string,
+        nome: c.nome as string,
+        loja: (c.loja_id ? nomeLoja[c.loja_id as string] : null) ?? null,
+      }))}
     />
   )
 }

@@ -1,0 +1,24 @@
+-- Reembolso em PIX/cartão passa a gravar DE QUAL CONTA saiu.
+--
+-- Antes o RPC gravava só o texto do meio ('pix' | 'debito' | 'credito') e o
+-- lançamento ficava com conta_id NULL. Como a loja tem PIX/TON/PagBank em duas
+-- lojas, lib/saldos-contas.ts precisava CHUTAR (pegava a primeira conta daquele
+-- tipo) — e podia descontar de Petrópolis um reembolso feito em Teresópolis.
+-- O código de lá admitia isso em comentário. Agora quem devolve escolhe a conta
+-- na tela e o valor sai da conta certa.
+--
+-- Dinheiro NÃO muda: continua saindo da gaveta do caixa aberto (movimentos_caixa,
+-- registrado na action), como sangria — decisão do dono em 26/08 ("sobre a
+-- devolução de dinheiro, mantém como sangria do caixa mesmo no momento").
+--
+-- Cada item de p_reembolsos aceita conta_id opcional:
+--   [{tipo:'pix', valor:50, conta_id:'<uuid>'}, {tipo:'dinheiro', valor:50}]
+-- Sem conta_id continua como era (lançamento sem conta), então nada quebra.
+--
+-- Já aplicada e testada ao vivo: devolução em PIX escolhendo "PIX Teresópolis"
+-- gravou o lançamento nessa conta (antes cairia em "PIX Petrópolis", a primeira
+-- da lista). A tela sugere a conta da loja da venda e exige escolher antes de
+-- confirmar — sem conta, o valor sairia "do nada" e inflaria o saldo do banco.
+--
+-- Corpo completo no banco:
+--   select pg_get_functiondef('public.registrar_devolucao'::regproc);

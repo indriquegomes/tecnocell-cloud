@@ -83,13 +83,15 @@ type Step = 'buscar' | 'itens' | 'confirmar'
 
 // ── Componente principal ───────────────────────────────────────────────────────
 export function DevolucoesClient({
-  linhas, lojas, filtros, vendaInicial = null,
+  linhas, lojas, filtros, vendaInicial = null, contas = [],
 }: {
   linhas: ItemDevolucaoLinha[]
   lojas: string[]
   filtros: { de: string; ate: string; q: string; loja: string }
   /** ?venda=<id> — veio do botão "Devolver produto" no detalhe da venda: já abre nela. */
   vendaInicial?: string | null
+  /** contas de banco — de qual sai o reembolso em PIX/cartão (dinheiro sai da gaveta) */
+  contas?: { id: string; nome: string; loja: string | null }[]
 }) {
   const router = useRouter()
 
@@ -165,7 +167,7 @@ export function DevolucoesClient({
   // Reembolso MISTO: devolver parte em dinheiro, parte em PIX, parte como crédito.
   // Fora do modo misto tudo segue como antes (uma forma só, `tipoCredito`).
   const [modoMistoReemb, setModoMistoReemb] = useState(false)
-  const [linhasReemb, setLinhasReemb] = useState<{ tipo: string; valor: string }[]>([])
+  const [linhasReemb, setLinhasReemb] = useState<{ tipo: string; valor: string; contaId: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
   const [sucesso, setSucesso] = useState(false)
@@ -286,10 +288,23 @@ export function DevolucoesClient({
   // na mesma proporção. Devolução total de venda toda paga → espelho exato.
   // Parcial → cada forma devolve sua fatia. O último absorve o centavo do
   // arredondamento pra soma fechar certinho com o reembolso.
-  const sugestaoMisto = (): { tipo: string; valor: string }[] => {
+  // Só PIX/cartão precisam de conta (o dinheiro sai da gaveta; crédito vai pro
+  // saldo do cliente). Sugere a conta da MESMA loja da devolução — com PIX/TON/
+  // PagBank em duas lojas, pegar a primeira da lista erraria metade das vezes.
+  const precisaConta = (tipo: string) => tipo === 'pix' || tipo === 'debito' || tipo === 'credito'
+  const lojaDaDevolucao = venda ? (linhas.find((l) => l.venda_id === venda.id)?.loja ?? '') : ''
+  const contaSugerida = (tipo: string): string => {
+    if (!precisaConta(tipo)) return ''
+    const alvo = tipo === 'pix' ? 'pix' : tipo === 'debito' ? 'ton' : 'pagbank'
+    const daLoja = contas.filter((c) => !lojaDaDevolucao || c.loja === lojaDaDevolucao)
+    const casa = (lista: typeof contas) => lista.find((c) => c.nome.toLowerCase().includes(alvo))
+    return (casa(daLoja) ?? daLoja[0] ?? casa(contas) ?? contas[0])?.id ?? ''
+  }
+
+  const sugestaoMisto = (): { tipo: string; valor: string; contaId: string }[] => {
     const pagos = venda?.pagamentos ?? []
     const soma = pagos.reduce((s, p) => s + p.valor, 0)
-    if (pagos.length === 0 || soma <= 0) return [{ tipo: 'dinheiro', valor: reembolso.toFixed(2).replace('.', ',') }]
+    if (pagos.length === 0 || soma <= 0) return [{ tipo: 'dinheiro', valor: reembolso.toFixed(2).replace('.', ','), contaId: '' }]
     let acumulado = 0
     return pagos.map((p, i) => {
       const ultimo = i === pagos.length - 1
@@ -297,7 +312,8 @@ export function DevolucoesClient({
         ? Math.round((reembolso - acumulado) * 100) / 100
         : Math.round((p.valor / soma) * reembolso * 100) / 100
       acumulado += v
-      return { tipo: tipoVendaParaReembolso(p.tipo), valor: v.toFixed(2).replace('.', ',') }
+      const tipo = tipoVendaParaReembolso(p.tipo)
+      return { tipo, valor: v.toFixed(2).replace('.', ','), contaId: contaSugerida(tipo) }
     })
   }
 
@@ -342,14 +358,25 @@ export function DevolucoesClient({
       // Misto: valida a soma AQUI também, pra dar mensagem clara antes de ir ao
       // banco (o RPC tem a mesma trava e recusa a devolução inteira se não bater).
       const usaMisto = modoMistoReemb && reembolso > 0.01
+      const linhasEnvio = linhasReemb
+        .map((l) => ({
+          tipo: l.tipo,
+          valor: Math.round((parseFloat((l.valor || '').replace(',', '.')) || 0) * 100) / 100,
+          conta_id: precisaConta(l.tipo) ? (l.contaId || null) : null,
+        }))
+        .filter((l) => l.valor > 0)
       if (usaMisto) {
-        const linhas = linhasReemb
-          .map((l) => ({ tipo: l.tipo, valor: Math.round((parseFloat((l.valor || '').replace(',', '.')) || 0) * 100) / 100 }))
-          .filter((l) => l.valor > 0)
-        if (linhas.length === 0) { setErro('Preencha ao menos uma forma de reembolso.'); return }
-        const soma = Math.round(linhas.reduce((s, l) => s + l.valor, 0) * 100) / 100
+        if (linhasEnvio.length === 0) { setErro('Preencha ao menos uma forma de reembolso.'); return }
+        const soma = Math.round(linhasEnvio.reduce((s, l) => s + l.valor, 0) * 100) / 100
         if (Math.abs(soma - reembolso) > 0.01) {
           setErro(`As formas somam ${fmt(soma)}, mas o reembolso é ${fmt(reembolso)}.`)
+          return
+        }
+        // Sem conta, o valor sai "do nada" e o saldo do banco fica inflado pra
+        // sempre — era exatamente o problema de antes. Exige escolher.
+        const semConta = linhasEnvio.find((l) => precisaConta(l.tipo) && !l.conta_id)
+        if (semConta) {
+          setErro(`Escolha de qual conta sai o reembolso de ${fmt(semConta.valor)} em ${CREDITO_LABEL[semConta.tipo] ?? semConta.tipo}.`)
           return
         }
       }
@@ -359,11 +386,7 @@ export function DevolucoesClient({
         vendedor_nome: venda.vendedor_nome, motivo, motivo_tipo: motivoTipo,
         // se não sobra reembolso (devolução só de fiado), registra como cancelamento de fiado
         tipo_credito: reembolso > 0.01 ? (usaMisto ? 'misto' : tipoCredito) : 'cancelamento_fiado',
-        reembolsos: usaMisto
-          ? linhasReemb
-              .map((l) => ({ tipo: l.tipo, valor: Math.round((parseFloat((l.valor || '').replace(',', '.')) || 0) * 100) / 100 }))
-              .filter((l) => l.valor > 0)
-          : undefined,
+        reembolsos: usaMisto ? linhasEnvio : undefined,
         itens: itensDev, lancamento_pendente: venda.lancamento_pendente,
       })
       fechar(); setSucesso(true)
@@ -940,30 +963,47 @@ export function DevolucoesClient({
                          cliente pedir diferente ("prefiro tudo em crédito"). */
                       <div className="space-y-2">
                         {linhasReemb.map((l, idx) => (
-                          <div key={idx} className="flex gap-2">
-                            <select
-                              value={l.tipo}
-                              onChange={(e) => setLinhasReemb((p) => p.map((x, i) => i === idx ? { ...x, tipo: e.target.value } : x))}
-                              className="flex-1 rounded-xl border border-gray-200 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                              {CREDITO_OPTS.filter((op) => op.key !== 'sem_reembolso' && (op.key !== 'credito_conta' || venda.pessoa_id)).map((op) => (
-                                <option key={op.key} value={op.key}>{op.icon} {op.label}</option>
-                              ))}
-                            </select>
-                            <div className="relative w-28">
-                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">R$</span>
-                              <input type="text" inputMode="decimal" value={l.valor} placeholder="0,00"
-                                onChange={(e) => setLinhasReemb((p) => p.map((x, i) => i === idx ? { ...x, valor: e.target.value } : x))}
-                                className="w-full rounded-xl border border-gray-200 py-2 pl-7 pr-2 text-right text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          <div key={idx} className="space-y-1">
+                            <div className="flex gap-2">
+                              <select
+                                value={l.tipo}
+                                onChange={(e) => setLinhasReemb((p) => p.map((x, i) => i === idx ? { ...x, tipo: e.target.value, contaId: contaSugerida(e.target.value) } : x))}
+                                className="flex-1 rounded-xl border border-gray-200 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                {CREDITO_OPTS.filter((op) => op.key !== 'sem_reembolso' && (op.key !== 'credito_conta' || venda.pessoa_id)).map((op) => (
+                                  <option key={op.key} value={op.key}>{op.icon} {op.label}</option>
+                                ))}
+                              </select>
+                              <div className="relative w-28">
+                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">R$</span>
+                                <input type="text" inputMode="decimal" value={l.valor} placeholder="0,00"
+                                  onChange={(e) => setLinhasReemb((p) => p.map((x, i) => i === idx ? { ...x, valor: e.target.value } : x))}
+                                  className="w-full rounded-xl border border-gray-200 py-2 pl-7 pr-2 text-right text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                              </div>
+                              {linhasReemb.length > 1 && (
+                                <button type="button" onClick={() => setLinhasReemb((p) => p.filter((_, i) => i !== idx))}
+                                  className="shrink-0 rounded-lg border border-gray-200 px-2 text-gray-400 hover:bg-gray-50 hover:text-red-500">✕</button>
+                              )}
                             </div>
-                            {linhasReemb.length > 1 && (
-                              <button type="button" onClick={() => setLinhasReemb((p) => p.filter((_, i) => i !== idx))}
-                                className="shrink-0 rounded-lg border border-gray-200 px-2 text-gray-400 hover:bg-gray-50 hover:text-red-500">✕</button>
+                            {/* De QUAL conta sai o PIX/cartão. Dinheiro não tem: sai da gaveta. */}
+                            {precisaConta(l.tipo) && (
+                              <select
+                                value={l.contaId}
+                                onChange={(e) => setLinhasReemb((p) => p.map((x, i) => i === idx ? { ...x, contaId: e.target.value } : x))}
+                                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Sai de qual conta? (escolha)</option>
+                                {contas.map((c) => (
+                                  <option key={c.id} value={c.id}>🏦 {c.nome}{c.loja ? ` · ${c.loja}` : ''}</option>
+                                ))}
+                              </select>
+                            )}
+                            {l.tipo === 'dinheiro' && (
+                              <p className="text-[11px] text-gray-400">💵 Sai da gaveta do caixa aberto.</p>
                             )}
                           </div>
                         ))}
                         <div className="flex items-center justify-between pt-1">
                           <button type="button"
-                            onClick={() => setLinhasReemb((p) => [...p, { tipo: 'dinheiro', valor: faltaReemb > 0 ? faltaReemb.toFixed(2).replace('.', ',') : '' }])}
+                            onClick={() => setLinhasReemb((p) => [...p, { tipo: 'dinheiro', valor: faltaReemb > 0 ? faltaReemb.toFixed(2).replace('.', ',') : '', contaId: '' }])}
                             className="text-xs font-semibold text-blue-600 hover:text-blue-800">+ adicionar forma</button>
                           <span className={`text-xs font-semibold tabular-nums ${Math.abs(faltaReemb) < 0.01 ? 'text-green-600' : faltaReemb < 0 ? 'text-red-600' : 'text-gray-500'}`}>
                             {Math.abs(faltaReemb) < 0.01 ? '✓ fecha certinho' : faltaReemb > 0 ? `faltam ${fmt(faltaReemb)}` : `passou ${fmt(-faltaReemb)}`}
