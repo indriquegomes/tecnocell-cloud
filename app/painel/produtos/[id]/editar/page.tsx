@@ -8,8 +8,9 @@ import { SubmitButton } from '@/components/SubmitButton'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
-export default async function EditarProdutoPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EditarProdutoPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ erro?: string }> }) {
   const { id } = await params
+  const { erro } = await searchParams
   const supabase = await createServiceClient()
 
   const [{ data: produto }, { data: categorias }, { data: marcas }, { data: fornecedoresRaw }] = await Promise.all([
@@ -38,6 +39,10 @@ export default async function EditarProdutoPage({ params }: { params: Promise<{ 
         </Link>
         <h2 className="text-2xl font-bold text-gray-900">Editar Produto</h2>
       </div>
+
+      {erro && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>
+      )}
 
       <form action={action} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-5" encType="multipart/form-data">
         <div className="grid gap-5 sm:grid-cols-2">

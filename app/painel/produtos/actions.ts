@@ -40,8 +40,12 @@ export async function criarProduto(formData: FormData) {
     // única coisa que evita duplicidade. Se ela falhar, não dá pra saber se
     // já existe outro com o mesmo código, então trava em vez de arriscar.
     const { data: dup, error: erroDup } = await supabase.from('produtos').select('nome').eq('codigo', codigoNovo).eq('ativo', true).maybeSingle()
-    if (erroDup) throw new Error('Não deu pra checar se o código já existe: ' + erroDup.message)
-    if (dup) throw new Error(`Já existe um produto ativo com o código "${codigoNovo}" (${dup.nome}).`)
+    // redirect (não throw): um erro lançado num <form action={...}> sem error
+    // boundary derruba a página inteira pra tela genérica "This page couldn't
+    // load" — a mensagem amigável nunca chegava a aparecer pro usuário
+    // (achado em teste de erros 26/08, testando ao vivo pelo navegador).
+    if (erroDup) redirect(`/painel/produtos/novo?erro=${encodeURIComponent('Não deu pra checar se o código já existe: ' + erroDup.message)}`)
+    if (dup) redirect(`/painel/produtos/novo?erro=${encodeURIComponent(`Já existe um produto ativo com o código "${codigoNovo}" (${dup.nome}).`)}`)
   }
   const id = crypto.randomUUID()
   const imagemFile = formData.get('imagem') as File | null
@@ -79,8 +83,8 @@ export async function criarProduto(formData: FormData) {
   // 2026-08-25-produtos-codigo-unico-ativo.sql trava isso no banco; aqui só troca
   // o erro cru do Postgres por uma mensagem que a pessoa entende.
   if (error) {
-    if (error.code === '23505') throw new Error(`Já existe um produto ativo com o código "${codigoNovo}".`)
-    throw new Error(error.message)
+    if (error.code === '23505') redirect(`/painel/produtos/novo?erro=${encodeURIComponent(`Já existe um produto ativo com o código "${codigoNovo}".`)}`)
+    redirect(`/painel/produtos/novo?erro=${encodeURIComponent(error.message)}`)
   }
   revalidatePath('/painel/produtos')
   redirect('/painel/produtos')
@@ -123,8 +127,10 @@ export async function editarProduto(id: string, formData: FormData) {
     // editarProduto nunca checou duplicidade de código antes de salvar (só
     // criarProduto checava) — a trava nova no banco (23505) agora pega isso
     // também, então precisa da mesma mensagem amigável em vez do erro cru.
-    if (error.code === '23505') throw new Error(`Já existe outro produto ativo com o código "${updates.codigo}".`)
-    throw new Error(error.message)
+    // redirect (não throw): mesmo motivo do criarProduto — throw num <form
+    // action> sem error boundary derruba a tela inteira (achado 26/08).
+    if (error.code === '23505') redirect(`/painel/produtos/${id}/editar?erro=${encodeURIComponent(`Já existe outro produto ativo com o código "${updates.codigo}".`)}`)
+    redirect(`/painel/produtos/${id}/editar?erro=${encodeURIComponent(error.message)}`)
   }
   revalidatePath('/painel/produtos')
   redirect('/painel/produtos')

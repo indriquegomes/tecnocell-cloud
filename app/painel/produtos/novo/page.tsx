@@ -6,7 +6,8 @@ import { PrecoFields } from '../PrecoFields'
 import { SubmitButton } from '@/components/SubmitButton'
 import Link from 'next/link'
 
-export default async function NovoProdutoPage() {
+export default async function NovoProdutoPage({ searchParams }: { searchParams: Promise<{ erro?: string }> }) {
+  const { erro } = await searchParams
   const supabase = await createServiceClient()
   const [{ data: categorias }, { data: marcas }, { data: fornecedoresRaw }] = await Promise.all([
     supabase.from('categorias').select('hierarquia, nome').order('nome'),
@@ -29,6 +30,10 @@ export default async function NovoProdutoPage() {
         </Link>
         <h2 className="text-2xl font-bold text-gray-900">Novo Produto</h2>
       </div>
+
+      {erro && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>
+      )}
 
       <form action={criarProduto} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-5" encType="multipart/form-data">
         <div className="grid gap-5 sm:grid-cols-2">
