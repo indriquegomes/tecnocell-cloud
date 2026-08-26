@@ -14,7 +14,7 @@ import { BuscaAvancada } from '@/components/BuscaAvancada'
 export default async function FinanceiroPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tipo?: string; busca?: string; ordem?: string; dir?: string; status?: string; de?: string; ate?: string; pessoa?: string; forma?: string; conta?: string; categoria?: string; valor_min?: string; valor_max?: string; campo?: string }>
+  searchParams: Promise<{ tipo?: string; busca?: string; ordem?: string; dir?: string; status?: string; de?: string; ate?: string; pessoa?: string; forma?: string; conta?: string; categoria?: string; valor_min?: string; valor_max?: string; campo?: string; erro?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
@@ -127,6 +127,10 @@ export default async function FinanceiroPage({
           </Link>
         </div>
       </div>
+
+      {params.erro && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{params.erro}</div>
+      )}
 
       <FinanceiroTabs active="lancamentos" />
 

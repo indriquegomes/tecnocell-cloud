@@ -9,7 +9,7 @@ import { ClienteFornecedorField } from '../ClienteFornecedorField'
 export default async function NovoLancamentoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tipo?: string }>
+  searchParams: Promise<{ tipo?: string; erro?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
@@ -33,6 +33,10 @@ export default async function NovoLancamentoPage({
         </Link>
         <h2 className="text-2xl font-bold text-gray-900">Novo Lançamento</h2>
       </div>
+
+      {params.erro && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{params.erro}</div>
+      )}
 
       <form action={criarLancamento} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-5">
         <div className="grid gap-5 sm:grid-cols-2">

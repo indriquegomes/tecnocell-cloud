@@ -56,7 +56,9 @@ export async function criarLancamento(formData: FormData) {
     updated_at: new Date().toISOString(),
   }))
   const { error } = await supabase.from('lancamentos').insert(linhas)
-  if (error) throw new Error(error.message)
+  // redirect (não throw): mesmo motivo do editarLancamento — throw num <form
+  // action> sem error boundary derruba a tela inteira.
+  if (error) redirect(`/painel/financeiro/novo?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/financeiro')
   redirect('/painel/financeiro')
 }
@@ -76,7 +78,11 @@ export async function editarLancamento(id: string, formData: FormData) {
     conta_id: (formData.get('conta_id') as string) || null,
     updated_at: new Date().toISOString(),
   }).eq('id', id)
-  if (error) throw new Error(error.message)
+  // redirect (não throw): um erro lançado num <form action={...}> sem error
+  // boundary derruba a página inteira pra tela genérica "This page couldn't
+  // load" — a mensagem nunca chegava a aparecer (mesmo achado de produtos,
+  // 26/08).
+  if (error) redirect(`/painel/financeiro/${id}/editar?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/financeiro')
   redirect('/painel/financeiro')
 }
@@ -92,7 +98,9 @@ export async function marcarPago(id: string) {
   // Sem essa checagem, uma falha na consulta virava "antes = undefined" e o
   // valor pago descia pra 0 silenciosamente — o lançamento saía da cobrança
   // como se tivesse sido pago, mas nada entrava na gaveta.
-  if (erroAntes) throw new Error(erroAntes.message)
+  // redirect (não throw): marcarPago é chamado por um <form action={...}> sem
+  // error boundary (financeiro/page.tsx) — throw derruba a tela inteira.
+  if (erroAntes) redirect(`/painel/financeiro?erro=${encodeURIComponent(erroAntes.message)}`)
   await logAtividade('pagamento.marcar_pago', {
     lancamento_id: id,
     valor: antes?.valor ?? null,
@@ -108,7 +116,7 @@ export async function marcarPago(id: string) {
     valor_pago: valor,
     updated_at: new Date().toISOString(),
   }).eq('id', id)
-  if (error) throw new Error(error.message)
+  if (error) redirect(`/painel/financeiro?erro=${encodeURIComponent(error.message)}`)
 
   // O dinheiro precisa aparecer na gaveta. Sem isto a baixa pelo Financeiro sumia do
   // caixa (o PDV já registrava; só esta porta não registrava).
@@ -132,7 +140,10 @@ export async function deletarLancamento(id: string) {
   await requirePermissao('financeiro')
   const supabase = await createServiceClient()
   const { error } = await supabase.from('lancamentos').delete().eq('id', id)
-  if (error) throw new Error(error.message)
+  // redirect (não throw): chamado pelo BotaoExcluir, que é um <form
+  // action={...}> por baixo — sem isso, uma falha (ex: FK bloqueando o
+  // delete) derrubava a tela inteira em vez de mostrar o motivo.
+  if (error) redirect(`/painel/financeiro?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/financeiro')
 }
 
