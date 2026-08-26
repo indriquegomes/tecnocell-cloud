@@ -34,6 +34,11 @@ export type Conferencia = {
   novos: number
   atualizar: number
   semMudanca: number
+  /** casaram pelo Código porque o Identificador não bate (migração antiga) */
+  casadosPorCodigo: number
+  /** só com "somente existentes" ligado: linhas puladas por não existirem aqui */
+  naoEncontrados: number
+  somenteExistentes: boolean
   mudancas: Mudanca[]
   avisos: string[]
   erros: string[]
@@ -124,37 +129,53 @@ export async function conferirImportacao(formData: FormData): Promise<ResultadoC
     supabase.from('categorias').select('hierarquia, nome').range(de, ate))
   const catPorNome = new Map(cats.map((c) => [(c.nome ?? '').trim().toUpperCase(), c.hierarquia]))
 
-  // Todos os códigos já cadastrados — serve só pra avisar quando um "cadastro
-  // novo" bate com o código de um produto que já existe sob OUTRO id (sinal
-  // de erro de digitação no Identificador, não bloqueia como o SIGE manda
-  // produto novo de verdade sem avisar antes).
-  const todosProdutos = await fetchAll<{ id: string; codigo: string | null }>((de, ate) =>
-    supabase.from('produtos').select('id, codigo').range(de, ate))
-  const idPorCodigo = new Map(
-    todosProdutos.filter((p) => p.codigo).map((p) => [p.codigo!.trim().toUpperCase(), p.id])
-  )
+  // "Só atualizar o que já existe": nada de produto novo, só corrige os que já
+  // estão cadastrados aqui. É o modo seguro pra reimportar dado do SIGE.
+  const somenteExistentes = formData.get('somente_existentes') === '1'
+
+  const COLUNAS_PRODUTO = 'id, codigo, nome, categoria, marca, preco, preco_custo, preco_minimo, ean, prateleira, modelo, unidade, ativo, controla_serie, visivel_catalogo'
 
   const idsPlanilha = planilha.linhas
     .map((l) => txt(l[COL.ident]).replace(/idproduto$/, ''))
     .filter(Boolean)
+  const codigosPlanilha = [...new Set(
+    planilha.linhas.map((l) => txt(l[COL.codigo])).filter(Boolean)
+  )]
 
+  // Busca os já cadastrados por DOIS caminhos: o Identificador do SIGE (que é o
+  // nosso id em quem veio de lá) E o Código. O segundo existe porque a migração
+  // antiga criou produto com id próprio — pra esses, o Identificador do SIGE não
+  // bate com nada, e sem o Código eles seriam tratados como "novos", duplicando
+  // o catálogo inteiro (6.619 casos confirmados em 26/08).
   const existentes: ProdutoBanco[] = []
   for (let i = 0; i < idsPlanilha.length; i += 300) {
-    const { data } = await supabase
-      .from('produtos')
-      .select('id, codigo, nome, categoria, marca, preco, preco_custo, preco_minimo, ean, prateleira, modelo, unidade, ativo, controla_serie, visivel_catalogo')
+    const { data } = await supabase.from('produtos').select(COLUNAS_PRODUTO)
       .in('id', idsPlanilha.slice(i, i + 300))
     existentes.push(...((data ?? []) as ProdutoBanco[]))
   }
+  for (let i = 0; i < codigosPlanilha.length; i += 300) {
+    const { data } = await supabase.from('produtos').select(COLUNAS_PRODUTO)
+      .in('codigo', codigosPlanilha.slice(i, i + 300))
+    existentes.push(...((data ?? []) as ProdutoBanco[]))
+  }
   const porId = new Map(existentes.map((p) => [p.id, p]))
+  // um código pode repetir entre produtos; fica com o primeiro e avisa depois
+  const porCodigo = new Map<string, ProdutoBanco>()
+  for (const p of porId.values()) {
+    const c = (p.codigo ?? '').trim().toUpperCase()
+    if (c && !porCodigo.has(c)) porCodigo.set(c, p)
+  }
 
   const mudancas: Mudanca[] = []
   const erros: string[] = []
   const avisos: string[] = []
   const categoriasFaltando = new Set<string>()
   const idNaPlanilha = new Map<string, number>() // id -> linha onde apareceu primeiro
+  const alvoUsado = new Map<string, number>()    // produto do banco -> linha que já o reivindicou
   let semMudanca = 0
   let ignoradas = 0
+  let casadosPorCodigo = 0
+  let naoEncontrados = 0
 
   planilha.linhas.forEach((linha, i) => {
     const nLinha = i + 2
@@ -199,16 +220,30 @@ export async function conferirImportacao(formData: FormData): Promise<ResultadoC
     // Categoria só entra quando foi possível traduzir — senão a FK derruba o insert.
     if (categoria) campos.categoria = categoria
 
-    const atual = porId.get(id)
-    if (!atual) {
-      const codigoLimpo = String(campos.codigo ?? '').trim().toUpperCase()
-      const donoCodigo = codigoLimpo ? idPorCodigo.get(codigoLimpo) : undefined
-      if (donoCodigo && donoCodigo !== id) {
-        avisos.push(
-          `Linha ${nLinha} (${nome}): ja existe um produto com o Codigo "${campos.codigo}" cadastrado sob outro Identificador — ` +
-          `confira se nao e erro de digitacao antes de confirmar (vai criar um produto duplicado).`
-        )
+    // Acha o produto: primeiro pelo Identificador do SIGE, senão pelo Código.
+    // Quem casa pelo Código é ATUALIZADO no id que ele já tem aqui — trocar o id
+    // pelo do SIGE quebraria estoque, vendas e tudo que aponta pro produto.
+    const codigoLimpo = String(campos.codigo ?? '').trim().toUpperCase()
+    let atual = porId.get(id) ?? null
+    let alvoId = id
+    if (!atual && codigoLimpo) {
+      const porCod = porCodigo.get(codigoLimpo)
+      if (porCod) { atual = porCod; alvoId = porCod.id; casadosPorCodigo++ }
+    }
+
+    if (atual) {
+      // Duas linhas da planilha mirando o MESMO produto daqui: a segunda
+      // sobrescreveria a primeira em silêncio. Barra e mostra as duas linhas.
+      const jaReivindicou = alvoUsado.get(alvoId)
+      if (jaReivindicou) {
+        erros.push(`Linha ${nLinha} (${nome}): aponta pro mesmo produto da linha ${jaReivindicou} — confira o Código repetido. Nenhuma das duas foi aplicada.`)
+        return
       }
+      alvoUsado.set(alvoId, nLinha)
+    }
+
+    if (!atual) {
+      if (somenteExistentes) { naoEncontrados++; return }
       mudancas.push({ id, codigo: String(campos.codigo ?? ''), nome, acao: 'novo', diffs: [], campos })
       return
     }
@@ -240,13 +275,19 @@ export async function conferirImportacao(formData: FormData): Promise<ResultadoC
     compara('visivel_catalogo', 'No catálogo', (v) => (v ? 'sim' : 'não'))
 
     if (diffs.length === 0) semMudanca++
-    else mudancas.push({ id, codigo: String(campos.codigo ?? ''), nome, acao: 'atualizar', diffs, campos })
+    else mudancas.push({ id: alvoId, codigo: String(campos.codigo ?? ''), nome, acao: 'atualizar', diffs, campos })
   })
 
   if (categoriasFaltando.size > 0) {
     avisos.push(
       `Categoria nao cadastrada aqui: ${[...categoriasFaltando].join(', ')}. ` +
       `Os produtos entram sem categoria — cadastre em Categorias e reenvie pra corrigir.`
+    )
+  }
+  if (casadosPorCodigo > 0) {
+    avisos.push(
+      `${casadosPorCodigo} produto(s) foram reconhecidos pelo Codigo (o Identificador do sistema antigo nao bate com o daqui). ` +
+      `Eles vao ser ATUALIZADOS no cadastro que ja existe — nao vira produto novo.`
     )
   }
 
@@ -260,6 +301,9 @@ export async function conferirImportacao(formData: FormData): Promise<ResultadoC
       novos: mudancas.filter((m) => m.acao === 'novo').length,
       atualizar: mudancas.filter((m) => m.acao === 'atualizar').length,
       semMudanca,
+      casadosPorCodigo,
+      naoEncontrados,
+      somenteExistentes,
       mudancas,
       avisos,
       erros,

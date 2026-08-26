@@ -15,6 +15,7 @@ export function ImportarProdutos() {
   const [conf, setConf] = useState<Conferencia | null>(null)
   const [arquivo, setArquivo] = useState<File | null>(null)
   const [sucesso, setSucesso] = useState<{ novos: number; atualizados: number } | null>(null)
+  const [somenteExistentes, setSomenteExistentes] = useState(true)
   const [pending, startTransition] = useTransition()
 
   function conferir(file: File, aba?: string) {
@@ -30,6 +31,7 @@ export function ImportarProdutos() {
     const fd = new FormData()
     fd.set('arquivo', file)
     if (aba) fd.set('aba', aba)
+    if (somenteExistentes) fd.set('somente_existentes', '1')
     startTransition(async () => {
       // try/catch: sem isso, qualquer recusa do servidor (arquivo grande demais,
       // sessão caída, oscilação no meio do upload) virava promessa rejeitada e
@@ -67,13 +69,31 @@ export function ImportarProdutos() {
 
   return (
     <div className="space-y-4">
-      <form action={onEnviar} className="flex flex-wrap items-center gap-3">
-        <input type="file" name="arquivo" accept=".xlsx" required
-          className="block text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100" />
-        <button type="submit" disabled={pending}
-          className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50">
-          {pending ? 'Conferindo...' : 'Enviar e conferir'}
-        </button>
+      <form action={onEnviar} className="space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <input type="file" name="arquivo" accept=".xlsx" required
+            className="block text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100" />
+          <button type="submit" disabled={pending}
+            className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50">
+            {pending ? 'Conferindo...' : 'Enviar e conferir'}
+          </button>
+        </div>
+        {/* Marcado por padrão: reimportar dado do sistema antigo é o caso comum,
+            e criar produto sem querer enche o catálogo de duplicata. Quem quer
+            trazer item novo desmarca de propósito. */}
+        <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-gray-200 bg-gray-50 p-3">
+          <input type="checkbox" name="somente_existentes" value="1" defaultChecked
+            checked={somenteExistentes}
+            onChange={(e) => setSomenteExistentes(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+          <span>
+            <span className="block text-sm font-medium text-gray-800">Só atualizar o que já existe</span>
+            <span className="block text-xs text-gray-500 mt-0.5">
+              Corrige os produtos já cadastrados e <b>não cria nenhum novo</b>. Desmarque só quando
+              quiser mesmo trazer produtos que ainda não estão aqui.
+            </span>
+          </span>
+        </label>
       </form>
 
       {erros.length > 0 && (
@@ -101,7 +121,9 @@ export function ImportarProdutos() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
               { rot: 'Produtos no arquivo', v: conf.produtos, cor: 'text-gray-900' },
-              { rot: 'Produtos novos', v: conf.novos, cor: 'text-emerald-600' },
+              conf.somenteExistentes
+                ? { rot: 'Nao existem aqui (pulados)', v: conf.naoEncontrados, cor: 'text-gray-400' }
+                : { rot: 'Produtos novos', v: conf.novos, cor: 'text-emerald-600' },
               { rot: 'Serao atualizados', v: conf.atualizar, cor: 'text-amber-600' },
               { rot: 'Ja estao iguais', v: conf.semMudanca, cor: 'text-gray-400' },
             ].map((c) => (
@@ -111,6 +133,13 @@ export function ImportarProdutos() {
               </div>
             ))}
           </div>
+
+          {conf.somenteExistentes && (
+            <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-sm text-blue-900">
+              Modo <b>só atualizar</b> ligado: nenhum produto novo vai ser criado.
+              {conf.naoEncontrados > 0 && <> {conf.naoEncontrados.toLocaleString('pt-BR')} linha(s) do arquivo não existem aqui e foram puladas.</>}
+            </div>
+          )}
 
           {conf.abas.length > 1 && (
             <div className="flex flex-wrap items-center gap-2 text-sm">
