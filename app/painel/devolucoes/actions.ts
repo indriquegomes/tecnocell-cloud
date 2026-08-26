@@ -252,6 +252,41 @@ export async function registrarDevolucao(
   const usuario = await requirePermissao('devolucoes', accessToken)
   const supabase = await createServiceClient()
 
+  // TRAVA: devolver DINHEIRO exige caixa aberto.
+  //
+  // Dinheiro devolvido sai da gaveta e é registrado como movimento do caixa —
+  // é o único lugar onde esse valor existe (o RPC não cria lançamento pra
+  // dinheiro, de propósito: é evento de caixa, não conta a pagar). Sem caixa
+  // aberto não havia onde gravar: a nota saía da mão da atendente e o sistema
+  // ficava só com um aviso no log que ninguém lê. O estoque voltava, a
+  // devolução aparecia na lista, mas o dinheiro sumia do controle.
+  //
+  // Checado ANTES do RPC pra não deixar a devolução meio-feita: ou dá tudo
+  // certo, ou nada acontece.
+  const vaiSairDinheiro = input.reembolsos && input.reembolsos.length > 0
+    ? input.reembolsos.some((r) => r.tipo === 'dinheiro' && r.valor > 0.005)
+    : input.tipo_credito === 'dinheiro'
+
+  if (vaiSairDinheiro) {
+    if (!input.deposito_id) {
+      throw new Error('Devolução em dinheiro precisa saber de qual loja sai — esta venda está sem depósito. Devolva como crédito, PIX ou cartão.')
+    }
+    const { data: dep, error: erroDep } = await supabase
+      .from('depositos').select('loja_id').eq('id', input.deposito_id).maybeSingle()
+    if (erroDep) throw new Error('Não deu pra conferir a loja do depósito: ' + erroDep.message)
+    const lojaId = (dep as { loja_id: string | null } | null)?.loja_id ?? null
+    if (!lojaId) {
+      throw new Error('O depósito desta venda não está ligado a nenhuma loja, então não dá pra tirar dinheiro da gaveta. Devolva como crédito, PIX ou cartão.')
+    }
+    const { data: caixa, error: erroCaixa } = await supabase
+      .from('caixas').select('id').eq('status', 'aberto').eq('loja_id', lojaId)
+      .order('aberto_em', { ascending: false }).limit(1).maybeSingle()
+    if (erroCaixa) throw new Error('Não deu pra conferir o caixa: ' + erroCaixa.message)
+    if (!caixa) {
+      throw new Error('Não tem caixa aberto nesta loja. Devolução em dinheiro sai da gaveta, então precisa de caixa aberto pra ficar registrada. Abra o caixa e refaça, ou devolva como crédito/PIX/cartão.')
+    }
+  }
+
   // Tudo numa transação atômica no RPC (migration 2026-07-03): devolução + itens +
   // retorno ao estoque + financeiro. Falha em qualquer passo reverte o conjunto —
   // sem devolução órfã nem estoque retornado pela metade.
