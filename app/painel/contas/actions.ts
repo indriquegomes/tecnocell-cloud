@@ -12,6 +12,10 @@ function campos(formData: FormData) {
     tipo: (formData.get('tipo') as string) === 'caixa' ? 'caixa' : 'banco',
     saldo_inicial: isNaN(saldoRaw) ? 0 : saldoRaw,
     loja_id: (formData.get('loja_id') as string) || null,   // vínculo com a loja (empresa)
+    // Pix desta conta — sai na cobrança de fiado pelo WhatsApp. Vazio vira
+    // null pra não gravar string em branco e a cobrança conseguir só omitir.
+    chave_pix: ((formData.get('chave_pix') as string) || '').trim() || null,
+    titular:   ((formData.get('titular')   as string) || '').trim() || null,
   }
 }
 

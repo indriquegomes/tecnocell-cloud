@@ -109,6 +109,23 @@ export default async function FiadosPage() {
   // lista de vendedores que têm fiado em aberto (pro seletor "quem vendeu")
   const vendedores = [...new Set(clientes.flatMap((c) => c.notas.map((n) => n.vendedor)))].sort()
 
+  // Pix por loja pra sair na cobrança. Vem da CONTA (conta já é por loja),
+  // então cliente de Teresópolis recebe a chave de Teresópolis sem ninguém
+  // escolher. Conta sem loja vira o fallback "geral". Sem chave cadastrada,
+  // a mensagem simplesmente sai sem o Pix, como era antes.
+  const { data: contasPix } = await supabase
+    .from('contas')
+    .select('nome, chave_pix, titular, loja_id')
+    .eq('ativa', true)
+    .not('chave_pix', 'is', null)
+  const pixPorLoja: Record<string, { chave: string; titular: string | null }> = {}
+  for (const c of (contasPix ?? []) as { chave_pix: string | null; titular: string | null; loja_id: string | null }[]) {
+    if (!c.chave_pix) continue
+    const nomeDaLoja = c.loja_id ? (todasLojas.find((l) => l.id === c.loja_id)?.nome ?? '') : ''
+    const k = nomeDaLoja || '__geral__'
+    if (!(k in pixPorLoja)) pixPorLoja[k] = { chave: c.chave_pix, titular: c.titular }
+  }
+
   return (
     <FiadosClient
       clientes={clientes}
@@ -116,6 +133,7 @@ export default async function FiadosPage() {
       totalVencido={totalVencido}
       vendedores={vendedores}
       lojas={nomesPermitidos}
+      pixPorLoja={pixPorLoja}
     />
   )
 }

@@ -16,7 +16,9 @@ const fmtData = (d: string | null) => (d ? d.slice(0, 10).split('-').reverse().j
 // mensagem de cobrança pro WhatsApp — modelo que a Isa desenhou: saudação com o
 // nome, saldo em aberto, período das notas, e o RELATÓRIO DE PEÇAS (uma linha por
 // nota em aberto, com código, descrição e valor).
-const mensagem = (c: Cliente) => {
+type Pix = { chave: string; titular: string | null }
+
+const mensagem = (c: Cliente, pixPorLoja: Record<string, Pix> = {}) => {
   const datas = c.notas.map((n) => n.vencimento).filter(Boolean).sort() as string[]
   const periodo = datas.length
     ? ` (referente ao período de ${fmtData(datas[0])} a ${fmtData(datas[datas.length - 1])})`
@@ -31,8 +33,26 @@ const mensagem = (c: Cliente) => {
     `Olá, ${c.nome}! 😊\n` +
     `Passando pra lembrar do saldo em aberto de ${fmt(c.total)} aqui na TecnoCell${periodo}. ` +
     `Pedimos pelo acerto o quanto antes para mantermos tudo em dia. Qualquer dúvida, estamos à disposição.` +
-    (pecas.length ? `\n\nSegue o relatório de peças:\n${pecas.join('\n')}` : '')
+    (pecas.length ? `\n\nSegue o relatório de peças:\n${pecas.join('\n')}` : '') +
+    blocoPix(c, pixPorLoja)
   )
+}
+
+// Pix da loja do cliente. Antes a cobrança saía sem Pix e as meninas mandavam
+// a chave à parte, num contato separado — por isso quase ninguém usava a
+// cobrança do sistema, mesmo ela já existindo pronta.
+//
+// A loja vem das NOTAS: cada cliente é de uma loja só (confirmado pelo dono em
+// 26/08) e `pessoas` não tem loja_id, então as notas dele são todas da mesma.
+// O desempate por maior valor é só uma rede de segurança pro caso de um dia
+// aparecer cliente com nota nas duas — nunca fica sem Pix por causa disso.
+const blocoPix = (c: Cliente, pixPorLoja: Record<string, Pix>) => {
+  const porLoja: Record<string, number> = {}
+  for (const n of c.notas) porLoja[n.loja] = (porLoja[n.loja] ?? 0) + n.valor
+  const lojaPrincipal = Object.entries(porLoja).sort((a, b) => b[1] - a[1])[0]?.[0] ?? ''
+  const pix = pixPorLoja[lojaPrincipal] ?? pixPorLoja['__geral__']
+  if (!pix) return ''   // sem chave cadastrada: a mensagem sai como era antes
+  return `\n\n💠 PIX: ${pix.chave}` + (pix.titular ? `\n👤 Em nome de: ${pix.titular}` : '')
 }
 
 // telefone -> só dígitos, com 55 na frente (Brasil)
@@ -48,12 +68,15 @@ export function FiadosClient({
   totalVencido,
   vendedores,
   lojas,
+  pixPorLoja = {},
 }: {
   clientes: Cliente[]
   totalReceber: number
   totalVencido: number
   vendedores: string[]
   lojas: string[]
+  /** Pix de cada loja (da conta), pra sair na cobranca do cliente */
+  pixPorLoja?: Record<string, Pix>
 }) {
   const [busca, setBusca] = useState('')
   const [vendedorSel, setVendedorSel] = useState('')   // '' = todos
@@ -98,7 +121,7 @@ export function FiadosClient({
 
   const copiar = async (c: Cliente) => {
     try {
-      await navigator.clipboard.writeText(mensagem(c))
+      await navigator.clipboard.writeText(mensagem(c, pixPorLoja))
       setCopiado(c.nome)
       setTimeout(() => setCopiado((n) => (n === c.nome ? null : n)), 2500)
     } catch { /* clipboard bloqueado */ }
@@ -211,7 +234,7 @@ export function FiadosClient({
                 {c.telefone && (
                   // eslint-disable-next-line react/jsx-no-target-blank
                   <a
-                    href={waLink(c.telefone, mensagem(c))}
+                    href={waLink(c.telefone, mensagem(c, pixPorLoja))}
                     target="_blank" rel="noopener"
                     className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition">
                     WhatsApp
