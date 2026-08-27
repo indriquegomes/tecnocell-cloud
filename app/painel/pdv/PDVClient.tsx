@@ -625,7 +625,12 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const semAcento = (s: string) => s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
   const clientesFiltrados = buscaCliente.length >= 1
     ? pessoas.filter((p) => {
-        const nomeMatch = semAcento(p.nome).includes(semAcento(buscaCliente))
+        // busca por PALAVRA, não pelo texto inteiro como um bloco só — igual à
+        // "busca esperta" de produto (casaBusca) logo abaixo. Sem isto,
+        // "silva joao" (sobrenome primeiro) ou "joaoma" (sem espaço) não
+        // achavam "JOAO MATHEUS SILVA", mesmo sendo a mesma pessoa.
+        const alvo = semAcento(p.nome)
+        const nomeMatch = semAcento(buscaCliente).split(/\s+/).filter(Boolean).every((w) => alvo.includes(w))
         const cpfMatch = soDigitos(buscaCliente).length >= 1 &&
           soDigitos(p.cpf_cnpj ?? '').includes(soDigitos(buscaCliente))
         return nomeMatch || cpfMatch
