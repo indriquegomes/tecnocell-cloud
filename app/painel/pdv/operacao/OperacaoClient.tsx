@@ -278,6 +278,12 @@ function Linha({
   // dívida, subtrair quebraria o selo "misto"). A soma do rodapé, sim, tira o
   // já abatido — pra bater com o total do cabeçalho, que já foi corrigido.
   const soma = vendas.reduce((s, v) => s + v.valorForma - (v.fiadoAbatido ?? 0), 0)
+  // Recebimento de fiado (cliente pagando dívida antiga) NÃO é venda — não tem
+  // número, fica só com uma etiqueta genérica no lugar. Misturado com vendas
+  // de verdade na mesma tabela "Venda" ficava esquisito (achado pelo dono
+  // 27/08: "pq ta escrito fiado aqui"). Separa em dois blocos.
+  const vendasReais = vendas.filter((v) => !v.fiado)
+  const recebimentos = vendas.filter((v) => v.fiado)
   return (
     <div>
       {temVendas ? (
@@ -289,67 +295,96 @@ function Linha({
       )}
 
       {temVendas && mostra && (
-        <div className="border-t border-gray-100 bg-gray-50/60 px-4 py-3">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-            Vendas desta forma — bata uma a uma
-          </p>
-          <table className="min-w-full text-xs">
-            <thead>
-              <tr className="text-gray-400">
-                <th className="pb-1 text-left font-semibold">Venda</th>
-                <th className="pb-1 text-left font-semibold">Hora</th>
-                <th className="pb-1 text-left font-semibold">Cliente</th>
-                <th className="pb-1 text-right font-semibold">Nesta forma</th>
-                <th className="pb-1 text-right font-semibold">Total da venda</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {vendas.map((v) => {
-                // misto compara o valor CHEIO do fiado com o total da venda — nunca
-                // o restante, senão fiado parcialmente pago vira "misto" por engano.
-                const misto = Math.abs(v.valorForma - v.totalVenda) > 0.005
-                // "Nesta forma" mostra o que AINDA falta, não o valor original —
-                // já quitado nem chega aqui (filtrado em page.tsx); parcial mostra
-                // só o restante, o "abatido" ao lado conta o que já foi pago.
-                const restante = (v.fiadoAbatido ?? 0) > 0 ? Math.max(0, v.valorForma - (v.fiadoAbatido ?? 0)) : v.valorForma
-                return (
-                  <tr key={v.id + tipo} className="bg-white">
-                    <td className="py-1.5 pr-3 font-mono font-semibold text-gray-700">
-                      {v.fiado
-                        ? <span className="rounded bg-orange-100 px-1 py-0.5 font-sans text-[10px] font-semibold text-orange-700">fiado</span>
-                        : v.numero ? `#${v.numero}` : v.id.slice(-6).toUpperCase()}
-                    </td>
-                    <td className="py-1.5 pr-3 text-gray-500">{fmtHora(v.hora)}</td>
-                    <td className="py-1.5 pr-3 text-gray-600">{v.cliente ?? <span className="text-gray-300">—</span>}</td>
-                    <td className="py-1.5 pr-3 text-right font-bold tabular-nums text-gray-900">{fmt(restante)}</td>
-                    <td className="py-1.5 text-right tabular-nums text-gray-400">
-                      {fmt(v.totalVenda)}
-                      {misto && <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-700">misto</span>}
-                      {/* So chega aqui fiado PARCIALMENTE pago (o quitado nem entra na
-                          lista — page.tsx ja filtra). "Nesta forma" mostra o restante;
-                          esta tag mostra quanto ja foi abatido, pra explicar por que o
-                          restante e menor que o total da venda. */}
-                      {(v.fiadoAbatido ?? 0) > 0.005 && (
-                        <span className="ml-1 rounded bg-emerald-100 px-1 text-[10px] font-semibold text-emerald-700">
-                          abatido {fmt(v.fiadoAbatido!)}
-                        </span>
-                      )}
-                    </td>
+        <div className="border-t border-gray-100 bg-gray-50/60 px-4 py-3 space-y-4">
+          {vendasReais.length > 0 && (
+            <div>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                Vendas desta forma — bata uma a uma
+              </p>
+              <table className="min-w-full text-xs">
+                <thead>
+                  <tr className="text-gray-400">
+                    <th className="pb-1 text-left font-semibold">Venda</th>
+                    <th className="pb-1 text-left font-semibold">Hora</th>
+                    <th className="pb-1 text-left font-semibold">Cliente</th>
+                    <th className="pb-1 text-right font-semibold">Nesta forma</th>
+                    <th className="pb-1 text-right font-semibold">Total da venda</th>
                   </tr>
-                )
-              })}
-            </tbody>
-            <tfoot>
-              <tr className="border-t-2 border-gray-200">
-                <td colSpan={3} className="pt-1.5 text-right font-semibold text-gray-500">Soma</td>
-                <td className="pt-1.5 text-right font-extrabold tabular-nums text-gray-900">{fmt(soma)}</td>
-                <td />
-              </tr>
-            </tfoot>
-          </table>
-          <p className="mt-2 text-[11px] text-gray-400">
-            <b>Nesta forma</b> = quanto desta venda entrou por aqui. Venda marcada <b>misto</b> foi paga em mais de uma forma — só este pedaço bate com o comprovante.
-          </p>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {vendasReais.map((v) => {
+                    // misto compara o valor CHEIO do fiado com o total da venda — nunca
+                    // o restante, senão fiado parcialmente pago vira "misto" por engano.
+                    const misto = Math.abs(v.valorForma - v.totalVenda) > 0.005
+                    // "Nesta forma" mostra o que AINDA falta, não o valor original —
+                    // já quitado nem chega aqui (filtrado em page.tsx); parcial mostra
+                    // só o restante, o "abatido" ao lado conta o que já foi pago.
+                    const restante = (v.fiadoAbatido ?? 0) > 0 ? Math.max(0, v.valorForma - (v.fiadoAbatido ?? 0)) : v.valorForma
+                    return (
+                      <tr key={v.id + tipo} className="bg-white">
+                        <td className="py-1.5 pr-3 font-mono font-semibold text-gray-700">
+                          {v.numero ? `#${v.numero}` : v.id.slice(-6).toUpperCase()}
+                        </td>
+                        <td className="py-1.5 pr-3 text-gray-500">{fmtHora(v.hora)}</td>
+                        <td className="py-1.5 pr-3 text-gray-600">{v.cliente ?? <span className="text-gray-300">—</span>}</td>
+                        <td className="py-1.5 pr-3 text-right font-bold tabular-nums text-gray-900">{fmt(restante)}</td>
+                        <td className="py-1.5 text-right tabular-nums text-gray-400">
+                          {fmt(v.totalVenda)}
+                          {misto && <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-700">misto</span>}
+                          {/* So chega aqui fiado PARCIALMENTE pago (o quitado nem entra na
+                              lista — page.tsx ja filtra). "Nesta forma" mostra o restante;
+                              esta tag mostra quanto ja foi abatido, pra explicar por que o
+                              restante e menor que o total da venda. */}
+                          {(v.fiadoAbatido ?? 0) > 0.005 && (
+                            <span className="ml-1 rounded bg-emerald-100 px-1 text-[10px] font-semibold text-emerald-700">
+                              abatido {fmt(v.fiadoAbatido!)}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              <p className="mt-2 text-[11px] text-gray-400">
+                <b>Nesta forma</b> = quanto desta venda entrou por aqui. Venda marcada <b>misto</b> foi paga em mais de uma forma — só este pedaço bate com o comprovante.
+              </p>
+            </div>
+          )}
+
+          {/* Recebimento de dívida antiga não é venda — não tem número. Antes vinha
+              disfarçado na mesma tabela, com "fiado" no lugar do #número (achado
+              pelo dono 27/08). Agora fica no seu próprio bloco. */}
+          {recebimentos.length > 0 && (
+            <div>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                Recebimento de fiado — dívida antiga paga agora
+              </p>
+              <table className="min-w-full text-xs">
+                <thead>
+                  <tr className="text-gray-400">
+                    <th className="pb-1 text-left font-semibold">Hora</th>
+                    <th className="pb-1 text-left font-semibold">Cliente</th>
+                    <th className="pb-1 text-right font-semibold">Valor</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {recebimentos.map((v) => (
+                    <tr key={v.id + tipo} className="bg-white">
+                      <td className="py-1.5 pr-3 text-gray-500">{fmtHora(v.hora)}</td>
+                      <td className="py-1.5 pr-3 text-gray-600">{v.cliente ?? <span className="text-gray-300">—</span>}</td>
+                      <td className="py-1.5 text-right font-bold tabular-nums text-gray-900">{fmt(v.valorForma)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="flex justify-between border-t-2 border-gray-200 pt-1.5 text-xs">
+            <span className="font-semibold text-gray-500">Soma</span>
+            <span className="font-extrabold tabular-nums text-gray-900">{fmt(soma)}</span>
+          </div>
         </div>
       )}
     </div>
