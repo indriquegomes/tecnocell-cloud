@@ -89,7 +89,7 @@ export default async function OperacaoPDVPage({
   // pra conferir com a maquininha: Cartão (líquido) + Taxa = fatura da maquininha.
   let totalTaxaCartao = 0
   // vendas de cada tipo, pra conferência (bater comprovante de PIX com a venda)
-  const vendasPorTipo: Record<string, { id: string; numero: number | null; hora: string; cliente: string | null; valorForma: number; totalVenda: number; fiado?: boolean }[]> = {}
+  const vendasPorTipo: Record<string, { id: string; numero: number | null; hora: string; cliente: string | null; valorForma: number; totalVenda: number; fiado?: boolean; fiadoAbatido?: number }[]> = {}
   let vendasDetalhe: { id: string; numero: number | null; hora: string; cliente: string | null; total: number; devolvida: boolean; fiadoAbatido: number; fiadoValor: number; pagamentos: { nome: string; tipo: string; valor: number }[] }[] = []
 
   if (caixaAberto) {
@@ -224,6 +224,7 @@ export default async function OperacaoPDVPage({
           cliente: v.pessoa_id ? (nomePessoa[v.pessoa_id] ?? null) : null,
           valorForma: valor,
           totalVenda: v.total ?? 0,
+          fiadoAbatido: tipo === 'fiado' ? (fiadoAbatido[v.id] ?? 0) : undefined,
         })
       }
       for (const t of Object.keys(vendasPorTipo)) {

@@ -257,6 +257,8 @@ interface VendaConferencia {
   valorForma: number
   totalVenda: number
   fiado?: boolean   // nao e venda: e fiado recebido (entrou dinheiro sem venda nova)
+  /** quanto desse fiado ja foi pago depois (F9/Fiados). so faz sentido no tipo 'fiado' */
+  fiadoAbatido?: number
 }
 
 // Uma linha do "Em Caixa" + a lista de vendas que ela abre.
@@ -314,6 +316,15 @@ function Linha({
                     <td className="py-1.5 text-right tabular-nums text-gray-400">
                       {fmt(v.totalVenda)}
                       {misto && <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-700">misto</span>}
+                      {/* Fiado ja pago (F9/Fiados) continua contando aqui — essa lista soma
+                          quanto fiado foi GERADO no dia, nao quanto ainda esta em aberto.
+                          Mas sem marcar, quem confere via como divida sem saber que ja foi
+                          paga (mesmo achado do check-up de 27/08, agora nesta 2a lista). */}
+                      {(v.fiadoAbatido ?? 0) > 0.005 && (
+                        <span className="ml-1 rounded bg-emerald-100 px-1 text-[10px] font-semibold text-emerald-700">
+                          abatido {fmt(v.fiadoAbatido!)}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 )
