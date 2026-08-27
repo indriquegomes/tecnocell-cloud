@@ -1180,6 +1180,11 @@ export function OperacaoClient({
 }: Props) {
   const router = useRouter()
   const [panel, setPanel] = useState<Panel>(null)
+  // "Vendas deste caixa" recolhe (dia cheio some da tela) e pagina (dia com
+  // 150 vendas não vira uma rolagem infinita).
+  const [vendasAbertas, setVendasAbertas] = useState(true)
+  const [paginaVendas, setPaginaVendas] = useState(0)
+  const VENDAS_POR_PAGINA = 20
   const toggle = (p: Panel) => setPanel((prev) => (prev === p ? null : p))
   // carrega o token do navegador 1x → o withToken usa ele síncrono no submit
   useEffect(() => { authToken().then((t) => { tokenCache = t }) }, [])
@@ -1429,15 +1434,18 @@ export function OperacaoClient({
               não bate com nada, porque o comprovante e a maquininha falam de VENDA.) */}
           {vendasDetalhe.length > 0 && (
             <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <button type="button" onClick={() => setVendasAbertas((v) => !v)}
+                className="w-full px-6 py-4 border-b border-gray-100 flex items-center justify-between hover:bg-gray-50/70 transition text-left">
                 <div>
                   <h3 className="font-semibold text-gray-800">Vendas deste caixa</h3>
                   <p className="text-xs text-gray-400 mt-0.5">Cada venda com as formas que a pagaram</p>
                 </div>
-                <span className="text-xs text-gray-400">
+                <span className="flex items-center gap-2 text-xs text-gray-400">
                   {qtdVendas} venda{qtdVendas !== 1 ? 's' : ''} · {fmt(totalVendas)}
+                  <span className="text-blue-600 font-semibold">{vendasAbertas ? '▾ recolher' : '▸ mostrar'}</span>
                 </span>
-              </div>
+              </button>
+              <div className={vendasAbertas ? 'contents' : 'hidden'}>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                   <thead className="bg-gray-50">
@@ -1450,7 +1458,7 @@ export function OperacaoClient({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {vendasDetalhe.map((v) => (
+                    {vendasDetalhe.slice(paginaVendas * VENDAS_POR_PAGINA, (paginaVendas + 1) * VENDAS_POR_PAGINA).map((v) => (
                       // A venda inteira leva pro Painel de Vendas com ela ABERTA (deep-link
                       // ?venda=). O Vitor confere o PIX aqui e clica pra ver os itens/comprovante.
                       <tr
@@ -1508,9 +1516,28 @@ export function OperacaoClient({
                   </tbody>
                 </table>
               </div>
+              {/* Sem isto um dia de 150 vendas virava uma rolagem infinita. */}
+              {vendasDetalhe.length > VENDAS_POR_PAGINA && (
+                <div className="flex items-center justify-between border-t border-gray-100 px-6 py-2.5">
+                  <button type="button" disabled={paginaVendas === 0}
+                    onClick={() => setPaginaVendas((p) => Math.max(0, p - 1))}
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:text-gray-300 disabled:cursor-not-allowed">
+                    ← anteriores
+                  </button>
+                  <span className="text-xs text-gray-400">
+                    Página {paginaVendas + 1} de {Math.ceil(vendasDetalhe.length / VENDAS_POR_PAGINA)}
+                  </span>
+                  <button type="button" disabled={(paginaVendas + 1) * VENDAS_POR_PAGINA >= vendasDetalhe.length}
+                    onClick={() => setPaginaVendas((p) => p + 1)}
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:text-gray-300 disabled:cursor-not-allowed">
+                    próximas →
+                  </button>
+                </div>
+              )}
               <p className="border-t border-gray-100 px-6 py-2.5 text-[11px] text-gray-400">
                 Venda com mais de uma etiqueta foi paga em formas diferentes — o valor de cada uma aparece na etiqueta.
               </p>
+              </div>
             </div>
           )}
         </>
