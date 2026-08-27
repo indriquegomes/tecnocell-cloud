@@ -96,6 +96,10 @@ interface VendaDetalhe {
   total: number
   /** fiado cancelado por devolução — não é dinheiro e já saiu do total do turno */
   devolvida: boolean
+  /** quanto do fiado já foi pago depois da venda (F9/Fiados). 0 = ainda em aberto */
+  fiadoAbatido: number
+  /** fatia da venda que foi fiado (venda mista pode ter só parte no fiado) */
+  fiadoValor: number
   pagamentos: { nome: string; tipo: string; valor: number }[]
 }
 
@@ -1470,6 +1474,18 @@ export function OperacaoClient({
                                 {v.pagamentos.length > 1 && <b className="tabular-nums">{fmt(pg.valor)}</b>}
                               </span>
                             ))}
+                            {/* A tag "Crédito Loja (Fiado)" acima é a forma ORIGINAL da
+                                venda e nunca muda — mesmo depois de paga. Sem isto, quem
+                                confere o caixa via essa venda como dívida em aberto, sem
+                                saber que o mesmo valor já apareceu como "Fiado recebido"
+                                na conferência de Dinheiro/PIX logo abaixo. (achado no
+                                check-up de 27/08) */}
+                            {v.fiadoAbatido > 0.005 && (
+                              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700">
+                                🤝 Fiado abatido {fmt(v.fiadoAbatido)}
+                                {v.fiadoAbatido < v.fiadoValor - 0.005 && ` de ${fmt(v.fiadoValor)}`}
+                              </span>
+                            )}
                           </div>
                         </td>
                         {/* Devolvida: valor riscado e apagado — ele NÃO entra no

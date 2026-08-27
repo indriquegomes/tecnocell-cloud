@@ -90,7 +90,7 @@ export default async function OperacaoPDVPage({
   let totalTaxaCartao = 0
   // vendas de cada tipo, pra conferência (bater comprovante de PIX com a venda)
   const vendasPorTipo: Record<string, { id: string; numero: number | null; hora: string; cliente: string | null; valorForma: number; totalVenda: number; fiado?: boolean }[]> = {}
-  let vendasDetalhe: { id: string; numero: number | null; hora: string; cliente: string | null; total: number; devolvida: boolean; pagamentos: { nome: string; tipo: string; valor: number }[] }[] = []
+  let vendasDetalhe: { id: string; numero: number | null; hora: string; cliente: string | null; total: number; devolvida: boolean; fiadoAbatido: number; fiadoValor: number; pagamentos: { nome: string; tipo: string; valor: number }[] }[] = []
 
   if (caixaAberto) {
     const [vendasResult, movResult] = await Promise.all([
@@ -122,7 +122,7 @@ export default async function OperacaoPDVPage({
     // loja confere cada tipo num lugar: dinheiro na gaveta, PIX no WhatsApp,
     // cartão na maquininha, fiado não é dinheiro.
     if (vendasRaw.length > 0) {
-      const [pagsRes, pessoasRes, fiadoCancRes] = await Promise.all([
+      const [pagsRes, pessoasRes, fiadoCancRes, fiadoPagoRes] = await Promise.all([
         supabase
           .from('pagamentos_venda')
           .select('venda_id, forma_pagamento_id, valor, taxa')
@@ -140,8 +140,28 @@ export default async function OperacaoPDVPage({
           .eq('status', 'cancelado')
           .ilike('descricao', '%Fiado%')
           .in('venda_id', vendasRaw.map((v) => v.id)),
+        // Fiado ABATIDO (pago total ou parcial depois da venda, no F9/Fiados) — a
+        // tag "Crédito Loja (Fiado)" aqui embaixo é a forma ORIGINAL da venda e
+        // nunca muda, então quem confere via essa venda como "ainda é dívida"
+        // mesmo já paga. O pagamento é outro evento, registrado só na conferência
+        // de Dinheiro/PIX (achado no check-up de 27/08: a mesma venda aparecia
+        // "Fiado" aqui e "Fiado recebido" lá embaixo, sem ligação visual entre as duas).
+        supabase
+          .from('lancamentos')
+          .select('venda_id, valor_pago')
+          .eq('tipo', 'receber')
+          .neq('status', 'cancelado')
+          .gt('valor_pago', 0)
+          .in('venda_id', vendasRaw.map((v) => v.id)),
       ])
       const fiadoCancelado = new Set((fiadoCancRes.data ?? []).map((l) => l.venda_id as string))
+      // total = venda.total (não lancamentos.valor — esse cai quando uma devolução
+      // abate a dívida, então não serve de "total original" pra mostrar aqui).
+      const fiadoAbatido: Record<string, number> = {}
+      for (const l of (fiadoPagoRes.data ?? []) as { venda_id: string | null; valor_pago: number | null }[]) {
+        if (!l.venda_id) continue
+        fiadoAbatido[l.venda_id] = (fiadoAbatido[l.venda_id] ?? 0) + Number(l.valor_pago ?? 0)
+      }
       // ...e o fiado cancelado também sai do TOTAL de vendas / total do turno — não só do
       // "por forma". Senão o R$ do fiado devolvido ficava fantasma no total (Isa 29/07).
       totalVendas -= (fiadoCancRes.data ?? []).reduce((s, l) => s + Number((l as { valor: number | null }).valor ?? 0), 0)
@@ -173,6 +193,12 @@ export default async function OperacaoPDVPage({
         // lado — parecia venda sem forma de pagamento, e as contas da tela
         // não fechavam com o total do cabeçalho.
         devolvida: fiadoCancelado.has(v.id),
+        // quanto do fiado já foi pago depois da venda (F9/Fiados) — 0 = ainda em aberto
+        fiadoAbatido: fiadoAbatido[v.id] ?? 0,
+        // fatia da venda que foi fiado (não o total) — numa venda MISTA (parte
+        // dinheiro + parte fiado), comparar o abatido com o total inteiro dava
+        // conta errada.
+        fiadoValor: (pagsDaVenda[v.id] ?? []).filter((p) => p.tipo === 'fiado').reduce((s, p) => s + p.valor, 0),
         pagamentos: pagsDaVenda[v.id] ?? [],
       }))
 
