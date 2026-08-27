@@ -34,8 +34,21 @@ const mensagem = (c: Cliente, pixPorLoja: Record<string, Pix> = {}) => {
     `Passando pra lembrar do saldo em aberto de ${fmt(c.total)} aqui na TecnoCell${periodo}. ` +
     `Pedimos pelo acerto o quanto antes para mantermos tudo em dia. Qualquer dúvida, estamos à disposição.` +
     (pecas.length ? `\n\nSegue o relatório de peças:\n${pecas.join('\n')}` : '') +
-    blocoPix(c, pixPorLoja)
+    blocoPix(c, pixPorLoja) +
+    `\n\n${codigoCobranca()}`
   )
+}
+
+// Código que as meninas já usam: elas digitam na mão pra depois buscar no
+// WhatsApp quem já foi cobrado no dia. Agora sai pronto na mensagem.
+// O "Ç" é mantido de propósito (decisão do dono em 26/08): mudar pra "C"
+// facilitaria a busca, mas quebraria o histórico de meses de cobrança.
+const codigoCobranca = () => {
+  // hoje em São Paulo — nunca toISOString(), que depois das 21h vira o dia seguinte
+  const [dia, mes, ano] = new Date()
+    .toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+    .split('/')
+  return `CBRÇ${dia}${mes}${ano}`
 }
 
 // Pix da loja do cliente. Antes a cobrança saía sem Pix e as meninas mandavam
