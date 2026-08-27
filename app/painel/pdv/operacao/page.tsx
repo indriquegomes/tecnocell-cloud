@@ -80,7 +80,7 @@ export default async function OperacaoPDVPage({
     valor: number
     created_at: string
   }[] = []
-  let vendasDia: { id: string; total: number; created_at: string; forma_pagamento_id: string | null; forma_pagamento: string; recebido?: number }[] = []
+  let vendasDia: { id: string; total: number; created_at: string; forma_pagamento_id: string | null; forma_pagamento: string; recebido?: number; formas?: string[] }[] = []
   let porForma: Record<string, number> = {}
   let porTipo: Record<string, number> = {}
   // Taxa cobrada A MAIS do cliente no cartão (repassada, não absorvida pela
@@ -214,7 +214,15 @@ export default async function OperacaoPDVPage({
           .reduce((s, p) => s + p.valor, 0)
         recebidoPorVenda[v.id] = pagos + (fiadoAbatido[v.id] ?? 0)
       }
-      vendasDia = vendasDia.map((v) => ({ ...v, recebido: recebidoPorVenda[v.id] ?? 0 }))
+      vendasDia = vendasDia.map((v) => ({
+        ...v,
+        recebido: recebidoPorVenda[v.id] ?? 0,
+        // Venda MISTA grava forma_pagamento_id NULL (não cabe uma forma só), e
+        // a coluna caía no rótulo genérico "Outras" — escondendo justamente as
+        // vendas mais confusas de conferir. Agora lista as formas de verdade
+        // ("Crédito PagBank + Dinheiro"), que é o que a atendente precisa ver.
+        formas: (pagsDaVenda[v.id] ?? []).map((p) => p.nome),
+      }))
 
       for (const pg of pagsRes.data ?? []) {
         const nome = formasPorId[pg.forma_pagamento_id ?? ''] ?? 'Outras'

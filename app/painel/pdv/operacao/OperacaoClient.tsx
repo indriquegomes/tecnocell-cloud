@@ -89,6 +89,8 @@ interface VendaDia {
   /** quanto essa venda trouxe de dinheiro até agora: o que foi pago na hora +
       o fiado dela que já foi abatido depois. 0 = ainda é só dívida. */
   recebido?: number
+  /** formas que realmente pagaram a venda — venda mista tem mais de uma */
+  formas?: string[]
 }
 
 interface VendaDetalhe {
@@ -920,7 +922,9 @@ function XReportPanel({
                           <td className="py-1.5 pr-3 font-mono text-gray-500 text-xs">{v.id.slice(-6).toUpperCase()}</td>
                           <td className="py-1.5 pr-3 text-gray-500">{fmtHora(v.created_at)}</td>
                           <td className="py-1.5 pr-3 text-gray-700">
-                            {v.forma_pagamento ?? '—'}
+                            {/* venda mista não tem forma única no banco (fica NULL) e
+                                caía em "Outras" — mostra as formas de verdade. */}
+                            {v.formas && v.formas.length > 0 ? v.formas.join(' + ') : (v.forma_pagamento ?? '—')}
                             {parcial && <span className="ml-1.5 rounded bg-gray-100 px-1 text-[10px] text-gray-500">entrou {fmt(recebido)}</span>}
                           </td>
                           <td className="py-1.5 pr-3 text-right font-semibold text-gray-900">{fmt(v.total)}</td>
