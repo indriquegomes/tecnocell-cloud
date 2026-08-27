@@ -207,8 +207,15 @@ export default async function OperacaoPDVPage({
         const tipo = tipoPorId[pg.forma_pagamento_id ?? ''] ?? 'outros'
         if (tipo === 'fiado' && fiadoCancelado.has(pg.venda_id)) continue   // fiado devolvido não conta no caixa
         const valor = pg.valor ?? 0
-        porForma[nome] = (porForma[nome] ?? 0) + valor
-        porTipo[tipo] = (porTipo[tipo] ?? 0) + valor
+        // Fiado já pago (F9/Fiados) sai do TOTAL da forma — essa linha é
+        // "quanto ainda se deve", não "quanto foi vendido no fiado" (pedido
+        // do dono 27/08: via R$760 gerado no dia com só R$684 em aberto de
+        // verdade). Só no total: o valor de CADA venda continua cheio lá
+        // embaixo (na "bata uma a uma"), que é o valor real daquele fiado —
+        // subtrair ali quebraria o selo "misto" (compara valorForma x total).
+        const paraTotal = tipo === 'fiado' ? Math.max(0, valor - (fiadoAbatido[pg.venda_id] ?? 0)) : valor
+        porForma[nome] = (porForma[nome] ?? 0) + paraTotal
+        porTipo[tipo] = (porTipo[tipo] ?? 0) + paraTotal
         if (tipo === 'cartao_credito' || tipo === 'cartao_debito') totalTaxaCartao += (pg as { taxa: number | null }).taxa ?? 0
 
         // Lista de CONFERÊNCIA: a Duda bate comprovante por comprovante. Pra isso ela

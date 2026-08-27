@@ -274,7 +274,10 @@ function Linha({
 }) {
   const temVendas = vendas.length > 0
   const mostra = imprimivel || aberto === tipo
-  const soma = vendas.reduce((s, v) => s + v.valorForma, 0)
+  // A linha por venda mostra o valor CHEIO do fiado (é o valor real daquela
+  // dívida, subtrair quebraria o selo "misto"). A soma do rodapé, sim, tira o
+  // já abatido — pra bater com o total do cabeçalho, que já foi corrigido.
+  const soma = vendas.reduce((s, v) => s + v.valorForma - (v.fiadoAbatido ?? 0), 0)
   return (
     <div>
       {temVendas ? (
