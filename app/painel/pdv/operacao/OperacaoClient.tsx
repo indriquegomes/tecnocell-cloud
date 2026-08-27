@@ -256,6 +256,10 @@ interface VendaConferencia {
   cliente: string | null
   valorForma: number
   totalVenda: number
+  /** taxa da maquininha embutida no total da venda — cartão vem líquido em
+      valorForma, então some com ela pra comparar com o total (senão parece
+      "misto" uma venda paga numa forma só). */
+  taxa?: number
   fiado?: boolean   // nao e venda: e fiado recebido (entrou dinheiro sem venda nova)
   /** quanto desse fiado ja foi pago depois (F9/Fiados). so faz sentido no tipo 'fiado' */
   fiadoAbatido?: number
@@ -315,7 +319,11 @@ function Linha({
                   {vendasReais.map((v) => {
                     // misto compara o valor CHEIO do fiado com o total da venda — nunca
                     // o restante, senão fiado parcialmente pago vira "misto" por engano.
-                    const misto = Math.abs(v.valorForma - v.totalVenda) > 0.005
+                    // Some a taxa de volta: cartão vem líquido em valorForma, mas o total
+                    // da venda inclui a taxa repassada — sem isso, QUALQUER venda de
+                    // cartão com taxa virava "misto" mesmo sendo uma forma só (achado
+                    // pelo dono 27/08, venda #666: R$99 líquido + R$2,97 taxa = R$101,97).
+                    const misto = Math.abs(v.valorForma + (v.taxa ?? 0) - v.totalVenda) > 0.005
                     // "Nesta forma" mostra o que AINDA falta, não o valor original —
                     // já quitado nem chega aqui (filtrado em page.tsx); parcial mostra
                     // só o restante, o "abatido" ao lado conta o que já foi pago.
