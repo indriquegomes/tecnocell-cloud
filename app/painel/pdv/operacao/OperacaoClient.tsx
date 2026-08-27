@@ -305,7 +305,13 @@ function Linha({
             </thead>
             <tbody className="divide-y divide-gray-100">
               {vendas.map((v) => {
+                // misto compara o valor CHEIO do fiado com o total da venda — nunca
+                // o restante, senão fiado parcialmente pago vira "misto" por engano.
                 const misto = Math.abs(v.valorForma - v.totalVenda) > 0.005
+                // "Nesta forma" mostra o que AINDA falta, não o valor original —
+                // já quitado nem chega aqui (filtrado em page.tsx); parcial mostra
+                // só o restante, o "abatido" ao lado conta o que já foi pago.
+                const restante = (v.fiadoAbatido ?? 0) > 0 ? Math.max(0, v.valorForma - (v.fiadoAbatido ?? 0)) : v.valorForma
                 return (
                   <tr key={v.id + tipo} className="bg-white">
                     <td className="py-1.5 pr-3 font-mono font-semibold text-gray-700">
@@ -315,14 +321,14 @@ function Linha({
                     </td>
                     <td className="py-1.5 pr-3 text-gray-500">{fmtHora(v.hora)}</td>
                     <td className="py-1.5 pr-3 text-gray-600">{v.cliente ?? <span className="text-gray-300">—</span>}</td>
-                    <td className="py-1.5 pr-3 text-right font-bold tabular-nums text-gray-900">{fmt(v.valorForma)}</td>
+                    <td className="py-1.5 pr-3 text-right font-bold tabular-nums text-gray-900">{fmt(restante)}</td>
                     <td className="py-1.5 text-right tabular-nums text-gray-400">
                       {fmt(v.totalVenda)}
                       {misto && <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-700">misto</span>}
-                      {/* Fiado ja pago (F9/Fiados) continua contando aqui — essa lista soma
-                          quanto fiado foi GERADO no dia, nao quanto ainda esta em aberto.
-                          Mas sem marcar, quem confere via como divida sem saber que ja foi
-                          paga (mesmo achado do check-up de 27/08, agora nesta 2a lista). */}
+                      {/* So chega aqui fiado PARCIALMENTE pago (o quitado nem entra na
+                          lista — page.tsx ja filtra). "Nesta forma" mostra o restante;
+                          esta tag mostra quanto ja foi abatido, pra explicar por que o
+                          restante e menor que o total da venda. */}
                       {(v.fiadoAbatido ?? 0) > 0.005 && (
                         <span className="ml-1 rounded bg-emerald-100 px-1 text-[10px] font-semibold text-emerald-700">
                           abatido {fmt(v.fiadoAbatido!)}

@@ -223,6 +223,11 @@ export default async function OperacaoPDVPage({
         // numa venda mista só o pedaço do PIX bate com o comprovante do PIX.
         const v = vendaPorId[pg.venda_id]
         if (!v) continue
+        // Fiado ja QUITADO sai da lista de conferencia — nao sobrou nada pra
+        // bater contra papel nenhum. Fica so na "Vendas deste caixa" (com o
+        // selo "abatido"), que e o historico do dia. Pedido do dono 27/08:
+        // "pq os abatidos ainda tao ali??" olhando essa mesma lista.
+        if (tipo === 'fiado' && valor - (fiadoAbatido[pg.venda_id] ?? 0) <= 0.005) continue
         if (!vendasPorTipo[tipo]) vendasPorTipo[tipo] = []
         vendasPorTipo[tipo].push({
           id: v.id,
