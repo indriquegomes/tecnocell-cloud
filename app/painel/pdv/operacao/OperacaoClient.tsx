@@ -153,6 +153,18 @@ interface Props {
   } | null
 }
 
+// Lista "por forma" da CONFERÊNCIA: o que deve estar em cada lugar agora.
+// A linha do Dinheiro soma a ABERTURA (o troco já estava na gaveta antes de
+// vender); as outras não têm abertura — cartão e PIX não começam o dia com
+// saldo. Usada nos 4 lugares (fechar, saldo, Relatório X e Z) pra todos
+// mostrarem o MESMO número: antes o X dizia Dinheiro 556 e o Fechar Caixa
+// dizia 356, e ninguém sabia qual era o certo.
+function listaPorForma(porForma: Record<string, number>, abertura: number): [string, number][] {
+  return (Object.entries(porForma) as [string, number][])
+    .map(([nome, v]) => [nome, /dinheiro/i.test(nome) ? v + abertura : v] as [string, number])
+    .sort((a, b) => b[1] - a[1])
+}
+
 // ─── "Em Caixa" — o saldo separado POR TIPO, porque cada um se confere num lugar ──
 // Processo da loja (Vitor): dinheiro conta na gaveta · PIX bate nos comprovantes do
 // WhatsApp · cartão bate na maquininha (automático) · Crédito Loja é DÍVIDA, não é
@@ -511,7 +523,7 @@ function FecharCaixaPanel({
   const [etapa, setEtapa] = useState<'resumo' | 'cego'>('resumo')
   const [state, action, pending] = useActionState<ActionState, FormData>(fecharCaixa, null)
 
-  const formasEntries = Object.entries(porForma).sort(([, a], [, b]) => b - a)
+  const formasEntries = listaPorForma(porForma, valorAbertura)
 
   // Etapa 1 — resumo do dia (operador vê tudo antes de contar)
   if (etapa === 'resumo') {
@@ -537,7 +549,7 @@ function FecharCaixaPanel({
 
           {formasEntries.length > 0 && (
             <div className="px-6 py-4">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Detalhe por Forma</p>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Por Forma — o que deve ter em cada lugar</p>
               <div className="space-y-1.5">
                 {formasEntries.map(([forma, valor]) => (
                   <div key={forma} className="flex justify-between text-sm">
@@ -776,11 +788,7 @@ function XReportPanel({
   // ter em cada lugar agora (gaveta = 556, não "quanto vendi em dinheiro").
   // Pedido do dono 27/08: "é pra ter 556 no dinheiro ali". As outras formas
   // não têm abertura — cartão/PIX não começam o dia com troco.
-  const porFormaConferencia = Object.fromEntries(
-    Object.entries(porForma).map(([nome, v]) =>
-      [nome, /dinheiro/i.test(nome) ? v + caixaAberto.valor_abertura : v]),
-  )
-  const formasOrdenadas = Object.entries(porFormaConferencia).sort(([, a], [, b]) => b - a)
+  const formasOrdenadas = listaPorForma(porForma, caixaAberto.valor_abertura)
   // base do % = a soma do que está listado. Usar totalVendas fazia as barras
   // mentirem, porque essas linhas incluem fiado pago (que não é venda de hoje)
   // e agora a abertura.
@@ -1014,9 +1022,9 @@ function SaldoPanel({
       </div>
       {Object.keys(porForma).length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Por Forma de Pagamento</p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Por Forma — o que deve ter em cada lugar</p>
           <div className="space-y-1">
-            {Object.entries(porForma).sort(([,a],[,b]) => b-a).map(([forma, valor]) => (
+            {listaPorForma(porForma, caixaAberto.valor_abertura).map(([forma, valor]) => (
               <div key={forma} className="flex justify-between text-sm py-1.5 border-b border-gray-50">
                 <span className="text-gray-600">{forma}</span>
                 <span className="font-semibold text-green-600">{fmt(valor)}</span>
@@ -1074,7 +1082,7 @@ function ZReportPanel({ z }: {
   const fmtDt = (iso: string) =>
     new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
 
-  const formasEntries = Object.entries(z.porForma).sort(([, a], [, b]) => b - a)
+  const formasEntries = listaPorForma(z.porForma, z.valor_abertura)
   const reforcos = z.movimentos.filter((m) => m.tipo === 'reforco')
   const retiradas = z.movimentos.filter((m) => m.tipo === 'retirada')
 
@@ -1142,7 +1150,7 @@ function ZReportPanel({ z }: {
           {/* Breakdown por forma — onde conferir cada uma */}
           {formasEntries.length > 0 && (
             <div className="px-6 py-4">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Vendas por Forma de Pagamento</p>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Por Forma — o que deve ter em cada lugar</p>
               <div className="space-y-2">
                 {formasEntries.map(([forma, valor]) => (
                   <div key={forma} className="flex justify-between text-sm">

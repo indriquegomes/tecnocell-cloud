@@ -398,6 +398,12 @@ export default async function OperacaoPDVPage({
           if (tipo === 'cartao_credito' || tipo === 'cartao_debito') zTotalTaxaCartao += (pg as { taxa: number | null }).taxa ?? 0
         }
       }
+      // Fiado antigo pago durante o turno também entra no por-forma — igual ao
+      // caixa aberto. Faltava aqui: o Z fechava sem esse dinheiro em forma
+      // nenhuma, mesmo ele estando na gaveta/conta.
+      for (const m of zMov.filter((x) => x.tipo === 'recebimento')) {
+        zPorForma[m.forma_pagamento] = (zPorForma[m.forma_pagamento] ?? 0) + (Number(m.valor) || 0)
+      }
 
       zReport = {
         aberto_em: ultimoCaixa.aberto_em,
