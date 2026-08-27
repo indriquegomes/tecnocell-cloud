@@ -82,7 +82,9 @@ export function ImportarProdutos() {
             e criar produto sem querer enche o catálogo de duplicata. Quem quer
             trazer item novo desmarca de propósito. */}
         <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-gray-200 bg-gray-50 p-3">
-          <input type="checkbox" name="somente_existentes" value="1" defaultChecked
+          {/* sem defaultChecked: quem manda é o estado (que já nasce true).
+              Os dois juntos faziam o React reclamar no console a cada render. */}
+          <input type="checkbox" name="somente_existentes" value="1"
             checked={somenteExistentes}
             onChange={(e) => setSomenteExistentes(e.target.checked)}
             className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />

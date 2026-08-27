@@ -19,14 +19,18 @@ function campos(formData: FormData) {
   }
 }
 
+// Todo redirect volta com `aba=contas`: o cadastro de conta e a transferência
+// moram nessa aba, mas a tela abre em "saldos" por padrão. Sem isso, salvar
+// jogava a pessoa noutra aba e o registro recém-criado sumia da frente — quem
+// cadastra acha que não salvou e cadastra de novo. (Achado no check-up de 27/08.)
 export async function criarConta(formData: FormData) {
   await requirePermissao('financeiro')
   const supabase = await createServiceClient()
   const { error } = await supabase.from('contas').insert({ ...campos(formData), ativa: true })
-  if (error) redirect(`/painel/contas?erro=${encodeURIComponent(error.message)}`)
+  if (error) redirect(`/painel/contas?aba=contas&erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/contas')
   revalidatePath('/painel/formas-pagamento')
-  redirect(`/painel/contas?ok=${Date.now()}`)
+  redirect(`/painel/contas?aba=contas&ok=${Date.now()}`)
 }
 
 export async function editarConta(id: string, formData: FormData) {
@@ -38,7 +42,7 @@ export async function editarConta(id: string, formData: FormData) {
   if (error) redirect(`/painel/contas?editar=${id}&erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/contas')
   revalidatePath('/painel/formas-pagamento')
-  redirect(`/painel/contas?ok=${Date.now()}`)
+  redirect(`/painel/contas?aba=contas&ok=${Date.now()}`)
 }
 
 export async function criarTransferencia(formData: FormData) {
@@ -48,7 +52,7 @@ export async function criarTransferencia(formData: FormData) {
   const valor = parseFloat(formData.get('valor') as string) || 0
   const data = (formData.get('data') as string) || hojeSP()
   const observacao = ((formData.get('observacao') as string) || '').trim() || null
-  const err = (m: string) => redirect(`/painel/contas?erro=${encodeURIComponent(m)}`)
+  const err = (m: string) => redirect(`/painel/contas?aba=contas&erro=${encodeURIComponent(m)}`)
   if (!origem || !destino) err('Escolha a conta de origem e a de destino.')
   if (origem === destino) err('Origem e destino não podem ser a mesma conta.')
   if (valor <= 0) err('Informe um valor maior que zero.')
@@ -57,7 +61,7 @@ export async function criarTransferencia(formData: FormData) {
   const { error } = await supabase.from('transferencias').insert({ conta_origem_id: origem, conta_destino_id: destino, valor, data, observacao })
   if (error) err(error.message)
   revalidatePath('/painel/contas')
-  redirect(`/painel/contas?ok=${Date.now()}`)
+  redirect(`/painel/contas?aba=contas&ok=${Date.now()}`)
 }
 
 export async function deletarTransferencia(id: string) {
@@ -71,6 +75,6 @@ export async function deletarConta(id: string) {
   await requirePermissao('financeiro')
   const supabase = await createServiceClient()
   const { error } = await supabase.from('contas').delete().eq('id', id)
-  if (error) redirect(`/painel/contas?erro=${encodeURIComponent('Não dá pra excluir: há formas de pagamento usando esta conta.')}`)
+  if (error) redirect(`/painel/contas?aba=contas&erro=${encodeURIComponent('Não dá pra excluir: há formas de pagamento usando esta conta.')}`)
   revalidatePath('/painel/contas')
 }
