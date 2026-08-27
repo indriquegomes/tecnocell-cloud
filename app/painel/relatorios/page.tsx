@@ -2,7 +2,7 @@ import { IconChart } from '@/components/icons'
 import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
-import { formatDate, hojeSP } from '@/lib/utils'
+import { formatDate, hojeSP, diaSP } from '@/lib/utils'
 import { ExportCsv } from './ExportCsv'
 import { ExportCsvLazy } from './ExportCsvLazy'
 import { FluxoChart, ParetoChart, Donut, Barra } from './Charts'
@@ -327,19 +327,46 @@ export default async function RelatoriosPage({
   let fluxo: DiaFluxo[] = []
   let fluxoEntradas = 0, fluxoSaidas = 0
   if (aba === 'fluxo') {
-    const [vs, ps] = await Promise.all([
-      fetchAll<{ total: number; created_at: string }>((from, to) => supabase.from('vendas').select('total, created_at').eq('status', 'concluida')
+    // FLUXO DE CAIXA = dinheiro que ENTROU e SAIU de verdade — não faturamento.
+    // Antes a entrada era vendas.total, o que contava FIADO (promessa, não
+    // entrou) e ignorava fiado PAGO (entrou de verdade). Medido em 27/08 com
+    // dado real: dizia R$3.208 quando só R$1.476 tinham entrado — 54% a mais.
+    // Regra do dono: "fez uma dívida, ela fica devendo; pagou hoje, entra no
+    // caixa de hoje. Dívida é não pagar e ponto."
+    const [pagsVenda, recebimentos, devolucoes, ps] = await Promise.all([
+      // o que a venda recebeu de verdade: status 'pago' (fiado é 'pendente',
+      // vale é 'vale' — nenhum dos dois é dinheiro entrando)
+      fetchAll<{ valor: number; taxa: number | null; created_at: string }>((from, to) => supabase
+        .from('pagamentos_venda').select('valor, taxa, created_at').eq('status', 'pago')
+        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to)),
+      // dívida antiga paga hoje = entrada de hoje
+      fetchAll<{ valor: number; created_at: string }>((from, to) => supabase
+        .from('movimentos_caixa').select('valor, created_at').eq('tipo', 'recebimento')
+        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to)),
+      // dinheiro devolvido ao cliente sai do caixa (não vira lançamento a pagar)
+      fetchAll<{ valor: number; created_at: string }>((from, to) => supabase
+        .from('movimentos_caixa').select('valor, created_at').eq('tipo', 'devolucao')
         .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to)),
       fetchAll<{ valor: number; data_pagamento: string | null }>((from, to) => supabase.from('lancamentos').select('valor, data_pagamento').eq('tipo', 'pagar').eq('status', 'pago')
         .gte('data_pagamento', dataInicio).lte('data_pagamento', dataFim + 'T23:59:59').range(from, to)),
     ])
     const dias: Record<string, { entrada: number; saida: number }> = {}
-    for (const v of (vs ?? []) as { total: number; created_at: string }[]) {
-      const d = v.created_at.slice(0, 10)
-      ;(dias[d] ??= { entrada: 0, saida: 0 }).entrada += v.total ?? 0
+    // valor LÍQUIDO: a taxa da maquininha é repassada ao cliente mas fica com
+    // a operadora — nunca chega na conta da loja.
+    for (const p of (pagsVenda ?? []) as { valor: number; taxa: number | null; created_at: string }[]) {
+      const d = diaSP(p.created_at)
+      ;(dias[d] ??= { entrada: 0, saida: 0 }).entrada += (p.valor ?? 0) - (p.taxa ?? 0)
+    }
+    for (const r of (recebimentos ?? []) as { valor: number; created_at: string }[]) {
+      const d = diaSP(r.created_at)
+      ;(dias[d] ??= { entrada: 0, saida: 0 }).entrada += r.valor ?? 0
+    }
+    for (const dv of (devolucoes ?? []) as { valor: number; created_at: string }[]) {
+      const d = diaSP(dv.created_at)
+      ;(dias[d] ??= { entrada: 0, saida: 0 }).saida += dv.valor ?? 0
     }
     for (const p of (ps ?? []) as { valor: number; data_pagamento: string | null }[]) {
-      const d = (p.data_pagamento ?? '').slice(0, 10)
+      const d = (p.data_pagamento ?? '').slice(0, 10)   // já é DATE, não timestamp
       if (!d) continue
       ;(dias[d] ??= { entrada: 0, saida: 0 }).saida += p.valor ?? 0
     }
@@ -1180,11 +1207,11 @@ export default async function RelatoriosPage({
       {aba === 'fluxo' && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <Card label="Entradas (vendas)" valor={fmt(fluxoEntradas)} cor="text-green-600" />
-            <Card label="Saídas (contas pagas)" valor={fmt(fluxoSaidas)} cor="text-red-500" />
+            <Card label="Entradas (dinheiro que entrou)" valor={fmt(fluxoEntradas)} cor="text-green-600" />
+            <Card label="Saídas (dinheiro que saiu)" valor={fmt(fluxoSaidas)} cor="text-red-500" />
             <Card label="Saldo do período" valor={fmt(fluxoEntradas - fluxoSaidas)} cor={fluxoEntradas - fluxoSaidas >= 0 ? 'text-blue-600' : 'text-red-500'} />
           </div>
-          <p className="text-[11px] text-gray-400">Entradas = vendas concluídas no dia · Saídas = contas a pagar quitadas no dia (data de pagamento).</p>
+          <p className="text-[11px] text-gray-400">Dinheiro de verdade, não faturamento. <b>Entradas</b> = o que a venda recebeu (dinheiro, PIX, cartão — líquido, sem a taxa) + dívida antiga paga no dia. Fiado e vale-crédito <b>não</b> entram: fiado só conta no dia em que o cliente paga. <b>Saídas</b> = contas a pagar quitadas + devolução em dinheiro.</p>
           <FluxoChart dados={fluxo} />
           <div className="flex justify-end">
             <ExportCsv filename={`fluxo_caixa_${dataInicio}_${dataFim}.csv`}
