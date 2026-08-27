@@ -47,6 +47,25 @@ export async function estornarCredito(id: string) {
 
   if (!lanc || lanc.tipo !== 'credito') return
 
+  // Trava: não deixa estornar um crédito que JÁ FOI GASTO (parcial ou
+  // totalmente) — mesmo achado que o "uso"/"estorno" não sabem qual crédito
+  // específico o cliente consumiu, só existe um saldo em pote único.
+  // Estornar o valor CHEIO de um crédito já parcialmente usado tira mais do
+  // que ainda sobra e joga o cliente pra saldo NEGATIVO — aconteceu de
+  // verdade com DIEGO PALMA em 27/08 (dois créditos de R$45+R$100, R$45 já
+  // gasto em 'uso', estornar os dois inteiros deixou -R$45,00).
+  const { data: todosMov } = await supabase
+    .from('creditos_clientes')
+    .select('valor, tipo')
+    .eq('pessoa_id', lanc.pessoa_id)
+  const saldoAtual = (todosMov ?? []).reduce(
+    (s, m) => s + (m.tipo === 'uso' || m.tipo === 'estorno' ? -m.valor : m.valor), 0)
+  if (saldoAtual - lanc.valor < -0.01) {
+    redirect(`/painel/vales-credito?erro=${encodeURIComponent(
+      `Não dá pra estornar: o cliente só tem ${(Math.max(0, saldoAtual)).toFixed(2).replace('.', ',')} de saldo, e esse crédito valia ${lanc.valor.toFixed(2).replace('.', ',')} — parte dele já foi usada. Estornar deixaria o saldo negativo.`,
+    )}`)
+  }
+
   // Idempotente: estornar 2x criaria 2 linhas de 'estorno' e jogaria o saldo
   // do cliente pra negativo (estorno subtrai). `estorna_credito_id` + índice
   // único parcial (migration 2026-08-26) travam isso no BANCO — antes era um

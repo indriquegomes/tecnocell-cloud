@@ -133,8 +133,13 @@ export function CreditosClient({
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={`text-lg font-bold ${c.saldo > 0 ? 'text-green-600' : 'text-gray-400'}`}>
-                    {fmt(Math.max(0, c.saldo))}
+                  {/* Saldo negativo é sempre bug (crédito estornado além do que
+                      sobrava) — Math.max(0,...) escondia isso como "R$0,00",
+                      igual pra credito zerado e pra credito quebrado. Aconteceu
+                      de verdade: DIEGO PALMA foi pra -R$45 e a tela mostrava
+                      0,00, ninguém veria sem abrir o extrato. */}
+                  <span className={`text-lg font-bold ${c.saldo > 0 ? 'text-green-600' : c.saldo < -0.01 ? 'text-red-600' : 'text-gray-400'}`}>
+                    {c.saldo < -0.01 ? `⚠ ${fmt(c.saldo)}` : fmt(Math.max(0, c.saldo))}
                   </span>
                   <span className="text-gray-400 text-sm">{aberto ? '▲' : '▼'}</span>
                 </div>
