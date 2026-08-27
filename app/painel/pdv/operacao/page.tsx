@@ -374,7 +374,7 @@ export default async function OperacaoPDVPage({
       let zFiadoCancValor = 0   // fiado cancelado/devolvido — sai do por-forma E do total
       let zTotalTaxaCartao = 0
       if (zVendas.length > 0) {
-        const [zPagsRes, zFiadoCancRes] = await Promise.all([
+        const [zPagsRes, zFiadoCancRes, zFiadoPagoRes] = await Promise.all([
           supabase
             .from('pagamentos_venda')
             .select('venda_id, forma_pagamento_id, valor, taxa')
@@ -386,15 +386,31 @@ export default async function OperacaoPDVPage({
             .eq('status', 'cancelado')
             .ilike('descricao', '%Fiado%')
             .in('venda_id', zVendas.map((v) => v.id)),
+          // fiado já pago (F9/Fiados) — mesma correção do caixa aberto (27/08):
+          // sem isso o Z mostrava o valor CHEIO vendido, não o que ainda falta.
+          supabase
+            .from('lancamentos')
+            .select('venda_id, valor_pago')
+            .eq('tipo', 'receber')
+            .neq('status', 'cancelado')
+            .gt('valor_pago', 0)
+            .in('venda_id', zVendas.map((v) => v.id)),
         ])
         const zFiadoCancelado = new Set((zFiadoCancRes.data ?? []).map((l) => l.venda_id as string))
         zFiadoCancValor = (zFiadoCancRes.data ?? []).reduce((s, l) => s + Number((l as { valor: number | null }).valor ?? 0), 0)
+        const zFiadoAbatido: Record<string, number> = {}
+        for (const l of (zFiadoPagoRes.data ?? []) as { venda_id: string | null; valor_pago: number | null }[]) {
+          if (!l.venda_id) continue
+          zFiadoAbatido[l.venda_id] = (zFiadoAbatido[l.venda_id] ?? 0) + Number(l.valor_pago ?? 0)
+        }
         for (const pg of zPagsRes.data ?? []) {
           const nome = formasPorId[pg.forma_pagamento_id ?? ''] ?? 'Outras'
           const tipo = tipoPorId[pg.forma_pagamento_id ?? ''] ?? 'outros'
           if (tipo === 'fiado' && zFiadoCancelado.has(pg.venda_id)) continue
-          zPorForma[nome] = (zPorForma[nome] ?? 0) + (pg.valor ?? 0)
-          zPorTipo[tipo] = (zPorTipo[tipo] ?? 0) + (pg.valor ?? 0)
+          const valor = pg.valor ?? 0
+          const paraTotal = tipo === 'fiado' ? Math.max(0, valor - (zFiadoAbatido[pg.venda_id] ?? 0)) : valor
+          zPorForma[nome] = (zPorForma[nome] ?? 0) + paraTotal
+          zPorTipo[tipo] = (zPorTipo[tipo] ?? 0) + paraTotal
           if (tipo === 'cartao_credito' || tipo === 'cartao_debito') zTotalTaxaCartao += (pg as { taxa: number | null }).taxa ?? 0
         }
       }
