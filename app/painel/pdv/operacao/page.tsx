@@ -265,6 +265,13 @@ export default async function OperacaoPDVPage({
       for (const t of Object.keys(vendasPorTipo)) {
         vendasPorTipo[t].sort((a, b) => a.hora.localeCompare(b.hora))
       }
+      // Total Vendido sai LÍQUIDO: a taxa da maquininha é cobrada a mais só pra
+      // repassar o custo do cartão — não é receita da loja, nunca chega na
+      // conta. Sem tirar, o total nunca fechava com a soma das formas (que já
+      // são líquidas) e a diferença aparecia do nada. Decisão do dono em 27/08:
+      // "tira a taxa da soma final toda, é só pra ajudar as meninas a pagar
+      // pelo cartão".
+      totalVendas -= totalTaxaCartao
     }
     // Fiado DESTE caixa (antes vinha de lancamentos por created_at — pegava fiado
     // de qualquer loja e até lançamento manual sem venda)
@@ -397,7 +404,9 @@ export default async function OperacaoPDVPage({
         fechado_em: ultimoCaixa.fechado_em ?? new Date().toISOString(),
         valor_abertura: ultimoCaixa.valor_abertura,
         obs_fechamento: ultimoCaixa.obs_fechamento ?? null,
-        totalVendas: zVendas.reduce((s, v) => s + (v.total ?? 0), 0) - zFiadoCancValor,
+        // líquido, igual ao caixa aberto: a taxa é repasse do custo do cartão,
+        // não receita — tirar aqui faz o total fechar com a soma das formas.
+        totalVendas: zVendas.reduce((s, v) => s + (v.total ?? 0), 0) - zFiadoCancValor - zTotalTaxaCartao,
         qtdVendas: zVendas.length,
         totalReforcos: zMov.filter((m) => m.tipo === 'reforco').reduce((s, m) => s + m.valor, 0),
         totalRetiradas: zMov.filter((m) => m.tipo === 'retirada').reduce((s, m) => s + m.valor, 0),
