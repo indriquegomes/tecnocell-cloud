@@ -266,11 +266,19 @@ export default async function OperacaoPDVPage({
       const t = tipoDoTexto(m.forma_pagamento)
       const v = Number(m.valor) || 0
       if (t === 'dinheiro') {
-        recebidosDinheiro += v            // entra na gaveta
+        // separado porque o card da gaveta mostra numa linha própria
+        // ("+ Fiado recebido em dinheiro"); somar em porTipo['dinheiro']
+        // duplicaria o saldo, que já soma recebidosDinheiro à parte.
+        recebidosDinheiro += v
       } else {
         porTipo[t] = (porTipo[t] ?? 0) + v   // PIX/cartão: aparece na linha do tipo, pra conferir
-        porForma[m.forma_pagamento] = (porForma[m.forma_pagamento] ?? 0) + v
       }
+      // "Recebimentos por Forma" conta TODO recebimento do dia, dinheiro
+      // incluído — é recebimento, não venda (pedido do dono 27/08: "contar
+      // fiado abatido no dia aqui tmb"). Antes só PIX/cartão entravam aqui e
+      // o Dinheiro ficava de fora, sem motivo. porForma é só exibição, não
+      // alimenta o saldo da gaveta.
+      porForma[m.forma_pagamento] = (porForma[m.forma_pagamento] ?? 0) + v
       // na lista de conferência ele aparece como linha do tipo, marcado como fiado
       if (!vendasPorTipo[t]) vendasPorTipo[t] = []
       vendasPorTipo[t].push({

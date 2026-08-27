@@ -767,7 +767,19 @@ function XReportPanel({
   const reforcos = movimentos.filter((m) => m.tipo === 'reforco')
   const retiradas = movimentos.filter((m) => m.tipo === 'retirada')
 
-  const formasOrdenadas = Object.entries(porForma).sort(([, a], [, b]) => b - a)
+  // A linha do Dinheiro soma a ABERTURA: quem confere quer ver o que tem que
+  // ter em cada lugar agora (gaveta = 556, não "quanto vendi em dinheiro").
+  // Pedido do dono 27/08: "é pra ter 556 no dinheiro ali". As outras formas
+  // não têm abertura — cartão/PIX não começam o dia com troco.
+  const porFormaConferencia = Object.fromEntries(
+    Object.entries(porForma).map(([nome, v]) =>
+      [nome, /dinheiro/i.test(nome) ? v + caixaAberto.valor_abertura : v]),
+  )
+  const formasOrdenadas = Object.entries(porFormaConferencia).sort(([, a], [, b]) => b - a)
+  // base do % = a soma do que está listado. Usar totalVendas fazia as barras
+  // mentirem, porque essas linhas incluem fiado pago (que não é venda de hoje)
+  // e agora a abertura.
+  const baseFormas = formasOrdenadas.reduce((s, [, v]) => s + v, 0)
 
   return (
     <>
@@ -806,13 +818,13 @@ function XReportPanel({
       <div className="divide-y divide-gray-100">
         {/* Recebimentos por forma */}
         <div className="px-6 py-4">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Recebimentos por Forma</p>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Por Forma — o que deve ter em cada lugar</p>
           {formasOrdenadas.length === 0 ? (
             <p className="text-sm text-gray-400 italic">Nenhuma venda registrada</p>
           ) : (
             <div className="space-y-3">
               {formasOrdenadas.map(([forma, valor]) => {
-                const pct = totalVendas > 0 ? (valor / totalVendas) * 100 : 0
+                const pct = baseFormas > 0 ? (valor / baseFormas) * 100 : 0
                 const icon = forma === 'PIX' ? '💠' : forma === 'Dinheiro' ? '💵' : forma === 'Cartão' ? '💳' : forma === 'Crediário' ? '📋' : '💰'
                 return (
                   <div key={forma} className="flex items-center gap-3">
@@ -832,11 +844,13 @@ function XReportPanel({
               })}
             </div>
           )}
-          {totalTaxaCartao > 0.005 && (
-            <p className="mt-3 text-xs text-gray-400">
-              Cartão mostrado aqui é o valor líquido do produto. A maquininha cobrou <span className="font-semibold text-gray-600">{fmt(totalTaxaCartao)}</span> a mais de taxa hoje — bata Cartão + essa taxa contra o extrato da maquininha.
-            </p>
-          )}
+          <p className="mt-3 text-xs text-gray-400">
+            Inclui <b>fiado pago hoje</b> (dívida antiga que entrou) e, no Dinheiro, a <b>abertura</b> — é o que
+            deve estar em cada lugar agora, não o quanto foi vendido.
+            {totalTaxaCartao > 0.005 && (
+              <> Cartão é o líquido que cai pra loja; a maquininha cobrou <span className="font-semibold text-gray-600">{fmt(totalTaxaCartao)}</span> a mais de taxa hoje — bata Cartão + essa taxa contra o extrato.</>
+            )}
+          </p>
         </div>
 
         {/* Crediário destacado */}
