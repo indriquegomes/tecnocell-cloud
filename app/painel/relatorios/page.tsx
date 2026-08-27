@@ -336,8 +336,8 @@ export default async function RelatoriosPage({
     const [pagsVenda, recebimentos, devolucoes, ps] = await Promise.all([
       // o que a venda recebeu de verdade: status 'pago' (fiado é 'pendente',
       // vale é 'vale' — nenhum dos dois é dinheiro entrando)
-      fetchAll<{ valor: number; taxa: number | null; created_at: string }>((from, to) => supabase
-        .from('pagamentos_venda').select('valor, taxa, created_at').eq('status', 'pago')
+      fetchAll<{ valor: number; created_at: string }>((from, to) => supabase
+        .from('pagamentos_venda').select('valor, created_at').eq('status', 'pago')
         .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to)),
       // dívida antiga paga hoje = entrada de hoje
       fetchAll<{ valor: number; created_at: string }>((from, to) => supabase
@@ -351,11 +351,12 @@ export default async function RelatoriosPage({
         .gte('data_pagamento', dataInicio).lte('data_pagamento', dataFim + 'T23:59:59').range(from, to)),
     ])
     const dias: Record<string, { entrada: number; saida: number }> = {}
-    // valor LÍQUIDO: a taxa da maquininha é repassada ao cliente mas fica com
-    // a operadora — nunca chega na conta da loja.
-    for (const p of (pagsVenda ?? []) as { valor: number; taxa: number | null; created_at: string }[]) {
+    // `valor` JÁ É o líquido que a loja recebe: a taxa é cobrada a mais do
+    // cliente e some no caminho (venda #666: cliente pagou 101,97 = valor 99
+    // + taxa 2,97; a loja recebe 99). Subtrair a taxa aqui desconta duas vezes.
+    for (const p of (pagsVenda ?? []) as { valor: number; created_at: string }[]) {
       const d = diaSP(p.created_at)
-      ;(dias[d] ??= { entrada: 0, saida: 0 }).entrada += (p.valor ?? 0) - (p.taxa ?? 0)
+      ;(dias[d] ??= { entrada: 0, saida: 0 }).entrada += p.valor ?? 0
     }
     for (const r of (recebimentos ?? []) as { valor: number; created_at: string }[]) {
       const d = diaSP(r.created_at)
@@ -1211,7 +1212,7 @@ export default async function RelatoriosPage({
             <Card label="Saídas (dinheiro que saiu)" valor={fmt(fluxoSaidas)} cor="text-red-500" />
             <Card label="Saldo do período" valor={fmt(fluxoEntradas - fluxoSaidas)} cor={fluxoEntradas - fluxoSaidas >= 0 ? 'text-blue-600' : 'text-red-500'} />
           </div>
-          <p className="text-[11px] text-gray-400">Dinheiro de verdade, não faturamento. <b>Entradas</b> = o que a venda recebeu (dinheiro, PIX, cartão — líquido, sem a taxa) + dívida antiga paga no dia. Fiado e vale-crédito <b>não</b> entram: fiado só conta no dia em que o cliente paga. <b>Saídas</b> = contas a pagar quitadas + devolução em dinheiro.</p>
+          <p className="text-[11px] text-gray-400">Dinheiro de verdade, não faturamento. <b>Entradas</b> = o que a venda recebeu (dinheiro, PIX, cartão — o líquido que cai pra loja) + dívida antiga paga no dia. Fiado e vale-crédito <b>não</b> entram: fiado só conta no dia em que o cliente paga. <b>Saídas</b> = contas a pagar quitadas + devolução em dinheiro.</p>
           <FluxoChart dados={fluxo} />
           <div className="flex justify-end">
             <ExportCsv filename={`fluxo_caixa_${dataInicio}_${dataFim}.csv`}
