@@ -86,6 +86,9 @@ interface VendaDia {
   total: number
   created_at: string
   forma_pagamento?: string
+  /** quanto essa venda trouxe de dinheiro até agora: o que foi pago na hora +
+      o fiado dela que já foi abatido depois. 0 = ainda é só dívida. */
+  recebido?: number
 }
 
 interface VendaDetalhe {
@@ -905,15 +908,23 @@ function XReportPanel({
                   {(() => {
                     let saldo = caixaAberto.valor_abertura
                     return [...vendasDia].reverse().map((v) => {
-                      const ehCrediario = (v.forma_pagamento ?? '').toLowerCase().includes('credi') || (v.forma_pagamento ?? '').toLowerCase().includes('fiado')
-                      if (!ehCrediario) saldo += v.total
+                      // Soma o que a venda TROUXE de dinheiro — não o total dela.
+                      // Fiado já pago entra (o dinheiro entrou); venda mista entra
+                      // só na parte recebida; fiado em aberto não entra.
+                      const recebido = v.recebido ?? 0
+                      saldo += recebido
+                      const soDivida = recebido <= 0.005
+                      const parcial = !soDivida && recebido < v.total - 0.005
                       return (
                         <tr key={v.id} className="hover:bg-blue-50/60">
                           <td className="py-1.5 pr-3 font-mono text-gray-500 text-xs">{v.id.slice(-6).toUpperCase()}</td>
                           <td className="py-1.5 pr-3 text-gray-500">{fmtHora(v.created_at)}</td>
-                          <td className="py-1.5 pr-3 text-gray-700">{v.forma_pagamento ?? '—'}</td>
+                          <td className="py-1.5 pr-3 text-gray-700">
+                            {v.forma_pagamento ?? '—'}
+                            {parcial && <span className="ml-1.5 rounded bg-gray-100 px-1 text-[10px] text-gray-500">entrou {fmt(recebido)}</span>}
+                          </td>
                           <td className="py-1.5 pr-3 text-right font-semibold text-gray-900">{fmt(v.total)}</td>
-                          <td className={`py-1.5 text-right font-semibold ${ehCrediario ? 'text-orange-500' : 'text-green-600'}`}>{fmt(saldo)}</td>
+                          <td className={`py-1.5 text-right font-semibold ${soDivida ? 'text-orange-500' : 'text-green-600'}`}>{fmt(saldo)}</td>
                         </tr>
                       )
                     })

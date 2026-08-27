@@ -80,7 +80,7 @@ export default async function OperacaoPDVPage({
     valor: number
     created_at: string
   }[] = []
-  let vendasDia: { id: string; total: number; created_at: string; forma_pagamento_id: string | null; forma_pagamento: string }[] = []
+  let vendasDia: { id: string; total: number; created_at: string; forma_pagamento_id: string | null; forma_pagamento: string; recebido?: number }[] = []
   let porForma: Record<string, number> = {}
   let porTipo: Record<string, number> = {}
   // Taxa cobrada A MAIS do cliente no cartão (repassada, não absorvida pela
@@ -201,6 +201,20 @@ export default async function OperacaoPDVPage({
         fiadoValor: (pagsDaVenda[v.id] ?? []).filter((p) => p.tipo === 'fiado').reduce((s, p) => s + p.valor, 0),
         pagamentos: pagsDaVenda[v.id] ?? [],
       }))
+
+      // Quanto CADA venda trouxe de dinheiro até agora — alimenta a coluna
+      // Saldo de "Vendas do Dia". Antes o saldo olhava vendas.forma_pagamento_id
+      // (uma forma só) e pulava a venda inteira se fosse fiado: venda mista
+      // entrava CHEIA (com a parte fiada dentro) e fiado já pago não entrava
+      // nunca. Agora: só o que entrou de verdade + o fiado abatido depois.
+      const recebidoPorVenda: Record<string, number> = {}
+      for (const v of vendasRaw) {
+        const pagos = (pagsDaVenda[v.id] ?? [])
+          .filter((p) => p.tipo !== 'fiado' && p.tipo !== 'vale_credito')
+          .reduce((s, p) => s + p.valor, 0)
+        recebidoPorVenda[v.id] = pagos + (fiadoAbatido[v.id] ?? 0)
+      }
+      vendasDia = vendasDia.map((v) => ({ ...v, recebido: recebidoPorVenda[v.id] ?? 0 }))
 
       for (const pg of pagsRes.data ?? []) {
         const nome = formasPorId[pg.forma_pagamento_id ?? ''] ?? 'Outras'
