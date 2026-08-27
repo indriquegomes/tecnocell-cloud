@@ -198,13 +198,26 @@ function EmCaixaCard({
     .filter(([t]) => !['dinheiro', 'pix', 'cartao_credito', 'cartao_debito', 'fiado', 'vale_credito'].includes(t))
     .reduce((s, [, x]) => s + x, 0)
 
+  // Uma cor por LUGAR de conferência, não por forma: quem fecha o caixa
+  // aprende de relance onde bater cada uma. Antes PIX, os dois cartões e
+  // "Outros" eram todos cinza — só fiado e vale tinham cor, e a lista virava
+  // um bloco só ("muito desorganizado", dono 27/08).
+  //   verde  = gaveta (conta na mão)   · azul  = banco (extrato/WhatsApp)
+  //   roxo   = maquininha              · rosa  = saldo do cliente
+  //   âmbar  = dívida (não é dinheiro) · cinza = resto
   const linhas = [
-    { tipo: 'pix', icone: '💠', nome: 'PIX', valor: v('pix'), conferir: 'comprovantes no WhatsApp', cor: 'text-gray-600' },
-    { tipo: 'cartao_credito', icone: '💳', nome: 'Cartão de Crédito', valor: v('cartao_credito'), conferir: 'maquininha', cor: 'text-gray-600' },
-    { tipo: 'cartao_debito', icone: '💳', nome: 'Cartão de Débito', valor: v('cartao_debito'), conferir: 'maquininha', cor: 'text-gray-600' },
-    { tipo: 'outros', icone: '💰', nome: 'Outros', valor: outros, conferir: null, cor: 'text-gray-600' },
-    { tipo: 'vale_credito', icone: '🎟️', nome: 'Vale Crédito', valor: v('vale_credito'), conferir: 'saiu do saldo do cliente — não é dinheiro', cor: 'text-purple-700' },
-    { tipo: 'fiado', icone: '🏷️', nome: 'Crédito Loja (fiado)', valor: v('fiado'), conferir: 'é dívida — não é dinheiro', cor: 'text-orange-700' },
+    { tipo: 'pix', icone: '💠', nome: 'PIX', valor: v('pix'), conferir: 'comprovantes no WhatsApp',
+      bg: 'bg-sky-50/70', cor: 'text-sky-800', valorCor: 'text-sky-700', nota: 'text-sky-600/70', barra: 'border-sky-400' },
+    { tipo: 'cartao_credito', icone: '💳', nome: 'Cartão de Crédito', valor: v('cartao_credito'), conferir: 'maquininha',
+      bg: 'bg-violet-50/70', cor: 'text-violet-800', valorCor: 'text-violet-700', nota: 'text-violet-600/70', barra: 'border-violet-400' },
+    { tipo: 'cartao_debito', icone: '💳', nome: 'Cartão de Débito', valor: v('cartao_debito'), conferir: 'maquininha',
+      bg: 'bg-violet-50/70', cor: 'text-violet-800', valorCor: 'text-violet-700', nota: 'text-violet-600/70', barra: 'border-violet-400' },
+    { tipo: 'vale_credito', icone: '🎟️', nome: 'Vale Crédito', valor: v('vale_credito'), conferir: 'saiu do saldo do cliente — não é dinheiro',
+      bg: 'bg-pink-50/70', cor: 'text-pink-800', valorCor: 'text-pink-700', nota: 'text-pink-600/70', barra: 'border-pink-400' },
+    { tipo: 'fiado', icone: '🏷️', nome: 'Crédito Loja (fiado)', valor: v('fiado'), conferir: 'é dívida — não é dinheiro',
+      bg: 'bg-orange-50', cor: 'text-orange-800', valorCor: 'text-orange-600', nota: 'text-orange-500', barra: 'border-orange-400' },
+    { tipo: 'outros', icone: '💰', nome: 'Outros', valor: outros, conferir: null,
+      bg: 'bg-slate-50/70', cor: 'text-slate-700', valorCor: 'text-slate-700', nota: 'text-slate-500', barra: 'border-slate-300' },
   ].filter((l) => l.valor > 0)
 
   return (
@@ -217,7 +230,7 @@ function EmCaixaCard({
         vendas={vendasPorTipo['dinheiro'] ?? []}
         imprimivel={imprimivel}
         cabecalho={
-          <div className="w-full bg-emerald-50 px-4 py-3 text-left">
+          <div className="w-full bg-emerald-50 px-4 py-3 text-left border-l-4 border-emerald-500">
             <div className="flex items-center justify-between">
               <span className="text-sm font-bold text-emerald-800">💵 Dinheiro na gaveta</span>
               <span className="text-lg font-extrabold tabular-nums text-emerald-700">{fmt(saldoGaveta)}</span>
@@ -245,18 +258,20 @@ function EmCaixaCard({
             setAberto={setAberto}
             vendas={vendasPorTipo[l.tipo] ?? []}
             imprimivel={imprimivel}
+            // faixa colorida na esquerda (mesma espessura do card do Dinheiro):
+            // agrupa os dois cartões e separa gaveta / banco / maquininha / dívida de relance
             cabecalho={
-              <div className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm ${l.tipo === 'fiado' ? 'bg-orange-50' : ''}`}>
-                <span className={l.cor}>
+              <div className={`flex w-full items-center justify-between gap-3 border-l-4 px-4 py-2.5 text-left text-sm ${l.bg} ${l.barra}`}>
+                <span className={`flex-1 min-w-0 font-medium ${l.cor}`}>
                   {l.icone} {l.nome}
-                  {l.conferir && <span className={`ml-2 text-[11px] ${l.tipo === 'fiado' ? 'text-orange-500' : 'text-gray-400'}`}>{l.tipo === 'fiado' ? l.conferir : `conferir: ${l.conferir}`}</span>}
+                  {l.conferir && <span className={`ml-2 text-[11px] font-normal ${l.nota}`}>{l.tipo === 'fiado' || l.tipo === 'vale_credito' ? l.conferir : `conferir: ${l.conferir}`}</span>}
                   {(vendasPorTipo[l.tipo] ?? []).length > 0 && (
                     <span className="ml-2 text-[11px] font-semibold text-blue-600 print:hidden">
                       {aberto === l.tipo ? '▾ ocultar' : `▸ ver ${(vendasPorTipo[l.tipo] ?? []).length} venda${(vendasPorTipo[l.tipo] ?? []).length > 1 ? 's' : ''}`}
                     </span>
                   )}
                 </span>
-                <span className={`font-semibold tabular-nums ${l.tipo === 'fiado' ? 'text-orange-600' : 'text-gray-800'}`}>{fmt(l.valor)}</span>
+                <span className={`shrink-0 font-bold tabular-nums ${l.valorCor}`}>{fmt(l.valor)}</span>
               </div>
             }
           />
