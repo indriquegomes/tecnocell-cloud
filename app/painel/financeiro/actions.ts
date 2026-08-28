@@ -92,7 +92,7 @@ export async function marcarPago(id: string) {
   const supabase = await createServiceClient()
   const { data: antes, error: erroAntes } = await supabase
     .from('lancamentos')
-    .select('valor, valor_pago, forma_pagamento, pessoa_nome')
+    .select('valor, valor_pago, forma_pagamento, pessoa_nome, tipo')
     .eq('id', id)
     .maybeSingle()
   // Sem essa checagem, uma falha na consulta virava "antes = undefined" e o
@@ -118,10 +118,16 @@ export async function marcarPago(id: string) {
   }).eq('id', id)
   if (error) redirect(`/painel/financeiro?erro=${encodeURIComponent(error.message)}`)
 
-  // O dinheiro precisa aparecer na gaveta. Sem isto a baixa pelo Financeiro sumia do
-  // caixa (o PDV já registrava; só esta porta não registrava).
+  // O dinheiro precisa aparecer na gaveta — mas só quando é RECEBER (fiado sendo
+  // pago = dinheiro entrando). Pra PAGAR (fornecedor, aluguel...) é dinheiro
+  // SAINDO — registrarNoCaixa só sabe gravar 'recebimento', então chamar ela aqui
+  // pra um pagar criava um recebimento fantasma, inflando a gaveta do valor
+  // exato que na verdade tinha saído (achado testando o Financeiro na prática,
+  // 28/08). Conta a pagar quitada já é refletida no saldo da conta via
+  // lib/saldos-contas.ts (lancamentos status='pago' + conta_id) — não precisa
+  // (e não pode) duplicar em movimentos_caixa.
   const faltava = valor - Number(antes?.valor_pago ?? 0)
-  if (faltava > 0) {
+  if (faltava > 0 && antes?.tipo === 'receber') {
     const lojaId = await lojaDoLancamento(supabase, id)
     await registrarNoCaixa(
       supabase,
