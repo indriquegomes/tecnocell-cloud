@@ -71,7 +71,10 @@ const CREDITO_COR: Record<string, string> = {
   misto: 'bg-indigo-50 text-indigo-700 border-indigo-200',
 }
 const CREDITO_OPTS = [
-  { key: 'credito_conta', label: 'Crédito na conta', icon: '🏦', destaque: true },
+  // rótulo bate com o resto do sistema (F9, Vales-Crédito) — mesmo mecanismo
+  // (creditos_clientes tipo='credito'), só o nome aqui era diferente e
+  // confundia quem procurava "Vale" na lista (achado pelo dono 28/08).
+  { key: 'credito_conta', label: 'Vale Crédito (conta do cliente)', icon: '🎟️', destaque: true },
   { key: 'dinheiro',      label: 'Dinheiro',          icon: '💵' },
   { key: 'pix',           label: 'PIX',               icon: '💠' },
   { key: 'debito',        label: 'Débito',            icon: '💳' },
@@ -1023,9 +1026,9 @@ export function DevolucoesClient({
                                 ? 'border-green-200 text-green-700 hover:bg-green-50'
                                 : 'border-gray-100 text-gray-300 cursor-not-allowed bg-gray-50'
                           }`}>
-                          <span className="text-xl shrink-0">🏦</span>
+                          <span className="text-xl shrink-0">🎟️</span>
                           <div className="text-left">
-                            <p>Crédito na conta do cliente</p>
+                            <p>Vale Crédito (conta do cliente)</p>
                             <p className={`text-xs font-normal ${venda.pessoa_id ? 'text-green-600' : 'text-gray-400'}`}>
                               {venda.pessoa_id ? 'Saldo fica disponível na próxima compra' : 'Requer cliente identificado na venda'}
                             </p>
@@ -1060,6 +1063,8 @@ export function DevolucoesClient({
                             ? '💠 Estorno pela conta (PIX). Não sai da gaveta.'
                             : tipoCredito === 'sem_reembolso'
                             ? '— Sem devolução de valor (troca ou cortesia).'
+                            : tipoCredito === 'credito_conta'
+                            ? '🎟️ Vira saldo de vale-crédito — o cliente usa numa compra futura.'
                             : ''}
                         </p>
                         {/* Atalho pro misto. Só faz sentido oferecer quando a venda
