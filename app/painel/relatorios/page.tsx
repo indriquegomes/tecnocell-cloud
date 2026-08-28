@@ -335,9 +335,13 @@ export default async function RelatoriosPage({
     // caixa de hoje. Dívida é não pagar e ponto."
     const [pagsVenda, recebimentos, devolucoes, ps] = await Promise.all([
       // o que a venda recebeu de verdade: status 'pago' (fiado é 'pendente',
-      // vale é 'vale' — nenhum dos dois é dinheiro entrando)
+      // vale é 'vale' — nenhum dos dois é dinheiro entrando). `vendas!inner(status)`
+      // filtra venda CANCELADA fora — cancelar_venda não apaga pagamentos_venda
+      // (só marca vendas.status='cancelada'), então sem esse filtro o dinheiro de
+      // uma venda cancelada continuava contando como entrada pra sempre.
       fetchAll<{ valor: number; created_at: string }>((from, to) => supabase
-        .from('pagamentos_venda').select('valor, created_at').eq('status', 'pago')
+        .from('pagamentos_venda').select('valor, created_at, vendas!inner(status)').eq('status', 'pago')
+        .eq('vendas.status', 'concluida')
         .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to)),
       // dívida antiga paga hoje = entrada de hoje
       fetchAll<{ valor: number; created_at: string }>((from, to) => supabase

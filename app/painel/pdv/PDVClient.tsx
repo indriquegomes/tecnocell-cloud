@@ -630,7 +630,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         // "silva joao" (sobrenome primeiro) ou "joaoma" (sem espaço) não
         // achavam "JOAO MATHEUS SILVA", mesmo sendo a mesma pessoa.
         const alvo = semAcento(p.nome)
-        const nomeMatch = semAcento(buscaCliente).split(/\s+/).filter(Boolean).every((w) => alvo.includes(w))
+        const termos = semAcento(buscaCliente).split(/\s+/).filter(Boolean)
+        // termos vazio (busca só com espaço) não pode "casar com tudo" por
+        // vacuidade do .every — mostraria a lista inteira sem o usuário ter
+        // digitado nada de verdade.
+        const nomeMatch = termos.length > 0 && termos.every((w) => alvo.includes(w))
         // CPF só entra em jogo se o texto digitado for TUDO número/pontuação (sem
         // letra nenhuma) — igual à busca do servidor (buscarClientesPDV). Sem essa
         // trava, "tricel 16" virava busca por CPF só pelo "16": qualquer CPF de 11+
@@ -1516,7 +1520,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       // real que o cliente já tinha guardado, não perdão de dívida.
       if (formaRecebimento === VALE_RECEB_ID) {
         if (!recebendoItem.pessoa_id) { setErro('Este fiado não tem cliente identificado pra usar vale-crédito.'); return }
-        const res = await registrarPagamentoValeCredito(await authToken(), recebendoItem.id, recebendoItem.pessoa_id, valorNum)
+        const res = await registrarPagamentoValeCredito(await authToken(), recebendoItem.id, recebendoItem.pessoa_id, valorNum, lojaId)
         if (!res.ok) { setErro(res.erro); return }
         if (res.quitado) {
           setCrediarioItens((prev) => prev.filter((i) => i.id !== recebendoItem.id))

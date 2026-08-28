@@ -845,10 +845,10 @@ export async function registrarPagamentoMisto(
     const { error } = await supabase.from('lancamentos').update(update).eq('id', id)
     if (error) throw new Error(error.message)
 
-    // caixa: uma linha por forma REAL (mesma regra do recebimento simples) —
-    // vale-crédito já foi debitado acima, não é dinheiro entrando na gaveta/conta.
+    // caixa: uma linha por forma, vale incluso — vira linha "Vale Crédito" no Por
+    // Forma do fechamento (registrarNoCaixa não mexe na gaveta pra forma que não
+    // é dinheiro, só aparece na conferência, igual PIX/cartão).
     for (const p of linhas) {
-      if (p.forma === FORMA_VALE_TXT) continue
       await registrarNoCaixa(supabase, lojaId, p.valor, p.forma, `Fiado recebido — ${lanc.pessoa_nome ?? 'cliente'}`)
     }
     return { ok: true, quitado }
@@ -859,15 +859,20 @@ export async function registrarPagamentoMisto(
 
 // PAGAR FIADO COM VALE-CRÉDITO — o vale já existia como forma de pagamento
 // numa venda NOVA (F9/PDV), mas nunca dava pra usar o mesmo saldo pra abater
-// um fiado já em aberto (achado testando de propósito 26/08). Igual ao
-// Desconto: NÃO é dinheiro de verdade entrando na gaveta/conta, então não
-// passa por registrarNoCaixa — só abate o saldo do cliente (via RPC atômica,
-// mesma trava/lock do uso de crédito em finalizar_venda) e sobe o valor_pago.
+// um fiado já em aberto (achado testando de propósito 26/08). Diferente do
+// Desconto (que não é dinheiro nenhum — a dívida só encolhe): aqui existe
+// dinheiro de verdade por trás (o cliente pagou por aquele crédito antes).
+// Por isso PASSA por registrarNoCaixa também — vira linha "Vale Crédito" no
+// Por Forma do fechamento, senão a dívida encolhe sem nenhuma forma mostrando
+// pra onde foi (achado pelo dono 28/08: "não dá pra ver vale" no Por Forma).
+// registrarNoCaixa não mexe na gaveta pra formas que não são dinheiro — só
+// aparece na conferência, igual PIX/cartão.
 export async function registrarPagamentoValeCredito(
   accessToken: string,
   id: string,
   pessoaId: string,
   valorPago: number,
+  lojaId?: string | null,
 ): Promise<ResultadoReceb> {
   try {
     await requirePermissao('crediario_receber', accessToken)
@@ -911,6 +916,8 @@ export async function registrarPagamentoValeCredito(
 
     const { error } = await supabase.from('lancamentos').update(update).eq('id', id)
     if (error) throw new Error(error.message)
+
+    await registrarNoCaixa(supabase, lojaId, valor, FORMA_VALE_TXT, `Fiado recebido — ${lanc.pessoa_nome ?? 'cliente'}`)
 
     return { ok: true, quitado }
   } catch (e) {
