@@ -69,11 +69,11 @@ export function FluxoDiario({
           </div>
         )}
 
-        <div className="flex h-[160px] items-end gap-px">
+        <div className="flex h-[160px] items-end justify-center gap-px">
           {dias.map((d, i) => (
             <div
               key={i}
-              className="flex h-full flex-1 cursor-default items-end"
+              className="flex h-full max-w-[28px] flex-1 cursor-default items-end"
               onMouseEnter={() => setHover(i)}
             >
               <div
@@ -89,9 +89,9 @@ export function FluxoDiario({
         </div>
 
         {/* eixo: 1 dia a cada 3 pra não embolar */}
-        <div className="mt-1 flex gap-px">
+        <div className="mt-1 flex justify-center gap-px">
           {dias.map((d, i) => (
-            <div key={i} className="flex-1 text-center text-[9px] text-gray-400">
+            <div key={i} className="max-w-[28px] flex-1 text-center text-[9px] text-gray-400">
               {i % 3 === 0 || i === dias.length - 1 ? d.dia : ''}
             </div>
           ))}
