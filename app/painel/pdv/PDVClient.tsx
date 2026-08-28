@@ -631,8 +631,16 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         // achavam "JOAO MATHEUS SILVA", mesmo sendo a mesma pessoa.
         const alvo = semAcento(p.nome)
         const nomeMatch = semAcento(buscaCliente).split(/\s+/).filter(Boolean).every((w) => alvo.includes(w))
-        const cpfMatch = soDigitos(buscaCliente).length >= 1 &&
-          soDigitos(p.cpf_cnpj ?? '').includes(soDigitos(buscaCliente))
+        // CPF só entra em jogo se o texto digitado for TUDO número/pontuação (sem
+        // letra nenhuma) — igual à busca do servidor (buscarClientesPDV). Sem essa
+        // trava, "tricel 16" virava busca por CPF só pelo "16": qualquer CPF de 11+
+        // dígitos tem grande chance de conter "16" em algum lugar por acaso, e a
+        // busca por nome ("tricel") ficava enterrada debaixo de 6 clientes aleatórios
+        // que não tinham nada a ver — achado pelo dono 28/08.
+        const soNumero = /^[\d.\-/()\s]+$/.test(buscaCliente)
+        const digitosBusca = soDigitos(buscaCliente)
+        const cpfMatch = soNumero && digitosBusca.length >= 4 &&
+          soDigitos(p.cpf_cnpj ?? '').includes(digitosBusca)
         return nomeMatch || cpfMatch
       }).slice(0, 6)
     : []
