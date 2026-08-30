@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",
+    "@sentry/nextjs": "^10.72.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.112.2",
     "@types/jsbarcode": "^3.11.4",
