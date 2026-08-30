@@ -1,0 +1,21 @@
+name: Type check
+
+# Roda tsc --noEmit a cada push/PR — o mesmo comando que já rodamos manual
+# antes de commitar (regra do CLAUDE.md). Só confere tipo, não toca em banco
+# nenhum, não muda o fluxo de deploy do Vercel.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tsc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
