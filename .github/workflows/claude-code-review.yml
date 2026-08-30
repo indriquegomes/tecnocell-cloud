@@ -1,6 +1,8 @@
 name: Claude Code Review
 
 on:
+  push:
+    branches: [main]
   pull_request:
     types: [opened, synchronize, reopened]
 
@@ -20,6 +22,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
-            Revise o diff deste PR. Foque em bugs reais, segurança e
-            regressão de lógica — não em estilo. Reporte só o que
-            encontrar; se não achar nada relevante, diga isso.
+            Revise o diff do último commit (`git diff HEAD~1..HEAD`, ou o
+            diff do PR se for um pull_request). Foque em bugs reais,
+            segurança e regressão de lógica — não em estilo. Reporte só o
+            que encontrar; se não achar nada relevante, diga isso.
