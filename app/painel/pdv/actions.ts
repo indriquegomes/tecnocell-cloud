@@ -273,6 +273,8 @@ export async function finalizarVenda(
   series: { produto_id: string; serie: string }[] = [],
   credito_valor: number = 0,
   desconto_manual: number = 0,
+  tipo_entrega: 'retirada' | 'entrega' = 'retirada',
+  endereco_entrega: string | null = null,
 ): Promise<
   | { erro: string }
   | { vendaId: string; vendaNumero: number | null; total: number; estoqueAtualizado: Record<string, number>; vendedorNome: string }
@@ -350,7 +352,7 @@ export async function finalizarVenda(
     .maybeSingle()
   const vendedorNome = perfil?.nome ?? usuario.email ?? ''
 
-  const { data, error } = await supabase.rpc('finalizar_venda', {
+  let { data, error } = await supabase.rpc('finalizar_venda', {
     p_itens: itens,
     p_pagamentos: pagamentos,
     p_pessoa_id: pessoa_id,
@@ -361,7 +363,28 @@ export async function finalizarVenda(
     p_vendedor_id: usuario.id,
     p_vendedor_nome: vendedorNome,
     p_credito_valor: credito_valor,
+    p_tipo_entrega: tipo_entrega,
+    p_endereco_entrega: endereco_entrega,
   })
+
+  // A migration que adiciona tipo_entrega/endereco_entrega ao RPC (2026-08-28)
+  // pode ainda não ter sido colada no Supabase quando isto for pro ar — sem essa
+  // rede de segurança, TODA venda pararia de funcionar até alguém colar o SQL.
+  // Cai pra assinatura antiga (sem entrega) só nesse caso específico.
+  if (error?.code === 'PGRST202') {
+    ({ data, error } = await supabase.rpc('finalizar_venda', {
+      p_itens: itens,
+      p_pagamentos: pagamentos,
+      p_pessoa_id: pessoa_id,
+      p_desconto: desconto,
+      p_observacoes: observacoes || null,
+      p_deposito_id: deposito_id,
+      p_series: series,
+      p_vendedor_id: usuario.id,
+      p_vendedor_nome: vendedorNome,
+      p_credito_valor: credito_valor,
+    }))
+  }
 
   if (error) return { erro: error.message }
   if (!data) return { erro: 'RPC retornou vazio. Verifique o banco.' }

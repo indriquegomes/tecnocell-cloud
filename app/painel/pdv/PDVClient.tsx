@@ -212,9 +212,10 @@ interface Props {
   promosPorProduto: Record<string, PromoInfo[]>
   seriesPorProduto: Record<string, Record<string, string[]>>  // produto_id → deposito_id → [IMEIs em_estoque]
   depositoInicial?: string   // depósito padrão do usuário (config PDV do perfil)
+  bairrosPorLoja?: Record<string, string[]>   // loja_id → bairros que a loja entrega
 }
 
-export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoasIniciais, depositos, lojas, maquinas, tabelas, precosPorTabela, tabelasUsadas = [], promosPorProduto, seriesPorProduto: seriesIniciais, depositoInicial }: Props) {
+export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoasIniciais, depositos, lojas, maquinas, tabelas, precosPorTabela, tabelasUsadas = [], promosPorProduto, seriesPorProduto: seriesIniciais, depositoInicial, bairrosPorLoja = {} }: Props) {
   // produtos/pessoas/IMEIs viram CACHE acumulável: começam vazios (não vêm mais no HTML)
   // e vão sendo preenchidos pela busca sob demanda. Os `.find()` do carrinho leem daqui,
   // e como só entra no carrinho o que veio da busca, o item sempre está no cache.
@@ -535,6 +536,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     cliente: string | null
     clienteTelefone: string | null
     clienteEndereco: string | null
+    entrega?: string | null
     vendedor: string | null
     deposito: string
     loja: string | null
@@ -565,6 +567,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     return depositos.find((d) => d.loja_id === lj)?.id ?? ''
   }
   const [lojaId, setLojaId] = useState(lojas[0]?.id ?? '')
+  // Retirada (padrão) ou Entrega — só entra no cupom, não mexe em pagamento nem estoque.
+  const [tipoEntrega, setTipoEntrega] = useState<'retirada' | 'entrega'>('retirada')
+  const [bairroEntrega, setBairroEntrega] = useState('')
+  const [enderecoCustom, setEnderecoCustom] = useState('')
   const [depositoId, setDepositoId] = useState(depoDefaultDaLoja(lojas[0]?.id ?? ''))
   // Formas mostradas no PDV: sem loja aparecem sempre; com loja, só na loja delas.
   // (Isa 29/07 — evita escolher "PIX Teresópolis" no caixa de Petrópolis.)
@@ -1256,6 +1262,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         carrinho.flatMap((i) => (i.series ?? []).map((serie) => ({ produto_id: i.produto_id, serie }))),
         creditoAplicado,   // = soma das linhas de vale. Débito atômico dentro do RPC (2026-07-10)
         descontoNum,       // desconto MANUAL (para checar permissão 'venda_desconto')
+        tipoEntrega,
+        tipoEntrega === 'entrega' ? (bairroEntrega === 'outro' ? enderecoCustom.trim() || null : bairroEntrega || null) : null,
       )
       if ('erro' in result) { setErro(result.erro); return }
 
@@ -1282,6 +1290,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           const partes = [p.endereco, p.bairro, p.cidade && p.estado ? `${p.cidade}/${p.estado}` : (p.cidade ?? p.estado), p.cep].filter(Boolean)
           return partes.length > 0 ? partes.join(', ') : null
         })(),
+        entrega: tipoEntrega === 'entrega' ? ((bairroEntrega === 'outro' ? enderecoCustom.trim() : bairroEntrega) || null) : null,
         vendedor: result.vendedorNome || null,
         deposito: nomeDeposito,
         loja: lojaSel?.nome ?? null,
@@ -1874,7 +1883,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     ${snap.vendedor ? `<p>Vendedor(a): ${snap.vendedor}</p>` : ''}
     <p class="bold">CONSUMIDOR</p>
     ${snap.cliente ? `<p>${snap.cliente}</p>` : '<p>CONSUMIDOR FINAL</p>'}
-    ${snap.clienteEndereco ? `<p style="text-align:left"><b>Entrega:</b> ${snap.clienteEndereco}</p>` : ''}
+    ${snap.entrega ? `<p style="text-align:left"><b>📍 Entrega:</b> ${snap.entrega}</p>` : snap.clienteEndereco ? `<p style="text-align:left"><b>Endereço do cliente:</b> ${snap.clienteEndereco}</p>` : ''}
 
     <hr class="sep">
     <p class="assina bold">Conferência: __________________</p>
@@ -1934,7 +1943,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       `Venda #${numero} | ${snap.horario}`,
       snap.vendedor ? `Vendedor(a): ${snap.vendedor}` : '',
       snap.cliente ? `Cliente: ${snap.cliente}` : '',
-      snap.clienteEndereco ? snap.clienteEndereco : '',
+      snap.entrega ? `📍 Entrega: ${snap.entrega}` : snap.clienteEndereco ? snap.clienteEndereco : '',
       '',
       '*Itens:*',
       ...snap.itens.map((i) => `• ${i.codigo ? i.codigo + ' - ' : ''}${i.nome} ${i.quantidade}x = R$ ${(i.quantidade * i.preco_unitario).toFixed(2).replace('.', ',')}`),
@@ -2041,7 +2050,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               <CopiarWhatsAppBtn texto={textoWhatsApp()} />
             </div>
             <button
-              onClick={() => { setVendaConcluidaId(null); setVendaSnapshot(null) }}
+              onClick={() => { setVendaConcluidaId(null); setVendaSnapshot(null); setTipoEntrega('retirada'); setBairroEntrega(''); setEnderecoCustom('') }}
               className="w-full rounded-xl bg-blue-600 px-8 py-3 font-semibold text-white hover:bg-blue-700 transition"
             >
               Nova Venda
@@ -2571,6 +2580,33 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                   <span className="text-xl font-extrabold tabular-nums text-[#1B6CA8]">{formatBRL(totalCobrado)}</span>
                 </div>
                 <div className="flex-1 space-y-4 overflow-y-auto p-5">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-400">Retirada ou entrega?</label>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setTipoEntrega('retirada')}
+                    className={`flex-1 rounded-xl border-2 py-2 text-sm font-semibold transition ${tipoEntrega === 'retirada' ? 'border-[#1B6CA8] bg-[#1B6CA8]/10 text-[#1B6CA8]' : 'border-gray-200 text-gray-500'}`}>
+                    🏪 Retirada
+                  </button>
+                  <button type="button" onClick={() => setTipoEntrega('entrega')}
+                    className={`flex-1 rounded-xl border-2 py-2 text-sm font-semibold transition ${tipoEntrega === 'entrega' ? 'border-[#1B6CA8] bg-[#1B6CA8]/10 text-[#1B6CA8]' : 'border-gray-200 text-gray-500'}`}>
+                    🛵 Entrega
+                  </button>
+                </div>
+                {tipoEntrega === 'entrega' && (
+                  <div className="mt-2 space-y-2">
+                    <select value={bairroEntrega} onChange={(e) => setBairroEntrega(e.target.value)}
+                      className="field w-full text-sm">
+                      <option value="">Selecione o bairro…</option>
+                      {(bairrosPorLoja[lojaId] ?? []).map((b) => <option key={b} value={b}>{b}</option>)}
+                      <option value="outro">Outro (digitar endereço)</option>
+                    </select>
+                    {bairroEntrega === 'outro' && (
+                      <input value={enderecoCustom} onChange={(e) => setEnderecoCustom(e.target.value)}
+                        placeholder="Endereço completo…" className="field w-full text-sm" />
+                    )}
+                  </div>
+                )}
+              </div>
               <div>
               <div className="grid grid-cols-2 gap-2.5">
                 {formasVisiveis.map((f, i) => {

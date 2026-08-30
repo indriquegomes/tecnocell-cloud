@@ -43,14 +43,18 @@ export default async function PDVPage() {
   // Produtos (7.983) e clientes (2.397) NÃO são mais embutidos no HTML — o PDV busca
   // sob demanda no servidor conforme digita (buscarProdutosPDV/buscarClientesPDV). Idem
   // os itens de tabela de preço (45k, buscarItensTabela). Isso derruba o payload do PDV.
-  const [{ count: totalProdutos }, { data: formas }, { data: depositos }, { data: tabelas }, { data: lojas }, { data: maquinas }] = await Promise.all([
+  const [{ count: totalProdutos }, { data: formas }, { data: depositos }, { data: tabelas }, { data: lojas }, { data: maquinas }, { data: bairrosData }] = await Promise.all([
     supabase.from('produtos').select('id', { count: 'exact', head: true }).eq('ativo', true),
     supabase.from('formas_pagamento').select('id, nome, tipo, maquina_id, prazo_recebimento, loja_id').eq('ativo', true),
     supabase.from('depositos').select('id, nome, loja_id').order('nome'),
     supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).or(`data_inicio.is.null,data_inicio.lte.${hoje}`).or(`data_fim.is.null,data_fim.gte.${hoje}`).order('nome'),
     supabase.from('lojas').select('id, nome, razao_social, cnpj, inscricao_estadual, telefone, whatsapp, cep, endereco, numero, complemento, bairro, cidade, uf, deposito_padrao_id, tabela_padrao_id, senha_desconto, logo_url, termos_venda').eq('ativa', true).order('nome'),
     supabase.from('maquinas_cartao').select('id, nome, taxa_debito, taxas_credito, max_parcelas').eq('ativo', true).order('nome'),
+    // bairros de entrega por loja — pra selecionar endereço na venda (Retirada/Entrega)
+    supabase.from('bairros_entrega').select('id, nome, loja_id').eq('ativo', true).order('nome'),
   ])
+  const bairrosPorLoja: Record<string, string[]> = {}
+  for (const b of bairrosData ?? []) (bairrosPorLoja[b.loja_id] ??= []).push(b.nome)
 
   // IMEIs vêm junto do resultado da busca de produto (buscarProdutosPDV) — começa vazio.
   const seriesPorProduto: Record<string, Record<string, string[]>> = {}
@@ -180,6 +184,7 @@ export default async function PDVPage() {
         tabelasUsadas={tabelasUsadas}
         promosPorProduto={promosPorProduto}
         seriesPorProduto={seriesPorProduto}
+        bairrosPorLoja={bairrosPorLoja}
       />
     </div>
   )

@@ -30,7 +30,10 @@ export function FiltroDashboard({
   // (mesmo pathname), então a barra não fecharia sozinha — beginNav/endNav a
   // controlam pelo estado da transição. (Reclamação da Isa: "clica e não acontece
   // nada visível enquanto carrega".)
-  const irUrl = (url: string) => { beginNav(); startTransition(() => router.push(url)) }
+  // router.refresh() força buscar de novo no servidor — sem isso o Router Cache do
+  // Next as vezes servia a pagina antiga (Este mes) depois de trocar pra Hoje/Semana,
+  // só resolvia com F5 (achado pelo dono 28/08).
+  const irUrl = (url: string) => { beginNav(); startTransition(() => { router.push(url); router.refresh() }) }
   useEffect(() => { if (!pending) endNav() }, [pending])
 
   const ir = (novo: Partial<{ de: string; ate: string; loja: string }>) => {
