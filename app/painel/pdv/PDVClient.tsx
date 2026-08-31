@@ -1882,7 +1882,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     ${snap.deposito && snap.deposito !== snap.loja && !(snap.loja && snap.deposito.toUpperCase().includes(snap.loja.toUpperCase())) ? `<p>${snap.deposito}</p>` : ''}
     ${snap.vendedor ? `<p>Vendedor(a): ${snap.vendedor}</p>` : ''}
     <p class="bold">CONSUMIDOR</p>
-    ${snap.cliente ? `<p>${snap.cliente}</p>` : '<p>CONSUMIDOR FINAL</p>'}
+    ${snap.cliente ? `<p class="bold" style="font-size:14px">${snap.cliente}</p>` : '<p>CONSUMIDOR FINAL</p>'}
     ${snap.entrega ? `<p style="text-align:left"><b>📍 Entrega:</b> ${snap.entrega}</p>` : snap.clienteEndereco ? `<p style="text-align:left"><b>Endereço do cliente:</b> ${snap.clienteEndereco}</p>` : ''}
 
     <hr class="sep">
@@ -2255,6 +2255,15 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           ) : null}
           {produtosFiltrados.length > 0 && (
             <div className="animate-pop-in absolute top-full left-0 right-0 z-10 mt-1 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
+              <label className="flex cursor-pointer items-center gap-2 border-b border-gray-100 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100">
+                <input
+                  type="checkbox"
+                  checked={produtosFiltrados.length > 0 && produtosFiltrados.every((p) => selCopia.has(p.id))}
+                  onChange={(e) => setSelCopia(e.target.checked ? new Set(produtosFiltrados.map((p) => p.id)) : new Set())}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                Selecionar todas
+              </label>
               <div className="max-h-[60vh] overflow-y-auto overscroll-contain">
               {produtosFiltrados.map((p, idx) => {
                 const disp = saldoNoDeposito(p)
