@@ -1,0 +1,1203 @@
+diff --git a/app/painel/integracoes/lojas/mercado-livre/[conexaoId]/anuncios/rascunho/[rascunhoId]/RascunhoEditor.tsx b/app/painel/integracoes/lojas/mercado-livre/[conexaoId]/anuncios/rascunho/[rascunhoId]/RascunhoEditor.tsx
+new file mode 100644
+index 0000000..cbf049e
+--- /dev/null
++++ b/app/painel/integracoes/lojas/mercado-livre/[conexaoId]/anuncios/rascunho/[rascunhoId]/RascunhoEditor.tsx
+@@ -0,0 +1,379 @@
++'use client'
++
++import { useState, useRef, useEffect } from 'react'
++import { useRouter } from 'next/navigation'
++import type { CategoriaML, AtributoCategoriaML, TipoAnuncioML } from '@/lib/mercado-livre'
++import {
++  buscarCategoriasFilhasAction, buscarAtributosCategoriaAction, buscarTiposAnuncioAction,
++  salvarRascunho, uploadFotoAnuncio, publicarRascunho, excluirRascunho,
++} from '../actions'
++import type { RascunhoAnuncio } from './page'
++
++type Crumb = { id: string; nome: string }
++
++export function RascunhoEditor({
++  rascunho, produtoNome, produtoCodigo, produtoImagem,
++}: {
++  rascunho: RascunhoAnuncio
++  produtoNome: string
++  produtoCodigo: string | null
++  produtoImagem: string | null
++}) {
++  const router = useRouter()
++  const fileInputRef = useRef<HTMLInputElement>(null)
++
++  // Não guardamos o caminho completo até a raiz — quando já tem categoria
++  // escolhida, mostra ela pronta; "Trocar categoria" reinicia a navegação
++  // do zero em vez de tentar reconstruir o caminho (a API não devolve o
++  // caminho de volta, só os filhos de cada nível).
++  const [categoriaId, setCategoriaId] = useState(rascunho.categoria_ml_id)
++  const [categoriaNome, setCategoriaNome] = useState(rascunho.categoria_ml_nome)
++  const [navegando, setNavegando] = useState(!rascunho.categoria_ml_id)
++  const [caminho, setCaminho] = useState<Crumb[]>([])
++  const [historico, setHistorico] = useState<CategoriaML[][]>([])
++  const [opcoesAtuais, setOpcoesAtuais] = useState<CategoriaML[]>([])
++  const [carregandoCategorias, setCarregandoCategorias] = useState(false)
++
++  const [atributos, setAtributos] = useState<AtributoCategoriaML[]>([])
++  const [valoresAtributos, setValoresAtributos] = useState<Record<string, string>>(rascunho.atributos ?? {})
++  const [carregandoAtributos, setCarregandoAtributos] = useState(false)
++
++  const [tiposAnuncio, setTiposAnuncio] = useState<TipoAnuncioML[]>([])
++  const [listingTypeId, setListingTypeId] = useState(rascunho.listing_type_id ?? '')
++  const [carregandoTipos, setCarregandoTipos] = useState(false)
++  const [condicao, setCondicao] = useState<'new' | 'used'>(rascunho.condicao ?? 'new')
++
++  const [titulo, setTitulo] = useState(rascunho.titulo ?? produtoNome)
++  const [preco, setPreco] = useState(String(rascunho.preco ?? ''))
++  const [fotos, setFotos] = useState<string[]>(rascunho.fotos?.length ? rascunho.fotos : produtoImagem ? [produtoImagem] : [])
++  const [enviandoFoto, setEnviandoFoto] = useState(false)
++
++  const [salvando, setSalvando] = useState(false)
++  const [publicando, setPublicando] = useState(false)
++  const [mensagem, setMensagem] = useState('')
++  const [erro, setErro] = useState(rascunho.erro_publicacao ?? '')
++
++  const carregarNivel = async (id: string | null) => {
++    setCarregandoCategorias(true)
++    try {
++      const opcoes = await buscarCategoriasFilhasAction(rascunho.conexao_id, id)
++      setOpcoesAtuais(opcoes)
++      if (id === null) setHistorico([opcoes])
++    } catch (e) {
++      setErro(e instanceof Error ? e.message : 'Falha ao buscar categorias do Mercado Livre.')
++    } finally {
++      setCarregandoCategorias(false)
++    }
++  }
++
++  const iniciarNavegacao = () => {
++    setNavegando(true)
++    setCaminho([])
++    if (historico.length === 0) carregarNivel(null)
++    else setOpcoesAtuais(historico[0])
++  }
++
++  const escolherCategoria = async (cat: CategoriaML) => {
++    setCarregandoCategorias(true)
++    setErro('')
++    try {
++      const filhas = await buscarCategoriasFilhasAction(rascunho.conexao_id, cat.id)
++      if (filhas.length === 0) {
++        // Categoria folha — fim da navegação.
++        setCategoriaId(cat.id)
++        setCategoriaNome(cat.nome)
++        setNavegando(false)
++        await salvarRascunho(rascunho.id, { categoriaId: cat.id, categoriaNome: cat.nome })
++        carregarAtributos(cat.id)
++        carregarTiposAnuncio(cat.id)
++      } else {
++        setCaminho((prev) => [...prev, { id: cat.id, nome: cat.nome }])
++        setHistorico((prev) => [...prev, filhas])
++        setOpcoesAtuais(filhas)
++      }
++    } catch (e) {
++      setErro(e instanceof Error ? e.message : 'Falha ao buscar categorias do Mercado Livre.')
++    } finally {
++      setCarregandoCategorias(false)
++    }
++  }
++
++  const voltarPraCrumb = (indice: number) => {
++    setCaminho((prev) => prev.slice(0, indice))
++    setOpcoesAtuais(historico[indice])
++    setHistorico((prev) => prev.slice(0, indice + 1))
++  }
++
++  const carregarAtributos = async (catId: string) => {
++    setCarregandoAtributos(true)
++    setErro('')
++    try {
++      const lista = await buscarAtributosCategoriaAction(rascunho.conexao_id, catId)
++      setAtributos(lista)
++    } catch (e) {
++      setErro(e instanceof Error ? e.message : 'Falha ao buscar atributos da categoria.')
++    } finally {
++      setCarregandoAtributos(false)
++    }
++  }
++
++  const carregarTiposAnuncio = async (catId: string) => {
++    setCarregandoTipos(true)
++    try {
++      const lista = await buscarTiposAnuncioAction(rascunho.conexao_id, catId)
++      setTiposAnuncio(lista)
++      // Se o rascunho ainda não tinha um tipo escolhido, sugere o primeiro
++      // da lista em vez de deixar em branco — mas nunca troca uma escolha
++      // que o usuário já fez antes.
++      setListingTypeId((atual) => atual || lista[0]?.id || '')
++    } catch (e) {
++      setErro(e instanceof Error ? e.message : 'Falha ao buscar tipos de anúncio disponíveis.')
++    } finally {
++      setCarregandoTipos(false)
++    }
++  }
++
++  // No mount: se já tem categoria escolhida (rascunho salvo antes), busca
++  // os atributos direto; senão, já carrega as categorias-raiz pra navegação
++  // começar sem precisar de um clique extra. eslint-disable: deve rodar só
++  // uma vez — categoriaId inicial nunca muda por fora do fluxo de
++  // escolherCategoria, que já cuida de buscar os atributos sozinho.
++  // eslint-disable-next-line react-hooks/exhaustive-deps
++  useEffect(() => {
++    if (rascunho.categoria_ml_id) {
++      carregarAtributos(rascunho.categoria_ml_id)
++      carregarTiposAnuncio(rascunho.categoria_ml_id)
++    } else carregarNivel(null)
++  }, [])
++
++  const handleUploadFoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
++    const arquivo = e.target.files?.[0]
++    if (!arquivo) return
++    setEnviandoFoto(true)
++    setErro('')
++    try {
++      const formData = new FormData()
++      formData.set('file', arquivo)
++      const res = await uploadFotoAnuncio(formData)
++      if (res.ok && res.url) setFotos((prev) => [...prev, res.url as string])
++      else setErro(res.erro ?? 'Falha ao enviar foto.')
++    } finally {
++      setEnviandoFoto(false)
++      if (fileInputRef.current) fileInputRef.current.value = ''
++    }
++  }
++
++  const removerFoto = (url: string) => setFotos((prev) => prev.filter((f) => f !== url))
++
++  const salvar = async () => {
++    setSalvando(true)
++    setMensagem('')
++    setErro('')
++    const res = await salvarRascunho(rascunho.id, {
++      titulo, preco: parseFloat(preco.replace(',', '.')) || null, atributos: valoresAtributos, fotos,
++      listingTypeId: listingTypeId || null, condicao,
++    })
++    setSalvando(false)
++    if (res.ok) setMensagem('Rascunho salvo.')
++    else setErro(res.erro ?? 'Falha ao salvar.')
++  }
++
++  const publicar = async () => {
++    setPublicando(true)
++    setMensagem('')
++    setErro('')
++    // Garante que o que está na tela foi salvo antes de publicar.
++    await salvarRascunho(rascunho.id, {
++      titulo, preco: parseFloat(preco.replace(',', '.')) || null, atributos: valoresAtributos, fotos,
++      listingTypeId: listingTypeId || null, condicao,
++    })
++    const res = await publicarRascunho(rascunho.id)
++    setPublicando(false)
++    if (res.ok) {
++      setMensagem('Anúncio publicado com sucesso!')
++      router.push('/painel/integracoes/produtos')
++    } else {
++      setErro(res.erro ?? 'Falha ao publicar.')
++    }
++  }
++
++  const jaPublicado = rascunho.status === 'publicado'
++
++  return (
++    <div className="mx-auto max-w-2xl space-y-6">
++      <div>
++        <h2 className="text-2xl font-bold text-gray-900">Publicar no Mercado Livre</h2>
++        <p className="text-sm text-gray-500">
++          Produto: <span className="font-medium text-gray-700">{produtoNome}</span>
++          {produtoCodigo && <span className="text-gray-400"> · código {produtoCodigo}</span>}
++        </p>
++      </div>
++
++      {jaPublicado && (
++        <p className="rounded-xl bg-green-50 px-4 py-2 text-sm font-medium text-green-700">
++          Este anúncio já foi publicado (ml_item_id: {rascunho.ml_item_id}).
++        </p>
++      )}
++
++      {erro && <p className="rounded-xl bg-red-50 px-4 py-2 text-sm font-medium text-red-700">{erro}</p>}
++      {mensagem && <p className="rounded-xl bg-green-50 px-4 py-2 text-sm font-medium text-green-700">{mensagem}</p>}
++
++      {/* Categoria */}
++      <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
++        <h3 className="font-semibold text-gray-800">Categoria no Mercado Livre</h3>
++        {categoriaId && !navegando ? (
++          <div className="flex items-center justify-between gap-3">
++            <p className="text-sm text-gray-700">{categoriaNome}</p>
++            <button type="button" onClick={iniciarNavegacao} className="text-xs font-medium text-blue-600 hover:underline">
++              Trocar categoria
++            </button>
++          </div>
++        ) : (
++          <div className="space-y-2">
++            {caminho.length > 0 && (
++              <div className="flex flex-wrap items-center gap-1 text-xs text-gray-500">
++                <button type="button" onClick={() => voltarPraCrumb(0)} className="hover:underline">Início</button>
++                {caminho.map((c, i) => (
++                  <span key={c.id} className="flex items-center gap-1">
++                    <span>/</span>
++                    <button type="button" onClick={() => voltarPraCrumb(i + 1)} className="hover:underline">{c.nome}</button>
++                  </span>
++                ))}
++              </div>
++            )}
++            {carregandoCategorias ? (
++              <p className="text-sm text-gray-400">Carregando...</p>
++            ) : (
++              <div className="max-h-64 space-y-1 overflow-y-auto">
++                {opcoesAtuais.map((c) => (
++                  <button key={c.id} type="button" onClick={() => escolherCategoria(c)}
++                    className="block w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-blue-50">
++                    {c.nome}
++                  </button>
++                ))}
++              </div>
++            )}
++          </div>
++        )}
++      </section>
++
++      {/* Atributos — só depois de escolher a categoria */}
++      {categoriaId && (
++        <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
++          <h3 className="font-semibold text-gray-800">Dados exigidos pelo Mercado Livre nesta categoria</h3>
++          {carregandoAtributos ? (
++            <p className="text-sm text-gray-400">Carregando atributos...</p>
++          ) : (
++            <div className="space-y-3">
++              {atributos.map((a) => (
++                <label key={a.id} className="block space-y-1">
++                  <span className="text-sm font-medium text-gray-700">
++                    {a.nome}{a.obrigatorio && <span className="text-red-500"> *</span>}
++                  </span>
++                  {a.valores.length > 0 ? (
++                    <select
++                      value={valoresAtributos[a.id] ?? ''}
++                      onChange={(e) => setValoresAtributos((prev) => ({ ...prev, [a.id]: e.target.value }))}
++                      className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
++                    >
++                      <option value="">Selecione...</option>
++                      {a.valores.map((v) => <option key={v.id} value={v.nome}>{v.nome}</option>)}
++                    </select>
++                  ) : (
++                    <input
++                      type="text"
++                      value={valoresAtributos[a.id] ?? ''}
++                      onChange={(e) => setValoresAtributos((prev) => ({ ...prev, [a.id]: e.target.value }))}
++                      maxLength={a.valorMaximo ?? undefined}
++                      placeholder={a.dica ?? ''}
++                      className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
++                    />
++                  )}
++                </label>
++              ))}
++            </div>
++          )}
++        </section>
++      )}
++
++      {/* Título, preço, fotos */}
++      <section className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
++        <label className="block space-y-1">
++          <span className="text-sm font-medium text-gray-700">
++            Título do anúncio <span className="text-xs font-normal text-gray-400">(pode ser diferente do nome do produto — evite marca de terceiro sem autorização)</span>
++          </span>
++          <input type="text" value={titulo} onChange={(e) => setTitulo(e.target.value)} maxLength={60}
++            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" />
++        </label>
++
++        <label className="block space-y-1">
++          <span className="text-sm font-medium text-gray-700">Preço (R$)</span>
++          <input type="text" inputMode="decimal" value={preco} onChange={(e) => setPreco(e.target.value)}
++            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" />
++        </label>
++
++        <label className="block space-y-1">
++          <span className="text-sm font-medium text-gray-700">Condição do produto</span>
++          <select value={condicao} onChange={(e) => setCondicao(e.target.value as 'new' | 'used')}
++            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
++            <option value="new">Novo</option>
++            <option value="used">Usado</option>
++          </select>
++        </label>
++
++        {categoriaId && (
++          <label className="block space-y-1">
++            <span className="text-sm font-medium text-gray-700">Tipo de anúncio</span>
++            {carregandoTipos ? (
++              <p className="text-sm text-gray-400">Carregando opções disponíveis...</p>
++            ) : (
++              <select value={listingTypeId} onChange={(e) => setListingTypeId(e.target.value)}
++                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
++                <option value="" disabled>Selecione...</option>
++                {tiposAnuncio.map((t) => (
++                  <option key={t.id} value={t.id}>
++                    {t.nome}{t.restanteGratis != null ? ` (${t.restanteGratis} grátis restantes)` : ''}
++                  </option>
++                ))}
++              </select>
++            )}
++          </label>
++        )}
++
++        <div className="space-y-2">
++          <span className="text-sm font-medium text-gray-700">Fotos</span>
++          <div className="flex flex-wrap gap-2">
++            {fotos.map((url) => (
++              <div key={url} className="relative">
++                {/* eslint-disable-next-line @next/next/no-img-element */}
++                <img src={url} alt="" className="h-20 w-20 rounded-lg border border-gray-200 object-cover" />
++                <button type="button" onClick={() => removerFoto(url)}
++                  className="absolute -right-1 -top-1 rounded-full bg-red-600 px-1.5 text-xs font-bold text-white">×</button>
++              </div>
++            ))}
++            <label className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-lg border border-dashed border-gray-300 text-xs text-gray-400 hover:bg-gray-50">
++              {enviandoFoto ? '...' : '+ Foto'}
++              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleUploadFoto} className="hidden" disabled={enviandoFoto} />
++            </label>
++          </div>
++        </div>
++      </section>
++
++      <div className="flex items-center gap-3">
++        <button type="button" onClick={salvar} disabled={salvando}
++          className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60">
++          {salvando ? 'Salvando...' : 'Salvar rascunho'}
++        </button>
++        <button type="button" onClick={publicar} disabled={publicando || jaPublicado}
++          className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
++          {publicando ? 'Publicando...' : jaPublicado ? 'Já publicado' : 'Publicar no Mercado Livre'}
++        </button>
++        {!jaPublicado && (
++          <form action={excluirRascunho.bind(null, rascunho.id, rascunho.conexao_id)}>
++            <button type="submit" className="text-sm text-red-600 hover:underline">Descartar rascunho</button>
++          </form>
++        )}
++      </div>
++    </div>
++  )
++}
+diff --git a/app/painel/integracoes/lojas/mercado-livre/[conexaoId]/anuncios/rascunho/[rascunhoId]/page.tsx b/app/painel/integracoes/lojas/mercado-livre/[conexaoId]/anuncios/rascunho/[rascunhoId]/page.tsx
+new file mode 100644
+index 0000000..d0f0e2e
+--- /dev/null
++++ b/app/painel/integracoes/lojas/mercado-livre/[conexaoId]/anuncios/rascunho/[rascunhoId]/page.tsx
+@@ -0,0 +1,55 @@
++import { notFound } from 'next/navigation'
++import { createServiceClient } from '@/lib/supabase/server'
++import { RascunhoEditor } from './RascunhoEditor'
++
++// Publicar pode levar mais que o padrão da Vercel (busca tipo de anúncio
++// disponível + chamada de criação no Mercado Livre) — mesmo teto de
++// segurança de importarAnuncios. Precisa estar aqui (page.tsx), não no
++// actions.ts: Server Actions herdam o maxDuration da página que os chama,
++// e um arquivo 'use server' só pode exportar função async.
++export const maxDuration = 60
++
++export type RascunhoAnuncio = {
++  id: string
++  produto_id: string
++  conexao_id: string
++  categoria_ml_id: string | null
++  categoria_ml_nome: string | null
++  titulo: string | null
++  atributos: Record<string, string>
++  fotos: string[]
++  preco: number | null
++  status: 'rascunho' | 'publicado' | 'erro'
++  ml_item_id: string | null
++  erro_publicacao: string | null
++  listing_type_id: string | null
++  condicao: 'new' | 'used'
++}
++
++export default async function RascunhoAnuncioPage({
++  params,
++}: {
++  params: Promise<{ conexaoId: string; rascunhoId: string }>
++}) {
++  const { conexaoId, rascunhoId } = await params
++  const supabase = await createServiceClient()
++
++  const { data: rascunho } = await supabase
++    .from('rascunhos_anuncio_ml')
++    .select('id, produto_id, conexao_id, categoria_ml_id, categoria_ml_nome, titulo, atributos, fotos, preco, status, ml_item_id, erro_publicacao, listing_type_id, condicao')
++    .eq('id', rascunhoId)
++    .eq('conexao_id', conexaoId)
++    .maybeSingle()
++  if (!rascunho) notFound()
++
++  const { data: produto } = await supabase.from('produtos').select('id, nome, codigo, imagem_url').eq('id', rascunho.produto_id).single()
++
++  return (
++    <RascunhoEditor
++      rascunho={rascunho as RascunhoAnuncio}
++      produtoNome={produto?.nome ?? rascunho.produto_id}
++      produtoCodigo={produto?.codigo ?? null}
++      produtoImagem={produto?.imagem_url ?? null}
++    />
++  )
++}
+diff --git a/app/painel/integracoes/lojas/mercado-livre/[conexaoId]/anuncios/rascunho/actions.ts b/app/painel/integracoes/lojas/mercado-livre/[conexaoId]/anuncios/rascunho/actions.ts
+new file mode 100644
+index 0000000..37b34c2
+--- /dev/null
++++ b/app/painel/integracoes/lojas/mercado-livre/[conexaoId]/anuncios/rascunho/actions.ts
+@@ -0,0 +1,147 @@
++'use server'
++
++import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
++import {
++  buscarCategoriasFilhas, buscarAtributosCategoria, buscarTiposAnuncioDisponiveis, publicarAnuncio, buscarConexao,
++  type CategoriaML, type AtributoCategoriaML, type TipoAnuncioML,
++} from '@/lib/mercado-livre'
++import { revalidatePath } from 'next/cache'
++import { redirect } from 'next/navigation'
++
++export async function buscarCategoriasFilhasAction(conexaoId: string, categoriaId: string | null): Promise<CategoriaML[]> {
++  await requirePermissao('integracoes')
++  return buscarCategoriasFilhas(conexaoId, categoriaId)
++}
++
++export async function buscarAtributosCategoriaAction(conexaoId: string, categoriaId: string): Promise<AtributoCategoriaML[]> {
++  await requirePermissao('integracoes')
++  return buscarAtributosCategoria(conexaoId, categoriaId)
++}
++
++export async function buscarTiposAnuncioAction(conexaoId: string, categoriaId: string): Promise<TipoAnuncioML[]> {
++  await requirePermissao('integracoes')
++  const conexao = await buscarConexao(conexaoId)
++  if (!conexao) throw new Error('Conexão do Mercado Livre não encontrada.')
++  return buscarTiposAnuncioDisponiveis(conexaoId, conexao.ml_user_id, categoriaId)
++}
++
++type RascunhoUpdate = {
++  categoriaId?: string | null
++  categoriaNome?: string | null
++  titulo?: string | null
++  preco?: number | null
++  atributos?: Record<string, string>
++  fotos?: string[]
++  listingTypeId?: string | null
++  condicao?: 'new' | 'used'
++}
++
++export async function salvarRascunho(rascunhoId: string, dados: RascunhoUpdate): Promise<{ ok: boolean; erro?: string }> {
++  await requirePermissao('integracoes')
++  const supabase = await createServiceClient()
++  const { error } = await supabase.from('rascunhos_anuncio_ml').update({
++    ...(dados.categoriaId !== undefined ? { categoria_ml_id: dados.categoriaId } : {}),
++    ...(dados.categoriaNome !== undefined ? { categoria_ml_nome: dados.categoriaNome } : {}),
++    ...(dados.titulo !== undefined ? { titulo: dados.titulo } : {}),
++    ...(dados.preco !== undefined ? { preco: dados.preco } : {}),
++    ...(dados.atributos !== undefined ? { atributos: dados.atributos } : {}),
++    ...(dados.fotos !== undefined ? { fotos: dados.fotos } : {}),
++    ...(dados.listingTypeId !== undefined ? { listing_type_id: dados.listingTypeId } : {}),
++    ...(dados.condicao !== undefined ? { condicao: dados.condicao } : {}),
++    updated_at: new Date().toISOString(),
++  }).eq('id', rascunhoId)
++  if (error) return { ok: false, erro: error.message }
++  return { ok: true }
++}
++
++export async function uploadFotoAnuncio(formData: FormData): Promise<{ ok: boolean; url?: string; erro?: string }> {
++  await requirePermissao('integracoes')
++  const file = formData.get('file') as File | null
++  if (!file || file.size === 0) return { ok: false, erro: 'Nenhum arquivo enviado.' }
++
++  const supabase = await createServiceClient()
++  const ext = file.name.split('.').pop() ?? 'jpg'
++  const nome = `${crypto.randomUUID()}.${ext}`
++  const bytes = await file.arrayBuffer()
++
++  const { error } = await supabase.storage.from('anuncios-ml').upload(nome, bytes, { contentType: file.type, upsert: false })
++  if (error) return { ok: false, erro: error.message }
++
++  const { data } = supabase.storage.from('anuncios-ml').getPublicUrl(nome)
++  return { ok: true, url: data.publicUrl }
++}
++
++export async function publicarRascunho(rascunhoId: string): Promise<{ ok: boolean; erro?: string }> {
++  await requirePermissao('integracoes')
++  const supabase = await createServiceClient()
++
++  const { data: rascunho, error: erroRascunho } = await supabase
++    .from('rascunhos_anuncio_ml').select('*').eq('id', rascunhoId).single()
++  if (erroRascunho || !rascunho) return { ok: false, erro: 'Rascunho não encontrado.' }
++
++  if (!rascunho.categoria_ml_id) return { ok: false, erro: 'Escolha uma categoria antes de publicar.' }
++  if (!rascunho.titulo?.trim()) return { ok: false, erro: 'Preencha o título antes de publicar.' }
++  if (!rascunho.preco || rascunho.preco <= 0) return { ok: false, erro: 'Preencha um preço válido antes de publicar.' }
++  if (!rascunho.listing_type_id) return { ok: false, erro: 'Escolha o tipo de anúncio (grátis, clássico, premium...) antes de publicar.' }
++  const fotos = (rascunho.fotos ?? []) as string[]
++  if (fotos.length === 0) return { ok: false, erro: 'Adicione pelo menos uma foto antes de publicar.' }
++
++  const conexao = await buscarConexao(rascunho.conexao_id)
++  if (!conexao) return { ok: false, erro: 'Conexão do Mercado Livre não encontrada.' }
++
++  const { data: produto } = await supabase.from('produtos').select('id').eq('id', rascunho.produto_id).single()
++  if (!produto) return { ok: false, erro: 'Produto não encontrado.' }
++
++  const { data: estoqueLinhas } = await supabase.from('estoque').select('quantidade').eq('produto_id', rascunho.produto_id)
++  const quantidade = Math.max(0, (estoqueLinhas ?? []).reduce((soma, e) => soma + Number(e.quantidade ?? 0), 0))
++
++  const atributosObj = (rascunho.atributos ?? {}) as Record<string, string>
++  const atributosPayload = Object.entries(atributosObj)
++    .filter(([, valor]) => valor)
++    .map(([id, valor]) => ({ id, valorTexto: valor }))
++
++  try {
++    const publicado = await publicarAnuncio(rascunho.conexao_id, {
++      titulo: rascunho.titulo,
++      categoriaId: rascunho.categoria_ml_id,
++      preco: rascunho.preco,
++      quantidade,
++      fotos,
++      listingTypeId: rascunho.listing_type_id,
++      condicao: rascunho.condicao === 'used' ? 'used' : 'new',
++      atributos: atributosPayload,
++    })
++
++    await supabase.from('rascunhos_anuncio_ml').update({
++      status: 'publicado', ml_item_id: publicado.id, erro_publicacao: null, updated_at: new Date().toISOString(),
++    }).eq('id', rascunhoId)
++
++    await supabase.from('integracoes_mercado_livre_anuncios').upsert({
++      ml_item_id: publicado.id,
++      conexao_id: rascunho.conexao_id,
++      produto_id: rascunho.produto_id,
++      titulo_ml: rascunho.titulo,
++      preco_ml: rascunho.preco,
++      is_catalogo: false,
++      atualizado_em: new Date().toISOString(),
++    }, { onConflict: 'ml_item_id' })
++  } catch (e) {
++    const mensagem = e instanceof Error ? e.message : 'Falha ao publicar no Mercado Livre.'
++    await supabase.from('rascunhos_anuncio_ml').update({
++      status: 'erro', erro_publicacao: mensagem, updated_at: new Date().toISOString(),
++    }).eq('id', rascunhoId)
++    return { ok: false, erro: mensagem }
++  }
++
++  revalidatePath('/painel/integracoes/produtos')
++  revalidatePath(`/painel/integracoes/lojas/mercado-livre/${rascunho.conexao_id}/anuncios`)
++  return { ok: true }
++}
++
++export async function excluirRascunho(rascunhoId: string, conexaoId: string) {
++  await requirePermissao('integracoes')
++  const supabase = await createServiceClient()
++  await supabase.from('rascunhos_anuncio_ml').delete().eq('id', rascunhoId).eq('status', 'rascunho')
++  revalidatePath('/painel/integracoes/produtos')
++  redirect(`/painel/integracoes/lojas/mercado-livre/${conexaoId}`)
++}
+diff --git a/app/painel/integracoes/produtos/PublicarMLBotao.tsx b/app/painel/integracoes/produtos/PublicarMLBotao.tsx
+new file mode 100644
+index 0000000..c3795d5
+--- /dev/null
++++ b/app/painel/integracoes/produtos/PublicarMLBotao.tsx
+@@ -0,0 +1,24 @@
++import { criarRascunhoEIrPraEdicao } from './actions'
++
++export function PublicarMLBotao({
++  produtoId, conexoes,
++}: {
++  produtoId: string
++  conexoes: { id: string; nome: string }[]
++}) {
++  return (
++    <form action={criarRascunhoEIrPraEdicao.bind(null, produtoId)} className="inline-flex items-center gap-1.5">
++      {conexoes.length > 1 && (
++        <select name="conexaoId" defaultValue={conexoes[0].id}
++          className="rounded-lg border border-gray-200 px-1.5 py-0.5 text-xs text-gray-600">
++          {conexoes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
++        </select>
++      )}
++      {conexoes.length === 1 && <input type="hidden" name="conexaoId" value={conexoes[0].id} />}
++      <button type="submit"
++        className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-200 transition">
++        Publicar no Mercado Livre
++      </button>
++    </form>
++  )
++}
+diff --git a/app/painel/integracoes/produtos/actions.ts b/app/painel/integracoes/produtos/actions.ts
+new file mode 100644
+index 0000000..cae0316
+--- /dev/null
++++ b/app/painel/integracoes/produtos/actions.ts
+@@ -0,0 +1,43 @@
++'use server'
++
++import { createServiceClient, requirePermissao, requireAuth } from '@/lib/supabase/server'
++import { redirect } from 'next/navigation'
++
++export async function criarRascunhoEIrPraEdicao(produtoId: string, formData: FormData) {
++  await requirePermissao('integracoes')
++  const conexaoId = formData.get('conexaoId') as string
++  const supabase = await createServiceClient()
++
++  // Já tem rascunho não publicado desse produto pra essa loja? Continua ele
++  // em vez de criar outro — sem essa checagem, clicar "Publicar" de novo
++  // (ex: depois de sair sem terminar) duplicava o rascunho.
++  const { data: existente } = await supabase
++    .from('rascunhos_anuncio_ml')
++    .select('id')
++    .eq('produto_id', produtoId)
++    .eq('conexao_id', conexaoId)
++    .neq('status', 'publicado')
++    .order('created_at', { ascending: false })
++    .limit(1)
++    .maybeSingle()
++  if (existente) redirect(`/painel/integracoes/lojas/mercado-livre/${conexaoId}/anuncios/rascunho/${existente.id}`)
++
++  let criadoPor: string | null = null
++  try { criadoPor = (await requireAuth()).id } catch { /* segue sem autor registrado */ }
++
++  const { data: produto } = await supabase.from('produtos').select('nome, preco').eq('id', produtoId).single()
++
++  const { data, error } = await supabase.from('rascunhos_anuncio_ml').insert({
++    produto_id: produtoId,
++    conexao_id: conexaoId,
++    titulo: produto?.nome ?? null,
++    preco: produto?.preco ?? null,
++    criado_por: criadoPor,
++  }).select('id').single()
++
++  if (error || !data) {
++    redirect(`/painel/integracoes/produtos?erro=${encodeURIComponent('Não deu pra iniciar o anúncio: ' + (error?.message ?? 'erro desconhecido'))}`)
++  }
++
++  redirect(`/painel/integracoes/lojas/mercado-livre/${conexaoId}/anuncios/rascunho/${data.id}`)
++}
+diff --git a/app/painel/integracoes/produtos/page.tsx b/app/painel/integracoes/produtos/page.tsx
+index 06b217f..3c0e7dc 100644
+--- a/app/painel/integracoes/produtos/page.tsx
++++ b/app/painel/integracoes/produtos/page.tsx
+@@ -1,99 +1,146 @@
+ import { createServiceClient } from '@/lib/supabase/server'
+ import { formatBRL } from '@/lib/utils'
+ import { IconPackage } from '@/components/icons'
+ import { Dica } from '@/components/Dica'
+ import { BuscaLista } from '@/components/BuscaLista'
+ import { Paginacao } from '@/components/Paginacao'
++import { listarConexoes } from '@/lib/mercado-livre'
++import { PublicarMLBotao } from './PublicarMLBotao'
+ 
+ const POR_PAGINA = 30
+ 
+ type ProdutoLinha = {
+   id: string
+   nome: string
+   preco: number | null
+   estoque: { quantidade: number | null }[] | null
+   categorias: { nome: string } | null
+ }
+ 
+ export default async function IntegracoesProdutosPage({
+   searchParams,
+ }: {
+-  searchParams: Promise<{ busca?: string; pagina?: string }>
++  searchParams: Promise<{ busca?: string; pagina?: string; erro?: string }>
+ }) {
+-  const { busca, pagina: paginaStr } = await searchParams
++  const { busca, pagina: paginaStr, erro } = await searchParams
+   const pagina = Math.max(1, Number(paginaStr) || 1)
+   const supabase = await createServiceClient()
+ 
+   let q = supabase
+     .from('produtos')
+     .select('id, nome, preco, estoque(quantidade), categorias(nome)', { count: 'exact' })
+     .eq('ativo', true)
+     .order('nome')
+ 
+   const termo = busca?.trim()
+   if (termo) {
+     // Mesmo jeito de tirar acento usado em app/painel/tabelas-preco/actions.ts
+     // (buscarProdutosParaTabela) — charCodeAt em vez de regex com unicode
+     // embutido, pra não arriscar corromper o arquivo (projeto já teve
+     // problema de encoding antes, ver CLAUDE.md).
+     const semAcento = termo.normalize('NFD').split('')
+       .filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 })
+       .join('').toLowerCase()
+     q = q.ilike('busca_norm', `%${semAcento}%`)
+   }
+ 
+   const de = (pagina - 1) * POR_PAGINA
+-  const { data, count } = await q.range(de, de + POR_PAGINA - 1)
++  const [{ data, count }, conexoes] = await Promise.all([
++    q.range(de, de + POR_PAGINA - 1),
++    listarConexoes(),
++  ])
+   const produtos = (data ?? []) as unknown as ProdutoLinha[]
+   const total = count ?? 0
+   const totalPaginas = Math.max(1, Math.ceil(total / POR_PAGINA))
+ 
++  const produtoIds = produtos.map((p) => p.id)
++  const [{ data: anunciosData }, { data: rascunhosData }] = produtoIds.length
++    ? await Promise.all([
++        supabase
++          .from('integracoes_mercado_livre_anuncios')
++          .select('produto_id, conexao:integracoes_mercado_livre(nome_loja, ml_nickname, ml_user_id)')
++          .in('produto_id', produtoIds),
++        supabase
++          .from('rascunhos_anuncio_ml')
++          .select('id, produto_id, conexao_id')
++          .in('produto_id', produtoIds)
++          .neq('status', 'publicado'),
++      ])
++    : [{ data: [] as unknown[] }, { data: [] as unknown[] }]
++  const anuncioPorProduto = new Map(
++    (anunciosData ?? []).map((a) => {
++      const linha = a as unknown as { produto_id: string; conexao: { nome_loja: string | null; ml_nickname: string | null; ml_user_id: string } | null }
++      return [linha.produto_id, linha.conexao?.nome_loja ?? linha.conexao?.ml_nickname ?? linha.conexao?.ml_user_id ?? 'Mercado Livre']
++    })
++  )
++  const rascunhoPorProduto = new Map(
++    (rascunhosData ?? []).map((r) => {
++      const linha = r as unknown as { id: string; produto_id: string; conexao_id: string }
++      return [linha.produto_id, linha]
++    })
++  )
++
+   return (
+     <div className="space-y-6">
+       <div className="flex items-center gap-2">
+         <IconPackage className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
+         <h2 className="text-2xl font-bold text-gray-900">Meus Produtos</h2>
+-        <Dica texto="Catálogo do TecnoCell, pronto pra anunciar quando alguma integração for conectada de verdade. Nenhum produto está integrado ainda." />
++        <Dica texto="Catálogo do TecnoCell. Escolha um produto pra publicar como anúncio novo no Mercado Livre." />
+       </div>
+ 
++      {erro && <p className="rounded-xl bg-red-50 px-4 py-2 text-sm font-medium text-red-700">{erro}</p>}
++
+       <BuscaLista basePath="/painel/integracoes/produtos" placeholder="Buscar produto..." />
+ 
+       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+         <table className="min-w-full divide-y divide-gray-100">
+           <thead className="bg-gray-50">
+             <tr>
+               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Produto</th>
+               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Categoria</th>
+               <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Preço Venda</th>
+               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Estoque</th>
+               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Integrado com</th>
+             </tr>
+           </thead>
+           <tbody className="divide-y divide-gray-50">
+             {produtos.length === 0 ? (
+               <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">Nenhum produto encontrado.</td></tr>
+             ) : produtos.map((p) => {
+               const estoqueTotal = (p.estoque ?? []).reduce((soma, e) => soma + (e.quantidade ?? 0), 0)
++              const integradoCom = anuncioPorProduto.get(p.id)
++              const rascunho = rascunhoPorProduto.get(p.id)
+               return (
+                 <tr key={p.id} className="hover:bg-blue-50/60 transition">
+                   <td className="px-4 py-3 text-sm font-medium text-gray-800">{p.nome}</td>
+                   <td className="px-4 py-3 text-sm text-gray-600">{p.categorias?.nome ?? '—'}</td>
+                   <td className="px-4 py-3 text-sm text-right text-gray-600">{formatBRL(p.preco ?? 0)}</td>
+                   <td className="px-4 py-3 text-sm text-center text-gray-600">{estoqueTotal}</td>
+                   <td className="px-4 py-3 text-center">
+-                    <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">Não integrado</span>
++                    {integradoCom ? (
++                      <span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">{integradoCom}</span>
++                    ) : rascunho ? (
++                      <a href={`/painel/integracoes/lojas/mercado-livre/${rascunho.conexao_id}/anuncios/rascunho/${rascunho.id}`}
++                        className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 hover:bg-amber-200">
++                        Continuar rascunho
++                      </a>
++                    ) : conexoes.length > 0 ? (
++                      <PublicarMLBotao produtoId={p.id} conexoes={conexoes.map((c) => ({ id: c.id, nome: c.nome_loja ?? c.ml_nickname ?? c.ml_user_id }))} />
++                    ) : (
++                      <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">Não integrado</span>
++                    )}
+                   </td>
+                 </tr>
+               )
+             })}
+           </tbody>
+         </table>
+         <Paginacao
+           pagina={pagina}
+           totalPaginas={totalPaginas}
+           total={total}
+           params={termo ? { busca: termo } : {}}
+           basePath="/painel/integracoes/produtos"
+         />
+       </div>
+     </div>
+diff --git a/docs/superpowers/specs/2026-08-21-publicar-anuncio-mercado-livre-design.md b/docs/superpowers/specs/2026-08-21-publicar-anuncio-mercado-livre-design.md
+new file mode 100644
+index 0000000..01c8bc9
+--- /dev/null
++++ b/docs/superpowers/specs/2026-08-21-publicar-anuncio-mercado-livre-design.md
+@@ -0,0 +1,188 @@
++# Publicar anúncio no Mercado Livre direto do TecnoCell — design
++
++## Contexto e objetivo
++
++Hoje o TecnoCell só **importa** anúncios que já existem no Mercado Livre
++(`importarAnuncios`, casando por código) — nunca criou nada novo lá. O
++usuário quer o caminho contrário: escolher um produto do estoque e publicar
++um anúncio novo no Mercado Livre, direto do TecnoCell, sem entrar no site
++deles.
++
++Motivo de negócio: alguns dados do produto, do jeito que estão cadastrados
++aqui, não podem ir pro Mercado Livre sem ajuste — nome de marca de terceiro
++(ex: "Apple", "Samsung") no título de um acessório não-oficial é motivo
++recorrente de denúncia por uso indevido de marca. O produto em si, no
++estoque do TecnoCell, não tem problema nenhum — o ajuste é só pro anúncio.
++
++Confirmado com o usuário (perguntas de esclarecimento, 2026-08-21):
++- Fluxo: produto do estoque → escolhido numa tela → editado (categoria,
++  título, atributos, fotos) numa tela de rascunho → revisado → publicado.
++- Categorias variam muito (não são só 5-10 fixas) → atributos têm que vir
++  **dinamicamente da API do Mercado Livre**, não de um formulário fixo por
++  categoria.
++- Categoria escolhida **navegando a árvore manualmente** (não por sugestão
++  automática a partir do título).
++- Primeira versão: só **anúncio comum** (não-catálogo). Catálogo fica pra
++  uma etapa futura — exige bater com um `catalog_product_id` já existente
++  no Mercado Livre, é uma capacidade adicional e não bloqueia a atual.
++- Fotos: upload de várias fotos específicas do anúncio (não usa só a
++  imagem única do cadastro de produto).
++- Rascunho revisável antes de publicar (não publica direto ao salvar).
++
++## Onde entra na estrutura existente
++
++**`app/painel/integracoes/produtos/page.tsx` já existe** (criada numa
++sessão anterior como placeholder) — lista todo o estoque ativo com busca e
++paginação, coluna "Integrado com" hoje sempre mostrando "Não integrado"
++fixo (nenhuma integração real estava conectada quando foi criada). Essa é
++a tela de entrada que o usuário descreveu ("a tabela geral... um menu
++dentro do menu integração"). Este design **estende essa página**, não cria
++uma nova lista de produtos do zero.
++
++## Modelo de dados
++
++Nova tabela `rascunhos_anuncio_ml` — o anúncio em edição, separado do
++produto original (que nunca é alterado):
++
++```sql
++create table rascunhos_anuncio_ml (
++  id uuid primary key default gen_random_uuid(),
++  produto_id text not null references produtos(id),
++  conexao_id uuid not null references integracoes_mercado_livre(id) on delete cascade,
++  categoria_ml_id text,          -- ex: "MLB1055", null até escolher a categoria
++  categoria_ml_nome text,        -- nome legível, cacheado pra exibição (evita rechamar a API só pra mostrar breadcrumb)
++  titulo text,
++  atributos jsonb not null default '{}'::jsonb,  -- { "BRAND": "Genérico", "MODEL": "..." }, chave = attribute id do ML
++  fotos jsonb not null default '[]'::jsonb,      -- array de URLs (Supabase Storage)
++  preco numeric,                 -- sugerido do produto.preco, editável só aqui
++  status text not null default 'rascunho' check (status in ('rascunho', 'publicado', 'erro')),
++  ml_item_id text,               -- preenchido só depois de publicar com sucesso
++  erro_publicacao text,          -- mensagem crua do Mercado Livre, se falhar
++  criado_por text,
++  created_at timestamptz not null default now(),
++  updated_at timestamptz not null default now()
++);
++create index idx_rascunhos_ml_produto on rascunhos_anuncio_ml(produto_id);
++create index idx_rascunhos_ml_conexao on rascunhos_anuncio_ml(conexao_id);
++```
++
++Bucket novo pro Supabase Storage, `anuncios-ml`, criado por migration (mesmo
++padrão do bucket `clientes`, `insert into storage.buckets`) — mas
++**público**, ao contrário do `clientes`: o Mercado Livre precisa buscar a
++foto por URL pra montar o anúncio, não dá pra usar URL assinada aqui.
++
++Por que uma tabela nova em vez de reaproveitar `integracoes_mercado_livre_anuncios`:
++essa tabela existente representa **anúncio que já existe no Mercado
++Livre** (importado ou publicado) — colunas como `ml_item_id` são
++obrigatórias na prática em todo o código atual. Um rascunho, por
++definição, ainda não tem `ml_item_id`. Misturar as duas coisas na mesma
++tabela obrigaria a tornar colunas opcionais em código que hoje assume que
++elas existem (`buscarVisaoGeral`, `buscarAnunciosSemEstoque` etc.) — risco
++desnecessário. Um rascunho vira uma linha em
++`integracoes_mercado_livre_anuncios` **só quando publica com sucesso** —
++esse é o ponto de entrada que já é sincronizado automaticamente por
++`sincronizarEstoqueML` (que descobre a conexão pelo `conexao_id` da própria
++linha do anúncio, sem precisar saber nada sobre rascunhos).
++
++## Fluxo de telas
++
++1. **`/painel/integracoes/produtos`** (existente, editada): coluna
++   "Integrado com" passa a mostrar o nome da conta ML quando o produto já
++   tem um anúncio publicado (join em `integracoes_mercado_livre_anuncios`
++   por `produto_id`), ou um botão "Publicar no Mercado Livre" quando não
++   tem — visível só se houver pelo menos uma conexão ML ativa. Clicar cria
++   uma linha em `rascunhos_anuncio_ml` (status `rascunho`, produto_id +
++   conexao_id, resto vazio) e navega pro rascunho.
++
++2. **`/painel/integracoes/lojas/mercado-livre/[conexaoId]/anuncios/rascunho/[rascunhoId]`**
++   (nova): tela de edição.
++   - **Categoria**: navegação em árvore — começa nas categorias-raiz do
++     site (`GET /sites/MLB/categories`, endpoint público, sem token), cada
++     categoria escolhida busca as filhas (`GET /categories/{id}` →
++     `children_categories`) até `children_categories` vir vazio (categoria
++     folha). Breadcrumb mostra o caminho escolhido, com botão pra voltar
++     um nível.
++   - **Atributos**: assim que a categoria folha é escolhida, busca
++     `GET /categories/{id}/attributes` — monta o formulário na hora.
++     Atributos com `tags.required` viram campos obrigatórios; atributos
++     com `value_type: "list"` (o `values` da resposta) viram `<select>`
++     com as opções que o próprio Mercado Livre define; o resto vira texto
++     livre. Sem tabela de atributos por categoria no nosso banco — é
++     buscado ao vivo toda vez.
++   - **Título**: pré-preenchido com `produtos.nome`, mas editável (é
++     onde o ajuste de marca acontece).
++   - **Fotos**: upload de várias imagens pro Supabase Storage (mesmo
++     padrão de `components/actions.ts` → `uploadFotoReport`, bucket
++     próprio `anuncios-ml`), guarda os URLs públicos no array `fotos`.
++   - **Preço**: pré-preenchido com `produtos.preco`, editável só aqui.
++   - Salvar grava o rascunho (`status` continua `rascunho`) sem chamar o
++     Mercado Livre — pode fechar e voltar depois.
++
++3. **Revisão** (mesma tela do rascunho, ou uma seção que aparece quando os
++   campos obrigatórios estão todos preenchidos — decisão de implementação,
++   não muda o modelo de dados): mostra um resumo (categoria, título,
++   atributos, preço, fotos) e o botão **Publicar**.
++   - Ao clicar: monta o payload e chama `POST /items` no Mercado Livre.
++   - **Sucesso**: grava `ml_item_id` e `status = 'publicado'` no rascunho,
++     E insere uma linha em `integracoes_mercado_livre_anuncios`
++     (`ml_item_id`, `conexao_id`, `produto_id`, `titulo_ml`, `preco_ml`,
++     `is_catalogo: false`) — a partir daqui o anúncio se comporta como
++     qualquer outro anúncio já importado (sincroniza estoque, aparece nas
++     Minhas Vendas etc). Redireciona pra `/painel/integracoes/produtos`
++     com uma mensagem de sucesso.
++   - **Erro**: grava `status = 'erro'` e `erro_publicacao` com a mensagem
++     crua que o Mercado Livre devolveu (ex: "atributo BRAND é
++     obrigatório"), mostra na tela pro usuário corrigir e tentar de novo —
++     o rascunho continua existindo, nada se perde.
++
++## Mudanças em `lib/mercado-livre.ts`
++
++Três funções novas, todas passando por `chamarML` (ponto único de chamada
++à API, mesmo padrão de tudo que já existe no arquivo):
++
++```ts
++export async function buscarCategoriasFilhas(conexaoId: string, categoriaId: string | null): Promise<{ id: string; nome: string }[]>
++// categoriaId null → GET /sites/MLB/categories (raiz)
++// categoriaId preenchido → GET /categories/{id}, devolve children_categories (vazio = é folha)
++
++export async function buscarAtributosCategoria(conexaoId: string, categoriaId: string): Promise<AtributoCategoriaML[]>
++// GET /categories/{categoriaId}/attributes
++
++export async function publicarAnuncio(conexaoId: string, payload: PublicarAnuncioInput): Promise<{ id: string }>
++// POST /items — lança erro com a mensagem do Mercado Livre em caso de falha
++// (mesmo padrão de erro que chamarML já usa hoje: throw new Error(`Mercado Livre API ${status}: ${texto}`))
++```
++
++`chamarML` já cuida de token/renovação — essas três funções não precisam
++saber nada sobre isso, igual todo o resto do arquivo.
++
++## Fora do escopo desta entrega (fica documentado, não esquecido)
++
++- **Anúncio de catálogo** (bater com `catalog_product_id` existente) —
++  fica pra depois, quando anúncio comum estiver funcionando bem.
++- **Sugestão automática de categoria** a partir do título — usuário
++  prefere escolher manualmente por enquanto.
++- **Editar um anúncio já publicado** por aqui (mudar atributos/fotos
++  depois de já estar no ar) — este design cobre só criar um anúncio novo.
++- **Sincronizar preço automaticamente depois de publicado** — o preço vai
++  uma vez, no momento de publicar; se o preço do produto mudar depois, o
++  anúncio no Mercado Livre não muda sozinho (igual hoje, nenhum anúncio
++  importado tem esse sync automático de preço).
++
++## Teste manual (mexe com anúncio de verdade no Mercado Livre — sem suíte automatizada cobrindo isto)
++
++1. Em "Meus Produtos", escolher um produto sem integração, clicar
++   "Publicar no Mercado Livre".
++2. Navegar a árvore de categorias até uma folha real (ex: capinha de
++   celular) e confirmar que os atributos que aparecem batem com o que o
++   próprio Mercado Livre mostra pra essa categoria (comparar com a tela de
++   anúncio novo direto no site deles).
++3. Preencher, tentar publicar faltando um campo obrigatório de propósito —
++   confirmar que o erro do Mercado Livre aparece na tela e o rascunho não
++   se perde.
++4. Preencher tudo certo, publicar — confirmar que o anúncio aparece de
++   verdade no Mercado Livre, com foto, categoria e atributos corretos.
++5. Confirmar que a linha nova aparece em "Meus Anúncios" daquela loja e
++   que "Integrado com" na tela de produtos mostra a conta certa.
++6. Mudar o estoque desse produto no TecnoCell e confirmar que o anúncio
++   novo sincroniza o estoque automaticamente (mesmo mecanismo de sempre).
+diff --git a/lib/mercado-livre.ts b/lib/mercado-livre.ts
+index d8e766b..e630e74 100644
+--- a/lib/mercado-livre.ts
++++ b/lib/mercado-livre.ts
+@@ -310,15 +310,122 @@ export async function buscarVendasML(conexaoId?: string): Promise<{ vendas: Vend
+     .from('integracoes_mercado_livre_pedidos_pendentes')
+     .select('id, ml_order_id, motivo, criado_em, resolvido')
+     .eq('resolvido', false)
+     .order('criado_em', { ascending: false })
+   if (conexaoId) pendentesQuery = pendentesQuery.eq('conexao_id', conexaoId)
+ 
+   const [{ data: vendas, error: erroVendas }, { data: pendentes, error: erroPendentes }] =
+     await Promise.all([vendasQuery, pendentesQuery])
+   if (erroVendas) console.error('buscarVendasML (vendas) falhou:', conexaoId, erroVendas.message)
+   if (erroPendentes) console.error('buscarVendasML (pendentes) falhou:', conexaoId, erroPendentes.message)
+   return {
+     vendas: (vendas ?? []) as VendaML[],
+     pendentes: (pendentes ?? []) as PedidoPendenteML[],
+   }
+ }
++
++// ── Publicar anúncio novo (ver docs/superpowers/specs/2026-08-21-publicar-anuncio-mercado-livre-design.md) ──
++
++export type CategoriaML = { id: string; nome: string }
++
++// categoriaId null = raiz do site. Devolve [] quando a categoria passada é
++// folha (sem filhas) — é assim que quem chama sabe que chegou no fim da
++// árvore, não tem um campo "é folha" separado pra isso.
++export async function buscarCategoriasFilhas(conexaoId: string, categoriaId: string | null): Promise<CategoriaML[]> {
++  if (!categoriaId) {
++    const raiz = await chamarML<{ id: string; name: string }[]>(conexaoId, '/sites/MLB/categories')
++    return raiz.map((c) => ({ id: c.id, nome: c.name }))
++  }
++  const cat = await chamarML<{ children_categories: { id: string; name: string }[] }>(conexaoId, `/categories/${categoriaId}`)
++  return cat.children_categories.map((c) => ({ id: c.id, nome: c.name }))
++}
++
++export type ValorAtributoML = { id: string; nome: string }
++export type AtributoCategoriaML = {
++  id: string
++  nome: string
++  obrigatorio: boolean
++  valorMaximo: number | null
++  // Presente = escolha de uma lista fixa (o ML define, mesmo em atributos
++  // "value_type: string" como BRAND) — vira <select>. Ausente/vazio = texto livre.
++  valores: ValorAtributoML[]
++  dica: string | null
++}
++
++type AtributoCategoriaMLResp = {
++  id: string
++  name: string
++  tags?: { required?: boolean; conditional_required?: boolean }
++  value_max_length?: number
++  values?: { id: string; name: string }[]
++  hint?: string
++}
++
++export async function buscarAtributosCategoria(conexaoId: string, categoriaId: string): Promise<AtributoCategoriaML[]> {
++  const attrs = await chamarML<AtributoCategoriaMLResp[]>(conexaoId, `/categories/${categoriaId}/attributes`)
++  return attrs.map((a) => ({
++    id: a.id,
++    nome: a.name,
++    // conditional_required também vira obrigatório aqui: é mais seguro pedir
++    // de mais (usuário preenche à toa) do que de menos (Mercado Livre recusa
++    // o anúncio na hora de publicar com um erro que já era previsível).
++    obrigatorio: !!(a.tags?.required || a.tags?.conditional_required),
++    valorMaximo: a.value_max_length ?? null,
++    valores: (a.values ?? []).map((v) => ({ id: v.id, nome: v.name })),
++    dica: a.hint ?? null,
++  }))
++}
++
++export type TipoAnuncioML = { id: string; nome: string; restanteGratis: number | null }
++
++// Nem toda conta pode usar todo tipo de anúncio em toda categoria, e os
++// nomes variam (achado testando de verdade: a resposta é um objeto com
++// campo "available", não uma lista direta como parecia pela documentação —
++// {category_id, available: [{id, name, remaining_listings}]}). Devolve a
++// lista pra quem chama escolher, não escolhe sozinho — grátis, clássico e
++// premium têm custo/alcance bem diferentes, é decisão do vendedor.
++export async function buscarTiposAnuncioDisponiveis(conexaoId: string, mlUserId: string, categoriaId: string): Promise<TipoAnuncioML[]> {
++  const resp = await chamarML<{ available: { id: string; name: string; remaining_listings: number | null }[] }>(
++    conexaoId, `/users/${mlUserId}/available_listing_types?category_id=${categoriaId}`
++  )
++  return resp.available.map((t) => ({ id: t.id, nome: t.name, restanteGratis: t.remaining_listings }))
++}
++
++export type PublicarAnuncioInput = {
++  titulo: string
++  categoriaId: string
++  preco: number
++  quantidade: number
++  fotos: string[]
++  listingTypeId: string
++  condicao: 'new' | 'used'
++  atributos: { id: string; valorTexto?: string; valorId?: string }[]
++}
++
++export async function publicarAnuncio(conexaoId: string, input: PublicarAnuncioInput): Promise<{ id: string }> {
++  const payload = {
++    // Achado testando de verdade: pra CRIAR um anúncio (diferente de ler um
++    // que já existe) o Mercado Livre quer family_name, não title — manda os
++    // dois juntos e ele recusa com "The fields [title] are invalid". Corta
++    // em 60 (mesmo teto que o formulário já usa) porque o ML rejeita
++    // family_name maior que isso.
++    family_name: input.titulo.slice(0, 60),
++    category_id: input.categoriaId,
++    price: input.preco,
++    currency_id: 'BRL',
++    available_quantity: input.quantidade,
++    buying_mode: 'buy_it_now',
++    listing_type_id: input.listingTypeId,
++    condition: input.condicao,
++    pictures: input.fotos.map((url) => ({ source: url })),
++    attributes: input.atributos.map((a) => ({
++      id: a.id,
++      ...(a.valorId ? { value_id: a.valorId } : {}),
++      ...(a.valorTexto ? { value_name: a.valorTexto } : {}),
++    })),
++  }
++  return chamarML<{ id: string }>(conexaoId, '/items', {
++    method: 'POST',
++    headers: { 'Content-Type': 'application/json' },
++    body: JSON.stringify(payload),
++  })
++}
+diff --git a/supabase/migrations/2026-08-21-rascunhos-anuncio-ml.sql b/supabase/migrations/2026-08-21-rascunhos-anuncio-ml.sql
+new file mode 100644
+index 0000000..da97520
+--- /dev/null
++++ b/supabase/migrations/2026-08-21-rascunhos-anuncio-ml.sql
+@@ -0,0 +1,29 @@
++-- Rascunho de anúncio do Mercado Livre — separado do produto de propósito
++-- (ver docs/superpowers/specs/2026-08-21-publicar-anuncio-mercado-livre-design.md).
++-- O cadastro de produto nunca é alterado por essa tela; o rascunho é uma
++-- cópia editável (título, categoria, atributos, fotos) até publicar.
++create table if not exists rascunhos_anuncio_ml (
++  id uuid primary key default gen_random_uuid(),
++  produto_id text not null references produtos(id),
++  conexao_id uuid not null references integracoes_mercado_livre(id) on delete cascade,
++  categoria_ml_id text,
++  categoria_ml_nome text,
++  titulo text,
++  atributos jsonb not null default '{}'::jsonb,
++  fotos jsonb not null default '[]'::jsonb,
++  preco numeric,
++  status text not null default 'rascunho' check (status in ('rascunho', 'publicado', 'erro')),
++  ml_item_id text,
++  erro_publicacao text,
++  criado_por text,
++  created_at timestamptz not null default now(),
++  updated_at timestamptz not null default now()
++);
++create index if not exists idx_rascunhos_ml_produto on rascunhos_anuncio_ml(produto_id);
++create index if not exists idx_rascunhos_ml_conexao on rascunhos_anuncio_ml(conexao_id);
++
++-- Bucket público: o Mercado Livre precisa buscar a foto por URL pra montar
++-- o anúncio, não dá pra usar URL assinada (diferente do bucket 'clientes').
++insert into storage.buckets (id, name, public)
++values ('anuncios-ml', 'anuncios-ml', true)
++on conflict (id) do nothing;
+diff --git a/supabase/migrations/2026-08-21-rascunhos-ml-tipo-condicao.sql b/supabase/migrations/2026-08-21-rascunhos-ml-tipo-condicao.sql
+new file mode 100644
+index 0000000..0b77754
+--- /dev/null
++++ b/supabase/migrations/2026-08-21-rascunhos-ml-tipo-condicao.sql
+@@ -0,0 +1,7 @@
++-- Faltavam dois campos reais que o Mercado Livre exige pra publicar
++-- (achado testando de verdade, ver commit): tipo de anúncio (grátis,
++-- clássico, premium... a lista de opções e os nomes variam por categoria e
++-- pelo plano da conta, por isso não é um enum fixo) e condição do produto
++-- (novo/usado — estava fixo em "novo" no código, errado).
++alter table rascunhos_anuncio_ml add column if not exists listing_type_id text;
++alter table rascunhos_anuncio_ml add column if not exists condicao text not null default 'new' check (condicao in ('new', 'used'));

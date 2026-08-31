@@ -55,6 +55,8 @@ supabase/.temp/
 .claude/skills/obsidian-bases/
 .claude/skills/obsidian-cli/
 .claude/skills/obsidian-markdown/
+.claude/skills/find-bugs/
+.claude/skills/find-skills/
 
 # Skills do Superpowers (obra/superpowers) — ferramenta local, instalada via npx
 .claude/skills/brainstorming/
