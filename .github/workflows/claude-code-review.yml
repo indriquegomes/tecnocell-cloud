@@ -12,7 +12,7 @@ jobs:
     if: github.event_name == 'pull_request' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
       issues: read
       id-token: write
@@ -24,8 +24,21 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
           prompt: |
             Revise o diff do último commit (`git diff HEAD~1..HEAD`, ou o
             diff do PR se for um pull_request). Foque em bugs reais,
-            segurança e regressão de lógica — não em estilo. Reporte só o
-            que encontrar; se não achar nada relevante, diga isso.
+            segurança e regressão de lógica — não em estilo.
+
+            Se achar um bug real e concreto (não estilo, não hipótese):
+            1. Crie uma branch nova a partir do HEAD atual
+               (ex: fix/nome-curto-do-bug).
+            2. Aplique a correção mínima necessária.
+            3. Rode `npx tsc --noEmit` e confirme que passa antes de commitar.
+            4. Commit e push da branch.
+            5. Abra um Pull Request contra `main` (`gh pr create`) explicando
+               o bug encontrado, o risco e a correção — em português.
+            NUNCA dê push ou commit direto na `main`. A correção só entra
+            depois que o dono aprovar e der merge no PR.
+
+            Se não achar nada relevante, apenas diga isso — não abra PR.
