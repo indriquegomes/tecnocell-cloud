@@ -111,10 +111,10 @@ export default async function MovimentacoesPage({
   // 2. Itens + mapas
   const [itensVenda, itensDev] = await Promise.all([
     vendaIds.length
-      ? fetchAllIn<Record<string, unknown>>(vendaIds, (chunk, from, to) => supabase.from('itens_venda').select('venda_id, produto_id, quantidade, preco_unitario, total_item, produtos(nome)').in('venda_id', chunk).range(from, to))
+      ? fetchAllIn<Record<string, unknown>>(vendaIds, (chunk, from, to) => supabase.from('itens_venda').select('id, venda_id, produto_id, quantidade, preco_unitario, total_item, produtos(nome)').in('venda_id', chunk).range(from, to))
       : Promise.resolve([] as Record<string, unknown>[]),
     devolucaoIds.length
-      ? fetchAllIn<Record<string, unknown>>(devolucaoIds, (chunk, from, to) => supabase.from('itens_devolucao').select('devolucao_id, produto_id, nome, quantidade, preco_unitario, total_item, status_produto').in('devolucao_id', chunk).range(from, to))
+      ? fetchAllIn<Record<string, unknown>>(devolucaoIds, (chunk, from, to) => supabase.from('itens_devolucao').select('id, devolucao_id, produto_id, nome, quantidade, preco_unitario, total_item, status_produto').in('devolucao_id', chunk).range(from, to))
       : Promise.resolve([] as Record<string, unknown>[]),
   ])
 
@@ -171,7 +171,7 @@ export default async function MovimentacoesPage({
     if (!v) continue
     const nome = (it.produtos as { nome: string } | null)?.nome ?? (it.produto_id as string)
     linhas.push({
-      key: 'v' + (it.venda_id as string) + (it.produto_id as string),
+      key: 'v' + (it.id as string),
       data: v.created_at,
       tipo: 'venda',
       produtoId: it.produto_id as string,
@@ -192,7 +192,7 @@ export default async function MovimentacoesPage({
     const d = devMap[it.devolucao_id as string]
     if (!d) continue
     linhas.push({
-      key: 'd' + (it.devolucao_id as string) + (it.produto_id as string),
+      key: 'd' + (it.id as string),
       data: d.created_at,
       // 'ok' volta ao estoque (Devolução +); troca/defeito/avaria NÃO volta (Troca · Saída)
       tipo: (((it.status_produto as string) ?? 'ok') === 'ok' ? 'devolucao' : 'troca'),
