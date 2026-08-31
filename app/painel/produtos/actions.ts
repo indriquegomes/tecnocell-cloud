@@ -33,6 +33,10 @@ export async function criarProduto(formData: FormData) {
   await requirePermissao('produtos')
   const podeCusto = await podeAcao('produto_custo')
   const supabase = await createServiceClient()
+  // nome só com espaço passa pelo required do HTML5 (não é vazio pro navegador)
+  // e virava produto fantasma sem nome de verdade — achado em teste de erros.
+  const nomeNovo = (formData.get('nome') as string)?.trim() || ''
+  if (!nomeNovo) redirect(`/painel/produtos/novo?erro=${encodeURIComponent('Nome não pode ficar vazio.')}`)
   // evita cadastrar produto com código já existente (duplicidade)
   const codigoNovo = (formData.get('codigo') as string)?.trim() || null
   if (codigoNovo) {
@@ -53,7 +57,7 @@ export async function criarProduto(formData: FormData) {
 
   const { error } = await supabase.from('produtos').insert({
     id,
-    nome: formData.get('nome') as string,
+    nome: nomeNovo,
     descricao: (formData.get('descricao') as string) || null,
     // Math.max(0, ...): campo de dinheiro é mascarado no form (não digita negativo
     // pela UI normal), mas o valor real vem de um input escondido — alguém manipulando
@@ -94,11 +98,13 @@ export async function editarProduto(id: string, formData: FormData) {
   await requirePermissao('produtos')
   const podeCusto = await podeAcao('produto_custo')
   const supabase = await createServiceClient()
+  const nomeEditado = (formData.get('nome') as string)?.trim() || ''
+  if (!nomeEditado) redirect(`/painel/produtos/${id}/editar?erro=${encodeURIComponent('Nome não pode ficar vazio.')}`)
   const imagemFile = formData.get('imagem') as File | null
   const novaImagem = imagemFile ? await uploadImagem(supabase, imagemFile, id) : undefined
 
   const updates: Record<string, unknown> = {
-    nome: formData.get('nome') as string,
+    nome: nomeEditado,
     descricao: (formData.get('descricao') as string) || null,
     preco: Math.max(0, parseFloat((formData.get('preco') as string) || '0')),
     // sem permissão de custo: não mexe no custo nem no piso (preserva os existentes)

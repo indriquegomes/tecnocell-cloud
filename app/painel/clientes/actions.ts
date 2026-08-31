@@ -36,7 +36,7 @@ async function uploadFotoCliente(
 function camposPessoa(formData: FormData, cpfCnpj: string, email: string) {
   const txt = (k: string) => (formData.get(k) as string)?.trim() || null
   return {
-    nome: formData.get('nome') as string,
+    nome: (formData.get('nome') as string)?.trim() || '',
     nome_fantasia: txt('nome_fantasia'),
     tipo: formData.get('tipo') as string,
     pessoa_fisica: formData.get('pessoa_fisica') === 'true',
@@ -99,6 +99,7 @@ export async function criarPessoa(formData: FormData) {
   }
 
   const campos = camposPessoa(formData, cpfCnpj, email)
+  if (!campos.nome) redirect(`/painel/clientes/novo?erro=${encodeURIComponent('Nome não pode ficar vazio.')}`)
   if (!(await podeAcao('credito_limite'))) campos.limite_credito = 0
   const id = crypto.randomUUID()
   const foto_url = await uploadFotoCliente(supabase, formData.get('foto') as File | null, id)
@@ -137,6 +138,7 @@ export async function editarPessoa(id: string, formData: FormData) {
   }
 
   const campos: Partial<ReturnType<typeof camposPessoa>> & { foto_url?: string } = camposPessoa(formData, cpfCnpj, email)
+  if (!campos.nome) redirect(`/painel/clientes/${id}/editar?erro=${encodeURIComponent('Nome não pode ficar vazio.')}`)
   // sem permissão: não mexe no limite de crédito (preserva o existente)
   if (!(await podeAcao('credito_limite'))) delete campos.limite_credito
   // só troca a foto se enviaram uma nova (senão preserva a atual)
