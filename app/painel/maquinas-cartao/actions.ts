@@ -14,7 +14,7 @@ function campos(formData: FormData) {
   // garante tamanho = max_parcelas (preenche com 0 o que faltar)
   const taxasCredito = Array.from({ length: maxP }, (_, i) => taxas[i] ?? 0)
   return {
-    nome: formData.get('nome') as string,
+    nome: (formData.get('nome') as string)?.trim() || '',
     taxa_debito: Math.max(0, parseFloat(formData.get('taxa_debito') as string) || 0),
     taxas_credito: taxasCredito,
     max_parcelas: maxP,
@@ -24,7 +24,9 @@ function campos(formData: FormData) {
 export async function criarMaquina(formData: FormData) {
   await requirePermissao('usuarios')
   const supabase = await createServiceClient()
-  const { error } = await supabase.from('maquinas_cartao').insert({ ...campos(formData), ativo: true })
+  const dados = campos(formData)
+  if (!dados.nome) redirect(`/painel/maquinas-cartao?erro=${encodeURIComponent('Nome não pode ficar vazio.')}`)
+  const { error } = await supabase.from('maquinas_cartao').insert({ ...dados, ativo: true })
   if (error) redirect(`/painel/maquinas-cartao?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/maquinas-cartao')
   revalidatePath('/painel/pdv')
@@ -34,8 +36,10 @@ export async function criarMaquina(formData: FormData) {
 export async function editarMaquina(id: string, formData: FormData) {
   await requirePermissao('usuarios')
   const supabase = await createServiceClient()
+  const dados = campos(formData)
+  if (!dados.nome) redirect(`/painel/maquinas-cartao?editar=${id}&erro=${encodeURIComponent('Nome não pode ficar vazio.')}`)
   const { error } = await supabase.from('maquinas_cartao')
-    .update({ ...campos(formData), ativo: formData.get('ativo') === 'true' })
+    .update({ ...dados, ativo: formData.get('ativo') === 'true' })
     .eq('id', id)
   if (error) redirect(`/painel/maquinas-cartao?editar=${id}&erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/maquinas-cartao')

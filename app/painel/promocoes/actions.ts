@@ -37,9 +37,11 @@ export async function criarPromocao(formData: FormData) {
   const tipo = formData.get('tipo') as string
   const qx = formData.get('quantidade_x')
   const qy = formData.get('quantidade_y')
+  const nome = (formData.get('nome') as string)?.trim() || ''
+  if (!nome) redirect(`/painel/promocoes?erro=${encodeURIComponent('Nome não pode ficar vazio.')}`)
 
   const { data, error } = await supabase.from('promocoes').insert({
-    nome: formData.get('nome') as string,
+    nome,
     tipo,
     valor: Math.max(0, parseFloat(formData.get('valor') as string) || 0),
     data_inicio: formData.get('data_inicio') as string || null,

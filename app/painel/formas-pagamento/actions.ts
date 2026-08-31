@@ -12,7 +12,7 @@ function campos(formData: FormData) {
   // fiado não traz dinheiro (vira 'a receber'), então nunca tem conta destino
   const conta_destino_id = tipo === 'fiado' ? null : ((formData.get('conta_destino_id') as string) || null)
   return {
-    nome: formData.get('nome') as string,
+    nome: (formData.get('nome') as string)?.trim() || '',
     tipo,
     maquina_id,
     prazo_recebimento: (formData.get('prazo_recebimento') as string) || 'a_vista',
@@ -24,9 +24,11 @@ function campos(formData: FormData) {
 export async function criarFormaPagamento(formData: FormData) {
   await requirePermissao('usuarios')
   const supabase = await createServiceClient()
+  const dados = campos(formData)
+  if (!dados.nome) redirect(`/painel/formas-pagamento?erro=${encodeURIComponent('Nome não pode ficar vazio.')}`)
   const { error } = await supabase.from('formas_pagamento').insert({
     id: crypto.randomUUID(),
-    ...campos(formData),
+    ...dados,
     ativo: true,
   })
   if (error) redirect(`/painel/formas-pagamento?erro=${encodeURIComponent(error.message)}`)
@@ -38,8 +40,10 @@ export async function criarFormaPagamento(formData: FormData) {
 export async function editarFormaPagamento(id: string, formData: FormData) {
   await requirePermissao('usuarios')
   const supabase = await createServiceClient()
+  const dados = campos(formData)
+  if (!dados.nome) redirect(`/painel/formas-pagamento?erro=${encodeURIComponent('Nome não pode ficar vazio.')}`)
   const { error } = await supabase.from('formas_pagamento').update({
-    ...campos(formData),
+    ...dados,
     ativo: formData.get('ativo') === 'true',
   }).eq('id', id)
   if (error) redirect(`/painel/formas-pagamento?erro=${encodeURIComponent(error.message)}`)

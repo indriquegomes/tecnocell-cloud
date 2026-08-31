@@ -8,7 +8,7 @@ import { redirect } from 'next/navigation'
 function campos(formData: FormData) {
   const txt = (k: string) => (formData.get(k) as string)?.trim() || null
   return {
-    nome: formData.get('nome') as string,
+    nome: (formData.get('nome') as string)?.trim() || '',
     razao_social: txt('razao_social'),
     cnpj: txt('cnpj'),
     inscricao_estadual: txt('inscricao_estadual'),
@@ -45,7 +45,9 @@ export async function criarLoja(formData: FormData) {
     const { data: ex } = await supabase.from('lojas').select('id').eq('cnpj', cnpj).maybeSingle()
     if (ex) redirect(`/painel/lojas/nova?erro=${encodeURIComponent('Já existe uma loja com este CNPJ.')}`)
   }
-  const { error } = await supabase.from('lojas').insert({ ...campos(formData), ativa: true })
+  const dadosNova = campos(formData)
+  if (!dadosNova.nome) redirect(`/painel/lojas/nova?erro=${encodeURIComponent('Nome não pode ficar vazio.')}`)
+  const { error } = await supabase.from('lojas').insert({ ...dadosNova, ativa: true })
   if (error) redirect(`/painel/lojas/nova?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/lojas')
   redirect('/painel/lojas')
@@ -61,8 +63,10 @@ export async function editarLoja(id: string, formData: FormData) {
     const { data: ex } = await supabase.from('lojas').select('id').eq('cnpj', cnpj).neq('id', id).maybeSingle()
     if (ex) redirect(`/painel/lojas/${id}/editar?erro=${encodeURIComponent('Já existe outra loja com este CNPJ.')}`)
   }
+  const dadosEdit = campos(formData)
+  if (!dadosEdit.nome) redirect(`/painel/lojas/${id}/editar?erro=${encodeURIComponent('Nome não pode ficar vazio.')}`)
   const { error } = await supabase.from('lojas').update({
-    ...campos(formData),
+    ...dadosEdit,
     ativa: formData.get('ativa') === 'true',
   }).eq('id', id)
   if (error) redirect(`/painel/lojas/${id}/editar?erro=${encodeURIComponent(error.message)}`)

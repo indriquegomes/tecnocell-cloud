@@ -38,9 +38,11 @@ export async function criarTabela(formData: FormData) {
   if (data_inicio && data_fim && data_fim < data_inicio) {
     redirect(`/painel/tabelas-preco?erro=${encodeURIComponent('A data final não pode ser antes da data inicial.')}`)
   }
+  const nome = (formData.get('nome') as string)?.trim() || ''
+  if (!nome) redirect(`/painel/tabelas-preco?erro=${encodeURIComponent('Nome não pode ficar vazio.')}`)
 
   const { error } = await supabase.from('tabelas_preco').insert({
-    nome: formData.get('nome') as string,
+    nome,
     descricao: formData.get('descricao') as string || null,
     data_inicio,
     data_fim,
