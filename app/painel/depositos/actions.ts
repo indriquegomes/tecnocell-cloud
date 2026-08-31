@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation'
 
 function extrairCampos(formData: FormData) {
   return {
-    nome:        formData.get('nome') as string,
+    nome:        (formData.get('nome') as string)?.trim() || '',
     loja_id:     (formData.get('loja_id') as string) || null,   // loja a que o depósito pertence
     descricao:   (formData.get('descricao') as string) || null,
     responsavel: (formData.get('responsavel') as string) || null,
@@ -22,7 +22,9 @@ function extrairCampos(formData: FormData) {
 export async function criarDeposito(formData: FormData) {
   await requirePermissao('estoque')
   const supabase = await createServiceClient()
-  const { error } = await supabase.from('depositos').insert({ id: crypto.randomUUID(), ...extrairCampos(formData) })
+  const dados = extrairCampos(formData)
+  if (!dados.nome) redirect(`/painel/depositos?erro=${encodeURIComponent('Nome não pode ficar vazio.')}`)
+  const { error } = await supabase.from('depositos').insert({ id: crypto.randomUUID(), ...dados })
   if (error) redirect(`/painel/depositos?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/depositos')
   revalidateTag('depositos', 'max')
@@ -32,7 +34,9 @@ export async function criarDeposito(formData: FormData) {
 export async function editarDeposito(id: string, formData: FormData) {
   await requirePermissao('estoque')
   const supabase = await createServiceClient()
-  const { error } = await supabase.from('depositos').update(extrairCampos(formData)).eq('id', id)
+  const dados = extrairCampos(formData)
+  if (!dados.nome) redirect(`/painel/depositos?erro=${encodeURIComponent('Nome não pode ficar vazio.')}`)
+  const { error } = await supabase.from('depositos').update(dados).eq('id', id)
   if (error) redirect(`/painel/depositos?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/depositos')
   revalidateTag('depositos', 'max')

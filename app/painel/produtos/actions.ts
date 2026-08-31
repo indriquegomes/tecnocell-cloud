@@ -153,15 +153,20 @@ export async function deletarProduto(id: string) {
 
 export async function criarCategoria(nome: string) {
   await requirePermissao('produtos')
+  const nomeLimpo = nome.trim()
+  if (!nomeLimpo) return
   const supabase = await createServiceClient()
-  const hierarquia = nome.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-  await supabase.from('categorias').upsert({ hierarquia, nome, descricao: null }, { onConflict: 'hierarquia' })
+  const hierarquia = nomeLimpo.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+  if (!hierarquia) return
+  await supabase.from('categorias').upsert({ hierarquia, nome: nomeLimpo, descricao: null }, { onConflict: 'hierarquia' })
   revalidatePath('/painel/produtos')
 }
 
 export async function criarMarca(nome: string) {
   await requirePermissao('produtos')
+  const nomeLimpo = nome.trim()
+  if (!nomeLimpo) return
   const supabase = await createServiceClient()
-  await supabase.from('marcas').upsert({ nome }, { onConflict: 'nome' })
+  await supabase.from('marcas').upsert({ nome: nomeLimpo }, { onConflict: 'nome' })
   revalidatePath('/painel/produtos')
 }
