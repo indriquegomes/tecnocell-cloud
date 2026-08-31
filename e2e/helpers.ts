@@ -5,8 +5,12 @@ import * as path from 'path'
 // Lê .env.local manualmente — o Playwright não carrega isso sozinho como o
 // Next.js carrega pro app. Credenciais NUNCA fixas no código: login real
 // da conta Master, não pode ficar em texto puro versionado no git.
+// No CI não existe .env.local (gitignored) — as mesmas variáveis vêm do
+// ambiente (GitHub Secrets), então cai no fallback pra process.env.
 export function carregarEnv(): Record<string, string> {
   const envPath = path.resolve(__dirname, '..', '.env.local')
+  if (!fs.existsSync(envPath)) return process.env as Record<string, string>
+
   const conteudo = fs.readFileSync(envPath, 'utf-8')
   const env: Record<string, string> = {}
   for (const linha of conteudo.split('\n')) {
