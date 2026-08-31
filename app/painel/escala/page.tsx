@@ -10,8 +10,10 @@ export default async function EscalaPage({
   const { semana } = await searchParams
   const supabase = await createServiceClient()
 
-  // segunda da semana pedida (ou a atual)
-  const base = semana ? new Date(`${semana}T12:00:00-03:00`) : new Date()
+  // segunda da semana pedida (ou a atual) — ?semana= inválido na URL (achado
+  // testando erros) derrubava a tela com "Invalid time value"; cai pra hoje.
+  const baseParseada = semana ? new Date(`${semana}T12:00:00-03:00`) : new Date()
+  const base = Number.isNaN(baseParseada.getTime()) ? new Date() : baseParseada
   const dias = semanaDe(base)
   const primeiro = dias[0].data
   const ultimo = dias[dias.length - 1].data
