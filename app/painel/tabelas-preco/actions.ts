@@ -33,11 +33,17 @@ export async function criarTabela(formData: FormData) {
   await requirePermissao('produtos')
   const supabase = await createServiceClient()
 
+  const data_inicio = (formData.get('data_inicio') as string) || null
+  const data_fim = (formData.get('data_fim') as string) || null
+  if (data_inicio && data_fim && data_fim < data_inicio) {
+    redirect(`/painel/tabelas-preco?erro=${encodeURIComponent('A data final não pode ser antes da data inicial.')}`)
+  }
+
   const { error } = await supabase.from('tabelas_preco').insert({
     nome: formData.get('nome') as string,
     descricao: formData.get('descricao') as string || null,
-    data_inicio: (formData.get('data_inicio') as string) || null,
-    data_fim: (formData.get('data_fim') as string) || null,
+    data_inicio,
+    data_fim,
     ativa: true,
   })
 
@@ -64,10 +70,12 @@ export async function deletarTabela(id: string) {
 export async function atualizarVigencia(id: string, formData: FormData) {
   await requirePermissao('produtos')
   const supabase = await createServiceClient()
-  await supabase.from('tabelas_preco').update({
-    data_inicio: (formData.get('data_inicio') as string) || null,
-    data_fim: (formData.get('data_fim') as string) || null,
-  }).eq('id', id)
+  const data_inicio = (formData.get('data_inicio') as string) || null
+  const data_fim = (formData.get('data_fim') as string) || null
+  if (data_inicio && data_fim && data_fim < data_inicio) {
+    redirect(`/painel/tabelas-preco/${id}?erro=${encodeURIComponent('A data final não pode ser antes da data inicial.')}`)
+  }
+  await supabase.from('tabelas_preco').update({ data_inicio, data_fim }).eq('id', id)
   revalidatePath(`/painel/tabelas-preco/${id}`)
   redirect(`/painel/tabelas-preco/${id}`)
 }
