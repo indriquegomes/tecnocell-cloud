@@ -108,7 +108,7 @@ test('Fluxo completo de venda: login → PDV → estoque → caixa', async ({ pa
   // PASSO 1: Login
   await page.goto('/login')
   await page.fill('input[name="email"]', TESTE_EMAIL)
-  await page.fill('input[name="senha"]', TESTE_SENHA)
+  await page.fill('input[type="password"]', TESTE_SENHA)
   await page.click('button:has-text("Entrar")')
   await page.waitForURL('**/painel/**', { timeout: 10000 })
   console.log('✅ Login realizado')
