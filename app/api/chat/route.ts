@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createClient, permissoesEfetivas } from '@/lib/supabase/server'
 import { temPermissao } from '@/lib/permissoes'
-import { streamChat, buildSystemPrompt, type ChatMessage } from '@/lib/claude'
+import { streamChat, buildSystemPrompt, type ChatMessage } from '@/lib/chat-ia'
 
 // Rate-limit simples em memória por IP. Evita abuso de custo Anthropic na rota
 // pública. Reinicia a cada cold start — suficiente pra barrar flood.
