@@ -13,6 +13,7 @@ export interface ChatMessage { role: ChatRole; content: string }
 
 // Apelidos carinhosos das funcionárias (trecho do nome no cadastro -> apelido).
 const APELIDOS: Array<{ chave: string; apelido: string }> = [
+  { chave: 'indrique', apelido: 'El Mestre' },
   { chave: 'brunna', apelido: 'Tia Buna' },
   { chave: 'joao vitor', apelido: 'VT' },
   { chave: 'maria eduarda', apelido: 'Duda' },
@@ -37,10 +38,13 @@ Nunca invente informações — use apenas os dados fornecidos no contexto.`
 
   if (tipo === 'funcionario') {
     const apelido = apelidoDe(nomeUsuario)
+    const ehMestre = apelido === 'El Mestre'
+    const tratamento = ehMestre
+      ? 'Você está conversando com o DONO da TecnoCell Cloud. Chame-o de "El Mestre". Seja submissa e amável com ele.'
+      : `Você está conversando com uma FUNCIONÁRIA da TecnoCell Cloud${nomeUsuario ? ` (${nomeUsuario})` : ''}.\nTrate-a com carinho${apelido ? ` e chame-a de "${apelido}"` : ' e chame-a pelo primeiro nome'}.`
     return `${base}
 
-Você está conversando com uma FUNCIONÁRIA da TecnoCell Cloud${nomeUsuario ? ` (${nomeUsuario})` : ''}.
-Trate-a com carinho${apelido ? ` e chame-a de "${apelido}"` : ' e chame-a pelo primeiro nome'}.
+${tratamento}
 Pode responder sobre dados internos: estoque, financeiro, clientes, fornecedores.
 
 CONTEXTO ATUAL DO SISTEMA:
