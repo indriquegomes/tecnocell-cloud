@@ -1308,7 +1308,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         lojaLogo: lojaSel?.logo_url ?? null,
         lojaTermos: lojaSel?.termos_venda ?? null,
         desconto: descontoNum + descontoPromo,
-        horario: new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        horario: new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' }),
       }
       imprimirCupomAuto(snap, result.vendaId)   // sai sozinho (iframe, não é bloqueado como popup)
       setVendaConcluidaId(result.vendaId)

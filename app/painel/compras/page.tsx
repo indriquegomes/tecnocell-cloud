@@ -106,7 +106,7 @@ export default async function ComprasPage({
               <tr key={n.id} className="hover:bg-blue-50/60 transition">
                 <td className="px-4 py-3 text-sm font-mono text-gray-600">{n.numero || '—'}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">
-                  {n.data_entrada ? new Date(n.data_entrada + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}
+                  {n.data_entrada ? new Date(n.data_entrada + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}
                 </td>
                 <td className="px-4 py-3 text-sm font-semibold tabular-nums text-gray-800">
                   {formatBRL(Number(n.valor_total) || 0)}

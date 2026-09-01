@@ -40,7 +40,7 @@ export default async function NotaEntradaDetalhe({
   if (!nota) notFound()
 
   const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-  const fmtDate = (d: string | null) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '—'
+  const fmtDate = (d: string | null) => d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR') : '—'
 
   const fornecedor = nota.pessoas as { nome: string } | null
   const lojaNome = new Map((lojas ?? []).map((l) => [l.id, l.nome]))

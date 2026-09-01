@@ -35,7 +35,7 @@ export default async function NovoProdutoPage({ searchParams }: { searchParams: 
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>
       )}
 
-      <form action={criarProduto} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-5" encType="multipart/form-data">
+      <form action={criarProduto} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-5">
         <div className="grid gap-5 sm:grid-cols-2">
           <ImageUpload />
           <div className="sm:col-span-2">

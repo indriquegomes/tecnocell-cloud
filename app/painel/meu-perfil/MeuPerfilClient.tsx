@@ -198,7 +198,7 @@ export function MeuPerfilClient() {
                 <div key={b.id} className="flex items-center justify-between py-2 text-sm">
                   <div className="min-w-0">
                     <span className="text-gray-700">{rot[b.motivo ?? ''] ?? b.motivo ?? '—'}</span>
-                    <span className="text-xs text-gray-400"> · {new Date(b.data + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
+                    <span className="text-xs text-gray-400"> · {new Date(b.data + 'T12:00:00').toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</span>
                   </div>
                   <span className={`shrink-0 font-bold tabular-nums ${Number(b.horas) < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
                     {Number(b.horas) > 0 ? '+' : ''}{Number(b.horas).toFixed(2).replace('.', ',')}h

@@ -201,7 +201,7 @@ export function PromoDetalheClient({
     await deletarPromocao(promocao.id)
   }
 
-  const fmtDate = (d: string | null) => (d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : 'sem fim')
+  const fmtDate = (d: string | null) => (d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : 'sem fim')
 
   return (
     <div className="space-y-6">

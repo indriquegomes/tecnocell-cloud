@@ -19,7 +19,9 @@ const supabase = createClient(
   env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const PRODUTO_BUSCA = 'pelicula iphone 11'
+// Produto com estoque no depósito padrão da 1ª loja (PETRÓPOLIS LOJA), nome único.
+// Era 'pelicula iphone 11' — o SIGE renomeou os produtos e o termo não existe mais.
+const PRODUTO_BUSCA = 'xerox'
 
 // ── Testes unitários de UI (mantidos) ────────────────────────────────────────
 test.describe('PDV', () => {
@@ -110,7 +112,7 @@ test('Fluxo completo de venda: login → PDV → estoque → caixa', async ({ pa
   await page.fill('input[name="email"]', TESTE_EMAIL)
   await page.fill('input[type="password"]', TESTE_SENHA)
   await page.click('button:has-text("Entrar")')
-  await page.waitForURL('**/painel/**', { timeout: 10000 })
+  await page.waitForURL('**/painel**', { timeout: 10000 })
   console.log('✅ Login realizado')
 
   // PASSO 2: Consulta estoque ANTES da venda direto no Supabase
@@ -122,7 +124,9 @@ test('Fluxo completo de venda: login → PDV → estoque → caixa', async ({ pa
     .from('produtos')
     .select('id, nome, preco')
     .ilike('nome', `%${PRODUTO_BUSCA}%`)
-    .single()
+    .order('nome')
+    .limit(1)
+    .maybeSingle()
 
   if (erroProdutoAntes || !produtoAntes) {
     throw new Error(
@@ -146,7 +150,26 @@ test('Fluxo completo de venda: login → PDV → estoque → caixa', async ({ pa
   console.log(`   Estoque inicial : ${estoqueInicial}`)
   console.log(`   Preço           : R$ ${precoProduto.toFixed(2)}`)
 
-  // PASSO 3: Ir para o PDV e fazer a venda
+  // PASSO 2b: o PDV só vende com o caixa DA LOJA aberto. Garante um caixa aberto
+  // na 1ª loja (Petrópolis) e fecha no fim — sem isso o botão "Finalizar Venda"
+  // fica desabilitado ("🔒 Caixa fechado").
+  const { data: primeiraLoja } = await supabase
+    .from('lojas').select('id').order('nome').limit(1).maybeSingle()
+  const lojaId = primeiraLoja?.id ?? null
+  let caixaTesteId: string | null = null
+  if (lojaId) {
+    const { data: cxAberto } = await supabase
+      .from('caixas').select('id').eq('loja_id', lojaId).eq('status', 'aberto').limit(1).maybeSingle()
+    if (cxAberto) {
+      caixaTesteId = cxAberto.id
+    } else {
+      const { data: novoCaixa } = await supabase
+        .from('caixas').insert({ loja_id: lojaId, status: 'aberto', valor_abertura: 0 }).select('id').single()
+      caixaTesteId = novoCaixa?.id ?? null
+    }
+  }
+
+  // PASSO 3: Ir para o PDV e fazer a venda (PDV em 2 etapas: carrinho → pagamento)
   await page.goto('/painel/pdv')
   await page.waitForLoadState('networkidle')
 
@@ -163,9 +186,15 @@ test('Fluxo completo de venda: login → PDV → estoque → caixa', async ({ pa
     await page.locator(`div:has-text("${PRODUTO_BUSCA}")`).first().click()
   }
 
-  // Finaliza venda
-  await page.click('button:has-text("Finalizar Venda")')
-  await expect(page.locator('text=Venda registrada')).toBeVisible({ timeout: 10000 })
+  // Etapa 1 → 2: carrinho → tela de pagamento
+  await page.getByRole('button', { name: /Ir para pagamento/ }).click()
+  // Escolhe "Dinheiro" no grid de formas
+  await page.locator('button:has-text("Dinheiro")').first().click()
+  // Abre a confirmação
+  await page.getByRole('button', { name: /Finalizar Venda/ }).click()
+  // Confirma a venda
+  await page.getByRole('button', { name: 'Confirmar venda' }).click()
+  await expect(page.getByText('Venda Concluída')).toBeVisible({ timeout: 15000 })
   console.log('✅ Venda registrada na tela')
 
   // PASSO 4: Verifica estoque DEPOIS da venda no Supabase
@@ -212,6 +241,13 @@ test('Fluxo completo de venda: login → PDV → estoque → caixa', async ({ pa
   }
 
   console.log(`✅ Venda no caixa com valor correto: R$ ${valorRecebido.toFixed(2)}`)
+
+  // Limpeza: fecha o caixa que o teste abriu (a venda em si é cancelada pelo
+  // runner via cancelar_venda depois, restaurando o estoque).
+  if (caixaTesteId) {
+    await supabase.from('caixas').update({ status: 'fechado', valor_fechamento: 0 }).eq('id', caixaTesteId)
+  }
+
   console.log('🎉 TESTE COMPLETO PASSOU!')
 })
 

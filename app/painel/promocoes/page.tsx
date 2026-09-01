@@ -33,7 +33,7 @@ export default async function PromocoesPage({
   const expiradas = lista.filter(p => p.data_fim && p.data_fim < hoje).length
 
   const fmtDate = (d: string | null) =>
-    d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '—'
+    d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR') : '—'
 
   return (
     <div className="space-y-6">
