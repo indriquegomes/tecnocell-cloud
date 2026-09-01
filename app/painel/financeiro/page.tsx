@@ -273,7 +273,24 @@ export default async function FinanceiroPage({
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-1">
                         {!pago && (
-                          <form action={marcarPago.bind(null, l.id)}>
+                          <form action={marcarPago.bind(null, l.id)} className="flex items-center gap-1">
+                            {/* Só "a receber" é dinheiro ENTRANDO, e o fechamento de caixa
+                                confere isso. Perguntar a forma aqui é o que impede o
+                                sistema de assumir "Dinheiro" num fiado pago por PIX. */}
+                            {l.tipo === 'receber' && (
+                              <select
+                                name="forma_pagamento"
+                                required
+                                defaultValue={l.forma_pagamento ?? ''}
+                                title="Como o cliente pagou? Entra na conferência do caixa."
+                                className="max-w-[7.5rem] rounded-lg border border-gray-200 px-1.5 py-1 text-xs text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                              >
+                                <option value="" disabled>Forma…</option>
+                                {formasOpc.map((f) => (
+                                  <option key={f} value={f}>{f}</option>
+                                ))}
+                              </select>
+                            )}
                             <button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-medium text-green-600 hover:bg-green-50 transition">
                               Pago
                             </button>

@@ -156,97 +156,162 @@ test('Fluxo completo de venda: login → PDV → estoque → caixa', async ({ pa
   const { data: primeiraLoja } = await supabase
     .from('lojas').select('id').order('nome').limit(1).maybeSingle()
   const lojaId = primeiraLoja?.id ?? null
-  let caixaTesteId: string | null = null
+  // Só fecha no fim o caixa que ESTE teste abriu. Antes, quando já existia caixa
+  // aberto, o teste adotava o caixa REAL do operador e o fechava com
+  // valor_fechamento: 0 — rodar no expediente zerava a gaveta de quem estava
+  // trabalhando. Caixa de terceiro o teste usa, não mexe.
+  let caixaCriadoPeloTeste: string | null = null
   if (lojaId) {
     const { data: cxAberto } = await supabase
       .from('caixas').select('id').eq('loja_id', lojaId).eq('status', 'aberto').limit(1).maybeSingle()
-    if (cxAberto) {
-      caixaTesteId = cxAberto.id
-    } else {
+    if (!cxAberto) {
       const { data: novoCaixa } = await supabase
         .from('caixas').insert({ loja_id: lojaId, status: 'aberto', valor_abertura: 0 }).select('id').single()
-      caixaTesteId = novoCaixa?.id ?? null
+      caixaCriadoPeloTeste = novoCaixa?.id ?? null
     }
   }
 
-  // PASSO 3: Ir para o PDV e fazer a venda (PDV em 2 etapas: carrinho → pagamento)
-  await page.goto('/painel/pdv')
-  await page.waitForLoadState('networkidle')
+  // Instante ANTES da venda, para identificar depois EXATAMENTE a venda que este
+  // teste criou. Aqui toISOString() é o uso correto: vendas.created_at é
+  // timestamptz e a comparação é de INSTANTE, não de data — a armadilha de fuso
+  // do projeto é derivar um DIA com toISOString, o que não acontece aqui.
+  // 60s de folga cobre relógio do runner adiantado em relação ao do banco; se
+  // isso pegar uma venda real junto, a checagem abaixo aborta em vez de cancelar.
+  const inicioDoTeste = new Date(Date.now() - 60_000).toISOString()
 
-  const inputBusca = page.locator('input[placeholder*="Buscar produto"]').first()
-  await inputBusca.click()
-  await inputBusca.fill(PRODUTO_BUSCA)
-  await page.waitForTimeout(400)
+  // A partir daqui o teste MEXE no banco real, então tudo vai dentro de
+  // try/finally: antes, uma falha no meio (estoque errado, venda não encontrada,
+  // valor divergente) abortava ANTES da limpeza e deixava venda concluída, baixa
+  // de estoque e o caixa aberto pelo teste — permanentes.
+  let vendaCriadaId: string | null = null
+  const errosLimpeza: string[] = []
 
-  // Clica no produto no dropdown ou no card
-  const itemDropdown = page.locator('[class*="shadow-lg"] button').first()
-  if ((await itemDropdown.count()) > 0) {
-    await itemDropdown.click()
-  } else {
-    await page.locator(`div:has-text("${PRODUTO_BUSCA}")`).first().click()
+  try {
+    // PASSO 3: Ir para o PDV e fazer a venda (PDV em 2 etapas: carrinho → pagamento)
+    await page.goto('/painel/pdv')
+    await page.waitForLoadState('networkidle')
+
+    const inputBusca = page.locator('input[placeholder*="Buscar produto"]').first()
+    await inputBusca.click()
+    await inputBusca.fill(PRODUTO_BUSCA)
+    await page.waitForTimeout(400)
+
+    // Clica no produto no dropdown ou no card
+    const itemDropdown = page.locator('[class*="shadow-lg"] button').first()
+    if ((await itemDropdown.count()) > 0) {
+      await itemDropdown.click()
+    } else {
+      await page.locator(`div:has-text("${PRODUTO_BUSCA}")`).first().click()
+    }
+
+    // Etapa 1 → 2: carrinho → tela de pagamento
+    await page.getByRole('button', { name: /Ir para pagamento/ }).click()
+    // Escolhe "Dinheiro" no grid de formas
+    await page.locator('button:has-text("Dinheiro")').first().click()
+    // Abre a confirmação
+    await page.getByRole('button', { name: /Finalizar Venda/ }).click()
+    // Confirma a venda
+    await page.getByRole('button', { name: 'Confirmar venda' }).click()
+    await expect(page.getByText('Venda Concluída')).toBeVisible({ timeout: 15000 })
+    console.log('✅ Venda registrada na tela')
+
+    // PASSO 5 vem ANTES da conferência de estoque de propósito: identificar a
+    // venda é o que permite limpar depois. Se a checagem de estoque falhasse
+    // primeiro, a limpeza não saberia o que cancelar.
+    //
+    // A venda do teste é achada por DIFERENÇA (instante + produto), nunca por
+    // "a última venda de hoje": com a loja aberta, a última venda pode ser de um
+    // cliente real feita no outro terminal — e a limpeza CANCELA o que achar.
+    // status='concluida' também evita pegar uma venda já cancelada de uma
+    // execução anterior, caso em que cancelar_venda devolve 'ja_cancelada' sem
+    // erro e a limpeza passaria batido.
+    const { data: novas, error: erroVenda } = await supabase
+      .from('vendas')
+      .select('id, total, created_at, itens_venda!inner(produto_id)')
+      .eq('status', 'concluida')
+      .gte('created_at', inicioDoTeste)
+      .eq('itens_venda.produto_id', produtoId)
+      .order('created_at', { ascending: true })
+
+    if (erroVenda) throw new Error(`❌ Erro ao consultar vendas: ${erroVenda.message}`)
+    if ((novas ?? []).length !== 1) {
+      throw new Error(
+        `❌ Esperava exatamente 1 venda nova deste teste, encontrei ${(novas ?? []).length}.\n` +
+        `   NÃO vou cancelar nada — pode haver venda de cliente real no meio.\n` +
+        `   Confira e resolva na mão: ${(novas ?? []).map((v) => v.id).join(', ') || '(nenhuma)'}`
+      )
+    }
+    const venda = novas![0]
+    vendaCriadaId = venda.id as string
+
+    // PASSO 4: Verifica estoque DEPOIS da venda no Supabase
+    const estoqueDepois   = await somaEstoque()
+    const estoqueEsperado = estoqueInicial - 1
+
+    if (estoqueDepois !== estoqueEsperado) {
+      throw new Error(
+        `❌ ESTOQUE INCORRETO APÓS VENDA\n` +
+        `   Esperado : ${estoqueEsperado} (${estoqueInicial} - 1)\n` +
+        `   Recebido : ${estoqueDepois}`
+      )
+    }
+    console.log(`✅ Estoque correto: ${estoqueInicial} → ${estoqueDepois}`)
+
+    const valorEsperado = precoProduto        // 1 unidade
+    const valorRecebido = Number(venda.total)
+
+    if (Math.abs(valorRecebido - valorEsperado) > 0.01) {
+      throw new Error(
+        `❌ VALOR DA VENDA INCORRETO\n` +
+        `   Esperado : R$ ${valorEsperado.toFixed(2)}\n` +
+        `   Recebido : R$ ${valorRecebido.toFixed(2)}`
+      )
+    }
+
+    console.log(`✅ Venda no caixa com valor correto: R$ ${valorRecebido.toFixed(2)}`)
+  } finally {
+    // Limpeza SEMPRE, mesmo com o teste falhando. Cancela a venda antes de fechar
+    // o caixa. O comentário antigo dizia que "o runner cancela via cancelar_venda
+    // depois" — esse runner nunca existiu no repositório, e cada execução deixava
+    // venda concluída e baixa de estoque PERMANENTES no banco real.
+    // O teste pode ter morrido DEPOIS de gravar a venda e ANTES de identificá-la
+    // — o caso mais provável é a tela não pintar "Venda Concluída" nos 15s,
+    // enquanto o finalizar_venda já gravou. Sem procurar aqui, a venda ficaria
+    // concluída e o estoque baixado, que é exatamente o que este finally existe
+    // pra evitar. Mesmo critério de sempre: só cancela se houver UMA candidata.
+    if (!vendaCriadaId) {
+      const { data: orfas } = await supabase
+        .from('vendas')
+        .select('id, itens_venda!inner(produto_id)')
+        .eq('status', 'concluida')
+        .gte('created_at', inicioDoTeste)
+        .eq('itens_venda.produto_id', produtoId)
+      if ((orfas ?? []).length === 1) {
+        vendaCriadaId = orfas![0].id as string
+      } else if ((orfas ?? []).length > 1) {
+        const aviso = `venda do teste ambígua na limpeza (${orfas!.length} candidatas) — nada cancelado, resolva na mão: ${orfas!.map((v) => v.id).join(', ')}`
+        console.error('⚠️ ' + aviso); errosLimpeza.push(aviso)
+      }
+    }
+    if (vendaCriadaId) {
+      const { error } = await supabase.rpc('cancelar_venda', {
+        p_venda_id: vendaCriadaId,
+        p_motivo: '__QA__ e2e pdv — venda de teste, cancelada pelo próprio teste',
+      })
+      // console.error além do push: quando o try já falhou, os expect lá embaixo
+      // nunca rodam e a falha de limpeza ficaria MUDA justo quando sobrou dado.
+      if (error) { console.error('⚠️ cancelar_venda falhou:', error.message); errosLimpeza.push(`cancelar_venda: ${error.message}`) }
+    }
+    if (caixaCriadoPeloTeste) {
+      const { error } = await supabase
+        .from('caixas').update({ status: 'fechado', valor_fechamento: 0 }).eq('id', caixaCriadoPeloTeste)
+      if (error) { console.error('⚠️ fechar caixa falhou:', error.message); errosLimpeza.push(`fechar caixa: ${error.message}`) }
+    }
   }
 
-  // Etapa 1 → 2: carrinho → tela de pagamento
-  await page.getByRole('button', { name: /Ir para pagamento/ }).click()
-  // Escolhe "Dinheiro" no grid de formas
-  await page.locator('button:has-text("Dinheiro")').first().click()
-  // Abre a confirmação
-  await page.getByRole('button', { name: /Finalizar Venda/ }).click()
-  // Confirma a venda
-  await page.getByRole('button', { name: 'Confirmar venda' }).click()
-  await expect(page.getByText('Venda Concluída')).toBeVisible({ timeout: 15000 })
-  console.log('✅ Venda registrada na tela')
-
-  // PASSO 4: Verifica estoque DEPOIS da venda no Supabase
-  const estoqueDepois   = await somaEstoque()
-  const estoqueEsperado = estoqueInicial - 1
-
-  if (estoqueDepois !== estoqueEsperado) {
-    throw new Error(
-      `❌ ESTOQUE INCORRETO APÓS VENDA\n` +
-      `   Esperado : ${estoqueEsperado} (${estoqueInicial} - 1)\n` +
-      `   Recebido : ${estoqueDepois}`
-    )
-  }
-  console.log(`✅ Estoque correto: ${estoqueInicial} → ${estoqueDepois}`)
-
-  // PASSO 5: Verifica venda na tabela vendas do Supabase
-  const hoje = new Date().toISOString().split('T')[0]
-
-  const { data: venda, error: erroVenda } = await supabase
-    .from('vendas')
-    .select('id, total, created_at')
-    .gte('created_at', `${hoje}T00:00:00`)
-    .lte('created_at', `${hoje}T23:59:59`)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single()
-
-  if (erroVenda || !venda) {
-    throw new Error(
-      `❌ Nenhuma venda encontrada no Supabase para hoje (${hoje}).\n` +
-      `   Erro: ${erroVenda?.message}`
-    )
-  }
-
-  const valorEsperado = precoProduto        // 1 unidade
-  const valorRecebido = Number(venda.total)
-
-  if (Math.abs(valorRecebido - valorEsperado) > 0.01) {
-    throw new Error(
-      `❌ VALOR DA VENDA INCORRETO\n` +
-      `   Esperado : R$ ${valorEsperado.toFixed(2)}\n` +
-      `   Recebido : R$ ${valorRecebido.toFixed(2)}`
-    )
-  }
-
-  console.log(`✅ Venda no caixa com valor correto: R$ ${valorRecebido.toFixed(2)}`)
-
-  // Limpeza: fecha o caixa que o teste abriu (a venda em si é cancelada pelo
-  // runner via cancelar_venda depois, restaurando o estoque).
-  if (caixaTesteId) {
-    await supabase.from('caixas').update({ status: 'fechado', valor_fechamento: 0 }).eq('id', caixaTesteId)
-  }
+  // Falha de limpeza não pode passar calada: significa dado de teste vivo no banco.
+  expect(errosLimpeza, 'a limpeza do teste falhou — pode ter sobrado venda/caixa __QA__ no banco').toEqual([])
+  expect(await somaEstoque(), 'cancelar a venda tem que devolver a unidade ao estoque').toBe(estoqueInicial)
 
   console.log('🎉 TESTE COMPLETO PASSOU!')
 })

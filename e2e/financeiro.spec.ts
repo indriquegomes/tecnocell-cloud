@@ -78,6 +78,11 @@ test.describe('Financeiro', () => {
 
     await page.goto(`/painel/financeiro?busca=${encodeURIComponent(descricao)}`)
     await page.waitForLoadState('networkidle')
+    // "A receber" agora exige a FORMA antes de quitar — ela entra na conferência
+    // do caixa, e o sistema parou de assumir "Dinheiro" por conta própria. Sem
+    // escolher, a validação nativa do <select required> bloqueia o submit e o
+    // lançamento nunca vira 'pago'. index 1 porque o 0 é o placeholder "Forma…".
+    await page.selectOption('select[name="forma_pagamento"]', { index: 1 })
     await page.click('button:has-text("Pago")')
     await expect.poll(async () => {
       const { data } = await supabase.from('lancamentos').select('status').eq('id', lanc!.id).single()

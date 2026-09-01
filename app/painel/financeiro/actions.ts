@@ -87,7 +87,7 @@ export async function editarLancamento(id: string, formData: FormData) {
   redirect('/painel/financeiro')
 }
 
-export async function marcarPago(id: string) {
+export async function marcarPago(id: string, formData?: FormData) {
   const usuario = await requirePermissao('financeiro')
   const supabase = await createServiceClient()
   const { data: antes, error: erroAntes } = await supabase
@@ -101,6 +101,21 @@ export async function marcarPago(id: string) {
   // redirect (não throw): marcarPago é chamado por um <form action={...}> sem
   // error boundary (financeiro/page.tsx) — throw derruba a tela inteira.
   if (erroAntes) redirect(`/painel/financeiro?erro=${encodeURIComponent(erroAntes.message)}`)
+
+  // COMO foi pago — vem do select ao lado do botão "Pago".
+  // Antes isto assumia 'Dinheiro' quando o lançamento não tinha forma, e fiado
+  // criado pela venda nasce SEM forma (finalizar_venda não grava forma_pagamento).
+  // Enquanto o recebimento só aparecia numa lista, o chute passava despercebido;
+  // com ele entrando no ESPERADO do fechamento de caixa, um fiado quitado por PIX
+  // passa a ser cobrado como cédula que deveria estar na gaveta — falta falsa,
+  // culpando quem fez certo. Não dá pra adivinhar: sem forma, recusa e explica.
+  // Mesmo princípio do lib/caixa.ts, que se recusa a chutar a loja.
+  const formaInformada = ((formData?.get('forma_pagamento') as string) ?? '').trim()
+  const forma = formaInformada || (antes?.forma_pagamento ?? '')
+  if (antes?.tipo === 'receber' && !forma) {
+    redirect(`/painel/financeiro?erro=${encodeURIComponent('Escolha a forma de pagamento antes de marcar como pago — ela entra na conferência do caixa.')}`)
+  }
+
   await logAtividade('pagamento.marcar_pago', {
     lancamento_id: id,
     valor: antes?.valor ?? null,
@@ -114,6 +129,9 @@ export async function marcarPago(id: string) {
     status: 'pago',
     data_pagamento: hojeSP(),
     valor_pago: valor,
+    // Grava a forma escolhida: sem isso o lançamento seguia sem forma e o
+    // relatório por forma de pagamento ficava cego justamente pro fiado quitado.
+    ...(forma ? { forma_pagamento: forma } : {}),
     updated_at: new Date().toISOString(),
   }).eq('id', id)
   if (error) redirect(`/painel/financeiro?erro=${encodeURIComponent(error.message)}`)
@@ -133,7 +151,7 @@ export async function marcarPago(id: string) {
       supabase,
       lojaId,
       Math.round(faltava * 100) / 100,
-      antes?.forma_pagamento ?? 'Dinheiro',
+      forma,   // nunca vazio aqui: 'receber' sem forma já foi recusado acima
       `Fiado recebido — ${antes?.pessoa_nome ?? 'cliente'}`,
     )
   }

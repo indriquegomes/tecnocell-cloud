@@ -791,42 +791,75 @@ export default async function RelatoriosPage({
     const lista = (await qCx).data ?? []
     const cxIds = lista.map((c) => c.id as string)
     if (cxIds.length) {
-      const [vendasR, movR, perfisR, formasR] = await Promise.all([
-        supabase.from('vendas').select('id, total, caixa_id').eq('status', 'concluida').in('caixa_id', cxIds),
-        supabase.from('movimentos_caixa').select('caixa_id, tipo, forma_pagamento, valor').in('caixa_id', cxIds),
+      // Sem paginar, o .in(...) parava nas 1000 linhas do PostgREST e o total
+      // vendido / dinheiro / esperado saíam MENORES que a realidade, calados.
+      // Todo o resto deste arquivo já usa fetchAll; só o fechamento ficou de fora.
+      const [vendasFC, movFC, perfisR, formasR] = await Promise.all([
+        fetchAllIn<{ id: string; total: number | null; caixa_id: string | null }>(cxIds, (chunk, from, to) =>
+          supabase.from('vendas').select('id, total, caixa_id').eq('status', 'concluida').in('caixa_id', chunk).range(from, to)),
+        fetchAllIn<{ caixa_id: string; tipo: string; forma_pagamento: string | null; valor: number | null }>(cxIds, (chunk, from, to) =>
+          supabase.from('movimentos_caixa').select('caixa_id, tipo, forma_pagamento, valor').in('caixa_id', chunk).range(from, to)),
         supabase.from('perfis').select('id, nome').in('id', [...new Set(lista.map((c) => c.usuario_id).filter(Boolean))] as string[]),
-        supabase.from('formas_pagamento').select('id, tipo'),
+        supabase.from('formas_pagamento').select('id, nome, tipo'),
       ])
-      const vendaIds = (vendasR.data ?? []).map((v) => v.id as string)
-      const pags = vendaIds.length
-        ? (await supabase.from('pagamentos_venda').select('venda_id, forma_pagamento_id, valor').in('venda_id', vendaIds)).data ?? []
-        : []
+      const vendaIds = vendasFC.map((v) => v.id)
+      const pags = await fetchAllIn<{ venda_id: string; forma_pagamento_id: string | null; valor: number | null }>(
+        vendaIds, (chunk, from, to) =>
+          supabase.from('pagamentos_venda').select('venda_id, forma_pagamento_id, valor').in('venda_id', chunk).range(from, to))
       const tipoForma: Record<string, string> = Object.fromEntries((formasR.data ?? []).map((f) => [f.id, f.tipo]))
-      const vendaCaixa: Record<string, string> = Object.fromEntries((vendasR.data ?? []).map((v) => [v.id, v.caixa_id]))
+      // Venda sem caixa_id fica FORA do mapa: sem isso ela viraria chave com valor
+      // nulo e o pagamento dela cairia num bucket inexistente. Antes o tipo vinha
+      // de .data solto e o caso passava despercebido.
+      const vendaCaixa: Record<string, string> = Object.fromEntries(
+        vendasFC.filter((v) => v.caixa_id).map((v) => [v.id, v.caixa_id as string]),
+      )
       const nomePerfil: Record<string, string> = Object.fromEntries((perfisR.data ?? []).map((p) => [p.id, p.nome]))
       const nomeLoja: Record<string, string> = Object.fromEntries(lojasFC.map((l) => [l.id, l.nome]))
-      type Agg = { vendas: number; dinV: number; ref: number; ret: number; dev: number; refD: number; retD: number; devD: number }
+      type Agg = { vendas: number; dinV: number; ref: number; ret: number; dev: number; rec: number; refD: number; retD: number; devD: number; recD: number }
       const A: Record<string, Agg> = {}
-      for (const id of cxIds) A[id] = { vendas: 0, dinV: 0, ref: 0, ret: 0, dev: 0, refD: 0, retD: 0, devD: 0 }
-      for (const v of vendasR.data ?? []) { const a = A[v.caixa_id as string]; if (a) a.vendas += (v.total as number) ?? 0 }
-      for (const p of pags) { const cid = vendaCaixa[p.venda_id as string]; const a = cid ? A[cid] : null; if (a && tipoForma[(p.forma_pagamento_id as string) ?? ''] === 'dinheiro') a.dinV += (p.valor as number) ?? 0 }
-      const ehDin = (f: string | null) => /dinheiro/i.test(f ?? '')
-      for (const m of movR.data ?? []) {
-        const a = A[m.caixa_id as string]; if (!a) continue
-        const val = (m.valor as number) ?? 0
-        if (m.tipo === 'reforco') { a.ref += val; if (ehDin(m.forma_pagamento as string)) a.refD += val }
-        else if (m.tipo === 'retirada') { a.ret += val; if (ehDin(m.forma_pagamento as string)) a.retD += val }
-        else if (m.tipo === 'devolucao') { a.dev += val; if (ehDin(m.forma_pagamento as string)) a.devD += val }
+      for (const id of cxIds) A[id] = { vendas: 0, dinV: 0, ref: 0, ret: 0, dev: 0, rec: 0, refD: 0, retD: 0, devD: 0, recD: 0 }
+      for (const v of vendasFC) { const a = A[v.caixa_id ?? '']; if (a) a.vendas += v.total ?? 0 }
+      for (const p of pags) { const cid = vendaCaixa[p.venda_id]; const a = cid ? A[cid] : null; if (a && tipoForma[p.forma_pagamento_id ?? ''] === 'dinheiro') a.dinV += p.valor ?? 0 }
+      // movimentos_caixa guarda o NOME da forma (texto), não o id. Testar só
+      // /dinheiro/i no texto divergia do X/Z do PDV, que resolve nome → tipo pela
+      // tabela (pdv/operacao/page.tsx, tipoDoTexto): uma forma com tipo 'dinheiro'
+      // e nome sem a palavra (ex. "Espécie") entrava na gaveta lá e não entrava
+      // aqui — o esperado saía menor e o fechamento acusava SOBRA falsa. Mesma
+      // regra dos dois lados: tabela primeiro, substring só como último recurso
+      // (movimento antigo cuja forma foi renomeada/apagada).
+      const tipoPorNome: Record<string, string> = Object.fromEntries(
+        (formasR.data ?? []).map((f) => [String(f.nome ?? '').trim().toLowerCase(), (f.tipo as string) ?? 'outros']),
+      )
+      const ehDin = (f: string | null) => {
+        const t = (f ?? '').trim().toLowerCase()
+        return (tipoPorNome[t] ?? (t.includes('dinheiro') ? 'dinheiro' : 'outros')) === 'dinheiro'
+      }
+      for (const m of movFC) {
+        const a = A[m.caixa_id]; if (!a) continue
+        const val = m.valor ?? 0
+        if (m.tipo === 'reforco') { a.ref += val; if (ehDin(m.forma_pagamento)) a.refD += val }
+        else if (m.tipo === 'retirada') { a.ret += val; if (ehDin(m.forma_pagamento)) a.retD += val }
+        else if (m.tipo === 'devolucao') { a.dev += val; if (ehDin(m.forma_pagamento)) a.devD += val }
+        // RECEBIMENTO (fiado cobrado no balcão) faltava neste loop. lib/caixa.ts
+        // grava esse movimento e, em dinheiro, é cédula que ENTROU na gaveta — mas
+        // o esperado ignorava, então o fechamento acusava SOBRA do valor exato que
+        // tinha sido cobrado, culpando quem fez tudo certo. É o buraco que o
+        // cabeçalho do lib/caixa.ts diz ter fechado: o X/Z do PDV soma
+        // (pdv/operacao/page.tsx, bloco "FIADO RECEBIDO"), esta tela não somava, e
+        // as duas divergiam para o MESMO caixa.
+        // Vale-crédito não infla a gaveta: registrarNoCaixa grava a forma
+        // "Vale Crédito", que não passa em ehDin — entra só no total de entradas.
+        else if (m.tipo === 'recebimento') { a.rec += val; if (ehDin(m.forma_pagamento)) a.recD += val }
       }
       caixasFech = lista.map((c) => {
         const a = A[c.id as string]
-        const esperado = ((c.valor_abertura as number) ?? 0) + a.dinV + a.refD - a.retD - a.devD
+        const esperado = ((c.valor_abertura as number) ?? 0) + a.dinV + a.refD + a.recD - a.retD - a.devD
         const contado = c.status === 'fechado' ? ((c.valor_fechamento as number) ?? 0) : null
         return {
           id: c.id as string, status: c.status as string, loja: nomeLoja[c.loja_id as string] ?? '—',
           abriu: c.aberto_em as string, fechou: (c.fechado_em as string | null) ?? null,
           operador: c.usuario_id ? (nomePerfil[c.usuario_id as string] ?? '—') : '—',
-          vendas: a.vendas, entradas: a.ref, saidas: a.ret + a.dev,
+          vendas: a.vendas, entradas: a.ref + a.rec, saidas: a.ret + a.dev,
           esperado, contado, diferenca: contado === null ? null : contado - esperado,
         }
       })
