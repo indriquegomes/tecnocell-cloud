@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createClient, permissoesEfetivas } from '@/lib/supabase/server'
+import { createClient, createServiceClient, permissoesEfetivas } from '@/lib/supabase/server'
 import { temPermissao } from '@/lib/permissoes'
 import { streamChat, buildSystemPrompt, type ChatMessage } from '@/lib/chat-ia'
 
@@ -38,6 +38,14 @@ export async function POST(req: NextRequest) {
     podeFuncionario = temPermissao(permissoes, 'chat_ia', isMaster)
   }
   const tipo: 'funcionario' | 'cliente' = (tipoRequisitado === 'funcionario' && podeFuncionario) ? 'funcionario' : 'cliente'
+
+  // Nome de quem está falando (pra assistente responder pelo nome, com carinho).
+  let nomeUsuario: string | undefined
+  if (user) {
+    const service = await createServiceClient()
+    const { data: perfil } = await service.from('perfis').select('nome').eq('id', user.id).maybeSingle()
+    nomeUsuario = perfil?.nome ?? undefined
+  }
 
   // Monta contexto a partir do Supabase
   let contexto: Record<string, unknown> = {}
@@ -88,7 +96,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const systemPrompt = buildSystemPrompt(tipo, contexto)
+  const systemPrompt = buildSystemPrompt(tipo, contexto, nomeUsuario)
 
   // Streaming response
   const encoder = new TextEncoder()

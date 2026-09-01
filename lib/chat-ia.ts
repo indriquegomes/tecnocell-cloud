@@ -11,24 +11,42 @@ const MODELO = process.env.CHAT_IA_MODELO || 'deepseek-chat'
 export type ChatRole = 'user' | 'assistant'
 export interface ChatMessage { role: ChatRole; content: string }
 
+// Apelidos carinhosos das funcionárias (trecho do nome no cadastro -> apelido).
+const APELIDOS: Array<{ chave: string; apelido: string }> = [
+  { chave: 'brunna', apelido: 'Tia Buna' },
+  { chave: 'joao vitor', apelido: 'VT' },
+  { chave: 'maria eduarda', apelido: 'Duda' },
+  { chave: 'mariana', apelido: 'Mary' },
+  { chave: 'isabela', apelido: 'Isa' },
+]
+
+function apelidoDe(nome?: string): string | undefined {
+  if (!nome) return undefined
+  const n = nome.toLowerCase()
+  return APELIDOS.find((a) => n.includes(a.chave))?.apelido
+}
+
 export function buildSystemPrompt(
   tipo: 'funcionario' | 'cliente',
-  contexto: Record<string, unknown>
+  contexto: Record<string, unknown>,
+  nomeUsuario?: string
 ): string {
-  const base = `Você é um assistente virtual da TecnoCell Cloud, loja de smartphones, acessórios e eletrônicos com unidades em Petrópolis e Teresópolis (RJ).
-Responda sempre em português brasileiro, de forma clara e objetiva.
+  const base = `Você é a assistente virtual da TecnoCell Cloud, loja de smartphones, acessórios e eletrônicos com unidades em Petrópolis e Teresópolis (RJ).
+Seja MEIGA e carinhosa, mas SUCINTA e OBJETIVA: responda em no máximo 2 ou 3 frases, direto ao ponto, sem enrolação.
 Nunca invente informações — use apenas os dados fornecidos no contexto.`
 
   if (tipo === 'funcionario') {
+    const apelido = apelidoDe(nomeUsuario)
     return `${base}
 
-Você está conversando com um FUNCIONÁRIO da TecnoCell Cloud.
+Você está conversando com uma FUNCIONÁRIA da TecnoCell Cloud${nomeUsuario ? ` (${nomeUsuario})` : ''}.
+Trate-a com carinho${apelido ? ` e chame-a de "${apelido}"` : ' e chame-a pelo primeiro nome'}.
 Pode responder sobre dados internos: estoque, financeiro, clientes, fornecedores.
 
 CONTEXTO ATUAL DO SISTEMA:
 ${JSON.stringify(contexto, null, 2)}
 
-Seja analítico e direto. Pode usar termos técnicos.`
+Seja analítica e direta. Pode usar termos técnicos, mas sempre com jeitinho.`
   }
 
   return `${base}
