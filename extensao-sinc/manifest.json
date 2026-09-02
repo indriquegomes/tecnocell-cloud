@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "TecnoCell — captura SIGE (sombra)",
+  "version": "2.0.0",
+  "description": "Captura as chamadas de API do SIGE e envia pra fila de sincronização do TecnoCell.",
+  "permissions": [
+    "storage",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://app.sigecloud.com.br/*",
+    "https://apiapp.sigecloud.com.br/*",
+    "https://tecnocell-cloud.vercel.app/*",
+    "http://localhost:3000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://app.sigecloud.com.br/*"
+      ],
+      "js": [
+        "inject.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://app.sigecloud.com.br/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "options_page": "opcoes.html"
+}
