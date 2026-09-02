@@ -1,5 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import { parseSaveVenda, mapFormaSige, DEPOSITO_POR_EMPRESA } from '@/lib/sinc'
+import { parseSaveVenda, mapFormaSige, DEPOSITO_POR_EMPRESA, parseSaveCrediario } from '@/lib/sinc'
 import type { NextRequest } from 'next/server'
 
 // Worker da sincronização (Fase 4). Roda por Vercel Cron (ou manual GET).
@@ -60,6 +60,34 @@ export async function GET(req: NextRequest) {
 
     const payload = (ev.payload ?? {}) as Record<string, unknown>
     const rota = String(payload.rota ?? '')
+
+    // Receber fiado (SaveCrediario) — atualiza o lançamento (caixa fica pro passo 4).
+    if (/\/SaveCrediario$/i.test(rota)) {
+      const receb = parseSaveCrediario(payload.corpo as Record<string, unknown>)
+      if (!receb || receb.lancamentos.length === 0) {
+        await quarentena(supabase, ev, 'SaveCrediario inválido')
+        quarentenados++
+        continue
+      }
+      const hoje = new Date().toISOString()
+      let achou = false
+      for (const lc of receb.lancamentos) {
+        const { data: lanc } = await supabase.from('lancamentos').select('id, valor, valor_pago').eq('id', lc.id).maybeSingle()
+        if (!lanc) continue // dívida ainda não sincronizada (baseline)
+        achou = true
+        const novoPago = (Number(lanc.valor_pago) || 0) + receb.valorPago
+        const quitado = novoPago >= (Number(lanc.valor) || 0) - 0.01
+        await supabase
+          .from('lancamentos')
+          .update({ valor_pago: Math.round(novoPago * 100) / 100, status: quitado ? 'pago' : 'pendente', data_pagamento: hoje, forma_pagamento: receb.forma, updated_at: hoje })
+          .eq('id', lc.id)
+      }
+      await supabase.from('sinc_inbox').update({ estado: 'aplicado', aplicado_em: hoje }).eq('id', ev.id)
+      await supabase.from('sinc_auditoria').insert({ evento_id: ev.id, entidade: 'fiado', loja: ev.loja, acao: 'receber', resultado: achou ? 'ok' : 'quarentena', detalhe: 'recebido ' + receb.valorPago })
+      if (achou) aplicados++
+      else { await quarentena(supabase, ev, 'lançamento de fiado não encontrado'); quarentenados++ }
+      continue
+    }
 
     // Só savevenda por enquanto; demais vão pra quarentena (não travam a fila).
     if (!/\/savevenda$/i.test(rota)) {

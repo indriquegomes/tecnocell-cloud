@@ -6,6 +6,8 @@
 // CONFIRMADO entra; qualquer forma desconhecida vira null (quarentena), nunca
 // adivinhada. Assim é impossível colocar fiado na gaveta por engano.
 
+import { createHash } from 'crypto'
+
 export type SigeCliente = {
   id: string
   nome: string
@@ -80,6 +82,35 @@ function num(v: unknown): number | null {
 }
 
 // Parseia o corpo do POST /v2/PDV/savevenda. Retorna null se não for um savevenda.
+// uuid v5 determinístico (mesma semente -> mesmo id) — igual ao carregar-fiados.mjs.
+// O SaveCrediario referencia IdLancamento do SIGE; com ele achamos o lançamento aqui.
+export function uuidFiado(seed: string): string {
+  const h = createHash('sha1').update('tecnocell:fiado:' + seed).digest()
+  h[6] = (h[6] & 0x0f) | 0x50
+  h[8] = (h[8] & 0x3f) | 0x80
+  const x = h.toString('hex')
+  return x.slice(0, 8) + '-' + x.slice(8, 12) + '-' + x.slice(12, 16) + '-' + x.slice(16, 20) + '-' + x.slice(20, 32)
+}
+
+export type RecebimentoFiado = { forma: string; valorPago: number; lancamentos: { id: string; idLancamento: string }[] }
+
+// Parseia o POST /v2/PDV/SaveCrediario (receber fiado). corpo.data é JSON string.
+export function parseSaveCrediario(corpo: Record<string, unknown> | null | undefined): RecebimentoFiado | null {
+  if (!corpo) return null
+  let data: unknown = corpo.data
+  if (typeof corpo.data === 'string') { try { data = JSON.parse(corpo.data) } catch { return null } }
+  if (!data || typeof data !== 'object') return null
+  const d = data as Record<string, unknown>
+  const valorPago = num(d.ValorPago ?? d.PagamentoValorPagar)
+  if (valorPago === null) return null
+  const check = Array.isArray(d.LancamentosCheck) ? (d.LancamentosCheck as Record<string, unknown>[]) : []
+  const lancamentos = check
+    .map((lc) => String(lc.IdLancamento ?? ''))
+    .filter(Boolean)
+    .map((idLancamento) => ({ id: uuidFiado(idLancamento), idLancamento }))
+  return { forma: String(d.Forma ?? ''), valorPago, lancamentos }
+}
+
 export function parseSaveVenda(corpo: Record<string, unknown> | null | undefined, resposta: unknown): SaveVendaNormalizada | null {
   if (!corpo || typeof corpo !== 'object') return null
   if (typeof corpo.arg !== 'string' && typeof corpo.data !== 'string') return null
