@@ -59,6 +59,22 @@ export async function GET(_req: NextRequest) {
       continue
     }
 
+    // Idempotência (Porta 2): se o worker caiu depois do RPC mas antes de marcar
+    // 'aplicado', o evento fica 'pendente' e seria re-aplicado. Checa o mapeamento
+    // antes de chamar o RPC de novo — nunca cria a mesma venda duas vezes.
+    const { data: jaAplicado } = await supabase
+      .from('sinc_mapeamento')
+      .select('tecno_id')
+      .eq('entidade', 'venda')
+      .eq('sige_id', parsed.vendaIdSige)
+      .eq('loja', ev.loja)
+      .maybeSingle()
+    if (jaAplicado) {
+      await supabase.from('sinc_inbox').update({ estado: 'aplicado', aplicado_em: new Date().toISOString() }).eq('id', ev.id)
+      aplicados++
+      continue
+    }
+
     // De-para depósito pela empresa do primeiro item.
     const empresa = parsed.itens[0]?.empresa ?? ''
     const depositoId = DEPOSITO_POR_EMPRESA[empresa]
