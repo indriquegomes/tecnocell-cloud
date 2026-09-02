@@ -68,8 +68,10 @@ function parseJson<T>(v: unknown): T | null {
   try { return JSON.parse(v) as T } catch { return null }
 }
 
-function num(v: unknown): number {
-  return typeof v === 'number' ? v : Number(v ?? 0) || 0
+function num(v: unknown): number | null {
+  if (v === null || v === undefined || v === '') return null
+  const n = typeof v === 'number' ? v : Number(String(v).trim().replace(',', '.'))
+  return Number.isFinite(n) ? n : null
 }
 
 // Parseia o corpo do POST /v2/PDV/savevenda. Retorna null se não for um savevenda.
@@ -86,28 +88,39 @@ export function parseSaveVenda(corpo: Record<string, unknown> | null | undefined
         id: String(clienteRaw.Id ?? ''),
         nome: String(clienteRaw.Nome ?? ''),
         cpfCnpj: String(clienteRaw.CPFCNPJ ?? ''),
-        saldoValeCredito: num(clienteRaw.SaldoValeCredito),
+        saldoValeCredito: num(clienteRaw.SaldoValeCredito) ?? 0,
         estaInadimplente: clienteRaw.EstaInadimplente === true,
       }
     : null
 
-  const pagamentos: SigePagamento[] = (pagamentosRaw ?? []).map((p) => ({
-    valor: num(p.ValorPagamento),
-    forma: String(p.FormaPagamento ?? ''),
-    parcelas: num(p.Parcelas) || 1,
-    bandeira: String(p.BandeiraCartao ?? ''),
-    condicao: String(p.CondicaoPagamento ?? ''),
-  }))
+  const pagamentos: SigePagamento[] = []
+  for (const p of pagamentosRaw ?? []) {
+    const valor = num(p.ValorPagamento)
+    if (valor === null) return null // número malformado → não aplica
+    pagamentos.push({
+      valor,
+      forma: String(p.FormaPagamento ?? ''),
+      parcelas: num(p.Parcelas) ?? 1,
+      bandeira: String(p.BandeiraCartao ?? ''),
+      condicao: String(p.CondicaoPagamento ?? ''),
+    })
+  }
 
-  const itens: SigeItem[] = (itensRaw ?? []).map((i) => ({
-    id: String(i.Id ?? ''),
-    codigo: String(i.Codigo ?? ''),
-    quantidade: num(i.Quantidade),
-    valorUnitario: num(i.ValorUnitario),
-    precoCusto: num(i.PrecoCusto),
-    empresa: String(i.Empresa ?? ''),
-    vendedorEmail: String(i.UsuarioVendedor ?? ''),
-  }))
+  const itens: SigeItem[] = []
+  for (const i of itensRaw ?? []) {
+    const quantidade = num(i.Quantidade)
+    const valorUnitario = num(i.ValorUnitario)
+    if (quantidade === null || valorUnitario === null) return null
+    itens.push({
+      id: String(i.Id ?? ''),
+      codigo: String(i.Codigo ?? ''),
+      quantidade,
+      valorUnitario,
+      precoCusto: num(i.PrecoCusto) ?? 0,
+      empresa: String(i.Empresa ?? ''),
+      vendedorEmail: String(i.UsuarioVendedor ?? ''),
+    })
+  }
 
   // A resposta é um array: ["PADRAO", <vendaId>, <gerenId>, ...].
   const vendaIdSige = Array.isArray(resposta) && resposta.length > 1 ? String(resposta[1] ?? '') : null
