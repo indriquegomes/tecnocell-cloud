@@ -48,7 +48,12 @@ export type FormaSigeMap = { formaId: string; status: 'pago' | 'pendente' | 'val
 // formaId = id em formas_pagamento (capturado do banco real).
 // Demais (Dinheiro, PIX, Cartão...) entram aqui quando forem capturados.
 export const FORMAS_SIGE: Record<string, FormaSigeMap> = {
-  'Crédito Loja': { formaId: '63de417be94e938cc171c865', status: 'pendente' },
+  'Crédito Loja': { formaId: '63de417be94e938cc171c865', status: 'pendente' }, // fiado
+  'Dinheiro': { formaId: 'FP001', status: 'pago' },
+  'PIX': { formaId: 'FP003', status: 'pago' },
+  'Cartão de Crédito': { formaId: 'FP002', status: 'pago' },
+  'Cartão de Débito': { formaId: 'FP004', status: 'pago' },
+  // 'Vale Crédito' -> FP_VALE (status 'vale') entra quando o vale for tratado.
 }
 
 // De-para empresa (nome no SIGE) → depósito do PDV no TecnoCell.
