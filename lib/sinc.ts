@@ -42,12 +42,20 @@ export type SaveVendaNormalizada = {
 // Forma de pagamento do SIGE → como entra no TecnoCell.
 // status 'pendente' = fiado (dívida), 'pago' = entra no caixa/banco/maquininha.
 // null = não mapeada → quarentena (não aplica).
-export type FormaSigeMap = { status: 'pago' | 'pendente' }
+export type FormaSigeMap = { formaId: string; status: 'pago' | 'pendente' | 'vale' }
 
 // LISTA BRANCA. Só "Crédito Loja" (fiado) está confirmado com dado real.
+// formaId = id em formas_pagamento (capturado do banco real).
 // Demais (Dinheiro, PIX, Cartão...) entram aqui quando forem capturados.
 export const FORMAS_SIGE: Record<string, FormaSigeMap> = {
-  'Crédito Loja': { status: 'pendente' },
+  'Crédito Loja': { formaId: '63de417be94e938cc171c865', status: 'pendente' },
+}
+
+// De-para empresa (nome no SIGE) → depósito do PDV no TecnoCell.
+// O cadastro foi importado com os MESMOS ObjectIds, então o id bate direto.
+export const DEPOSITO_POR_EMPRESA: Record<string, string> = {
+  'TECNOCELL PETRÓPOLIS': '63d9054d59a9c829747233d4', // PETRÓPOLIS LOJA
+  // 'TECNOCELL TERESÓPOLIS': '63e4dc8ede713ef765366d69', // confirmar quando capturar
 }
 
 export function mapFormaSige(forma: string): FormaSigeMap | null {
