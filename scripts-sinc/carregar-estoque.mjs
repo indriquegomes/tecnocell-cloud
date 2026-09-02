@@ -34,7 +34,7 @@ const rest = async (path) => {
   const r = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
     headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, authorization: 'Bearer ' + SUPABASE_SERVICE_ROLE_KEY },
   })
-  if (!r.ok()) throw new Error('HTTP ' + r.status + ' em ' + path)
+  if (!r.ok) throw new Error('HTTP ' + r.status + ' em ' + path)
   return r.json()
 }
 
@@ -77,7 +77,7 @@ async function upsert(linhas) {
     headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, authorization: 'Bearer ' + SUPABASE_SERVICE_ROLE_KEY, 'content-type': 'application/json', prefer: 'resolution=merge-duplicates,return=minimal' },
     body: JSON.stringify(linhas),
   })
-  if (!r.ok()) throw new Error('HTTP ' + r.status + ' no upsert de ' + linhas.length + ' linhas')
+  if (!r.ok) throw new Error('HTTP ' + r.status + ' no upsert de ' + linhas.length + ' linhas')
 }
 
 const main = async () => {
