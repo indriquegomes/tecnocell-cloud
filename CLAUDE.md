@@ -163,3 +163,13 @@ bater com o total, senão a venda inteira é recusada.
 2. **Trazer pagamentos e fiados atualizados** dos clientes (usuário vai passar).
 3. **Histórico de compras do cliente** — só pra medir relevância do cliente pelo
    poder de compra. Entra depois da migração completa.
+
+## Cérebro Obsidian — obrigatório
+
+Vault: `C:\Users\usuario\Documents\celebro tecnocell cloud`.
+
+- Antes de trabalhar, ler `00-Início/Cérebro TecnoCell.md` e buscar notas relacionadas.
+- Depois de concluir, atualizar histórico, decisão, teste ou pendência afetada.
+- Nunca apagar histórico nem gravar senha, token, chave, cookie ou dado pessoal.
+- Código e banco atuais vencem em conflito; corrigir a nota desatualizada.
+- Não alterar produção, dados reais, Git remoto ou deploy sem autorização explícita.
