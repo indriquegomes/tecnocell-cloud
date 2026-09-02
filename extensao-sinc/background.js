@@ -3,11 +3,8 @@
 // ⚠️ MV3: o service worker DORME após ~30s parado. Fila mora no chrome.storage e o
 // relógio é chrome.alarms — senão a fila some e o envio periódico nunca acontece.
 //
-// Destino mudou vs. a versão antiga (que postava direto no Supabase): agora envia
-// UM evento por request pra /api/sinc/eventos, com x-sinc-loja + Bearer <chave>.
+// Destino: UM evento por request pra /api/sinc/eventos, com x-sinc-loja + Bearer.
 // idempotency_key é gerada UMA vez na fila; retry reenvia a MESMA key → não duplica.
-// entidade/acao ficam genéricos ('api'/'capturado'); o worker classifica depois
-// (Fase 4) — aqui é só captura/descoberta de endpoints.
 
 const IGNORAR = /token|refresh|heartbeat|notifica|ping|\.js|\.css|\.png|\.woff/i
 const SO_ESCRITA_INTERESSA = /finaliz|salvar|inserir|criar|atualiz|pagament|venda|pedido|estoque|moviment|lancament|import/i
@@ -27,12 +24,17 @@ const vale = (ev) => {
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg?.tipo !== 'evento' || !vale(msg.ev)) return
   ;(async () => {
-    const { fila = [], loja } = await ler(['fila', 'loja'])
-    if (!loja) return // sem config, não acumula
-    fila.push({ idempotency_key: loja + ':api:' + crypto.randomUUID() + ':capturado', ...msg.ev })
-    await gravar({ fila: fila.slice(-TETO) })
-    if (fila.length >= LOTE) descarregar()
+    try {
+      const { fila = [], loja } = await ler(['fila', 'loja'])
+      if (!loja) return // sem config, não acumula
+      fila.push({ idempotency_key: loja + ':api:' + crypto.randomUUID() + ':capturado', ...msg.ev })
+      await gravar({ fila: fila.slice(-TETO) })
+      if (fila.length >= LOTE) descarregar()
+    } catch (e) {
+      await gravar({ ultimoErro: 'captura: ' + String(e).slice(0, 200) })
+    }
   })()
+  return true // mantém o worker vivo pro trabalho assíncrono (MV3)
 })
 
 const enxuga = (v, teto = 4000) => {
@@ -46,7 +48,7 @@ async function descarregar() {
   const { fila = [], loja, chave, url } = await ler(['fila', 'loja', 'chave', 'url'])
   if (!fila.length || !loja || !chave || !url) return
 
-  await gravar({ fila: [] }) // esvazia antes de enviar (não duplicar com evento novo)
+  await gravar({ fila: [] })
 
   let enviados = 0, descartados = 0, sobrou = [], erro = null
   for (const ev of fila) {

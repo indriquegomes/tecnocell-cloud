@@ -9,5 +9,24 @@ document.getElementById('salvar').addEventListener('click', () => {
     const ok = document.getElementById('ok')
     ok.textContent = 'Salvo. Recarregue as abas do SIGE.'
     setTimeout(() => { ok.textContent = '' }, 5000)
+    mostrarStatus()
   })
 })
+
+function mostrarStatus() {
+  chrome.storage.local.get(['fila', 'ultimoEnvio', 'ultimoErro', 'enviados', 'descartados', 'loja', 'url'], (c) => {
+    const linhas = [
+      'Loja : ' + (c.loja || '(VAZIO)'),
+      'URL  : ' + (c.url || '(VAZIO)'),
+      'Fila (aguardando): ' + (c.fila ? c.fila.length : 0),
+      'Enviados   : ' + (c.enviados ?? 0),
+      'Descartados: ' + (c.descartados ?? 0),
+      'Último envio: ' + (c.ultimoEnvio || '—'),
+      'Último erro : ' + (c.ultimoErro || '—'),
+    ]
+    document.getElementById('status').textContent = linhas.join('\n')
+  })
+}
+document.getElementById('atualizar').addEventListener('click', mostrarStatus)
+mostrarStatus()
+setInterval(mostrarStatus, 3000)
