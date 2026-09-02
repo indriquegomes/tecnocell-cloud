@@ -10,9 +10,23 @@
 // Uso: node scripts-sinc/carregar-estoque.mjs [Estoques-*.json]
 
 import { readFile, readdir } from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
 
-const SUPABASE_URL = process.env.SUPABASE_URL
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+// Lê .env.local automaticamente (pra não precisar copiar chave na mão).
+function envLocal() {
+  try {
+    const out = {}
+    const txt = readFileSync('.env.local', 'utf8')
+    for (const linha of txt.split('\n')) {
+      const m = linha.match(/^([A-Z0-9_]+)=(.*)$/)
+      if (m) out[m[1]] = m[2].trim()
+    }
+    return out
+  } catch { return {} }
+}
+const env = envLocal()
+const SUPABASE_URL = process.env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || env.SUPABASE_URL
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_ROLE_KEY
 const BATCH = 500
 
 const rest = async (path) => {
