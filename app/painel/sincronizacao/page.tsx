@@ -45,7 +45,7 @@ export default async function SincronizacaoPage() {
     .from('sinc_reconciliacao')
     .select('dominio, total_sige, total_tecnocell, divergencia, status, rodada_em')
     .order('rodada_em', { ascending: false })
-    .limit(2)
+    .limit(10)
 
   return (
     <div className="p-6 space-y-6">

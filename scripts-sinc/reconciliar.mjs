@@ -131,6 +131,36 @@ const main = async () => {
     console.log('SIGE ' + sigeCount + ' vendas (R$ ' + sigeTotal + ') | TecnoCell ' + tecCount + ' vendas (R$ ' + tecTotal + ')')
     await gravar('vendas', sigeTotal, tecTotal)
   }
+
+  // ---- CAIXA (dinheiro) ----
+  // SIGE: Dinheiro do último fechamento (sinc_inbox FecharCaixa).
+  // TecnoCell: vendas em dinheiro de hoje (pagamentos_venda tipo dinheiro).
+  const fech = await rest('sinc_inbox?select=payload&payload->>rota=ilike.*FecharCaixa*&order=recebido_em.desc&limit=1')
+  if (fech.length) {
+    let inicio = null
+    try { inicio = JSON.parse(fech[0].payload?.resposta?.inicio) } catch {}
+    const valores = inicio?.FechamentoDeCaixa?.Valores ?? []
+    const sigeDinheiro = Number((valores.find((v) => v.Descricao === 'Dinheiro')?.Valor) || 0)
+
+    const formasDin = await rest('formas_pagamento?select=id&tipo=eq.dinheiro')
+    const idsDin = formasDin.map((f) => f.id)
+    const hojeBR = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date())
+    const vendas = await restTodos('vendas?select=id,created_at&status=eq.concluida')
+    const idsHoje = vendas.filter((x) => new Date(x.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) === hojeBR).map((x) => x.id)
+
+    let tecnoDinheiro = 0
+    if (idsDin.length && idsHoje.length) {
+      for (let i = 0; i < idsHoje.length; i += 200) {
+        const chunk = idsHoje.slice(i, i + 200)
+        const pags = await restTodos('pagamentos_venda?select=valor&venda_id=in.(' + chunk.join(',') + ')&forma_pagamento_id=in.(' + idsDin.join(',') + ')&status=eq.pago')
+        tecnoDinheiro += pags.reduce((s, x) => s + (Number(x.valor) || 0), 0)
+      }
+    }
+    console.log('\n=== CAIXA (dinheiro) ===')
+    console.log('SIGE ' + sigeDinheiro + ' | TecnoCell ' + tecnoDinheiro + ' | diff ' + (tecnoDinheiro - sigeDinheiro))
+    await gravar('caixa', sigeDinheiro, tecnoDinheiro)
+  }
+
 }
 
 main().catch((e) => { console.error('ERRO: ' + e.message); process.exit(1) })
