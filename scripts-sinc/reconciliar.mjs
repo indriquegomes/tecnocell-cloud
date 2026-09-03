@@ -59,6 +59,15 @@ function saldosDoProduto(html) {
   return out
 }
 
+// tenta vários nomes de campo pro valor total da venda (confirmar com o dono)
+const totalDaVenda = (v) => {
+  for (const k of ['Total', 'ValorTotal', 'ValorFinal', 'total', 'valorTotal', 'valorFinal']) {
+    const n = Number(String(v[k] ?? '').replace(',', '.'))
+    if (Number.isFinite(n) && n !== 0) return n
+  }
+  return 0
+}
+
 const achar = async (padrao) => {
   const fs = (await readdir('.')).filter((f) => new RegExp(padrao).test(f)).sort()
   return fs[fs.length - 1]
@@ -103,6 +112,20 @@ const main = async () => {
     console.log('\n=== FIADO (a receber pendente) ===')
     console.log('SIGE ' + sigeFiado + ' | TecnoCell ' + tecFiado + ' | diff ' + (tecFiado - sigeFiado))
     await gravar('fiado', sigeFiado, tecFiado)
+  }
+
+  // ---- VENDAS ----
+  const vendasArq = process.argv[4] || (await achar('^VendasPdv-.*\\.json$'))
+  if (vendasArq) {
+    const linhas = JSON.parse(await readFile(vendasArq, 'utf8'))
+    const sigeCount = linhas.length
+    const sigeTotal = linhas.reduce((s, v) => s + totalDaVenda(v), 0)
+    const tec = await restTodos('vendas?select=total')
+    const tecCount = tec.length
+    const tecTotal = tec.reduce((s, x) => s + (Number(x.total) || 0), 0)
+    console.log('\n=== VENDAS ===')
+    console.log('SIGE ' + sigeCount + ' vendas (R$ ' + sigeTotal + ') | TecnoCell ' + tecCount + ' vendas (R$ ' + tecTotal + ')')
+    await gravar('vendas', sigeTotal, tecTotal)
   }
 }
 
