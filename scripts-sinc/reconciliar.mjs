@@ -26,6 +26,15 @@ const rest = async (path) => {
   return r.json()
 }
 
+const restTodos = async (path) => {
+  const out = []
+  for (let offset = 0;; offset += 1000) {
+    const lote = await rest(path + (path.includes('?') ? '&' : '?') + 'limit=1000&offset=' + offset)
+    out.push(...lote)
+    if (lote.length < 1000) return out
+  }
+}
+
 const RE = /<strong>([^<]+)<\/strong>\s*:\s*<br\/>TOTAL\s*\([^)]*\)\s*\|\s*RESERVADO\s*\([^)]*\)\s*\|\s*DISPONÍVEL\s*\(([^)]*)\)/g
 function saldosDoProduto(html) {
   const out = {}
@@ -63,7 +72,7 @@ const main = async () => {
     for (const [nome, qtd] of Object.entries(sige)) {
       const depId = nomeParaId[nome]
       if (!depId) continue
-      const tec = await rest('estoque?select=quantidade&deposito_id=eq.' + depId)
+      const tec = await restTodos('estoque?select=quantidade&deposito_id=eq.' + depId)
       const tecQtd = tec.reduce((s, x) => s + (Number(x.quantidade) || 0), 0)
       sigeTotal += qtd; tecTotal += tecQtd
       const diff = Math.round((tecQtd - qtd) * 1000) / 1000
@@ -77,7 +86,7 @@ const main = async () => {
   if (credArq) {
     const linhas = JSON.parse(await readFile(credArq, 'utf8'))
     const sigeFiado = linhas.reduce((s, l) => s + (Number(l.ValorFaltante ?? l.Valor ?? 0) || 0), 0)
-    const tec = await rest('lancamentos?select=valor&tipo=eq.receber&status=eq.pendente')
+    const tec = await restTodos('lancamentos?select=valor&tipo=eq.receber&status=eq.pendente')
     const tecFiado = tec.reduce((s, x) => s + (Number(x.valor) || 0), 0)
     console.log('\n=== FIADO (a receber pendente) ===')
     console.log('SIGE ' + sigeFiado + ' | TecnoCell ' + tecFiado + ' | diff ' + (tecFiado - sigeFiado))

@@ -6,7 +6,7 @@
 import { chromium } from 'playwright'
 import { writeFileSync } from 'node:fs'
 
-const APP = 'https://app.sigecloud.com.br/'
+const APP = 'https://app.sigecloud.com.br/v3/Produtos/List'
 const URL = 'https://apiapp.sigecloud.com.br/v3/produtos/produtos'
 
 const PERFIL = process.argv[2]
@@ -14,7 +14,7 @@ if (!PERFIL) { console.error('Uso: node scripts-sinc/puxa-produtos.mjs <profile>
 
 const corpo = {
   order: { ascending: false, fieldName: 'Codigo' },
-  filtro: { tipo: '', marca: '', types: [], genero: '', atributo: '', categoria: '', codigoEAN: '', fornecedor: '', prateleira: '', categoriaId: '', invalidGenre: [], cadastroInativo: true, // true = inclui os inativos (pra puxar o catálogo completo) pesquisaSimples: '', possuiComposicao: false, ehPesquisaSimples: false, somenteComEstoque: false },
+  filtro: { tipo: '', marca: '', types: [], genero: '', atributo: '', categoria: '', codigoEAN: '', fornecedor: '', prateleira: '', categoriaId: '', invalidGenre: [], cadastroInativo: true, pesquisaSimples: '', possuiComposicao: false, ehPesquisaSimples: false, somenteComEstoque: false }, // inclui inativos
   pagina: { lenght: 100, number: 0 },
 }
 
