@@ -1,5 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import { parseSaveVenda, mapFormaSige, DEPOSITO_POR_EMPRESA, parseSaveCrediario, parseMovimentacaoEstoque, parseDevolucao, parseCaixa, LOJA_POR_EMPRESA } from '@/lib/sinc'
+import { parseSaveVenda, mapFormaSige, DEPOSITO_POR_EMPRESA, parseSaveCrediario, parseMovimentacaoEstoque, parseDevolucao, parseCaixa, LOJA_POR_EMPRESA, parseTransferencia } from '@/lib/sinc'
 import type { NextRequest } from 'next/server'
 
 // Worker da sincronização (Fase 4). Roda por Vercel Cron (ou manual GET).
@@ -276,6 +276,44 @@ export async function GET(req: NextRequest) {
       })
       if (cxErr) {
         await quarentena(supabase, ev, 'RPC caixa: ' + cxErr.message)
+        quarentenados++
+      } else aplicados++
+      continue
+    }
+
+    // Transferência entre depósitos — EstoqueMovEntreDepositos/save-edit.
+    if (rota.includes('/EstoqueMovEntreDepositos/save-edit')) {
+      const tr = parseTransferencia(payload.corpo as Record<string, unknown>, payload.resposta)
+      if (!tr) {
+        await quarentena(supabase, ev, 'transferência inválida (sem Id ou itens)')
+        quarentenados++
+        continue
+      }
+      const itensTr: { produto_id: string; quantidade: number; series: { serie: string }[] }[] = []
+      let trOk = true
+      for (const i of tr.itens) {
+        const { data: prod } = await supabase.from('produtos').select('id').eq('codigo', i.codigo).maybeSingle()
+        if (!prod) {
+          await quarentena(supabase, ev, 'produto não encontrado (codigo ' + i.codigo + ')')
+          quarentenados++
+          trOk = false
+          break
+        }
+        itensTr.push({ produto_id: prod.id, quantidade: i.quantidade, series: i.series })
+      }
+      if (!trOk) continue
+      const { error: trErr } = await supabase.rpc('aplicar_transferencia_sige', {
+        p_evento_id: ev.id,
+        p_loja: ev.loja,
+        p_sequencia: ev.sequencia ?? 0,
+        p_sige_id: tr.sigeId,
+        p_origem: tr.origemId,
+        p_destino: tr.destinoId,
+        p_observacao: tr.observacao,
+        p_itens: itensTr,
+      })
+      if (trErr) {
+        await quarentena(supabase, ev, 'RPC transferência: ' + trErr.message)
         quarentenados++
       } else aplicados++
       continue

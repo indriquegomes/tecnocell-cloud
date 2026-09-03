@@ -425,3 +425,65 @@ export function parseCaixa(
   return null
 }
 
+// ── Transferência entre depósitos ──────────────────────────────────────────
+// POST /v3/EstoqueMovEntreDepositos/save-edit (capturado 03/09).
+// corpo.arg = JSON array de itens [{produtoCodigoNFe, quantidade, numerosSerie}];
+// corpo.data = JSON {depositoOrigemID, depositoDestinoID, observacao}.
+// resposta.Data.Data.Id = ObjectId estável (idempotência).
+
+export type ItemTransferenciaSige = {
+  codigo: string
+  quantidade: number
+  series: { serie: string }[]
+}
+
+export type TransferenciaSige = {
+  sigeId: string
+  origemId: string
+  destinoId: string
+  observacao: string | null
+  itens: ItemTransferenciaSige[]
+}
+
+function seriesDe(numerosSerie: unknown): { serie: string }[] {
+  if (!Array.isArray(numerosSerie)) return []
+  const out: { serie: string }[] = []
+  for (const s of numerosSerie) {
+    const serie = typeof s === 'string'
+      ? s
+      : String((s as Record<string, unknown>)?.serie ?? (s as Record<string, unknown>)?.NumeroSerie ?? '')
+    if (serie) out.push({ serie })
+  }
+  return out
+}
+
+export function parseTransferencia(
+  corpo: Record<string, unknown> | null | undefined,
+  resposta: unknown,
+): TransferenciaSige | null {
+  if (!corpo) return null
+  const data = parseJson<Record<string, unknown>>(corpo.data)
+  const arg = parseJson<Record<string, unknown>[]>(corpo.arg)
+  if (!data || !Array.isArray(arg) || arg.length === 0) return null
+
+  const origemId = String(data.depositoOrigemID ?? '')
+  const destinoId = String(data.depositoDestinoID ?? '')
+  if (!origemId || !destinoId) return null
+
+  const resp = (resposta ?? {}) as Record<string, unknown>
+  const respData = (resp.Data ?? {}) as Record<string, unknown>
+  const respInner = (respData.Data ?? {}) as Record<string, unknown>
+  const sigeId = String(respInner.Id ?? '')
+  if (!sigeId) return null
+
+  const itens: ItemTransferenciaSige[] = []
+  for (const i of arg) {
+    const quantidade = num(i.quantidade)
+    const codigo = String(i.produtoCodigoNFe ?? '')
+    if (quantidade === null || quantidade <= 0 || !codigo) return null
+    itens.push({ codigo, quantidade, series: seriesDe(i.numerosSerie) })
+  }
+
+  return { sigeId, origemId, destinoId, observacao: String(data.observacao ?? '').trim() || null, itens }
+}
+

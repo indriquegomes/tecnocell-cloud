@@ -36,7 +36,7 @@ test('rejeita tipo desconhecido e quantidade inválida', () => {
 })
 
 // ── Devolução (payload real capturado do SIGE) ─────────────────────────────
-import { parseDevolucao, parseCaixa } from './sinc.ts'
+import { parseDevolucao, parseCaixa, parseTransferencia } from './sinc.ts'
 
 test('devolução em Vale Crédito vira credito_conta', () => {
   const corpo = {
@@ -150,4 +150,24 @@ test('devolução (Salvar TipoOperacao 4) não é caixa', () => {
 
 test('preview (AbrirCaixa com Id null) não é commit de caixa', () => {
   assert.equal(parseCaixa('/v2/OperacoesPDV/AbrirCaixa', null, { data: { Id: null } }), null)
+})
+
+// ── Transferência entre depósitos (payload real) ───────────────────────────
+
+test('transferência (save-edit) normaliza origem/destino/itens', () => {
+  const corpo = {
+    arg: JSON.stringify([{ produtoID: '69fa5b60a87d50e742b5d244', produtoCodigoNFe: '12037', quantidade: 1, unidadePossuiNumeroSerie: false, numerosSerie: null }]),
+    data: JSON.stringify({ data: '2026-09-03T20:52:00.000Z', depositoOrigem: 'PETRÓPOLIS ESTOQUE', depositoOrigemID: '641862cc55712bd6c451b0aa', depositoDestino: 'PETRÓPOLIS LOJA', depositoDestinoID: '63d9054d59a9c829747233d4', observacao: 'bru e robo' }),
+  }
+  const resposta = { Data: { Data: { Id: '6a99df87c61416695ded94b6' } }, Success: true }
+  const tr = parseTransferencia(corpo, resposta)
+  assert.equal(tr?.sigeId, '6a99df87c61416695ded94b6')
+  assert.equal(tr?.origemId, '641862cc55712bd6c451b0aa')
+  assert.equal(tr?.destinoId, '63d9054d59a9c829747233d4')
+  assert.deepEqual(tr?.itens, [{ codigo: '12037', quantidade: 1, series: [] }])
+})
+
+test('transferência sem Id na resposta vira null', () => {
+  const corpo = { arg: '[{"produtoCodigoNFe":"1","quantidade":1}]', data: JSON.stringify({ depositoOrigemID: 'a', depositoDestinoID: 'b' }) }
+  assert.equal(parseTransferencia(corpo, { Data: { Data: {} } }), null)
 })
