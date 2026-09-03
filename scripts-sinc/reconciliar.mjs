@@ -161,6 +161,39 @@ const main = async () => {
     await gravar('caixa', sigeDinheiro, tecnoDinheiro)
   }
 
+  // ---- VALE-CRÉDITO ----
+  const valesArq = await achar('^Vales-.*\.json$')
+  if (valesArq) {
+    const clientes = JSON.parse(await readFile(valesArq, 'utf8'))
+    const visto = new Set()
+    let sigeVale = 0
+    for (const c of clientes) {
+      const id = c.id || c.Id || ''
+      if (!id || visto.has(id)) continue
+      visto.add(id)
+      sigeVale += Number(c.saldoValeCredito ?? c.SaldoValeCredito ?? 0) || 0
+    }
+    const cc = await restTodos('creditos_clientes?select=valor,tipo')
+    const tecnoVale = cc.reduce((s, x) => s + ((x.tipo === 'uso' || x.tipo === 'estorno') ? -Number(x.valor) : Number(x.valor)), 0)
+    console.log('\n=== VALE-CRÉDITO ===')
+    console.log('SIGE ' + sigeVale + ' | TecnoCell ' + tecnoVale + ' | diff ' + (tecnoVale - sigeVale))
+    await gravar('vale', sigeVale, tecnoVale)
+  }
+
+  // ---- DEVOLUÇÕES (contagem: SIGE capturado vs TecnoCell aplicado) ----
+  const salv = await restTodos('sinc_inbox?select=payload&payload->>rota=ilike.*OperacoesPDV/Salvar*')
+  let devCount = 0
+  for (const e of salv) {
+    const c = e.payload?.corpo
+    let d = null; try { d = typeof c?.data === 'string' ? JSON.parse(c.data) : c?.data } catch {}
+    if (d?.TipoOperacao === 4 && e.payload?.resposta?.OperacaoId) devCount++
+  }
+  const devs = await restTodos('devolucoes?select=id')
+  const tecnoDev = devs.length
+  console.log('\n=== DEVOLUÇÕES ===')
+  console.log('SIGE ' + devCount + ' | TecnoCell ' + tecnoDev + ' | diff ' + (tecnoDev - devCount))
+  await gravar('devolucoes', devCount, tecnoDev)
+
 }
 
 main().catch((e) => { console.error('ERRO: ' + e.message); process.exit(1) })
