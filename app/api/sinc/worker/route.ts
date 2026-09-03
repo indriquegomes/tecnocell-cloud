@@ -398,7 +398,10 @@ export async function GET(req: NextRequest) {
 
     const subtotal = itens.reduce((acc, i) => acc + i.quantidade * i.preco_unitario, 0)
     const somaPagamentos = pagamentos.reduce((acc, p) => acc + p.valor, 0)
-    const desconto = Math.max(0, subtotal - somaPagamentos)
+    // Trava do finalizar_venda: soma(pagamentos) + credito_valor precisa bater com o total.
+    // Vale Crédito vai em creditoValor (não em pagamentos) — se não descontar ele aqui,
+    // o "desconto" engole o vale e a venda falha com "Os pagamentos não fecham".
+    const desconto = Math.max(0, subtotal - somaPagamentos - creditoValor)
 
     const { data: rpc, error: rpcError } = await supabase.rpc('finalizar_venda', {
       p_itens: itens,
