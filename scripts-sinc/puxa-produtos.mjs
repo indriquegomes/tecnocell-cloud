@@ -14,7 +14,7 @@ if (!PERFIL) { console.error('Uso: node scripts-sinc/puxa-produtos.mjs <profile>
 
 const corpo = {
   order: { ascending: false, fieldName: 'Codigo' },
-  filtro: { tipo: '', marca: '', types: [], genero: '', atributo: '', categoria: '', codigoEAN: '', fornecedor: '', prateleira: '', categoriaId: '', invalidGenre: [], cadastroInativo: false, pesquisaSimples: '', possuiComposicao: false, ehPesquisaSimples: false, somenteComEstoque: false },
+  filtro: { tipo: '', marca: '', types: [], genero: '', atributo: '', categoria: '', codigoEAN: '', fornecedor: '', prateleira: '', categoriaId: '', invalidGenre: [], cadastroInativo: true, // true = inclui os inativos (pra puxar o catálogo completo) pesquisaSimples: '', possuiComposicao: false, ehPesquisaSimples: false, somenteComEstoque: false },
   pagina: { lenght: 100, number: 0 },
 }
 
