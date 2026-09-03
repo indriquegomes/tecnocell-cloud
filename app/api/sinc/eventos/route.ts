@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { createHash } from 'crypto'
+import { after } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 // Ingestão de eventos da sincronização sombra (SIGE → TecnoCell).
@@ -123,6 +124,16 @@ export async function POST(req: NextRequest) {
     console.error('Erro ao inserir evento na sinc_inbox:', error)
     return Response.json({ ok: false, status: 'erro', erro: 'Erro interno.' }, { status: 500 })
   }
+
+  // Processa logo após responder ao captor. Cron diário fica como recuperação.
+  after(async () => {
+    const headers = process.env.CRON_SECRET ? { authorization: `Bearer ${process.env.CRON_SECRET}` } : undefined
+    try {
+      await fetch(new URL('/api/sinc/worker', req.url), { headers, cache: 'no-store' })
+    } catch (e) {
+      console.error('Erro ao disparar worker da sincronização:', e)
+    }
+  })
 
   return Response.json({ ok: true, status: 'aceito', id: inserido?.[0]?.id ?? null })
 }

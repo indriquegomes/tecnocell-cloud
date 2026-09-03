@@ -83,8 +83,8 @@ const main = async () => {
 
   for (const l of linhas) {
     const clienteID = pega(l, 'ClienteID', 'clienteID', 'ClienteId')
-    if (!clienteID) { semCliente++; continue } // fiado = dívida de cliente; sem cliente, pula
     const cliente = String(pega(l, 'Cliente', 'cliente') ?? '').trim()
+    if (!clienteID && !cliente) { semCliente++; continue }
     const codigo = num(pega(l, 'CodigoSequencial', 'codigoSequencial'))
     const empresa = String(pega(l, 'EmpresaID', 'empresaID', 'EmpresaId') ?? '').trim()
     const seed = pega(l, 'IdLancamento', 'idLancamento', 'Id', 'id')

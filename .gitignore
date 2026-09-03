@@ -78,3 +78,8 @@ supabase/.temp/
 
 # bot-whatsapp: sessão do WhatsApp e banco de log local — nunca versionar
 bot-whatsapp/data/
+
+# sincronização: snapshots de dados puxados do SIGE (grandes, não versionar)
+Estoques-*.json
+Crediario-*.json
+Produtos-*.json
