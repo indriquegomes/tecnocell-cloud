@@ -120,11 +120,11 @@ const main = async () => {
     const hojeBR = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date()) // "03/09/2026"
     const hojeDM = hojeBR.slice(0, 5) // "03/09"
     const linhas = JSON.parse(await readFile(vendasArq, 'utf8'))
-    const doDia = linhas.filter((v) => String(v.Data ?? '').startsWith(hojeDM))
+    const doDia = linhas.filter((v) => String(v.Data ?? '').startsWith(hojeDM) && String(v.Status ?? '') === 'Pedido Faturado')
     const sigeCount = doDia.length
     const sigeTotal = doDia.reduce((s, v) => s + totalDaVenda(v), 0)
-    const tec = await restTodos('vendas?select=total,created_at')
-    const tecHoje = tec.filter((x) => new Date(x.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) === hojeBR)
+    const tec = await restTodos('vendas?select=total,created_at,status')
+    const tecHoje = tec.filter((x) => new Date(x.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) === hojeBR && x.status === 'concluida')
     const tecCount = tecHoje.length
     const tecTotal = tecHoje.reduce((s, x) => s + (Number(x.total) || 0), 0)
     console.log('\n=== VENDAS (hoje ' + hojeBR + ') ===')
