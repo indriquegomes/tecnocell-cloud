@@ -81,7 +81,12 @@ const main = async () => {
   if (estoqueArq) {
     const linhas = JSON.parse(await readFile(estoqueArq, 'utf8'))
     const sige = {}
+    const vistos = new Set()
     for (const l of linhas) {
+      // O SIGE manda produto DUPLICADO (mesmo código 2x) — conta 1x só.
+      const codigo = String(l.Codigo ?? '').trim()
+      if (!codigo || vistos.has(codigo)) continue
+      vistos.add(codigo)
       for (const [nome, qtd] of Object.entries(saldosDoProduto(l.Saldos))) sige[nome] = (sige[nome] || 0) + qtd
     }
     const depositos = await rest('depositos?select=id,nome')

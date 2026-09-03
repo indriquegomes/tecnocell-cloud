@@ -11,7 +11,7 @@ import { randomUUID } from 'node:crypto'
 function envLocal() {
   try {
     const out = {}
-    const txt = readFileSync('.env.local', 'utf8')
+    const txt = readFileSync('.env.local', 'utf8').replace(/^\ufeff/, '')
     for (const linha of txt.split('\n')) {
       const m = linha.match(/^([A-Z0-9_]+)=(.*)$/)
       if (m) out[m[1]] = m[2].trim()
