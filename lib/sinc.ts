@@ -94,6 +94,42 @@ export function uuidFiado(seed: string): string {
 
 export type RecebimentoFiado = { forma: string; valorPago: number; lancamentos: { id: string; idLancamento: string }[] }
 
+export type MovimentacaoEstoqueSige = {
+  produtoIdSige: string
+  codigo: string
+  depositoId: string
+  operacao: 'entrada' | 'saida'
+  quantidade: number
+  data: string
+  produto: string
+  observacao: string | null
+}
+
+export function parseMovimentacaoEstoque(corpo: Record<string, unknown> | null | undefined): MovimentacaoEstoqueSige[] | null {
+  if (!corpo || typeof corpo.data !== 'string') return null
+  const data = parseJson<{ movements?: Record<string, unknown>[]; obs?: unknown }>(corpo.data)
+  if (!data?.movements?.length) return null
+  const resultado: MovimentacaoEstoqueSige[] = []
+  for (const m of data.movements) {
+    const tipo = String(m.tipo ?? '').toLowerCase()
+    const quantidade = num(m.quantidade)
+    const partes = /^(\d{2})\/(\d{2})\/(\d{4}) - (\d{2}):(\d{2})$/.exec(String(m.data ?? ''))
+    if ((tipo !== 'entrada' && tipo !== 'saida') || !quantidade || quantidade <= 0 || !partes) return null
+    const [, dia, mes, ano, hora, minuto] = partes
+    resultado.push({
+      produtoIdSige: String(m.produtoID ?? ''),
+      codigo: String(m.produtoCodigoNFE ?? m.produtoCodigo ?? ''),
+      depositoId: String(m.depositoID ?? ''),
+      operacao: tipo,
+      quantidade,
+      data: new Date(`${ano}-${mes}-${dia}T${hora}:${minuto}:00-03:00`).toISOString(),
+      produto: String(m.produto ?? ''),
+      observacao: String(data.obs ?? '').trim() || null,
+    })
+  }
+  return resultado
+}
+
 // Parseia o POST /v2/PDV/SaveCrediario (receber fiado). corpo.data é JSON string.
 export function parseSaveCrediario(corpo: Record<string, unknown> | null | undefined): RecebimentoFiado | null {
   if (!corpo) return null

@@ -1,5 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import { parseSaveVenda, mapFormaSige, DEPOSITO_POR_EMPRESA, parseSaveCrediario } from '@/lib/sinc'
+import { parseSaveVenda, mapFormaSige, DEPOSITO_POR_EMPRESA, parseSaveCrediario, parseMovimentacaoEstoque } from '@/lib/sinc'
 import type { NextRequest } from 'next/server'
 
 // Worker da sincronização (Fase 4). Roda por Vercel Cron (ou manual GET).
@@ -60,6 +60,39 @@ export async function GET(req: NextRequest) {
 
     const payload = (ev.payload ?? {}) as Record<string, unknown>
     const rota = String(payload.rota ?? '')
+
+    if (/\/EstoqueMovimentacoes\/save-movimentacao$/i.test(rota)) {
+      const movimentos = parseMovimentacaoEstoque(payload.corpo as Record<string, unknown>)
+      if (!movimentos) {
+        await quarentena(supabase, ev, 'movimentação de estoque inválida')
+        quarentenados++
+        continue
+      }
+      const normalizados = []
+      let valido = true
+      for (const mov of movimentos) {
+        const { data: produto } = await supabase.from('produtos').select('id').eq('codigo', mov.codigo).maybeSingle()
+        if (!produto) {
+          await quarentena(supabase, ev, 'produto não encontrado (codigo ' + mov.codigo + ')')
+          quarentenados++
+          valido = false
+          break
+        }
+        normalizados.push({ produto_id: produto.id, deposito_id: mov.depositoId, operacao: mov.operacao, quantidade: mov.quantidade, data: mov.data, observacao: mov.observacao })
+      }
+      if (!valido) continue
+      const { error } = await supabase.rpc('aplicar_movimento_estoque_sige', {
+        p_evento_id: ev.id,
+        p_loja: ev.loja,
+        p_sequencia: ev.sequencia ?? 0,
+        p_movimentos: normalizados,
+      })
+      if (error) {
+        await quarentena(supabase, ev, 'RPC estoque: ' + error.message)
+        quarentenados++
+      } else aplicados++
+      continue
+    }
 
     // Receber fiado (SaveCrediario) — atualiza o lançamento (caixa fica pro passo 4).
     if (/\/SaveCrediario$/i.test(rota)) {
