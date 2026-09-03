@@ -112,7 +112,8 @@ const main = async () => {
   if (credArq) {
     const linhas = JSON.parse(await readFile(credArq, 'utf8'))
     const sigeFiado = linhas.reduce((s, l) => s + (Number(l.ValorFaltante ?? l.Valor ?? 0) || 0), 0)
-    const tec = await restTodos('lancamentos?select=valor&tipo=eq.receber&status=eq.pendente')
+    // Só a BASELINE (venda_id null) — o fiado de venda já entra na baseline do SIGE.
+    const tec = await restTodos('lancamentos?select=valor&tipo=eq.receber&status=eq.pendente&venda_id=is.null')
     const tecFiado = tec.reduce((s, x) => s + (Number(x.valor) || 0), 0)
     console.log('\n=== FIADO (a receber pendente) ===')
     console.log('SIGE ' + sigeFiado + ' | TecnoCell ' + tecFiado + ' | diff ' + (tecFiado - sigeFiado))
