@@ -114,16 +114,20 @@ const main = async () => {
     await gravar('fiado', sigeFiado, tecFiado)
   }
 
-  // ---- VENDAS ----
+  // ---- VENDAS (só o dia de hoje, fuso SP) ----
   const vendasArq = process.argv[4] || (await achar('^VendasPdv-.*\\.json$'))
   if (vendasArq) {
+    const hojeBR = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date()) // "03/09/2026"
+    const hojeDM = hojeBR.slice(0, 5) // "03/09"
     const linhas = JSON.parse(await readFile(vendasArq, 'utf8'))
-    const sigeCount = linhas.length
-    const sigeTotal = linhas.reduce((s, v) => s + totalDaVenda(v), 0)
-    const tec = await restTodos('vendas?select=total')
-    const tecCount = tec.length
-    const tecTotal = tec.reduce((s, x) => s + (Number(x.total) || 0), 0)
-    console.log('\n=== VENDAS ===')
+    const doDia = linhas.filter((v) => String(v.Data ?? '').startsWith(hojeDM))
+    const sigeCount = doDia.length
+    const sigeTotal = doDia.reduce((s, v) => s + totalDaVenda(v), 0)
+    const tec = await restTodos('vendas?select=total,created_at')
+    const tecHoje = tec.filter((x) => new Date(x.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) === hojeBR)
+    const tecCount = tecHoje.length
+    const tecTotal = tecHoje.reduce((s, x) => s + (Number(x.total) || 0), 0)
+    console.log('\n=== VENDAS (hoje ' + hojeBR + ') ===')
     console.log('SIGE ' + sigeCount + ' vendas (R$ ' + sigeTotal + ') | TecnoCell ' + tecCount + ' vendas (R$ ' + tecTotal + ')')
     await gravar('vendas', sigeTotal, tecTotal)
   }
