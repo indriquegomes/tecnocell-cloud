@@ -36,7 +36,7 @@ test('rejeita tipo desconhecido e quantidade inválida', () => {
 })
 
 // ── Devolução (payload real capturado do SIGE) ─────────────────────────────
-import { parseDevolucao } from './sinc.ts'
+import { parseDevolucao, parseCaixa } from './sinc.ts'
 
 test('devolução em Vale Crédito vira credito_conta', () => {
   const corpo = {
@@ -92,4 +92,53 @@ test('rejeita devolução sem OperacaoId (falhou no SIGE) e TipoOperacao não-de
   assert.equal(parseDevolucao(corpo, { Success: false }), null) // sem OperacaoId
   assert.equal(parseDevolucao({ ...corpo, data: JSON.stringify({ TipoOperacao: 3, Valores: [] }) }, { OperacaoId: 'op' }), null) // caixa, não devolução
   assert.equal(parseDevolucao({ ...corpo, arg: '[]' }, { OperacaoId: 'op' }), null) // sem itens
+})
+
+// ── Caixa (payload real capturado do SIGE) ─────────────────────────────────
+
+test('fechamento (FecharCaixa) vira tipo fechamento e extrai o Dinheiro', () => {
+  const resposta = {
+    inicio: JSON.stringify({
+      FechamentoDeCaixa: {
+        CaixaID: '46aa070a-c150-46a1-8293-72e8f604424a',
+        EmpresaNome: 'TECNOCELL PETRÓPOLIS',
+        Id: '6a99ccc80c08fc76b21ff88c',
+        Data: '03/09/2026 - 16:38',
+        Valores: [{ Descricao: 'Dinheiro', Valor: 2312 }, { Descricao: 'PIX', Valor: 6062.2 }],
+        ValoresInformados: null,
+      },
+    }),
+  }
+  const cx = parseCaixa('/v2/OperacoesPDV/FecharCaixa', { arg: 'false', arg3: '""' }, resposta)
+  assert.equal(cx?.tipo, 'fechamento')
+  assert.equal(cx?.sigeId, '6a99ccc80c08fc76b21ff88c')
+  assert.equal(cx?.caixaSige, '46aa070a-c150-46a1-8293-72e8f604424a')
+  assert.equal(cx?.empresaNome, 'TECNOCELL PETRÓPOLIS')
+  assert.equal(cx?.valor, 2312) // Dinheiro, NÃO o total
+})
+
+test('abertura (Salvar TipoOperacao 0) usa OperacaoId como chave', () => {
+  const corpo = {
+    data: JSON.stringify({
+      TipoOperacao: 0,
+      CaixaID: '46aa070a-c150-46a1-8293-72e8f604424a',
+      EmpresaNome: 'TECNOCELL PETRÓPOLIS',
+      Data: '03/09/2026 - 16:38',
+      Valor: 2423.76,
+      Valores: [{ Descricao: 'Dinheiro', Valor: 200 }],
+    }),
+  }
+  const cx = parseCaixa('/v2/OperacoesPDV/Salvar', corpo, { Success: true, OperacaoId: '6a99ccd0d14e9675ccdb971d' })
+  assert.equal(cx?.tipo, 'abertura')
+  assert.equal(cx?.sigeId, '6a99ccd0d14e9675ccdb971d')
+  assert.equal(cx?.valor, 2423.76)
+})
+
+test('devolução (Salvar TipoOperacao 4) não é caixa', () => {
+  const corpo = { data: JSON.stringify({ TipoOperacao: 4, Valores: [] }) }
+  assert.equal(parseCaixa('/v2/OperacoesPDV/Salvar', corpo, { OperacaoId: 'op' }), null)
+})
+
+test('preview (AbrirCaixa com Id null) não é commit de caixa', () => {
+  assert.equal(parseCaixa('/v2/OperacoesPDV/AbrirCaixa', null, { data: { Id: null } }), null)
 })

@@ -65,6 +65,12 @@ export const DEPOSITO_POR_EMPRESA: Record<string, string> = {
   // 'TECNOCELL TERESÓPOLIS': '63e4dc8ede713ef765366d69', // confirmar quando capturar
 }
 
+// Empresa (nome no SIGE) → loja (nome em lojas, resolvido por nome no worker).
+export const LOJA_POR_EMPRESA: Record<string, string> = {
+  'TECNOCELL PETRÓPOLIS': 'Petrópolis',
+  // 'TECNOCELL TERESÓPOLIS': 'Teresópolis', // confirmar quando capturar
+}
+
 export function mapFormaSige(forma: string): FormaSigeMap | null {
   const m = FORMAS_SIGE[forma]
   return m ?? null // null → quarentena
@@ -288,3 +294,130 @@ export function parseDevolucao(
 
   return { vendaIdSige, clienteNome, forma, tipoCredito, depositoId, itens, operacaoId }
 }
+// ── Caixa ─────────────────────────────────────────────────────────────────
+//
+// Operações de caixa do SIGE → RPC aplicar_caixa_sige (atômica, idempotente).
+// Endpoints canônicos (o que a funcionária dispara ao abrir/fechar):
+//   /OperacoesPDV/FecharCaixa          → fechamento (resposta.inicio = JSON
+//                                        string com FechamentoDeCaixa)
+//   /OperacoesPDV/Salvar TipoOperacao 0 → abertura
+//   /OperacoesPDV/Salvar TipoOperacao 2 → sangria
+//   /OperacoesPDV/ReforcarCaixa          → reforço
+//   /OperacoesPDV/Salvar TipoOperacao 4 → devolução (parseDevolucao, NÃO aqui)
+//
+// Decisão do conselho: valor_fechamento fica NULL quando o SIGE fecha "às cegas"
+// (ValoresInformados null = sem contagem). Aqui o fechamento só expõe o Dinheiro
+// pra reconciliação — nunca como valor contado.
+//
+// Auxiliares AbrirCaixa/SangrarCaixa/BuscarDadosCaixa (Id null) são PREVIEW —
+// não são commit e caem em quarentena (rota não reconhecida).
+
+export type CaixaSige = {
+  tipo: 'abertura' | 'fechamento' | 'sangria' | 'reforco'
+  sigeId: string        // ObjectId estável (idempotência)
+  caixaSige: string     // CaixaID do SIGE (identidade do caixa/operador)
+  empresaNome: string
+  data: string          // ISO (America/Sao_Paulo)
+  valor: number | null  // abertura=valor_abertura · sangria/reforço=quantia · fechamento=Dinheiro
+  motivo: string | null
+}
+
+// "03/09/2026 - 16:38" → ISO com -03:00 (nunca toISOString pra data operacional).
+function dataSige(texto: unknown): string | null {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4}) - (\d{2}):(\d{2})$/.exec(String(texto ?? ''))
+  if (!m) return null
+  const [, dia, mes, ano, hora, minuto] = m
+  return new Date(`${ano}-${mes}-${dia}T${hora}:${minuto}:00-03:00`).toISOString()
+}
+
+// Acha o valor de uma forma pelo nome (ex.: 'Dinheiro') no array Valores do SIGE.
+// Mapeia por NOME, não por posição (o array não tem ordem fixa — conselho).
+function valorPorDescricao(valores: unknown, descricao: string): number | null {
+  if (!Array.isArray(valores)) return null
+  const v = valores.find((x) => (x as Record<string, unknown>)?.Descricao === descricao)
+  return v ? num((v as Record<string, unknown>).Valor) : null
+}
+
+export function parseCaixa(
+  rota: string,
+  corpo: Record<string, unknown> | null | undefined,
+  resposta: unknown,
+): CaixaSige | null {
+  if (!rota) return null
+
+  // Fechamento — a resposta vem aninhada: { inicio: "{\"FechamentoDeCaixa\":{...}}" }.
+  if (/\/FecharCaixa$/i.test(rota)) {
+    const resp = (resposta ?? {}) as Record<string, unknown>
+    const inicio = parseJson<Record<string, unknown>>(resp.inicio)
+    const f = (inicio?.FechamentoDeCaixa ?? {}) as Record<string, unknown>
+    const sigeId = String(f.Id ?? '')
+    if (!sigeId) return null
+    const data = dataSige(f.Data)
+    if (!data) return null
+    return {
+      tipo: 'fechamento',
+      sigeId,
+      caixaSige: String(f.CaixaID ?? ''),
+      empresaNome: String(f.EmpresaNome ?? ''),
+      data,
+      valor: valorPorDescricao(f.Valores, 'Dinheiro'),
+      motivo: String(f.Observacoes ?? '').trim() || null,
+    }
+  }
+
+  // Salvar genérico — abertura (0) e sangria (2). Devolução (4) é parseDevolucao.
+  if (/\/OperacoesPDV\/Salvar$/i.test(rota)) {
+    const data = parseJson<Record<string, unknown>>(corpo?.data)
+    if (!data) return null
+    const tipoOp = Number(data.TipoOperacao)
+    const resp = (resposta ?? {}) as Record<string, unknown>
+    const sigeId = String(resp.OperacaoId ?? '')
+    if (!sigeId) return null
+    const dataISO = dataSige(data.Data)
+    if (!dataISO) return null
+    if (tipoOp === 0) {
+      return {
+        tipo: 'abertura',
+        sigeId,
+        caixaSige: String(data.CaixaID ?? ''),
+        empresaNome: String(data.EmpresaNome ?? ''),
+        data: dataISO,
+        valor: num(data.Valor) ?? valorPorDescricao(data.Valores, 'Dinheiro'),
+        motivo: null,
+      }
+    }
+    if (tipoOp === 2) {
+      return {
+        tipo: 'sangria',
+        sigeId,
+        caixaSige: String(data.CaixaID ?? ''),
+        empresaNome: String(data.EmpresaNome ?? ''),
+        data: dataISO,
+        valor: valorPorDescricao(data.Valores, 'Dinheiro') ?? num(data.Valor),
+        motivo: String(data.MotivoSangria ?? '').trim() || null,
+      }
+    }
+    return null // TipoOperacao 1/4 não passam por aqui
+  }
+
+  // Reforço — endpoint próprio (não passa pelo Salvar).
+  if (/\/ReforcarCaixa$/i.test(rota)) {
+    const resp = (resposta ?? {}) as Record<string, unknown>
+    const d = (resp.Data ?? resp.data ?? {}) as Record<string, unknown>
+    const valor = num(d.Valor) ?? valorPorDescricao(d.Valores, 'Dinheiro')
+    const sigeId = String(resp.OperacaoId ?? '')
+    if (!sigeId || !valor) return null
+    return {
+      tipo: 'reforco',
+      sigeId,
+      caixaSige: String(d.CaixaID ?? ''),
+      empresaNome: String(d.EmpresaNome ?? ''),
+      data: dataSige(d.Data) ?? new Date().toISOString(),
+      valor,
+      motivo: String(d.MotivoSangria ?? '').trim() || null,
+    }
+  }
+
+  return null
+}
+

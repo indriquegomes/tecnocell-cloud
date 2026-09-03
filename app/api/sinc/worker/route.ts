@@ -1,5 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import { parseSaveVenda, mapFormaSige, DEPOSITO_POR_EMPRESA, parseSaveCrediario, parseMovimentacaoEstoque, parseDevolucao } from '@/lib/sinc'
+import { parseSaveVenda, mapFormaSige, DEPOSITO_POR_EMPRESA, parseSaveCrediario, parseMovimentacaoEstoque, parseDevolucao, parseCaixa, LOJA_POR_EMPRESA } from '@/lib/sinc'
 import type { NextRequest } from 'next/server'
 
 // Worker da sincronização (Fase 4). Roda por Vercel Cron (ou manual GET).
@@ -207,6 +207,45 @@ export async function GET(req: NextRequest) {
         .from('sinc_auditoria')
         .insert({ evento_id: ev.id, entidade: 'devolucao', sige_id: dev.operacaoId, loja: ev.loja, acao: 'create', resultado: 'ok', detalhe: dev.tipoCredito + ' — ' + itens.length + ' itens' })
       aplicados++
+      continue
+    }
+
+    // Caixa (abrir/fechar/sangria/reforçar) — OperacoesPDV. RPC atômica.
+    if (/\/FecharCaixa$|\/OperacoesPDV\/Salvar$|\/ReforcarCaixa$/i.test(rota)) {
+      const cx = parseCaixa(rota, payload.corpo as Record<string, unknown>, payload.resposta)
+      if (!cx) {
+        await quarentena(supabase, ev, 'caixa não reconhecida (preview ou sem id): ' + rota.slice(-40))
+        quarentenados++
+        continue
+      }
+      const lojaNome = LOJA_POR_EMPRESA[cx.empresaNome]
+      if (!lojaNome) {
+        await quarentena(supabase, ev, 'empresa sem loja: ' + cx.empresaNome)
+        quarentenados++
+        continue
+      }
+      const { data: loja } = await supabase.from('lojas').select('id').eq('nome', lojaNome).maybeSingle()
+      if (!loja) {
+        await quarentena(supabase, ev, 'loja não encontrada: ' + lojaNome)
+        quarentenados++
+        continue
+      }
+      const { error: cxErr } = await supabase.rpc('aplicar_caixa_sige', {
+        p_evento_id: ev.id,
+        p_loja: ev.loja,
+        p_sequencia: ev.sequencia ?? 0,
+        p_sige_id: cx.sigeId,
+        p_tipo: cx.tipo,
+        p_caixa_sige: cx.caixaSige,
+        p_loja_id: loja.id,
+        p_valor: cx.valor ?? 0,
+        p_motivo: cx.motivo,
+        p_data: cx.data,
+      })
+      if (cxErr) {
+        await quarentena(supabase, ev, 'RPC caixa: ' + cxErr.message)
+        quarentenados++
+      } else aplicados++
       continue
     }
 
