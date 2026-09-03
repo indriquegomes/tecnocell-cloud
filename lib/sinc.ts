@@ -199,3 +199,92 @@ export function parseSaveVenda(corpo: Record<string, unknown> | null | undefined
 
   return { cliente, pagamentos, itens, vendaIdSige }
 }
+
+// ── Devolução de mercadoria ────────────────────────────────────────────────
+//
+// O PDV do SIGE grava devolução via POST /v2/OperacoesPDV/Salvar. O corpo real:
+//   arg   = JSON string: array de itens [{ VendaID, VendaProdutoID, ProdutoID,
+//           ProdutoCodigo, QuantidadeVendida, QuantidadeJaDevolvida,
+//           QuantidadeDevolvida, ValorUnitario, ValorTotal, ValorDevolucao,
+//           DepositoID, ... }]  (só interessa QuantidadeDevolvida > 0)
+//   arg3  = nome do cliente (JSON string com aspas, ex.: "BRUNA ALVES")
+//   data  = JSON string: { TipoOperacao: 4, Valores: [{ Descricao, Valor }] }
+//           — a Descricao do Valores[0] é a FORMA de reembolso.
+// Resposta: { ValeId, Success, OperacaoId } — OperacaoId é o id estável da
+//           devolução (idempotência). ValeId preenchido = estornou em vale.
+//
+// "cancelamento" no SIGE não tem endpoint próprio: devolver TUDO é o cancelamento
+// (a venda vira "Pedido Cancelado"). Logo este mesmo parser/aplicador cobre os dois.
+
+export type ItemDevolucaoSige = {
+  codigo: string
+  quantidade: number
+  valorUnitario: number
+  totalItem: number
+  depositoId: string
+}
+
+export type DevolucaoSige = {
+  vendaIdSige: string
+  clienteNome: string
+  forma: string             // Descricao original do SIGE (ex.: "Vale Crédito")
+  tipoCredito: string | null // de-para (null = forma não mapeada → quarentena)
+  depositoId: string
+  itens: ItemDevolucaoSige[]
+  operacaoId: string        // id estável da devolução (resposta.OperacaoId)
+}
+
+// Lista branca de forma de reembolso da devolução → p_tipo_credito do RPC.
+export const DEVOLUCAO_FORMA: Record<string, string> = {
+  'Vale Crédito': 'credito_conta',   // gera crédito no cliente (creditos_clientes)
+  'Crédito Loja': 'cancelamento_fiado', // abate a dívida (fiado) — o RPC faz o abate
+  'PIX': 'pix',                      // vira lançamento "pagar"
+  'Cartão de Crédito': 'credito',
+  'Cartão de Débito': 'debito',
+  // 'Dinheiro' fica FORA de propósito: sai da gaveta e precisa do aplicador de
+  // caixa (movimentos_caixa) — ainda não existe. Entra na lista só quando o caixa
+  // estiver pronto; por ora vira quarentena ("forma não mapeada").
+}
+
+export function parseDevolucao(
+  corpo: Record<string, unknown> | null | undefined,
+  resposta: unknown,
+): DevolucaoSige | null {
+  if (!corpo || typeof corpo !== 'object') return null
+
+  const itensRaw = parseJson<Record<string, unknown>[]>(corpo.arg)
+  if (!Array.isArray(itensRaw) || itensRaw.length === 0) return null
+
+  const data = parseJson<Record<string, unknown>>(corpo.data)
+  if (!data || data.TipoOperacao !== 4) return null // 4 = devolução (outros tipos = caixa)
+
+  const resp = (resposta ?? {}) as Record<string, unknown>
+  const operacaoId = String(resp.OperacaoId ?? '')
+  if (!operacaoId) return null // falhou no SIGE (sem OperacaoId) → não é devolução real
+
+  // nome do cliente vem em arg3 como JSON string com aspas (ex.: "BRUNA ALVES")
+  const clienteNome = parseJson<string>(corpo.arg3) ?? String(corpo.arg3 ?? '').replace(/^"|"$/g, '')
+
+  const valores = Array.isArray(data.Valores) ? (data.Valores as Record<string, unknown>[]) : []
+  if (valores.length !== 1) return null // reembolso misto não tratado (raro)
+  const forma = String(valores[0].Descricao ?? '')
+  const tipoCredito = DEVOLUCAO_FORMA[forma] ?? null
+
+  const itens: ItemDevolucaoSige[] = []
+  let vendaIdSige = ''
+  let depositoId = ''
+  for (const i of itensRaw) {
+    const quantidade = num(i.QuantidadeDevolvida)
+    if (quantidade === null || quantidade <= 0) continue
+    const codigo = String(i.ProdutoCodigo ?? '')
+    const valorUnitario = num(i.ValorUnitario)
+    const totalItem = num(i.ValorDevolucao)
+    if (!codigo || valorUnitario === null || totalItem === null) return null
+    vendaIdSige = vendaIdSige || String(i.VendaID ?? '')
+    depositoId = depositoId || String(i.DepositoID ?? '')
+    itens.push({ codigo, quantidade, valorUnitario, totalItem, depositoId: String(i.DepositoID ?? '') })
+  }
+  if (!vendaIdSige || itens.length === 0) return null
+
+  return { vendaIdSige, clienteNome, forma, tipoCredito, depositoId, itens, operacaoId }
+}

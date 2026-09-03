@@ -83,3 +83,6 @@ bot-whatsapp/data/
 Estoques-*.json
 Crediario-*.json
 Produtos-*.json
+VendasPdv-*.json
+Clientes-*.json
+Vales-*.json

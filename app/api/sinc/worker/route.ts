@@ -1,5 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import { parseSaveVenda, mapFormaSige, DEPOSITO_POR_EMPRESA, parseSaveCrediario, parseMovimentacaoEstoque } from '@/lib/sinc'
+import { parseSaveVenda, mapFormaSige, DEPOSITO_POR_EMPRESA, parseSaveCrediario, parseMovimentacaoEstoque, parseDevolucao } from '@/lib/sinc'
 import type { NextRequest } from 'next/server'
 
 // Worker da sincronização (Fase 4). Roda por Vercel Cron (ou manual GET).
@@ -119,6 +119,94 @@ export async function GET(req: NextRequest) {
       await supabase.from('sinc_auditoria').insert({ evento_id: ev.id, entidade: 'fiado', loja: ev.loja, acao: 'receber', resultado: achou ? 'ok' : 'quarentena', detalhe: 'recebido ' + receb.valorPago })
       if (achou) aplicados++
       else { await quarentena(supabase, ev, 'lançamento de fiado não encontrado'); quarentenados++ }
+      continue
+    }
+
+    // Devolução de mercadoria (OperacoesPDV/Salvar). "Cancelamento" no SIGE não tem
+    // endpoint próprio — devolver tudo É o cancelamento (a venda vira "Pedido
+    // Cancelado"), então este ramo cobre os dois.
+    if (/\/OperacoesPDV\/Salvar$/i.test(rota)) {
+      const dev = parseDevolucao(payload.corpo as Record<string, unknown>, payload.resposta)
+      if (!dev) {
+        await quarentena(supabase, ev, 'devolução inválida ou falhou no SIGE (sem OperacaoId)')
+        quarentenados++
+        continue
+      }
+      if (!dev.tipoCredito) {
+        await quarentena(supabase, ev, 'forma de reembolso não mapeada: ' + (dev.forma || '(vazia)'))
+        quarentenados++
+        continue
+      }
+      // Idempotência: já aplicada antes (worker caiu após o RPC)?
+      const { data: jaDev } = await supabase
+        .from('sinc_mapeamento')
+        .select('tecno_id')
+        .eq('entidade', 'devolucao').eq('sige_id', dev.operacaoId).eq('loja', ev.loja)
+        .maybeSingle()
+      if (jaDev) {
+        await supabase.from('sinc_inbox').update({ estado: 'aplicado', aplicado_em: new Date().toISOString() }).eq('id', ev.id)
+        aplicados++
+        continue
+      }
+      // Venda pai precisa já estar sincronizada (ordem trocada → quarentena).
+      const { data: vendaMap } = await supabase
+        .from('sinc_mapeamento')
+        .select('tecno_id')
+        .eq('entidade', 'venda').eq('sige_id', dev.vendaIdSige).eq('loja', ev.loja)
+        .maybeSingle()
+      if (!vendaMap) {
+        await quarentena(supabase, ev, 'venda pai não sincronizada (ordem trocada): ' + dev.vendaIdSige)
+        quarentenados++
+        continue
+      }
+      const vendaId = vendaMap.tecno_id as string
+
+      // Itens → produto_id (por código, igual savevenda).
+      const itens: { produto_id: string; nome: string; quantidade: number; preco_unitario: number; total_item: number; status_produto: string }[] = []
+      let itemOk = true
+      for (const i of dev.itens) {
+        const { data: prod } = await supabase.from('produtos').select('id, nome').eq('codigo', i.codigo).maybeSingle()
+        if (!prod) {
+          await quarentena(supabase, ev, 'produto não encontrado (codigo ' + i.codigo + ')')
+          quarentenados++
+          itemOk = false
+          break
+        }
+        itens.push({ produto_id: prod.id, nome: prod.nome, quantidade: i.quantidade, preco_unitario: i.valorUnitario, total_item: i.totalItem, status_produto: 'ok' })
+      }
+      if (!itemOk) continue
+
+      // Pessoa: reaproveita a pessoa da venda já sincronizada (SIGE não manda CPF na devolução).
+      const { data: venda } = await supabase.from('vendas').select('pessoa_id, vendedor_nome').eq('id', vendaId).maybeSingle()
+      const pessoaId = venda?.pessoa_id ?? null
+
+      const { data: rpc, error: devErr } = await supabase.rpc('registrar_devolucao', {
+        p_venda_id: vendaId,
+        p_deposito_id: dev.depositoId,
+        p_pessoa_id: pessoaId,
+        p_pessoa_nome: dev.clienteNome || null,
+        p_vendedor_nome: venda?.vendedor_nome ?? null,
+        p_motivo: 'Devolução SIGE',
+        p_tipo_credito: dev.tipoCredito,
+        p_itens: itens,
+        p_lancamento_pendente: false,
+        p_series: [],
+      })
+      if (devErr) {
+        await quarentena(supabase, ev, 'RPC devolução: ' + devErr.message)
+        quarentenados++
+        continue
+      }
+      const devolucaoId = (rpc as { devolucao_id?: string } | null)?.devolucao_id ?? ''
+      const agora = new Date().toISOString()
+      await supabase.from('sinc_inbox').update({ estado: 'aplicado', aplicado_em: agora }).eq('id', ev.id)
+      await supabase
+        .from('sinc_mapeamento')
+        .upsert({ entidade: 'devolucao', sige_id: dev.operacaoId, loja: ev.loja, tecno_id: devolucaoId, ultima_sequencia: ev.sequencia ?? 0, atualizado_em: agora }, { onConflict: 'entidade,sige_id,loja' })
+      await supabase
+        .from('sinc_auditoria')
+        .insert({ evento_id: ev.id, entidade: 'devolucao', sige_id: dev.operacaoId, loja: ev.loja, acao: 'create', resultado: 'ok', detalhe: dev.tipoCredito + ' — ' + itens.length + ' itens' })
+      aplicados++
       continue
     }
 
