@@ -157,8 +157,14 @@ export async function GET(req: NextRequest) {
     }
 
     const pagamentos: { forma_pagamento_id: string; valor: number; taxa: number; maquina: null; parcelas: number; status: string }[] = []
+    let creditoValor = 0
     let formaOk = true
     for (const p of parsed.pagamentos) {
+      // Vale Crédito = abatimento de saldo do cliente, NÃO pagamento (não entra na gaveta).
+      if (p.forma === 'Vale Crédito') {
+        creditoValor += p.valor
+        continue
+      }
       const m = mapFormaSige(p.forma)
       if (!m) {
         await quarentena(supabase, ev, 'forma de pagamento não mapeada: ' + p.forma)
@@ -207,7 +213,7 @@ export async function GET(req: NextRequest) {
       p_series: [],
       p_vendedor_id: null,
       p_vendedor_nome: parsed.itens[0]?.vendedorEmail ?? null,
-      p_credito_valor: 0,
+      p_credito_valor: creditoValor,
     })
 
     if (rpcError) {
