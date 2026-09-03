@@ -228,6 +228,10 @@ export type ItemDevolucaoSige = {
   valorUnitario: number
   totalItem: number
   depositoId: string
+  // ProdutoStatus do SIGE: null = devolução normal (volta ao estoque). Qualquer
+  // valor preenchido = "PRODUTO COM DEFEITO" (GetStatusProdutos só retorna esse:
+  // id 63dac2294207a276bf341648) → NÃO volta pro estoque.
+  statusProduto: 'ok' | 'defeito'
 }
 
 export type DevolucaoSige = {
@@ -286,7 +290,9 @@ export function parseDevolucao(
     if (!codigo || valorUnitario === null || totalItem === null) return null
     vendaIdSige = vendaIdSige || String(i.VendaID ?? '')
     depositoId = depositoId || String(i.DepositoID ?? '')
-    itens.push({ codigo, quantidade, valorUnitario, totalItem, depositoId: String(i.DepositoID ?? '') })
+    // ProdutoStatusId/ProdutoStatus preenchido = item marcado com defeito.
+    const statusProduto: 'ok' | 'defeito' = (i.ProdutoStatusId || i.ProdutoStatus) ? 'defeito' : 'ok'
+    itens.push({ codigo, quantidade, valorUnitario, totalItem, depositoId: String(i.DepositoID ?? ''), statusProduto })
   }
   if (!vendaIdSige || itens.length === 0) return null
 

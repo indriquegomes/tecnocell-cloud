@@ -172,7 +172,7 @@ export async function GET(req: NextRequest) {
           itemOk = false
           break
         }
-        itens.push({ produto_id: prod.id, nome: prod.nome, quantidade: i.quantidade, preco_unitario: i.valorUnitario, total_item: i.totalItem, status_produto: 'ok' })
+        itens.push({ produto_id: prod.id, nome: prod.nome, quantidade: i.quantidade, preco_unitario: i.valorUnitario, total_item: i.totalItem, status_produto: i.statusProduto })
       }
       if (!itemOk) continue
 

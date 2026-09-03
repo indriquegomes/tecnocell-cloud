@@ -57,7 +57,7 @@ test('devolução em Vale Crédito vira credito_conta', () => {
   assert.equal(dev?.clienteNome, 'BRUNA ALVES')
   assert.equal(dev?.vendaIdSige, '69ed1fb0af0ef583cfb1e6f0')
   assert.equal(dev?.operacaoId, '6a99aa18fa3edf46884c2f58')
-  assert.deepEqual(dev?.itens, [{ codigo: '10620', quantidade: 1, valorUnitario: 19.75, totalItem: 19.75, depositoId: '63d9054d59a9c829747233d4' }])
+  assert.deepEqual(dev?.itens, [{ codigo: '10620', quantidade: 1, valorUnitario: 19.75, totalItem: 19.75, depositoId: '63d9054d59a9c829747233d4', statusProduto: 'ok' }])
 })
 
 test('devolução em Crédito Loja vira cancelamento_fiado', () => {
@@ -72,6 +72,15 @@ test('devolução em Crédito Loja vira cancelamento_fiado', () => {
   }
   const dev = parseDevolucao(corpo, { ValeId: '', Success: true, OperacaoId: '6a99a2a1c61416695de610cc' })
   assert.equal(dev?.tipoCredito, 'cancelamento_fiado')
+})
+
+test('item com ProdutoStatusId preenchido vira statusProduto defeito (não volta estoque)', () => {
+  const corpo = {
+    arg: JSON.stringify([{ VendaID: 'x', ProdutoCodigo: '1', QuantidadeDevolvida: 1, ValorUnitario: 10, ValorDevolucao: 10, DepositoID: 'd', ProdutoStatus: 'PRODUTO COM DEFEITO', ProdutoStatusId: '63dac2294207a276bf341648' }]),
+    data: JSON.stringify({ TipoOperacao: 4, Valores: [{ Descricao: 'Dinheiro', Valor: '10,00' }] }),
+  }
+  const dev = parseDevolucao(corpo, { Success: true, OperacaoId: 'op1' })
+  assert.equal(dev?.itens[0].statusProduto, 'defeito')
 })
 
 test('devolução em Dinheiro vira dinheiro (sai da gaveta)', () => {
