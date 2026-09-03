@@ -74,13 +74,13 @@ test('devolução em Crédito Loja vira cancelamento_fiado', () => {
   assert.equal(dev?.tipoCredito, 'cancelamento_fiado')
 })
 
-test('devolução em Dinheiro fica sem mapeamento (aguarda caixa)', () => {
+test('devolução em Dinheiro vira dinheiro (sai da gaveta)', () => {
   const corpo = {
     arg: JSON.stringify([{ VendaID: 'x', ProdutoCodigo: '1', QuantidadeDevolvida: 1, ValorUnitario: 10, ValorDevolucao: 10, DepositoID: 'd' }]),
     data: JSON.stringify({ TipoOperacao: 4, Valores: [{ Descricao: 'Dinheiro', Valor: '10,00' }] }),
   }
   const dev = parseDevolucao(corpo, { Success: true, OperacaoId: 'op1' })
-  assert.equal(dev?.tipoCredito, null) // forma não mapeada → quarentena
+  assert.equal(dev?.tipoCredito, 'dinheiro')
   assert.equal(dev?.forma, 'Dinheiro')
 })
 

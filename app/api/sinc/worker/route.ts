@@ -198,6 +198,38 @@ export async function GET(req: NextRequest) {
         continue
       }
       const devolucaoId = (rpc as { devolucao_id?: string } | null)?.devolucao_id ?? ''
+      // Reembolso em DINHEIRO sai da gaveta (movimentos_caixa 'devolucao'). O RPC
+      // não cria lançamento pra dinheiro (é evento de CAIXA, não conta a pagar) —
+      // mesmo comportamento da action de devolução. Sem caixa aberto → quarentena.
+      if (dev.tipoCredito === 'dinheiro') {
+        const rpcRes = rpc as { reembolso_dinheiro?: number; reembolso?: number } | null
+        const reembolsoDinheiro = Number(rpcRes?.reembolso_dinheiro ?? rpcRes?.reembolso ?? 0)
+        if (reembolsoDinheiro > 0.005) {
+          const { data: dep } = await supabase.from('depositos').select('loja_id').eq('id', dev.depositoId).maybeSingle()
+          const lojaId = (dep as { loja_id?: string | null } | null)?.loja_id ?? null
+          const { data: caixa } = lojaId
+            ? await supabase.from('caixas').select('id').eq('status', 'aberto').eq('loja_id', lojaId).order('aberto_em', { ascending: false }).limit(1).maybeSingle()
+            : { data: null }
+          const caixaId = (caixa as { id?: string } | null)?.id ?? null
+          if (!caixaId) {
+            await quarentena(supabase, ev, 'reembolso em dinheiro sem caixa aberto na loja (ordem trocada?)')
+            quarentenados++
+            continue
+          }
+          const { error: errMov } = await supabase.from('movimentos_caixa').insert({
+            caixa_id: caixaId,
+            tipo: 'devolucao',
+            forma_pagamento: 'Dinheiro',
+            valor: reembolsoDinheiro,
+            motivo: 'Devolução SIGE — ' + (dev.clienteNome || 'Cliente'),
+          })
+          if (errMov) {
+            await quarentena(supabase, ev, 'movimento de devolução em dinheiro: ' + errMov.message)
+            quarentenados++
+            continue
+          }
+        }
+      }
       const agora = new Date().toISOString()
       await supabase.from('sinc_inbox').update({ estado: 'aplicado', aplicado_em: agora }).eq('id', ev.id)
       await supabase

@@ -247,9 +247,7 @@ export const DEVOLUCAO_FORMA: Record<string, string> = {
   'PIX': 'pix',                      // vira lançamento "pagar"
   'Cartão de Crédito': 'credito',
   'Cartão de Débito': 'debito',
-  // 'Dinheiro' fica FORA de propósito: sai da gaveta e precisa do aplicador de
-  // caixa (movimentos_caixa) — ainda não existe. Entra na lista só quando o caixa
-  // estiver pronto; por ora vira quarentena ("forma não mapeada").
+  'Dinheiro': 'dinheiro',            // sai da gaveta (movimentos_caixa 'devolucao') no worker
 }
 
 export function parseDevolucao(
