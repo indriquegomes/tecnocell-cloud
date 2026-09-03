@@ -35,6 +35,17 @@ const restTodos = async (path) => {
   }
 }
 
+// grava o resultado no sinc_reconciliacao (o painel lê daqui)
+async function gravar(dominio, sige, tecno) {
+  const diff = Math.round((tecno - sige) * 100) / 100
+  const status = Math.abs(diff) < 0.01 ? 'ok' : 'divergente'
+  await fetch(BASE + '/rest/v1/sinc_reconciliacao', {
+    method: 'POST',
+    headers: { ...H, 'content-type': 'application/json', prefer: 'return=minimal' },
+    body: JSON.stringify({ dominio, loja: 'todas', total_sige: sige, total_tecnocell: tecno, divergencia: diff, status }),
+  })
+}
+
 const RE = /<strong>([^<]+)<\/strong>\s*:\s*<br\/>TOTAL\s*\([^)]*\)\s*\|\s*RESERVADO\s*\([^)]*\)\s*\|\s*DISPONÍVEL\s*\(([^)]*)\)/g
 function saldosDoProduto(html) {
   const out = {}
@@ -80,6 +91,7 @@ const main = async () => {
       console.log(('' + nome).padEnd(30) + ' SIGE ' + qtd + ' | TecnoCell ' + tecQtd + ' | ' + (diff >= 0 ? '+' : '') + diff + ' | ' + ok)
     }
     console.log('TOTAL: SIGE ' + sigeTotal + ' | TecnoCell ' + tecTotal + ' | diff ' + (tecTotal - sigeTotal))
+    await gravar('estoque', sigeTotal, tecTotal)
   }
 
   // ---- FIADO ----
@@ -90,6 +102,7 @@ const main = async () => {
     const tecFiado = tec.reduce((s, x) => s + (Number(x.valor) || 0), 0)
     console.log('\n=== FIADO (a receber pendente) ===')
     console.log('SIGE ' + sigeFiado + ' | TecnoCell ' + tecFiado + ' | diff ' + (tecFiado - sigeFiado))
+    await gravar('fiado', sigeFiado, tecFiado)
   }
 }
 

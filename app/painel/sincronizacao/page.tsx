@@ -41,6 +41,12 @@ export default async function SincronizacaoPage() {
     .order('ocorrido_em', { ascending: false })
     .limit(15)
 
+  const { data: reconciliacao } = await supabase
+    .from('sinc_reconciliacao')
+    .select('dominio, total_sige, total_tecnocell, divergencia, status, rodada_em')
+    .order('rodada_em', { ascending: false })
+    .limit(2)
+
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -56,6 +62,36 @@ export default async function SincronizacaoPage() {
         <Card rotulo="Descartado" valor={estados.descartado} cor="text-gray-500" />
         <Card rotulo="Vendas sincronizadas" valor={vendasSync ?? 0} cor="text-emerald-700" />
       </div>
+
+      <section className="rounded-xl border border-gray-200 bg-white p-4">
+        <h2 className="font-semibold text-gray-800 mb-2">Fechamento do Dia (última reconciliação)</h2>
+        {!reconciliacao || reconciliacao.length === 0 ? (
+          <p className="text-sm text-gray-400">Nenhuma reconciliação ainda — rode scripts-sinc/reconciliar.mjs.</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead><tr className="text-left text-gray-500">
+              <th className="pb-1">Domínio</th><th className="pb-1">SIGE</th><th className="pb-1">TecnoCell</th><th className="pb-1">Diferença</th><th className="pb-1">Status</th>
+            </tr></thead>
+            <tbody>
+              {reconciliacao.map((r, i) => (
+                <tr key={i} className="border-t border-gray-100">
+                  <td className="py-2 font-medium text-gray-700">{r.dominio}</td>
+                  <td className="py-2">{Number(r.total_sige).toLocaleString('pt-BR')}</td>
+                  <td className="py-2">{Number(r.total_tecnocell).toLocaleString('pt-BR')}</td>
+                  <td className={'py-2 ' + (Math.abs(Number(r.divergencia)) < 0.01 ? 'text-emerald-600' : 'text-orange-600')}>
+                    {Number(r.divergencia).toLocaleString('pt-BR')}
+                  </td>
+                  <td className="py-2">
+                    <span className={'px-2 py-0.5 rounded-full text-xs ' + (r.status === 'ok' ? 'bg-emerald-50 text-emerald-700' : 'bg-orange-50 text-orange-700')}>
+                      {r.status === 'ok' ? 'OK' : 'Divergente'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
 
       <div className="grid md:grid-cols-2 gap-6">
         <section className="rounded-xl border border-gray-200 bg-white p-4">
