@@ -119,23 +119,18 @@ const main = async () => {
     await gravar('fiado', sigeFiado, tecFiado)
   }
 
-  // ---- VENDAS (só o dia de hoje, fuso SP) ----
-  const vendasArq = process.argv[4] || (await achar('^VendasPdv-.*\\.json$'))
-  if (vendasArq) {
-    const hojeBR = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date()) // "03/09/2026"
-    const hojeDM = hojeBR.slice(0, 5) // "03/09"
-    const linhas = JSON.parse(await readFile(vendasArq, 'utf8'))
-    const doDia = linhas.filter((v) => String(v.Data ?? '').startsWith(hojeDM) && String(v.Status ?? '') === 'Pedido Faturado')
-    const sigeCount = doDia.length
-    const sigeTotal = doDia.reduce((s, v) => s + totalDaVenda(v), 0)
-    const tec = await restTodos('vendas?select=total,created_at,status')
-    const tecHoje = tec.filter((x) => new Date(x.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) === hojeBR && x.status === 'concluida')
-    const tecCount = tecHoje.length
-    const tecTotal = tecHoje.reduce((s, x) => s + (Number(x.total) || 0), 0)
-    console.log('\n=== VENDAS (hoje ' + hojeBR + ') ===')
-    console.log('SIGE ' + sigeCount + ' vendas (R$ ' + sigeTotal + ') | TecnoCell ' + tecCount + ' vendas (R$ ' + tecTotal + ')')
-    await gravar('vendas', sigeTotal, tecTotal)
+  // ---- VENDAS (SIGE capturado vs TecnoCell aplicado) ----
+  const svEvents = await restTodos('sinc_inbox?select=payload&payload->>rota=ilike.*savevenda*')
+  let sigeCount = 0
+  for (const e of svEvents) {
+    const resp = e.payload?.resposta
+    if (Array.isArray(resp) && resp.length > 1 && resp[1]) sigeCount++
   }
+  const tecVendas = await restTodos('vendas?select=id')
+  const tecCount = tecVendas.length
+  console.log('\n=== VENDAS (capturado vs aplicado) ===')
+  console.log('SIGE ' + sigeCount + ' | TecnoCell ' + tecCount + ' | diff ' + (tecCount - sigeCount))
+  await gravar('vendas', sigeCount, tecCount)
 
   // ---- CAIXA (dinheiro) ----
   // SIGE: Dinheiro do último fechamento (sinc_inbox FecharCaixa).
@@ -178,7 +173,8 @@ const main = async () => {
       visto.add(id)
       sigeVale += Number(c.saldoValeCredito ?? c.SaldoValeCredito ?? 0) || 0
     }
-    const cc = await restTodos('creditos_clientes?select=valor,tipo')
+    // Só a BASELINE (descricao fixa) — créditos de devolução são movimento, não baseline.
+    const cc = await restTodos('creditos_clientes?select=valor,tipo&descricao=eq.' + encodeURIComponent('Baseline vale SIGE'))
     const tecnoVale = cc.reduce((s, x) => s + ((x.tipo === 'uso' || x.tipo === 'estorno') ? -Number(x.valor) : Number(x.valor)), 0)
     console.log('\n=== VALE-CRÉDITO ===')
     console.log('SIGE ' + sigeVale + ' | TecnoCell ' + tecnoVale + ' | diff ' + (tecnoVale - sigeVale))
