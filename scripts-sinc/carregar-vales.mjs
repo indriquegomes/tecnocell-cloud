@@ -1,8 +1,8 @@
 // carregar-vales.mjs — baseline de vale-crédito SIGE -> TecnoCell (creditos_clientes).
 //
 // Lê o Vales-*.json (puxa-vale.mjs) e, pra cada cliente com SaldoValeCredito
-// > 0, garante que o saldo no TecnoCell bata com o SIGE. Casa o cliente por CPF/CNPJ
-// (igual o worker do savevenda): CPF só dígitos -> pessoas.cpf_cnpj.
+// > 0, garante que o saldo no TecnoCell bata com o SIGE. Casa o cliente por ID:
+// pessoas.id É o ObjectId do SIGE (cadastro importado 1:1).
 //
 // Como creditos_clientes é RAZÃO (soma de linhas), a baseline é UMA linha de ajuste
 // por cliente, com id determinístico (uuid v5 do id do cliente). O valor da linha é o
@@ -70,12 +70,12 @@ const restTodos = async (path) => {
   }
 }
 
-// CPF/CNPJ (só dígitos) -> pessoas.id. Paginado (pessoas pode passar de 1000).
-async function mapaPessoasPorCpf() {
-  const m = new Map()
-  const linhas = await restTodos('pessoas?select=id,cpf_cnpj')
-  for (const l of linhas) if (l.cpf_cnpj) m.set(String(l.cpf_cnpj).replace(/\D/g, ''), l.id)
-  return m
+// Set dos ids de pessoas do TecnoCell. pessoas.id É o ObjectId do SIGE (1:1).
+async function mapaPessoasIds() {
+  const ids = new Set()
+  const linhas = await restTodos('pessoas?select=id')
+  for (const l of linhas) if (l.id) ids.add(l.id)
+  return ids
 }
 
 // saldo atual do cliente, EXCLUINDO a linha de baseline (id determinístico).
@@ -103,13 +103,13 @@ const main = async () => {
     const fs = (await readdir('.')).filter((f) => /^(Clientes|Vales)-.*\.json$/.test(f)).sort()
     arquivo = fs[fs.length - 1]
   }
-  if (!arquivo) { console.error('Nenhum Clientes-*.json. Rode puxa-clientes.mjs antes.'); process.exit(1) }
+  if (!arquivo) { console.error('Nenhum Vales-*.json. Rode puxa-vale.mjs antes.'); process.exit(1) }
 
   const clientes = JSON.parse(await readFile(arquivo, 'utf8'))
   if (!Array.isArray(clientes) || !clientes.length) { console.error(arquivo + ': não é um array de clientes.'); process.exit(1) }
 
-  const mapaCpf = await mapaPessoasPorCpf()
-  console.log('pessoas com CPF no TecnoCell: ' + mapaCpf.size)
+  const idsPessoas = await mapaPessoasIds()
+  console.log('pessoas no TecnoCell: ' + idsPessoas.size)
 
   const agora = new Date().toISOString()
   let ok = 0
@@ -122,13 +122,11 @@ const main = async () => {
     const sige = saldoSige(c)
     if (sige <= 0) { semVale++; continue }
 
-    const cpf = String(pega(c, 'CPFCNPJ', 'cpfCnpj', 'CpfCnpj', 'Cpf', 'CPF') ?? '').replace(/\D/g, '')
-    const pessoaId = cpf ? mapaCpf.get(cpf) : null
-    if (!pessoaId) { semPessoa++; continue }
-
     const clienteId = pega(c, 'Id', 'id', 'ClienteID', 'clienteID')
-    const seed = clienteId ?? cpf
-    const baselineId = uuidVale(String(seed))
+    const pessoaId = clienteId ? String(clienteId) : null
+    if (!pessoaId || !idsPessoas.has(pessoaId)) { semPessoa++; continue }
+
+    const baselineId = uuidVale(pessoaId)
     const atual = await saldoSemBaseline(pessoaId, baselineId)
     const delta = Math.round((sige - atual) * 100) / 100
     if (Math.abs(delta) < 0.005) continue // já bate
@@ -136,7 +134,7 @@ const main = async () => {
     lote.push({
       id: baselineId,
       pessoa_id: pessoaId,
-      pessoa_nome: String(pega(c, 'Nome', 'nome', 'Cliente', 'cliente') ?? cpf ?? '').trim() || 'Cliente SIGE',
+      pessoa_nome: String(pega(c, 'Nome', 'nome', 'Cliente', 'cliente') ?? '').trim() || 'Cliente SIGE',
       valor: Math.abs(delta),
       tipo: delta > 0 ? 'credito' : 'uso',
       descricao: 'Baseline vale SIGE',
@@ -147,7 +145,7 @@ const main = async () => {
   await flush()
 
   console.log('Arquivo:', arquivo, '(' + clientes.length + ' clientes)')
-  console.log('Baseline aplicada:', ok, '| sem vale:', semVale, '| sem pessoa (CPF não achado):', semPessoa)
+  console.log('Baseline aplicada:', ok, '| sem vale:', semVale, '| sem pessoa (id fora do TecnoCell):', semPessoa)
 }
 
 main().catch((e) => { console.error('ERRO: ' + e.message); process.exit(1) })
