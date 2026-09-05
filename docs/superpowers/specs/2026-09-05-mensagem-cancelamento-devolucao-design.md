@@ -1,13 +1,13 @@
-# Mensagem após devolução e cancelamento
+# Mensagem após devolução
 
 ## Objetivo
 
-Após gerar vale-crédito ou cancelar devolução, oferecer mensagem pronta para copiar e enviar pelo WhatsApp do cliente.
+Após concluir uma devolução, oferecer mensagem pronta para copiar e enviar pelo WhatsApp do cliente.
 
 ## Fluxo
 
-1. Operador conclui devolução ou cancelamento.
-2. Sistema atualiza devolução e vale-crédito.
+1. Operador conclui devolução.
+2. Sistema gera vale-crédito ou cancela o fiado ainda não pago.
 3. Tela de sucesso mostra `Copiar mensagem`.
 4. Se cliente tiver WhatsApp, mostra também `WhatsApp`.
 5. Mensagem usa dados confirmados da operação, nunca valores digitados apenas no navegador.
@@ -24,30 +24,30 @@ Crédito disponível para próxima compra.
 #TecnocellBrasil
 ```
 
-## Mensagem — cancelamento
+## Mensagem — cancelamento de fiado
 
 ```text
 Olá, #CLIENTE#! 😊
 
-Devolução do produto #PRODUTO#, da venda nº #NÚMERO#, foi cancelada.
+Registramos devolução do produto #PRODUTO#, da venda nº #NÚMERO#.
 
-Vale-crédito de #VALOR# relacionado também foi cancelado. Saldo atualizado.
+Dívida de #VALOR# foi cancelada. Saldo atualizado.
 
 #TecnocellBrasil
 ```
 
 ## Regras
 
-- `#VALOR#` usa valor efetivo do vale-crédito relacionado.
+- `#VALOR#` usa valor efetivo devolvido ou abatido.
 - `#PRODUTO#` lista todos os produtos afetados quando houver mais de um.
-- Cancelamento sem vale relacionado omite frase sobre vale-crédito.
-- Vale já utilizado bloqueia cancelamento e explica motivo; nenhuma mensagem de cancelamento é oferecida.
+- Tipo `credito_conta` usa mensagem de vale-crédito.
+- Tipo `cancelamento_fiado` usa mensagem de cancelamento da dívida.
+- Outros tipos de reembolso não mostram mensagem de vale ou cancelamento de fiado.
 - Botão WhatsApp aparece somente com telefone válido.
 - Copiar mensagem funciona mesmo sem telefone cadastrado.
 
 ## Verificação
 
-- Teste unitário dos dois textos e caso sem vale.
-- Teste do bloqueio para vale utilizado.
+- Teste unitário dos dois textos e múltiplos produtos.
 - Teste de interface dos botões após sucesso.
 - Confirmar que nenhum botão aparece quando operação falha.
