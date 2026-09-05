@@ -285,11 +285,12 @@ export default async function OperacaoPDVPage({
     const ehDin = (m: { forma_pagamento: string }) => tipoDoTexto(m.forma_pagamento) === 'dinheiro'
     reforcosDinheiro = movimentos.filter((m) => m.tipo === 'reforco' && ehDin(m)).reduce((s, m) => s + m.valor, 0)
     retiradasDinheiro = movimentos.filter((m) => m.tipo === 'retirada' && ehDin(m)).reduce((s, m) => s + m.valor, 0)
-    for (const m of movimentos.filter((m) => m.tipo === 'reforco' && !ehDin(m))) {
+    for (const m of movimentos.filter((m) => ['reforco', 'retirada'].includes(m.tipo) && !ehDin(m))) {
       const t = tipoDoTexto(m.forma_pagamento)
       const v = Number(m.valor) || 0
-      porTipo[t] = (porTipo[t] ?? 0) + v
-      porForma[m.forma_pagamento] = (porForma[m.forma_pagamento] ?? 0) + v
+      const sinal = m.tipo === 'reforco' ? 1 : -1
+      porTipo[t] = (porTipo[t] ?? 0) + sinal * v
+      porForma[m.forma_pagamento] = (porForma[m.forma_pagamento] ?? 0) + sinal * v
     }
     // DEVOLUÇÃO em dinheiro — cédula que SAIU da gaveta pro cliente. O saldo já
     // subtrai totalDevolucoes; este era o gancho que faltava ligar (vinha 0).
@@ -426,11 +427,12 @@ export default async function OperacaoPDVPage({
       for (const m of zMov.filter((x) => x.tipo === 'recebimento')) {
         zPorForma[m.forma_pagamento] = (zPorForma[m.forma_pagamento] ?? 0) + (Number(m.valor) || 0)
       }
-      for (const m of zMov.filter((m) => m.tipo === 'reforco' && tipoDoTexto(m.forma_pagamento) !== 'dinheiro')) {
+      for (const m of zMov.filter((m) => ['reforco', 'retirada'].includes(m.tipo) && tipoDoTexto(m.forma_pagamento) !== 'dinheiro')) {
         const t = tipoDoTexto(m.forma_pagamento)
         const v = Number(m.valor) || 0
-        zPorTipo[t] = (zPorTipo[t] ?? 0) + v
-        zPorForma[m.forma_pagamento] = (zPorForma[m.forma_pagamento] ?? 0) + v
+        const sinal = m.tipo === 'reforco' ? 1 : -1
+        zPorTipo[t] = (zPorTipo[t] ?? 0) + sinal * v
+        zPorForma[m.forma_pagamento] = (zPorForma[m.forma_pagamento] ?? 0) + sinal * v
       }
 
       zReport = {
