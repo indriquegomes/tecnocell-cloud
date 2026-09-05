@@ -1,6 +1,7 @@
 import { IconSwap } from '@/components/icons'
 import { createServiceClient, fetchAllIn } from '@/lib/supabase/server'
 import { formatBRL } from '@/lib/utils'
+import { incluiTexto } from '@/lib/texto-busca'
 import Link from 'next/link'
 import { ColunasToggler } from './ColunasToggler'
 import { NovaMovimentacaoForm } from './NovaMovimentacaoForm'
@@ -217,7 +218,7 @@ export default async function MovimentacoesPage({
   if (params.vendedor) rows = rows.filter((r) => r.vendedor === params.vendedor)
   if (params.produto) {
     const t = params.produto.toLowerCase()
-    rows = rows.filter((r) => r.produto.toLowerCase().includes(t))
+    rows = rows.filter((r) => incluiTexto(r.produto, t))
   }
   if (params.cliente) {
     const t = params.cliente.toLowerCase()
