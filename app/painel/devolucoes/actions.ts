@@ -21,6 +21,7 @@ export interface VendaParaDevolucao {
   created_at: string
   pessoa_id: string | null
   pessoa_nome: string | null
+  telefone: string | null
   vendedor_nome: string | null
   deposito_id: string | null
   deposito_nome: string | null
@@ -66,7 +67,7 @@ export async function buscarVendaParaDevolucao(
   const [vendaRes, itensRes, lancRes, seriesRes, pagRes] = await Promise.all([
     supabase
       .from('vendas')
-      .select('id, numero, total, created_at, vendedor_nome, forma_pagamento_id, pessoa_id, deposito_id, pessoas!pessoa_id(nome)')
+      .select('id, numero, total, created_at, vendedor_nome, forma_pagamento_id, pessoa_id, deposito_id, pessoas!pessoa_id(nome, telefone, celular)')
       .eq('id', vendaId)
       .maybeSingle(),
     supabase
@@ -139,6 +140,7 @@ export async function buscarVendaParaDevolucao(
     created_at: vRaw.created_at,
     pessoa_id: (vRaw.pessoa_id ?? null) as string | null,
     pessoa_nome: pessoaNome,
+    telefone: (vRaw.pessoas?.celular ?? vRaw.pessoas?.telefone ?? null) as string | null,
     vendedor_nome: vRaw.vendedor_nome ?? null,
     deposito_id: (vRaw.deposito_id ?? null) as string | null,
     deposito_nome: (depositoRes as { data: { nome: string } | null }).data?.nome ?? null,
@@ -248,7 +250,7 @@ export interface RegistrarDevolucaoInput {
 export async function registrarDevolucao(
   accessToken: string,
   input: RegistrarDevolucaoInput,
-): Promise<{ id: string }> {
+): Promise<{ id: string; abate_fiado: number; reembolso: number }> {
   const usuario = await requirePermissao('devolucoes', accessToken)
   const supabase = await createServiceClient()
 
@@ -312,6 +314,7 @@ export async function registrarDevolucao(
   if (!data) throw new Error('RPC registrar_devolucao retornou vazio.')
 
   const devolucaoId = (data as { devolucao_id: string }).devolucao_id
+  const abateFiado = Number((data as { abate_fiado?: number }).abate_fiado ?? 0)
   const reembolso = Number((data as { reembolso?: number }).reembolso ?? 0)
   // Só a fatia em DINHEIRO sai da gaveta. No misto, o resto já virou crédito ou
   // lançamento dentro do RPC — usar o reembolso cheio aqui tiraria do caixa
@@ -377,7 +380,7 @@ export async function registrarDevolucao(
     reembolso,
   }, usuario, '/painel/devolucoes')
 
-  return { id: devolucaoId }
+  return { id: devolucaoId, abate_fiado: abateFiado, reembolso }
 }
 
 export async function buscarItensDevolucao(

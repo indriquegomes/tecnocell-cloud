@@ -3,6 +3,7 @@
 import { IconPlus } from '@/components/icons'
 import { Spinner } from '@/components/Spinner'
 import { MOTIVOS_DEVOLUCAO, motivoDevolucao } from '@/lib/motivos'
+import { mensagemDevolucao, whatsappDevolucao } from '@/lib/mensagem-devolucao'
 import { ResumoMotivos } from '@/components/ResumoMotivos'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
@@ -173,7 +174,7 @@ export function DevolucoesClient({
   const [linhasReemb, setLinhasReemb] = useState<{ tipo: string; valor: string; contaId: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
-  const [sucesso, setSucesso] = useState(false)
+  const [sucesso, setSucesso] = useState<{ mensagem: string | null; whatsapp: string | null } | null>(null)
 
   // ── modal detalhe ──────────────────────────────────────────────────────────
   const [detalhe, setDetalhe] = useState<{
@@ -383,7 +384,7 @@ export function DevolucoesClient({
           return
         }
       }
-      await registrarDevolucao(t, {
+      const resultado = await registrarDevolucao(t, {
         venda_id: venda.id, deposito_id: venda.deposito_id,
         pessoa_id: venda.pessoa_id, pessoa_nome: venda.pessoa_nome,
         vendedor_nome: venda.vendedor_nome, motivo, motivo_tipo: motivoTipo,
@@ -392,8 +393,15 @@ export function DevolucoesClient({
         reembolsos: usaMisto ? linhasEnvio : undefined,
         itens: itensDev, lancamento_pendente: venda.lancamento_pendente,
       })
-      fechar(); setSucesso(true)
-      setTimeout(() => setSucesso(false), 4000)
+      const tipo = reembolso > 0.01 ? (usaMisto ? 'misto' : tipoCredito) : 'cancelamento_fiado'
+      const mensagem = mensagemDevolucao({
+        tipo,
+        cliente: venda.pessoa_nome ?? 'Cliente',
+        valor: tipo === 'cancelamento_fiado' ? resultado.abate_fiado : resultado.reembolso,
+        numero: venda.numero,
+        produtos: itensDev.map(({ nome, quantidade }) => ({ nome, quantidade })),
+      })
+      fechar(); setSucesso({ mensagem, whatsapp: mensagem ? whatsappDevolucao(venda.telefone, mensagem) : null })
       router.refresh()
     } catch (e) { setErro(e instanceof Error ? e.message : 'Erro ao registrar devolução.') }
     finally { setSalvando(false) }
@@ -422,8 +430,22 @@ export function DevolucoesClient({
 
       {/* Toast */}
       {sucesso && (
-        <div className="fixed top-5 right-5 z-[60] rounded-xl bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow-xl">
-          ✅ Devolução registrada com sucesso!
+        <div className="fixed top-5 right-5 z-[60] max-w-md rounded-xl bg-white p-4 text-sm text-gray-800 shadow-xl border border-green-200">
+          <div className="flex items-start justify-between gap-4">
+            <strong className="text-green-700">✅ Devolução registrada com sucesso!</strong>
+            <button onClick={() => setSucesso(null)} className="text-gray-400 hover:text-gray-700" aria-label="Fechar">×</button>
+          </div>
+          {sucesso.mensagem && (
+            <>
+              <p className="mt-2 whitespace-pre-line text-xs text-gray-600">{sucesso.mensagem}</p>
+              <div className="mt-3 flex gap-2">
+                <button onClick={() => navigator.clipboard.writeText(sucesso.mensagem!)} className="rounded-lg border border-blue-200 px-3 py-2 font-semibold text-blue-700 hover:bg-blue-50">
+                  Copiar mensagem
+                </button>
+                {sucesso.whatsapp && <a href={sucesso.whatsapp} target="_blank" rel="noopener noreferrer" className="rounded-lg bg-green-600 px-3 py-2 font-semibold text-white hover:bg-green-700">WhatsApp</a>}
+              </div>
+            </>
+          )}
         </div>
       )}
 
