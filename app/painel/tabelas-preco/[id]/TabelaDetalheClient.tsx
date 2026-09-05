@@ -36,7 +36,7 @@ export function TabelaDetalheClient({
   tabela,
   itens: itensIniciais,
 }: {
-  tabela: { id: string; nome: string; descricao: string | null; ativa: boolean }
+  tabela: { id: string; nome: string; descricao: string | null; ativa: boolean; usa_preco_custo: boolean }
   itens: Item[]
 }) {
   const router = useRouter()
@@ -220,32 +220,32 @@ export function TabelaDetalheClient({
           <span className={`text-xs font-semibold px-2 py-1 rounded-full ${tabela.ativa ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
             {tabela.ativa ? 'Ativa' : 'Inativa'}
           </span>
-          <button
+          {!tabela.usa_preco_custo && <button
             onClick={handleToggle}
             disabled={isPending}
             className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
             {tabela.ativa ? 'Desativar' : 'Ativar'}
-          </button>
+          </button>}
           <a
             href={`/painel/tabelas-preco/${tabela.id}/exportar`}
             className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
             Baixar planilha
           </a>
-          <button
+          {!tabela.usa_preco_custo && <button
             onClick={() => { setMostrarImportPlan(true); setImportPlanMsg(''); setArquivoPlan(null) }}
             className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
             Importar planilha
-          </button>
-          <button
+          </button>}
+          {!tabela.usa_preco_custo && <button
             onClick={() => setMostrarImportar(true)}
             className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
             Importar em lote
-          </button>
+          </button>}
         </div>
       </div>
 
       {/* Adicionar produto */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
+      {!tabela.usa_preco_custo && <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
         <h3 className="font-semibold text-gray-800">Adicionar Produto</h3>
         <div className="flex flex-wrap gap-4 items-end">
           <div className="relative flex-1 min-w-64">
@@ -300,7 +300,7 @@ export function TabelaDetalheClient({
           </button>
         </div>
         {erroAdicionar && <p className="text-sm text-red-600">{erroAdicionar}</p>}
-      </div>
+      </div>}
 
       {/* Itens */}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -323,7 +323,7 @@ export function TabelaDetalheClient({
               <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Preço Tabela</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Margem</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Diferença</th>
-              <th className="px-4 py-3" />
+              {!tabela.usa_preco_custo && <th className="px-4 py-3" />}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -362,7 +362,7 @@ export function TabelaDetalheClient({
                           className="text-xs text-gray-400 hover:text-gray-600">✕</button>
                       </div>
                     ) : (
-                      <button
+                      tabela.usa_preco_custo ? <span className="text-sm font-semibold text-gray-800">{fmt(item.preco)}</span> : <button
                         onClick={() => { setEditandoId(item.id); setEditValor(item.preco.toString()) }}
                         className="text-sm font-semibold text-gray-800 hover:text-blue-600 group-hover:underline decoration-dashed underline-offset-2 transition">
                         {fmt(item.preco)}
@@ -380,11 +380,11 @@ export function TabelaDetalheClient({
                     {diff === 0 ? '—' : `${diff > 0 ? '+' : ''}${fmt(diff)}`}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
+                    {!tabela.usa_preco_custo && <button
                       onClick={() => handleRemover(item.id)}
                       className="text-xs text-red-400 hover:text-red-600 font-medium opacity-0 group-hover:opacity-100 transition">
                       Remover
-                    </button>
+                    </button>}
                   </td>
                 </tr>
               )

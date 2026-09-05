@@ -19,7 +19,7 @@ export default async function EditarClientePage({
 
   const [{ data: pessoa }, { data: tabelas }, { data: vendedores }, { data: vendas }, { data: creds }, { data: oss }] = await Promise.all([
     supabase.from('pessoas').select('*').eq('id', id).single(),
-    supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).order('nome'),
+    supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).eq('usa_preco_custo', false).order('nome'),
     supabase.from('perfis').select('id, nome').eq('ativo', true).order('nome'),
     supabase.from('vendas').select('id, numero, total, created_at, status').eq('pessoa_id', id).order('created_at', { ascending: false }).limit(20),
     supabase.from('creditos_clientes').select('tipo, valor').eq('pessoa_id', id),

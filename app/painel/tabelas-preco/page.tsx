@@ -74,7 +74,7 @@ export default async function TabelasPrecoPage({
                 {t.descricao && <p className="text-xs text-gray-400 mt-0.5">{t.descricao}</p>}
               </div>
               <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${t.ativa ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                {t.ativa ? 'Ativa' : 'Inativa'}
+                {t.usa_preco_custo ? 'Somente consulta' : t.ativa ? 'Ativa' : 'Inativa'}
               </span>
             </div>
             {(() => {
@@ -100,13 +100,13 @@ export default async function TabelasPrecoPage({
             <div className="flex gap-3">
               <Link href={`/painel/tabelas-preco/${t.id}`}
                 className="flex-1 text-center rounded-lg border border-blue-200 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 transition">
-                Ver / Editar
+                {t.usa_preco_custo ? 'Ver custos' : 'Ver / Editar'}
               </Link>
-              <form action={deletarTabela.bind(null, t.id)}>
+              {!t.usa_preco_custo && <form action={deletarTabela.bind(null, t.id)}>
                 <ConfirmButton message="Excluir tabela?" className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-50 transition">
                   Excluir
                 </ConfirmButton>
-              </form>
+              </form>}
             </div>
           </div>
         ))}

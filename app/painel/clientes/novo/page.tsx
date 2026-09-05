@@ -7,7 +7,7 @@ export default async function NovaClientePage({ searchParams }: { searchParams: 
   const { erro } = await searchParams
   const supabase = await createServiceClient()
   const [{ data: tabelas }, { data: vendedores }, { permissoes, isMaster }] = await Promise.all([
-    supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).order('nome'),
+    supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).eq('usa_preco_custo', false).order('nome'),
     supabase.from('perfis').select('id, nome').eq('ativo', true).order('nome'),
     permissoesUsuarioAtual(),
   ])

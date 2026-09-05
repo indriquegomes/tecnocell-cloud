@@ -17,7 +17,7 @@ export default async function EditarLojaPage({
     supabase.from('lojas').select('*').eq('id', id).maybeSingle(),
     supabase.from('depositos').select('id, nome').eq('loja_id', id).order('nome'),
     supabase.from('contas').select('id, nome').eq('ativa', true).order('nome'),
-    supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).order('nome'),
+    supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).eq('usa_preco_custo', false).order('nome'),
     supabase.from('lojas').select('id, nome').neq('id', id).order('nome'),
   ])
   if (!loja) notFound()

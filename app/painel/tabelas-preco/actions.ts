@@ -6,6 +6,12 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import ExcelJS from 'exceljs'
 
+async function bloquearTabelaCusto(id: string) {
+  const supabase = await createServiceClient()
+  const { data } = await supabase.from('tabelas_preco').select('usa_preco_custo').eq('id', id).maybeSingle()
+  if (data?.usa_preco_custo) throw new Error('Tabela CUSTO é sincronizada automaticamente e não pode ser alterada.')
+}
+
 // Busca de produto SOB DEMANDA pro picker "adicionar à tabela" (não embutir os
 // 7.983 no HTML). Sem acento via busca_norm; fallback por nome/código.
 export async function buscarProdutosParaTabela(
@@ -56,6 +62,7 @@ export async function criarTabela(formData: FormData) {
 
 export async function deletarTabela(id: string) {
   await requirePermissao('produtos')
+  await bloquearTabelaCusto(id)
   const supabase = await createServiceClient()
   // não deixa apagar tabela vinculada a cliente (deixaria o cliente órfão)
   const { count } = await supabase.from('pessoas').select('id', { count: 'exact', head: true }).eq('tabela_preco_id', id)
@@ -71,6 +78,7 @@ export async function deletarTabela(id: string) {
 
 export async function atualizarVigencia(id: string, formData: FormData) {
   await requirePermissao('produtos')
+  await bloquearTabelaCusto(id)
   const supabase = await createServiceClient()
   const data_inicio = (formData.get('data_inicio') as string) || null
   const data_fim = (formData.get('data_fim') as string) || null
@@ -84,6 +92,7 @@ export async function atualizarVigencia(id: string, formData: FormData) {
 
 export async function adicionarItemTabela(tabelaId: string, formData: FormData) {
   await requirePermissao('produtos')
+  await bloquearTabelaCusto(tabelaId)
   const supabase = await createServiceClient()
 
   const { error } = await supabase.from('itens_tabela_preco').insert({
@@ -100,6 +109,7 @@ export async function adicionarItemTabela(tabelaId: string, formData: FormData) 
 
 export async function removerItemTabela(id: string, tabelaId: string) {
   await requirePermissao('produtos')
+  await bloquearTabelaCusto(tabelaId)
   const supabase = await createServiceClient()
   await supabase.from('itens_tabela_preco').delete().eq('id', id)
   revalidatePath(`/painel/tabelas-preco/${tabelaId}`)
@@ -108,6 +118,7 @@ export async function removerItemTabela(id: string, tabelaId: string) {
 
 export async function atualizarPrecoItem(id: string, tabelaId: string, preco: number) {
   await requirePermissao('produtos')
+  await bloquearTabelaCusto(tabelaId)
   const supabase = await createServiceClient()
   const { error } = await supabase
     .from('itens_tabela_preco')
@@ -125,6 +136,7 @@ export async function importarTodosComMultiplicador(
   atualizar = false,
 ) {
   await requirePermissao('produtos')
+  await bloquearTabelaCusto(tabelaId)
   const supabase = await createServiceClient()
 
   const [produtos, jaExistem] = await Promise.all([
@@ -169,6 +181,7 @@ export async function importarTodosComMultiplicador(
 
 export async function toggleTabela(id: string, ativa: boolean) {
   await requirePermissao('produtos')
+  await bloquearTabelaCusto(id)
   const supabase = await createServiceClient()
   await supabase.from('tabelas_preco').update({ ativa }).eq('id', id)
   revalidatePath(`/painel/tabelas-preco/${id}`)
@@ -188,6 +201,7 @@ function parsePreco(v: unknown): number | null {
 // preços da tabela em massa. Casa pela coluna "Código". Preço vazio = ignora.
 export async function importarPlanilha(tabelaId: string, formData: FormData) {
   await requirePermissao('produtos')
+  await bloquearTabelaCusto(tabelaId)
   const file = formData.get('arquivo') as File | null
   if (!file || file.size === 0) return { erro: 'Nenhum arquivo enviado.' }
 

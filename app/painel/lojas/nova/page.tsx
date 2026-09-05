@@ -7,7 +7,7 @@ export default async function NovaLojaPage({ searchParams }: { searchParams: Pro
   const supabase = await createServiceClient()
   const [{ data: contas }, { data: tabelas }, { data: lojasMatriz }] = await Promise.all([
     supabase.from('contas').select('id, nome').eq('ativa', true).order('nome'),
-    supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).order('nome'),
+    supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).eq('usa_preco_custo', false).order('nome'),
     supabase.from('lojas').select('id, nome').order('nome'),
   ])
   return (

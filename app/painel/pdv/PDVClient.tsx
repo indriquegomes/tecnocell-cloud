@@ -16,7 +16,6 @@ import { badgeTabela } from '@/lib/badge-tabela'
 // mas NÃO é forma de pagamento: não entra dinheiro, ele abate a dívida. Id falso pra
 // não colidir com nenhuma forma real do banco.
 const DESCONTO_ID = '__desconto__'
-const TABELA_CUSTO = '__custo__'
 const AVISO_CUSTO = 'Tabela CUSTO é somente consulta. Selecione uma tabela de venda.'
 // Vale-crédito no recebimento de fiado: mesmo raciocínio do desconto — não é
 // uma "forma" da tabela formas_pagamento sendo escolhida ali, é uma ação
@@ -176,6 +175,7 @@ interface Loja {
 interface TabelaPreco {
   id: string
   nome: string
+  usa_preco_custo: boolean
 }
 
 interface ItemCarrinho {
@@ -626,6 +626,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     return id && tabelas.some((t) => t.id === id) ? id : ''
   }
   const [tabelaId, setTabelaId] = useState(tabelaVisivel(lojas[0]?.tabela_padrao_id))   // '' = Preço Padrão
+  const tabelaSelecionada = tabelas.find((t) => t.id === tabelaId)
+  const emConsultaCusto = !!tabelaSelecionada?.usa_preco_custo
 
   const clienteSelecionado = pessoas.find((p) => p.id === pessoaId)
   const soDigitos = (s: string) => s.replace(/\D/g, '')
@@ -673,7 +675,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   }
   const precoTabela = (tab: string, produtoId: string, qtd: number): number | null => precoNoMapa(precos, tab, produtoId, qtd)
   // Preço do produto na tabela selecionada (qtd 1 pra vitrine; cai no padrão se não houver)
-  const precoDoProduto = (p: Produto) => tabelaId === TABELA_CUSTO ? Number(p.preco_custo ?? 0) : precoTabela(tabelaId, p.id, 1) ?? p.preco
+  const precoDoProduto = (p: Produto) => precoTabela(tabelaId, p.id, 1) ?? p.preco
 
   // Busca esperta: tira acento e casa cada palavra em qualquer ordem/posição
   // ("fr a11" acha "FRONTAL ... A11"; "tam" acha "TAMPA"). Procura em nome + código + marca.
@@ -763,7 +765,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         nome: p.nome,
         codigo: p.codigo,
         quantidade: p.controla_serie ? 0 : 1,   // serializado: quantidade = IMEIs escolhidos
-        preco_unitario: tabelaId === TABELA_CUSTO ? Number(p.preco_custo ?? 0) : precoTabela(tabelaId, p.id, 1) ?? p.preco,
+        preco_unitario: precoTabela(tabelaId, p.id, 1) ?? p.preco,
         estoque_disponivel: disp,
         promoSel: 'auto',
         serializado: p.controla_serie,
@@ -821,7 +823,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   // Promoção só vale se não tiver restrição de tabela OU a tabela atual estiver na
   // lista. tabelaId '' = Preço Padrão → promoção restrita a tabelas não aplica nele.
   const promoValeNaTabela = (p: PromoInfo) => !p.tabelas || p.tabelas.length === 0 || p.tabelas.includes(tabelaId)
-  const promosDoProduto = (produtoId: string) => tabelaId === TABELA_CUSTO ? [] : (promosPorProduto[produtoId] ?? []).filter(promoValeNaTabela)
+  const promosDoProduto = (produtoId: string) => emConsultaCusto ? [] : (promosPorProduto[produtoId] ?? []).filter(promoValeNaTabela)
 
   const grupoTotalProg = (promoId: string) =>
     carrinho.reduce((s, i) => s + (promosDoProduto(i.produto_id).some((p) => p.id === promoId) ? i.quantidade : 0), 0)
@@ -847,7 +849,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     setCarrinho((prev) => prev.map((i) => {
       if (i.produto_id !== produto_id) return i
       if (i.serializado) return i   // quantidade dirigida pelos IMEIs escolhidos
-      const reprecar = (q: number) => tabelaId === TABELA_CUSTO ? Number(i.preco_custo ?? 0) : precoTabela(tabelaId, produto_id, q) ?? i.preco_unitario
+      const reprecar = (q: number) => precoTabela(tabelaId, produto_id, q) ?? i.preco_unitario
       if (isNaN(n) || n < 1) return { ...i, quantidade: 1, preco_unitario: reprecar(1) }
       if (n > i.estoque_disponivel) {
         setErro(`Estoque máximo: ${i.estoque_disponivel} unidade(s).`)
@@ -862,7 +864,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const trocarTabela = async (novaTabela: string) => {
     setTabelaId(novaTabela)
     let mapa = precos
-    if (novaTabela && novaTabela !== TABELA_CUSTO && !precos[novaTabela]) {
+    if (novaTabela && !precos[novaTabela]) {
       setCarregandoTabela(true)
       try {
         const itens = await buscarItensTabela(await authToken(), novaTabela)
@@ -878,7 +880,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     }
     setCarrinho((prev) => prev.map((item) => {
       const prod = produtos.find((p) => p.id === item.produto_id)
-      const novoPreco = novaTabela === TABELA_CUSTO ? Number(prod?.preco_custo ?? 0) : precoNoMapa(mapa, novaTabela, item.produto_id, item.quantidade) ?? prod?.preco ?? item.preco_unitario
+      const novoPreco = precoNoMapa(mapa, novaTabela, item.produto_id, item.quantidade) ?? prod?.preco ?? item.preco_unitario
       return { ...item, preco_unitario: novoPreco }
     }))
   }
@@ -1161,7 +1163,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
   // Valida e abre o resumo de conferência antes de gravar
   const abrirConfirmacao = async () => {
-    if (tabelaId === TABELA_CUSTO) { setErro(AVISO_CUSTO); return }
+    if (emConsultaCusto) { setErro(AVISO_CUSTO); return }
     if (carrinho.length === 0) { setErro('Adicione produtos ao carrinho.'); return }
     if (!depositoId) { setErro('Selecione a loja/depósito.'); return }
     if (faltamPg > 0.01 && !pagamentos.some((p) => p.forma_id)) { setErro('Selecione a forma de pagamento.'); return }
@@ -1183,7 +1185,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
   // Salvar o carrinho como orçamento (pré-venda) sem finalizar
   const handleSalvarOrcamento = async () => {
-    if (tabelaId === TABELA_CUSTO) { setErro(AVISO_CUSTO); return }
+    if (emConsultaCusto) { setErro(AVISO_CUSTO); return }
     if (carrinho.length === 0) { setErro('Adicione produtos ao carrinho.'); return }
     setSalvandoOrc(true); setErro(null); setMsgOrc('')
     try {
@@ -1197,7 +1199,6 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         deposito_id: depositoId,
         tabela_preco_id: tabelas.some((t) => t.id === tabelaId) ? tabelaId : null,
         forma_pagamento_id: pagamentos[0]?.forma_id || null,
-        modoConsultaCusto: tabelaId === TABELA_CUSTO,
       })
       setEtapa('venda')
       setCarrinho([])
@@ -1213,7 +1214,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   }
 
   const handleFinalizar = async () => {
-    if (tabelaId === TABELA_CUSTO) { setErro(AVISO_CUSTO); return }
+    if (emConsultaCusto) { setErro(AVISO_CUSTO); return }
     setErro(null)
     setLoading(true)
     try {
@@ -1270,7 +1271,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         descontoNum,       // desconto MANUAL (para checar permissão 'venda_desconto')
         tipoEntrega,
         tipoEntrega === 'entrega' ? (bairroEntrega === 'outro' ? enderecoCustom.trim() || null : bairroEntrega || null) : null,
-        tabelaId === TABELA_CUSTO,
+        tabelaId || null,
       )
       if ('erro' in result) { setErro(result.erro); return }
 
@@ -2123,11 +2124,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               className="flex-1 min-w-0 cursor-pointer bg-transparent text-sm font-medium text-gray-800 focus:outline-none"
             >
               <option value="">Preço Padrão</option>
-              <option value={TABELA_CUSTO}>CUSTO</option>
               {tabelas.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
             </select>
           </div>
         </div>
+        {emConsultaCusto && <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800">🔒 Tabela CUSTO — somente consulta. Venda e orçamento bloqueados.</div>}
 
         {/* Cliente — compacto, no topo */}
         <div className="relative rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm">
@@ -2830,7 +2831,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                   <button
                     type="button"
                     onClick={abrirConfirmacao}
-                    disabled={carrinho.length === 0 || loading || !caixaAberto}
+                      disabled={carrinho.length === 0 || loading || !caixaAberto || emConsultaCusto}
                     title={!caixaAberto ? 'Abra o caixa da loja pra vender' : undefined}
                     className="w-full rounded-xl bg-gradient-to-r from-green-600 to-green-500 py-3.5 text-sm font-bold text-white shadow-sm shadow-green-600/25 hover:from-green-700 hover:to-green-600 disabled:from-gray-300 disabled:to-gray-300 disabled:text-white disabled:shadow-none disabled:cursor-not-allowed transition"
                   >
@@ -2847,7 +2848,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             <button
               type="button"
               onClick={handleSalvarOrcamento}
-              disabled={salvandoOrc}
+                disabled={salvandoOrc || emConsultaCusto}
               className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-blue-200 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50 transition"
             >
               {salvandoOrc && <Spinner />}{salvandoOrc ? 'Salvando...' : '📋 Salvar como orçamento (finalizar depois)'}

@@ -47,7 +47,7 @@ export default async function PDVPage() {
     supabase.from('produtos').select('id', { count: 'exact', head: true }).eq('ativo', true),
     supabase.from('formas_pagamento').select('id, nome, tipo, maquina_id, prazo_recebimento, loja_id').eq('ativo', true),
     supabase.from('depositos').select('id, nome, loja_id').order('nome'),
-    supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).or(`data_inicio.is.null,data_inicio.lte.${hoje}`).or(`data_fim.is.null,data_fim.gte.${hoje}`).order('nome'),
+    supabase.from('tabelas_preco').select('id, nome, usa_preco_custo').eq('ativa', true).or(`data_inicio.is.null,data_inicio.lte.${hoje}`).or(`data_fim.is.null,data_fim.gte.${hoje}`).order('nome'),
     supabase.from('lojas').select('id, nome, razao_social, cnpj, inscricao_estadual, telefone, whatsapp, cep, endereco, numero, complemento, bairro, cidade, uf, deposito_padrao_id, tabela_padrao_id, senha_desconto, logo_url, termos_venda').eq('ativa', true).order('nome'),
     supabase.from('maquinas_cartao').select('id, nome, taxa_debito, taxas_credito, max_parcelas').eq('ativo', true).order('nome'),
     // bairros de entrega por loja — pra selecionar endereço na venda (Retirada/Entrega)
@@ -151,7 +151,7 @@ export default async function PDVPage() {
   // Tabelas de preço visíveis pro usuário (vazio = todas; Preço Padrão sempre existe)
   let tabelasVisiveis = tabelas ?? []
   if (cfg?.tabelasPermitidas?.length) {
-    tabelasVisiveis = tabelasVisiveis.filter((t) => cfg.tabelasPermitidas.includes(t.id))
+    tabelasVisiveis = tabelasVisiveis.filter((t) => t.usa_preco_custo || cfg.tabelasPermitidas.includes(t.id))
   }
 
   // Ordem fixa das formas de pagamento no PDV (as não listadas caem no fim, alfabético)

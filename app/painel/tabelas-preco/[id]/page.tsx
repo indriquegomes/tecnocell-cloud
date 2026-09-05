@@ -16,7 +16,7 @@ export default async function TabelaPrecoDetalhe({
   // produtos (picker de adicionar) NÃO são mais embutidos — o client busca sob
   // demanda (buscarProdutosParaTabela). Só os itens da tabela vêm no HTML.
   const [{ data: tabela }, itens] = await Promise.all([
-    supabase.from('tabelas_preco').select('id, nome, descricao, ativa, data_inicio, data_fim').eq('id', id).single(),
+    supabase.from('tabelas_preco').select('id, nome, descricao, ativa, data_inicio, data_fim, usa_preco_custo').eq('id', id).single(),
     fetchAll((from, to) => supabase
       .from('itens_tabela_preco')
       .select('id, produto_id, preco, quantidade_minima, produtos(id, nome, preco, preco_custo)')
@@ -38,7 +38,7 @@ export default async function TabelaPrecoDetalhe({
       </Link>
 
       {/* Vigência */}
-      <form action={atualizarVigencia.bind(null, id)} className="flex flex-wrap items-end gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+      {tabela.usa_preco_custo ? <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">🔒 Custos sincronizados automaticamente pelo cadastro dos produtos.</div> : <form action={atualizarVigencia.bind(null, id)} className="flex flex-wrap items-end gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
         <span className="text-xs font-semibold uppercase tracking-wide text-gray-400 self-center">Vigência</span>
         <div>
           <label className="mb-1 block text-[11px] text-gray-500">Válida de</label>
@@ -50,7 +50,7 @@ export default async function TabelaPrecoDetalhe({
         </div>
         <SubmitButton pendingText="Salvando..." className="rounded-lg border border-gray-200 px-4 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60 transition">Salvar vigência</SubmitButton>
         <span className="ml-auto self-center text-[11px] text-gray-400">Vazio = sempre válida. Fora do período, o PDV não oferece a tabela.</span>
-      </form>
+      </form>}
 
       <TabelaDetalheClient
         tabela={tabela}

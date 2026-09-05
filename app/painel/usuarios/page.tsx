@@ -42,7 +42,7 @@ export default async function UsuariosPage() {
     supabase.from('lojas').select('id, nome').eq('ativa', true).order('nome'),
     supabase.from('depositos').select('id, nome, loja_id').order('nome'),
     configPdvPorPerfil(supabase),
-    supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).order('nome'),
+    supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).eq('usa_preco_custo', false).order('nome'),
   ])
 
   const authUsers = authResult.data?.users ?? []

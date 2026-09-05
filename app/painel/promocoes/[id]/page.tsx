@@ -73,7 +73,7 @@ export default async function PromoDetalhe({ params }: { params: Promise<{ id: s
   // Tabelas de preço em que a promoção vale (Isa). Tolerante à migration ainda não
   // aplicada: se promocao_tabelas não existe, selecionadas fica vazia (= todas).
   const [{ data: tabelasPreco }, { data: vincTabelas }] = await Promise.all([
-    supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).order('nome'),
+    supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).eq('usa_preco_custo', false).order('nome'),
     supabase.from('promocao_tabelas').select('tabela_id').eq('promocao_id', id),
   ])
   const tabelasSelecionadas = (vincTabelas ?? []).map((v) => v.tabela_id as string)

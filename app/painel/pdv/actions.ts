@@ -198,6 +198,13 @@ async function produtoNoCusto(itens: { produto_id: string; preco_unitario: numbe
   return item ? produtos.get(item.produto_id)?.nome ?? null : null
 }
 
+async function tabelaSomenteConsulta(tabelaId: string | null): Promise<boolean> {
+  if (!tabelaId) return false
+  const supabase = await createServiceClient()
+  const { data } = await supabase.from('tabelas_preco').select('usa_preco_custo').eq('id', tabelaId).maybeSingle()
+  return !!data?.usa_preco_custo
+}
+
 export interface PagamentoInput {
   forma_pagamento_id: string
   valor: number
@@ -219,11 +226,10 @@ export async function salvarOrcamentoPDV(
     deposito_id: string | null
     tabela_preco_id: string | null
     forma_pagamento_id: string | null
-    modoConsultaCusto: boolean
   },
 ): Promise<{ id: string }> {
-  if (input.modoConsultaCusto) throw new Error('Tabela CUSTO é somente consulta. Selecione uma tabela de venda.')
   const usuario = await requirePermissao('pdv', accessToken)
+  if (await tabelaSomenteConsulta(input.tabela_preco_id)) throw new Error('Tabela CUSTO é somente consulta. Selecione uma tabela de venda.')
   const supabase = await createServiceClient()
   if (input.itens.length === 0) throw new Error('Carrinho vazio.')
   const noCusto = await produtoNoCusto(input.itens)
@@ -292,12 +298,11 @@ export async function finalizarVenda(
   desconto_manual: number = 0,
   tipo_entrega: 'retirada' | 'entrega' = 'retirada',
   endereco_entrega: string | null = null,
-  modoConsultaCusto: boolean = false,
+  tabela_preco_id: string | null = null,
 ): Promise<
   | { erro: string }
   | { vendaId: string; vendaNumero: number | null; total: number; estoqueAtualizado: Record<string, number>; vendedorNome: string }
 > {
-  if (modoConsultaCusto) return { erro: 'Tabela CUSTO é somente consulta. Selecione uma tabela de venda.' }
   if (itens.length === 0) return { erro: 'Carrinho vazio' }
   if (!deposito_id) return { erro: 'Depósito não selecionado' }
   if (pagamentos.length === 0 && credito_valor <= 0) return { erro: 'Selecione a forma de pagamento' }
@@ -308,6 +313,8 @@ export async function finalizarVenda(
   } catch (e) {
     return { erro: 'Sessão expirada. Recarregue a página (F5) e entre novamente. ' + (e instanceof Error ? e.message : '') }
   }
+
+  if (await tabelaSomenteConsulta(tabela_preco_id)) return { erro: 'Tabela CUSTO é somente consulta. Selecione uma tabela de venda.' }
 
   try {
     const noCusto = await produtoNoCusto(itens)
