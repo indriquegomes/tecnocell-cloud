@@ -2,6 +2,8 @@
 
 import { IconCard } from '@/components/icons'
 import { BuscaAvancada } from '@/components/BuscaAvancada'
+import { montarMensagemCobranca } from '@/lib/cobranca-fiado'
+import { hojeSP } from '@/lib/utils'
 import { useState } from 'react'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -13,43 +15,7 @@ type Cliente = { nome: string; total: number; vencido: number; qtd: number; tele
 
 const fmtData = (d: string | null) => (d ? d.slice(0, 10).split('-').reverse().join('/') : '—')
 
-// mensagem de cobrança pro WhatsApp — modelo que a Isa desenhou: saudação com o
-// nome, saldo em aberto, período das notas, e o RELATÓRIO DE PEÇAS (uma linha por
-// nota em aberto, com código, descrição e valor).
 type Pix = { chave: string; titular: string | null }
-
-const mensagem = (c: Cliente, pixPorLoja: Record<string, Pix> = {}) => {
-  const datas = c.notas.map((n) => n.vencimento).filter(Boolean).sort() as string[]
-  const periodo = datas.length
-    ? ` (referente ao período de ${fmtData(datas[0])} a ${fmtData(datas[datas.length - 1])})`
-    : ''
-  const pecas = c.notas.map((n) => {
-    // o produto ("2x Frontal iPhone") quando temos os itens; senão a descrição da nota
-    const oQue = (n.pecas || '').trim() || (n.descricao || '').trim() || 'Compra'
-    const nota = n.codigo ? `Nota ${n.codigo}: ` : ''
-    return `• ${nota}${oQue} — ${fmt(n.valor)}`
-  })
-  return (
-    `Olá, ${c.nome}! 😊\n` +
-    `Passando pra lembrar do saldo em aberto de ${fmt(c.total)} aqui na TecnoCell${periodo}. ` +
-    `Pedimos pelo acerto o quanto antes para mantermos tudo em dia. Qualquer dúvida, estamos à disposição.` +
-    (pecas.length ? `\n\nSegue o relatório de peças:\n${pecas.join('\n')}` : '') +
-    blocoPix(c, pixPorLoja) +
-    `\n\n${codigoCobranca()}`
-  )
-}
-
-// Código que as meninas já usam: elas digitam na mão pra depois buscar no
-// WhatsApp quem já foi cobrado no dia. Agora sai pronto na mensagem.
-// O "Ç" é mantido de propósito (decisão do dono em 26/08): mudar pra "C"
-// facilitaria a busca, mas quebraria o histórico de meses de cobrança.
-const codigoCobranca = () => {
-  // hoje em São Paulo — nunca toISOString(), que depois das 21h vira o dia seguinte
-  const [dia, mes, ano] = new Date()
-    .toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
-    .split('/')
-  return `CBRÇ${dia}${mes}${ano}`
-}
 
 // Pix da loja do cliente. Antes a cobrança saía sem Pix e as meninas mandavam
 // a chave à parte, num contato separado — por isso quase ninguém usava a
@@ -67,6 +33,9 @@ const blocoPix = (c: Cliente, pixPorLoja: Record<string, Pix>) => {
   if (!pix) return ''   // sem chave cadastrada: a mensagem sai como era antes
   return `\n\n💠 PIX: ${pix.chave}` + (pix.titular ? `\n👤 Em nome de: ${pix.titular}` : '')
 }
+
+const mensagem = (c: Cliente, pixPorLoja: Record<string, Pix> = {}) =>
+  montarMensagemCobranca(c, hojeSP(), blocoPix(c, pixPorLoja))
 
 // telefone -> só dígitos, com 55 na frente (Brasil)
 const waLink = (tel: string, msg: string) => {
