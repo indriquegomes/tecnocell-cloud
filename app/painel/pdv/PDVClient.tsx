@@ -16,6 +16,8 @@ import { badgeTabela } from '@/lib/badge-tabela'
 // mas NÃO é forma de pagamento: não entra dinheiro, ele abate a dívida. Id falso pra
 // não colidir com nenhuma forma real do banco.
 const DESCONTO_ID = '__desconto__'
+const TABELA_CUSTO = '__custo__'
+const AVISO_CUSTO = 'Tabela CUSTO é somente consulta. Selecione uma tabela de venda.'
 // Vale-crédito no recebimento de fiado: mesmo raciocínio do desconto — não é
 // uma "forma" da tabela formas_pagamento sendo escolhida ali, é uma ação
 // diferente (debita o saldo do cliente em vez de mandar pro caixa).
@@ -671,7 +673,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   }
   const precoTabela = (tab: string, produtoId: string, qtd: number): number | null => precoNoMapa(precos, tab, produtoId, qtd)
   // Preço do produto na tabela selecionada (qtd 1 pra vitrine; cai no padrão se não houver)
-  const precoDoProduto = (p: Produto) => precoTabela(tabelaId, p.id, 1) ?? p.preco
+  const precoDoProduto = (p: Produto) => tabelaId === TABELA_CUSTO ? Number(p.preco_custo ?? 0) : precoTabela(tabelaId, p.id, 1) ?? p.preco
 
   // Busca esperta: tira acento e casa cada palavra em qualquer ordem/posição
   // ("fr a11" acha "FRONTAL ... A11"; "tam" acha "TAMPA"). Procura em nome + código + marca.
@@ -761,7 +763,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         nome: p.nome,
         codigo: p.codigo,
         quantidade: p.controla_serie ? 0 : 1,   // serializado: quantidade = IMEIs escolhidos
-        preco_unitario: precoTabela(tabelaId, p.id, 1) ?? p.preco,
+        preco_unitario: tabelaId === TABELA_CUSTO ? Number(p.preco_custo ?? 0) : precoTabela(tabelaId, p.id, 1) ?? p.preco,
         estoque_disponivel: disp,
         promoSel: 'auto',
         serializado: p.controla_serie,
@@ -819,7 +821,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   // Promoção só vale se não tiver restrição de tabela OU a tabela atual estiver na
   // lista. tabelaId '' = Preço Padrão → promoção restrita a tabelas não aplica nele.
   const promoValeNaTabela = (p: PromoInfo) => !p.tabelas || p.tabelas.length === 0 || p.tabelas.includes(tabelaId)
-  const promosDoProduto = (produtoId: string) => (promosPorProduto[produtoId] ?? []).filter(promoValeNaTabela)
+  const promosDoProduto = (produtoId: string) => tabelaId === TABELA_CUSTO ? [] : (promosPorProduto[produtoId] ?? []).filter(promoValeNaTabela)
 
   const grupoTotalProg = (promoId: string) =>
     carrinho.reduce((s, i) => s + (promosDoProduto(i.produto_id).some((p) => p.id === promoId) ? i.quantidade : 0), 0)
@@ -845,7 +847,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     setCarrinho((prev) => prev.map((i) => {
       if (i.produto_id !== produto_id) return i
       if (i.serializado) return i   // quantidade dirigida pelos IMEIs escolhidos
-      const reprecar = (q: number) => precoTabela(tabelaId, produto_id, q) ?? i.preco_unitario
+      const reprecar = (q: number) => tabelaId === TABELA_CUSTO ? Number(i.preco_custo ?? 0) : precoTabela(tabelaId, produto_id, q) ?? i.preco_unitario
       if (isNaN(n) || n < 1) return { ...i, quantidade: 1, preco_unitario: reprecar(1) }
       if (n > i.estoque_disponivel) {
         setErro(`Estoque máximo: ${i.estoque_disponivel} unidade(s).`)
@@ -860,7 +862,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const trocarTabela = async (novaTabela: string) => {
     setTabelaId(novaTabela)
     let mapa = precos
-    if (novaTabela && !precos[novaTabela]) {
+    if (novaTabela && novaTabela !== TABELA_CUSTO && !precos[novaTabela]) {
       setCarregandoTabela(true)
       try {
         const itens = await buscarItensTabela(await authToken(), novaTabela)
@@ -876,7 +878,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     }
     setCarrinho((prev) => prev.map((item) => {
       const prod = produtos.find((p) => p.id === item.produto_id)
-      const novoPreco = precoNoMapa(mapa, novaTabela, item.produto_id, item.quantidade) ?? prod?.preco ?? item.preco_unitario
+      const novoPreco = novaTabela === TABELA_CUSTO ? Number(prod?.preco_custo ?? 0) : precoNoMapa(mapa, novaTabela, item.produto_id, item.quantidade) ?? prod?.preco ?? item.preco_unitario
       return { ...item, preco_unitario: novoPreco }
     }))
   }
@@ -1159,6 +1161,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
   // Valida e abre o resumo de conferência antes de gravar
   const abrirConfirmacao = async () => {
+    if (tabelaId === TABELA_CUSTO) { setErro(AVISO_CUSTO); return }
     if (carrinho.length === 0) { setErro('Adicione produtos ao carrinho.'); return }
     if (!depositoId) { setErro('Selecione a loja/depósito.'); return }
     if (faltamPg > 0.01 && !pagamentos.some((p) => p.forma_id)) { setErro('Selecione a forma de pagamento.'); return }
@@ -1180,6 +1183,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
   // Salvar o carrinho como orçamento (pré-venda) sem finalizar
   const handleSalvarOrcamento = async () => {
+    if (tabelaId === TABELA_CUSTO) { setErro(AVISO_CUSTO); return }
     if (carrinho.length === 0) { setErro('Adicione produtos ao carrinho.'); return }
     setSalvandoOrc(true); setErro(null); setMsgOrc('')
     try {
@@ -1193,6 +1197,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         deposito_id: depositoId,
         tabela_preco_id: tabelas.some((t) => t.id === tabelaId) ? tabelaId : null,
         forma_pagamento_id: pagamentos[0]?.forma_id || null,
+        modoConsultaCusto: tabelaId === TABELA_CUSTO,
       })
       setEtapa('venda')
       setCarrinho([])
@@ -1208,6 +1213,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   }
 
   const handleFinalizar = async () => {
+    if (tabelaId === TABELA_CUSTO) { setErro(AVISO_CUSTO); return }
     setErro(null)
     setLoading(true)
     try {
@@ -1264,6 +1270,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         descontoNum,       // desconto MANUAL (para checar permissão 'venda_desconto')
         tipoEntrega,
         tipoEntrega === 'entrega' ? (bairroEntrega === 'outro' ? enderecoCustom.trim() || null : bairroEntrega || null) : null,
+        tabelaId === TABELA_CUSTO,
       )
       if ('erro' in result) { setErro(result.erro); return }
 
@@ -2121,6 +2128,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               className="flex-1 min-w-0 cursor-pointer bg-transparent text-sm font-medium text-gray-800 focus:outline-none"
             >
               <option value="">Preço Padrão</option>
+              <option value={TABELA_CUSTO}>CUSTO</option>
               {tabelas.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
             </select>
           </div>

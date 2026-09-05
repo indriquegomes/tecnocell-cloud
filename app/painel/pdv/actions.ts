@@ -185,6 +185,18 @@ interface ItemCarrinho {
   preco_unitario: number
 }
 
+async function produtoNoCusto(itens: { produto_id: string; preco_unitario: number }[]): Promise<string | null> {
+  const supabase = await createServiceClient()
+  const { data, error } = await supabase.from('produtos').select('id, nome, preco_custo').in('id', itens.map((i) => i.produto_id))
+  if (error) throw new Error('Não foi possível validar o preço de custo.')
+  const produtos = new Map((data ?? []).map((p) => [p.id, p]))
+  const item = itens.find((i) => {
+    const produto = produtos.get(i.produto_id)
+    return produto?.preco_custo != null && i.preco_unitario <= Number(produto.preco_custo)
+  })
+  return item ? produtos.get(item.produto_id)?.nome ?? null : null
+}
+
 export interface PagamentoInput {
   forma_pagamento_id: string
   valor: number
@@ -206,11 +218,15 @@ export async function salvarOrcamentoPDV(
     deposito_id: string | null
     tabela_preco_id: string | null
     forma_pagamento_id: string | null
+    modoConsultaCusto: boolean
   },
 ): Promise<{ id: string }> {
+  if (input.modoConsultaCusto) throw new Error('Tabela CUSTO é somente consulta. Selecione uma tabela de venda.')
   const usuario = await requirePermissao('pdv', accessToken)
   const supabase = await createServiceClient()
   if (input.itens.length === 0) throw new Error('Carrinho vazio.')
+  const noCusto = await produtoNoCusto(input.itens)
+  if (noCusto) throw new Error(`"${noCusto}" não pode ser vendido pelo preço de custo ou abaixo dele.`)
 
   const { data: perfil } = await supabase.from('perfis').select('nome').eq('id', usuario.id).maybeSingle()
   const vendedorNome = (perfil as { nome?: string } | null)?.nome ?? usuario.email ?? ''
@@ -275,10 +291,12 @@ export async function finalizarVenda(
   desconto_manual: number = 0,
   tipo_entrega: 'retirada' | 'entrega' = 'retirada',
   endereco_entrega: string | null = null,
+  modoConsultaCusto: boolean = false,
 ): Promise<
   | { erro: string }
   | { vendaId: string; vendaNumero: number | null; total: number; estoqueAtualizado: Record<string, number>; vendedorNome: string }
 > {
+  if (modoConsultaCusto) return { erro: 'Tabela CUSTO é somente consulta. Selecione uma tabela de venda.' }
   if (itens.length === 0) return { erro: 'Carrinho vazio' }
   if (!deposito_id) return { erro: 'Depósito não selecionado' }
   if (pagamentos.length === 0 && credito_valor <= 0) return { erro: 'Selecione a forma de pagamento' }
@@ -288,6 +306,13 @@ export async function finalizarVenda(
     usuario = await requirePermissao('pdv', accessToken)
   } catch (e) {
     return { erro: 'Sessão expirada. Recarregue a página (F5) e entre novamente. ' + (e instanceof Error ? e.message : '') }
+  }
+
+  try {
+    const noCusto = await produtoNoCusto(itens)
+    if (noCusto) return { erro: `"${noCusto}" não pode ser vendido pelo preço de custo ou abaixo dele.` }
+  } catch (e) {
+    return { erro: e instanceof Error ? e.message : 'Não foi possível validar o preço de custo.' }
   }
 
   // Limite de operação: só quem tem 'venda_desconto' pode dar desconto MANUAL.

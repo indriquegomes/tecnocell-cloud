@@ -10,10 +10,10 @@ export default async function FiadosPage() {
   const supabase = await createServiceClient()
 
   const [lancamentos, pessoas] = await Promise.all([
-    fetchAll<{ id: string; codigo: number | null; descricao: string | null; pessoa_nome: string | null; valor: number | null; valor_pago: number | null; data_vencimento: string | null; venda_id: string | null }>(
+    fetchAll<{ id: string; codigo: number | null; descricao: string | null; pessoa_nome: string | null; valor: number | null; valor_pago: number | null; data_vencimento: string | null; venda_id: string | null; loja_id: string | null }>(
       (from, to) => supabase
         .from('lancamentos')
-        .select('id, codigo, descricao, pessoa_nome, valor, valor_pago, data_vencimento, venda_id')
+        .select('id, codigo, descricao, pessoa_nome, valor, valor_pago, data_vencimento, venda_id, loja_id')
         .eq('tipo', 'receber').eq('status', 'pendente')
         .order('id').range(from, to),
     ),
@@ -63,6 +63,7 @@ export default async function FiadosPage() {
   // Loja de cada fiado = loja da venda ligada (venda→caixa→loja; o depósito tem loja
   // NULL em alguns). Regra por permissão: gerente vê todas, atendente só a(s) dela.
   const { todasLojas, permitidas, todas: vemTodas } = await lojasDoUsuario()
+  const idsPermitidos = new Set(permitidas.map((l) => l.id))
   const nomesPermitidos = permitidas.map((l) => l.nome)
   const caixaIds = [...new Set(caixaPorVenda.values())]
   const { data: caixasData } = caixaIds.length
@@ -70,10 +71,10 @@ export default async function FiadosPage() {
     : { data: [] as { id: string; loja_id: string | null }[] }
   const nomeLoja = new Map(todasLojas.map((l) => [l.id, l.nome]))
   const lojaDoCaixa = new Map((caixasData ?? []).map((c) => [c.id, c.loja_id]))
-  const lojaPorVenda = (vid: string | null): string => {
+  const lojaIdPorVenda = (vid: string | null): string | null => {
     const cx = vid ? caixaPorVenda.get(vid) : undefined
     const lj = cx ? lojaDoCaixa.get(cx) : undefined
-    return lj ? (nomeLoja.get(lj) ?? '') : ''
+    return lj && nomeLoja.has(lj) ? lj : null
   }
 
   const hoje = hojeSP()
@@ -88,8 +89,9 @@ export default async function FiadosPage() {
     const chave = semAcento(nome)
     const atual = mapa.get(chave) ?? { nome, total: 0, vencido: 0, qtd: 0, notas: [] }
     const vencida = !!(l.data_vencimento && l.data_vencimento.slice(0, 10) < hoje)
-    const loja = lojaPorVenda(l.venda_id)
-    if (!vemTodas && loja && !nomesPermitidos.includes(loja)) continue   // atendente só a loja dela
+    const lojaId = (l.loja_id && nomeLoja.has(l.loja_id) ? l.loja_id : null) ?? lojaIdPorVenda(l.venda_id)
+    const loja = lojaId ? (nomeLoja.get(lojaId) ?? '') : ''
+    if (!vemTodas && (!lojaId || !idsPermitidos.has(lojaId))) continue   // atendente só a loja dela; origem desconhecida não vaza
     atual.total += devendo
     atual.qtd += 1
     if (vencida) atual.vencido += devendo
