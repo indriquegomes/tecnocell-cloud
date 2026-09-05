@@ -7,6 +7,7 @@ import { logAtividade } from '@/lib/log-atividade'
 import { hojeSP } from '@/lib/utils'
 import { sincronizarEstoqueML } from '@/lib/mercado-livre'
 import { aplicaBusca } from '@/lib/busca-produtos'
+import { formaFoiEscolhida } from '@/lib/formas-pagamento'
 
 // Itens de UMA tabela de preço, sob demanda (o PDV não embute mais os 45k itens
 // de todas as tabelas — carrega só a escolhida). Ordena por id p/ paginação estável.
@@ -708,10 +709,11 @@ export type ResultadoReceb =
 export async function pagarLancamentos(
   accessToken: string,
   ids: string[],
-  formaPagamento = 'dinheiro',
+  formaPagamento: string,
   lojaId?: string | null,
 ): Promise<ResultadoReceb> {
   if (ids.length === 0) return { ok: true }
+  if (!formaFoiEscolhida(formaPagamento)) return { ok: false, erro: 'Escolha uma forma de pagamento.' }
   try {
     await requirePermissao('crediario_receber', accessToken)
     const supabase = await createServiceClient()

@@ -13,6 +13,10 @@ export const TIPOS_PAGAMENTO = [
 
 export type TipoPagamento = typeof TIPOS_PAGAMENTO[number]['key']
 
+export function formaFoiEscolhida(forma: string | null | undefined): boolean {
+  return !!forma?.trim()
+}
+
 export function labelTipoPagamento(tipo: string | null): string {
   return TIPOS_PAGAMENTO.find((t) => t.key === tipo)?.label ?? '—'
 }

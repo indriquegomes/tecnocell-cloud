@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { formatBRL, hojeSP } from '@/lib/utils'
-import { labelPrazo } from '@/lib/formas-pagamento'
+import { formaFoiEscolhida, labelPrazo } from '@/lib/formas-pagamento'
 import { createClient } from '@/lib/supabase/client'
 import { Spinner } from '@/components/Spinner'
 import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, carregarClientesPDV, buscarFiadoCliente, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, registrarPagamentoMisto, registrarPagamentoValeCredito, aplicarDescontoCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
@@ -1704,11 +1704,6 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const totalAtraso = crediarioItens.filter((i) => i.data_vencimento && i.data_vencimento < hoje).reduce((s, i) => s + restante(i), 0)
   const totalAVencer = crediarioItens.filter((i) => !i.data_vencimento || i.data_vencimento >= hoje).reduce((s, i) => s + restante(i), 0)
   const subtotalSelecionado = crediarioItens.filter((i) => selecionados.has(i.id)).reduce((s, i) => s + restante(i), 0)
-  // default da forma de quitação: Dinheiro (ou a 1ª que não seja fiado)
-  const formaQuitarEfetiva = formaQuitar
-    || formas.find((f) => f.tipo === 'dinheiro')?.nome
-    || formas.find((f) => f.tipo !== 'fiado')?.nome
-    || 'Dinheiro'
   const todosVisivelSelecionados = crediarioFiltrado.length > 0 && crediarioFiltrado.every((i) => selecionados.has(i.id))
 
   // #9 — abrir o modal e carregar as últimas vendas
@@ -3076,18 +3071,19 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 </p>
                 <div className="flex items-center gap-2">
                   <select
-                    value={formaQuitarEfetiva}
+                    value={formaQuitar}
                     onChange={(e) => setFormaQuitar(e.target.value)}
                     className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
+                    <option value="">Escolha pagamento</option>
                     {formasRecebimento.map((f) => (
                       <option key={f.id} value={f.nome}>{f.nome}</option>
                     ))}
                   </select>
                   <button
                     type="button"
-                    disabled={pagandoCrediario}
-                    onClick={() => handlePagarCrediario([...selecionados], formaQuitarEfetiva)}
+                    disabled={pagandoCrediario || !formaFoiEscolhida(formaQuitar)}
+                    onClick={() => handlePagarCrediario([...selecionados], formaQuitar)}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-green-700 disabled:opacity-60"
                   >
                     {pagandoCrediario && <Spinner />}
