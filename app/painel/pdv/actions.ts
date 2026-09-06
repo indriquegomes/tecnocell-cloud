@@ -184,6 +184,7 @@ interface ItemCarrinho {
   nome: string
   quantidade: number
   preco_unitario: number
+  desconto_item?: number
 }
 
 async function produtoNoCusto(itens: { produto_id: string; preco_unitario: number }[]): Promise<string | null> {
@@ -193,7 +194,7 @@ async function produtoNoCusto(itens: { produto_id: string; preco_unitario: numbe
   const produtos = new Map((data ?? []).map((p) => [p.id, p]))
   const item = itens.find((i) => {
     const produto = produtos.get(i.produto_id)
-    return produto?.preco_custo != null && i.preco_unitario <= Number(produto.preco_custo)
+    return produto?.preco_custo != null && i.preco_unitario - Number((i as ItemCarrinho).desconto_item ?? 0) <= Number(produto.preco_custo)
   })
   return item ? produtos.get(item.produto_id)?.nome ?? null : null
 }
@@ -341,7 +342,7 @@ export async function finalizarVenda(
       .gt('preco_minimo', 0)
     const abaixo = (pisos ?? [])
       .map((p) => ({ ...p, item: itens.find((i) => i.produto_id === p.id) }))
-      .filter((p) => p.item && p.item.preco_unitario < Number(p.preco_minimo))
+      .filter((p) => p.item && p.item.preco_unitario - Number(p.item.desconto_item ?? 0) < Number(p.preco_minimo))
     if (abaixo.length > 0) {
       const { permissoes, isMaster } = await permissoesEfetivas(usuario.id)
       if (!temPermissao(permissoes, 'venda_abaixo_minimo', isMaster)) {
@@ -385,7 +386,7 @@ export async function finalizarVenda(
     .maybeSingle()
   const vendedorNome = perfil?.nome ?? usuario.email ?? ''
 
-  let { data, error } = await supabase.rpc('finalizar_venda', {
+  let { data, error } = await supabase.rpc('finalizar_venda_com_desconto_item', {
     p_itens: itens,
     p_pagamentos: pagamentos,
     p_pessoa_id: pessoa_id,
@@ -405,6 +406,9 @@ export async function finalizarVenda(
   // rede de segurança, TODA venda pararia de funcionar até alguém colar o SQL.
   // Cai pra assinatura antiga (sem entrega) só nesse caso específico.
   if (error?.code === 'PGRST202') {
+    if (itens.some((i) => Number(i.desconto_item ?? 0) > 0)) {
+      return { erro: 'Atualização de desconto por peça ainda não foi aplicada no banco.' }
+    }
     ({ data, error } = await supabase.rpc('finalizar_venda', {
       p_itens: itens,
       p_pagamentos: pagamentos,
@@ -641,7 +645,7 @@ export async function buscarCupomVenda(accessToken: string, vendaId: string): Pr
   if (!v) return null
 
   const [itensRes, pagsRes, depRes, cliRes] = await Promise.all([
-    supabase.from('itens_venda').select('quantidade, preco_unitario, produtos(nome, codigo, prateleira)').eq('venda_id', vendaId),
+    supabase.from('itens_venda').select('quantidade, preco_unitario, total_item, produtos(nome, codigo, prateleira)').eq('venda_id', vendaId),
     supabase.from('pagamentos_venda').select('valor, taxa, parcelas, status, formas_pagamento(nome)').eq('venda_id', vendaId),
     v.deposito_id ? supabase.from('depositos').select('nome, loja_id').eq('id', v.deposito_id).maybeSingle() : Promise.resolve({ data: null }),
     v.pessoa_id ? supabase.from('pessoas').select('nome, telefone, endereco, bairro, cidade, estado, cep').eq('id', v.pessoa_id).maybeSingle() : Promise.resolve({ data: null }),
@@ -662,8 +666,8 @@ export async function buscarCupomVenda(accessToken: string, vendaId: string): Pr
 
   return {
     numero: v.numero,
-    itens: ((itensRes.data ?? []) as unknown as { quantidade: number; preco_unitario: number; produtos: { nome: string; codigo: string | null; prateleira: string | null } | null }[])
-      .map((i) => ({ codigo: i.produtos?.codigo ?? null, nome: i.produtos?.nome ?? '—', quantidade: i.quantidade, preco_unitario: i.preco_unitario, prateleira: i.produtos?.prateleira ?? null })),
+    itens: ((itensRes.data ?? []) as unknown as { quantidade: number; preco_unitario: number; total_item: number; produtos: { nome: string; codigo: string | null; prateleira: string | null } | null }[])
+      .map((i) => ({ codigo: i.produtos?.codigo ?? null, nome: i.produtos?.nome ?? '—', quantidade: i.quantidade, preco_unitario: i.quantidade ? i.total_item / i.quantidade : i.preco_unitario, prateleira: i.produtos?.prateleira ?? null })),
     pagamentos: ((pagsRes.data ?? []) as unknown as { valor: number; taxa: number | null; parcelas: number | null; status: string | null; formas_pagamento: { nome: string } | null }[])
       .map((p) => ({ forma_nome: p.formas_pagamento?.nome ?? '—', valor: Number(p.valor) || 0, taxa: Number(p.taxa) || 0, parcelas: p.parcelas ?? 1, status: p.status ?? 'pago' })),
     cliente: cli?.nome ?? null,
@@ -710,56 +714,30 @@ async function contaDaFormaTexto(supabase: Awaited<ReturnType<typeof createServi
 // tipicamente "Sessão expirada, recarregue (F5)" com o PDV aberto o dia todo. Retornando,
 // a operadora enxerga o motivo de verdade e sabe o que fazer.
 export type ResultadoReceb =
-  | { ok: true; quitado?: boolean; novoValor?: number }
+  | { ok: true; quitado?: boolean; novoValor?: number; pagamentos?: { id: string; valor: number; quitado: boolean }[] }
   | { ok: false; erro: string }
 
 export async function pagarLancamentos(
   accessToken: string,
-  ids: string[],
+  alocacoes: { id: string; valor: number }[],
   formaPagamento: string,
   lojaId?: string | null,
 ): Promise<ResultadoReceb> {
-  if (ids.length === 0) return { ok: true }
+  if (alocacoes.length === 0) return { ok: true }
   if (!formaFoiEscolhida(formaPagamento)) return { ok: false, erro: 'Escolha uma forma de pagamento.' }
   try {
     await requirePermissao('crediario_receber', accessToken)
     const supabase = await createServiceClient()
-    const today = hojeSP()
     const contaId = await contaDaFormaTexto(supabase, formaPagamento, lojaId)
-
-    // pega o que sobrou de cada um ANTES de quitar — é esse valor que entra no caixa.
-    // Só os ainda pendentes: sem isso, um clique duplo (ou um segundo terminal com a
-    // mesma lista F9 desatualizada) passava os dois pela falta de trava — o segundo
-    // recalculava "quanto sobrou" do jeito antigo (valor_pago nunca era gravado) e
-    // registrava o mesmo dinheiro de novo no caixa.
-    const { data: antes } = await supabase
-      .from('lancamentos')
-      .select('id, valor, valor_pago, pessoa_nome')
-      .in('id', ids)
-      .eq('status', 'pendente')
-    if (!antes || antes.length === 0) throw new Error('Este(s) lançamento(s) já foram pagos.')
-
-    // Update por linha (não em lote): cada uma trava na sua própria condição
-    // status='pendente', então uma corrida entre duas chamadas só deixa a
-    // primeira ganhar cada lançamento — a segunda não acha linha pra mudar.
-    const quitados: typeof antes = []
-    for (const l of antes) {
-      const valorPago = Number(l.valor) || 0
-      const { data: linha, error: eLinha } = await supabase
-        .from('lancamentos')
-        .update({ status: 'pago', data_pagamento: today, forma_pagamento: formaPagamento, conta_id: contaId, valor_pago: valorPago, updated_at: new Date().toISOString() })
-        .eq('id', l.id).eq('status', 'pendente')
-        .select('id')
-        .maybeSingle()
-      if (eLinha) throw new Error(eLinha.message)
-      if (linha) quitados.push(l)
-    }
-    if (quitados.length === 0) throw new Error('Este(s) lançamento(s) já foram pagos.')
-
-    const total = quitados.reduce((s, l) => s + Math.max(0, (Number(l.valor) || 0) - (Number(l.valor_pago) || 0)), 0)
-    const quem = quitados.length === 1 ? (quitados[0].pessoa_nome ?? 'cliente') : `${quitados.length} fiados`
-    await registrarNoCaixa(supabase, lojaId, Math.round(total * 100) / 100, formaPagamento, `Fiado recebido — ${quem}`)
-    return { ok: true }
+    const linhas = alocacoes.map((a) => ({ id: a.id, valor: Math.round(Number(a.valor) * 100) / 100 })).filter((a) => a.valor > 0)
+    const { data, error } = await supabase.rpc('receber_lancamentos_lote', {
+      p_alocacoes: linhas,
+      p_forma: formaPagamento,
+      p_conta_id: contaId,
+      p_loja_id: lojaId || null,
+    })
+    if (error) throw new Error(error.message)
+    return { ok: true, pagamentos: (data?.pagamentos ?? []) as { id: string; valor: number; quitado: boolean }[] }
   } catch (e) {
     return { ok: false, erro: e instanceof Error && e.message ? e.message : 'Erro ao registrar pagamento.' }
   }

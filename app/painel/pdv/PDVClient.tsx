@@ -24,6 +24,7 @@ const VALE_RECEB_ID = '__vale_receb__'
 import { buscarSaldoCredito } from '@/app/painel/creditos/actions'
 import type { PromoInfo } from './page'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
+import { aplicarDescontoItem, distribuirRecebimento, type TipoDescontoItem } from '@/lib/pdv-calculos'
 
 // Preço unitário de uma faixa progressiva conforme a quantidade TOTAL do grupo.
 // Pega a maior faixa cujo mínimo já foi atingido. Nenhuma atingida = sem desconto.
@@ -184,6 +185,8 @@ interface ItemCarrinho {
   codigo: string | null
   quantidade: number
   preco_unitario: number   // preço base (tabela/padrão) — promoção entra como desconto
+  desconto_tipo: TipoDescontoItem
+  desconto_valor: number
   estoque_disponivel: number
   promoSel: string         // 'auto' = melhor desconto | '' = sem promoção | <id> = promoção fixa
   serializado?: boolean    // produto controla IMEI/número de série
@@ -288,6 +291,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [pagoCrediarioOk, setPagoCrediarioOk] = useState(false)
   // forma escolhida pra quitar VÁRIAS notas de uma vez (Isa: "quitar todas de uma vez só")
   const [formaQuitar, setFormaQuitar] = useState('')
+  const [valoresQuitar, setValoresQuitar] = useState<Record<string, number>>({})
+  const [totalQuitar, setTotalQuitar] = useState('')
   const [detalheVenda, setDetalheVenda] = useState<DetalheVenda | null>(null)
   const [carregandoDetalhe, setCarregandoDetalhe] = useState(false)
   // Modal de recebimento por linha
@@ -766,6 +771,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         codigo: p.codigo,
         quantidade: p.controla_serie ? 0 : 1,   // serializado: quantidade = IMEIs escolhidos
         preco_unitario: precoTabela(tabelaId, p.id, 1) ?? p.preco,
+        desconto_tipo: 'final',
+        desconto_valor: 0,
         estoque_disponivel: disp,
         promoSel: 'auto',
         serializado: p.controla_serie,
@@ -830,6 +837,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
   // Promoção efetiva de uma linha (resolve 'auto' = melhor desconto na quantidade atual)
   const promoEfetiva = (item: ItemCarrinho): PromoInfo | null => {
+    if (item.desconto_valor > 0) return null
     const lista = promosDoProduto(item.produto_id)
     if (lista.length === 0 || item.promoSel === '') return null
     if (item.promoSel !== 'auto') return lista.find((p) => p.id === item.promoSel) ?? null
@@ -840,6 +848,15 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       if (d > maior) { maior = d; melhor = p }
     }
     return melhor
+  }
+
+  const descontoManualItem = (item: ItemCarrinho) =>
+    aplicarDescontoItem(item.preco_unitario, item.desconto_tipo, item.desconto_valor)
+
+  const alterarDescontoItem = (produto_id: string, tipo: TipoDescontoItem, valor: number) => {
+    setCarrinho((prev) => prev.map((item) => item.produto_id === produto_id
+      ? { ...item, desconto_tipo: tipo, desconto_valor: Math.max(0, valor), promoSel: valor > 0 ? '' : item.promoSel }
+      : item))
   }
 
   // Definir a quantidade digitando direto (respeita o estoque disponível)
@@ -994,6 +1011,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   }
 
   const subtotal = carrinho.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0)
+  const descontoManualItens = carrinho.reduce((s, i) => s + i.quantidade * descontoManualItem(i).descontoUnitario, 0)
   const totalItens = carrinho.reduce((s, i) => s + i.quantidade, 0)
 
   // Desconto por promoção aplicada em cada linha (resolve 'auto' = melhor desconto)
@@ -1006,11 +1024,12 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   })
   const descontoPromo = descontoPromoDetalhes.reduce((s, d) => s + d.valor, 0)
 
+  const baseDescontoGeral = Math.max(0, subtotal - descontoManualItens - descontoPromo)
   const descontoBruto = descontoTipo === 'percent'
-    ? subtotal * (parseFloat(desconto) || 0) / 100
+    ? baseDescontoGeral * (parseFloat(desconto) || 0) / 100
     : parseFloat(desconto) || 0
-  const descontoNum = Math.min(Math.max(0, descontoBruto), subtotal)
-  const total = subtotal - descontoNum - descontoPromo
+  const descontoNum = Math.min(Math.max(0, descontoBruto), baseDescontoGeral)
+  const total = subtotal - descontoManualItens - descontoNum - descontoPromo
 
   // Helpers por forma de pagamento — o comportamento vem do TIPO, não do nome
   const nomeDaForma = (id: string) => formas.find((f) => f.id === id)?.nome ?? ''
@@ -1143,6 +1162,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const excessoPg = Math.max(0, totalPagoDistribuido - total)
   const temDinheiro = pagamentos.some((p) => isDinheiroForma(p.forma_id))
   const trocoPg = temDinheiro && excessoPg > 0.005 ? excessoPg : 0
+  const sobraPg = !temDinheiro && excessoPg > 0.005 ? excessoPg : 0
   const temFiado = pagamentos.some((p) => isFiadoForma(p.forma_id))
 
   // Auto-preenche o valor do pagamento com o total do carrinho (Isa 15:44): enquanto for
@@ -1159,7 +1179,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       : prev))
   }, [total, creditoAplicado, valorAuto, pagamentos.length])
 
-  const exigeSenhaDesconto = descontoNum > 0 && !!lojaSel?.exige_senha_desconto
+  const exigeSenhaDesconto = descontoNum + descontoManualItens > 0 && !!lojaSel?.exige_senha_desconto
 
   // Valida e abre o resumo de conferência antes de gravar
   const abrirConfirmacao = async () => {
@@ -1192,9 +1212,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       const token = await authToken()
       if (!token) { setErro('Sessão não encontrada. Recarregue a página (F5).'); return }
       await salvarOrcamentoPDV(token, {
-        itens: carrinho.map(({ produto_id, nome, quantidade, preco_unitario }) => ({ produto_id, nome, quantidade, preco_unitario })),
+        itens: carrinho.map((item) => ({ produto_id: item.produto_id, nome: item.nome, quantidade: item.quantidade, preco_unitario: descontoManualItem(item).precoFinal })),
         pessoa_id: pessoaId || null,
-        desconto: descontoNum,
+        desconto: descontoNum + descontoPromo,
         observacoes,
         deposito_id: depositoId,
         tabela_preco_id: tabelas.some((t) => t.id === tabelaId) ? tabelaId : null,
@@ -1215,6 +1235,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
   const handleFinalizar = async () => {
     if (emConsultaCusto) { setErro(AVISO_CUSTO); return }
+    if (faltamPg > 0.01 || sobraPg > 0.01) { setErro('Ajuste os pagamentos ao novo total antes de confirmar.'); return }
     setErro(null)
     setLoading(true)
     try {
@@ -1251,7 +1272,13 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         })
       const result = await finalizarVenda(
         token,
-        carrinho.map(({ produto_id, nome, quantidade, preco_unitario }) => ({ produto_id, nome, quantidade, preco_unitario })),
+        carrinho.map((item) => ({
+          produto_id: item.produto_id,
+          nome: item.nome,
+          quantidade: item.quantidade,
+          preco_unitario: item.preco_unitario,
+          desconto_item: descontoManualItem(item).descontoUnitario,
+        })),
         // ⚠️ AS LINHAS DE VALE NÃO VÃO AQUI. Elas viram o parâmetro de crédito (abaixo),
         // que é quem debita o saldo do cliente com lock e grava a linha FP_VALE em
         // pagamentos_venda. Mandar o vale nos dois lugares faria a trava do RPC
@@ -1268,7 +1295,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         depositoId,
         carrinho.flatMap((i) => (i.series ?? []).map((serie) => ({ produto_id: i.produto_id, serie }))),
         creditoAplicado,   // = soma das linhas de vale. Débito atômico dentro do RPC (2026-07-10)
-        descontoNum,       // desconto MANUAL (para checar permissão 'venda_desconto')
+        descontoNum + descontoManualItens, // desconto MANUAL (para checar permissão 'venda_desconto')
         tipoEntrega,
         tipoEntrega === 'entrega' ? (bairroEntrega === 'outro' ? enderecoCustom.trim() || null : bairroEntrega || null) : null,
         tabelaId || null,
@@ -1278,7 +1305,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       const snap = {
         numero: result.vendaNumero ?? null,
         // prateleira vai junto: quem separa a peça lê no cupom onde ela está guardada
-        itens: carrinho.map(({ codigo, nome, quantidade, preco_unitario, prateleira }) => ({ codigo, nome, quantidade, preco_unitario, prateleira: prateleira ?? null })),
+        itens: carrinho.map((item) => ({ codigo: item.codigo, nome: item.nome, quantidade: item.quantidade, preco_unitario: descontoManualItem(item).precoFinal, prateleira: item.prateleira ?? null })),
         // O vale é uma linha como as outras, então entra no cupom naturalmente e o
         // impresso na hora fecha com a 2ª via (que lê a linha FP_VALE do banco).
         pagamentos: pagamentos
@@ -1380,6 +1407,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         codigo: item.codigo,
         quantidade: Math.min(item.quantidade, disp),
         preco_unitario: item.preco_unitario,
+        desconto_tipo: 'final',
+        desconto_valor: 0,
         estoque_disponivel: disp,
         promoSel: '',
       })
@@ -1425,14 +1454,20 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     }
   }
 
-  const handlePagarCrediario = async (ids: string[], forma: string) => {
-    if (ids.length === 0) return
+  const handlePagarCrediario = async (forma: string) => {
+    const alocacoes = itensSelecionados.map((i) => ({ id: i.id, valor: Math.min(restante(i), valoresQuitar[i.id] ?? restante(i)) })).filter((i) => i.valor > 0)
+    if (alocacoes.length === 0) return
     setPagandoCrediario(true)
     setPagoCrediarioOk(false)
     try {
-      const res = await pagarLancamentos(await authToken(), ids, forma, lojaId)
+      const res = await pagarLancamentos(await authToken(), alocacoes, forma, lojaId)
       if (!res.ok) { setErro(res.erro); return }
-      setCrediarioItens((prev) => prev.filter((i) => !ids.includes(i.id)))
+      const pagos = new Map((res.pagamentos ?? []).map((p) => [p.id, p]))
+      setCrediarioItens((prev) => prev.flatMap((i) => {
+        const pago = pagos.get(i.id)
+        if (!pago) return [i]
+        return pago.quitado ? [] : [{ ...i, valor_pago: (i.valor_pago ?? 0) + pago.valor }]
+      }))
       setSelecionados(new Set())
       setRecebendoItem(null)
       setPagoCrediarioOk(true)
@@ -1704,7 +1739,21 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const totalPagoCrediario = crediarioItens.reduce((s, i) => s + (i.valor_pago ?? 0), 0)
   const totalAtraso = crediarioItens.filter((i) => i.data_vencimento && i.data_vencimento < hoje).reduce((s, i) => s + restante(i), 0)
   const totalAVencer = crediarioItens.filter((i) => !i.data_vencimento || i.data_vencimento >= hoje).reduce((s, i) => s + restante(i), 0)
-  const subtotalSelecionado = crediarioItens.filter((i) => selecionados.has(i.id)).reduce((s, i) => s + restante(i), 0)
+  const itensSelecionados = crediarioItens.filter((i) => selecionados.has(i.id))
+  const subtotalSelecionado = itensSelecionados.reduce((s, i) => s + Math.min(restante(i), valoresQuitar[i.id] ?? restante(i)), 0)
+  useEffect(() => {
+    setValoresQuitar((atual) => Object.fromEntries(itensSelecionados.map((i) => [i.id, Math.min(restante(i), atual[i.id] ?? restante(i))])))
+    setTotalQuitar('')
+    // ids são a identidade suficiente; valores do crediário só mudam após nova carga/pagamento
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Array.from(selecionados).sort().join('|')])
+
+  const distribuirTotalQuitar = (valor: number) => {
+    setTotalQuitar(valor > 0 ? String(valor) : '')
+    setValoresQuitar(distribuirRecebimento(itensSelecionados.map((i) => ({
+      id: i.id, restante: restante(i), vencimento: i.data_vencimento,
+    })), valor))
+  }
   const todosVisivelSelecionados = crediarioFiltrado.length > 0 && crediarioFiltrado.every((i) => selecionados.has(i.id))
 
   // #9 — abrir o modal e carregar as últimas vendas
@@ -2131,7 +2180,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         {emConsultaCusto && <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800">🔒 Tabela CUSTO — somente consulta. Venda e orçamento bloqueados.</div>}
 
         {/* Cliente — compacto, no topo */}
-        <div className="relative rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm">
+        <div className={`relative rounded-xl border px-3 py-2 shadow-sm ${clienteSelecionado ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-100' : 'border-gray-200 bg-white'}`}>
           {clienteSelecionado ? (
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-sm">
@@ -2241,7 +2290,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               if (e.key === 'Escape' && busca.length > 0) { e.preventDefault(); e.stopPropagation(); setBusca(''); setBuscaSel(0) }
             }}
             placeholder="Buscar produto por nome ou código...  (F2)"
-            className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-xl border-2 border-blue-300 bg-blue-50/40 px-4 py-3 pr-10 text-sm font-medium focus:border-blue-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-200"
             autoFocus
           />
           {/* spinner enquanto busca; ✕ pra limpar quando tem texto */}
@@ -2273,7 +2322,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 const disp = saldoNoDeposito(p)
                 const ativo = idx === buscaSel
                 return (
-                <div key={p.id} ref={ativo ? linhaAtivaRef : null} className={`flex items-center border-b border-gray-50 last:border-b-0 ${ativo ? 'bg-blue-50' : ''}`}>
+                <div key={p.id} ref={ativo ? linhaAtivaRef : null} className={`flex items-center border-b border-gray-50 last:border-b-0 ${ativo ? 'border-l-4 border-l-blue-600 bg-blue-100 ring-1 ring-inset ring-blue-200' : ''}`}>
                   <label
                     className="flex shrink-0 cursor-pointer items-center pl-3 pr-1"
                     title="Marcar pra copiar o preço"
@@ -2363,7 +2412,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Produto</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Qtd</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Unit.</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Preço / desconto</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Total</th>
                   <th className="px-4 py-3"></th>
                 </tr>
@@ -2460,10 +2509,25 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                         queima de estoque proposital, e quem decide isso é quem está no balcão. */}
                     {(() => {
                       const custo = Number(item.preco_custo ?? 0)
-                      const abaixo = custo > 0 && item.preco_unitario < custo
+                      const { descontoUnitario, precoFinal } = descontoManualItem(item)
+                      const abaixo = custo > 0 && precoFinal < custo
                       return (
                         <td className={`px-4 py-3 text-right text-sm ${abaixo ? 'font-bold text-red-600' : 'text-gray-600'}`}>
-                          {formatBRL(item.preco_unitario)}
+                          <span className={descontoUnitario > 0 ? 'text-xs text-gray-400 line-through' : ''}>{formatBRL(item.preco_unitario)}</span>
+                          {descontoUnitario > 0 && <span className="ml-2 font-bold text-green-700">{formatBRL(precoFinal)}</span>}
+                          <div className="mt-1 flex justify-end gap-1">
+                            <select value={item.desconto_tipo}
+                              onChange={(e) => alterarDescontoItem(item.produto_id, e.target.value as TipoDescontoItem, item.desconto_valor)}
+                              className="rounded border border-gray-200 bg-white px-1 py-0.5 text-[11px] text-gray-600">
+                              <option value="final">Preço final</option>
+                              <option value="valor">Desconto R$</option>
+                              <option value="percent">Desconto %</option>
+                            </select>
+                            <input type="number" min="0" step="0.01" value={item.desconto_valor || ''}
+                              onChange={(e) => alterarDescontoItem(item.produto_id, item.desconto_tipo, Number(e.target.value))}
+                              placeholder="0,00"
+                              className="w-20 rounded border border-gray-200 px-1 py-0.5 text-right text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                          </div>
                           {abaixo && (
                             <span className="block text-[11px] font-medium text-red-500"
                               title={`Custo desta peça: ${formatBRL(custo)}`}>
@@ -2474,7 +2538,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                       )
                     })()}
                     <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">
-                      {formatBRL(item.quantidade * item.preco_unitario)}
+                      {formatBRL(item.quantidade * descontoManualItem(item).precoFinal)}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-3">
@@ -2533,6 +2597,12 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               <div className="flex justify-between text-xs text-gray-500">
                 <span>Desconto aplicado{descontoTipo === 'percent' ? ` (${parseFloat(desconto) || 0}%)` : ''}</span>
                 <span className="font-medium text-red-500">− {formatBRL(descontoNum)}</span>
+              </div>
+            )}
+            {descontoManualItens > 0 && (
+              <div className="flex justify-between text-xs text-blue-600">
+                <span>Desconto nas peças</span>
+                <span className="font-medium">− {formatBRL(descontoManualItens)}</span>
               </div>
             )}
             {descontoNum > 0 && descontoNum >= subtotal * 0.5 && (
@@ -2629,7 +2699,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                       className={`relative flex min-h-[82px] flex-col items-center justify-center gap-1.5 rounded-2xl px-2 py-3 font-bold text-white shadow-sm transition ${corFormaBtn(f)} ${ativa ? 'scale-[1.03] ring-2 ring-[#1B6CA8] ring-offset-2' : 'opacity-95 hover:opacity-100 hover:shadow-md'}`}>
                       <span className="absolute right-1.5 top-1.5 rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-bold leading-none">F{i + 1}</span>
                       <span className="text-2xl leading-none">{iconeForma(f.nome)}</span>
-                      <span className="text-center text-xs leading-tight">{f.nome}</span>
+                      <span className="text-center text-xs leading-tight">
+                        {isValeForma(f.id) ? `Vale Crédito — disponível ${formatBRL(saldoCredito)}` : f.nome}
+                      </span>
                     </button>
                   )
                 })}
@@ -2945,9 +3017,25 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 {carrinho.map((item) => (
                   <div key={item.produto_id} className="flex justify-between">
                     <span className="text-gray-700">{item.quantidade}x {item.nome}</span>
-                    <span className="font-medium text-gray-800">{formatBRL(item.quantidade * item.preco_unitario)}</span>
+                    <span className="font-medium text-gray-800">{formatBRL(item.quantidade * descontoManualItem(item).precoFinal)}</span>
                   </div>
                 ))}
+              </div>
+
+              <div className="border-t border-gray-100 pt-3">
+                <label className="mb-1 block text-xs font-medium text-gray-500">Desconto ao fechar</label>
+                <div className="flex gap-2">
+                  <select value={descontoTipo} onChange={(e) => setDescontoTipo(e.target.value as 'valor' | 'percent')}
+                    className="rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm">
+                    <option value="valor">R$</option>
+                    <option value="percent">%</option>
+                  </select>
+                  <input type="number" min="0" step="0.01" value={desconto}
+                    onChange={(e) => setDesconto(e.target.value)} placeholder="0,00"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-right focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                {faltamPg > 0.01 && <p className="mt-1 text-xs font-medium text-red-600">Ajuste pagamentos: faltam {formatBRL(faltamPg)}.</p>}
+                {sobraPg > 0.01 && <p className="mt-1 text-xs font-medium text-red-600">Ajuste pagamentos: sobra {formatBRL(sobraPg)}.</p>}
               </div>
 
               <div className="border-t border-gray-100 pt-3 space-y-1.5">
@@ -2980,6 +3068,12 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                     <span>− {formatBRL(descontoNum)}</span>
                   </div>
                 )}
+                {descontoManualItens > 0 && (
+                  <div className="flex justify-between text-gray-500">
+                    <span>Desconto nas peças</span>
+                    <span>− {formatBRL(descontoManualItens)}</span>
+                  </div>
+                )}
                 {trocoPg > 0.005 && (
                   <div className="flex justify-between text-gray-500">
                     <span>Troco (dinheiro)</span>
@@ -2999,7 +3093,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition disabled:opacity-50">
                 Voltar
               </button>
-              <button type="button" onClick={handleFinalizar} disabled={loading}
+              <button type="button" onClick={handleFinalizar} disabled={loading || faltamPg > 0.01 || sobraPg > 0.01}
                 className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-green-600 py-2.5 text-sm font-bold text-white hover:bg-green-700 transition disabled:opacity-50">
                 {loading && <Spinner />}{loading ? 'Processando...' : 'Confirmar venda'}
               </button>
@@ -3071,6 +3165,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                   {selecionados.size} {selecionados.size === 1 ? 'nota selecionada' : 'notas selecionadas'} · {formatBRL(subtotalSelecionado)}
                 </p>
                 <div className="flex items-center gap-2">
+                  <div className="w-36">
+                    <span className="mb-0.5 block text-[10px] font-semibold uppercase text-blue-600">Total a receber</span>
+                    <CampoDinheiro value={parseFloat(totalQuitar) || 0} onChange={distribuirTotalQuitar} />
+                  </div>
                   <select
                     value={formaQuitar}
                     onChange={(e) => setFormaQuitar(e.target.value)}
@@ -3084,7 +3182,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                   <button
                     type="button"
                     disabled={pagandoCrediario || !formaFoiEscolhida(formaQuitar)}
-                    onClick={() => handlePagarCrediario([...selecionados], formaQuitar)}
+                    onClick={() => handlePagarCrediario(formaQuitar)}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-green-700 disabled:opacity-60"
                   >
                     {pagandoCrediario && <Spinner />}
@@ -3191,6 +3289,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                       <th className="px-4 py-3 text-right">Total</th>
                       <th className="px-4 py-3 text-right">Pago</th>
                       <th className="px-4 py-3 text-right">Restante</th>
+                      <th className="px-4 py-3 text-right">Receber agora</th>
                       <th className="px-4 py-3">Vencimento</th>
                     </tr>
                   </thead>
@@ -3238,6 +3337,14 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                           <td className="px-4 py-3 text-right text-gray-500">{formatBRL(item.valor)}</td>
                           <td className="px-4 py-3 text-right text-green-600 font-medium">{item.valor_pago > 0 ? formatBRL(item.valor_pago) : '—'}</td>
                           <td className="px-4 py-3 text-right font-bold text-gray-900">{formatBRL(item.valor - (item.valor_pago ?? 0))}</td>
+                          <td className="px-4 py-3 text-right">
+                            {sel ? (
+                              <input type="number" min="0" max={restante(item)} step="0.01"
+                                value={valoresQuitar[item.id] ?? restante(item)}
+                                onChange={(e) => setValoresQuitar((v) => ({ ...v, [item.id]: Math.min(restante(item), Math.max(0, Number(e.target.value) || 0)) }))}
+                                className="w-24 rounded-lg border border-blue-300 px-2 py-1 text-right font-semibold text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            ) : <span className="text-gray-300">—</span>}
+                          </td>
                           <td className="px-4 py-3 text-gray-500">
                             {item.data_vencimento
                               ? (() => { const s = item.data_vencimento; const d = new Date(s.length === 10 ? s + 'T12:00:00' : s); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR') })()
