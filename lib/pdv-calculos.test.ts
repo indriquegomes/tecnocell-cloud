@@ -2,6 +2,11 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { aplicarDescontoItem, distribuirRecebimento } from './pdv-calculos.ts'
 
+test('item sem edição preserva preço; zero explícito é distinto', () => {
+  assert.deepEqual(aplicarDescontoItem(100, 'final', null), { descontoUnitario: 0, precoFinal: 100 })
+  assert.deepEqual(aplicarDescontoItem(100, 'final', 0), { descontoUnitario: 100, precoFinal: 0 })
+})
+
 test('desconto unitario calcula preco final sem duplicar promocao', () => {
   assert.deepEqual(aplicarDescontoItem(100, 'percent', 10), { descontoUnitario: 10, precoFinal: 90 })
   assert.deepEqual(aplicarDescontoItem(100, 'valor', 15), { descontoUnitario: 15, precoFinal: 85 })

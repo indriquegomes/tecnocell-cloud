@@ -158,7 +158,7 @@ export async function buscarVendaParaDevolucao(
       produto_id: i.produto_id,
       nome: i.produtos?.nome ?? '—',
       quantidade: i.quantidade,
-      preco_unitario: i.preco_unitario,
+      preco_unitario: i.total_item != null && i.quantidade > 0 ? i.total_item / i.quantidade : i.preco_unitario,
       total_item: i.total_item,
       series: seriesPorProduto[i.produto_id] ?? [],
     })),

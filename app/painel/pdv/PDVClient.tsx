@@ -186,7 +186,7 @@ interface ItemCarrinho {
   quantidade: number
   preco_unitario: number   // preço base (tabela/padrão) — promoção entra como desconto
   desconto_tipo: TipoDescontoItem
-  desconto_valor: number
+  desconto_valor: number | null
   estoque_disponivel: number
   promoSel: string         // 'auto' = melhor desconto | '' = sem promoção | <id> = promoção fixa
   serializado?: boolean    // produto controla IMEI/número de série
@@ -293,6 +293,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [formaQuitar, setFormaQuitar] = useState('')
   const [valoresQuitar, setValoresQuitar] = useState<Record<string, number>>({})
   const [totalQuitar, setTotalQuitar] = useState('')
+  const loteEmCurso = useRef(false)
+  const tentativaLote = useRef<{ assinatura: string; id: string } | null>(null)
   const [detalheVenda, setDetalheVenda] = useState<DetalheVenda | null>(null)
   const [carregandoDetalhe, setCarregandoDetalhe] = useState(false)
   // Modal de recebimento por linha
@@ -772,7 +774,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         quantidade: p.controla_serie ? 0 : 1,   // serializado: quantidade = IMEIs escolhidos
         preco_unitario: precoTabela(tabelaId, p.id, 1) ?? p.preco,
         desconto_tipo: 'final',
-        desconto_valor: 0,
+        desconto_valor: null,
         estoque_disponivel: disp,
         promoSel: 'auto',
         serializado: p.controla_serie,
@@ -837,7 +839,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
   // Promoção efetiva de uma linha (resolve 'auto' = melhor desconto na quantidade atual)
   const promoEfetiva = (item: ItemCarrinho): PromoInfo | null => {
-    if (item.desconto_valor > 0) return null
+    if (item.desconto_valor != null) return null
     const lista = promosDoProduto(item.produto_id)
     if (lista.length === 0 || item.promoSel === '') return null
     if (item.promoSel !== 'auto') return lista.find((p) => p.id === item.promoSel) ?? null
@@ -853,9 +855,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const descontoManualItem = (item: ItemCarrinho) =>
     aplicarDescontoItem(item.preco_unitario, item.desconto_tipo, item.desconto_valor)
 
-  const alterarDescontoItem = (produto_id: string, tipo: TipoDescontoItem, valor: number) => {
+  const alterarDescontoItem = (produto_id: string, tipo: TipoDescontoItem, valor: number | null) => {
     setCarrinho((prev) => prev.map((item) => item.produto_id === produto_id
-      ? { ...item, desconto_tipo: tipo, desconto_valor: Math.max(0, valor), promoSel: valor > 0 ? '' : item.promoSel }
+      ? { ...item, desconto_tipo: tipo, desconto_valor: valor == null ? null : Math.max(0, valor) }
       : item))
   }
 
@@ -1408,7 +1410,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         quantidade: Math.min(item.quantidade, disp),
         preco_unitario: item.preco_unitario,
         desconto_tipo: 'final',
-        desconto_valor: 0,
+        desconto_valor: null,
         estoque_disponivel: disp,
         promoSel: '',
       })
@@ -1455,12 +1457,16 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   }
 
   const handlePagarCrediario = async (forma: string) => {
+    if (loteEmCurso.current) return
     const alocacoes = itensSelecionados.map((i) => ({ id: i.id, valor: Math.min(restante(i), valoresQuitar[i.id] ?? restante(i)) })).filter((i) => i.valor > 0)
     if (alocacoes.length === 0) return
+    const assinatura = JSON.stringify([alocacoes, forma, lojaId])
+    if (tentativaLote.current?.assinatura !== assinatura) tentativaLote.current = { assinatura, id: crypto.randomUUID() }
+    loteEmCurso.current = true
     setPagandoCrediario(true)
     setPagoCrediarioOk(false)
     try {
-      const res = await pagarLancamentos(await authToken(), alocacoes, forma, lojaId)
+      const res = await pagarLancamentos(await authToken(), alocacoes, forma, tentativaLote.current.id, lojaId)
       if (!res.ok) { setErro(res.erro); return }
       const pagos = new Map((res.pagamentos ?? []).map((p) => [p.id, p]))
       setCrediarioItens((prev) => prev.flatMap((i) => {
@@ -1469,12 +1475,14 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         return pago.quitado ? [] : [{ ...i, valor_pago: (i.valor_pago ?? 0) + pago.valor }]
       }))
       setSelecionados(new Set())
+      tentativaLote.current = null
       setRecebendoItem(null)
       setPagoCrediarioOk(true)
       setTimeout(() => setPagoCrediarioOk(false), 3000)
     } catch {
       setErro('Erro ao registrar pagamento do fiado.')
     } finally {
+      loteEmCurso.current = false
       setPagandoCrediario(false)
     }
   }
@@ -2516,15 +2524,15 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                           <span className={descontoUnitario > 0 ? 'text-xs text-gray-400 line-through' : ''}>{formatBRL(item.preco_unitario)}</span>
                           {descontoUnitario > 0 && <span className="ml-2 font-bold text-green-700">{formatBRL(precoFinal)}</span>}
                           <div className="mt-1 flex justify-end gap-1">
-                            <select value={item.desconto_tipo}
+                            <select aria-label={`Tipo de desconto: ${item.nome}`} value={item.desconto_tipo}
                               onChange={(e) => alterarDescontoItem(item.produto_id, e.target.value as TipoDescontoItem, item.desconto_valor)}
                               className="rounded border border-gray-200 bg-white px-1 py-0.5 text-[11px] text-gray-600">
                               <option value="final">Preço final</option>
                               <option value="valor">Desconto R$</option>
                               <option value="percent">Desconto %</option>
                             </select>
-                            <input type="number" min="0" step="0.01" value={item.desconto_valor || ''}
-                              onChange={(e) => alterarDescontoItem(item.produto_id, item.desconto_tipo, Number(e.target.value))}
+                            <input aria-label={`Preço ou desconto: ${item.nome}`} type="number" min="0" step="0.01" value={item.desconto_valor ?? ''}
+                              onChange={(e) => alterarDescontoItem(item.produto_id, item.desconto_tipo, e.target.value === '' ? null : Number(e.target.value))}
                               placeholder="0,00"
                               className="w-20 rounded border border-gray-200 px-1 py-0.5 text-right text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500" />
                           </div>

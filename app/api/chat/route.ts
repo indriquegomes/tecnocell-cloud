@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
-import { createClient, createServiceClient, permissoesEfetivas } from '@/lib/supabase/server'
+import { createClient, createServiceClient, permissoesEfetivas, fetchAll } from '@/lib/supabase/server'
+import { createHash } from 'crypto'
 import { temPermissao } from '@/lib/permissoes'
 import { streamChat, buildSystemPrompt, type ChatMessage } from '@/lib/chat-ia'
 
@@ -20,7 +21,15 @@ export async function POST(req: NextRequest) {
     return new Response('Muitas requisições. Aguarde um momento.', { status: 429 })
   }
 
-  const { mensagens, tipo: tipoRequisitado = 'cliente' } = await req.json() as {
+  const raw = await req.text()
+  if (raw.length > 16000) return new Response('Mensagem muito grande.', { status: 413 })
+  let body
+  try { body = JSON.parse(raw) } catch { return new Response('JSON inválido.', { status: 400 }) }
+  if (!body || !Array.isArray(body.mensagens) || body.mensagens.length < 1 || body.mensagens.length > 20 ||
+      body.mensagens.some((m: ChatMessage) => !m || !['user','assistant'].includes(m.role) || typeof m.content !== 'string' || m.content.length > 4000)) {
+    return new Response('Mensagens inválidas.', { status: 400 })
+  }
+  const { mensagens, tipo: tipoRequisitado = 'cliente' } = body as {
     mensagens: ChatMessage[]
     tipo: 'funcionario' | 'cliente'
   }
@@ -32,10 +41,16 @@ export async function POST(req: NextRequest) {
   // vendedor puxava o total a receber pela IA. Sem a permissão, cai no contexto 'cliente'
   // (só catálogo público). O `tipo` mandado pelo cliente não é confiável.
   const { data: { user } } = await supabase.auth.getUser()
+  const service = await createServiceClient()
+  const { data: reservado, error: erroLimite } = await service.rpc('reservar_chat', {
+    p_chave: createHash('sha256').update(user?.id ?? ip).digest('hex'),
+  })
+  if (erroLimite) return new Response('Chat temporariamente indisponível.', { status: 503 })
+  if (!reservado) return new Response('Limite do chat atingido. Aguarde um minuto.', { status: 429 })
   let podeFuncionario = false
   if (user) {
-    const { permissoes, isMaster } = await permissoesEfetivas(user.id)
-    podeFuncionario = temPermissao(permissoes, 'chat_ia', isMaster)
+    const { permissoes, isMaster, ativo } = await permissoesEfetivas(user.id)
+    podeFuncionario = ativo && temPermissao(permissoes, 'chat_ia', isMaster)
   }
   const tipo: 'funcionario' | 'cliente' = (tipoRequisitado === 'funcionario' && podeFuncionario) ? 'funcionario' : 'cliente'
 
@@ -54,23 +69,26 @@ export async function POST(req: NextRequest) {
     // count exact + head:true: só o total, sem trazer as linhas — evita o cap de
     // 1000 do Supabase (que fazia "itensEmEstoque" mentir depois da tabela crescer
     // pra 32 mil+ linhas na importação do SIGE, ver CLAUDE.md sobre paginação).
-    const [{ data: produtos }, { count: itensEmEstoque }, { data: lancamentos }] = await Promise.all([
+    const [{ data: produtos }, { count: itensEmEstoque }, lancamentos, totalProdutos, produtosAtivos] = await Promise.all([
       supabase.from('produtos').select('id, nome, preco, categoria, marca, ativo').limit(50),
       supabase.from('estoque').select('id', { count: 'exact', head: true }).gt('quantidade', 0),
-      supabase.from('lancamentos').select('valor, tipo, status, data_vencimento').limit(100),
+      fetchAll<{valor: number; valor_pago: number; tipo: string; status: string}>((from,to) => supabase.from('lancamentos').select('valor, valor_pago, tipo, status').eq('status','pendente').order('id').range(from,to)),
+      supabase.from('produtos').select('id',{count:'exact',head:true}),
+      supabase.from('produtos').select('id',{count:'exact',head:true}).eq('ativo',true),
     ])
 
     const aReceber = lancamentos
       ?.filter((l) => l.tipo === 'receber' && l.status !== 'pago')
-      .reduce((s, l) => s + (l.valor ?? 0), 0) ?? 0
+      .reduce((s, l) => s + Math.max(0, (l.valor ?? 0) - (l.valor_pago ?? 0)), 0) ?? 0
 
     const aPagar = lancamentos
       ?.filter((l) => l.tipo === 'pagar' && l.status !== 'pago')
-      .reduce((s, l) => s + (l.valor ?? 0), 0) ?? 0
+      .reduce((s, l) => s + Math.max(0, (l.valor ?? 0) - (l.valor_pago ?? 0)), 0) ?? 0
 
     contexto = {
-      totalProdutos: produtos?.length ?? 0,
-      produtosAtivos: produtos?.filter((p) => p.ativo).length ?? 0,
+      escopo: 'Todas as lojas acessíveis nesta sessão',
+      totalProdutos: totalProdutos.count ?? 0,
+      produtosAtivos: produtosAtivos.count ?? 0,
       itensEmEstoque: itensEmEstoque ?? 0,
       financeiro: { aReceber, aPagar },
       produtosAmostra: produtos?.slice(0, 10),

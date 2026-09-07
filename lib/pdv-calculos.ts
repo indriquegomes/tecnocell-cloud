@@ -2,8 +2,9 @@ export type TipoDescontoItem = 'final' | 'valor' | 'percent'
 
 const centavos = (valor: number) => Math.round(valor * 100) / 100
 
-export function aplicarDescontoItem(precoBase: number, tipo: TipoDescontoItem, valor: number) {
+export function aplicarDescontoItem(precoBase: number, tipo: TipoDescontoItem, valor: number | null) {
   const base = Math.max(0, Number(precoBase) || 0)
+  if (valor == null) return { descontoUnitario: 0, precoFinal: centavos(base) }
   const informado = Math.max(0, Number(valor) || 0)
   const desconto = tipo === 'percent'
     ? base * informado / 100

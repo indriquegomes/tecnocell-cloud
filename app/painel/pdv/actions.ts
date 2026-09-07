@@ -721,6 +721,7 @@ export async function pagarLancamentos(
   accessToken: string,
   alocacoes: { id: string; valor: number }[],
   formaPagamento: string,
+  operacaoId: string,
   lojaId?: string | null,
 ): Promise<ResultadoReceb> {
   if (alocacoes.length === 0) return { ok: true }
@@ -731,6 +732,7 @@ export async function pagarLancamentos(
     const contaId = await contaDaFormaTexto(supabase, formaPagamento, lojaId)
     const linhas = alocacoes.map((a) => ({ id: a.id, valor: Math.round(Number(a.valor) * 100) / 100 })).filter((a) => a.valor > 0)
     const { data, error } = await supabase.rpc('receber_lancamentos_lote', {
+      p_operacao_id: operacaoId,
       p_alocacoes: linhas,
       p_forma: formaPagamento,
       p_conta_id: contaId,
