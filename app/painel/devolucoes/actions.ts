@@ -203,7 +203,7 @@ export async function buscarVendasRecentes(
     // vendas dos clientes encontrados
     let idsPessoa: string[] = []
     if (pids.length) {
-      const { data: vp } = await supabase.from('vendas').select('id').eq('status', 'concluida').in('pessoa_id', pids).gte('created_at', corte).limit(200)
+      const { data: vp } = await supabase.from('vendas').select('id').eq('status', 'concluida').in('pessoa_id', pids).gte('created_at', corte).order('created_at', { ascending: false }).limit(200)
       idsPessoa = (vp ?? []).map((v) => v.id as string)
     }
 
