@@ -39,15 +39,26 @@ export function NovaMovimentacaoForm({
   seriesPorProduto,
   dataHoje,
   horaAgora,
+  abertoPadrao = false,
+  depositoInicial = '',
+  produtoInicial = '',
 }: {
   depositos: Deposito[]
   produtos: Produto[]
   seriesPorProduto: Record<string, Record<string, string[]>>
   dataHoje: string
   horaAgora: string
+  /** true = renderiza aberto (tela Movimentar Estoque), sem <details> fechado */
+  abertoPadrao?: boolean
+  /** depósito pré-selecionado (?deposito_id= do botão Ajustar) */
+  depositoInicial?: string
+  /** produto pré-adicionado (?produto_id= do botão Ajustar) */
+  produtoInicial?: string
 }) {
-  const [itens, setItens] = useState<ItemLista[]>([])
-  const [depositoId, setDepositoId] = useState('')
+  const [itens, setItens] = useState<ItemLista[]>(
+    produtoInicial ? [{ produtoBusca: produtoInicial, quantidade: 1, operacao: 'ajuste' }] : [],
+  )
+  const [depositoId, setDepositoId] = useState(depositoInicial)
   const [produtoBusca, setProdutoBusca] = useState('')
   const [quantidade, setQuantidade] = useState('1')
   const [operacao, setOperacao] = useState('entrada')
@@ -123,7 +134,7 @@ export function NovaMovimentacaoForm({
   }
 
   return (
-    <details className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+    <details open={abertoPadrao} className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
       <summary className="cursor-pointer select-none border-b border-gray-100 bg-gray-50 px-6 py-3 text-sm font-semibold text-blue-600 hover:bg-gray-100 transition flex items-center gap-2">
         Nova Movimentação Estoque
         <svg className="h-4 w-4 text-blue-400 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
