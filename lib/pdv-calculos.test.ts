@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { aplicarDescontoItem, distribuirRecebimento } from './pdv-calculos.ts'
+import { aplicarDescontoItem, criarControleUltimaTroca, distribuirRecebimento, tabelaDoCliente } from './pdv-calculos.ts'
 
 test('item sem edição preserva preço; zero explícito é distinto', () => {
   assert.deepEqual(aplicarDescontoItem(100, 'final', null), { descontoUnitario: 0, precoFinal: 100 })
@@ -29,4 +29,19 @@ test('recebimento total distribui das dividas antigas para novas', () => {
 
 test('recebimento nunca passa do saldo total', () => {
   assert.deepEqual(distribuirRecebimento([{ id: 'a', restante: 20, vencimento: null }], 99), { a: 20 })
+})
+
+test('cliente sem tabela volta ao preço padrão', () => {
+  const tabelas = [{ id: 'at1' }, { id: 'at2' }]
+  assert.equal(tabelaDoCliente('at1', tabelas), 'at1')
+  assert.equal(tabelaDoCliente(null, tabelas), '')
+  assert.equal(tabelaDoCliente('invisivel', tabelas), '')
+})
+
+test('somente última troca de tabela pode aplicar preços', () => {
+  const controle = criarControleUltimaTroca()
+  const atacado = controle.iniciar()
+  const padrao = controle.iniciar()
+  assert.equal(controle.vigente(atacado), false)
+  assert.equal(controle.vigente(padrao), true)
 })

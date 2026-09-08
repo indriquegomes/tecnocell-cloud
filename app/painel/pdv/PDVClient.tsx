@@ -24,7 +24,7 @@ const VALE_RECEB_ID = '__vale_receb__'
 import { buscarSaldoCredito } from '@/app/painel/creditos/actions'
 import type { PromoInfo } from './page'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
-import { aplicarDescontoItem, distribuirRecebimento, type TipoDescontoItem } from '@/lib/pdv-calculos'
+import { aplicarDescontoItem, criarControleUltimaTroca, distribuirRecebimento, tabelaDoCliente, type TipoDescontoItem } from '@/lib/pdv-calculos'
 
 // Preço unitário de uma faixa progressiva conforme a quantidade TOTAL do grupo.
 // Pega a maior faixa cujo mínimo já foi atingido. Nenhuma atingida = sem desconto.
@@ -880,9 +880,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
   // Trocar de tabela: carrega os itens da tabela sob demanda (se ainda não carregou) e
   // recalcula o preço dos itens do carrinho com o mapa já atualizado.
+  const controleTrocaTabela = useRef(criarControleUltimaTroca())
   const trocarTabela = async (novaTabela: string) => {
-    setTabelaId(novaTabela)
+    const troca = controleTrocaTabela.current.iniciar()
     let mapa = precos
+    if (!novaTabela || precos[novaTabela]) setCarregandoTabela(false)
     if (novaTabela && !precos[novaTabela]) {
       setCarregandoTabela(true)
       try {
@@ -892,16 +894,25 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           ;(m[it.produto_id] ??= []).push({ qtd_min: it.quantidade_minima ?? 1, preco: it.preco })
         }
         for (const pid in m) m[pid].sort((a, b) => b.qtd_min - a.qtd_min)
+        if (!controleTrocaTabela.current.vigente(troca)) return false
         mapa = { ...precos, [novaTabela]: m }
         setPrecos(mapa)
-      } catch { setErro('Não consegui carregar a tabela de preço. Tenta de novo.') }
-      setCarregandoTabela(false)
+      } catch {
+        if (!controleTrocaTabela.current.vigente(troca)) return false
+        setCarregandoTabela(false)
+        setErro('Não consegui carregar a tabela de preço. Tenta de novo.')
+        return false
+      }
+      if (controleTrocaTabela.current.vigente(troca)) setCarregandoTabela(false)
     }
+    if (!controleTrocaTabela.current.vigente(troca)) return false
+    setTabelaId(novaTabela)
     setCarrinho((prev) => prev.map((item) => {
       const prod = produtos.find((p) => p.id === item.produto_id)
       const novoPreco = precoNoMapa(mapa, novaTabela, item.produto_id, item.quantidade) ?? prod?.preco ?? item.preco_unitario
       return { ...item, preco_unitario: novoPreco }
     }))
+    return true
   }
 
   // Se a loja abre com uma tabela padrão (não "Preço Padrão"), carrega os itens dela
@@ -1683,9 +1694,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       // entra no cache local e já seleciona na venda
       const nova: Pessoa = { id: res.pessoa.id, nome: res.pessoa.nome, cpf_cnpj: res.pessoa.cpf_cnpj, tabela_preco_id: res.pessoa.tabela_preco_id }
       setPessoas((prev) => [nova, ...prev.filter((p) => p.id !== nova.id)])
+      if (!(await trocarTabela(tabelaDoCliente(nova.tabela_preco_id, tabelas)))) return
       setPessoaId(nova.id)
       setBuscaCliente('')
-      if (nova.tabela_preco_id && tabelas.some((t) => t.id === nova.tabela_preco_id)) trocarTabela(nova.tabela_preco_id)
       setMostrarNovoCliente(false)
     } catch (e) {
       setErro(e instanceof Error && e.message ? e.message : 'Erro ao cadastrar cliente.')
@@ -2204,7 +2215,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                   return b ? <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${b.cls}`}>{b.txt}</span> : null
                 })()}
                 {clienteSelecionado.cpf_cnpj && <span className="text-xs text-gray-400">{clienteSelecionado.cpf_cnpj}</span>}
-                <button type="button" onClick={() => { setPessoaId(''); setBuscaCliente('') }}
+                <button type="button" onClick={() => { setPessoaId(''); setBuscaCliente(''); trocarTabela('') }}
                   className="ml-auto text-xs font-medium text-red-400 hover:text-red-600">✕</button>
               </div>
               {/* Cliente problemático — AVISA, não bloqueia (decisão do Vitor) */}
@@ -2256,10 +2267,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             <div className="animate-pop-in absolute top-full left-0 right-0 z-20 mt-1 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
               {clientesFiltrados.map((p) => (
                 <button key={p.id} type="button"
-                  onClick={() => {
-                    setPessoaId(p.id); setBuscaCliente('')
+                  onClick={async () => {
                     // aplica a tabela de preço padrão do cliente, se tiver
-                    if (p.tabela_preco_id && tabelas.some((t) => t.id === p.tabela_preco_id)) trocarTabela(p.tabela_preco_id)
+                    if (!(await trocarTabela(tabelaDoCliente(p.tabela_preco_id, tabelas)))) return
+                    setPessoaId(p.id); setBuscaCliente('')
                   }}
                   className="flex w-full items-center justify-between px-4 py-2.5 text-sm hover:bg-blue-50 transition text-left">
                   <span className="font-medium text-gray-800">{p.nome}</span>

@@ -27,3 +27,15 @@ export function distribuirRecebimento(
   }
   return resultado
 }
+
+export function tabelaDoCliente(tabelaId: string | null | undefined, tabelas: { id: string }[]) {
+  return tabelaId && tabelas.some((t) => t.id === tabelaId) ? tabelaId : ''
+}
+
+export function criarControleUltimaTroca() {
+  let atual = 0
+  return {
+    iniciar: () => ++atual,
+    vigente: (id: number) => id === atual,
+  }
+}
