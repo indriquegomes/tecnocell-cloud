@@ -699,8 +699,15 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const saldoNaLojaAtual = (p: Produto) => idsDepLojaAtual.reduce((s, id) => s + (p.estoquePorDeposito[id] ?? 0), 0)
   const saldoOutrasLojas = (p: Produto) => depositosReais.reduce((s, d) => s + (d.loja_id === lojaId ? 0 : (p.estoquePorDeposito[d.id] ?? 0)), 0)
   const prioridadeEstoque = (p: Produto) => (saldoNaLojaAtual(p) > 0 ? 0 : saldoOutrasLojas(p) > 0 ? 1 : 2)
-  const ordenarPorEstoque = (lista: Produto[]) =>
-    [...lista].sort((a, b) => prioridadeEstoque(a) - prioridadeEstoque(b) || a.nome.localeCompare(b.nome))
+  const ordenarPorEstoque = (lista: Produto[], prefixo: string) =>
+    [...lista].sort((a, b) => {
+      // 1º nome que COMEÇA com a busca (ex: "frontal iphone 14" põe FRONTAL... na
+      // frente de CAMERA FRONTAL...), 2º estoque da loja atual, 3º alfabético.
+      const pa = semAcento(a.nome).startsWith(prefixo) ? 0 : 1
+      const pb = semAcento(b.nome).startsWith(prefixo) ? 0 : 1
+      if (pa !== pb) return pa - pb
+      return prioridadeEstoque(a) - prioridadeEstoque(b) || a.nome.localeCompare(b.nome)
+    })
 
   // Índice de busca PRÉ-NORMALIZADO (sem acento), computado 1x quando o catálogo muda —
   // evita recomputar a normalização de ~8 mil produtos a cada tecla (o que travava a busca).
@@ -717,7 +724,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       if (!idx) return false
       return palavras.every((w) => idx.nm.includes(w) || idx.cod.startsWith(w)) && saldoNoDeposito(p) > 0
     })
-    return ordenarPorEstoque(achados).slice(0, limite)
+    return ordenarPorEstoque(achados, palavras.join(' ')).slice(0, limite)
   }
 
   const produtosFiltrados = busca.trim().length >= 1 ? filtrarProdutos(busca, 40) : []
