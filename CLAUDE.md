@@ -27,8 +27,10 @@ Módulos:
   concordar por concordar. Se a ideia tem problema, diga qual. Sério e objetivo.
 - **O usuário é iniciante em programação. Uma coisa por vez.** Não despejar
   várias mudanças ou vários conceitos na mesma resposta.
-- **Fase de teste — nada aqui é dado real.** O banco tem só cadastro (pessoas,
-  produtos, preços, configuração); todo o movimento foi zerado em 13/08/2026.
+- **Produção — dado é real.** Uso real desde 05/09/2026 (sábado); teste encerrado
+  04/09 às 19h. Migração SIGE→TecnoCell completa (Petrópolis). Toda mudança em
+  banco, caixa, estoque ou financeiro exige autorização do dono + ser reversível e
+  auditado. Nada de chutar em dado real.
 - **Não commitar sem pedir.** Confirmar que o type-check passou antes de
   qualquer commit.
 - **Preservar UTF-8 sempre.** Os arquivos têm acentos e emojis no código e nos
