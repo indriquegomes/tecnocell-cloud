@@ -684,13 +684,14 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   // Preço do produto na tabela selecionada (qtd 1 pra vitrine; cai no padrão se não houver)
   const precoDoProduto = (p: Produto) => precoTabela(tabelaId, p.id, 1) ?? p.preco
 
-  // Busca esperta: tira acento e casa cada palavra em qualquer ordem/posição
-  // ("fr a11" acha "FRONTAL ... A11"; "tam" acha "TAMPA"). Procura em nome + código + marca.
-  const casaBusca = (texto: string, termo: string) => {
-    const alvo = semAcento(texto)
-    return semAcento(termo).split(/\s+/).filter(Boolean).every((w) => alvo.includes(w))
+  // Busca esperta: tira acento e casa cada palavra no NOME+MARCA (substring) OU
+  // no CÓDIGO (prefixo). Prefixo no código evita que "14" pegue "11148" (14 no
+  // meio) e traga "iphone 13/16" de brinde numa busca por "iphone 14".
+  const casaProduto = (p: Produto, palavras: string[]) => {
+    const nm = semAcento(`${p.nome} ${p.marca ?? ''}`)
+    const cod = semAcento(p.codigo ?? '')
+    return palavras.every((w) => nm.includes(w) || cod.startsWith(w))
   }
-  const textoProduto = (p: Produto) => `${p.nome} ${p.codigo ?? ''} ${p.marca ?? ''}`
 
   // Prioridade de estoque na busca (pedido da Isa): 1º tem na loja atual,
   // 2º não tem aqui mas tem na outra loja, 3º sem estoque em lugar nenhum.
@@ -704,16 +705,17 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   // Índice de busca PRÉ-NORMALIZADO (sem acento), computado 1x quando o catálogo muda —
   // evita recomputar a normalização de ~8 mil produtos a cada tecla (o que travava a busca).
   const indiceNorm = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const p of produtos) m.set(p.id, semAcento(`${p.nome} ${p.codigo ?? ''} ${p.marca ?? ''}`))
+    const m = new Map<string, { nm: string; cod: string }>()
+    for (const p of produtos) m.set(p.id, { nm: semAcento(`${p.nome} ${p.marca ?? ''}`), cod: semAcento(p.codigo ?? '') })
     return m
   }, [produtos])
   const filtrarProdutos = (termo: string, limite: number) => {
     const palavras = semAcento(termo).split(/\s+/).filter(Boolean)
     if (!palavras.length) return []
     const achados = produtos.filter((p) => {
-      const alvo = indiceNorm.get(p.id) ?? ''
-            return palavras.every((w) => alvo.includes(w)) && saldoNoDeposito(p) > 0
+      const idx = indiceNorm.get(p.id)
+      if (!idx) return false
+      return palavras.every((w) => idx.nm.includes(w) || idx.cod.startsWith(w)) && saldoNoDeposito(p) > 0
     })
     return ordenarPorEstoque(achados).slice(0, limite)
   }
@@ -736,7 +738,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
   // Copiar preços pra mandar orçamento no WhatsApp: as marcadas, ou todas se nenhuma marcada
   const copiarPrecos = async () => {
-    const base = produtos.filter((p) => casaBusca(textoProduto(p), busca)).slice(0, 50)
+    const palavras = semAcento(busca).split(/\s+/).filter(Boolean)
+    const base = produtos.filter((p) => casaProduto(p, palavras)).slice(0, 50)
     const marcadas = base.filter((p) => selCopia.has(p.id))
     const alvo = marcadas.length ? marcadas : base
     const txt = alvo.map((p) => `${p.codigo ? p.codigo + ' - ' : ''}${p.nome} — ${formatBRL(precoDoProduto(p))}`).join('\n')

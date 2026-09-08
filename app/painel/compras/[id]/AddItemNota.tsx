@@ -8,18 +8,20 @@ import { CampoDinheiro } from '@/components/CampoDinheiro'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-// Busca inteligente (igual PDV): sem acento, multi-palavra, em nome + código + marca.
-// "fr a11" acha "FRONTAL ... A11"; "tam" acha "TAMPA".
+// Busca inteligente (igual PDV): sem acento, multi-palavra. Nome+marca por
+// substring, código por PREFIXO (evita "14" pegar código "11148" no meio).
 const semAcento = (s: string) =>
   s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
-const casaBusca = (texto: string, busca: string) => {
-  const t = semAcento(texto)
-  return semAcento(busca).split(/\s+/).filter(Boolean).every((termo) => t.includes(termo))
-}
 
 type Produto = { id: string; nome: string; codigo: string | null; marca: string | null; preco_custo: number | null }
 type Deposito = { id: string; nome: string; loja_id: string | null }
 type Loja = { id: string; nome: string }
+
+const casaProduto = (p: Produto, busca: string) => {
+  const nm = semAcento(`${p.nome} ${p.marca ?? ''}`)
+  const cod = semAcento(p.codigo ?? '')
+  return semAcento(busca).split(/\s+/).filter(Boolean).every((termo) => nm.includes(termo) || cod.startsWith(termo))
+}
 
 export function AddItemNota({ notaId, produtos, depositos, lojas }: {
   notaId: string; produtos: Produto[]; depositos: Deposito[]; lojas: Loja[]
@@ -47,7 +49,7 @@ export function AddItemNota({ notaId, produtos, depositos, lojas }: {
   const filtrados = useMemo(() => {
     const q = busca.trim()
     if (!q || sel) return []
-    return produtos.filter((p) => casaBusca(`${p.nome} ${p.codigo ?? ''} ${p.marca ?? ''}`, q)).slice(0, 8)
+    return produtos.filter((p) => casaProduto(p, q)).slice(0, 8)
   }, [busca, produtos, sel])
 
   const trocarLoja = (id: string) => {
