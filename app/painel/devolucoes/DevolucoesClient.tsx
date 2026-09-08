@@ -702,7 +702,7 @@ export function DevolucoesClient({
                 <div className="space-y-3">
                   <input ref={buscaRef} value={buscaVenda}
                     onChange={(e) => setBuscaVenda(e.target.value)}
-                    placeholder="Nome do cliente ou número da venda..."
+                    placeholder="Nome do cliente, item ou número da venda..."
                     className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   {erro && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{erro}</p>}
                   {carregandoBusca && (
@@ -714,7 +714,7 @@ export function DevolucoesClient({
                     ? <p className="py-8 text-center text-sm text-gray-400">Buscando venda...</p>
                     : vendas.length === 0
                       ? <p className="py-8 text-center text-sm text-gray-400">{
-                          !buscaVenda.trim() ? 'Digite o número da venda ou o nome do cliente.'
+                          !buscaVenda.trim() ? 'Digite o número da venda, o nome do cliente ou o item.'
                           : /^\d+$/.test(buscaVenda.trim()) ? `Venda #${buscaVenda.trim()} não encontrada (ou já foi devolvida).`
                           : 'Nenhuma venda encontrada.'
                         }</p>

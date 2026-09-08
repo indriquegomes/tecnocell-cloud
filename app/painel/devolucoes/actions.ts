@@ -3,6 +3,7 @@
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { logAtividade } from '@/lib/log-atividade'
 import { sincronizarEstoqueML } from '@/lib/mercado-livre'
+import { palavrasBusca, aplicaBusca } from '@/lib/busca-produtos'
 
 export interface ItemVendaParaDevolucao {
   produto_id: string
@@ -181,11 +182,46 @@ export async function buscarVendasRecentes(
   if (/^\d+$/.test(b)) {
     vsel = await supabase.from('vendas').select(sel).eq('status', 'concluida').eq('numero', Number(b)).limit(20)
   } else if (b) {
-    const { data: ps } = await supabase.from('pessoas').select('id').ilike('nome', `%${b}%`).limit(60)
-    const pids = (ps ?? []).map((p) => p.id as string)
-    vsel = pids.length
-      ? await supabase.from('vendas').select(sel).eq('status', 'concluida').in('pessoa_id', pids).order('created_at', { ascending: false }).limit(50)
-      : await supabase.from('vendas').select(sel).eq('status', 'concluida').ilike('vendedor_nome', `%${b}%`).order('created_at', { ascending: false }).limit(50)
+    // Busca por CLIENTE, VENDEDOR ou ITEM (produto) — qualquer um acha a venda.
+    // Antes só cliente/vendedor: pra devolver "a venda do frontal iphone 11" era
+    // preciso lembrar o cliente ou o número da venda.
+    const [pessoasRes, prodsRes] = await Promise.all([
+      supabase.from('pessoas').select('id').ilike('nome', `%${b}%`).limit(60),
+      (() => {
+        const palavras = palavrasBusca(b)
+        if (!palavras.length) return Promise.resolve({ data: [] as { id: string }[] })
+        let q = supabase.from('produtos').select('id').eq('ativo', true)
+        q = aplicaBusca(q, 'busca_norm', palavras)
+        return q.limit(60)
+      })(),
+    ])
+    const pids = ((pessoasRes.data ?? []) as { id: string }[]).map((p) => p.id)
+    const prodIds = ((prodsRes.data ?? []) as { id: string }[]).map((p) => p.id)
+
+    // vendas por item: produto → itens_venda → venda_id
+    let idsItem: string[] = []
+    if (prodIds.length) {
+      const { data: its } = await supabase.from('itens_venda').select('venda_id').in('produto_id', prodIds).limit(500)
+      idsItem = [...new Set(((its ?? []) as { venda_id: string }[]).map((i) => i.venda_id))]
+    }
+
+    // vendas por cliente e por vendedor
+    const [vp, vv] = await Promise.all([
+      pids.length
+        ? supabase.from('vendas').select('id').eq('status', 'concluida').in('pessoa_id', pids).order('created_at', { ascending: false }).limit(50)
+        : Promise.resolve({ data: [] as { id: string }[] }),
+      supabase.from('vendas').select('id').eq('status', 'concluida').ilike('vendedor_nome', `%${b}%`).order('created_at', { ascending: false }).limit(50),
+    ])
+
+    const ids = [...new Set([
+      ...(vp.data ?? []).map((v) => v.id as string),
+      ...idsItem,
+      ...(vv.data ?? []).map((v) => v.id as string),
+    ])].slice(0, 60)
+
+    vsel = ids.length
+      ? await supabase.from('vendas').select(sel).eq('status', 'concluida').in('id', ids).order('created_at', { ascending: false }).limit(50)
+      : { data: [], error: null }
   } else {
     vsel = await supabase.from('vendas').select(sel).eq('status', 'concluida').order('created_at', { ascending: false }).limit(50)
   }
