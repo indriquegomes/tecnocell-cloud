@@ -1193,7 +1193,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     if (!depositoId) { setErro('Selecione a loja/depósito.'); return }
     if (faltamPg > 0.01 && !pagamentos.some((p) => p.forma_id)) { setErro('Selecione a forma de pagamento.'); return }
     if (faltamPg > 0.01) { setErro(`Faltam ${formatBRL(faltamPg)} para cobrir o total da venda.`); return }
-    if (temFiado && !pessoaId) { setErro('Crédito Loja (Fiado) exige cliente selecionado.'); return }
+    if (temFiado && !pessoaId) { setErro('Crédito Loja (A Receber) exige cliente selecionado.'); return }
     if (pagamentos.some((p) => isCartaoForma(p.forma_id) && !p.maquina)) {
       setErro('Selecione a máquina (TON ou Pagbank) para o(s) pagamento(s) em cartão.'); return
     }

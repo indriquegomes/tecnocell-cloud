@@ -6,6 +6,7 @@ import { useActionState, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { labelTipoPagamento } from '@/lib/formas-pagamento'
 import {
   abrirCaixa,
   fecharCaixa,
@@ -214,7 +215,7 @@ function EmCaixaCard({
       bg: 'bg-violet-50/70', cor: 'text-violet-800', valorCor: 'text-violet-700', nota: 'text-violet-600/70', barra: 'border-violet-400' },
     { tipo: 'vale_credito', icone: '🎟️', nome: 'Vale Crédito', valor: v('vale_credito'), conferir: 'saiu do saldo do cliente — não é dinheiro',
       bg: 'bg-pink-50/70', cor: 'text-pink-800', valorCor: 'text-pink-700', nota: 'text-pink-600/70', barra: 'border-pink-400' },
-    { tipo: 'fiado', icone: '🏷️', nome: 'Crédito Loja (fiado)', valor: v('fiado'), conferir: 'é dívida — não é dinheiro',
+    { tipo: 'fiado', icone: '🏷️', nome: labelTipoPagamento('fiado'), valor: v('fiado'), conferir: 'é dívida — não é dinheiro',
       bg: 'bg-orange-50', cor: 'text-orange-800', valorCor: 'text-orange-600', nota: 'text-orange-500', barra: 'border-orange-400' },
     { tipo: 'outros', icone: '💰', nome: 'Outros', valor: outros, conferir: null,
       bg: 'bg-slate-50/70', cor: 'text-slate-700', valorCor: 'text-slate-700', nota: 'text-slate-500', barra: 'border-slate-300' },
@@ -1593,7 +1594,7 @@ export function OperacaoClient({
                                 key={i}
                                 className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${corDoTipo(pg.tipo)}`}
                               >
-                                {iconeDoTipo(pg.tipo)} {pg.nome}
+                                {iconeDoTipo(pg.tipo)} {pg.tipo === 'fiado' ? labelTipoPagamento(pg.tipo) : pg.nome}
                                 {v.pagamentos.length > 1 && <b className="tabular-nums">{fmt(pg.valor)}</b>}
                               </span>
                             ))}
