@@ -179,10 +179,13 @@ export async function buscarVendasRecentes(
   // número → busca exata por `numero`; texto → nome do cliente (resolve os ids em pessoas)
   // com fallback pro vendedor. Vazio → as 50 últimas (lista padrão do modal).
   const b = busca.trim()
+  // 90 dias corridos atrás — limite da busca de devolução pra não varrer os 12
+  // meses inteiros (ficava pesado). As outras telas continuam sem esse limite.
+  const corte = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
   const sel = 'id, numero, total, created_at, vendedor_nome, pessoa_id, pessoas!pessoa_id(nome)'
   let vsel
   if (/^\d+$/.test(b)) {
-    vsel = await supabase.from('vendas').select(sel).eq('status', 'concluida').eq('numero', Number(b)).limit(20)
+    vsel = await supabase.from('vendas').select(sel).eq('status', 'concluida').eq('numero', Number(b)).gte('created_at', corte).limit(20)
   } else if (b) {
     // Busca inteligente: cada palavra pode ser CLIENTE ou ITEM. Se o termo tem
     // palavra que casa com cliente E palavra que casa com item ("otica frontal"),
@@ -200,7 +203,7 @@ export async function buscarVendasRecentes(
     // vendas dos clientes encontrados
     let idsPessoa: string[] = []
     if (pids.length) {
-      const { data: vp } = await supabase.from('vendas').select('id').eq('status', 'concluida').in('pessoa_id', pids).limit(200)
+      const { data: vp } = await supabase.from('vendas').select('id').eq('status', 'concluida').in('pessoa_id', pids).gte('created_at', corte).limit(200)
       idsPessoa = (vp ?? []).map((v) => v.id as string)
     }
 
@@ -235,15 +238,15 @@ export async function buscarVendasRecentes(
         const { data: its } = await supabase.from('itens_venda').select('venda_id').in('produto_id', prodIds).limit(500)
         idsItem = [...new Set(((its ?? []) as { venda_id: string }[]).map((i) => i.venda_id))]
       }
-      const { data: vv } = await supabase.from('vendas').select('id').eq('status', 'concluida').ilike('vendedor_nome', `%${b}%`).limit(50)
+      const { data: vv } = await supabase.from('vendas').select('id').eq('status', 'concluida').ilike('vendedor_nome', `%${b}%`).gte('created_at', corte).limit(50)
       ids = [...new Set([...idsItem, ...((vv ?? []).map((v) => v.id as string))])]
     }
 
     vsel = ids.length
-      ? await supabase.from('vendas').select(sel).eq('status', 'concluida').in('id', ids).order('created_at', { ascending: false }).limit(50)
+      ? await supabase.from('vendas').select(sel).eq('status', 'concluida').in('id', ids).gte('created_at', corte).order('created_at', { ascending: false }).limit(50)
       : { data: [], error: null }
   } else {
-    vsel = await supabase.from('vendas').select(sel).eq('status', 'concluida').order('created_at', { ascending: false }).limit(50)
+    vsel = await supabase.from('vendas').select(sel).eq('status', 'concluida').gte('created_at', corte).order('created_at', { ascending: false }).limit(50)
   }
   const { data, error } = vsel
 
