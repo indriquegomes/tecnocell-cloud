@@ -186,43 +186,58 @@ export async function buscarVendasRecentes(
   } else if (b) {
     // Busca inteligente: cada palavra pode ser CLIENTE ou ITEM. Se o termo tem
     // palavra que casa com cliente E palavra que casa com item ("otica frontal"),
-    // CRUZA os dois (a venda da OTICA com o FRONTAL). Senão, união (cliente OU
-    // item OU vendedor), como sempre.
+    // restringe as vendas DO CLIENTE às que têm aquele item. Senão: cliente OU
+    // item OU vendedor.
     const palavras = palavrasBusca(b)
+
+    // clientes que casam com alguma palavra
     const anyPessoa = palavras.map((w) => `nome_norm.ilike.%${w}%`).join(',')
-    const anyProduto = palavras.map((w) => `busca_norm.ilike.%${w}%`).join(',')
+    const { data: ps } = palavras.length
+      ? await supabase.from('pessoas').select('id').eq('ativo', true).or(anyPessoa).limit(60)
+      : { data: [] as { id: string }[] }
+    const pids = ((ps ?? []) as { id: string }[]).map((p) => p.id)
 
-    const [pessoasRes, prodsRes] = await Promise.all([
-      palavras.length ? supabase.from('pessoas').select('id').eq('ativo', true).or(anyPessoa).limit(60) : Promise.resolve({ data: [] as { id: string }[] }),
-      palavras.length ? supabase.from('produtos').select('id').eq('ativo', true).or(anyProduto).limit(60) : Promise.resolve({ data: [] as { id: string }[] }),
-    ])
-    const pids = ((pessoasRes.data ?? []) as { id: string }[]).map((p) => p.id)
-    const prodIds = ((prodsRes.data ?? []) as { id: string }[]).map((p) => p.id)
-
-    // vendas por item (produto → itens_venda)
-    let idsItem: string[] = []
-    if (prodIds.length) {
-      const { data: its } = await supabase.from('itens_venda').select('venda_id').in('produto_id', prodIds).limit(500)
-      idsItem = [...new Set(((its ?? []) as { venda_id: string }[]).map((i) => i.venda_id))]
-    }
-
-    // vendas por cliente
+    // vendas dos clientes encontrados
     let idsPessoa: string[] = []
     if (pids.length) {
-      const { data: vp } = await supabase.from('vendas').select('id').eq('status', 'concluida').in('pessoa_id', pids).limit(300)
+      const { data: vp } = await supabase.from('vendas').select('id').eq('status', 'concluida').in('pessoa_id', pids).limit(200)
       idsPessoa = (vp ?? []).map((v) => v.id as string)
     }
 
-    // vendedor (fallback de antes)
-    const { data: vv } = await supabase.from('vendas').select('id').eq('status', 'concluida').ilike('vendedor_nome', `%${b}%`).limit(50)
-    const idsVendedor = (vv ?? []).map((v) => v.id as string)
+    // tem palavra que casa com ITEM (produto)?
+    const anyProduto = palavras.map((w) => `busca_norm.ilike.%${w}%`).join(',')
+    const { data: prods } = palavras.length
+      ? await supabase.from('produtos').select('id').eq('ativo', true).or(anyProduto).limit(200)
+      : { data: [] as { id: string }[] }
+    const prodIds = ((prods ?? []) as { id: string }[]).map((p) => p.id)
 
-    // cruza cliente + item quando os dois casaram; senão união
-    const cruzou = idsPessoa.length > 0 && idsItem.length > 0
-    const setItem = new Set(idsItem)
-    const ids = [...new Set(
-      cruzou ? idsPessoa.filter((id) => setItem.has(id)) : [...idsPessoa, ...idsItem, ...idsVendedor],
-    )].slice(0, 60)
+    let ids: string[]
+    if (idsPessoa.length && prodIds.length) {
+      // CLIENTE + ITEM: das vendas do cliente, fica só a que tem item casando.
+      // Busca direta nos itens do cliente — não depende do limite de produtos.
+      const { data: its } = await supabase
+        .from('itens_venda')
+        .select('venda_id, produtos(busca_norm)')
+        .in('venda_id', idsPessoa)
+      const set = new Set<string>()
+      for (const it of (its ?? []) as { venda_id: string; produtos: { busca_norm: string }[] | { busca_norm: string } | null }[]) {
+        const pr = Array.isArray(it.produtos) ? it.produtos[0] : it.produtos
+        const bn = pr?.busca_norm?.toLowerCase() ?? ''
+        if (palavras.some((w) => bn.includes(w))) set.add(it.venda_id)
+      }
+      ids = [...set]
+    } else if (idsPessoa.length) {
+      ids = idsPessoa
+    } else {
+      // sem cliente: item OU vendedor
+      let idsItem: string[] = []
+      if (prodIds.length) {
+        const { data: its } = await supabase.from('itens_venda').select('venda_id').in('produto_id', prodIds).limit(500)
+        idsItem = [...new Set(((its ?? []) as { venda_id: string }[]).map((i) => i.venda_id))]
+      }
+      const { data: vv } = await supabase.from('vendas').select('id').eq('status', 'concluida').ilike('vendedor_nome', `%${b}%`).limit(50)
+      ids = [...new Set([...idsItem, ...((vv ?? []).map((v) => v.id as string))])]
+    }
 
     vsel = ids.length
       ? await supabase.from('vendas').select(sel).eq('status', 'concluida').in('id', ids).order('created_at', { ascending: false }).limit(50)
