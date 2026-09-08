@@ -702,7 +702,7 @@ export function DevolucoesClient({
                 <div className="space-y-3">
                   <input ref={buscaRef} value={buscaVenda}
                     onChange={(e) => setBuscaVenda(e.target.value)}
-                    placeholder="Nome do cliente, item ou número da venda..."
+                    placeholder="Ex: 'otica frontal' (cliente + item) ou nº da venda..."
                     className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   {erro && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{erro}</p>}
                   {carregandoBusca && (

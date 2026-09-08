@@ -3,7 +3,7 @@
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { logAtividade } from '@/lib/log-atividade'
 import { sincronizarEstoqueML } from '@/lib/mercado-livre'
-import { palavrasBusca, aplicaBusca } from '@/lib/busca-produtos'
+import { palavrasBusca } from '@/lib/busca-produtos'
 
 export interface ItemVendaParaDevolucao {
   produto_id: string
@@ -184,42 +184,45 @@ export async function buscarVendasRecentes(
   if (/^\d+$/.test(b)) {
     vsel = await supabase.from('vendas').select(sel).eq('status', 'concluida').eq('numero', Number(b)).limit(20)
   } else if (b) {
-    // Busca por CLIENTE, VENDEDOR ou ITEM (produto) — qualquer um acha a venda.
-    // Antes só cliente/vendedor: pra devolver "a venda do frontal iphone 11" era
-    // preciso lembrar o cliente ou o número da venda.
+    // Busca inteligente: cada palavra pode ser CLIENTE ou ITEM. Se o termo tem
+    // palavra que casa com cliente E palavra que casa com item ("otica frontal"),
+    // CRUZA os dois (a venda da OTICA com o FRONTAL). Senão, união (cliente OU
+    // item OU vendedor), como sempre.
+    const palavras = palavrasBusca(b)
+    const anyPessoa = palavras.map((w) => `nome_norm.ilike.%${w}%`).join(',')
+    const anyProduto = palavras.map((w) => `busca_norm.ilike.%${w}%`).join(',')
+
     const [pessoasRes, prodsRes] = await Promise.all([
-      supabase.from('pessoas').select('id').ilike('nome', `%${b}%`).limit(60),
-      (() => {
-        const palavras = palavrasBusca(b)
-        if (!palavras.length) return Promise.resolve({ data: [] as { id: string }[] })
-        let q = supabase.from('produtos').select('id').eq('ativo', true)
-        q = aplicaBusca(q, 'busca_norm', palavras)
-        return q.limit(60)
-      })(),
+      palavras.length ? supabase.from('pessoas').select('id').eq('ativo', true).or(anyPessoa).limit(60) : Promise.resolve({ data: [] as { id: string }[] }),
+      palavras.length ? supabase.from('produtos').select('id').eq('ativo', true).or(anyProduto).limit(60) : Promise.resolve({ data: [] as { id: string }[] }),
     ])
     const pids = ((pessoasRes.data ?? []) as { id: string }[]).map((p) => p.id)
     const prodIds = ((prodsRes.data ?? []) as { id: string }[]).map((p) => p.id)
 
-    // vendas por item: produto → itens_venda → venda_id
+    // vendas por item (produto → itens_venda)
     let idsItem: string[] = []
     if (prodIds.length) {
       const { data: its } = await supabase.from('itens_venda').select('venda_id').in('produto_id', prodIds).limit(500)
       idsItem = [...new Set(((its ?? []) as { venda_id: string }[]).map((i) => i.venda_id))]
     }
 
-    // vendas por cliente e por vendedor
-    const [vp, vv] = await Promise.all([
-      pids.length
-        ? supabase.from('vendas').select('id').eq('status', 'concluida').in('pessoa_id', pids).order('created_at', { ascending: false }).limit(50)
-        : Promise.resolve({ data: [] as { id: string }[] }),
-      supabase.from('vendas').select('id').eq('status', 'concluida').ilike('vendedor_nome', `%${b}%`).order('created_at', { ascending: false }).limit(50),
-    ])
+    // vendas por cliente
+    let idsPessoa: string[] = []
+    if (pids.length) {
+      const { data: vp } = await supabase.from('vendas').select('id').eq('status', 'concluida').in('pessoa_id', pids).limit(300)
+      idsPessoa = (vp ?? []).map((v) => v.id as string)
+    }
 
-    const ids = [...new Set([
-      ...(vp.data ?? []).map((v) => v.id as string),
-      ...idsItem,
-      ...(vv.data ?? []).map((v) => v.id as string),
-    ])].slice(0, 60)
+    // vendedor (fallback de antes)
+    const { data: vv } = await supabase.from('vendas').select('id').eq('status', 'concluida').ilike('vendedor_nome', `%${b}%`).limit(50)
+    const idsVendedor = (vv ?? []).map((v) => v.id as string)
+
+    // cruza cliente + item quando os dois casaram; senão união
+    const cruzou = idsPessoa.length > 0 && idsItem.length > 0
+    const setItem = new Set(idsItem)
+    const ids = [...new Set(
+      cruzou ? idsPessoa.filter((id) => setItem.has(id)) : [...idsPessoa, ...idsItem, ...idsVendedor],
+    )].slice(0, 60)
 
     vsel = ids.length
       ? await supabase.from('vendas').select(sel).eq('status', 'concluida').in('id', ids).order('created_at', { ascending: false }).limit(50)
