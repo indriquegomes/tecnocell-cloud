@@ -31,6 +31,29 @@ export async function buscarProdutosEstoque(
     .map((p) => ({ ...p, controla_serie: p.controla_serie ?? false, ean: p.ean ?? null, preco: Number(p.preco) || 0 }))
 }
 
+// Sugestão de PRODUTO pro filtro do histórico: label = "código - nome" (pro
+// operador identificar), value = nome (o filtro casa por substring no nome).
+export async function buscarProdutosFiltro(accessToken: string, termo: string): Promise<{ label: string; value: string }[]> {
+  const prods = await buscarProdutosEstoque(accessToken, termo)
+  return prods.map((p) => ({ label: p.codigo ? `${p.codigo} - ${p.nome}` : p.nome, value: p.nome }))
+}
+
+// Sugestão de CLIENTE/FORNECEDOR pro filtro do histórico. Mesma busca por
+// nome_norm do financeiro, mas exige só permissão de estoque (é filtro de estoque).
+export async function buscarPessoasFiltro(accessToken: string, termo: string): Promise<{ label: string; value: string }[]> {
+  await requirePermissao('estoque', accessToken)
+  const raw = termo.trim()
+  if (raw.length < 1) return []
+  const supabase = await createServiceClient()
+  const semAcento = raw.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
+  const palavras = semAcento.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)
+  if (palavras.length === 0) return []
+  let q = supabase.from('pessoas').select('id, nome').eq('ativo', true)
+  for (const w of palavras) q = q.ilike('nome_norm', `%${w}%`)
+  const { data } = await q.order('nome').limit(15)
+  return ((data ?? []) as { id: string; nome: string }[]).map((p) => ({ label: p.nome, value: p.nome }))
+}
+
 export async function registrarMovimento(formData: FormData) {
   const user = await requirePermissao('estoque')
   const supabase = await createServiceClient()

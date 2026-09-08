@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { ColunasToggler } from './ColunasToggler'
 import { NovaMovimentacaoForm } from './NovaMovimentacaoForm'
 import { Dica } from '@/components/Dica'
+import { BuscaSugestao } from '@/components/BuscaSugestao'
+import { buscarProdutosFiltro, buscarPessoasFiltro } from '../actions'
 
 type Tipo = 'venda' | 'devolucao' | 'entrada' | 'saida' | 'ajuste' | 'perda' | 'troca'
 
@@ -396,12 +398,14 @@ export default async function MovimentacoesPage({
           <div className="flex flex-wrap gap-3 px-4 pb-4 pt-3 items-end">
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-500">Produto</label>
-              <input name="produto" defaultValue={params.produto ?? ''} placeholder="Nome do produto..."
+              <BuscaSugestao name="produto" defaultValue={params.produto ?? ''} placeholder="Nome do produto..."
+                buscar={buscarProdutosFiltro}
                 className="w-52 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-500">Cliente / Fornecedor</label>
-              <input name="cliente" defaultValue={params.cliente ?? ''} placeholder="Nome do cliente..."
+              <BuscaSugestao name="cliente" defaultValue={params.cliente ?? ''} placeholder="Nome do cliente..."
+                buscar={buscarPessoasFiltro}
                 className="w-52 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
