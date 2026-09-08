@@ -691,7 +691,9 @@ export async function buscarCupomVenda(accessToken: string, vendaId: string): Pr
 // Resolve em qual conta o dinheiro do fiado recebido cai, a partir do texto da forma
 // (ex: 'dinheiro' → forma "Dinheiro" → conta_destino_id). Assim o saldo da conta é atualizado.
 async function contaDaFormaTexto(supabase: Awaited<ReturnType<typeof createServiceClient>>, texto: string, lojaId?: string | null): Promise<string | null> {
-  const t = (texto || '').trim().toLowerCase()
+  // A forma pode vir com sufixo de parcelas ("Crédito TON 3x") — a conta é a da
+  // forma, não importa o nº de parcelas. Tira o " Nx" antes de casar.
+  const t = (texto || '').trim().toLowerCase().replace(/\s+\d+x$/, '')
   if (!t) return null
   const { data } = await supabase.from('formas_pagamento').select('nome, tipo, conta_destino_id')
   const f = (data ?? []).find((x) => (x.nome ?? '').toLowerCase() === t || (x.tipo ?? '').toLowerCase() === t)

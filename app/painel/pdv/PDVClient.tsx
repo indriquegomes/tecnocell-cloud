@@ -3527,7 +3527,12 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                   const ehCred = sel?.tipo === 'cartao_credito'
                   const valorNum = parseFloat((valorRecebido || '').replace(',', '.')) || 0
                   const pct = !maq ? 0 : ehDeb ? maq.taxa_debito : ehCred ? (maq.taxas_credito[parcelasRecebimento - 1] ?? 0) : 0
-                  const taxaV = Math.round(valorNum * pct) / 100
+                  // Taxa cobrada DO CLIENTE (gross-up): a máquina cobra X, fica com a
+                  // taxa e manda o valor digitado (líquido) pra conta. Ex.: dívida
+                  // 60,80 + 5% → passar 64 na máquina, cai 60,80 na conta.
+                  const pctDec = pct / 100
+                  const cobrar = pctDec > 0 ? Math.round((valorNum / (1 - pctDec)) * 100) / 100 : valorNum
+                  const taxaV = Math.round((cobrar - valorNum) * 100) / 100
                   return (
                     <>
                       {ehCred && maq && (
@@ -3543,8 +3548,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                       )}
                       {(ehDeb || ehCred) && pct > 0 && valorNum > 0 && (
                         <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                          Taxa {maq?.nome} {pct}% = −{formatBRL(taxaV)} · você recebe líquido <b className="tabular-nums">{formatBRL(valorNum - taxaV)}</b>
-                          <span className="mt-0.5 block text-[11px] text-amber-600/80">(a dívida abate o valor cheio; a taxa é o custo da maquininha)</span>
+                          Taxa {maq?.nome} {pct}% cobrada do cliente: passar <b className="tabular-nums">{formatBRL(cobrar)}</b> na máquina → cai <b className="tabular-nums">{formatBRL(valorNum)}</b> na conta
+                          <span className="mt-0.5 block text-[11px] text-amber-600/80">(a taxa não entra no caixa — a máquina já desconta e manda o líquido)</span>
                         </p>
                       )}
                     </>

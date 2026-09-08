@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-// @ts-expect-error Node executa TypeScript nativamente neste teste.
 import { montarMensagemCobranca, pecasRestantesPorVenda } from '../lib/cobranca-fiado.ts'
 
 test('omite item totalmente devolvido e reduz devolução parcial', () => {
