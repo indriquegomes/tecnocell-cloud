@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { formatBRL, hojeSP } from '@/lib/utils'
-import { formaFoiEscolhida, labelPrazo } from '@/lib/formas-pagamento'
+import { formaFoiEscolhida, labelPrazo, labelTipoPagamento } from '@/lib/formas-pagamento'
 import { createClient } from '@/lib/supabase/client'
 import { Spinner } from '@/components/Spinner'
 import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, carregarClientesPDV, buscarFiadoCliente, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, registrarPagamentoMisto, registrarPagamentoValeCredito, aplicarDescontoCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
@@ -1034,7 +1034,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const total = subtotal - descontoManualItens - descontoNum - descontoPromo
 
   // Helpers por forma de pagamento — o comportamento vem do TIPO, não do nome
-  const nomeDaForma = (id: string) => formas.find((f) => f.id === id)?.nome ?? ''
+  const nomeDaForma = (id: string) => {
+    const forma = formas.find((f) => f.id === id)
+    return forma?.tipo === 'fiado' ? labelTipoPagamento(forma.tipo) : forma?.nome ?? ''
+  }
   const tipoDaForma = (id: string) => formas.find((f) => f.id === id)?.tipo ?? ''
   const isCartaoForma = (id: string) => ['cartao_credito', 'cartao_debito'].includes(tipoDaForma(id))
   const isCreditoForma = (id: string) => tipoDaForma(id) === 'cartao_credito'
@@ -2759,7 +2762,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                           className={`flex-1 rounded-lg border bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${p.forma_id ? 'border-gray-200' : 'border-amber-400 text-amber-700'}`}
                         >
                           <option value="" disabled>Selecione a forma…</option>
-                          {formasVisiveis.map((f) => <option key={f.id} value={f.id}>{iconeForma(f.nome)} {f.nome}</option>)}
+                          {formasVisiveis.map((f) => <option key={f.id} value={f.id}>{iconeForma(f.nome)} {f.tipo === 'fiado' ? labelTipoPagamento(f.tipo) : f.nome}</option>)}
                         </select>
                       ) : (
                         <span className="flex flex-1 items-center gap-1.5 text-sm font-semibold text-gray-700">
