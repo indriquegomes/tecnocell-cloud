@@ -1,7 +1,20 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 // @ts-expect-error Node executa TypeScript nativamente neste teste.
-import { montarMensagemCobranca } from '../lib/cobranca-fiado.ts'
+import { montarMensagemCobranca, pecasRestantesPorVenda } from '../lib/cobranca-fiado.ts'
+
+test('omite item totalmente devolvido e reduz devolução parcial', () => {
+  const resultado = pecasRestantesPorVenda([
+    { venda_id: 'v1', produto_id: 'p1', nome: 'Tela A', quantidade: 1 },
+    { venda_id: 'v1', produto_id: 'p2', nome: 'Tela B', quantidade: 3 },
+    { venda_id: 'v1', produto_id: 'p3', nome: 'Tela C', quantidade: 1 },
+  ], [
+    { venda_id: 'v1', produto_id: 'p1', quantidade: 1 },
+    { venda_id: 'v1', produto_id: 'p2', quantidade: 1 },
+  ])
+
+  assert.deepEqual(resultado.get('v1'), ['2x Tela B', 'Tela C'])
+})
 
 test('monta cobrança curta com período, peças e código', () => {
   const texto = montarMensagemCobranca({

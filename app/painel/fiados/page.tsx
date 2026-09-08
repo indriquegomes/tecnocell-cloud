@@ -1,6 +1,7 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
+import { pecasRestantesPorVenda } from '@/lib/cobranca-fiado'
 import { FiadosClient } from './FiadosClient'
 
 const semAcento = (s: string) =>
@@ -42,17 +43,27 @@ export default async function FiadosPage() {
   const caixaPorVenda = new Map<string, string>()
   for (let i = 0; i < vendaIds.length; i += 100) {
     const lote = vendaIds.slice(i, i + 100)
-    const [{ data: itens }, { data: vendas }] = await Promise.all([
-      supabase.from('itens_venda').select('venda_id, quantidade, produtos(nome)').in('venda_id', lote),
+    const [{ data: itens }, { data: vendas }, { data: devolucoes }] = await Promise.all([
+      supabase.from('itens_venda').select('venda_id, produto_id, quantidade, produtos(nome)').in('venda_id', lote),
       supabase.from('vendas').select('id, vendedor_nome, caixa_id').in('id', lote),
+      supabase.from('devolucoes').select('venda_id, itens_devolucao(produto_id, quantidade)').in('venda_id', lote),
     ])
-    for (const it of (itens ?? []) as { venda_id: string; quantidade: number; produtos: { nome: string }[] | { nome: string } | null }[]) {
+    const vendidos: { venda_id: string; produto_id: string; nome: string; quantidade: number }[] = []
+    for (const it of (itens ?? []) as { venda_id: string; produto_id: string; quantidade: number; produtos: { nome: string }[] | { nome: string } | null }[]) {
       const prod = Array.isArray(it.produtos) ? it.produtos[0] : it.produtos
       const nome = prod?.nome?.trim()
       if (!nome) continue
-      const arr = pecasPorVenda.get(it.venda_id) ?? []
-      arr.push(it.quantidade > 1 ? `${it.quantidade}x ${nome}` : nome)
-      pecasPorVenda.set(it.venda_id, arr)
+      vendidos.push({ venda_id: it.venda_id, produto_id: it.produto_id, nome, quantidade: it.quantidade })
+    }
+    const devolvidos = (devolucoes ?? []).flatMap((d) =>
+      (d.itens_devolucao ?? []).map((item) => ({
+        venda_id: d.venda_id,
+        produto_id: item.produto_id,
+        quantidade: item.quantidade,
+      })),
+    )
+    for (const [vendaId, pecas] of pecasRestantesPorVenda(vendidos, devolvidos)) {
+      pecasPorVenda.set(vendaId, pecas)
     }
     for (const v of (vendas ?? []) as { id: string; vendedor_nome: string | null; caixa_id: string | null }[]) {
       vendedorPorVenda.set(v.id, v.vendedor_nome?.trim() || 'Sem vendedor')

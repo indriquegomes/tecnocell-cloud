@@ -12,6 +12,43 @@ type ClienteCobranca = {
   notas: NotaCobranca[]
 }
 
+type ItemVendaCobranca = {
+  venda_id: string
+  produto_id: string
+  nome: string
+  quantidade: number
+}
+
+type ItemDevolvidoCobranca = Omit<ItemVendaCobranca, 'nome'>
+
+export function pecasRestantesPorVenda(
+  vendidos: ItemVendaCobranca[],
+  devolvidos: ItemDevolvidoCobranca[],
+): Map<string, string[]> {
+  const devolvidoPorItem = new Map<string, number>()
+  for (const item of devolvidos) {
+    const chave = `${item.venda_id}\0${item.produto_id}`
+    devolvidoPorItem.set(chave, (devolvidoPorItem.get(chave) ?? 0) + Number(item.quantidade))
+  }
+
+  const vendidoPorItem = new Map<string, ItemVendaCobranca>()
+  for (const item of vendidos) {
+    const chave = `${item.venda_id}\0${item.produto_id}`
+    const atual = vendidoPorItem.get(chave)
+    vendidoPorItem.set(chave, { ...item, quantidade: (atual?.quantidade ?? 0) + Number(item.quantidade) })
+  }
+
+  const resultado = new Map<string, string[]>()
+  for (const [chave, item] of vendidoPorItem) {
+    const quantidade = Math.max(item.quantidade - (devolvidoPorItem.get(chave) ?? 0), 0)
+    if (quantidade <= 0.001) continue
+    const pecas = resultado.get(item.venda_id) ?? []
+    pecas.push(quantidade > 1 ? `${quantidade}x ${item.nome}` : item.nome)
+    resultado.set(item.venda_id, pecas)
+  }
+  return resultado
+}
+
 const dinheiro = (valor: number) =>
   valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }).replace(/\u00a0/g, ' ')
 
