@@ -723,8 +723,11 @@ export function DevolucoesClient({
                           {vendas.map((v) => (
                             <button key={v.id} onClick={() => selecionarVenda(v.id)} disabled={carregandoVenda}
                               className="flex w-full items-center justify-between px-4 py-3 text-sm hover:bg-blue-50 transition text-left disabled:opacity-50">
-                              <div>
+                              <div className="min-w-0 flex-1">
                                 <p className="font-semibold text-gray-900">{nVendaLabel(v)}</p>
+                                {v.itens?.length > 0 && (
+                                  <p className="mt-0.5 truncate text-xs text-gray-500">{v.itens.join(' · ')}</p>
+                                )}
                                 <p className="text-xs text-gray-400 mt-0.5">{fmtDt(v.created_at)}</p>
                               </div>
                               <span className="font-bold text-gray-800 ml-4 shrink-0">{fmt(v.total)}</span>

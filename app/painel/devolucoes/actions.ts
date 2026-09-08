@@ -56,6 +56,8 @@ export interface VendaResumo {
   pessoa_nome: string | null
   total: number
   created_at: string
+  /** nomes dos produtos da venda — pra busca por item mostrar o que cada venda tem */
+  itens: string[]
 }
 
 export async function buscarVendaParaDevolucao(
@@ -250,15 +252,30 @@ export async function buscarVendasRecentes(
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rows = (data ?? [])
+  const sobreviventes = (data ?? [])
     .filter((v: any) => (devolvidoPorVenda[v.id] ?? 0) < ((v.total as number) - (taxaPorVenda[v.id] ?? 0)) - 0.01)
-    .map((v: any) => ({
-      id: v.id as string,
-      numero: v.numero as number | null,
-      pessoa_nome: (v.pessoas?.nome ?? v.vendedor_nome ?? null) as string | null,
-      total: v.total as number,
-      created_at: v.created_at as string,
-    }))
+
+  // Nomes dos produtos de cada venda — a busca por item precisa mostrar O QUE a
+  // venda tem (junto do cliente) pra operadora achar a venda certa sem abrir uma a uma.
+  const itensPorVenda: Record<string, string[]> = {}
+  const sobrevIds = sobreviventes.map((v: any) => v.id as string)
+  if (sobrevIds.length) {
+    const { data: its } = await supabase.from('itens_venda').select('venda_id, produtos(nome)').in('venda_id', sobrevIds)
+    for (const it of (its ?? []) as { venda_id: string; produtos: { nome: string }[] | { nome: string } | null }[]) {
+      const prod = Array.isArray(it.produtos) ? it.produtos[0] : it.produtos
+      const nome = prod?.nome
+      if (nome) (itensPorVenda[it.venda_id] ??= []).push(nome)
+    }
+  }
+
+  const rows = sobreviventes.map((v: any) => ({
+    id: v.id as string,
+    numero: v.numero as number | null,
+    pessoa_nome: (v.pessoas?.nome ?? v.vendedor_nome ?? null) as string | null,
+    total: v.total as number,
+    created_at: v.created_at as string,
+    itens: itensPorVenda[v.id as string] ?? [],
+  }))
 
   return rows
 }
