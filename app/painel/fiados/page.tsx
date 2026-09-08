@@ -128,15 +128,17 @@ export default async function FiadosPage() {
   // a mensagem simplesmente sai sem o Pix, como era antes.
   const { data: contasPix } = await supabase
     .from('contas')
-    .select('nome, chave_pix, titular, loja_id')
+    .select('id, nome, chave_pix, titular, loja_id')
     .eq('ativa', true)
     .not('chave_pix', 'is', null)
   const pixPorLoja: Record<string, { chave: string; titular: string | null }> = {}
-  for (const c of (contasPix ?? []) as { chave_pix: string | null; titular: string | null; loja_id: string | null }[]) {
+  const pixContas: { id: string; nome: string; loja: string; chave: string; titular: string | null }[] = []
+  for (const c of (contasPix ?? []) as { id: string; nome: string; chave_pix: string | null; titular: string | null; loja_id: string | null }[]) {
     if (!c.chave_pix) continue
     const nomeDaLoja = c.loja_id ? (todasLojas.find((l) => l.id === c.loja_id)?.nome ?? '') : ''
     const k = nomeDaLoja || '__geral__'
     if (!(k in pixPorLoja)) pixPorLoja[k] = { chave: c.chave_pix, titular: c.titular }
+    pixContas.push({ id: c.id, nome: c.nome, loja: nomeDaLoja || 'Geral', chave: c.chave_pix, titular: c.titular })
   }
 
   return (
@@ -147,6 +149,7 @@ export default async function FiadosPage() {
       vendedores={vendedores}
       lojas={nomesPermitidos}
       pixPorLoja={pixPorLoja}
+      pixContas={pixContas}
     />
   )
 }

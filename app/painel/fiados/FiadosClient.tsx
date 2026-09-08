@@ -5,6 +5,8 @@ import { BuscaAvancada } from '@/components/BuscaAvancada'
 import { montarMensagemCobranca } from '@/lib/cobranca-fiado'
 import { hojeSP } from '@/lib/utils'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { atualizarChavePix } from './actions'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const semAcento = (s: string) =>
@@ -51,6 +53,7 @@ export function FiadosClient({
   vendedores,
   lojas,
   pixPorLoja = {},
+  pixContas = [],
 }: {
   clientes: Cliente[]
   totalReceber: number
@@ -59,6 +62,8 @@ export function FiadosClient({
   lojas: string[]
   /** Pix de cada loja (da conta), pra sair na cobranca do cliente */
   pixPorLoja?: Record<string, Pix>
+  /** Contas com chave Pix (id + loja + chave) pra edição rápida na tela */
+  pixContas?: { id: string; nome: string; loja: string; chave: string; titular: string | null }[]
 }) {
   const [busca, setBusca] = useState('')
   const [vendedorSel, setVendedorSel] = useState('')   // '' = todos
@@ -66,6 +71,26 @@ export function FiadosClient({
   const [copiado, setCopiado] = useState<string | null>(null)
   const [aberto, setAberto] = useState<string | null>(null)
   const [ordem, setOrdem] = useState<'nome' | 'total'>('nome')   // Isa: padrão alfabético
+
+  // Edição rápida da chave Pix (sem sair da tela de Fiados)
+  const router = useRouter()
+  const [pixEdit, setPixEdit] = useState<string | null>(null)
+  const [pixChave, setPixChave] = useState('')
+  const [pixTitular, setPixTitular] = useState('')
+  const [pixSalvando, setPixSalvando] = useState(false)
+  const [pixErro, setPixErro] = useState<string | null>(null)
+
+  const abrirPix = (px: { id: string; chave: string; titular: string | null }) => {
+    setPixEdit(px.id); setPixChave(px.chave); setPixTitular(px.titular ?? ''); setPixErro(null)
+  }
+  const salvarPix = async () => {
+    setPixSalvando(true); setPixErro(null)
+    const r = await atualizarChavePix(pixEdit!, pixChave, pixTitular)
+    setPixSalvando(false)
+    if (r && 'erro' in r && r.erro) { setPixErro(r.erro); return }
+    setPixEdit(null)
+    router.refresh()
+  }
 
   // Filtro "quem vendeu": refaz as notas e os totais de cada cliente só com a
   // conta escolhida. Assim a atendente vê (e cobra) só os fiados dela — e as vendas
@@ -133,6 +158,56 @@ export function FiadosClient({
           <p className="text-xs font-semibold uppercase text-gray-400">Clientes devendo</p>
           <p className="mt-1 text-xl font-bold text-gray-800 tabular-nums">{clientesVend.length}</p>
         </div>
+      </div>
+
+      {/* Chave Pix da cobrança — edição rápida, sem sair da tela */}
+      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase text-gray-400">Chave PIX da cobrança</p>
+            {pixContas.length === 0 ? (
+              <p className="mt-1 text-sm text-gray-400">Nenhuma chave cadastrada. Cadastre em Contas.</p>
+            ) : (
+              <div className="mt-1 space-y-1">
+                {pixContas.map((px) => (
+                  <div key={px.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                    <span className="font-medium text-gray-400">{px.loja}</span>
+                    <span className="font-semibold text-gray-800 tabular-nums">{px.chave}</span>
+                    {px.titular && <span className="text-gray-400">· {px.titular}</span>}
+                    <button type="button" onClick={() => abrirPix(px)}
+                      className="ml-1 rounded-lg border border-gray-200 px-2 py-0.5 text-xs font-semibold text-[#1B6CA8] hover:bg-blue-50 transition">
+                      ✏️ Editar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {pixEdit && (
+          <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="flex-1 min-w-48">
+                <label className="mb-1 block text-xs font-medium text-gray-600">Chave Pix</label>
+                <input value={pixChave} onChange={(e) => setPixChave(e.target.value)} className="field" placeholder="Telefone, CPF, e-mail ou aleatória" />
+              </div>
+              <div className="flex-1 min-w-48">
+                <label className="mb-1 block text-xs font-medium text-gray-600">Titular</label>
+                <input value={pixTitular} onChange={(e) => setPixTitular(e.target.value)} className="field" placeholder="Nome que o cliente vê" />
+              </div>
+              <button type="button" onClick={salvarPix} disabled={pixSalvando}
+                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition">
+                {pixSalvando ? 'Salvando...' : 'Salvar'}
+              </button>
+              <button type="button" onClick={() => setPixEdit(null)}
+                className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+                Cancelar
+              </button>
+            </div>
+            {pixErro && <p className="text-sm text-rose-600">{pixErro}</p>}
+          </div>
+        )}
       </div>
 
       {/* Busca principal */}
