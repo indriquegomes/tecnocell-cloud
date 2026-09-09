@@ -14,6 +14,7 @@ export interface Lembrete {
   ativo: boolean
   tipo: string          // 'rotina' | 'pagamento'
   valor: number | null  // reais, só pra 'pagamento'
+  chave_pix: string | null
 }
 
 export interface LembretePendente {
@@ -23,6 +24,9 @@ export interface LembretePendente {
   hora: string          // "18:30"
   minutosDesde: number  // quanto passou da hora
   atrasado: boolean     // mais de 1h
+  tipo: string          // 'rotina' | 'pagamento'
+  valor: number | null
+  chave_pix: string | null
 }
 
 export interface LembreteFeito {
@@ -82,6 +86,9 @@ export function pendentesDeHoje(
         hora: hhmm(l.hora),
         minutosDesde: passou,
         atrasado: passou >= 60,
+        tipo: l.tipo ?? 'rotina',
+        valor: l.valor ?? null,
+        chave_pix: l.chave_pix ?? null,
       }
     })
     // só aparece DEPOIS da hora — antes disso não é lembrete, é agenda

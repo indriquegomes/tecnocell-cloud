@@ -32,6 +32,7 @@ export async function salvarLembrete(_prev: ActionState, fd: FormData): Promise<
     const tipo = ((fd.get('tipo') as string) ?? 'rotina').trim() || 'rotina'
     const valorRaw = ((fd.get('valor') as string) ?? '').trim()
     const valor = tipo === 'pagamento' && valorRaw ? (Number(valorRaw) || 0) : null
+    const chave_pix = tipo === 'pagamento' ? (((fd.get('chave_pix') as string) ?? '').trim() || null) : null
 
     const supabase = await createServiceClient()
     const id = (fd.get('id') as string) || null
@@ -44,6 +45,7 @@ export async function salvarLembrete(_prev: ActionState, fd: FormData): Promise<
       dias,
       tipo,
       valor,
+      chave_pix,
       // hidden + checkbox: getAll().includes('1') — o get() pegaria sempre o hidden
       ativo: fd.getAll('ativo').includes('1'),
       updated_at: new Date().toISOString(),
@@ -89,4 +91,37 @@ export async function marcarFeito(accessToken: string, lembreteId: string): Prom
   })
   if (error) throw new Error(error.message)
   revalidatePath('/painel', 'layout')
+}
+
+// Pagamento recorrente: marcar como feito exige anexar o comprovante. A imagem vai
+// pro bucket PRIVADO `pagamentos` e o caminho fica gravado no feito — só some depois
+// de pagar e provar. Mesmo padrão de upload do clientes/actions.ts.
+const EXT_COMPROVANTE: Record<string, string> = {
+  'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif',
+}
+
+export async function marcarPagamentoFeito(accessToken: string, lembreteId: string, file: File | null): Promise<void> {
+  const usuario = await requireAuth(accessToken)
+  if (!file || file.size === 0) throw new Error('Anexe o comprovante do pagamento.')
+  const ext = EXT_COMPROVANTE[file.type]
+  if (!ext) throw new Error('Envie uma imagem (JPG, PNG, WEBP ou GIF).')
+
+  const supabase = await createServiceClient()
+  const path = `pagamentos/${lembreteId}/${hojeSP().data}.${ext}`
+  const buffer = Buffer.from(await file.arrayBuffer())
+  const { error: upErr } = await supabase.storage.from('pagamentos').upload(path, buffer, {
+    contentType: file.type,
+    upsert: true,
+  })
+  if (upErr) throw new Error(upErr.message)
+
+  const { error } = await supabase.rpc('marcar_lembrete_feito', {
+    p_lembrete_id: lembreteId,
+    p_perfil_id: usuario.id,
+    p_data: hojeSP().data,
+    p_comprovante_url: path,
+  })
+  if (error) throw new Error(error.message)
+  revalidatePath('/painel', 'layout')
+  revalidatePath('/painel/lembretes')
 }

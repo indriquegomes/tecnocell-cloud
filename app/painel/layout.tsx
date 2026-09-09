@@ -85,7 +85,7 @@ export default async function PainelLayout({ children }: { children: React.React
         podePdv ? supabase.from('caixas').select('id, aberto_em, loja_id').eq('status', 'aberto') : Promise.resolve({ data: [] }),
         podePdv ? supabase.from('configuracoes').select('valor').eq('chave', 'pdv').maybeSingle() : Promise.resolve({ data: null }),
         podePdv ? supabase.from('lojas').select('id, nome') : Promise.resolve({ data: [] }),
-        supabase.from('lembretes').select('id, titulo, descricao, perfil_id, cargo_id, hora, dias, ativo').eq('ativo', true),
+        supabase.from('lembretes').select('id, titulo, descricao, perfil_id, cargo_id, hora, dias, ativo, tipo, valor, chave_pix').eq('ativo', true),
         supabase.from('lembretes_feitos').select('lembrete_id, perfil_id, feito_em').eq('data', hoje),
         supabase.from('integracoes_mercado_livre_perguntas').select('*', { count: 'exact', head: true }).eq('respondida', false),
         supabase.from('integracoes_mercado_livre_mensagens').select('*', { count: 'exact', head: true }).eq('lida', false).eq('autor', 'comprador'),

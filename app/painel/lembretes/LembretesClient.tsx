@@ -25,9 +25,10 @@ interface Lembrete {
   ativo: boolean
   tipo: string
   valor: number | null
+  chave_pix: string | null
 }
 interface Pessoa { id: string; nome: string }
-interface Feito { lembrete_id: string; perfil_id: string | null; feito_em: string }
+interface Feito { lembrete_id: string; perfil_id: string | null; feito_em: string; comprovante_url?: string | null }
 
 const hhmm = (h: string) => (h ?? '').slice(0, 5)
 const DIAS_UTEIS = [1, 2, 3, 4, 5, 6]
@@ -113,6 +114,7 @@ export function LembretesClient({
                       <p className="font-semibold text-gray-800">{l.titulo}</p>
                       {l.descricao && <p className="text-xs text-gray-400">{l.descricao}</p>}
                       {l.tipo === 'pagamento' && l.valor != null && <p className="text-xs font-semibold text-emerald-600">{formatBRL(l.valor)}</p>}
+                      {l.tipo === 'pagamento' && l.chave_pix && <p className="text-xs text-gray-400">PIX: {l.chave_pix}</p>}
                       {!l.ativo && <span className="mt-1 inline-block rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500">pausado</span>}
                     </td>
                     <td className="px-4 py-3 text-gray-600">{paraQuem(l)}</td>
@@ -134,6 +136,10 @@ export function LembretesClient({
                           <span className="ml-1 font-normal text-gray-400">
                             {new Date(f.feito_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })}
                           </span>
+                          {f.comprovante_url && (
+                            <a href={f.comprovante_url} target="_blank" rel="noreferrer"
+                              className="ml-1 font-normal text-blue-600 underline" title="Ver comprovante">📎</a>
+                          )}
                         </span>
                       ) : (
                         <span className="text-xs text-gray-300">—</span>
@@ -242,6 +248,14 @@ function Formulario({
             </div>
           )}
         </div>
+
+        {tipo === 'pagamento' && (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Chave PIX (pra copiar na hora de pagar)</label>
+            <input name="chave_pix" defaultValue={lembrete?.chave_pix ?? ''}
+              placeholder="Ex: CPF, e-mail ou telefone do recebedor" className="field" />
+          </div>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>

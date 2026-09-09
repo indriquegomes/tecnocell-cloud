@@ -11,15 +11,23 @@ export default async function LembretesPage() {
     supabase.from('perfis').select('id, nome').eq('ativo', true).order('nome'),
     supabase.from('cargos').select('id, nome').order('nome'),
     // últimos 7 dias — pra ver quem vem fazendo (e quem não)
-    supabase.from('lembretes_feitos').select('lembrete_id, perfil_id, feito_em, data').gte('data', hoje),
+    supabase.from('lembretes_feitos').select('lembrete_id, perfil_id, feito_em, data, comprovante_url').gte('data', hoje),
   ])
+
+  // comprovante do pagamento fica no bucket privado `pagamentos` — troca o caminho
+  // por uma URL assinada (válida 1h) pra abrir no navegador.
+  const feitos = await Promise.all((feitosRes.data ?? []).map(async (f) => {
+    if (!f.comprovante_url) return f
+    const { data } = await supabase.storage.from('pagamentos').createSignedUrl(f.comprovante_url, 3600)
+    return { ...f, comprovante_url: data?.signedUrl ?? f.comprovante_url }
+  }))
 
   return (
     <LembretesClient
       lembretes={lembretesRes.data ?? []}
       perfis={perfisRes.data ?? []}
       cargos={cargosRes.data ?? []}
-      feitosHoje={feitosRes.data ?? []}
+      feitosHoje={feitos}
     />
   )
 }

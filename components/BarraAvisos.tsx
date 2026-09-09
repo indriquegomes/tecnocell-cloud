@@ -4,7 +4,8 @@ import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { marcarFeito } from '@/app/painel/lembretes/actions'
+import { marcarFeito, marcarPagamentoFeito } from '@/app/painel/lembretes/actions'
+import { formatBRL } from '@/lib/utils'
 import type { Lembrete as LembreteCaixa } from '@/lib/lembrete-caixa'
 import type { LembretePendente } from '@/lib/lembretes'
 
@@ -24,6 +25,7 @@ export function BarraAvisos({
   rotinas?: LembretePendente[]
 }) {
   const [dispensados, setDispensados] = useState<Set<string>>(new Set())
+  const [subindo, setSubindo] = useState<string | null>(null)
   const [pendente, startTransition] = useTransition()
   const router = useRouter()
 
@@ -39,6 +41,22 @@ export function BarraAvisos({
       await marcarFeito(data.session?.access_token ?? '', id)
       dispensar(id)
       router.refresh()
+    })
+  }
+
+  const pagar = (id: string, file: File) => {
+    startTransition(async () => {
+      setSubindo(id)
+      try {
+        const { data } = await supabaseBrowser.auth.getSession()
+        await marcarPagamentoFeito(data.session?.access_token ?? '', id, file)
+        dispensar(id)
+        router.refresh()
+      } catch (e) {
+        alert(e instanceof Error ? e.message : 'Erro ao anexar comprovante.')
+      } finally {
+        setSubindo(null)
+      }
     })
   }
 
@@ -84,19 +102,34 @@ export function BarraAvisos({
           <span className="shrink-0">{r.atrasado ? '⏰' : '🔔'}</span>
           <p className={`min-w-0 flex-1 truncate ${r.atrasado ? 'text-amber-800' : 'text-blue-800'}`}>
             <b>{r.titulo}</b>
-            {r.descricao && <span className="ml-1.5 opacity-70">— {r.descricao}</span>}
+            {r.tipo === 'pagamento' ? (
+              <>
+                {r.valor != null && <span className="ml-1.5 font-semibold text-emerald-700">{formatBRL(r.valor)}</span>}
+                {r.chave_pix && <span className="ml-1.5 opacity-70">PIX: {r.chave_pix}</span>}
+              </>
+            ) : (
+              r.descricao && <span className="ml-1.5 opacity-70">— {r.descricao}</span>
+            )}
             <span className="ml-2 text-xs opacity-60">
               {r.atrasado ? `${atraso(r.minutosDesde)} atrasado (era ${r.hora})` : `desde ${r.hora}`}
             </span>
           </p>
-          <button
-            type="button"
-            disabled={pendente}
-            onClick={() => feito(r.id)}
-            className="shrink-0 rounded-lg bg-white/80 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-white transition disabled:opacity-50"
-          >
-            ✓ Feito
-          </button>
+          {r.tipo === 'pagamento' ? (
+            <label className={`shrink-0 cursor-pointer rounded-lg bg-white/80 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-white transition ${subindo === r.id ? 'opacity-50' : ''}`}>
+              {subindo === r.id ? 'Enviando...' : '📎 Comprovante'}
+              <input type="file" accept="image/*" className="hidden" disabled={subindo === r.id}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) pagar(r.id, f); e.target.value = '' }} />
+            </label>
+          ) : (
+            <button
+              type="button"
+              disabled={pendente}
+              onClick={() => feito(r.id)}
+              className="shrink-0 rounded-lg bg-white/80 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-white transition disabled:opacity-50"
+            >
+              ✓ Feito
+            </button>
+          )}
           {/* dispensar só tira da tela; o lembrete volta na próxima navegação até
               alguém marcar FEITO — que é o ponto */}
           <button type="button" onClick={() => dispensar(r.id)} aria-label="Dispensar aviso"
