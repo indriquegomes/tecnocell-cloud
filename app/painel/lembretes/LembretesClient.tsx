@@ -5,6 +5,8 @@ import { Spinner } from '@/components/Spinner'
 import { createClient } from '@/lib/supabase/client'
 import { salvarLembrete, excluirLembrete, type ActionState } from './actions'
 import { DIAS_LABEL } from '@/lib/lembretes'
+import { CampoDinheiro } from '@/components/CampoDinheiro'
+import { formatBRL } from '@/lib/utils'
 
 const supabaseBrowser = createClient()
 let tokenCache = ''
@@ -21,6 +23,8 @@ interface Lembrete {
   hora: string
   dias: number[]
   ativo: boolean
+  tipo: string
+  valor: number | null
 }
 interface Pessoa { id: string; nome: string }
 interface Feito { lembrete_id: string; perfil_id: string | null; feito_em: string }
@@ -108,6 +112,7 @@ export function LembretesClient({
                     <td className="px-6 py-3">
                       <p className="font-semibold text-gray-800">{l.titulo}</p>
                       {l.descricao && <p className="text-xs text-gray-400">{l.descricao}</p>}
+                      {l.tipo === 'pagamento' && l.valor != null && <p className="text-xs font-semibold text-emerald-600">{formatBRL(l.valor)}</p>}
                       {!l.ativo && <span className="mt-1 inline-block rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500">pausado</span>}
                     </td>
                     <td className="px-4 py-3 text-gray-600">{paraQuem(l)}</td>
@@ -179,6 +184,7 @@ function Formulario({
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(salvarLembrete, null)
   const [dias, setDias] = useState<number[]>(lembrete?.dias ?? DIAS_UTEIS)
+  const [tipo, setTipo] = useState(lembrete?.tipo ?? 'rotina')
 
   useEffect(() => { if (state?.ok) { const t = setTimeout(onFechar, 800); return () => clearTimeout(t) } }, [state, onFechar])
 
@@ -219,6 +225,22 @@ function Formulario({
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Detalhe (opcional)</label>
           <input name="descricao" defaultValue={lembrete?.descricao ?? ''}
             placeholder="Ex: bater o PIX com os comprovantes do WhatsApp" className="field" />
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Tipo</label>
+            <select name="tipo" value={tipo} onChange={(e) => setTipo(e.target.value)} className="field">
+              <option value="rotina">Rotina</option>
+              <option value="pagamento">Pagamento</option>
+            </select>
+          </div>
+          {tipo === 'pagamento' && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Valor (R$)</label>
+              <CampoDinheiro name="valor" defaultValue={lembrete?.valor ?? 0} />
+            </div>
+          )}
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">

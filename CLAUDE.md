@@ -33,6 +33,7 @@ Módulos:
   auditado. Nada de chutar em dado real.
 - **Não commitar sem pedir.** Confirmar que o type-check passou antes de
   qualquer commit.
+- **Trava de deploy — palavra-chave do dono.** Nada de commit/push/deploy de mudança financeira/banco nem das correções da auditoria SIGE×TecnoCell (desconto de vendas, canceladas, fiado, vale) sem a palavra-chave do dono. Palavra-chave fica só com o dono; nunca gravar em repositório/nota.
 - **Preservar UTF-8 sempre.** Os arquivos têm acentos e emojis no código e nos
   comentários. Corromper isso já causou dois commits de conserto.
   **NUNCA usar `Set-Content -Encoding utf8` no `PDVClient.tsx`** (nem

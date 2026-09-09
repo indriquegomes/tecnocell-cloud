@@ -29,6 +29,9 @@ export async function salvarLembrete(_prev: ActionState, fd: FormData): Promise<
     const para = (fd.get('para') as string) ?? 'todos'
     const perfil_id = para.startsWith('perfil:') ? para.slice(7) : null
     const cargo_id = para.startsWith('cargo:') ? para.slice(6) : null
+    const tipo = ((fd.get('tipo') as string) ?? 'rotina').trim() || 'rotina'
+    const valorRaw = ((fd.get('valor') as string) ?? '').trim()
+    const valor = tipo === 'pagamento' && valorRaw ? (Number(valorRaw) || 0) : null
 
     const supabase = await createServiceClient()
     const id = (fd.get('id') as string) || null
@@ -39,6 +42,8 @@ export async function salvarLembrete(_prev: ActionState, fd: FormData): Promise<
       cargo_id,
       hora,
       dias,
+      tipo,
+      valor,
       // hidden + checkbox: getAll().includes('1') — o get() pegaria sempre o hidden
       ativo: fd.getAll('ativo').includes('1'),
       updated_at: new Date().toISOString(),

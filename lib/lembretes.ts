@@ -12,6 +12,8 @@ export interface Lembrete {
   hora: string          // "18:30:00"
   dias: number[]        // 0=dom … 6=sáb
   ativo: boolean
+  tipo: string          // 'rotina' | 'pagamento'
+  valor: number | null  // reais, só pra 'pagamento'
 }
 
 export interface LembretePendente {
