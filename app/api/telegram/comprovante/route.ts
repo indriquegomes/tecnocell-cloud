@@ -1,7 +1,6 @@
 import { NextResponse, after } from 'next/server'
 import crypto from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
-import Anthropic from '@anthropic-ai/sdk'
 
 // ============================================================================
 // Webhook do bot de comprovantes Pix — roda na Vercel (sem depender de PC ligado).
@@ -34,12 +33,8 @@ const GRUPOS = [Number(process.env.TELEGRAM_GRUPO_PETROPOLIS || 0), Number(proce
 function sb() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 }
-// timeout por CHAMADA (20s) + retry: uma leitura que TRAVA morre rápido e é refeita, em
-// vez de congelar até os 60s e matar a função (deixando o comprovante "não lido").
-const anthropic = () => new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 20000, maxRetries: 2 })
-// Modelo da LEITURA do comprovante. Haiku ≈ 1/3 do preço do Sonnet. Trocável por env
-// (COMPROVANTE_MODELO) sem deploy — ex. voltar pro 'claude-sonnet-4-6' se a precisão cair.
-const MODELO_LEITURA = process.env.COMPROVANTE_MODELO || 'claude-haiku-4-5'
+// Modelo da LEITURA do comprovante no Gemini (trocável por env GEMINI_MODELO sem deploy).
+const GEMINI_MODELO = process.env.GEMINI_MODELO || 'gemini-3.8-flash'
 // Quantos comprovantes atrasados o bot lê a CADA mensagem nova (além do recém-chegado).
 // Era 1 (calibrado p/ Sonnet, lento) → deixava fila "não lida" acumular em rajada. Com
 // Haiku (rápido) cabem vários nos 60s. Regulável por env COMPROVANTE_DRENA sem deploy.
@@ -130,25 +125,69 @@ function mediaBytes(buf: Buffer): 'image/png' | 'image/gif' | 'image/webp' | 'im
   if (buf[0] === 0x52 && buf[1] === 0x49 && buf[8] === 0x57 && buf[9] === 0x45) return 'image/webp'
   return 'image/jpeg'
 }
-async function tgFileBloco(token: string, fid: string, ehPdf: boolean): Promise<Anthropic.ContentBlockParam | null> {
+// ---------- Gemini: leitura de imagem (mais barato que Claude) ----------
+type GPart = { inline?: { mime: string; b64: string }; text?: string }
+async function geminiLe(parts: GPart[], maxTokens: number): Promise<string> {
+  const key = process.env.GEMINI_API_KEY
+  if (!key) throw new Error('GEMINI_API_KEY não configurada')
+  const r = await fetchT(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODELO}:generateContent`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: parts.map((p) => p.inline
+        ? { inline_data: { mime_type: p.inline.mime, data: p.inline.b64 } }
+        : { text: p.text }) }],
+      generationConfig: { maxOutputTokens: maxTokens },
+    }),
+  }, 30000)
+  if (!r.ok) throw new Error('gemini ' + r.status + ': ' + (await r.text()).slice(0, 200))
+  const j = await r.json()
+  return (j.candidates?.[0]?.content?.parts || []).map((p: { text?: string }) => p.text || '').join('')
+}
+// 2ª OPINIÃO independente (DeepSeek Vision) — cruza o VALOR lido pelo Gemini.
+// Barato e rápido; só roda pra IMAGEM (não PDF/link). Best-effort: se falhar,
+// o valor do Gemini continua valendo.
+const DEEPSEEK_MODELO = process.env.DEEPSEEK_MODELO || 'deepseek-v4-flash-vision-exp'
+async function deepseekLe(parte: GPart, prompt: string): Promise<string | null> {
+  const key = process.env.DEEPSEEK_API_KEY
+  if (!key || !parte.inline || !parte.inline.mime.startsWith('image/')) return null
+  try {
+    const r = await fetchT('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key },
+      body: JSON.stringify({
+        model: DEEPSEEK_MODELO,
+        messages: [{ role: 'user', content: [
+          { type: 'text', text: prompt },
+          { type: 'image_url', image_url: { url: `data:${parte.inline.mime};base64,${parte.inline.b64}` } },
+        ] }],
+        max_tokens: 80,
+      }),
+    }, 30000)
+    if (!r.ok) return null
+    const j = await r.json()
+    return ((j.choices?.[0]?.message?.content) || '').trim() || null
+  } catch { return null }
+}
+async function tgFileBloco(token: string, fid: string, ehPdf: boolean): Promise<GPart | null> {
   const gf = await (await fetchT(`https://api.telegram.org/bot${token}/getFile?file_id=${fid}`)).json()
   if (!gf.ok) return null
   const buf = Buffer.from(await (await fetchT(`https://api.telegram.org/file/bot${token}/${gf.result.file_path}`)).arrayBuffer())
   const b64 = buf.toString('base64')
   return ehPdf
-    ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }
-    : { type: 'image', source: { type: 'base64', media_type: mediaBytes(buf), data: b64 } }
+    ? { inline: { mime: 'application/pdf', b64 } }
+    : { inline: { mime: mediaBytes(buf), b64 } }
 }
 function stripHtml(s: string) { return s.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 7000) }
-async function blocoDeLink(url: string): Promise<Anthropic.ContentBlockParam | null> {
+async function blocoDeLink(url: string): Promise<GPart | null> {
   try {
     const r = await fetchT(url, { redirect: 'follow', headers: { 'user-agent': 'Mozilla/5.0' } })
     const ct = (r.headers.get('content-type') || '').toLowerCase()
-    if (ct.includes('text/html') || ct.includes('application/json')) { const t = stripHtml(await r.text()); return t.length > 20 ? { type: 'text', text: 'Conteúdo da página do comprovante (via link):\n' + t } : null }
+    if (ct.includes('text/html') || ct.includes('application/json')) { const t = stripHtml(await r.text()); return t.length > 20 ? { text: 'Conteúdo da página do comprovante (via link):\n' + t } : null }
     const buf = Buffer.from(await r.arrayBuffer())
-    if (buf[0] === 0x25 && buf[1] === 0x50) return { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: buf.toString('base64') } }
-    if (buf[0] === 0x89 || buf[0] === 0x47 || buf[0] === 0x52 || buf[0] === 0xFF) return { type: 'image', source: { type: 'base64', media_type: mediaBytes(buf), data: buf.toString('base64') } }
-    const t = stripHtml(buf.toString('utf8')); return t.length > 20 ? { type: 'text', text: 'Conteúdo da página do comprovante (via link):\n' + t } : null
+    if (buf[0] === 0x25 && buf[1] === 0x50) return { inline: { mime: 'application/pdf', b64: buf.toString('base64') } }
+    if (buf[0] === 0x89 || buf[0] === 0x47 || buf[0] === 0x52 || buf[0] === 0xFF) return { inline: { mime: mediaBytes(buf), b64: buf.toString('base64') } }
+    const t = stripHtml(buf.toString('utf8')); return t.length > 20 ? { text: 'Conteúdo da página do comprovante (via link):\n' + t } : null
   } catch { return null }
 }
 
@@ -194,47 +233,53 @@ function primeiroJson(txt: string): any | null {
 function limpaId(id: unknown): string | null { const s = String(id ?? '').replace(/[^A-Za-z0-9]/g, ''); return s || null }
 
 // 3ª leitura focada SÓ no valor — desempate quando as 2 primeiras discordam.
-async function leValorFocado(ai: Anthropic, bloco: Anthropic.ContentBlockParam): Promise<number | null> {
+async function leValorFocado(parte: GPart): Promise<number | null> {
   try {
-    const rr = await ai.messages.create({ model: MODELO_LEITURA, max_tokens: 60, messages: [{ role: 'user', content: [bloco, { type: 'text', text: 'Leia com atenção MÁXIMA só o VALOR em reais deste comprovante Pix. Responda só JSON: {"valor":<número>}' }] }] })
-    const jj = primeiroJson((rr.content.find((b) => b.type === 'text') as { text: string } | undefined)?.text || '') || {}
+    const txt = await geminiLe([parte, { text: 'Leia com atenção MÁXIMA só o VALOR em reais deste comprovante Pix. Responda só JSON: {"valor":<número>}' }], 60)
+    const jj = primeiroJson(txt) || {}
     return parseValor(jj.valor)
   } catch { return null }
 }
 
 // extrai UM comprovante (2 leituras + desempate no valor). Atualiza a linha no banco.
 async function extraiUm(loja: Loja, c: Comp) {
-  const ai = anthropic()
-  let bloco: Anthropic.ContentBlockParam | null = null
-  if (c.formato === 'link') { if (!c.arquivo_url) return marcaFalha(c, 'sem-url'); bloco = await blocoDeLink(c.arquivo_url) }
-  else if (c.arquivo_file_id) bloco = await tgFileBloco(loja.token, c.arquivo_file_id, c.formato === 'pdf')
-  if (!bloco) return marcaFalha(c, 'sem-conteudo')
-  let resp
-  try { resp = await ai.messages.create({ model: MODELO_LEITURA, max_tokens: 400, messages: [{ role: 'user', content: [bloco, { type: 'text', text: PROMPT }] }] }) }
-  catch (e) { return marcaFalha(c, 'api: ' + String((e as { status?: number; message?: string })?.status || '') + ' ' + String((e as Error)?.message || e).slice(0, 120)) }
-  const raw = resp.content.find((b) => b.type === 'text') as { text: string } | undefined
-  const j: any = primeiroJson(raw?.text || '')
+  let parte: GPart | null = null
+  if (c.formato === 'link') { if (!c.arquivo_url) return marcaFalha(c, 'sem-url'); parte = await blocoDeLink(c.arquivo_url) }
+  else if (c.arquivo_file_id) parte = await tgFileBloco(loja.token, c.arquivo_file_id, c.formato === 'pdf')
+  if (!parte) return marcaFalha(c, 'sem-conteudo')
+  let txt
+  try { txt = await geminiLe([parte, { text: PROMPT }], 400) }
+  catch (e) { return marcaFalha(c, 'api: ' + String((e as Error)?.message || e).slice(0, 120)) }
+  const j: any = primeiroJson(txt)
   if (!j) return marcaFalha(c, 'json-fail')
   j.transacao_id = limpaId(j.transacao_id)
   const supa = sb()
   if (j.eh_comprovante === false) { await supa.from('comprovantes_pix').update({ status: 'nao_comprovante', extraido_raw: j }).eq('id', c.id); return }
   // 2ª leitura focada nos 2 campos que mais erram
   try {
-    const rr = await ai.messages.create({ model: MODELO_LEITURA, max_tokens: 120, messages: [{ role: 'user', content: [bloco, { type: 'text', text: 'Leia com atenção MÁXIMA só isto deste comprovante Pix. JSON: {"valor":<número>,"transacao_id":"<ID da transação/E2E, EXATO caractere por caractere>"}' }] }] })
-    const rr2 = rr.content.find((b) => b.type === 'text') as { text: string } | undefined
-    const jj = primeiroJson(rr2?.text || '') || {}
+    const jj = primeiroJson(await geminiLe([parte, { text: 'Leia com atenção MÁXIMA só isto deste comprovante Pix. JSON: {"valor":<número>,"transacao_id":"<ID da transação/E2E, EXATO caractere por caractere>"}' }], 120)) || {}
     jj.transacao_id = limpaId(jj.transacao_id)
     const v2 = parseValor(jj.valor)
     if (v2 != null && j.valor == null) j.valor = v2
     else if (v2 != null && j.valor != null && Math.abs(v2 - Number(j.valor)) > 0.01) {
       // as 2 leituras discordam no valor → 3ª leitura desempata (best-of-3)
-      const v3 = await leValorFocado(ai, bloco)
+      const v3 = await leValorFocado(parte)
       if (v3 != null && Math.abs(v3 - v2) < 0.01) j.valor = v2                         // 2 de 3 = leitura 2
       else if (v3 != null && Math.abs(v3 - Number(j.valor)) < 0.01) { /* 2 de 3 = leitura 1, mantém */ }
       else { j.valor_incerto = true; j.valor_leitura2 = v2; if (v3 != null) j.valor_leitura3 = v3 } // 3 valores diferentes → marca incerto
     }
     if (jj.transacao_id && dataDoId(jj.transacao_id) && !dataDoId(j.transacao_id)) j.transacao_id = jj.transacao_id
   } catch { /* leitura 2 é best-effort */ }
+  // 2ª opinião (DeepSeek Vision) no VALOR — cruza com o Gemini. Discordou → marca
+  // incerto (não grava errado); Gemini sem valor → usa o do DeepSeek.
+  try {
+    const txtDs = await deepseekLe(parte, 'Leia com atenção MÁXIMA só o VALOR em reais deste comprovante Pix. Responda só o número (ex: 259.00).')
+    const vDs = parseValor(txtDs)
+    if (vDs != null) {
+      if (j.valor == null) j.valor = vDs
+      else if (Math.abs(vDs - Number(j.valor)) > 0.01) { j.valor_incerto = true; j.valor_deepseek = vDs }
+    }
+  } catch { /* best-effort */ }
   const semDest = !j.destinatario || !String(j.destinatario).trim()
   const rec = c.recebido_em ? String(c.recebido_em).slice(0, 10) : null
   const dataFinal = resolveData(dataDoId(j.transacao_id), j.data, rec)
