@@ -6,6 +6,11 @@ alter table lembretes_feitos add column if not exists comprovante_url text;
 
 -- RPC atualizado: aceita o caminho do comprovante e grava junto. Idêntico ao de
 -- 2026-07-14_lembretes.sql, só com o p_comprovante_url a mais.
+-- IMPORTANTE: dropa a versão antiga (3 params) ANTES. `create or replace` não
+-- substitui função de assinatura diferente — cria OVERLOAD, e o PostgREST não
+-- consegue escolher (erro PGRST203).
+drop function if exists public.marcar_lembrete_feito(uuid, uuid, date);
+
 create or replace function marcar_lembrete_feito(
   p_lembrete_id uuid,
   p_perfil_id   uuid,

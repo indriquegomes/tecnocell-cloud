@@ -37,10 +37,15 @@ export function BarraAvisos({
 
   const feito = (id: string) => {
     startTransition(async () => {
-      const { data } = await supabaseBrowser.auth.getSession()
-      await marcarFeito(data.session?.access_token ?? '', id)
-      dispensar(id)
-      router.refresh()
+      try {
+        const { data } = await supabaseBrowser.auth.getSession()
+        await marcarFeito(data.session?.access_token ?? '', id)
+        dispensar(id)
+        router.refresh()
+      } catch (e) {
+        // erro vira aviso, NÃO tela branca (já derrubou o painel com RPC quebrado)
+        alert(e instanceof Error ? e.message : 'Erro ao marcar como feito.')
+      }
     })
   }
 
