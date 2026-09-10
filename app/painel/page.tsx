@@ -443,7 +443,7 @@ export default async function DashboardPage({
           )}
         </div>
 
-        {pode('estoque') && (
+        {isMaster && (
           <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm md:col-span-3 lg:col-span-4">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-400">Valor em estoque</p>
             <p className="mt-2.5 text-3xl font-extrabold leading-none tabular-nums text-[#1B6CA8]"><Valor>{formatBRL(valorEstoque)}</Valor></p>
