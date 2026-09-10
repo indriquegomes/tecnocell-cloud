@@ -7,6 +7,10 @@
 -- Única mudança funcional vs 2026-09-03-permite-estoque-negativo-servico.sql:
 --   1) p_operacao in ('saida','perda','uso_interno')  -- + uso_interno
 --   2) insert em lancamentos para perda/uso_interno
+--   3) check constraint de operacao ganha 'uso_interno'
+
+alter table movimentacoes_estoque drop constraint if exists movimentacoes_estoque_operacao_check;
+alter table movimentacoes_estoque add constraint movimentacoes_estoque_operacao_check check (operacao in ('entrada', 'saida', 'ajuste', 'perda', 'uso_interno'));
 
 create or replace function public.movimentar_estoque(p_produto_id text, p_deposito_id text, p_operacao text, p_quantidade numeric, p_series jsonb DEFAULT '[]'::jsonb, p_observacao text DEFAULT NULL::text, p_user text DEFAULT NULL::text, p_created_at timestamp with time zone DEFAULT NULL::timestamp with time zone)
  RETURNS jsonb
