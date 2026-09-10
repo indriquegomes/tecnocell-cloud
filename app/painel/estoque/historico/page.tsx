@@ -9,7 +9,7 @@ import { Dica } from '@/components/Dica'
 import { BuscaSugestao } from '@/components/BuscaSugestao'
 import { buscarProdutosFiltro, buscarPessoasFiltro } from '../actions'
 
-type Tipo = 'venda' | 'devolucao' | 'entrada' | 'saida' | 'ajuste' | 'perda' | 'troca'
+type Tipo = 'venda' | 'devolucao' | 'entrada' | 'saida' | 'ajuste' | 'perda' | 'uso_interno' | 'troca'
 
 const TIPO: Record<Tipo, { label: string; cls: string; sinal: string }> = {
   venda:     { label: 'Venda',     cls: 'text-red-700 bg-red-50 border-red-200',      sinal: '−' },
@@ -19,6 +19,8 @@ const TIPO: Record<Tipo, { label: string; cls: string; sinal: string }> = {
   ajuste:    { label: 'Ajuste',    cls: 'text-blue-700 bg-blue-50 border-blue-200',    sinal: '' },
   // Perda (quebra/sumiço/avaria): baixa igual à saída, mas separada pra somar no mês.
   perda:     { label: 'Perda',     cls: 'text-orange-700 bg-orange-50 border-orange-200', sinal: '−' },
+  // Uso interno: item tirado pra uso da própria loja (baixa estoque, sem mexer em caixa).
+  uso_interno: { label: 'Uso interno', cls: 'text-purple-700 bg-purple-50 border-purple-200', sinal: '−' },
   // Troca/Defeito/Avaria numa devolução: o item NÃO volta ao estoque vendável (vai
   // pro fornecedor). Sinal neutro pra não dobrar a saída (a venda já baixou). Isa 29/07.
   troca:     { label: 'Troca · Saída', cls: 'text-orange-700 bg-orange-50 border-orange-200', sinal: '' },
