@@ -233,8 +233,11 @@ export async function salvarOrcamentoPDV(
   if (await tabelaSomenteConsulta(input.tabela_preco_id)) throw new Error('Tabela CUSTO é somente consulta. Selecione uma tabela de venda.')
   const supabase = await createServiceClient()
   if (input.itens.length === 0) throw new Error('Carrinho vazio.')
-  const noCusto = await produtoNoCusto(input.itens)
-  if (noCusto) throw new Error(`"${noCusto}" não pode ser vendido pelo preço de custo ou abaixo dele.`)
+  const { isMaster } = await permissoesEfetivas(usuario.id)
+  if (!isMaster) {
+    const noCusto = await produtoNoCusto(input.itens)
+    if (noCusto) throw new Error(`"${noCusto}" não pode ser vendido pelo preço de custo ou abaixo dele.`)
+  }
 
   const { data: perfil } = await supabase.from('perfis').select('nome').eq('id', usuario.id).maybeSingle()
   const vendedorNome = (perfil as { nome?: string } | null)?.nome ?? usuario.email ?? ''
@@ -317,9 +320,13 @@ export async function finalizarVenda(
 
   if (await tabelaSomenteConsulta(tabela_preco_id)) return { erro: 'Tabela CUSTO é somente consulta. Selecione uma tabela de venda.' }
 
+  // Abaixo do custo: bloqueia pra todo mundo, MENOS o Master (dono).
   try {
-    const noCusto = await produtoNoCusto(itens)
-    if (noCusto) return { erro: `"${noCusto}" não pode ser vendido pelo preço de custo ou abaixo dele.` }
+    const { isMaster } = await permissoesEfetivas(usuario.id)
+    if (!isMaster) {
+      const noCusto = await produtoNoCusto(itens)
+      if (noCusto) return { erro: `"${noCusto}" não pode ser vendido pelo preço de custo ou abaixo dele.` }
+    }
   } catch (e) {
     return { erro: e instanceof Error ? e.message : 'Não foi possível validar o preço de custo.' }
   }
