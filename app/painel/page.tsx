@@ -223,6 +223,17 @@ export default async function DashboardPage({
   // todas (não chuta Petrópolis pra quem pode ser de Teresópolis).
   const minhaMeta = (minhaMetaNome && metasWidgets.find((m) => m.loja === minhaMetaNome)) || null
 
+  // Card de meta do gerente (visão não-master): barra de progresso amigável.
+  // Alvo = maior faixa da meta (topo); % = faturado ÷ topo. Próxima faixa = o que falta bater.
+  const metaTopo = minhaMeta ?? metasWidgets[0] ?? null
+  const metaTopoFaixas = metaTopo ? [...metaTopo.faixas].sort((a, b) => a.valor - b.valor) : []
+  const metaTopoValor = metaTopoFaixas[metaTopoFaixas.length - 1]?.valor ?? 0
+  const metaTopoFat = metaTopo?.faturamento ?? 0
+  const metaTopoPct = metaTopoValor > 0 ? Math.min(100, Math.round((metaTopoFat / metaTopoValor) * 100)) : 0
+  const metaTopoProxIdx = metaTopoFaixas.reduce((acc, f, i) => (metaTopoFat >= f.valor ? i : acc), -1)
+  const metaTopoProx = metaTopoFaixas[metaTopoProxIdx + 1] ?? null
+  const metaTopoFaltam = metaTopoProx ? Math.max(0, metaTopoProx.valor - metaTopoFat) : 0
+
   const cor = (i: number) => (i === 0 ? 'bg-white' : i === 1 ? 'bg-white/55' : 'bg-white/30')
 
   const Stat = ({ icon, bg, label, value, sub, href, cls = '', sensivel = false }: { icon: ReactNode; bg: string; label: string; value: string; sub?: string; href: string; cls?: string; sensivel?: boolean }) => (
@@ -410,38 +421,70 @@ export default async function DashboardPage({
           importa (faturamento) domina; o resto acomoda em volta. */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12">
 
-        {/* HERO — faturamento: o numero que manda. Ocupa 2 linhas. */}
-        <div className="relative flex flex-col justify-between overflow-hidden rounded-2xl bg-[#1B6CA8] p-6 text-white shadow-sm md:col-span-6 lg:col-span-8 lg:row-span-2">
-          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/5" />
-          <div className="relative flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/70">
-              Faturamento · {rotuloPeriodo}{filtroLoja && ` · ${filtroLoja}`}
-            </p>
-            <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-medium">histórico</span>
-          </div>
-          <p className="relative mt-2.5 text-[38px] font-extrabold leading-none tracking-tight tabular-nums"><Valor>{formatBRL(faturamento)}</Valor></p>
-          <div className="relative mt-2.5 flex flex-wrap gap-x-5 gap-y-1 text-sm text-white/75">
-            <span><b className="font-bold text-white tabular-nums">{nVendas.toLocaleString('pt-BR')}</b> vendas</span>
-            <span>ticket <b className="font-bold text-white"><Valor>{formatBRL(ticket)}</Valor></b></span>
-            <span><b className="font-bold text-white">~{Math.round(nVendas / 30)}</b> por dia</span>
-          </div>
-          {lojas.length > 0 && (
-            <div className="relative mt-6 lg:mt-0">
-              <div className="flex h-2.5 overflow-hidden rounded-full bg-white/15">
-                {lojas.map(([nome, val], i) => (
-                  <div key={nome} style={{ width: `${Math.max(4, (100 * val) / totalLojas)}%` }} className={cor(i)} title={nome} />
-                ))}
-              </div>
-              <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/75">
-                {lojas.map(([nome, val], i) => (
-                  <span key={nome} className="inline-flex items-center gap-1.5">
-                    <span className={`h-2 w-2 rounded-full ${cor(i)}`} />{nome} · <b className="font-semibold text-white"><Valor>{formatBRL(val)}</Valor></b>
-                  </span>
-                ))}
-              </div>
+        {/* HERO — faturamento (só master). Gerente vê barra de progresso da meta. */}
+        {isMaster ? (
+          <div className="relative flex flex-col justify-between overflow-hidden rounded-2xl bg-[#1B6CA8] p-6 text-white shadow-sm md:col-span-6 lg:col-span-8 lg:row-span-2">
+            <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/5" />
+            <div className="relative flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/70">
+                Faturamento · {rotuloPeriodo}{filtroLoja && ` · ${filtroLoja}`}
+              </p>
+              <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-medium">histórico</span>
             </div>
-          )}
-        </div>
+            <p className="relative mt-2.5 text-[38px] font-extrabold leading-none tracking-tight tabular-nums"><Valor>{formatBRL(faturamento)}</Valor></p>
+            <div className="relative mt-2.5 flex flex-wrap gap-x-5 gap-y-1 text-sm text-white/75">
+              <span><b className="font-bold text-white tabular-nums">{nVendas.toLocaleString('pt-BR')}</b> vendas</span>
+              <span>ticket <b className="font-bold text-white"><Valor>{formatBRL(ticket)}</Valor></b></span>
+              <span><b className="font-bold text-white">~{Math.round(nVendas / 30)}</b> por dia</span>
+            </div>
+            {lojas.length > 0 && (
+              <div className="relative mt-6 lg:mt-0">
+                <div className="flex h-2.5 overflow-hidden rounded-full bg-white/15">
+                  {lojas.map(([nome, val], i) => (
+                    <div key={nome} style={{ width: `${Math.max(4, (100 * val) / totalLojas)}%` }} className={cor(i)} title={nome} />
+                  ))}
+                </div>
+                <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/75">
+                  {lojas.map(([nome, val], i) => (
+                    <span key={nome} className="inline-flex items-center gap-1.5">
+                      <span className={`h-2 w-2 rounded-full ${cor(i)}`} />{nome} · <b className="font-semibold text-white"><Valor>{formatBRL(val)}</Valor></b>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="relative flex flex-col justify-center overflow-hidden rounded-2xl bg-[#1B6CA8] p-6 text-white shadow-sm md:col-span-6 lg:col-span-8 lg:row-span-2">
+            <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/5" />
+            {metaTopo ? (
+              <>
+                <p className="relative text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Meta {metaTopo.rotulo ? `· ${metaTopo.rotulo}` : ''} · {metaTopo.loja}</p>
+                <div className="relative mt-3 flex items-end justify-between gap-4">
+                  <p className="text-[56px] font-extrabold leading-none tabular-nums">{metaTopoPct}%</p>
+                  <div className="pb-1 text-right text-sm text-white/80">
+                    <p>Faturado <b className="text-white"><Valor>{formatBRL(metaTopoFat)}</Valor></b></p>
+                    <p>de <Valor>{formatBRL(metaTopoValor)}</Valor></p>
+                  </div>
+                </div>
+                <div className="relative mt-4 h-3.5 overflow-hidden rounded-full bg-white/15">
+                  <div className="h-full rounded-full bg-white transition-all" style={{ width: `${metaTopoPct}%` }} />
+                </div>
+                <p className="relative mt-3 text-sm text-white/85">
+                  {metaTopoProx
+                    ? <>Faltam <b className="font-semibold text-white"><Valor>{formatBRL(metaTopoFaltam)}</Valor></b> pra bater <b className="font-semibold text-white">{metaTopoProx.nome}</b> 💪</>
+                    : <>🏆 Meta batida! Todas as faixas conquistadas.</>}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="relative text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Meta</p>
+                <p className="relative mt-3 text-2xl font-bold text-white/90">Nenhuma meta ativa no momento.</p>
+                <p className="relative mt-1 text-sm text-white/70">Peça pro dono configurar as faixas da loja.</p>
+              </>
+            )}
+          </div>
+        )}
 
         {isMaster && (
           <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm md:col-span-3 lg:col-span-4">
