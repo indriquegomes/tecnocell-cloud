@@ -72,7 +72,7 @@ function parseValor(t: unknown): number | null {
 }
 
 // ---------- agrupamento por destinatário (union-find: nome + CNPJ + nome-prefixo) ----------
-type Comp = { id?: string; telegram_message_id?: number; destinatario: string | null; pagador: string | null; valor: number | null; data_pix: string | null; status: string | null; formato?: string | null; arquivo_file_id?: string | null; arquivo_url?: string | null; transacao_id?: string | null; recebido_em?: string | null; extraido_raw?: Record<string, unknown> | null }
+type Comp = { id?: string; telegram_message_id?: number; destinatario: string | null; pagador: string | null; cliente_sistema?: string | null; valor: number | null; data_pix: string | null; status: string | null; formato?: string | null; arquivo_file_id?: string | null; arquivo_url?: string | null; transacao_id?: string | null; recebido_em?: string | null; extraido_raw?: Record<string, unknown> | null }
 const docDe = (c: Comp) => { const d = String((c.extraido_raw as { destinatario_doc?: string } | null)?.destinatario_doc || '').replace(/\D/g, ''); return d.length === 14 ? d : '' }
 const normNome = (s: string | null) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim()
 function agrupaPorDestino(cs: Comp[]) {
@@ -457,48 +457,24 @@ async function escreveSheet(loja: Loja) {
   const cs = (csRaw || []) as Comp[]
   const valDe = (c: Comp) => (c.status === 'duplicado' || c.status === 'incompleto' || c.status === 'ilegivel' ? 0 : Number(c.valor) || 0)
 
-  // QUEM PAGOU (cliente) — agrupa pelo pagador
-  const pag = new Map<string, { nome: string; total: number; n: number }>()
-  for (const c of cs) {
-    const nome = (c.pagador || '').trim() || 'SEM PAGADOR'
-    const k = normNome(nome) || 'SEM PAGADOR'
-    const e = pag.get(k) ?? { nome, total: 0, n: 0 }
-    const v = valDe(c); if (v) { e.total += v; e.n++ }
-    pag.set(k, e)
-  }
-  const clientes = [...pag.values()].sort((a, b) => b.total - a.total)
-
-  // QUEM RECEBEU (fornecedor) — reusa o union-find por destinatário
-  const grupos = agrupaPorDestino(cs)
-  const fornecedores = Object.keys(grupos).map((k) => {
-    const g = grupos[k]; let total = 0, n = 0
-    for (const c of g.itens) { const v = valDe(c); if (v) { total += v; n++ } }
-    return { nome: g.nome, total, n }
-  }).filter((f) => f.n > 0).sort((a, b) => b.total - a.total)
-
   const dups = cs.filter((c) => c.status === 'duplicado').length
   const incompletos = cs.filter((c) => c.status === 'incompleto' || c.status === 'ilegivel').length
   const validos = cs.length - dups - incompletos
   const geral = cs.reduce((s, c) => s + valDe(c), 0)
 
-  const linhas: (string | number)[][] = []
-  const rowTypes: string[] = []
-  const push = (r: (string | number)[], t: string) => { linhas.push(r); rowTypes.push(t) }
-
-  push(['QUEM PAGOU (CLIENTE)', 'Valor (R$)', 'Qtd'], 'header')
-  for (const f of clientes) push([f.nome, f.total, f.n], 'dado')
-  push(['TOTAL CLIENTES', clientes.reduce((s, f) => s + f.total, 0), clientes.reduce((s, f) => s + f.n, 0)], 'subtotal')
-  push(['', '', ''], 'blank')
-
-  push(['QUEM RECEBEU (FORNECEDOR)', 'Valor (R$)', 'Qtd'], 'header')
-  for (const f of fornecedores) push([f.nome, f.total, f.n], 'dado')
-  push(['TOTAL FORNECEDORES', fornecedores.reduce((s, f) => s + f.total, 0), fornecedores.reduce((s, f) => s + f.n, 0)], 'subtotal')
-  push(['', '', ''], 'blank')
-
+  const linhas: (string | number)[][] = [['Data', 'Cliente (sistema)', 'Nome no Pix', 'Quem recebeu', 'Valor (R$)']]
+  const rowTypes: string[] = ['header']
+  for (const c of cs) {
+    const v = Number(c.valor) || 0
+    const cliente = (c.cliente_sistema || '').trim() || (c.pagador || '').trim() || '—'
+    linhas.push([fmtDataBR(c.data_pix), cliente, c.pagador || '—', c.destinatario || '—', c.valor != null ? v : ''])
+    rowTypes.push('dado')
+  }
   const notas = [validos + ' comprovantes']
   if (dups) notas.push(dups + ' duplicado' + (dups > 1 ? 's' : ''))
   if (incompletos) notas.push(incompletos + ' incompleto' + (incompletos > 1 ? 's' : ''))
-  push(['TOTAL GERAL', geral, notas.join(' · ')], 'total')
+  linhas.push(['', 'TOTAL GERAL (' + notas.join(' · ') + ')', '', '', geral])
+  rowTypes.push('total')
 
   const R = (t: string) => encodeURIComponent(`${t}!A1:Z2000`)
   const RA1 = (t: string) => encodeURIComponent(`${t}!A1`)
@@ -507,24 +483,21 @@ async function escreveSheet(loja: Loja) {
 
   // DESIGN (marca TecnoCell #1B6CA8)
   const AZUL = { red: 0.106, green: 0.424, blue: 0.659 }, BRANCO = { red: 1, green: 1, blue: 1 }
-  const CINZA = { red: 0.93, green: 0.95, blue: 0.97 }
-  const nRows = linhas.length, nCols = 3
+  const nRows = linhas.length, nCols = 5
   const rowFmt = (r: number, fmt: object, fields: string) => ({ repeatCell: { range: { sheetId, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: nCols }, cell: { userEnteredFormat: fmt }, fields } })
   const reqs: object[] = []
   reqs.push({ repeatCell: { range: { sheetId, startRowIndex: 0, endRowIndex: 2000, startColumnIndex: 0, endColumnIndex: 26 }, cell: {}, fields: 'userEnteredFormat' } })
   reqs.push({ repeatCell: { range: { sheetId, startRowIndex: 0, endRowIndex: nRows, startColumnIndex: 0, endColumnIndex: nCols }, cell: { userEnteredFormat: { textFormat: { fontSize: 10 }, verticalAlignment: 'MIDDLE' } }, fields: 'userEnteredFormat(textFormat,verticalAlignment)' } })
   reqs.push(rowFmt(0, { backgroundColor: AZUL, textFormat: { bold: true, foregroundColor: BRANCO, fontSize: 11 }, horizontalAlignment: 'CENTER' }, 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)'))
   reqs.push({ updateSheetProperties: { properties: { sheetId, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } })
-  reqs.push({ repeatCell: { range: { sheetId, startRowIndex: 1, endRowIndex: nRows, startColumnIndex: 1, endColumnIndex: 2 }, cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '"R$" #,##0.00' }, horizontalAlignment: 'RIGHT' } }, fields: 'userEnteredFormat(numberFormat,horizontalAlignment)' } })
-  reqs.push({ repeatCell: { range: { sheetId, startRowIndex: 1, endRowIndex: nRows, startColumnIndex: 2, endColumnIndex: 3 }, cell: { userEnteredFormat: { horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat.horizontalAlignment' } })
+  reqs.push({ repeatCell: { range: { sheetId, startRowIndex: 1, endRowIndex: nRows, startColumnIndex: 4, endColumnIndex: 5 }, cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '"R$" #,##0.00' }, horizontalAlignment: 'RIGHT' } }, fields: 'userEnteredFormat(numberFormat,horizontalAlignment)' } })
+  reqs.push({ repeatCell: { range: { sheetId, startRowIndex: 1, endRowIndex: nRows, startColumnIndex: 0, endColumnIndex: 1 }, cell: { userEnteredFormat: { horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat.horizontalAlignment' } })
   rowTypes.forEach((t, i) => {
     if (i === 0) return
-    if (t === 'header') reqs.push(rowFmt(i, { backgroundColor: AZUL, textFormat: { bold: true, foregroundColor: BRANCO, fontSize: 11 } }, 'userEnteredFormat(backgroundColor,textFormat)'))
-    else if (t === 'subtotal') reqs.push(rowFmt(i, { backgroundColor: CINZA, textFormat: { bold: true } }, 'userEnteredFormat(backgroundColor,textFormat)'))
-    else if (t === 'total') reqs.push(rowFmt(i, { backgroundColor: AZUL, textFormat: { bold: true, foregroundColor: BRANCO, fontSize: 11 } }, 'userEnteredFormat(backgroundColor,textFormat)'))
+    if (t === 'total') reqs.push(rowFmt(i, { backgroundColor: AZUL, textFormat: { bold: true, foregroundColor: BRANCO, fontSize: 11 } }, 'userEnteredFormat(backgroundColor,textFormat)'))
   })
   const w = (c: number, px: number) => ({ updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: px }, fields: 'pixelSize' } })
-  reqs.push(w(0, 300), w(1, 120), w(2, 60))
+  reqs.push(w(0, 90), w(1, 220), w(2, 200), w(3, 200), w(4, 110))
   await fetchT(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`, { method: 'POST', headers: { ...gh(token), 'content-type': 'application/json' }, body: JSON.stringify({ requests: reqs }) }).catch(() => {})
   return { n: validos, soma: geral, dups }
 }
@@ -656,6 +629,17 @@ async function processa(loja: Loja, update: any) {
     return
   }
   if (txt.startsWith('/fechar')) { const p = await periodoAberto(loja.grupo); if (p) await fechar(loja, p, quem); else await tgSend(loja.token, loja.grupo, 'ℹ️ Não há contagem aberta. Use /abrir primeiro.'); await escreveSheet(loja); return }
+  if (txt.startsWith('/cliente')) {
+    const nome = (m.text || '').trim().slice(8).trim() // tira o '/cliente' (8 chars)
+    const alvo = m.reply_to_message?.message_id
+    if (!alvo) { await tgSend(loja.token, loja.grupo, 'ℹ️ Responda o comprovante (foto/PDF) com /cliente NOME'); return }
+    if (!nome) { await tgSend(loja.token, loja.grupo, 'ℹ️ Uso: /cliente NOME (respondendo o comprovante)'); return }
+    const { error } = await sb().from('comprovantes_pix').update({ cliente_sistema: nome }).eq('telegram_chat_id', loja.grupo).eq('telegram_message_id', alvo)
+    if (error) { await tgSend(loja.token, loja.grupo, '❌ Não achei o comprovante. Responda direto na foto/PDF.'); return }
+    await tgSend(loja.token, loja.grupo, '✅ Cliente: ' + nome)
+    try { await escreveSheet(loja) } catch (e) { console.error('sheet cliente:', e) }
+    return
+  }
 
   const t = tipo(m)
   if (!t) return // texto puro sem url = ignora
