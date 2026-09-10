@@ -104,7 +104,7 @@ export default async function SincronizacaoPage() {
                 <li key={i} className="border-b border-gray-100 pb-2">
                   <span className="font-medium text-gray-700">{q.entidade}/{q.acao}</span>{' '}
                   <span className="text-orange-600">{q.erro}</span>
-                  <span className="block text-xs text-gray-400">{new Date(q.recebido_em).toLocaleString('pt-BR')}</span>
+                  <span className="block text-xs text-gray-400">{new Date(q.recebido_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</span>
                 </li>
               ))}
             </ul>
@@ -122,7 +122,7 @@ export default async function SincronizacaoPage() {
                   <span className="font-medium text-gray-700">{a.entidade}/{a.acao}</span>{' '}
                   <span className={a.resultado === 'ok' ? 'text-emerald-600' : 'text-orange-600'}>{a.resultado}</span>{' '}
                   <span className="text-gray-500">{a.detalhe}</span>
-                  <span className="block text-xs text-gray-400">{new Date(a.ocorrido_em).toLocaleString('pt-BR')}</span>
+                  <span className="block text-xs text-gray-400">{new Date(a.ocorrido_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</span>
                 </li>
               ))}
             </ul>
