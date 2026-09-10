@@ -241,6 +241,27 @@ async function leValorFocado(parte: GPart): Promise<number | null> {
   } catch { return null }
 }
 
+// Responde no grupo, logo abaixo do comprovante, o que a IA entendeu — pedido do
+// dono: "separando valor, nome, entre outras coisas". Best-effort (nunca trava).
+function respondeLeitura(loja: Loja, c: Comp, status: string, j: any, dataFinal: string | null) {
+  if (!c.telegram_message_id) return
+  let txt: string | null = null
+  if (status === 'nao_comprovante') txt = 'ℹ️ Não parece comprovante de Pix.'
+  else if (status === 'incompleto') txt = '⚠️ Li o Pix, mas não achei quem RECEBEU (destinatário).'
+  else if (status === 'data_divergente') txt = '⚠️ Data do Pix parece diferente de hoje — confere.'
+  else if (status === 'extraido') {
+    const linhas = ['✅ Pix lido:']
+    if (j.valor != null) linhas.push('💰 R$ ' + money(j.valor))
+    if (j.cliente) linhas.push('👤 De: ' + j.cliente)
+    if (j.destinatario) linhas.push('🏢 Para: ' + j.destinatario)
+    if (dataFinal) linhas.push('📅 ' + fmtDataBR(dataFinal))
+    if (j.transacao_id) linhas.push('🔑 ' + j.transacao_id)
+    if (j.valor_incerto) linhas.push('⚠️ Valor incerto — confere na mão')
+    txt = linhas.join('\n')
+  }
+  if (txt) tgSend(loja.token, loja.grupo, txt, c.telegram_message_id)
+}
+
 // extrai UM comprovante (2 leituras + desempate no valor). Atualiza a linha no banco.
 async function extraiUm(loja: Loja, c: Comp) {
   let parte: GPart | null = null
@@ -254,7 +275,7 @@ async function extraiUm(loja: Loja, c: Comp) {
   if (!j) return marcaFalha(c, 'json-fail')
   j.transacao_id = limpaId(j.transacao_id)
   const supa = sb()
-  if (j.eh_comprovante === false) { await supa.from('comprovantes_pix').update({ status: 'nao_comprovante', extraido_raw: j }).eq('id', c.id); return }
+  if (j.eh_comprovante === false) { await supa.from('comprovantes_pix').update({ status: 'nao_comprovante', extraido_raw: j }).eq('id', c.id); respondeLeitura(loja, c, 'nao_comprovante', j, null); return }
   // 2ª leitura focada nos 2 campos que mais erram
   try {
     const jj = primeiroJson(await geminiLe([parte, { text: 'Leia com atenção MÁXIMA só isto deste comprovante Pix. JSON: {"valor":<número>,"transacao_id":"<ID da transação/E2E, EXATO caractere por caractere>"}' }], 120)) || {}
@@ -285,6 +306,7 @@ async function extraiUm(loja: Loja, c: Comp) {
   const dataFinal = resolveData(dataDoId(j.transacao_id), j.data, rec)
   const status = semDest ? 'incompleto' : (dataFinal && rec && diaDiff(dataFinal, rec) > 2 ? 'data_divergente' : 'extraido')
   await supa.from('comprovantes_pix').update({ valor: j.valor, data_pix: dataFinal, pagador: j.cliente || null, destinatario: j.destinatario || null, transacao_id: j.transacao_id || null, status, extraido_raw: j }).eq('id', c.id)
+  respondeLeitura(loja, c, status, j, dataFinal)
 }
 
 // processa os pendentes (o recém-chegado + até `limite` outros que faltaram) — drena buracos
