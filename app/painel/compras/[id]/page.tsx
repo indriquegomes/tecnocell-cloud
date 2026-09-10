@@ -30,7 +30,7 @@ export default async function NotaEntradaDetalhe({
       .from('itens_nota_entrada')
       .select('*')
       .eq('nota_id', id)
-      .order('id'),
+      .order('created_at'),
     fetchAll((from, to) => supabase.from('produtos').select('id, nome, codigo, marca, preco_custo, controla_serie').eq('ativo', true).order('nome').order('id').range(from, to)),
     supabase.from('depositos').select('id, nome, loja_id').order('nome'),
     supabase.from('pessoas').select('id, nome, tipo').in('tipo', ['fornecedor', 'ambos']).eq('ativo', true).order('nome'),
