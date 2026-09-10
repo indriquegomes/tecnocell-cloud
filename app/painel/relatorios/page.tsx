@@ -45,9 +45,9 @@ type ItemVenda = {
 export default async function RelatoriosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ aba?: string; de?: string; ate?: string; loja?: string; caixa?: string; usuario?: string; vendedor?: string; forma?: string; cliente?: string; vstatus?: string; vnum?: string; vmin?: string; vmax?: string; catprod?: string; tec?: string; osstatus?: string; tipoacao?: string }>
+  searchParams: Promise<{ aba?: string; de?: string; ate?: string; loja?: string; caixa?: string; usuario?: string; vendedor?: string; forma?: string; cliente?: string; vstatus?: string; vnum?: string; vmin?: string; vmax?: string; catprod?: string; tec?: string; osstatus?: string; tipoacao?: string; deps?: string }>
 }) {
-  const { aba = 'financeiro', de, ate, loja, caixa, usuario, vendedor, forma, cliente, vstatus, vnum, vmin, vmax, catprod, tec, osstatus, tipoacao } = await searchParams
+  const { aba = 'financeiro', de, ate, loja, caixa, usuario, vendedor, forma, cliente, vstatus, vnum, vmin, vmax, catprod, tec, osstatus, tipoacao, deps } = await searchParams
   const supabase = await createServiceClient()
 
   const hoje = hojeSP()
@@ -430,6 +430,37 @@ export default async function RelatoriosPage({
       .filter((p) => p.vendido30 > 0 && p.estoque < p.vendido30) // gira mais do que tem em estoque
       .map((p) => ({ ...p, sugestao: Math.max(0, Math.ceil(p.vendido30 - p.estoque)) }))
       .sort((a, b) => b.sugestao - a.sugestao)
+  }
+
+  // ---------- Imobilizado (valor do estoque por categoria) ----------
+  let depsList: { id: string; nome: string }[] = []
+  let imobDepSel: string[] | null = null
+  let imobPorCat: { categoria: string; custo: number; venda: number; qtd: number; n: number }[] = []
+  let imobTotalCusto = 0
+  let imobTotalVenda = 0
+  if (aba === 'imobilizado') {
+    const depsRes = await supabase.from('depositos').select('id, nome').order('nome')
+    depsList = depsRes.data ?? []
+    imobDepSel = deps && deps !== 'todas' ? deps.split(',').filter(Boolean) : null
+    const data = await fetchAll((from, to) => supabase.from('estoque')
+      .select('quantidade, deposito_id, produtos(categoria, preco, preco_custo)')
+      .gt('quantidade', 0).range(from, to))
+    const byCat: Record<string, { custo: number; venda: number; qtd: number; n: number }> = {}
+    for (const e of (data ?? [])) {
+      if (imobDepSel && !imobDepSel.includes(e.deposito_id)) continue
+      const p = e.produtos as unknown as { categoria: string | null; preco: number; preco_custo: number | null } | null
+      const cat = (p?.categoria || 'SEM CATEGORIA').toUpperCase()
+      const custo = (p?.preco_custo ?? 0) * e.quantidade
+      const venda = (p?.preco ?? 0) * e.quantidade
+      imobTotalCusto += custo
+      imobTotalVenda += venda
+      byCat[cat] = byCat[cat] || { custo: 0, venda: 0, qtd: 0, n: 0 }
+      byCat[cat].custo += custo
+      byCat[cat].venda += venda
+      byCat[cat].qtd += Number(e.quantidade)
+      byCat[cat].n++
+    }
+    imobPorCat = Object.entries(byCat).map(([categoria, v]) => ({ categoria, ...v })).sort((a, b) => b.custo - a.custo)
   }
 
   // ---------- Formas de pagamento ----------
@@ -959,6 +990,7 @@ export default async function RelatoriosPage({
     { cat: 'Estoque', abas: [
       { id: 'estoque', label: 'Estoque e compra' }, { id: 'porfornecedor', label: 'Por fornecedor' },
       { id: 'inventario', label: 'Inventário' }, { id: 'movsaldo', label: 'Movimentações' },
+      { id: 'imobilizado', label: 'Imobilizado' },
     ] },
     { cat: 'Serviços', abas: [{ id: 'tecnicos', label: 'Performance Técnicos' }] },
     { cat: 'Sistema', abas: [{ id: 'registro', label: 'Registro de Atividades' }] },
@@ -1610,6 +1642,72 @@ export default async function RelatoriosPage({
                   <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{fmt(e.quantidade * e.preco)}</td>
                 </tr>
               ))}
+            </Tabela>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- Imobilizado ---------------- */}
+      {aba === 'imobilizado' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <Card label="Investido (a custo)" valor={fmt(imobTotalCusto)} cor="text-orange-600" />
+            <Card label="Potencial (a venda)" valor={fmt(imobTotalVenda)} cor="text-green-600" />
+            <Card label="Categorias" valor={String(imobPorCat.length)} cor="text-gray-800" />
+            <Card label="Depósitos" valor={String(imobDepSel ? imobDepSel.length : depsList.length)} cor="text-blue-600" />
+          </div>
+
+          <div>
+            <h3 className="mb-2 font-semibold text-gray-800">Depósitos</h3>
+            <div className="flex flex-wrap gap-1.5">
+              <Link prefetch={false} href="/painel/relatorios?aba=imobilizado&deps=todas"
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${!imobDepSel ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>
+                Todas
+              </Link>
+              {depsList.map((d) => {
+                const sel = imobDepSel ? imobDepSel.includes(d.id) : false
+                let nova: string[] | null
+                if (!imobDepSel) nova = [d.id]
+                else if (sel) { nova = imobDepSel.filter((x) => x !== d.id); if (nova.length === 0) nova = null }
+                else nova = [...imobDepSel, d.id]
+                const novoDeps = !nova || nova.length === 0 ? 'todas' : nova.join(',')
+                return (
+                  <Link key={d.id} prefetch={false} href={`/painel/relatorios?aba=imobilizado&deps=${novoDeps}`}
+                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${sel ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>
+                    {d.nome}
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="font-semibold text-gray-800">Por categoria</h3>
+              <ExportCsv filename={`imobilizado_${dataFim}.csv`}
+                cols={[{ key: 'categoria', label: 'Categoria' }, { key: 'custo', label: 'Custo', money: true }, { key: 'venda', label: 'Venda', money: true }, { key: 'qtd', label: 'Qtd' }, { key: 'n', label: 'Produtos' }]}
+                rows={asRows(imobPorCat)} />
+            </div>
+            <Tabela vazio={imobPorCat.length === 0} vazioMsg="Sem itens em estoque."
+              head={['Categoria', 'Custo', 'Venda', 'Qtd', 'Produtos']} alinhas={['l', 'r', 'r', 'r', 'r']}>
+              {imobPorCat.map((c) => (
+                <tr key={c.categoria} className="hover:bg-blue-50/60">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.categoria}</td>
+                  <td className="px-4 py-3 text-sm text-right text-orange-600">{fmt(c.custo)}</td>
+                  <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{fmt(c.venda)}</td>
+                  <td className="px-4 py-3 text-sm text-right text-gray-600">{c.qtd}</td>
+                  <td className="px-4 py-3 text-sm text-right text-gray-500">{c.n}</td>
+                </tr>
+              ))}
+              {imobPorCat.length > 0 && (
+                <tr className="border-t border-gray-200 bg-gray-50">
+                  <td className="px-4 py-3 text-sm font-bold text-gray-800">TOTAL</td>
+                  <td className="px-4 py-3 text-sm text-right font-bold text-orange-600">{fmt(imobTotalCusto)}</td>
+                  <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">{fmt(imobTotalVenda)}</td>
+                  <td className="px-4 py-3 text-sm text-right text-gray-600">{imobPorCat.reduce((s, c) => s + c.qtd, 0)}</td>
+                  <td className="px-4 py-3 text-sm text-right text-gray-600">{imobPorCat.reduce((s, c) => s + c.n, 0)}</td>
+                </tr>
+              )}
             </Tabela>
           </div>
         </div>
