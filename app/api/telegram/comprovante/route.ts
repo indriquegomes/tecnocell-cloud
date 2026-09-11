@@ -675,7 +675,25 @@ async function processa(loja: Loja, update: any) {
   }
 
   const t = tipo(m)
-  if (!t) return // texto puro sem url = ignora
+  if (!t) {
+    // texto solto logo abaixo do comprovante = nome do comprador (nome no Pix nem sempre é quem comprou)
+    const nome = (m.text || '').trim()
+    if (nome && !nome.startsWith('/')) {
+      const { data: prev } = await sb().from('comprovantes_pix').select('id, pagador')
+        .eq('telegram_chat_id', loja.grupo).lt('telegram_message_id', m.message_id)
+        .neq('status', 'nao_comprovante').neq('status', 'apagado')
+        .order('telegram_message_id', { ascending: false }).limit(1).maybeSingle()
+      const comp = prev as { id: string; pagador: string | null } | null
+      if (comp) {
+        await sb().from('comprovantes_pix').update({ cliente_sistema: nome }).eq('id', comp.id)
+        const pagador = (comp.pagador || '').trim()
+        if (pagador) { await sb().from('pix_aliases').upsert({ telegram_chat_id: loja.grupo, pagador_norm: normNome(pagador) || 'SEM PAGADOR', pagador, cliente: nome }, { onConflict: 'telegram_chat_id,pagador_norm' }) }
+        await tgSend(loja.token, loja.grupo, '✅ Comprador: ' + nome + (pagador ? ' 🔗 ' + pagador + ' → ' + nome : ''))
+        try { await escreveSheet(loja) } catch (e) { console.error('sheet texto:', e) }
+      }
+    }
+    return
+  }
   const { data: novo, error: upErr } = await sb().from('comprovantes_pix').upsert({
     telegram_chat_id: loja.grupo, telegram_message_id: m.message_id, recebido_em: new Date((m.date || 0) * 1000).toISOString(),
     formato: t.f, arquivo_file_id: 'fid' in t ? t.fid : null, arquivo_url: 'url' in t ? t.url : null, status: 'recebido',
