@@ -37,7 +37,7 @@ export async function GET(_req: NextRequest) {
       const na = notaPorId.get(a.nota_id)!
       const nb = notaPorId.get(b.nota_id)!
       return (na.data_entrada ?? '').localeCompare(nb.data_entrada ?? '')
-        || (na.numero ?? '').localeCompare(nb.numero ?? '')
+        || (na.numero ?? '').localeCompare(nb.numero ?? '', undefined, { numeric: true })
         || (a.created_at ?? '').localeCompare(b.created_at ?? '')
     })
 
