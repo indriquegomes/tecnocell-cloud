@@ -291,38 +291,28 @@ export default async function DashboardPage({
           {pontoWidget}
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="relative overflow-hidden rounded-2xl bg-[#1B6CA8] p-6 text-white shadow-sm lg:col-span-2">
-            <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/5" />
-            <p className="relative text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Minhas vendas · este mês</p>
-            <p className="relative mt-2.5 text-[38px] font-extrabold leading-none tabular-nums"><Valor>{formatBRL(meuFatMes)}</Valor></p>
-            <div className="relative mt-2.5 flex flex-wrap gap-x-5 gap-y-1 text-sm text-white/75">
-              <span><b className="font-bold text-white tabular-nums">{meuNVendas}</b> vendas</span>
-              <span>ticket <b className="font-bold text-white"><Valor>{formatBRL(meuTicket)}</Valor></b></span>
-            </div>
-            {metaEfetiva > 0 ? (
-              <div className="relative mt-6">
-                <div className="flex items-center justify-between text-xs text-white/80">
-                  <span>{meta > 0 ? 'Meta do mês' : `Sua parte da meta (÷${minhaMeta?.pessoas ?? 1})`} · <Valor>{formatBRL(metaEfetiva)}</Valor></span>
-                  <span className="font-bold text-white tabular-nums">{metaEfetivaPct}%</span>
-                </div>
-                <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-white/15">
-                  <div className="h-full rounded-full bg-white transition-all" style={{ width: `${metaEfetivaPct}%` }} />
-                </div>
-                <p className="relative mt-1.5 text-[11px] text-white/60">
-                  {metaEfetivaPct >= 100 ? '🏆 bateu a meta!' : <>faltam <Valor>{formatBRL(metaEfetiva - meuFatMes)}</Valor></>}
-                </p>
+        <div className="relative overflow-hidden rounded-2xl bg-[#1B6CA8] p-6 text-white shadow-sm">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/5" />
+          <p className="relative text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Minha meta · este mês</p>
+          {metaEfetiva > 0 ? (
+            <>
+              <div className="relative mt-3 flex items-end justify-between gap-4">
+                <p className="text-[64px] font-extrabold leading-none tabular-nums">{metaEfetivaPct}%</p>
+                <p className="pb-1 text-sm text-white/80">{meuNVendas} vendas</p>
               </div>
-            ) : (
-              <p className="relative mt-6 inline-flex rounded-lg bg-white/10 px-2.5 py-1.5 text-xs text-white/80">🎯 Sem meta definida — peça pro gerente configurar</p>
-            )}
-          </div>
-
-          <Stat sensivel icon={<IconCart className="h-5 w-5 text-emerald-600" />} bg="bg-emerald-50" label="Vendas hoje" value={formatBRL(meuHoje)} sub={`${meuNVendasHoje} venda(s)`} href="/painel/pdv" />
+              <div className="relative mt-5 h-4 overflow-hidden rounded-full bg-white/15">
+                <div className="h-full rounded-full bg-gradient-to-r from-white to-white/70 transition-all" style={{ width: `${metaEfetivaPct}%` }} />
+              </div>
+              <p className="relative mt-3 text-sm text-white/85">
+                {metaEfetivaPct >= 100
+                  ? <>🏆 Meta batida! Parabéns!</>
+                  : <>Faltam <b className="font-semibold text-white">{100 - metaEfetivaPct}%</b> pra bater a meta 💪</>}
+              </p>
+            </>
+          ) : (
+            <p className="relative mt-3 inline-flex rounded-lg bg-white/10 px-2.5 py-1.5 text-xs text-white/80">🎯 Sem meta definida — peça pro gerente configurar</p>
+          )}
         </div>
-
-        {/* Meta da loja — o time todo mira as faixas (sabendo a loja: só a dela; senão, todas) */}
-        {minhaMeta ? <MetaWidget meta={minhaMeta} /> : metasWidgets.map((m, i) => <MetaWidget key={i} meta={m} />)}
 
         <Link href="/painel/pdv" className="flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 p-5 text-lg font-bold text-white shadow-sm shadow-emerald-600/25 transition hover:from-emerald-700 hover:to-emerald-600">
           🛒 Abrir o PDV
@@ -339,7 +329,7 @@ export default async function DashboardPage({
                   <span className="font-mono text-xs font-semibold text-gray-400">#{v.numero ?? '—'}</span>
                   <span className="text-sm text-gray-500">{v.created_at ? formatDate(v.created_at) : ''}</span>
                 </div>
-                <span className="text-sm font-bold tabular-nums text-gray-900"><Valor>{formatBRL(v.total ?? 0)}</Valor></span>
+                <span className="text-xs font-semibold text-emerald-600">✓ feita</span>
               </div>
             ))}
           </div>
@@ -363,11 +353,10 @@ export default async function DashboardPage({
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="relative overflow-hidden rounded-2xl bg-[#1B6CA8] p-6 text-white shadow-sm lg:col-span-2">
             <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/5" />
-            <p className="relative text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Valor em estoque · custo</p>
-            <p className="relative mt-2.5 text-[38px] font-extrabold leading-none tabular-nums"><Valor>{formatBRL(valorEstoque)}</Valor></p>
+            <p className="relative text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Peças em estoque</p>
+            <p className="relative mt-2.5 text-[38px] font-extrabold leading-none tabular-nums">{pecasComEstoque.toLocaleString('pt-BR')}</p>
             <div className="relative mt-2.5 flex flex-wrap gap-x-5 gap-y-1 text-sm text-white/75">
               <span><b className="font-bold text-white tabular-nums">{unidades.toLocaleString('pt-BR')}</b> unidades</span>
-              <span><b className="font-bold text-white tabular-nums">{pecasComEstoque.toLocaleString('pt-BR')}</b> peças</span>
             </div>
           </div>
           <div className={`rounded-2xl border p-6 shadow-sm ${abaixoMin > 0 ? 'border-amber-200 bg-amber-50' : 'border-emerald-200 bg-emerald-50'}`}>
@@ -460,19 +449,14 @@ export default async function DashboardPage({
             {metaTopo ? (
               <>
                 <p className="relative text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Meta {metaTopo.rotulo ? `· ${metaTopo.rotulo}` : ''} · {metaTopo.loja}</p>
-                <div className="relative mt-3 flex items-end justify-between gap-4">
-                  <p className="text-[56px] font-extrabold leading-none tabular-nums">{metaTopoPct}%</p>
-                  <div className="pb-1 text-right text-sm text-white/80">
-                    <p>Faturado <b className="text-white"><Valor>{formatBRL(metaTopoFat)}</Valor></b></p>
-                    <p>de <Valor>{formatBRL(metaTopoValor)}</Valor></p>
-                  </div>
-                </div>
-                <div className="relative mt-4 h-3.5 overflow-hidden rounded-full bg-white/15">
-                  <div className="h-full rounded-full bg-white transition-all" style={{ width: `${metaTopoPct}%` }} />
+                <p className="relative mt-3 text-[64px] font-extrabold leading-none tabular-nums">{metaTopoPct}%</p>
+                <p className="relative mt-1 text-sm text-white/75">da meta do mês</p>
+                <div className="relative mt-5 h-4 overflow-hidden rounded-full bg-white/15">
+                  <div className="h-full rounded-full bg-gradient-to-r from-white to-white/70 transition-all" style={{ width: `${metaTopoPct}%` }} />
                 </div>
                 <p className="relative mt-3 text-sm text-white/85">
                   {metaTopoProx
-                    ? <>Faltam <b className="font-semibold text-white"><Valor>{formatBRL(metaTopoFaltam)}</Valor></b> pra bater <b className="font-semibold text-white">{metaTopoProx.nome}</b> 💪</>
+                    ? <>Faltam <b className="font-semibold text-white">{Math.max(0, 100 - metaTopoPct)}%</b> pra bater <b className="font-semibold text-white">{metaTopoProx.nome}</b> 💪</>
                     : <>🏆 Meta batida! Todas as faixas conquistadas.</>}
                 </p>
               </>
@@ -501,31 +485,31 @@ export default async function DashboardPage({
           </div>
         )}
 
-        {/* Vendas de hoje — encosta no hero, fechando a coluna da direita */}
-        {pode('vendas') && <Stat cls="md:col-span-3 lg:col-span-4" sensivel icon={<IconCart className="h-5 w-5 text-emerald-600" />} bg="bg-emerald-50" label="Vendas hoje (PDV)" value={formatBRL(vendasHojeTotal)} sub={`${(vendasHoje ?? []).length} venda(s)`} href="/painel/pdv" />}
+        {/* Vendas de hoje — encosta no hero, fechando a coluna da direita (só master) */}
+        {isMaster && pode('vendas') && <Stat cls="md:col-span-3 lg:col-span-4" sensivel icon={<IconCart className="h-5 w-5 text-emerald-600" />} bg="bg-emerald-50" label="Vendas hoje (PDV)" value={formatBRL(vendasHojeTotal)} sub={`${(vendasHoje ?? []).length} venda(s)`} href="/painel/pdv" />}
 
         {/* Trio de contadores */}
         {pode('produtos') && <Stat cls="md:col-span-3 lg:col-span-4" icon={<IconPackage className="h-5 w-5 text-[#1B6CA8]" />} bg="bg-[#1B6CA8]/10" label="Produtos ativos" value={(totalProdutos ?? 0).toLocaleString('pt-BR')} href="/painel/produtos" />}
         {pode('clientes') && <Stat cls="md:col-span-3 lg:col-span-4" icon={<IconUsers className="h-5 w-5 text-violet-600" />} bg="bg-violet-50" label="Clientes" value={(totalClientes ?? 0).toLocaleString('pt-BR')} href="/painel/clientes" />}
-        {pode('financeiro') && <Stat cls="md:col-span-3 lg:col-span-4" sensivel icon={<IconWallet className="h-5 w-5 text-amber-600" />} bg="bg-amber-50" label="A receber · a pagar" value={formatBRL(aReceber)} sub={`a pagar ${formatBRL(aPagar)}`} href="/painel/financeiro" />}
+        {isMaster && pode('financeiro') && <Stat cls="md:col-span-3 lg:col-span-4" sensivel icon={<IconWallet className="h-5 w-5 text-amber-600" />} bg="bg-amber-50" label="A receber · a pagar" value={formatBRL(aReceber)} sub={`a pagar ${formatBRL(aPagar)}`} href="/painel/financeiro" />}
 
-        {/* Graficos: o fluxo e largo (a linha precisa de espaco), a rosca e compacta */}
-        {fluxoDiario.length > 0 && (
+        {/* Graficos: o fluxo e largo (a linha precisa de espaco), a rosca e compacta (só master) */}
+        {isMaster && fluxoDiario.length > 0 && (
           <>
             <div className="md:col-span-6 lg:col-span-8"><FluxoDiario dias={fluxoDiario} total={fluxoTotal} mes={mesLabel} /></div>
             <div className="md:col-span-6 lg:col-span-4"><StatusPedidos status={statusPedidos} mes={mesLabel} /></div>
           </>
         )}
 
-        {/* METAS — uma por loja, meio a meio */}
-        {metasWidgets.map((m, i) => (
+        {/* METAS — uma por loja, meio a meio (só master vê os valores) */}
+        {isMaster && metasWidgets.map((m, i) => (
           <div key={i} className={metasWidgets.length > 1 ? 'md:col-span-6 lg:col-span-6' : 'md:col-span-6 lg:col-span-12'}>
             <MetaWidget meta={m} />
           </div>
         ))}
 
-        {/* PRÊMIOS a pagar — comissão automática por faixa (só quem gerencia metas) */}
-        {pode('metas') && metasWidgets.length > 0 && (
+        {/* PRÊMIOS a pagar — comissão automática por faixa (só master) */}
+        {isMaster && pode('metas') && metasWidgets.length > 0 && (
           <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm md:col-span-6 lg:col-span-6">
           <h3 className="text-sm font-semibold text-gray-800">🎁 Prêmios a pagar <span className="font-normal text-gray-400">· pelo faturamento atual</span></h3>
           <div className="mt-3 space-y-2">
@@ -555,12 +539,16 @@ export default async function DashboardPage({
           </div>
         )}
 
-        {/* Rankings — lado a lado */}
-        <Rank cls="md:col-span-6 lg:col-span-6" titulo="Top clientes" dados={topClientes} max={maxCli} />
-        <Rank cls="md:col-span-6 lg:col-span-6" titulo="Vendedores" dados={topVendedores} max={maxVend} />
+        {/* Rankings — lado a lado (só master vê os valores) */}
+        {isMaster && (
+          <>
+            <Rank cls="md:col-span-6 lg:col-span-6" titulo="Top clientes" dados={topClientes} max={maxCli} />
+            <Rank cls="md:col-span-6 lg:col-span-6" titulo="Vendedores" dados={topVendedores} max={maxVend} />
+          </>
+        )}
 
-        {/* últimos lançamentos */}
-        {pode('financeiro') && (lancRecentes ?? []).length > 0 && (
+        {/* últimos lançamentos (só master) */}
+        {isMaster && pode('financeiro') && (lancRecentes ?? []).length > 0 && (
           <div className="rounded-2xl border border-gray-200 bg-white shadow-sm md:col-span-6 lg:col-span-6">
           <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
             <h3 className="text-sm font-semibold text-gray-800">Últimos lançamentos</h3>
