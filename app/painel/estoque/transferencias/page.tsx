@@ -93,6 +93,7 @@ export default async function TransferenciasPage({
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
+                    <Link href={`/painel/estoque/transferencias/${r.id}/separacao`} className="rounded-lg border border-blue-200 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50 transition">Nota de separação</Link>
                     <span className="text-sm font-semibold text-amber-700">{formatBRL(custoRemessa(r))}</span>
                     <form action={confirmarRecebimento.bind(null, r.id)}>
                       <button type="submit" className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
