@@ -313,8 +313,7 @@ async function extraiUm(loja: Loja, c: Comp) {
 async function extraiPendentes(loja: Loja, limite = 8) {
   const { data } = await sb().from('comprovantes_pix').select('*')
     .in('formato', ['foto', 'pdf', 'link']).eq('telegram_chat_id', loja.grupo)
-    .neq('status', 'nao_comprovante').neq('status', 'incompleto').neq('status', 'ilegivel')
-    .or('valor.is.null,destinatario.is.null,transacao_id.is.null')
+    .eq('status', 'recebido')
     .order('recebido_em').limit(limite)
   for (const c of (data || []) as Comp[]) { try { await extraiUm(loja, c) } catch { /* segue */ } }
 }
