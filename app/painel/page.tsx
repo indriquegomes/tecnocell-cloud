@@ -249,7 +249,9 @@ export default async function DashboardPage({
     </Link>
   )
 
-  const Rank = ({ titulo, dados, max, cls = '' }: { titulo: string; dados: [string, number][]; max: number; cls?: string }) => (
+  const Rank = ({ titulo, dados, max, cls = '', modo = 'valor' }: { titulo: string; dados: [string, number][]; max: number; cls?: string; modo?: 'valor' | 'percentual' }) => {
+    const totalRank = dados.reduce((s, [, v]) => s + v, 0)
+    return (
     <div className={`rounded-2xl border border-gray-200 bg-white shadow-sm ${cls}`}>
       <div className="border-b border-gray-100 px-5 py-3.5"><h3 className="text-sm font-semibold text-gray-800">{titulo} <span className="font-normal text-gray-400">· 30 dias</span></h3></div>
       <div className="p-2">
@@ -261,12 +263,15 @@ export default async function DashboardPage({
                 <span className="w-4 shrink-0 text-center text-xs font-bold tabular-nums text-[#1B6CA8]/50">{i + 1}</span>
                 <span className="truncate text-sm text-gray-700">{nome}</span>
               </div>
-              <span className="relative z-10 shrink-0 pl-3 text-sm font-semibold tabular-nums text-gray-900"><Valor>{formatBRL(val)}</Valor></span>
+              <span className="relative z-10 shrink-0 pl-3 text-sm font-semibold tabular-nums text-gray-900">
+                {modo === 'percentual' ? `${totalRank > 0 ? ((val / totalRank) * 100).toFixed(0) : 0}%` : <Valor>{formatBRL(val)}</Valor>}
+              </span>
             </div>
           ))}
       </div>
     </div>
-  )
+    )
+  }
 
   // ============ VENDEDORA ============
   if (role === 'vendedora') {
@@ -539,13 +544,9 @@ export default async function DashboardPage({
           </div>
         )}
 
-        {/* Rankings — lado a lado (só master vê os valores) */}
-        {isMaster && (
-          <>
-            <Rank cls="md:col-span-6 lg:col-span-6" titulo="Top clientes" dados={topClientes} max={maxCli} />
-            <Rank cls="md:col-span-6 lg:col-span-6" titulo="Vendedores" dados={topVendedores} max={maxVend} />
-          </>
-        )}
+        {/* Rankings — Top clientes para todos (master vê valor, user comum vê %) */}
+        <Rank cls="md:col-span-6 lg:col-span-6" titulo="Top clientes" dados={topClientes} max={maxCli} modo={isMaster ? 'valor' : 'percentual'} />
+        {isMaster && <Rank cls="md:col-span-6 lg:col-span-6" titulo="Vendedores" dados={topVendedores} max={maxVend} />}
 
         {/* últimos lançamentos (só master) */}
         {isMaster && pode('financeiro') && (lancRecentes ?? []).length > 0 && (
