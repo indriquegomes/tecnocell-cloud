@@ -137,7 +137,7 @@ async function geminiLe(parts: GPart[], maxTokens: number): Promise<string> {
       contents: [{ role: 'user', parts: parts.map((p) => p.inline
         ? { inline_data: { mime_type: p.inline.mime, data: p.inline.b64 } }
         : { text: p.text }) }],
-      generationConfig: { maxOutputTokens: maxTokens },
+      generationConfig: { maxOutputTokens: maxTokens, thinkingConfig: { thinkingLevel: 'minimal' } },
     }),
   }, 30000)
   if (!r.ok) throw new Error('gemini ' + r.status + ': ' + (await r.text()).slice(0, 200))
@@ -269,7 +269,7 @@ async function extraiUm(loja: Loja, c: Comp) {
   else if (c.arquivo_file_id) parte = await tgFileBloco(loja.token, c.arquivo_file_id, c.formato === 'pdf')
   if (!parte) return marcaFalha(c, 'sem-conteudo')
   let txt
-  try { txt = await geminiLe([parte, { text: PROMPT }], 400) }
+  try { txt = await geminiLe([parte, { text: PROMPT }], 1024) }
   catch (e) { return marcaFalha(c, 'api: ' + String((e as Error)?.message || e).slice(0, 120)) }
   const j: any = primeiroJson(txt)
   if (!j) return marcaFalha(c, 'json-fail :: ' + (txt || '').replace(/\s+/g, ' ').slice(0, 600))
