@@ -25,10 +25,12 @@ export function FluxoDiario({
   dias,
   total,
   mes,
+  modo = 'valor',
 }: {
   dias: { dia: string; valor: number; n: number }[]
   total: number
   mes: string
+  modo?: 'valor' | 'percentual'
 }) {
   const [hover, setHover] = useState<number | null>(null)
 
@@ -44,6 +46,13 @@ export function FluxoDiario({
   const max = Math.max(...dias.map((d) => d.valor), 1)
   const melhor = dias.reduce((a, d) => (d.valor > a.valor ? d : a), dias[0])
   const comVenda = dias.filter((d) => d.valor > 0).length
+  // tendência: variação % do último dia com venda vs o anterior (motiva o time)
+  const diasVenda = dias.filter((d) => d.valor > 0)
+  const ultimo = diasVenda[diasVenda.length - 1]
+  const penultimo = diasVenda[diasVenda.length - 2]
+  const tendencia = ultimo && penultimo && penultimo.valor > 0
+    ? Math.round(((ultimo.valor - penultimo.valor) / penultimo.valor) * 100)
+    : null
   const ativo = hover != null ? dias[hover] : null
 
   return (
@@ -52,7 +61,18 @@ export function FluxoDiario({
         <p className="text-sm font-semibold text-gray-800">Fluxo diário de vendas</p>
         <p className="text-xs text-gray-400">{mes} · {comVenda} {comVenda === 1 ? 'dia' : 'dias'} com venda</p>
       </div>
-      <p className="mb-3 text-2xl font-extrabold tabular-nums text-gray-900">{formatBRL(total)}</p>
+      {modo === 'percentual' ? (
+        <p className="mb-3 text-2xl font-extrabold tabular-nums text-gray-900">
+          {tendencia != null ? (
+            <span className={tendencia >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+              {tendencia >= 0 ? '↑' : '↓'} {Math.abs(tendencia)}%
+            </span>
+          ) : '—'}
+          <span className="ml-1 text-sm font-semibold text-gray-400">último dia vs anterior</span>
+        </p>
+      ) : (
+        <p className="mb-3 text-2xl font-extrabold tabular-nums text-gray-900">{formatBRL(total)}</p>
+      )}
 
       {/* barras + tooltip flutuante no hover */}
       <div className="relative select-none" onMouseLeave={() => setHover(null)}>
@@ -63,7 +83,9 @@ export function FluxoDiario({
           >
             <div className="whitespace-nowrap rounded-lg bg-gray-900 px-2.5 py-1.5 text-center shadow-lg">
               <div className="text-[10px] font-medium uppercase tracking-wide text-gray-300">Dia {ativo.dia}</div>
-              <div className="text-sm font-bold tabular-nums text-white">{formatBRL(ativo.valor)}</div>
+              <div className="text-sm font-bold tabular-nums text-white">
+                {modo === 'percentual' ? `${((ativo.valor / total) * 100).toFixed(0)}% do mês` : formatBRL(ativo.valor)}
+              </div>
               <div className="text-[10px] text-gray-400">{ativo.n} {ativo.n === 1 ? 'venda' : 'vendas'}</div>
             </div>
           </div>
@@ -100,7 +122,8 @@ export function FluxoDiario({
 
       {melhor.valor > 0 && (
         <p className="mt-2 text-xs text-gray-400">
-          Melhor dia: <b className="text-gray-600">{melhor.dia}</b> · <span style={{ color: LARANJA }} className="font-semibold">{formatBRL(melhor.valor)}</span>
+          Melhor dia: <b className="text-gray-600">{melhor.dia}</b>
+          {modo === 'valor' && <> · <span style={{ color: LARANJA }} className="font-semibold">{formatBRL(melhor.valor)}</span></>}
         </p>
       )}
     </div>

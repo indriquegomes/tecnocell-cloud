@@ -493,11 +493,11 @@ export default async function DashboardPage({
         {pode('clientes') && <Stat cls="md:col-span-3 lg:col-span-4" icon={<IconUsers className="h-5 w-5 text-violet-600" />} bg="bg-violet-50" label="Clientes" value={(totalClientes ?? 0).toLocaleString('pt-BR')} href="/painel/clientes" />}
         {isMaster && pode('financeiro') && <Stat cls="md:col-span-3 lg:col-span-4" sensivel icon={<IconWallet className="h-5 w-5 text-amber-600" />} bg="bg-amber-50" label="A receber · a pagar" value={formatBRL(aReceber)} sub={`a pagar ${formatBRL(aPagar)}`} href="/painel/financeiro" />}
 
-        {/* Graficos: o fluxo e largo (a linha precisa de espaco), a rosca e compacta (só master) */}
-        {isMaster && fluxoDiario.length > 0 && (
+        {/* Graficos: fluxo diário para todos (master vê valor, user comum vê %) */}
+        {fluxoDiario.length > 0 && (
           <>
-            <div className="md:col-span-6 lg:col-span-8"><FluxoDiario dias={fluxoDiario} total={fluxoTotal} mes={mesLabel} /></div>
-            <div className="md:col-span-6 lg:col-span-4"><StatusPedidos status={statusPedidos} mes={mesLabel} /></div>
+            <div className="md:col-span-6 lg:col-span-8"><FluxoDiario dias={fluxoDiario} total={fluxoTotal} mes={mesLabel} modo={isMaster ? 'valor' : 'percentual'} /></div>
+            {isMaster && <div className="md:col-span-6 lg:col-span-4"><StatusPedidos status={statusPedidos} mes={mesLabel} /></div>}
           </>
         )}
 
