@@ -137,7 +137,7 @@ async function geminiLe(parts: GPart[], maxTokens: number): Promise<string> {
       contents: [{ role: 'user', parts: parts.map((p) => p.inline
         ? { inline_data: { mime_type: p.inline.mime, data: p.inline.b64 } }
         : { text: p.text }) }],
-      generationConfig: { maxOutputTokens: maxTokens, thinkingConfig: { thinkingLevel: 'minimal' } },
+      generationConfig: { maxOutputTokens: maxTokens, thinkingConfig: { thinkingLevel: 'low' } },
     }),
   }, 30000)
   if (!r.ok) throw new Error('gemini ' + r.status + ': ' + (await r.text()).slice(0, 200))
