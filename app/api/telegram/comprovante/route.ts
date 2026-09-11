@@ -454,26 +454,49 @@ async function escreveSheet(loja: Loja) {
   if (per) q = q.gte('recebido_em', per.aberto_em)
   const { data: csRaw } = await q.order('recebido_em')
   const cs = (csRaw || []) as Comp[]
-  const valDe = (c: Comp) => (c.status === 'duplicado' || c.status === 'incompleto' || c.status === 'ilegivel' ? 0 : Number(c.valor) || 0)
+  // apelidos: link pagador (Pix) → cliente (sistema)
+  const { data: aliases } = await sb().from('pix_aliases').select('pagador_norm, cliente').eq('telegram_chat_id', loja.grupo)
+  const alias = new Map((aliases || []).map((a: { pagador_norm: string; cliente: string }) => [a.pagador_norm, a.cliente]))
+  const clienteDe = (c: Comp) => {
+    const sis = (c.cliente_sistema || '').trim()
+    if (sis) return sis
+    const p = normNome(c.pagador || '')
+    if (p && alias.has(p)) return alias.get(p)!
+    return (c.pagador || '').trim() || '—'
+  }
 
   const dups = cs.filter((c) => c.status === 'duplicado').length
   const incompletos = cs.filter((c) => c.status === 'incompleto' || c.status === 'ilegivel').length
   const validos = cs.length - dups - incompletos
-  const geral = cs.reduce((s, c) => s + valDe(c), 0)
 
-  const linhas: (string | number)[][] = [['Data', 'Cliente (sistema)', 'Nome no Pix', 'Quem recebeu', 'Valor (R$)']]
+  const groups = agrupaPorDestino(cs)
+  const linhas: (string | number)[][] = [['Destinatário', 'Cliente', 'Valor (R$)', 'Data', 'Observação']]
   const rowTypes: string[] = ['header']
-  for (const c of cs) {
-    const v = Number(c.valor) || 0
-    const cliente = (c.cliente_sistema || '').trim() || (c.pagador || '').trim() || '—'
-    linhas.push([fmtDataBR(c.data_pix), cliente, c.pagador || '—', c.destinatario || '—', c.valor != null ? v : ''])
-    rowTypes.push('dado')
+  let geral = 0
+  for (const k of Object.keys(groups).sort()) {
+    const g = groups[k]; let soma = 0, nImg = 0
+    for (const c of g.itens) {
+      const v = Number(c.valor) || 0
+      let obs = '', tp = 'dado'
+      if (c.status === 'duplicado') { obs = '🔁 duplicado — não somado'; tp = 'dup' }
+      else if (c.status === 'incompleto') { obs = '❗ sem destinatário'; tp = 'incompleto' }
+      else if (c.status === 'ilegivel') { obs = '⚠️ não consegui ler'; tp = 'incompleto' }
+      else {
+        soma += v; geral += v; nImg++
+        const er = c.extraido_raw as { valor_incerto?: boolean } | null
+        if (er?.valor_incerto) { obs = '⚠️ confere valor'; tp = 'alerta' }
+        else if (c.status === 'data_divergente') { obs = '⚠️ data ≠ hoje'; tp = 'alerta' }
+        else { obs = 'ok' }
+      }
+      linhas.push([g.nome, clienteDe(c), c.valor != null ? v : '', fmtDataBR(c.data_pix), obs]); rowTypes.push(tp)
+    }
+    linhas.push(['', 'TOTAL ' + g.nome, soma, nImg + (nImg === 1 ? ' imagem' : ' imagens'), '']); rowTypes.push('subtotal')
+    linhas.push(['', '', '', '', '']); rowTypes.push('blank')
   }
   const notas = [validos + ' comprovantes']
   if (dups) notas.push(dups + ' duplicado' + (dups > 1 ? 's' : ''))
   if (incompletos) notas.push(incompletos + ' incompleto' + (incompletos > 1 ? 's' : ''))
-  linhas.push(['', 'TOTAL GERAL (' + notas.join(' · ') + ')', '', '', geral])
-  rowTypes.push('total')
+  linhas.push(['', 'TOTAL GERAL', geral, '', notas.join(' · ')]); rowTypes.push('total')
 
   const R = (t: string) => encodeURIComponent(`${t}!A1:Z2000`)
   const RA1 = (t: string) => encodeURIComponent(`${t}!A1`)
@@ -482,21 +505,29 @@ async function escreveSheet(loja: Loja) {
 
   // DESIGN (marca TecnoCell #1B6CA8)
   const AZUL = { red: 0.106, green: 0.424, blue: 0.659 }, BRANCO = { red: 1, green: 1, blue: 1 }
+  const CINZA = { red: 0.93, green: 0.95, blue: 0.97 }
+  const VERDE = { red: 0.15, green: 0.55, blue: 0.2 }, AMBAR = { red: 0.72, green: 0.45, blue: 0.05 }, CINZATX = { red: 0.55, green: 0.55, blue: 0.55 }
   const nRows = linhas.length, nCols = 5
   const rowFmt = (r: number, fmt: object, fields: string) => ({ repeatCell: { range: { sheetId, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: nCols }, cell: { userEnteredFormat: fmt }, fields } })
+  const cellFmt = (r: number, c: number, fmt: object, fields: string) => ({ repeatCell: { range: { sheetId, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: c, endColumnIndex: c + 1 }, cell: { userEnteredFormat: fmt }, fields } })
   const reqs: object[] = []
   reqs.push({ repeatCell: { range: { sheetId, startRowIndex: 0, endRowIndex: 2000, startColumnIndex: 0, endColumnIndex: 26 }, cell: {}, fields: 'userEnteredFormat' } })
   reqs.push({ repeatCell: { range: { sheetId, startRowIndex: 0, endRowIndex: nRows, startColumnIndex: 0, endColumnIndex: nCols }, cell: { userEnteredFormat: { textFormat: { fontSize: 10 }, verticalAlignment: 'MIDDLE' } }, fields: 'userEnteredFormat(textFormat,verticalAlignment)' } })
   reqs.push(rowFmt(0, { backgroundColor: AZUL, textFormat: { bold: true, foregroundColor: BRANCO, fontSize: 11 }, horizontalAlignment: 'CENTER' }, 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)'))
   reqs.push({ updateSheetProperties: { properties: { sheetId, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } })
-  reqs.push({ repeatCell: { range: { sheetId, startRowIndex: 1, endRowIndex: nRows, startColumnIndex: 4, endColumnIndex: 5 }, cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '"R$" #,##0.00' }, horizontalAlignment: 'RIGHT' } }, fields: 'userEnteredFormat(numberFormat,horizontalAlignment)' } })
-  reqs.push({ repeatCell: { range: { sheetId, startRowIndex: 1, endRowIndex: nRows, startColumnIndex: 0, endColumnIndex: 1 }, cell: { userEnteredFormat: { horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat.horizontalAlignment' } })
+  reqs.push({ repeatCell: { range: { sheetId, startRowIndex: 1, endRowIndex: nRows, startColumnIndex: 2, endColumnIndex: 3 }, cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '"R$" #,##0.00' }, horizontalAlignment: 'RIGHT' } }, fields: 'userEnteredFormat(numberFormat,horizontalAlignment)' } })
+  reqs.push({ repeatCell: { range: { sheetId, startRowIndex: 1, endRowIndex: nRows, startColumnIndex: 3, endColumnIndex: 4 }, cell: { userEnteredFormat: { horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat.horizontalAlignment' } })
   rowTypes.forEach((t, i) => {
     if (i === 0) return
-    if (t === 'total') reqs.push(rowFmt(i, { backgroundColor: AZUL, textFormat: { bold: true, foregroundColor: BRANCO, fontSize: 11 } }, 'userEnteredFormat(backgroundColor,textFormat)'))
+    if (t === 'subtotal') reqs.push(rowFmt(i, { backgroundColor: CINZA, textFormat: { bold: true } }, 'userEnteredFormat(backgroundColor,textFormat)'))
+    else if (t === 'total') reqs.push(rowFmt(i, { backgroundColor: AZUL, textFormat: { bold: true, foregroundColor: BRANCO, fontSize: 11 } }, 'userEnteredFormat(backgroundColor,textFormat)'))
+    else if (t === 'dado') reqs.push(cellFmt(i, 4, { textFormat: { foregroundColor: VERDE, bold: true } }, 'userEnteredFormat.textFormat'))
+    else if (t === 'dup') reqs.push(cellFmt(i, 4, { textFormat: { foregroundColor: CINZATX, italic: true } }, 'userEnteredFormat.textFormat'))
+    else if (t === 'incompleto') reqs.push(cellFmt(i, 4, { textFormat: { foregroundColor: AMBAR, italic: true } }, 'userEnteredFormat.textFormat'))
+    else if (t === 'alerta') reqs.push(cellFmt(i, 4, { textFormat: { foregroundColor: AMBAR } }, 'userEnteredFormat.textFormat'))
   })
   const w = (c: number, px: number) => ({ updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: px }, fields: 'pixelSize' } })
-  reqs.push(w(0, 90), w(1, 220), w(2, 200), w(3, 200), w(4, 110))
+  reqs.push(w(0, 220), w(1, 220), w(2, 110), w(3, 90), w(4, 160))
   await fetchT(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`, { method: 'POST', headers: { ...gh(token), 'content-type': 'application/json' }, body: JSON.stringify({ requests: reqs }) }).catch(() => {})
   return { n: validos, soma: geral, dups }
 }
@@ -633,9 +664,12 @@ async function processa(loja: Loja, update: any) {
     const alvo = m.reply_to_message?.message_id
     if (!alvo) { await tgSend(loja.token, loja.grupo, 'ℹ️ Responda o comprovante (foto/PDF) com /cliente NOME'); return }
     if (!nome) { await tgSend(loja.token, loja.grupo, 'ℹ️ Uso: /cliente NOME (respondendo o comprovante)'); return }
+    const { data: comp } = await sb().from('comprovantes_pix').select('pagador').eq('telegram_chat_id', loja.grupo).eq('telegram_message_id', alvo).maybeSingle()
     const { error } = await sb().from('comprovantes_pix').update({ cliente_sistema: nome }).eq('telegram_chat_id', loja.grupo).eq('telegram_message_id', alvo)
     if (error) { await tgSend(loja.token, loja.grupo, '❌ Não achei o comprovante. Responda direto na foto/PDF.'); return }
-    await tgSend(loja.token, loja.grupo, '✅ Cliente: ' + nome)
+    const pagador = ((comp as { pagador?: string | null } | null)?.pagador || '').trim()
+    if (pagador) { await sb().from('pix_aliases').upsert({ telegram_chat_id: loja.grupo, pagador_norm: normNome(pagador) || 'SEM PAGADOR', pagador, cliente: nome }, { onConflict: 'telegram_chat_id,pagador_norm' }) }
+    await tgSend(loja.token, loja.grupo, '✅ Cliente: ' + nome + (pagador ? '\n🔗 Link salvo: ' + pagador + ' → ' + nome : ''))
     try { await escreveSheet(loja) } catch (e) { console.error('sheet cliente:', e) }
     return
   }
