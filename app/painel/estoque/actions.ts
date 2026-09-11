@@ -140,7 +140,7 @@ export async function criarRemessa(formData: FormData) {
   if (!origem || !destino) redirect(`/painel/estoque/transferencias?erro=${encodeURIComponent('Selecione origem e destino.')}`)
   if (itens.length === 0) redirect(`/painel/estoque/transferencias?erro=${encodeURIComponent('Adicione ao menos um item.')}`)
 
-  const { error } = await supabase.rpc('criar_remessa_estoque', {
+  const { data: remessaId, error } = await supabase.rpc('criar_remessa_estoque', {
     p_origem: origem,
     p_destino: destino,
     p_itens: itens.map((i) => ({
@@ -157,7 +157,8 @@ export async function criarRemessa(formData: FormData) {
   revalidatePath('/painel/estoque')
   revalidatePath('/painel/estoque/transferencias')
   revalidatePath('/painel/estoque/historico')
-  redirect('/painel/estoque/transferencias?ok=1')
+  // cai direto no cupom de separação, que já abre a impressão sozinho
+  redirect(`/painel/estoque/transferencias/${remessaId}/separacao`)
 }
 
 // Confirma a chegada física: só agora o destino recebe o estoque.
