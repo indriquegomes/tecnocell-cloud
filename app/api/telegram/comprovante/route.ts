@@ -505,7 +505,6 @@ async function escreveSheet(loja: Loja) {
 
   // DESIGN (marca TecnoCell #1B6CA8)
   const AZUL = { red: 0.106, green: 0.424, blue: 0.659 }, BRANCO = { red: 1, green: 1, blue: 1 }
-  const CINZA = { red: 0.93, green: 0.95, blue: 0.97 }
   const VERDE = { red: 0.15, green: 0.55, blue: 0.2 }, AMBAR = { red: 0.72, green: 0.45, blue: 0.05 }, CINZATX = { red: 0.55, green: 0.55, blue: 0.55 }
   const nRows = linhas.length, nCols = 6
   const rowFmt = (r: number, fmt: object, fields: string) => ({ repeatCell: { range: { sheetId, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: nCols }, cell: { userEnteredFormat: fmt }, fields } })
@@ -519,7 +518,7 @@ async function escreveSheet(loja: Loja) {
   reqs.push({ repeatCell: { range: { sheetId, startRowIndex: 1, endRowIndex: nRows, startColumnIndex: 4, endColumnIndex: 5 }, cell: { userEnteredFormat: { horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat.horizontalAlignment' } })
   rowTypes.forEach((t, i) => {
     if (i === 0) return
-    if (t === 'subtotal') reqs.push(rowFmt(i, { backgroundColor: CINZA, textFormat: { bold: true } }, 'userEnteredFormat(backgroundColor,textFormat)'))
+    if (t === 'subtotal') reqs.push(rowFmt(i, { textFormat: { bold: true } }, 'userEnteredFormat.textFormat'))
     else if (t === 'total') reqs.push(rowFmt(i, { backgroundColor: AZUL, textFormat: { bold: true, foregroundColor: BRANCO, fontSize: 11 } }, 'userEnteredFormat(backgroundColor,textFormat)'))
     else if (t === 'dado') reqs.push(cellFmt(i, 5, { textFormat: { foregroundColor: VERDE, bold: true } }, 'userEnteredFormat.textFormat'))
     else if (t === 'dup') reqs.push(cellFmt(i, 5, { textFormat: { foregroundColor: CINZATX, italic: true } }, 'userEnteredFormat.textFormat'))
@@ -527,7 +526,7 @@ async function escreveSheet(loja: Loja) {
     else if (t === 'alerta') reqs.push(cellFmt(i, 5, { textFormat: { foregroundColor: AMBAR } }, 'userEnteredFormat.textFormat'))
   })
   const w = (c: number, px: number) => ({ updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: px }, fields: 'pixelSize' } })
-  reqs.push(w(0, 200), w(1, 200), w(2, 200), w(3, 100), w(4, 90), w(5, 140))
+  reqs.push(w(0, 270), w(1, 300), w(2, 160), w(3, 105), w(4, 90), w(5, 115))
   await fetchT(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`, { method: 'POST', headers: { ...gh(token), 'content-type': 'application/json' }, body: JSON.stringify({ requests: reqs }) }).catch(() => {})
   return { n: validos, soma: geral, dups }
 }
@@ -699,6 +698,12 @@ async function processa(loja: Loja, update: any) {
     formato: t.f, arquivo_file_id: 'fid' in t ? t.fid : null, arquivo_url: 'url' in t ? t.url : null, status: 'recebido',
   }, { onConflict: 'telegram_chat_id,telegram_message_id' }).select().maybeSingle()
   if (upErr) console.error('upsert comprovante:', upErr.message)
+
+  // nome do comprador como LEGENDA da imagem (m.caption): "manda a foto + nome junto"
+  if (m.caption && novo) {
+    const cap = String(m.caption).trim()
+    if (cap && !cap.startsWith('/')) { await sb().from('comprovantes_pix').update({ cliente_sistema: cap }).eq('id', (novo as Comp).id) }
+  }
 
   // LÊ O RECÉM-CHEGADO PRIMEIRO. Antes a planilha rodava antes da leitura e, se o Google
   // travasse a conexão (sem timeout), a função congelava e o comprovante ficava "não lido"
