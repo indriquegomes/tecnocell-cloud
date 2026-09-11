@@ -52,10 +52,17 @@ export default async function ComprasPage({
           <h2 className="text-2xl font-bold text-gray-900">Notas de Entrada</h2>
           <Dica texto="Registro de compras de fornecedores. Ao finalizar uma nota, o estoque dos produtos é atualizado automaticamente." />
         </div>
-        <Link href="/painel/compras/nova"
-          className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
-          <IconPlus className="h-4 w-4" /> Nova Nota
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/painel/compras/exportar"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16" /></svg>
+            Exportar Excel
+          </Link>
+          <Link href="/painel/compras/nova"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
+            <IconPlus className="h-4 w-4" /> Nova Nota
+          </Link>
+        </div>
       </div>
 
       {params.erro && (
