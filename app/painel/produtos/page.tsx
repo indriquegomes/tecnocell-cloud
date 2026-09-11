@@ -348,17 +348,17 @@ export default async function ProdutosPage({
                         </details>
                       )})()}
                     </td>
+                    <td className="px-4 py-3 text-center">
+                      <Badge variant={p.ativo ? 'success' : 'danger'}>
+                        {p.ativo ? 'Ativo' : 'Inativo'}
+                      </Badge>
+                    </td>
                     {/* uma célula de estoque por depósito (escondida/mostrada pelo botão Colunas) */}
                     {depositosReais.map((d) => { const q = estoquePorDep(p)[d.id] ?? 0; return (
                       <td key={d.id} data-col-dep={d.id} className="px-3 py-3 text-center">
                         <span className={`text-sm font-semibold tabular-nums ${q < 0 ? 'text-red-600' : q > 0 ? 'text-gray-800' : 'text-gray-300'}`}>{q}</span>
                       </td>
                     )})}
-                    <td className="px-4 py-3 text-center">
-                      <Badge variant={p.ativo ? 'success' : 'danger'}>
-                        {p.ativo ? 'Ativo' : 'Inativo'}
-                      </Badge>
-                    </td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <Link
