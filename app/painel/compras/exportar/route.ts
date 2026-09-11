@@ -6,13 +6,24 @@ import type { NextRequest } from 'next/server'
 
 // Exporta as notas de entrada: UM Excel por nota, tudo dentro de um ZIP.
 // Cada arquivo tem título (nota · fornecedor · data) + colunas: Produto,
-// Quantidade, Gaveta (prateleira), Valor Unitário e Valor Total.
+// Quantidade, Depósito, Gaveta (prateleira), Valor Unitário e Valor Total.
+// A célula do Depósito ganha cor (uma por depósito) pra bater o olho e saber
+// de onde o item entrou.
 
 type NotaRow = { id: string; numero: string | null; data_entrada: string | null; status: string; pessoas: unknown }
 type ItemRow = {
   nota_id: string; quantidade: number | null; preco_unitario: number | null; total_item: number | null
   created_at: string | null
   produtos: unknown
+  depositos: unknown
+}
+
+// cores claras (fundo), texto escuro continua legível — uma por depósito
+const PALETA = ['FFDBEAFE', 'FFD1FAE5', 'FFFEF3C7', 'FFFCE7F3', 'FFE0E7FF', 'FFFFE4E6', 'FFE2E8F0', 'FFCFFAFE']
+const corPorDeposito = new Map<string, string>()
+const corDoDeposito = (nome: string) => {
+  if (!corPorDeposito.has(nome)) corPorDeposito.set(nome, PALETA[corPorDeposito.size % PALETA.length])
+  return corPorDeposito.get(nome)!
 }
 
 export async function GET(_req: NextRequest) {
@@ -26,7 +37,7 @@ export async function GET(_req: NextRequest) {
 
   const [notas, itens] = await Promise.all([
     fetchAll<NotaRow>((from, to) => supabase.from('notas_entrada').select('id, numero, data_entrada, status, pessoas(nome)').range(from, to)),
-    fetchAll<ItemRow>((from, to) => supabase.from('itens_nota_entrada').select('nota_id, quantidade, preco_unitario, total_item, created_at, produtos(nome, prateleira)').range(from, to)),
+    fetchAll<ItemRow>((from, to) => supabase.from('itens_nota_entrada').select('nota_id, quantidade, preco_unitario, total_item, created_at, produtos(nome, prateleira), depositos(nome)').range(from, to)),
   ])
 
   // join aninhado volta OBJETO no runtime, mas o supabase-js sem schema tipado
@@ -67,19 +78,25 @@ export async function GET(_req: NextRequest) {
     ws.getRow(1).font = { bold: true, size: 12 }
 
     // cabeçalho
-    ws.addRow(['Produto', 'Quantidade', 'Gaveta', 'Valor Unitário', 'Valor Total'])
+    ws.addRow(['Produto', 'Quantidade', 'Depósito', 'Gaveta', 'Valor Unitário', 'Valor Total'])
     ws.getRow(2).font = { bold: true, color: { argb: 'FFFFFFFF' } }
     ws.getRow(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B6CA8' } }
 
     for (const it of its) {
       const prod = primeiro(it.produtos)
-      ws.addRow([
+      const deposito = primeiro(it.depositos)?.nome ?? '—'
+      const row = ws.addRow([
         celulaSegura(prod?.nome ?? ''),
         Number(it.quantidade) || 0,
+        celulaSegura(deposito),
         celulaSegura(prod?.prateleira ?? ''),
         Number(it.preco_unitario) || 0,
         Number(it.total_item) || 0,
       ])
+      // coluna C = Depósito — pinta com a cor do depósito
+      if (deposito !== '—') {
+        row.getCell(3).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: corDoDeposito(deposito) } }
+      }
     }
 
     ws.columns.forEach((col) => { col.width = 20 })
