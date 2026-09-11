@@ -272,7 +272,7 @@ async function extraiUm(loja: Loja, c: Comp) {
   try { txt = await geminiLe([parte, { text: PROMPT }], 400) }
   catch (e) { return marcaFalha(c, 'api: ' + String((e as Error)?.message || e).slice(0, 120)) }
   const j: any = primeiroJson(txt)
-  if (!j) return marcaFalha(c, 'json-fail')
+  if (!j) return marcaFalha(c, 'json-fail :: ' + (txt || '').replace(/\s+/g, ' ').slice(0, 600))
   j.transacao_id = limpaId(j.transacao_id)
   const supa = sb()
   if (j.eh_comprovante === false) { await supa.from('comprovantes_pix').update({ status: 'nao_comprovante', extraido_raw: j }).eq('id', c.id); respondeLeitura(loja, c, 'nao_comprovante', j, null); return }
