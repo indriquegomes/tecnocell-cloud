@@ -332,11 +332,16 @@ async function deduplica(loja: Loja) {
     const arr = grupos[id].sort((a, b) => (a.telegram_message_id || 0) - (b.telegram_message_id || 0))
     for (let i = 0; i < arr.length; i++) {
       const c = arr[i]
+      if ((c.extraido_raw as { forcado?: boolean } | null)?.forcado) continue // usuário forçou via /corrigir — não re-marca
       const semDest = !c.destinatario || !String(c.destinatario).trim()
       const rec = c.recebido_em ? String(c.recebido_em).slice(0, 10) : null
       const dataFinal = resolveData(dataDoId(c.transacao_id!), (c.extraido_raw as { data?: string } | null)?.data || null, rec)
       const deveria = i > 0 ? 'duplicado' : (semDest ? 'incompleto' : (dataFinal && rec && diaDiff(dataFinal, rec) > 2 ? 'data_divergente' : 'extraido'))
-      if (c.status !== deveria || c.data_pix !== dataFinal) await supa.from('comprovantes_pix').update({ status: deveria, data_pix: dataFinal }).eq('id', c.id)
+      if (c.status !== deveria || c.data_pix !== dataFinal) {
+        const upd: Record<string, unknown> = { status: deveria, data_pix: dataFinal }
+        if (i > 0) upd.extraido_raw = { ...((c.extraido_raw as object) || {}), dup_origem: arr[0].recebido_em || null }
+        await supa.from('comprovantes_pix').update(upd).eq('id', c.id)
+      }
     }
     if (arr.length > 1) {
       const jaAvisou = arr.some((c) => (c.extraido_raw as { dup_avisado?: boolean } | null)?.dup_avisado)
@@ -478,7 +483,12 @@ async function escreveSheet(loja: Loja) {
     for (const c of g.itens) {
       const v = Number(c.valor) || 0
       let obs = '', tp = 'dado'
-      if (c.status === 'duplicado') { obs = '🔁 duplicado — não somado'; tp = 'dup' }
+      if (c.status === 'duplicado') {
+        const erD = c.extraido_raw as { dup_origem?: string } | null
+        const orig = erD?.dup_origem ? new Date(erD.dup_origem).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' }) : ''
+        obs = orig ? '🔁 duplicado — mesmo Pix do de ' + orig : '🔁 duplicado — não somado'
+        tp = 'dup'
+      }
       else if (c.status === 'incompleto') { obs = '❗ sem destinatário'; tp = 'incompleto' }
       else if (c.status === 'ilegivel') { obs = '⚠️ não consegui ler'; tp = 'incompleto' }
       else {
@@ -670,6 +680,16 @@ async function processa(loja: Loja, update: any) {
     if (pagador) { await sb().from('pix_aliases').upsert({ telegram_chat_id: loja.grupo, pagador_norm: normNome(pagador) || 'SEM PAGADOR', pagador, cliente: nome }, { onConflict: 'telegram_chat_id,pagador_norm' }) }
     await tgSend(loja.token, loja.grupo, '✅ Cliente: ' + nome + (pagador ? '\n🔗 Link salvo: ' + pagador + ' → ' + nome : ''))
     try { await escreveSheet(loja) } catch (e) { console.error('sheet cliente:', e) }
+    return
+  }
+  if (txt.startsWith('/corrigir')) {
+    const alvo = m.reply_to_message?.message_id
+    if (!alvo) { await tgSend(loja.token, loja.grupo, 'ℹ️ Responda o comprovante com /corrigir pra forçar a soma.'); return }
+    const { data: comp } = await sb().from('comprovantes_pix').select('id, extraido_raw').eq('telegram_chat_id', loja.grupo).eq('telegram_message_id', alvo).maybeSingle()
+    if (!comp) { await tgSend(loja.token, loja.grupo, '❌ Não achei o comprovante.'); return }
+    await sb().from('comprovantes_pix').update({ status: 'extraido', extraido_raw: { ...((comp.extraido_raw as object) || {}), forcado: true } }).eq('id', (comp as { id: string }).id)
+    await tgSend(loja.token, loja.grupo, '✅ Comprovante forçado a somar (não será mais marcado duplicado).')
+    try { await escreveSheet(loja) } catch (e) { console.error('sheet corrigir:', e) }
     return
   }
 
