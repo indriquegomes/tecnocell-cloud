@@ -577,6 +577,48 @@ async function abrir(loja: Loja, quem: string | null) {
   await sb().from('pix_periodos').insert({ id: crypto.randomUUID(), telegram_chat_id: loja.grupo, aberto_em: new Date().toISOString(), aberto_por: quem || null })
   await tgSend(loja.token, loja.grupo, '✅ Contagem do Pix ABERTA' + (quem ? ' por ' + quem : '') + '. Pode mandar os comprovantes.')
 }
+// HISTÓRICO: cada /fechar copia o dia numa aba "Histórico YYYY-MM" (uma aba por mês),
+// com a data/hora do fechamento no topo do bloco. Permite achar dias antigos / conferir erro.
+async function gravaHistorico(loja: Loja, cs: Comp[], fechadoEm: string) {
+  if (!cs.length) return
+  try {
+    const token = await googleToken()
+    const d = new Date(fechadoEm)
+    const aba = 'Histórico ' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+    await garanteAba(token, aba)
+
+    const { data: aliases } = await sb().from('pix_aliases').select('pagador_norm, cliente').eq('telegram_chat_id', loja.grupo)
+    const alias = new Map((aliases || []).map((a: { pagador_norm: string; cliente: string }) => [a.pagador_norm, a.cliente]))
+    const clienteDe = (c: Comp) => {
+      const sis = (c.cliente_sistema || '').trim()
+      if (sis) return sis
+      const p = normNome(c.pagador || '')
+      if (p && alias.has(p)) return alias.get(p)!
+      return ''
+    }
+
+    const grupos = agrupaPorDestino(cs)
+    const fechadoTxt = new Date(fechadoEm).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' })
+    const linhas: (string | number)[][] = [['🔒 FECHADO EM ' + fechadoTxt, '', '', '', '', '']]
+    linhas.push(['Destinatário', 'Nome no Pix', 'Cliente comprador', 'Valor (R$)', 'Data', 'Observação'])
+    let total = 0
+    for (const k of Object.keys(grupos).sort()) {
+      const g = grupos[k]
+      for (const c of g.itens) {
+        const v = Number(c.valor) || 0
+        total += v
+        linhas.push([g.nome, c.pagador || '—', clienteDe(c) || '—', v, fmtDataBR(c.data_pix), c.status === 'data_divergente' ? '⚠️ data ≠ hoje' : 'ok'])
+      }
+    }
+    linhas.push(['', 'TOTAL DO FECHAMENTO', '', total, '', cs.length + ' comprovantes'])
+    linhas.push(['', '', '', '', '', ''])
+
+    await fetchT(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(aba + '!A1')}:append?valueInputOption=RAW`, {
+      method: 'POST', headers: { ...gh(token), 'content-type': 'application/json' }, body: JSON.stringify({ values: linhas }),
+    })
+  } catch (e) { console.error('gravaHistorico:', e) }
+}
+
 async function fechar(loja: Loja, p: any, quem: string | null) {
   const { data: cs } = await sb().from('comprovantes_pix').select('*').eq('telegram_chat_id', loja.grupo).gte('recebido_em', p.aberto_em).neq('status', 'duplicado').neq('status', 'nao_comprovante').neq('status', 'incompleto').neq('status', 'apagado').order('recebido_em')
   const groups = agrupaPorDestino((cs || []) as Comp[]); const keys = Object.keys(groups).sort()
@@ -588,8 +630,10 @@ async function fechar(loja: Loja, p: any, quem: string | null) {
   // fecha o período e ENFILEIRA o arquivo agrupado (fotos+pdfs+links). Reenviar 30+ de uma
   // vez estoura os 60s e o flood-control do Telegram (o álbum de foto é o 1º a ser barrado —
   // era por isso que sumiam as fotos). Agora o worker manda pausado, em segundo plano.
-  await sb().from('pix_periodos').update({ fechado_em: new Date().toISOString(), fechado_por: quem || null, reenvio_ativo: true, reenvio_cursor: 0 }).eq('id', p.id)
+  const fechadoEm = new Date().toISOString()
+  await sb().from('pix_periodos').update({ fechado_em: fechadoEm, fechado_por: quem || null, reenvio_ativo: true, reenvio_cursor: 0 }).eq('id', p.id)
   await disparaReenvio(loja)
+  await gravaHistorico(loja, (cs || []) as Comp[], fechadoEm)
 }
 
 // ---------- arquivo do fechamento: reenvio PAUSADO em segundo plano ----------
