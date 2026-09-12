@@ -1,7 +1,7 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
-import { pecasRestantesPorVenda } from '@/lib/cobranca-fiado'
+import { reconciliarItensCobranca } from '@/lib/cobranca-fiado'
 import { FiadosClient } from './FiadosClient'
 
 const semAcento = (s: string) =>
@@ -33,39 +33,43 @@ export default async function FiadosPage() {
   // sair com o produto ("2x Frontal iPhone") em vez de "Fiado #152" (pedido da Isa).
   // Em LOTES de 100 ids — .in() com muitos ids estoura a URL do PostgREST ([[bug-in-muitos-ids-url-limit]]).
   const vendaIds = [...new Set(lancamentos.map((l) => l.venda_id).filter(Boolean))] as string[]
-  const pecasPorVenda = new Map<string, string[]>()
+  const pecasPorVenda = new Map<string, { nome: string; quantidade: number; valor: number }[] | null>()
   // quem vendeu (a CONTA que fez a venda), por venda — pro filtro "quem vendeu".
   // O robô rodou logado como INDRIQUE GOMES, que é uma conta REAL e separada das
   // meninas — então as vendas dele já saem no nome dessa conta. Nada de rótulo
   // "robô" fabricado: cada atendente filtra pelo nome dela e a conta do robô fica
   // numa opção à parte, porque é outra conta.
   const vendedorPorVenda = new Map<string, string>()
+  const numeroPorVenda = new Map<string, number>()
   const caixaPorVenda = new Map<string, string>()
   for (let i = 0; i < vendaIds.length; i += 100) {
     const lote = vendaIds.slice(i, i + 100)
-    const [{ data: itens }, { data: vendas }, { data: devolucoes }] = await Promise.all([
-      supabase.from('itens_venda').select('venda_id, produto_id, quantidade, produtos(nome)').in('venda_id', lote),
-      supabase.from('vendas').select('id, vendedor_nome, caixa_id').in('id', lote),
-      supabase.from('devolucoes').select('venda_id, itens_devolucao(produto_id, quantidade)').in('venda_id', lote),
+    const [{ data: itens }, { data: vendas }, { data: devolucoes, error: erroDevolucoes }] = await Promise.all([
+      supabase.from('itens_venda').select('venda_id, produto_id, quantidade, total_item, produtos(nome)').in('venda_id', lote),
+      supabase.from('vendas').select('id, numero, vendedor_nome, caixa_id').in('id', lote),
+      supabase.from('devolucoes').select('venda_id, itens_devolucao(produto_id, quantidade, total_item)').in('venda_id', lote).eq('status', 'concluida'),
     ])
-    const vendidos: { venda_id: string; produto_id: string; nome: string; quantidade: number }[] = []
-    for (const it of (itens ?? []) as { venda_id: string; produto_id: string; quantidade: number; produtos: { nome: string }[] | { nome: string } | null }[]) {
+    if (erroDevolucoes) throw new Error(`Não foi possível conferir devoluções da cobrança: ${erroDevolucoes.message}`)
+    const vendidos = new Map<string, { produto_id: string | null; nome: string; quantidade: number; valor: number }[]>()
+    for (const it of (itens ?? []) as { venda_id: string; produto_id: string | null; quantidade: number; total_item: number; produtos: { nome: string }[] | { nome: string } | null }[]) {
       const prod = Array.isArray(it.produtos) ? it.produtos[0] : it.produtos
       const nome = prod?.nome?.trim()
       if (!nome) continue
-      vendidos.push({ venda_id: it.venda_id, produto_id: it.produto_id, nome, quantidade: it.quantidade })
+      const arr = vendidos.get(it.venda_id) ?? []
+      arr.push({ produto_id: it.produto_id, nome, quantidade: Number(it.quantidade), valor: Number(it.total_item) })
+      vendidos.set(it.venda_id, arr)
     }
-    const devolvidos = (devolucoes ?? []).flatMap((d) =>
-      (d.itens_devolucao ?? []).map((item) => ({
-        venda_id: d.venda_id,
-        produto_id: item.produto_id,
-        quantidade: item.quantidade,
-      })),
-    )
-    for (const [vendaId, pecas] of pecasRestantesPorVenda(vendidos, devolvidos)) {
-      pecasPorVenda.set(vendaId, pecas)
+    const devolvidos = new Map<string, { produto_id: string | null; quantidade: number; valor: number }[]>()
+    for (const dev of (devolucoes ?? []) as { venda_id: string; itens_devolucao: { produto_id: string | null; quantidade: number; total_item: number }[] }[]) {
+      const arr = devolvidos.get(dev.venda_id) ?? []
+      for (const item of dev.itens_devolucao ?? []) arr.push({ produto_id: item.produto_id, quantidade: Number(item.quantidade), valor: Number(item.total_item) })
+      devolvidos.set(dev.venda_id, arr)
     }
-    for (const v of (vendas ?? []) as { id: string; vendedor_nome: string | null; caixa_id: string | null }[]) {
+    for (const [vendaId, itensVenda] of vendidos) {
+      pecasPorVenda.set(vendaId, reconciliarItensCobranca(itensVenda, devolvidos.get(vendaId) ?? []))
+    }
+    for (const v of (vendas ?? []) as { id: string; numero: number | null; vendedor_nome: string | null; caixa_id: string | null }[]) {
+      if (v.numero != null) numeroPorVenda.set(v.id, v.numero)
       vendedorPorVenda.set(v.id, v.vendedor_nome?.trim() || 'Sem vendedor')
       if (v.caixa_id) caixaPorVenda.set(v.id, v.caixa_id)
     }
@@ -91,7 +95,7 @@ export default async function FiadosPage() {
   const hoje = hojeSP()
 
   // agrupa por cliente + guarda as notas (lançamentos) de cada um
-  type Nota = { id: string; codigo: number | null; descricao: string | null; pecas: string | null; vendedor: string; loja: string; valor: number; vencimento: string | null; venda_id: string | null; vencida: boolean }
+  type Nota = { id: string; codigo: number | null; numeroVenda: number | null; descricao: string | null; pecas: string | null; itens: { nome: string; quantidade: number; valor: number }[] | null; vendedor: string; loja: string; valor: number; valorPago: number; vencimento: string | null; venda_id: string | null; vencida: boolean }
   const mapa = new Map<string, { nome: string; total: number; vencido: number; qtd: number; notas: Nota[] }>()
   for (const l of lancamentos) {
     const nome = l.pessoa_nome?.trim() || 'Sem nome'
@@ -102,13 +106,14 @@ export default async function FiadosPage() {
     const vencida = !!(l.data_vencimento && l.data_vencimento.slice(0, 10) < hoje)
     const lojaId = (l.loja_id && nomeLoja.has(l.loja_id) ? l.loja_id : null) ?? lojaIdPorVenda(l.venda_id)
     const loja = lojaId ? (nomeLoja.get(lojaId) ?? '') : ''
-    if (!vemTodas && (!lojaId || !idsPermitidos.has(lojaId))) continue   // atendente só a loja dela; origem desconhecida não vaza
+    if (!vemTodas && (!lojaId || !idsPermitidos.has(lojaId))) continue
     atual.total += devendo
     atual.qtd += 1
     if (vencida) atual.vencido += devendo
-    const pecas = l.venda_id ? (pecasPorVenda.get(l.venda_id)?.join(', ') ?? null) : null
+    const itens = l.venda_id ? (pecasPorVenda.get(l.venda_id) ?? null) : null
+    const pecas = itens?.map((item) => item.nome).join(', ') ?? null
     const vendedor = (l.venda_id && vendedorPorVenda.get(l.venda_id)) || 'Sem vendedor'
-    atual.notas.push({ id: l.id, codigo: l.codigo, descricao: l.descricao, pecas, vendedor, loja, valor: devendo, vencimento: l.data_vencimento, venda_id: l.venda_id, vencida })
+    atual.notas.push({ id: l.id, codigo: l.codigo, numeroVenda: l.venda_id ? (numeroPorVenda.get(l.venda_id) ?? null) : null, descricao: l.descricao, pecas, itens, vendedor, loja, valor: devendo, valorPago: l.valor_pago ?? 0, vencimento: l.data_vencimento, venda_id: l.venda_id, vencida })
     mapa.set(chave, atual)
   }
 

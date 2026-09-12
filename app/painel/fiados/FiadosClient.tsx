@@ -12,7 +12,7 @@ const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', curren
 const semAcento = (s: string) =>
   s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
 
-type Nota = { id: string; codigo: number | null; descricao: string | null; pecas: string | null; vendedor: string; loja: string; valor: number; vencimento: string | null; venda_id: string | null; vencida: boolean }
+type Nota = { id: string; codigo: number | null; numeroVenda: number | null; descricao: string | null; pecas: string | null; itens: { nome: string; quantidade: number; valor: number }[] | null; vendedor: string; loja: string; valor: number; valorPago: number; vencimento: string | null; venda_id: string | null; vencida: boolean }
 type Cliente = { nome: string; total: number; vencido: number; qtd: number; telefone: string | null; notas: Nota[] }
 
 const fmtData = (d: string | null) => (d ? d.slice(0, 10).split('-').reverse().join('/') : '—')
