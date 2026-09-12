@@ -1,4 +1,5 @@
 import { createServiceClient, requireAuth } from '@/lib/supabase/server'
+import { pixSemComprovante } from '@/lib/pix-pendentes'
 import { OperacaoClient } from './OperacaoClient'
 
 export default async function OperacaoPDVPage({
@@ -91,6 +92,7 @@ export default async function OperacaoPDVPage({
   // vendas de cada tipo, pra conferência (bater comprovante de PIX com a venda)
   const vendasPorTipo: Record<string, { id: string; numero: number | null; hora: string; cliente: string | null; valorForma: number; totalVenda: number; taxa?: number; fiado?: boolean; fiadoAbatido?: number }[]> = {}
   let vendasDetalhe: { id: string; numero: number | null; hora: string; cliente: string | null; total: number; devolvida: boolean; fiadoAbatido: number; fiadoValor: number; pagamentos: { nome: string; tipo: string; valor: number }[] }[] = []
+  let pixPendentes: { id: string; cliente: string | null; valor: number; hora: string }[] = []
 
   if (caixaAberto) {
     const [vendasResult, movResult] = await Promise.all([
@@ -276,6 +278,23 @@ export default async function OperacaoPDVPage({
     // Fiado DESTE caixa (antes vinha de lancamentos por created_at — pegava fiado
     // de qualquer loja e até lançamento manual sem venda)
     totalCrediario = porTipo['fiado'] ?? 0
+
+    // PIX sem comprovante: bate os PIX do caixa contra os comprovantes que caíram
+    // no período (WhatsApp/Telegram). Só AVISA — não trava o fechamento.
+    const pixDoCaixa = vendasPorTipo['pix'] ?? []
+    if (pixDoCaixa.length > 0) {
+      const compsRes = await supabase
+        .from('comprovantes_pix')
+        .select('valor')
+        .neq('status', 'furo')
+        .not('valor', 'is', null)
+        .gte('recebido_em', caixaAberto.aberto_em)
+      const comps = (compsRes.data ?? []) as { valor: number | null }[]
+      pixPendentes = pixSemComprovante(
+        pixDoCaixa.map((p) => ({ id: p.id, cliente: p.cliente, valor: p.valorForma, hora: p.hora })),
+        comps.map((c) => ({ valor: Number(c.valor) || 0 })),
+      )
+    }
 
     movimentos = movResult.data ?? []
     totalReforcos = movimentos.filter((m) => m.tipo === 'reforco').reduce((s, m) => s + m.valor, 0)
@@ -493,6 +512,7 @@ export default async function OperacaoPDVPage({
       totalTaxaCartao={totalTaxaCartao}
       vendasPorTipo={vendasPorTipo}
       vendasDetalhe={vendasDetalhe}
+      pixPendentes={pixPendentes}
       erro={erro}
       fechado={fechado === '1'}
       aberto={aberto === '1'}

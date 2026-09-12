@@ -131,6 +131,7 @@ interface Props {
   totalTaxaCartao: number
   vendasPorTipo: Record<string, VendaConferencia[]>
   vendasDetalhe: VendaDetalhe[]
+  pixPendentes: { id: string; cliente: string | null; valor: number; hora: string }[]
   erro?: string
   fechado?: boolean
   aberto?: boolean
@@ -1278,6 +1279,7 @@ export function OperacaoClient({
   totalTaxaCartao,
   vendasPorTipo,
   vendasDetalhe,
+  pixPendentes,
   erro,
   fechado,
   aberto,
@@ -1368,6 +1370,21 @@ export function OperacaoClient({
       {erro && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {erro}
+        </div>
+      )}
+
+      {caixaAberto && pixPendentes.length > 0 && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 px-6 py-4">
+          <p className="font-bold text-amber-800">⚠️ {pixPendentes.length} PIX sem comprovante</p>
+          <p className="mt-1 text-sm text-amber-700">PIX no sistema que ainda não tem comprovante no WhatsApp/Telegram. Confira antes de fechar o caixa:</p>
+          <ul className="mt-2 space-y-1 text-sm">
+            {pixPendentes.map((p, i) => (
+              <li key={i} className="flex justify-between gap-4">
+                <span className="text-amber-900">{p.cliente ?? 'Sem cliente'} <span className="text-amber-500">· {fmtHora(p.hora)}</span></span>
+                <span className="font-semibold text-amber-700 tabular-nums">{fmt(p.valor)}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

@@ -4,6 +4,7 @@ import { enviaTexto, enviaFoto, enviaDoc, tipoDaMensagem } from './tg.mjs'
 import { agendaEscrita, escreveJa } from './sheets.mjs'
 import { atualizaAbasNovas } from './abas.mjs'
 import { agrupaPorDestino, dataDoId, resolveData, diaDiff, money, fmtDataBR, dorme, agora } from './util.mjs'
+import { pixPendentesDoPeriodo } from './pix.mjs'
 
 const LIDOS = ['extraido', 'data_divergente']
 
@@ -246,6 +247,17 @@ async function status(loja) {
   await enviaTexto(loja.token, loja.grupo, txt)
 }
 
+async function cobraPix(loja) {
+  const r = resumoPeriodo(loja)
+  const comps = r.itens.filter((c) => !['nao_comprovante', 'duplicado', 'incompleto', 'ilegivel', 'recebido'].includes(c.status))
+  const res = await pixPendentesDoPeriodo(comps)
+  if (res.erro) return enviaTexto(loja.token, loja.grupo, '⚠️ Não consegui conferir o PIX do sistema: ' + res.erro)
+  const p = res.pendentes
+  if (!p.length) return enviaTexto(loja.token, loja.grupo, '✅ Todos os PIX do sistema têm comprovante no grupo. 💪')
+  const linhas = p.map((x) => '• ' + (x.cliente || 'Sem cliente') + ' — R$ ' + money(x.valor))
+  return enviaTexto(loja.token, loja.grupo, '🔔 ' + p.length + ' PIX no sistema SEM comprovante no grupo:\n' + linhas.join('\n') + '\n\nCobra o cliente pra mandar o comprovante!')
+}
+
 // ---------- arquivo do fechamento ----------
 const reenviando = new Set()
 const avisoFechado = new Map()
@@ -302,6 +314,7 @@ export async function processaMensagem(loja, update) {
   if (txt.startsWith('/fechar')) return fechar(loja, quem)
   if (txt.startsWith('/revisar')) return revisar(loja)
   if (txt.startsWith('/status') || txt.startsWith('/parcial')) return status(loja)
+  if (txt.startsWith('/pix') || txt.startsWith('/cobrar')) return cobraPix(loja)
   if (txt.startsWith('/')) return
 
   const t = tipoDaMensagem(m)
