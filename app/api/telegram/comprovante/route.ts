@@ -584,7 +584,7 @@ async function gravaHistorico(loja: Loja, cs: Comp[], fechadoEm: string) {
   try {
     const token = await googleToken()
     const d = new Date(fechadoEm)
-    const aba = 'Histórico ' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+    const aba = 'Histórico ' + loja.aba + ' ' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
     await garanteAba(token, aba)
 
     const { data: aliases } = await sb().from('pix_aliases').select('pagador_norm, cliente').eq('telegram_chat_id', loja.grupo)
