@@ -98,7 +98,8 @@ export default async function ClientesPage({
   if (params.ate) query = query.lte('created_at', params.ate + 'T23:59:59')
   // Filtros "mais detalhes" (Isa): cidade, tabela de preço, física/jurídica
   if (params.cidade) query = query.eq('cidade', params.cidade)
-  if (params.tabela) query = query.eq('tabela_preco_id', params.tabela)
+  if (params.tabela === 'sem') query = query.is('tabela_preco_id', null)
+  else if (params.tabela) query = query.eq('tabela_preco_id', params.tabela)
   if (params.pf === 'fisica')   query = query.eq('pessoa_fisica', true)
   else if (params.pf === 'juridica') query = query.eq('pessoa_fisica', false)
 
@@ -179,6 +180,7 @@ export default async function ClientesPage({
           <select name="tabela" defaultValue={params.tabela ?? ''}
             className="rounded border border-gray-200 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400">
             <option value="">🏷️ Tabela: todas</option>
+            <option value="sem">Sem tabela</option>
             {(tabelas ?? []).map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
           </select>
           <select name="pf" defaultValue={params.pf ?? ''}

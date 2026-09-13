@@ -777,7 +777,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         }
         return prev.map((i) => i.produto_id === p.id ? { ...i, quantidade: i.quantidade + 1 } : i)
       }
-      return [...prev, {
+      // novo item entra no TOPO (pedido: ver o último adicionado acima)
+      return [{
         produto_id: p.id,
         nome: p.nome,
         codigo: p.codigo,
@@ -791,7 +792,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         series: p.controla_serie ? [] : undefined,
         prateleira: p.prateleira,
         preco_custo: p.preco_custo ?? null,
-      }]
+      }, ...prev]
     })
     setBusca('')
   }, [depositoId, nomeDeposito, tabelaId, precos])

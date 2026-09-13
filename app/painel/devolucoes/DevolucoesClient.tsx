@@ -172,9 +172,13 @@ export function DevolucoesClient({
   // Fora do modo misto tudo segue como antes (uma forma só, `tipoCredito`).
   const [modoMistoReemb, setModoMistoReemb] = useState(false)
   const [linhasReemb, setLinhasReemb] = useState<{ tipo: string; valor: string; contaId: string }[]>([])
+  const [confirmouReembolso, setConfirmouReembolso] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
   const [sucesso, setSucesso] = useState<{ mensagem: string | null; whatsapp: string | null } | null>(null)
+
+  // reseta o "confirmei" sempre que a forma de reembolso muda
+  useEffect(() => { setConfirmouReembolso(false) }, [tipoCredito, modoMistoReemb, linhasReemb])
 
   // ── modal detalhe ──────────────────────────────────────────────────────────
   const [detalhe, setDetalhe] = useState<{
@@ -726,7 +730,11 @@ export function DevolucoesClient({
                               <div className="min-w-0 flex-1">
                                 <p className="font-semibold text-gray-900">{nVendaLabel(v)}</p>
                                 {v.itens?.length > 0 && (
-                                  <p className="mt-0.5 truncate text-xs text-gray-500">{v.itens.join(' · ')}</p>
+                                  <ul className="mt-1 space-y-0.5 text-xs text-gray-500">
+                                    {v.itens.map((it, i) => (
+                                      <li key={i} className="leading-snug">• {it}</li>
+                                    ))}
+                                  </ul>
                                 )}
                                 <p className="text-xs text-gray-400 mt-0.5">{fmtDt(v.created_at)}</p>
                               </div>
@@ -1105,6 +1113,10 @@ export function DevolucoesClient({
                             </span>
                           )}
                         </button>
+                        <label className="mt-3 flex items-start gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm">
+                          <input type="checkbox" checked={confirmouReembolso} onChange={(e) => setConfirmouReembolso(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300" />
+                          <span className="text-gray-700">Confirmei a forma de reembolso acima.</span>
+                        </label>
                       </div>
                     )}
                   </div>
@@ -1130,7 +1142,7 @@ export function DevolucoesClient({
                 </button>
               )}
               {step === 'confirmar' && (
-                <button onClick={confirmar} disabled={salvando || !motivoTipo || (motivoTipo === 'outro' && !motivo.trim())}
+                <button onClick={confirmar} disabled={salvando || !motivoTipo || (motivoTipo === 'outro' && !motivo.trim()) || (reembolso > 0.01 && !confirmouReembolso)}
                   title={!motivoTipo ? 'Escolha por que a peça voltou' : undefined}
                   className="flex-1 rounded-xl bg-green-600 py-2.5 text-sm font-bold text-white hover:bg-green-700 transition disabled:opacity-50">
                   {salvando
