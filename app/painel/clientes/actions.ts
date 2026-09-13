@@ -61,6 +61,7 @@ function camposPessoa(formData: FormData, cpfCnpj: string, email: string) {
     // hidden + checkbox: com get() viria sempre o hidden e nunca marcaria.
     nao_vender: formData.getAll('nao_vender').includes('1'),
     nao_vender_motivo: txt('nao_vender_motivo'),
+    permite_fiado: formData.getAll('permite_fiado').includes('1'),
     vendedor_id: txt('vendedor_id'),
     origem: txt('origem'),
     observacoes: txt('observacoes'),

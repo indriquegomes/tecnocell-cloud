@@ -353,7 +353,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   // dois lugares (estado + linha) foi a origem de uma fila de bugs: sumia do dropdown,
   // o auto-preenchimento não descontava, a conferência não fechava.
   const [saldoCredito, setSaldoCredito] = useState(0)
-  const [fiadoCliente, setFiadoCliente] = useState<{ limite: number; devendo: number; disponivel: number } | null>(null)
+  const [fiadoCliente, setFiadoCliente] = useState<{ limite: number; devendo: number; disponivel: number; permite_fiado: boolean } | null>(null)
+  const [combinadoEntrega, setCombinadoEntrega] = useState(false)
 
   const qtdRefs = useRef<Map<string, HTMLInputElement>>(new Map())
 
@@ -1216,6 +1217,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     if (faltamPg > 0.01 && !pagamentos.some((p) => p.forma_id)) { setErro('Selecione a forma de pagamento.'); return }
     if (faltamPg > 0.01) { setErro(`Faltam ${formatBRL(faltamPg)} para cobrir o total da venda.`); return }
     if (temFiado && !pessoaId) { setErro('Crédito Loja (A Receber) exige cliente selecionado.'); return }
+    if (temFiado && fiadoCliente && !fiadoCliente.permite_fiado) { setErro('Este cliente não tem fiado liberado.'); return }
     if (pagamentos.some((p) => isCartaoForma(p.forma_id) && !p.maquina)) {
       setErro('Selecione a máquina (TON ou Pagbank) para o(s) pagamento(s) em cartão.'); return
     }
@@ -1295,6 +1297,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             maquina: maquinaById(p.maquina)?.nome ?? '',   // grava o nome legível
             parcelas: p.parcelas,
             status: isFiadoForma(p.forma_id) ? 'pendente' : 'pago',
+            combinado_entrega: isFiadoForma(p.forma_id) && combinadoEntrega,
           }
         })
       const result = await finalizarVenda(
@@ -2256,6 +2259,12 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                     </span>
                   )}
                 </div>
+              )}
+              {temFiado && (
+                <label className="flex items-center gap-2 rounded-lg bg-blue-50 border border-blue-200 px-2.5 py-1.5 text-xs font-medium text-blue-700">
+                  <input type="checkbox" checked={combinadoEntrega} onChange={(e) => setCombinadoEntrega(e.target.checked)} className="h-3.5 w-3.5 rounded border-gray-300" />
+                  🗓️ Combinou pagar na entrega (fica na lista de cobrança)
+                </label>
               )}
             </div>
           ) : (

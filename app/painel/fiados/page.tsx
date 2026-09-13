@@ -11,10 +11,10 @@ export default async function FiadosPage() {
   const supabase = await createServiceClient()
 
   const [lancamentos, pessoas] = await Promise.all([
-    fetchAll<{ id: string; codigo: number | null; descricao: string | null; pessoa_nome: string | null; valor: number | null; valor_pago: number | null; data_vencimento: string | null; venda_id: string | null; loja_id: string | null }>(
+    fetchAll<{ id: string; codigo: number | null; descricao: string | null; pessoa_nome: string | null; valor: number | null; valor_pago: number | null; data_vencimento: string | null; venda_id: string | null; loja_id: string | null; categoria: string | null }>(
       (from, to) => supabase
         .from('lancamentos')
-        .select('id, codigo, descricao, pessoa_nome, valor, valor_pago, data_vencimento, venda_id, loja_id')
+        .select('id, codigo, descricao, pessoa_nome, valor, valor_pago, data_vencimento, venda_id, loja_id, categoria')
         .eq('tipo', 'receber').eq('status', 'pendente')
         .order('id').range(from, to),
     ),
@@ -95,7 +95,7 @@ export default async function FiadosPage() {
   const hoje = hojeSP()
 
   // agrupa por cliente + guarda as notas (lançamentos) de cada um
-  type Nota = { id: string; codigo: number | null; numeroVenda: number | null; descricao: string | null; pecas: string | null; itens: { nome: string; quantidade: number; valor: number }[] | null; vendedor: string; loja: string; valor: number; valorPago: number; vencimento: string | null; venda_id: string | null; vencida: boolean }
+  type Nota = { id: string; codigo: number | null; numeroVenda: number | null; descricao: string | null; pecas: string | null; itens: { nome: string; quantidade: number; valor: number }[] | null; vendedor: string; loja: string; valor: number; valorPago: number; vencimento: string | null; venda_id: string | null; vencida: boolean; categoria: string | null }
   const mapa = new Map<string, { nome: string; total: number; vencido: number; qtd: number; notas: Nota[] }>()
   for (const l of lancamentos) {
     const nome = l.pessoa_nome?.trim() || 'Sem nome'
@@ -113,7 +113,7 @@ export default async function FiadosPage() {
     const itens = l.venda_id ? (pecasPorVenda.get(l.venda_id) ?? null) : null
     const pecas = itens?.map((item) => item.nome).join(', ') ?? null
     const vendedor = (l.venda_id && vendedorPorVenda.get(l.venda_id)) || 'Sem vendedor'
-    atual.notas.push({ id: l.id, codigo: l.codigo, numeroVenda: l.venda_id ? (numeroPorVenda.get(l.venda_id) ?? null) : null, descricao: l.descricao, pecas, itens, vendedor, loja, valor: devendo, valorPago: l.valor_pago ?? 0, vencimento: l.data_vencimento, venda_id: l.venda_id, vencida })
+    atual.notas.push({ id: l.id, codigo: l.codigo, numeroVenda: l.venda_id ? (numeroPorVenda.get(l.venda_id) ?? null) : null, descricao: l.descricao, pecas, itens, vendedor, loja, valor: devendo, valorPago: l.valor_pago ?? 0, vencimento: l.data_vencimento, venda_id: l.venda_id, vencida, categoria: l.categoria })
     mapa.set(chave, atual)
   }
 

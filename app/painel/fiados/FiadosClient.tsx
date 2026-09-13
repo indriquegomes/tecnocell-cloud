@@ -12,7 +12,7 @@ const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', curren
 const semAcento = (s: string) =>
   s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
 
-type Nota = { id: string; codigo: number | null; numeroVenda: number | null; descricao: string | null; pecas: string | null; itens: { nome: string; quantidade: number; valor: number }[] | null; vendedor: string; loja: string; valor: number; valorPago: number; vencimento: string | null; venda_id: string | null; vencida: boolean }
+type Nota = { id: string; codigo: number | null; numeroVenda: number | null; descricao: string | null; pecas: string | null; itens: { nome: string; quantidade: number; valor: number }[] | null; vendedor: string; loja: string; valor: number; valorPago: number; vencimento: string | null; venda_id: string | null; vencida: boolean; categoria?: string | null }
 type Cliente = { nome: string; total: number; vencido: number; qtd: number; telefone: string | null; notas: Nota[] }
 
 const fmtData = (d: string | null) => (d ? d.slice(0, 10).split('-').reverse().join('/') : '—')
@@ -316,7 +316,12 @@ export function FiadosClient({
                   <tbody className="divide-y divide-gray-100">
                     {c.notas.map((n) => (
                       <tr key={n.id} className="hover:bg-white">
-                        <td className="px-5 py-2.5 text-gray-700">{n.descricao ?? (n.codigo ? `Fiado #${n.codigo}` : 'Lançamento')}</td>
+                        <td className="px-5 py-2.5 text-gray-700">
+  {n.descricao ?? (n.codigo ? `Fiado #${n.codigo}` : 'Lançamento')}
+  {n.categoria === 'Combinado na entrega' && (
+    <span className="ml-1.5 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700">🗓️ na entrega</span>
+  )}
+</td>
                         <td className="px-5 py-2.5">
                           {n.loja
                             ? <span className="rounded-md bg-[#1B6CA8]/10 px-2 py-0.5 text-xs font-medium text-[#1B6CA8]">🏬 {n.loja}</span>

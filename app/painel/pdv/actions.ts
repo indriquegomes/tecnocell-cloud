@@ -157,18 +157,18 @@ export async function buscarClientesPDV(accessToken: string, termo: string): Pro
 export async function buscarFiadoCliente(
   accessToken: string,
   pessoaId: string,
-): Promise<{ limite: number; devendo: number; disponivel: number }> {
+): Promise<{ limite: number; devendo: number; disponivel: number; permite_fiado: boolean }> {
   await requirePermissao('pdv', accessToken)
   const supabase = await createServiceClient()
   const { data: pessoa } = await supabase
-    .from('pessoas').select('nome, limite_credito').eq('id', pessoaId).maybeSingle()
-  if (!pessoa) return { limite: 0, devendo: 0, disponivel: 0 }
+    .from('pessoas').select('nome, limite_credito, permite_fiado').eq('id', pessoaId).maybeSingle()
+  if (!pessoa) return { limite: 0, devendo: 0, disponivel: 0, permite_fiado: false }
   const limite = Number(pessoa.limite_credito) || 0
   const { data: lancs } = await supabase
     .from('lancamentos').select('valor, valor_pago')
     .eq('tipo', 'receber').eq('status', 'pendente').eq('pessoa_nome', pessoa.nome)
   const devendo = (lancs ?? []).reduce((s, l) => s + ((Number(l.valor) || 0) - (Number(l.valor_pago) || 0)), 0)
-  return { limite, devendo, disponivel: limite > 0 ? limite - devendo : 0 }
+  return { limite, devendo, disponivel: limite > 0 ? limite - devendo : 0, permite_fiado: !!(pessoa as { permite_fiado?: boolean }).permite_fiado }
 }
 
 // Confere a senha de desconto da loja no servidor (a senha nunca vai pro cliente)
@@ -213,6 +213,7 @@ export interface PagamentoInput {
   maquina: string
   parcelas: number
   status: 'pago' | 'pendente'
+  combinado_entrega?: boolean
 }
 
 // Salva o carrinho atual como ORÇAMENTO (pré-venda) sem finalizar. Aparece no F3
@@ -432,6 +433,18 @@ export async function finalizarVenda(
 
   if (error) return { erro: error.message }
   if (!data) return { erro: 'RPC retornou vazio. Verifique o banco.' }
+
+  // "Combinou pagar na entrega": marca o fiado da venda (categoria) pra aparecer
+  // destacado na lista de cobrança. Fazemos aqui (pós-RPC) pra não mexer no
+  // finalizar_venda, que já é o RPC mais crítico do sistema.
+  if (pagamentos.some((p) => p.combinado_entrega)) {
+    const { error: eComb } = await supabase
+      .from('lancamentos')
+      .update({ categoria: 'Combinado na entrega' })
+      .eq('venda_id', data.venda_id as string)
+      .eq('tipo', 'receber').eq('status', 'pendente')
+    if (eComb) console.error('finalizarVenda: falha ao marcar combinado entrega:', eComb.message)
+  }
 
   // Amarra a venda ao caixa aberto (pro fechamento X/Z reconciliar por caixa).
   // supabase-js NUNCA lança (retorna {error}), então um try/catch aqui nunca
