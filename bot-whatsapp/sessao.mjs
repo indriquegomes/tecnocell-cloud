@@ -7,6 +7,7 @@ import QRCode from 'qrcode'
 import { classificaPergunta, escolheProduto } from './lib/ia.mjs'
 import { buscaProdutos, buscaProdutosAmplo, buscaEstoque, buscaChavePix } from './lib/produtos.mjs'
 import { montaResposta } from './lib/resposta.mjs'
+import { ENDERECO, HORARIO, CADASTRO, POLITICA } from './lib/info.mjs'
 import { registraTroca, jaAvisouHoje, marcaAvisoHoje } from './lib/db.mjs'
 import { guardaPendente, pegaPendente, limpaPendente } from './lib/estado.mjs'
 import { dorme } from '../bot/lib/util.mjs'
@@ -122,11 +123,19 @@ async function tentaResolverPendente(loja, jid, texto) {
 // pronta ou null — null segue pro fluxo normal de produto.
 async function respondeAssuntoFixo(texto) {
   const t = (texto || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  // qualquer menção a "pix" no corpo da mensagem -> manda a chave + pedido de comprovante
+  // PIX: qualquer menção -> chave + pedido de comprovante
   if (/\bpix\b/.test(t)) {
     const p = await buscaChavePix()
     return p.chave ? `💠 Chave PIX da loja:\n${p.chave}${p.titular ? `\nTitular: ${p.titular}` : ''}\n\nEnvie o comprovante completo e atenção ao nome do PIX. Obrigado!` : null
   }
+  // endereço / localização
+  if (/(endereco|onde fica|localizacao|onde vcs|onde e a loja|onde fica a loja)/.test(t)) return ENDERECO
+  // horário
+  if (/(horario|que horas|abre|funciona|hora de)/.test(t)) return HORARIO
+  // cadastro
+  if (/(cadastro|cadastrar|me cadastro|quero me cadastrar)/.test(t)) return CADASTRO
+  // política / entrega / garantia
+  if (/(politica|regras|garantia|entrega|logistica|frete)/.test(t)) return POLITICA
   return null
 }
 
