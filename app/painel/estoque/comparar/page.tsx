@@ -62,7 +62,7 @@ export default async function CompararPage({
   const cats = [...new Set([...soPetr, ...soTer].map((x) => x.categoria).filter((c): c is string => !!c))].sort()
 
   const Tabela = ({ titulo, cor, linhas }: { titulo: string; cor: string; linhas: Linha[] }) => (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div className="min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
         <h3 className="text-sm font-semibold text-gray-800">{titulo} <span className="ml-1 text-xs font-normal text-gray-400">{linhas.length} itens</span></h3>
       </div>
