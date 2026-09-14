@@ -7,7 +7,7 @@ import QRCode from 'qrcode'
 import { classificaPergunta, escolheProduto } from './lib/ia.mjs'
 import { buscaProdutos, buscaProdutosAmplo, buscaEstoque, buscaChavePix } from './lib/produtos.mjs'
 import { montaResposta } from './lib/resposta.mjs'
-import { ENDERECO, HORARIO, CADASTRO, POLITICA } from './lib/info.mjs'
+import { ENDERECO, HORARIO, CADASTRO, POLITICA, ENCOMENDA } from './lib/info.mjs'
 import { registraTroca, jaAvisouHoje, marcaAvisoHoje } from './lib/db.mjs'
 import { guardaPendente, pegaPendente, limpaPendente } from './lib/estado.mjs'
 import { dorme } from '../bot/lib/util.mjs'
@@ -134,6 +134,8 @@ async function respondeAssuntoFixo(texto) {
   if (/(horario|que horas|abre|funciona|hora de)/.test(t)) return HORARIO
   // cadastro
   if (/(cadastro|cadastrar|me cadastro|quero me cadastrar)/.test(t)) return CADASTRO
+  // encomenda (antes de 'regras' — "regras de encomenda" cai aqui, não na política)
+  if (/(encomend)/.test(t)) return ENCOMENDA
   // política / entrega / garantia
   if (/(politica|regras|garantia|entrega|logistica|frete)/.test(t)) return POLITICA
   return null

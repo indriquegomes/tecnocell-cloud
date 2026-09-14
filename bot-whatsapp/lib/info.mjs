@@ -41,3 +41,13 @@ export const POLITICA = `📢 POLÍTICA DE ATENDIMENTO – TECNOCELL
 
 ⚠️ Regras de Ouro:
 • Pedido mínimo: R$ 20,00.`
+
+export const ENCOMENDA = `📦 REGRAS DE ENCOMENDA – TECNOCELL
+
+1️⃣ Não aceitamos devoluções de itens encomendados (são itens específicos).
+
+2️⃣ Reposição de encomendas a cada 10 dias. Se sua peça encomendada precisar de troca, será preciso esperar até a próxima data de encomenda.
+
+3️⃣ É preciso um sinal de 50% do item, em cima da média base.
+
+4️⃣ Envie todas as informações necessárias da sua encomenda — assim a chance de vir item errado é mínima.`
