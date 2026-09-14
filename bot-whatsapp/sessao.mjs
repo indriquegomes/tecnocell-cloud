@@ -1,14 +1,16 @@
 import { createHash } from 'node:crypto'
+import path from 'node:path'
 import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion } from '@whiskeysockets/baileys'
 import { pino } from 'pino'
 import qrcode from 'qrcode-terminal'
+import QRCode from 'qrcode'
 import { classificaPergunta, escolheProduto } from './lib/ia.mjs'
-import { buscaProdutos, buscaProdutosAmplo, buscaEstoque } from './lib/produtos.mjs'
+import { buscaProdutos, buscaProdutosAmplo, buscaEstoque, buscaChavePix } from './lib/produtos.mjs'
 import { montaResposta } from './lib/resposta.mjs'
 import { registraTroca, jaAvisouHoje, marcaAvisoHoje } from './lib/db.mjs'
 import { guardaPendente, pegaPendente, limpaPendente } from './lib/estado.mjs'
 import { dorme } from '../bot/lib/util.mjs'
-import { env } from '../bot/lib/env.mjs'
+import { env, RAIZ_REPO } from '../bot/lib/env.mjs'
 
 const logger = pino({ level: 'silent' })
 const LINK_ENCOMENDAS = env('BOT_WHATSAPP_LINK_ENCOMENDAS')
@@ -50,6 +52,10 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
     if (qr) {
       console.log(`\n[${slug}] escaneie o QR code no WhatsApp (Aparelhos conectados):\n`)
       qrcode.generate(qr, { small: true })
+      // salva o QR como PNG pra escanear com a câmera (o QR do terminal distorce)
+      QRCode.toFile(path.join(RAIZ_REPO, 'bot-whatsapp', 'data', `qr_${slug}.png`), qr, { width: 512, margin: 2 })
+        .then((destino) => console.log(`[${slug}] QR salvo em: ${destino}`))
+        .catch(() => {})
     }
     if (connection === 'close') {
       if (fechando) return
@@ -112,6 +118,17 @@ async function tentaResolverPendente(loja, jid, texto) {
   return null
 }
 
+// Assuntos fixos fora de preço/estoque (chave PIX, horário...). Devolve a resposta
+// pronta ou null — null segue pro fluxo normal de produto.
+async function respondeAssuntoFixo(texto) {
+  const t = (texto || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  if (/\bpix\b/.test(t) && /(chave|manda|passa|qual|numero|codigo|pagar|pagamento|transfer|copia|faz)/.test(t)) {
+    const chave = await buscaChavePix()
+    return chave ? `💠 Chave PIX da loja:\n${chave}\n\n(Aceitamos PIX como pagamento.)` : null
+  }
+  return null
+}
+
 async function processaMensagem(sock, loja, jid, texto) {
   const telefone = jid.split('@')[0]
   const telefoneTruncado = telefone.slice(-4)
@@ -120,6 +137,14 @@ async function processaMensagem(sock, loja, jid, texto) {
   // recebia o aviso obrigatório de "assistente automático". telefoneTruncado continua
   // servindo só pra exibição/log em registraTroca (não muda o schema do banco).
   const chaveAviso = createHash('sha256').update(jid).digest('hex').slice(0, 16)
+
+  // assunto fixo (chave PIX etc.) responde direto, sem passar pela IA de produto
+  const fixo = await respondeAssuntoFixo(texto).catch(() => null)
+  if (fixo) {
+    await dorme(1500 + Math.random() * 1500)
+    await sock.sendMessage(jid, { text: fixo })
+    return
+  }
 
   let produtos = await tentaResolverPendente(loja, jid, texto)
   let buscaDescricao = null

@@ -40,8 +40,12 @@ sock.ev.on('connection.update', (update) => {
   if (connection === 'close') {
     const code = lastDisconnect?.error?.output?.statusCode
     const deslogado = code === DisconnectReason.loggedOut
-    console.error(`[testa-qr] conexão caiu (${code || 'sem código'}).`, deslogado ? 'Sessão deslogada — apague a pasta de auth e gere o QR de novo.' : 'Reconectando em 25s...')
-    if (!deslogado) setTimeout(() => process.exit(0), 500) // sem reconexão infinita aqui: é só pra capturar o QR
+    if (deslogado) {
+      console.error('[testa-qr] Sessão deslogada — apague a pasta de auth e gere o QR de novo.')
+      process.exit(1)
+    }
+    console.error(`[testa-qr] conexão caiu (${code || 'sem código'}) — reconectando, o QR renova e o PNG atualiza sozinho...`)
+    // NÃO encerra aqui: o baileys reconecta e re-emite o QR, atualizando o PNG.
   } else if (connection === 'open') {
     console.log('[testa-qr] conectado ao WhatsApp! Pode parar este processo.')
     process.exit(0)

@@ -61,6 +61,15 @@ const CATEGORIAS = [
 // ip 13" passavam sem filtro nenhum com a regra de 3 letras).
 const ABREVIACOES_CURTAS = { fr: 'frontal' }
 
+// Sinônimos de TIPO de peça: o cliente fala "tela", o catálogo grava "frontal"
+// ou "display" — mesma coisa na loja. Sem isso, "tela do moto g8" não acha
+// "FRONTAL MOTOROLA G8" e o bot responde "não encontrei" pra algo que TEM.
+const SINONIMOS_TIPO = {
+  tela: ['frontal', 'display'],
+  frontal: ['tela', 'display'],
+  display: ['tela', 'frontal'],
+}
+
 function categoriaDe(palavra) {
   if (ABREVIACOES_CURTAS[palavra]) return ABREVIACOES_CURTAS[palavra]
   if (palavra.length < 3) return null
@@ -68,7 +77,14 @@ function categoriaDe(palavra) {
 }
 
 function categoriasPedidas(palavras) {
-  return [...new Set(palavras.map(categoriaDe).filter(Boolean))]
+  const cats = new Set()
+  for (const p of palavras) {
+    const c = categoriaDe(p)
+    if (!c) continue
+    cats.add(c)
+    for (const s of (SINONIMOS_TIPO[c] ?? [])) cats.add(s)
+  }
+  return [...cats]
 }
 
 // Sem categoria conhecida na pergunta: não filtra (deixa "16 pro max oled"
@@ -95,7 +111,14 @@ export async function buscaProdutos(termo) {
 
   let q = supabase.from('produtos').select('id, nome, preco').eq('ativo', true).eq('visivel_catalogo', true)
   for (const w of palavras) {
-    q = numerica(w) ? q.filter('busca_norm', 'imatch', `\\y${w}\\y`) : q.ilike('busca_norm', `%${w}%`)
+    if (numerica(w)) {
+      q = q.filter('busca_norm', 'imatch', `\\y${w}\\y`)
+    } else if (SINONIMOS_TIPO[w]) {
+      // palavra é um tipo com sinônimo (tela=frontal=display): busca qualquer variante
+      q = q.or([w, ...SINONIMOS_TIPO[w]].map((s) => `busca_norm.ilike.%${s}%`).join(','))
+    } else {
+      q = q.ilike('busca_norm', `%${w}%`)
+    }
   }
   let { data, error } = await q.order('nome').limit(5)
 
@@ -185,4 +208,11 @@ export async function buscaEstoque(produtoId, depositoId) {
     .maybeSingle()
   if (error) throw error // erro de rede/permissão não pode virar "quantidade: 0" — o bot diria "sem estoque" de um produto que pode estar na prateleira
   return data?.quantidade ?? 0
+}
+
+// Chave PIX da loja (conta de nome "PIX" no financeiro).
+export async function buscaChavePix() {
+  const { data, error } = await supabase.from('contas').select('chave_pix').eq('nome', 'PIX').maybeSingle()
+  if (error) throw error
+  return data?.chave_pix || null
 }
