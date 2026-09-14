@@ -181,6 +181,7 @@ interface TabelaPreco {
 
 interface ItemCarrinho {
   produto_id: string
+  avulso?: boolean   // item sem produto cadastrado (só orçamento)
   nome: string
   codigo: string | null
   quantidade: number
@@ -355,6 +356,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [saldoCredito, setSaldoCredito] = useState(0)
   const [fiadoCliente, setFiadoCliente] = useState<{ limite: number; devendo: number; disponivel: number; permite_fiado: boolean } | null>(null)
   const [combinadoEntrega, setCombinadoEntrega] = useState(false)
+  const [avulsoAberto, setAvulsoAberto] = useState(false)
+  const [avulsoNome, setAvulsoNome] = useState('')
+  const [avulsoPreco, setAvulsoPreco] = useState('')
 
   const qtdRefs = useRef<Map<string, HTMLInputElement>>(new Map())
 
@@ -798,6 +802,32 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     setBusca('')
   }, [depositoId, nomeDeposito, tabelaId, precos])
 
+  // Item avulso: produto sem cadastro (só orçamento — vai encomendar)
+  const adicionarAvulso = () => {
+    const nome = avulsoNome.trim()
+    const preco = parseFloat((avulsoPreco || '').replace(',', '.')) || 0
+    if (!nome) { setErro('Digite o nome do item.'); return }
+    if (preco <= 0) { setErro('Digite um preço estimado.'); return }
+    setErro(null)
+    setCarrinho((prev) => [{
+      produto_id: '',
+      avulso: true,
+      nome,
+      codigo: null,
+      quantidade: 1,
+      preco_unitario: preco,
+      desconto_tipo: 'final',
+      desconto_valor: null,
+      estoque_disponivel: 999,
+      promoSel: 'auto',
+      serializado: false,
+      series: undefined,
+      prateleira: null,
+      preco_custo: null,
+    }, ...prev])
+    setAvulsoNome(''); setAvulsoPreco(''); setAvulsoAberto(false)
+  }
+
   // IMEIs disponíveis (em_estoque) do produto no depósito atual
   const seriesDisponiveis = useCallback(
     (produto_id: string) => seriesPorProduto[produto_id]?.[depositoId] ?? [],
@@ -1218,6 +1248,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     if (faltamPg > 0.01) { setErro(`Faltam ${formatBRL(faltamPg)} para cobrir o total da venda.`); return }
     if (temFiado && !pessoaId) { setErro('Crédito Loja (A Receber) exige cliente selecionado.'); return }
     if (temFiado && fiadoCliente && !fiadoCliente.permite_fiado) { setErro('Este cliente não tem fiado liberado.'); return }
+    if (carrinho.some((i) => i.avulso)) { setErro('Item avulso só vale pra ORÇAMENTO — não dá pra vender item sem estoque. Salve como orçamento.'); return }
     if (pagamentos.some((p) => isCartaoForma(p.forma_id) && !p.maquina)) {
       setErro('Selecione a máquina (TON ou Pagbank) para o(s) pagamento(s) em cartão.'); return
     }
@@ -2348,6 +2379,19 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               ✕
             </button>
           ) : null}
+
+          <button type="button" onClick={() => setAvulsoAberto((v) => !v)}
+            className="mt-1 text-xs font-semibold text-blue-600 hover:text-blue-800">
+            ➕ Item avulso (orçar item que vou encomendar)
+          </button>
+          {avulsoAberto && (
+            <div className="mt-1 flex gap-2">
+              <input value={avulsoNome} onChange={(e) => setAvulsoNome(e.target.value)} placeholder="Nome do item" className="field flex-1 text-sm" />
+              <input value={avulsoPreco} onChange={(e) => setAvulsoPreco(e.target.value)} placeholder="Preço estimado" inputMode="decimal" className="field w-32 text-sm" />
+              <button type="button" onClick={adicionarAvulso} className="shrink-0 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700">Adicionar</button>
+            </div>
+          )}
+
           {produtosFiltrados.length > 0 && (
             <div className="animate-pop-in absolute top-full left-0 right-0 z-10 mt-1 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
               <label className="flex cursor-pointer items-center gap-2 border-b border-gray-100 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100">
@@ -2749,6 +2793,13 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 })}
               </div>
             </div>
+
+            {temFiado && (
+              <label className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm">
+                <input type="checkbox" checked={combinadoEntrega} onChange={(e) => setCombinadoEntrega(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
+                <span className="font-medium text-blue-700">🗓️ Combinou pagar na entrega (fica na lista de cobrança)</span>
+              </label>
+            )}
 
           <div className="space-y-3 border-t border-gray-100 pt-4">
             <div>
