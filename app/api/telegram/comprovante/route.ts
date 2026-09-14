@@ -623,7 +623,7 @@ async function gravaHistorico(loja: Loja, cs: Comp[], fechadoEm: string) {
     const rowFmt = (r: number, fmt: object, fields: string) => ({ repeatCell: { range: { sheetId, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: nCols }, cell: { userEnteredFormat: fmt }, fields } })
     const w = (c: number, px: number) => ({ updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: px }, fields: 'pixelSize' } })
     const reqs: object[] = [
-      w(0, 240), w(1, 240), w(2, 160), w(3, 100), w(4, 90), w(5, 140),
+      w(0, 270), w(1, 300), w(2, 160), w(3, 105), w(4, 90), w(5, 115),
       rowFmt(startRow, { backgroundColor: AZUL, textFormat: { bold: true, foregroundColor: BRANCO, fontSize: 11 } }, 'userEnteredFormat(backgroundColor,textFormat)'),
       rowFmt(startRow + 1, { backgroundColor: CINZA, textFormat: { bold: true } }, 'userEnteredFormat(backgroundColor,textFormat)'),
       rowFmt(startRow + linhas.length - 2, { textFormat: { bold: true } }, 'userEnteredFormat.textFormat'),
@@ -689,7 +689,7 @@ async function backfillHistorico(loja: Loja) {
   const nCols = 6
   const rowFmt = (r: number, fmt: object, fields: string) => ({ repeatCell: { range: { sheetId, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: nCols }, cell: { userEnteredFormat: fmt }, fields } })
   const w = (c: number, px: number) => ({ updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: px }, fields: 'pixelSize' } })
-  const reqs: object[] = [w(0, 240), w(1, 240), w(2, 160), w(3, 100), w(4, 90), w(5, 140)]
+  const reqs: object[] = [w(0, 270), w(1, 300), w(2, 160), w(3, 105), w(4, 90), w(5, 115)]
   linhas.forEach((row, i) => {
     if (String(row[0]).startsWith('🔒')) reqs.push(rowFmt(i, { backgroundColor: AZUL, textFormat: { bold: true, foregroundColor: BRANCO, fontSize: 11 } }, 'userEnteredFormat(backgroundColor,textFormat)'))
     else if (row[0] === 'Destinatário') reqs.push(rowFmt(i, { backgroundColor: CINZA, textFormat: { bold: true } }, 'userEnteredFormat(backgroundColor,textFormat)'))
