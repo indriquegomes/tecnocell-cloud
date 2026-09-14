@@ -231,6 +231,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [buscandoClientes, setBuscandoClientes] = useState(false)
   const [busca, setBusca] = useState('')
   const [buscaSel, setBuscaSel] = useState(0)  // linha destacada no dropdown (teclado ↑↓)
+  const [mostrarZerados, setMostrarZerados] = useState(false)
   const [copiado, setCopiado] = useState(false)
   const [selCopia, setSelCopia] = useState<Set<string>>(new Set())  // peças marcadas pra copiar preço
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([])
@@ -723,12 +724,14 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     const achados = produtos.filter((p) => {
       const idx = indiceNorm.get(p.id)
       if (!idx) return false
-      return palavras.every((w) => idx.nm.includes(w) || idx.cod.startsWith(w)) && saldoNoDeposito(p) > 0
+      return palavras.every((w) => idx.nm.includes(w) || idx.cod.startsWith(w))
     })
     return ordenarPorEstoque(achados, palavras.join(' ')).slice(0, limite)
   }
 
   const produtosFiltrados = busca.trim().length >= 1 ? filtrarProdutos(busca, 40) : []
+  const produtosDisponiveis = produtosFiltrados.filter((p) => prioridadeEstoque(p) < 2)
+  const produtosZerados = produtosFiltrados.filter((p) => prioridadeEstoque(p) === 2)
   // Busca interna do modal Consultar Produtos (F1)
   const fichaFiltrados = buscaFicha.trim().length >= 1 ? filtrarProdutos(buscaFicha, 40) : []
 
@@ -2363,64 +2366,79 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 Selecionar todas
               </label>
               <div className="max-h-[60vh] overflow-y-auto overscroll-contain">
-              {produtosFiltrados.map((p, idx) => {
-                const disp = saldoNoDeposito(p)
-                const ativo = idx === buscaSel
-                return (
-                <div key={p.id} ref={ativo ? linhaAtivaRef : null} className={`flex items-center border-b border-gray-50 last:border-b-0 ${ativo ? 'border-l-4 border-l-blue-600 bg-blue-100 ring-1 ring-inset ring-blue-200' : ''}`}>
-                  <label
-                    className="flex shrink-0 cursor-pointer items-center pl-3 pr-1"
-                    title="Marcar pra copiar o preço"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selCopia.has(p.id)}
-                      onChange={() => marcarCopia(p.id)}
-                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => adicionarAoCarrinho(p)}
-                    className="flex flex-1 items-center justify-between px-3 py-3 text-sm hover:bg-blue-50 transition text-left min-w-0"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-medium text-gray-800 truncate">
-                        {p.codigo && <span className="mr-1.5 rounded bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-gray-500 tabular-nums align-middle">{p.codigo}</span>}
-                        {p.nome}
-                      </p>
-                      <p className="mt-0.5 text-xs text-gray-400">
-                        {p.marca && <span>{p.marca} · </span>}
-                        {/* estoque em TODAS as lojas — o depósito atual fica sublinhado */}
-                        {depositosReais.map((d, i) => {
-                          const q = p.estoquePorDeposito[d.id] ?? 0
-                          return (
-                            <span key={d.id}>
-                              {i > 0 && ' · '}
-                              <span className={`${d.id === depositoId ? 'underline decoration-dotted underline-offset-2 ' : ''}${q > 0 ? 'text-green-600 font-medium' : 'text-gray-300'}`}>
-                                {d.nome} {q}
+              {(() => {
+                const renderItem = (p: Produto, idx: number) => {
+                  const disp = saldoNoDeposito(p)
+                  const ativo = idx === buscaSel
+                  return (
+                  <div key={p.id} ref={ativo ? linhaAtivaRef : null} className={`flex items-center border-b border-gray-50 last:border-b-0 ${ativo ? 'border-l-4 border-l-blue-600 bg-blue-100 ring-1 ring-inset ring-blue-200' : ''}`}>
+                    <label
+                      className="flex shrink-0 cursor-pointer items-center pl-3 pr-1"
+                      title="Marcar pra copiar o preço"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selCopia.has(p.id)}
+                        onChange={() => marcarCopia(p.id)}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => adicionarAoCarrinho(p)}
+                      className="flex flex-1 items-center justify-between px-3 py-3 text-sm hover:bg-blue-50 transition text-left min-w-0"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-800 truncate">
+                          {p.codigo && <span className="mr-1.5 rounded bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-gray-500 tabular-nums align-middle">{p.codigo}</span>}
+                          {p.nome}
+                        </p>
+                        <p className="mt-0.5 text-xs text-gray-400">
+                          {p.marca && <span>{p.marca} · </span>}
+                          {/* estoque em TODAS as lojas — o depósito atual fica sublinhado */}
+                          {depositosReais.map((d, i) => {
+                            const q = p.estoquePorDeposito[d.id] ?? 0
+                            return (
+                              <span key={d.id}>
+                                {i > 0 && ' · '}
+                                <span className={`${d.id === depositoId ? 'underline decoration-dotted underline-offset-2 ' : ''}${q > 0 ? 'text-green-600 font-medium' : 'text-gray-300'}`}>
+                                  {d.nome} {q}
+                                </span>
                               </span>
-                            </span>
-                          )
-                        })}
-                        {p.prateleira && <span className="text-blue-600 font-medium"> · 📦 {p.prateleira}</span>}
-                      </p>
-                    </div>
-                    <span className={`font-semibold ml-4 shrink-0 ${disp <= 0 ? 'text-gray-300' : 'text-green-600'}`}>
-                      {formatBRL(precoDoProduto(p))}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setFichaAberta(true); setFichaSel(p); setBuscaFicha(p.nome) }}
-                    title="Ver ficha do produto (F1)"
-                    className="shrink-0 px-3 py-3 text-gray-300 hover:text-blue-500 transition text-base leading-none"
-                  >
-                    ℹ
-                  </button>
-                </div>
+                            )
+                          })}
+                          {p.prateleira && <span className="text-blue-600 font-medium"> · 📦 {p.prateleira}</span>}
+                        </p>
+                      </div>
+                      <span className={`font-semibold ml-4 shrink-0 ${disp <= 0 ? 'text-gray-300' : 'text-green-600'}`}>
+                        {formatBRL(precoDoProduto(p))}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setFichaAberta(true); setFichaSel(p); setBuscaFicha(p.nome) }}
+                      title="Ver ficha do produto (F1)"
+                      className="shrink-0 px-3 py-3 text-gray-300 hover:text-blue-500 transition text-base leading-none"
+                    >
+                      ℹ
+                    </button>
+                  </div>
+                  )
+                }
+                return (
+                  <>
+                    {produtosDisponiveis.map((p, i) => renderItem(p, i))}
+                    {produtosZerados.length > 0 && (
+                      <button type="button" onClick={() => setMostrarZerados((v) => !v)}
+                        className="flex w-full items-center gap-2 border-b border-gray-50 bg-amber-50 px-3 py-2 text-left text-xs font-semibold text-amber-700 hover:bg-amber-100 transition">
+                        <span className="text-sm leading-none">{mostrarZerados ? '▾' : '▸'}</span>
+                        {produtosZerados.length} sem estoque — ver preço pra encomenda
+                      </button>
+                    )}
+                    {mostrarZerados && produtosZerados.map((p, i) => renderItem(p, produtosDisponiveis.length + i))}
+                  </>
                 )
-              })}
+              })()}
               </div>
               <button
                 type="button"
