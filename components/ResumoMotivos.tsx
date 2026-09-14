@@ -75,7 +75,7 @@ export function ResumoMotivos({
               <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-100">
                 {/* a barra CRESCE do zero — mostra a proporção acontecendo */}
                 <div
-                  className={`tc-cresce h-full rounded-full ${m.cor.split(' ').find((c) => c.startsWith('bg-'))?.replace('-50', '-400') ?? 'bg-gray-400'}`}
+                  className={`h-full rounded-full ${m.cor.split(' ').find((c) => c.startsWith('bg-'))?.replace('-50', '-400') ?? 'bg-gray-400'}`}
                   style={{ width: `${pct}%` }}
                 />
               </div>
