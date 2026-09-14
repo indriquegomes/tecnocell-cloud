@@ -282,7 +282,11 @@ export default async function OperacaoPDVPage({
     // PIX sem comprovante: bate os PIX do caixa contra os comprovantes que caíram
     // no período (WhatsApp/Telegram). Só AVISA — não trava o fechamento.
     const pixDoCaixa = vendasPorTipo['pix'] ?? []
-    if (pixDoCaixa.length > 0) {
+    // fiado recebido em PIX também entra na conferência (ex: 1 Pix de R$65 =
+    // R$45 de venda + R$20 de fiado recebido — não pode acusar "sem comprovante")
+    const pixFiado = (movResult.data ?? []).filter((m: any) => m.tipo === 'recebimento' && tipoDoTexto(m.forma_pagamento) === 'pix')
+      .map((m: any) => ({ id: m.id, cliente: null, valor: Number(m.valor) || 0, hora: m.created_at }))
+    if (pixDoCaixa.length > 0 || pixFiado.length > 0) {
       const compsRes = await supabase
         .from('comprovantes_pix')
         .select('valor')
@@ -292,6 +296,7 @@ export default async function OperacaoPDVPage({
       const comps = (compsRes.data ?? []) as { valor: number | null }[]
       pixPendentes = pixSemComprovante(
         pixDoCaixa.map((p) => ({ id: p.id, cliente: p.cliente, valor: p.valorForma, hora: p.hora })),
+        pixFiado,
         comps.map((c) => ({ valor: Number(c.valor) || 0 })),
       )
     }
