@@ -2409,6 +2409,15 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                           })}
                           {p.prateleira && <span className="text-blue-600 font-medium"> · 📦 {p.prateleira}</span>}
                         </p>
+                        {disp <= 0 && (() => {
+                          const comEstoque = depositosReais.filter((d) => (p.estoquePorDeposito[d.id] ?? 0) > 0 && d.id !== depositoId)
+                          if (comEstoque.length === 0) return null
+                          return (
+                            <p className="mt-0.5 text-[11px] font-medium text-amber-600">
+                              🔄 Tem no {comEstoque.map((d) => `${d.nome} (${p.estoquePorDeposito[d.id]})`).join(' · ')} — transfira pra loja
+                            </p>
+                          )
+                        })()}
                       </div>
                       <span className={`font-semibold ml-4 shrink-0 ${disp <= 0 ? 'text-gray-300' : 'text-green-600'}`}>
                         {formatBRL(precoDoProduto(p))}
