@@ -14,7 +14,7 @@ type Remessa = { id: string; origem: string; destino: string; status: string; ob
 export default async function TransferenciasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string; erro?: string }>
+  searchParams: Promise<{ ok?: string; erro?: string; produto?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
@@ -73,6 +73,7 @@ export default async function TransferenciasPage({
         depositos={depositos ?? []}
         produtos={produtos ?? []}
         seriesPorProduto={seriesPorProduto}
+        produtoInicial={params.produto}
       />
 
       {/* Em trânsito */}

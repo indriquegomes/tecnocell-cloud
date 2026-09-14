@@ -25,16 +25,18 @@ export function TransferenciaForm({
   depositos,
   produtos,
   seriesPorProduto,
+  produtoInicial,
 }: {
   depositos: Deposito[]
   produtos: Produto[]
   seriesPorProduto: Record<string, Record<string, string[]>>
+  produtoInicial?: string
 }) {
   const [origem, setOrigem] = useState('')
   const [destino, setDestino] = useState('')
   const [itens, setItens] = useState<ItemRemessa[]>([])
   // estado do item "sendo adicionado" agora
-  const [produtoBusca, setProdutoBusca] = useState('')
+  const [produtoBusca, setProdutoBusca] = useState(produtoInicial ?? '')
   const [achados, setAchados] = useState<ProdutoBusca[]>([])
   const [quantidade, setQuantidade] = useState('1')
   const [series, setSeries] = useState<string[]>([])

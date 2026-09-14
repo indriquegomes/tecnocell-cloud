@@ -17,6 +17,7 @@ const ANALISAR = [
   { href: '/painel/estoque/historico', label: 'Movimentações' },
   { href: '/painel/estoque/reposicao', label: 'Reposição' },
   { href: '/painel/estoque/conferencia', label: 'Conferência' },
+  { href: '/painel/estoque/comparar', label: 'Comparar lojas' },
 ]
 const GERIR = [
   { href: '/painel/estoque/transferencias', label: 'Transferências' },
