@@ -632,6 +632,72 @@ async function gravaHistorico(loja: Loja, cs: Comp[], fechadoEm: string) {
   } catch (e) { console.error('gravaHistorico:', e) }
 }
 
+// BACKFILL: reconstrói o Histórico COMPLETO (todos os comprovantes, agrupados por DIA de
+// recebimento). Usado 1x pra importar o passado que não foi fechado com /fechar.
+async function backfillHistorico(loja: Loja) {
+  const token = await googleToken()
+  const { data: csRaw } = await sb().from('comprovantes_pix').select('*')
+    .eq('telegram_chat_id', loja.grupo).neq('status', 'nao_comprovante').neq('status', 'apagado').neq('status', 'duplicado')
+    .order('recebido_em')
+  const cs = (csRaw || []) as Comp[]
+  if (!cs.length) return
+
+  const porDia = new Map<string, Comp[]>()
+  for (const c of cs) {
+    const dia = new Date(c.recebido_em || '').toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+    const arr = porDia.get(dia) || []; arr.push(c); porDia.set(dia, arr)
+  }
+
+  const { data: aliases } = await sb().from('pix_aliases').select('pagador_norm, cliente').eq('telegram_chat_id', loja.grupo)
+  const alias = new Map((aliases || []).map((a: { pagador_norm: string; cliente: string }) => [a.pagador_norm, a.cliente]))
+  const clienteDe = (c: Comp) => {
+    const sis = (c.cliente_sistema || '').trim()
+    if (sis) return sis
+    const p = normNome(c.pagador || '')
+    if (p && alias.has(p)) return alias.get(p)!
+    return ''
+  }
+
+  const d0 = new Date(cs[0].recebido_em || '')
+  const aba = 'Histórico ' + loja.aba + ' ' + d0.getFullYear() + '-' + String(d0.getMonth() + 1).padStart(2, '0')
+  const sheetId = await garanteAba(token, aba)
+
+  const linhas: (string | number)[][] = []
+  const dias = [...porDia.keys()].sort()
+  for (const dia of dias) {
+    const grupoDia = porDia.get(dia)!
+    const grupos = agrupaPorDestino(grupoDia)
+    linhas.push(['🔒 DIA ' + dia, '', '', '', '', ''])
+    linhas.push(['Destinatário', 'Nome no Pix', 'Cliente comprador', 'Valor (R$)', 'Data', 'Observação'])
+    let total = 0
+    for (const k of Object.keys(grupos).sort()) {
+      const g = grupos[k]
+      for (const c of g.itens) {
+        const v = Number(c.valor) || 0
+        total += v
+        linhas.push([g.nome, c.pagador || '—', clienteDe(c) || '—', v, fmtDataBR(c.data_pix), c.status === 'data_divergente' ? '⚠️ data ≠ hoje' : 'ok'])
+      }
+    }
+    linhas.push(['', 'TOTAL DO DIA', '', total, '', grupoDia.length + ' comprovantes'])
+    linhas.push(['', '', '', '', '', ''])
+  }
+
+  await fetchT('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + encodeURIComponent(aba + '!A1:Z2000') + ':clear', { method: 'POST', headers: gh(token) })
+  await fetchT('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + encodeURIComponent(aba + '!A1') + '?valueInputOption=RAW', { method: 'PUT', headers: { ...gh(token), 'content-type': 'application/json' }, body: JSON.stringify({ values: linhas }) })
+
+  const AZUL = { red: 0.106, green: 0.424, blue: 0.659 }, BRANCO = { red: 1, green: 1, blue: 1 }, CINZA = { red: 0.93, green: 0.95, blue: 0.97 }
+  const nCols = 6
+  const rowFmt = (r: number, fmt: object, fields: string) => ({ repeatCell: { range: { sheetId, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: nCols }, cell: { userEnteredFormat: fmt }, fields } })
+  const w = (c: number, px: number) => ({ updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: px }, fields: 'pixelSize' } })
+  const reqs: object[] = [w(0, 240), w(1, 240), w(2, 160), w(3, 100), w(4, 90), w(5, 140)]
+  linhas.forEach((row, i) => {
+    if (String(row[0]).startsWith('🔒')) reqs.push(rowFmt(i, { backgroundColor: AZUL, textFormat: { bold: true, foregroundColor: BRANCO, fontSize: 11 } }, 'userEnteredFormat(backgroundColor,textFormat)'))
+    else if (row[0] === 'Destinatário') reqs.push(rowFmt(i, { backgroundColor: CINZA, textFormat: { bold: true } }, 'userEnteredFormat(backgroundColor,textFormat)'))
+    else if (row[1] === 'TOTAL DO DIA') reqs.push(rowFmt(i, { textFormat: { bold: true } }, 'userEnteredFormat.textFormat'))
+  })
+  await fetchT('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + ':batchUpdate', { method: 'POST', headers: { ...gh(token), 'content-type': 'application/json' }, body: JSON.stringify({ requests: reqs }) }).catch(() => {})
+}
+
 async function fechar(loja: Loja, p: any, quem: string | null) {
   const { data: cs } = await sb().from('comprovantes_pix').select('*').eq('telegram_chat_id', loja.grupo).gte('recebido_em', p.aberto_em).neq('status', 'duplicado').neq('status', 'nao_comprovante').neq('status', 'incompleto').neq('status', 'apagado').order('recebido_em')
   const groups = agrupaPorDestino((cs || []) as Comp[]); const keys = Object.keys(groups).sort()
@@ -807,6 +873,10 @@ export async function POST(req: Request) {
   if (new URL(req.url).searchParams.get('job') === 'reler') {
     const cursor = Number(new URL(req.url).searchParams.get('cursor') || 0)
     after(async () => { try { await processaReler(loja as Loja, cursor) } catch (e) { console.error('reler:', e) } })
+    return NextResponse.json({ ok: true })
+  }
+  if (new URL(req.url).searchParams.get('job') === 'backfill') {
+    after(async () => { try { await backfillHistorico(loja as Loja) } catch (e) { console.error('backfill:', e) } })
     return NextResponse.json({ ok: true })
   }
   let update: unknown
