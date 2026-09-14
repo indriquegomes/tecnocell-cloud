@@ -585,7 +585,7 @@ async function gravaHistorico(loja: Loja, cs: Comp[], fechadoEm: string) {
     const token = await googleToken()
     const d = new Date(fechadoEm)
     const aba = 'Histórico ' + loja.aba + ' ' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
-    await garanteAba(token, aba)
+    const sheetId = await garanteAba(token, aba)
 
     const { data: aliases } = await sb().from('pix_aliases').select('pagador_norm, cliente').eq('telegram_chat_id', loja.grupo)
     const alias = new Map((aliases || []).map((a: { pagador_norm: string; cliente: string }) => [a.pagador_norm, a.cliente]))
@@ -613,9 +613,23 @@ async function gravaHistorico(loja: Loja, cs: Comp[], fechadoEm: string) {
     linhas.push(['', 'TOTAL DO FECHAMENTO', '', total, '', cs.length + ' comprovantes'])
     linhas.push(['', '', '', '', '', ''])
 
-    await fetchT(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(aba + '!A1')}:append?valueInputOption=RAW`, {
+    const resp = await (await fetchT(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(aba + '!A1')}:append?valueInputOption=RAW`, {
       method: 'POST', headers: { ...gh(token), 'content-type': 'application/json' }, body: JSON.stringify({ values: linhas }),
-    })
+    })).json()
+    const startRow = Number(((resp.updates?.updatedRange as string) || '').match(/!A(\d+)/)?.[1] || '1') - 1
+
+    // CORES das separações: barra azul no "FECHADO EM", cabeçalho cinza, total em negrito
+    const AZUL = { red: 0.106, green: 0.424, blue: 0.659 }, BRANCO = { red: 1, green: 1, blue: 1 }, CINZA = { red: 0.93, green: 0.95, blue: 0.97 }
+    const nCols = 6
+    const rowFmt = (r: number, fmt: object, fields: string) => ({ repeatCell: { range: { sheetId, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: nCols }, cell: { userEnteredFormat: fmt }, fields } })
+    const w = (c: number, px: number) => ({ updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: px }, fields: 'pixelSize' } })
+    const reqs: object[] = [
+      w(0, 240), w(1, 240), w(2, 160), w(3, 100), w(4, 90), w(5, 140),
+      rowFmt(startRow, { backgroundColor: AZUL, textFormat: { bold: true, foregroundColor: BRANCO, fontSize: 11 } }, 'userEnteredFormat(backgroundColor,textFormat)'),
+      rowFmt(startRow + 1, { backgroundColor: CINZA, textFormat: { bold: true } }, 'userEnteredFormat(backgroundColor,textFormat)'),
+      rowFmt(startRow + linhas.length - 2, { textFormat: { bold: true } }, 'userEnteredFormat.textFormat'),
+    ]
+    await fetchT(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`, { method: 'POST', headers: { ...gh(token), 'content-type': 'application/json' }, body: JSON.stringify({ requests: reqs }) }).catch(() => {})
   } catch (e) { console.error('gravaHistorico:', e) }
 }
 
