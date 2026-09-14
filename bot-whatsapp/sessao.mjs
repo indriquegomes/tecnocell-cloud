@@ -14,8 +14,6 @@ import { env, RAIZ_REPO } from '../bot/lib/env.mjs'
 
 const logger = pino({ level: 'silent' })
 const LINK_ENCOMENDAS = env('BOT_WHATSAPP_LINK_ENCOMENDAS')
-// Titular da conta PIX (pra sair na resposta junto da chave — o cliente confere o nome)
-const NOME_PIX = env('BOT_WHATSAPP_NOME_PIX', 'STOR ONE LTDA')
 
 // 401 loggedOut, 403 forbidden (conta banida), 440 connectionReplaced (WhatsApp
 // Web aberto em outro lugar) e 500 badSession não se resolvem tentando de novo —
@@ -126,8 +124,8 @@ async function respondeAssuntoFixo(texto) {
   const t = (texto || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   // qualquer menção a "pix" no corpo da mensagem -> manda a chave + pedido de comprovante
   if (/\bpix\b/.test(t)) {
-    const chave = await buscaChavePix()
-    return chave ? `💠 Chave PIX da loja:\n${chave}\nTitular: ${NOME_PIX}\n\nEnvie o comprovante completo e atenção ao nome do PIX. Obrigado!` : null
+    const p = await buscaChavePix()
+    return p.chave ? `💠 Chave PIX da loja:\n${p.chave}${p.titular ? `\nTitular: ${p.titular}` : ''}\n\nEnvie o comprovante completo e atenção ao nome do PIX. Obrigado!` : null
   }
   return null
 }
