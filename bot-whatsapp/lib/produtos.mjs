@@ -212,14 +212,7 @@ export async function buscaEstoque(produtoId, depositoId) {
 
 // Chave + titular PIX da loja (conta de nome "PIX" no financeiro).
 export async function buscaChavePix() {
-  try {
-    const { data, error } = await supabase.from('contas').select('chave_pix, titular_pix').eq('nome', 'PIX').maybeSingle()
-    if (error) throw error
-    return data ? { chave: data.chave_pix || null, titular: data.titular_pix || null } : { chave: null, titular: null }
-  } catch {
-    // migration titular_pix ainda não aplicada: cai pra só a chave (sem titular)
-    const { data, error } = await supabase.from('contas').select('chave_pix').eq('nome', 'PIX').maybeSingle()
-    if (error) throw error
-    return { chave: data?.chave_pix || null, titular: null }
-  }
+  const { data, error } = await supabase.from('contas').select('chave_pix, titular').eq('nome', 'PIX').maybeSingle()
+  if (error) throw error
+  return data ? { chave: data.chave_pix || null, titular: data.titular || null } : { chave: null, titular: null }
 }
