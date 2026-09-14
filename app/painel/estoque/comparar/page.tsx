@@ -67,12 +67,12 @@ export default async function CompararPage({
         <h3 className="text-sm font-semibold text-gray-800">{titulo} <span className="ml-1 text-xs font-normal text-gray-400">{linhas.length} itens</span></h3>
       </div>
       <div className="max-h-[60vh] overflow-y-auto">
-        <table className="min-w-full divide-y divide-gray-100 text-sm">
+        <table className="min-w-full table-fixed divide-y divide-gray-100 text-sm">
           <thead className="sticky top-0 bg-gray-50">
             <tr>
               <th className="px-4 py-2 text-left text-xs font-semibold uppercase text-gray-400">Produto</th>
-              <th className="px-4 py-2 text-center text-xs font-semibold uppercase text-gray-400">Qtd</th>
-              <th className="px-4 py-2 text-right text-xs font-semibold uppercase text-gray-400"></th>
+              <th className="w-14 px-4 py-2 text-center text-xs font-semibold uppercase text-gray-400">Qtd</th>
+              <th className="w-28 px-4 py-2 text-right text-xs font-semibold uppercase text-gray-400"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
