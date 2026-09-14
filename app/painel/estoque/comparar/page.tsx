@@ -24,23 +24,27 @@ export default async function CompararPage({
     .select('produto_id, deposito_id, quantidade, produtos(nome, categoria)')
     .gt('quantidade', 0).range(from, to))
 
-  type Agg = { nome: string; categoria: string | null; petr: number; ter: number }
+  type Agg = { nome: string; categoria: string | null; pl: number; pe: number; tl: number; te: number }
   const agg = new Map<string, Agg>()
   for (const e of (estoque ?? [])) {
     const pid = e.produto_id as string
     const p = e.produtos as unknown as { nome: string; categoria: string | null } | null
-    const cur = agg.get(pid) ?? { nome: p?.nome ?? pid, categoria: p?.categoria ?? null, petr: 0, ter: 0 }
-    if (petrIds.includes(e.deposito_id as string)) cur.petr += Number(e.quantidade)
-    if (terIds.includes(e.deposito_id as string)) cur.ter += Number(e.quantidade)
+    const cur = agg.get(pid) ?? { nome: p?.nome ?? pid, categoria: p?.categoria ?? null, pl: 0, pe: 0, tl: 0, te: 0 }
+    if (e.deposito_id === PL) cur.pl += Number(e.quantidade)
+    else if (e.deposito_id === PE) cur.pe += Number(e.quantidade)
+    else if (e.deposito_id === TL) cur.tl += Number(e.quantidade)
+    else if (e.deposito_id === TE) cur.te += Number(e.quantidade)
     agg.set(pid, cur)
   }
 
-  type Linha = { nome: string; categoria: string | null; qtd: number }
+  type Linha = { nome: string; categoria: string | null; qtd: number; detalhe: string }
   const soPetr: Linha[] = []
   const soTer: Linha[] = []
   for (const a of agg.values()) {
-    if (a.petr > 0 && a.ter === 0) soPetr.push({ nome: a.nome, categoria: a.categoria, qtd: a.petr })
-    else if (a.ter > 0 && a.petr === 0) soTer.push({ nome: a.nome, categoria: a.categoria, qtd: a.ter })
+    const petr = a.pl + a.pe
+    const ter = a.tl + a.te
+    if (petr > 0 && ter === 0) soPetr.push({ nome: a.nome, categoria: a.categoria, qtd: petr, detalhe: 'Loja ' + a.pl + ' · Estoque ' + a.pe })
+    else if (ter > 0 && petr === 0) soTer.push({ nome: a.nome, categoria: a.categoria, qtd: ter, detalhe: 'Loja ' + a.tl + ' · Estoque ' + a.te })
   }
   soPetr.sort((a, b) => b.qtd - a.qtd)
   soTer.sort((a, b) => b.qtd - a.qtd)
@@ -79,6 +83,7 @@ export default async function CompararPage({
                 <td className="px-4 py-2 font-medium text-gray-800">
                   {l.nome}
                   {l.categoria && <span className="ml-2 text-[11px] text-gray-400">{l.categoria}</span>}
+                  <p className="text-[11px] font-normal text-gray-400">{l.detalhe}</p>
                 </td>
                 <td className={'px-4 py-2 text-center font-bold tabular-nums ' + cor}>{l.qtd}</td>
                 <td className="px-4 py-2 text-right">
