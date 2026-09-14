@@ -42,7 +42,6 @@ const DRENA_POR_MSG = Number(process.env.COMPROVANTE_DRENA || 2)
 
 // ---------- helpers de valor/data ----------
 const money = (v: number | null) => Number(v || 0).toFixed(2).replace('.', ',')
-const hojeSP = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
 
 // data do Pix EMBUTIDA no ID E2E (E + ISPB8 + AAAAMMDD + HHMM + random) — 100% confiável
 function dataDoId(id: string | null): string | null {

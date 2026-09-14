@@ -17,8 +17,6 @@ export default async function CompararPage({
   const PE = (depositos ?? []).find((d) => d.nome === 'PETRÓPOLIS ESTOQUE')?.id
   const TL = (depositos ?? []).find((d) => d.nome === 'TERESÓPOLIS LOJA')?.id
   const TE = (depositos ?? []).find((d) => d.nome === 'TERESÓPOLIS ESTOQUE')?.id
-  const petrIds = [PL, PE].filter(Boolean) as string[]
-  const terIds = [TL, TE].filter(Boolean) as string[]
 
   const estoque = await fetchAll((from, to) => supabase.from('estoque')
     .select('produto_id, deposito_id, quantidade, produtos(nome, categoria)')

@@ -695,12 +695,12 @@ export default async function RelatoriosPage({
   let entradas: { nome: string; qtd: number; valor: number }[] = []
   let totalEntradas = 0
   if (aba === 'entradas') {
-    const { data: notas } = await supabase.from('notas_entrada').select('id').eq('status', 'recebida')
-      .gte('data_entrada', dataInicio).lte('data_entrada', dataFim + 'T23:59:59')
-    const ids = (notas ?? []).map((n) => n.id)
+    const notas = await fetchAll((from, to) => supabase.from('notas_entrada').select('id').eq('status', 'recebida')
+      .gte('data_entrada', dataInicio).lte('data_entrada', dataFim + 'T23:59:59').range(from, to))
+    const ids = (notas ?? []).map((n) => n.id as string)
     if (ids.length) {
-      const { data } = await supabase.from('itens_nota_entrada')
-        .select('quantidade, total_item, preco_unitario, produtos(nome)').in('nota_id', ids)
+      const data = await fetchAllIn(ids, (chunk, from, to) => supabase.from('itens_nota_entrada')
+        .select('quantidade, total_item, preco_unitario, produtos(nome)').in('nota_id', chunk).range(from, to))
       const mapa: Record<string, { nome: string; qtd: number; valor: number }> = {}
       for (const it of (data ?? []) as unknown as { quantidade: number; total_item: number | null; preco_unitario: number; produtos: { nome: string } | null }[]) {
         const nome = it.produtos?.nome ?? '—'
@@ -738,9 +738,9 @@ export default async function RelatoriosPage({
   // ---------- Movimentações x Saldo ----------
   let movSaldo: { nome: string; entradas: number; saidas: number; saldo: number }[] = []
   if (aba === 'movsaldo') {
-    const [{ data: movs }, est] = await Promise.all([
-      supabase.from('movimentacoes_estoque').select('produto_id, operacao, quantidade, produtos(nome)')
-        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim),
+    const [movs, est] = await Promise.all([
+      fetchAll((from, to) => supabase.from('movimentacoes_estoque').select('produto_id, operacao, quantidade, produtos(nome)')
+        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to)),
       fetchAll((from, to) => supabase.from('estoque').select('produto_id, quantidade').gt('quantidade', 0).range(from, to)),
     ])
     const saldoAtual: Record<string, number> = {}
@@ -763,14 +763,16 @@ export default async function RelatoriosPage({
   let statusOsOpc: string[] = []
   if (aba === 'tecnicos') {
     // listas pros dropdowns (sobre TODAS as OS do período, não a leva filtrada)
-    const { data: todasOs } = await supabase.from('ordens_servico').select('tecnico_nome, status').gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+    const todasOs = await fetchAll((from, to) => supabase.from('ordens_servico').select('tecnico_nome, status').gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to))
     tecnicosOpc = [...new Set((todasOs ?? []).map((o) => o.tecnico_nome).filter(Boolean))].sort() as string[]
     statusOsOpc = [...new Set((todasOs ?? []).map((o) => o.status).filter(Boolean))].sort() as string[]
-    let qOs = supabase.from('ordens_servico').select('tecnico_nome, status, total, custo')
-      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
-    if (tec) qOs = qOs.ilike('tecnico_nome', `%${tec}%`)
-    if (osstatus) qOs = qOs.eq('status', osstatus)
-    const { data } = await qOs
+    const data = await fetchAll((from, to) => {
+      let q = supabase.from('ordens_servico').select('tecnico_nome, status, total, custo')
+        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+      if (tec) q = q.ilike('tecnico_nome', `%${tec}%`)
+      if (osstatus) q = q.eq('status', osstatus)
+      return q.range(from, to)
+    })
     const mapa: Record<string, { nome: string; os: number; total: number; custo: number; lucro: number; concluidas: number }> = {}
     const stMap: Record<string, { status: string; n: number; total: number }> = {}
     let totOS = 0, totF = 0, totCusto = 0, totConc = 0

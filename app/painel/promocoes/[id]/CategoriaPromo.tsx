@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Spinner } from '@/components/Spinner'
-import { adicionarCategoriaPromocao, contarCategoriaPromocao } from '../actions'
+import { adicionarCategoriaPromocao } from '../actions'
 
 // Pedido da Isa: promoção de PELÍCULA sem catar as 327 películas na mão.
 //
