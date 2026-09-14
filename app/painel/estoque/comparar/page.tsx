@@ -80,15 +80,15 @@ export default async function CompararPage({
               <tr><td colSpan={3} className="px-4 py-8 text-center text-sm text-gray-400">Nada aqui.</td></tr>
             ) : linhas.slice(0, TETO).map((l) => (
               <tr key={l.nome} className="hover:bg-blue-50/40 transition">
-                <td className="px-4 py-2 font-medium text-gray-800">
-                  {l.nome}
+                <td className="min-w-0 px-4 py-2 font-medium text-gray-800">
+                  <span className="block truncate">{l.nome}</span>
                   {l.categoria && <span className="ml-2 text-[11px] text-gray-400">{l.categoria}</span>}
                   <p className="text-[11px] font-normal text-gray-400">{l.detalhe}</p>
                 </td>
                 <td className={'px-4 py-2 text-center font-bold tabular-nums ' + cor}>{l.qtd}</td>
-                <td className="px-4 py-2 text-right">
+                <td className="shrink-0 px-4 py-2 text-right whitespace-nowrap">
                   <Link href={'/painel/estoque/transferencias?produto=' + encodeURIComponent(l.nome)}
-                    className="rounded-lg bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-700 transition">
+                    className="whitespace-nowrap rounded-lg bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-700 transition">
                     → Transferir
                   </Link>
                 </td>
