@@ -221,7 +221,7 @@ export interface PagamentoInput {
 export async function salvarOrcamentoPDV(
   accessToken: string,
   input: {
-    itens: { produto_id: string; nome: string; quantidade: number; preco_unitario: number }[]
+    itens: { produto_id: string | null; nome: string; quantidade: number; preco_unitario: number }[]
     pessoa_id: string | null
     desconto: number
     observacoes: string
@@ -235,8 +235,9 @@ export async function salvarOrcamentoPDV(
   const supabase = await createServiceClient()
   if (input.itens.length === 0) throw new Error('Carrinho vazio.')
   const { isMaster } = await permissoesEfetivas(usuario.id)
-  if (!isMaster) {
-    const noCusto = await produtoNoCusto(input.itens)
+  const itensReais = input.itens.filter((i) => i.produto_id)
+  if (!isMaster && itensReais.length > 0) {
+    const noCusto = await produtoNoCusto(itensReais.map((i) => ({ produto_id: i.produto_id!, preco_unitario: i.preco_unitario })))
     if (noCusto) throw new Error(`"${noCusto}" não pode ser vendido pelo preço de custo ou abaixo dele.`)
   }
 
@@ -264,7 +265,8 @@ export async function salvarOrcamentoPDV(
 
   const rows = input.itens.map((i) => ({
     pedido_id: pedido!.id,
-    produto_id: i.produto_id,
+    produto_id: i.produto_id || null,
+    nome: i.produto_id ? null : i.nome,
     quantidade: i.quantidade,
     preco_unitario: i.preco_unitario,
     total_item: i.quantidade * i.preco_unitario,
@@ -1078,7 +1080,7 @@ export async function buscarPedidosAbertos(accessToken: string): Promise<PedidoR
     .select(`
       id, tipo, status, total, created_at, pessoa_id,
       pessoa:pessoas(nome),
-      itens:itens_pedido(produto_id, quantidade, preco_unitario, produto:produtos(nome, codigo))
+      itens:itens_pedido(produto_id, quantidade, preco_unitario, nome, produto:produtos(nome, codigo))
     `)
     .in('status', ['rascunho', 'pendente', 'aprovado'])
     .order('created_at', { ascending: false })
@@ -1095,7 +1097,7 @@ export async function buscarPedidosAbertos(accessToken: string): Promise<PedidoR
     pessoa_nome: p.pessoa?.nome ?? null,
     itens: (p.itens ?? []).map((i: any) => ({
       produto_id: i.produto_id,
-      nome: i.produto?.nome ?? 'Produto',
+      nome: i.nome ?? i.produto?.nome ?? 'Produto',
       quantidade: i.quantidade,
       preco_unitario: i.preco_unitario,
       codigo: i.produto?.codigo ?? null,
