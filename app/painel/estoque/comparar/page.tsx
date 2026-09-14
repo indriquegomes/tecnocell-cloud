@@ -66,39 +66,26 @@ export default async function CompararPage({
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
         <h3 className="text-sm font-semibold text-gray-800">{titulo} <span className="ml-1 text-xs font-normal text-gray-400">{linhas.length} itens</span></h3>
       </div>
-      <div className="max-h-[60vh] overflow-y-auto">
-        <table className="min-w-full table-fixed divide-y divide-gray-100 text-sm">
-          <thead className="sticky top-0 bg-gray-50">
-            <tr>
-              <th className="px-4 py-2 text-left text-xs font-semibold uppercase text-gray-400">Produto</th>
-              <th className="w-14 px-4 py-2 text-center text-xs font-semibold uppercase text-gray-400">Qtd</th>
-              <th className="w-28 px-4 py-2 text-right text-xs font-semibold uppercase text-gray-400"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {linhas.length === 0 ? (
-              <tr><td colSpan={3} className="px-4 py-8 text-center text-sm text-gray-400">Nada aqui.</td></tr>
-            ) : linhas.slice(0, TETO).map((l) => (
-              <tr key={l.nome} className="hover:bg-blue-50/40 transition">
-                <td className="min-w-0 px-4 py-2 font-medium text-gray-800">
-                  <span className="block truncate">{l.nome}</span>
-                  {l.categoria && <span className="ml-2 text-[11px] text-gray-400">{l.categoria}</span>}
-                  <p className="text-[11px] font-normal text-gray-400">{l.detalhe}</p>
-                </td>
-                <td className={'px-4 py-2 text-center font-bold tabular-nums ' + cor}>{l.qtd}</td>
-                <td className="shrink-0 px-4 py-2 text-right whitespace-nowrap">
-                  <Link href={'/painel/estoque/transferencias?produto=' + encodeURIComponent(l.nome)}
-                    className="whitespace-nowrap rounded-lg bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-700 transition">
-                    → Transferir
-                  </Link>
-                </td>
-              </tr>
-            ))}
-            {linhas.length > TETO && (
-              <tr><td colSpan={3} className="px-4 py-2 text-center text-xs text-gray-400">Mostrando {TETO} de {linhas.length} — use o filtro pra refinar.</td></tr>
-            )}
-          </tbody>
-        </table>
+      <div className="max-h-[60vh] overflow-y-auto divide-y divide-gray-50">
+        {linhas.length === 0 ? (
+          <p className="px-4 py-8 text-center text-sm text-gray-400">Nada aqui.</p>
+        ) : linhas.slice(0, TETO).map((l) => (
+          <div key={l.nome} className="flex items-center gap-2 px-4 py-2 hover:bg-blue-50/40 transition">
+            <div className="min-w-0 flex-1">
+              <span className="block truncate font-medium text-gray-800">{l.nome}</span>
+              {l.categoria && <span className="text-[11px] text-gray-400">{l.categoria}</span>}
+              <p className="text-[11px] font-normal text-gray-400">{l.detalhe}</p>
+            </div>
+            <span className={'shrink-0 font-bold tabular-nums ' + cor}>{l.qtd}</span>
+            <Link href={'/painel/estoque/transferencias?produto=' + encodeURIComponent(l.nome)}
+              className="shrink-0 whitespace-nowrap rounded-lg bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-700 transition">
+              → Transferir
+            </Link>
+          </div>
+        ))}
+        {linhas.length > TETO && (
+          <p className="px-4 py-2 text-center text-xs text-gray-400">Mostrando {TETO} de {linhas.length} — use o filtro pra refinar.</p>
+        )}
       </div>
     </div>
   )
