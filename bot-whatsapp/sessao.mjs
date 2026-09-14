@@ -122,9 +122,10 @@ async function tentaResolverPendente(loja, jid, texto) {
 // pronta ou null — null segue pro fluxo normal de produto.
 async function respondeAssuntoFixo(texto) {
   const t = (texto || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  if (/\bpix\b/.test(t) && /(chave|manda|passa|qual|numero|codigo|pagar|pagamento|transfer|copia|faz)/.test(t)) {
+  // qualquer menção a "pix" no corpo da mensagem -> manda a chave + pedido de comprovante
+  if (/\bpix\b/.test(t)) {
     const chave = await buscaChavePix()
-    return chave ? `💠 Chave PIX da loja:\n${chave}\n\n(Aceitamos PIX como pagamento.)` : null
+    return chave ? `💠 Chave PIX da loja:\n${chave}\n\nEnvie o comprovante completo e atenção ao nome do PIX. Obrigado!` : null
   }
   return null
 }
