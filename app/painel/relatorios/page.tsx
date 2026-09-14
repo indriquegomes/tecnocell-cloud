@@ -908,7 +908,7 @@ export default async function RelatoriosPage({
       const [lojaR, perfR, vendasR, movR, formasR] = await Promise.all([
         cx.loja_id ? supabase.from('lojas').select('nome').eq('id', cx.loja_id as string).maybeSingle() : Promise.resolve({ data: null }),
         cx.usuario_id ? supabase.from('perfis').select('nome').eq('id', cx.usuario_id as string).maybeSingle() : Promise.resolve({ data: null }),
-        supabase.from('vendas').select('id, numero, created_at, vendedor_nome').eq('status', 'concluida').eq('caixa_id', caixa),
+        supabase.from('vendas').select('id, numero, created_at, vendedor_nome, pessoas(nome)').eq('status', 'concluida').eq('caixa_id', caixa),
         supabase.from('movimentos_caixa').select('tipo, forma_pagamento, valor, created_at').eq('caixa_id', caixa),
         supabase.from('formas_pagamento').select('id, nome, tipo'),
       ])
@@ -924,6 +924,9 @@ export default async function RelatoriosPage({
       const vendaIds = vendas.map((v) => v.id as string)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const vendaById: Record<string, any> = Object.fromEntries(vendas.map((v) => [v.id, v]))
+      // join aninhado pessoas(nome) volta objeto no runtime, array no tipo sem schema — aceita os dois
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const nomeCliente = (v: any) => { const p = v?.pessoas; if (!p) return null; return Array.isArray(p) ? (p[0]?.nome ?? null) : (p?.nome ?? null) }
       const [pagsRes, devsRes] = await Promise.all([
         vendaIds.length ? supabase.from('pagamentos_venda').select('venda_id, forma_pagamento_id, valor').in('venda_id', vendaIds) : Promise.resolve({ data: [] }),
         vendaIds.length ? supabase.from('devolucoes').select('venda_id, valor_total, tipo_credito, created_at').in('venda_id', vendaIds) : Promise.resolve({ data: [] }),
@@ -936,7 +939,7 @@ export default async function RelatoriosPage({
       for (const p of (pagsRes.data ?? []) as any[]) {
         const v = vendaById[p.venda_id]; if (!v) continue
         const f = formaById[p.forma_pagamento_id ?? ''] ?? { nome: 'Outra', tipo: 'outros' }
-        fcMovs.push({ data: v.created_at, vendedor: v.vendedor_nome ?? null, movimentacao: 'Venda', rotulo: 'Venda #' + (v.numero ?? '—'), forma: f.nome, tipoForma: tipoLabel(f.tipo), valor: p.valor ?? 0 })
+        fcMovs.push({ data: v.created_at, vendedor: v.vendedor_nome ?? null, movimentacao: 'Venda', rotulo: 'Venda — ' + (nomeCliente(v) ?? 'Consumidor'), forma: f.nome, tipoForma: tipoLabel(f.tipo), valor: p.valor ?? 0 })
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const m of (movR.data ?? []) as any[]) {
@@ -949,7 +952,7 @@ export default async function RelatoriosPage({
       for (const d of (devsRes.data ?? []) as any[]) {
         const v = vendaById[d.venda_id]
         const cred = d.tipo_credito === 'dinheiro' ? 'Dinheiro' : 'Crédito'
-        fcMovs.push({ data: d.created_at, vendedor: v?.vendedor_nome ?? null, movimentacao: 'Devolução', rotulo: 'Devolução' + (v ? ' #' + (v.numero ?? '') : ''), forma: cred, tipoForma: cred, valor: -(d.valor_total ?? 0) })
+        fcMovs.push({ data: d.created_at, vendedor: v?.vendedor_nome ?? null, movimentacao: 'Devolução', rotulo: 'Devolução — ' + (v ? (nomeCliente(v) ?? 'Consumidor') : 'Consumidor'), forma: cred, tipoForma: cred, valor: -(d.valor_total ?? 0) })
       }
       fcMovs.sort((a, b) => a.data.localeCompare(b.data))
     }
