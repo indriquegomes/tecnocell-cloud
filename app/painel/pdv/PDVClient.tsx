@@ -3130,6 +3130,13 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               </div>
             </div>
 
+            {temFiado && (
+              <label className="mx-6 mt-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm">
+                <input type="checkbox" checked={combinadoEntrega} onChange={(e) => setCombinadoEntrega(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
+                <span className="font-medium text-blue-700">🗓️ Combinou pagar na entrega (fica na lista de cobrança)</span>
+              </label>
+            )}
+
             <div className="flex gap-3 border-t border-gray-100 px-6 py-4">
               <button type="button" onClick={() => setMostrarConfirmacao(false)} disabled={loading}
                 className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition disabled:opacity-50">
