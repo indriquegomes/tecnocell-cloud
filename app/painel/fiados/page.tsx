@@ -135,15 +135,18 @@ export default async function FiadosPage() {
     .from('contas')
     .select('id, nome, chave_pix, titular, loja_id')
     .eq('ativa', true)
-    .not('chave_pix', 'is', null)
   const pixPorLoja: Record<string, { chave: string; titular: string | null }> = {}
   const pixContas: { id: string; nome: string; loja: string; chave: string; titular: string | null }[] = []
   for (const c of (contasPix ?? []) as { id: string; nome: string; chave_pix: string | null; titular: string | null; loja_id: string | null }[]) {
-    if (!c.chave_pix) continue
     const nomeDaLoja = c.loja_id ? (todasLojas.find((l) => l.id === c.loja_id)?.nome ?? '') : ''
-    const k = nomeDaLoja || '__geral__'
-    if (!(k in pixPorLoja)) pixPorLoja[k] = { chave: c.chave_pix, titular: c.titular }
-    pixContas.push({ id: c.id, nome: c.nome, loja: nomeDaLoja || 'Geral', chave: c.chave_pix, titular: c.titular })
+    // pra EDIÇÃO: lista TODAS as contas ativas (com ou sem chave) — assim dá
+    // pra cadastrar a chave de Teresópolis na hora, sem ir nas Contas.
+    pixContas.push({ id: c.id, nome: c.nome, loja: nomeDaLoja || 'Geral', chave: c.chave_pix ?? '', titular: c.titular })
+    // pra COBRANÇA: só conta COM chave vira o Pix daquela loja.
+    if (c.chave_pix) {
+      const k = nomeDaLoja || '__geral__'
+      if (!(k in pixPorLoja)) pixPorLoja[k] = { chave: c.chave_pix, titular: c.titular }
+    }
   }
 
   return (
