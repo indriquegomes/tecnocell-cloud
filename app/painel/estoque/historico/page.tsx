@@ -67,9 +67,10 @@ export default async function MovimentacoesPage({
   // Datas no fuso de São Paulo (UTC-3), independente do servidor Vercel (UTC)
   const agoraBr = new Date().toLocaleString('sv', { timeZone: 'America/Sao_Paulo' })
   const hoje = agoraBr.slice(0, 10)
-  const anoMes = hoje.slice(0, 7)
-  const inicioMes = `${anoMes}-01`
-  const de = params.de ?? inicioMes
+  // Garantia = 90 dias: o padrão mostra só os últimos 90 dias. De/Até continua
+  // livre pra caso excepcional (buscar fora da garantia).
+  const de90 = (() => { const d = new Date(); d.setDate(d.getDate() - 90); return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) })()
+  const de = params.de ?? de90
   const ate = params.ate ?? hoje
   const ini = de + 'T00:00:00-03:00'
   const fim = ate + 'T23:59:59-03:00'
@@ -117,10 +118,10 @@ export default async function MovimentacoesPage({
   let itensDev: Record<string, unknown>[] = []
 
   if (porProduto) {
-    // BUSCA por produto: histórico INTEIRO da peça (ignora o corte de 500 e o mês
-    // default). Depósito ainda filtra. De/Até é ignorado — buscar peça = ver tudo dela.
+    // BUSCA por produto: histórico da peça SEM o corte de 500 (que escondia peça
+    // antiga). Data (90 dias default ou personalizada) e depósito continuam valendo.
     const manuaisQ = fetchAllIn<Record<string, unknown>>(produtoIds!, (chunk, from, to) =>
-      supabase.from('movimentacoes_estoque').select('id, produto_id, deposito_id, operacao, quantidade, qtd_anterior, qtd_nova, observacao, created_at').in('produto_id', chunk).range(from, to))
+      supabase.from('movimentacoes_estoque').select('id, produto_id, deposito_id, operacao, quantidade, qtd_anterior, qtd_nova, observacao, created_at').in('produto_id', chunk).gte('created_at', ini).lte('created_at', fim).range(from, to))
     const ivQ = fetchAllIn<Record<string, unknown>>(produtoIds!, (chunk, from, to) =>
       supabase.from('itens_venda').select('id, venda_id, produto_id, quantidade, preco_unitario, total_item, produtos(nome)').in('produto_id', chunk).range(from, to))
     const idQ = fetchAllIn<Record<string, unknown>>(produtoIds!, (chunk, from, to) =>
@@ -134,14 +135,14 @@ export default async function MovimentacoesPage({
     const [vr, dr] = await Promise.all([
       vIds.length
         ? fetchAllIn<Record<string, unknown>>(vIds, (chunk, from, to) => {
-            let q = supabase.from('vendas').select('id, numero, created_at, vendedor_nome, pessoa_id, deposito_id, status').in('id', chunk)
+            let q = supabase.from('vendas').select('id, numero, created_at, vendedor_nome, pessoa_id, deposito_id, status').in('id', chunk).gte('created_at', ini).lte('created_at', fim)
             if (params.deposito) q = q.eq('deposito_id', params.deposito)
             return q.range(from, to)
           })
         : Promise.resolve([] as Record<string, unknown>[]),
       dIds.length
         ? fetchAllIn<Record<string, unknown>>(dIds, (chunk, from, to) => {
-            let q = supabase.from('devolucoes').select('id, created_at, pessoa_nome, vendedor_nome, deposito_id, motivo').in('id', chunk)
+            let q = supabase.from('devolucoes').select('id, created_at, pessoa_nome, vendedor_nome, deposito_id, motivo').in('id', chunk).gte('created_at', ini).lte('created_at', fim)
             if (params.deposito) q = q.eq('deposito_id', params.deposito)
             return q.range(from, to)
           })
