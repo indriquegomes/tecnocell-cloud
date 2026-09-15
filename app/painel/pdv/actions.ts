@@ -527,7 +527,7 @@ export async function buscarCrediario(
   const supabase = await createServiceClient()
   const { data, error } = await supabase
     .from('lancamentos')
-    .select('id, descricao, valor, valor_pago, pessoa_nome, data_vencimento, created_at, codigo, venda_id, historico_pagamentos')
+    .select('id, descricao, valor, valor_pago, pessoa_nome, pessoa_id, data_vencimento, created_at, codigo, venda_id, historico_pagamentos')
     .eq('tipo', 'receber')
     .eq('status', 'pendente')
     .order('data_vencimento', { ascending: true })
@@ -560,7 +560,10 @@ export async function buscarCrediario(
   }
   for (const it of itens) {
     it.venda_numero = (it.venda_id && numeroPorVenda[it.venda_id]) || null
-    it.pessoa_id = (it.venda_id && pessoaPorVenda[it.venda_id]) || null
+    // Precedência IGUAL à RPC receber_fiados_vale: pessoa_id do lançamento primeiro,
+    // senão da venda. Antes só olhava a venda — fiado avulso/importado com pessoa_id
+    // direto no lançamento ficava sem vale na tela (e divergiria do que a RPC valida).
+    it.pessoa_id = (it.pessoa_id ?? null) || ((it.venda_id && pessoaPorVenda[it.venda_id]) || null)
   }
 
   // limite/rotina das pessoas dos fiados — nunca derruba a lista se falhar
@@ -769,6 +772,45 @@ export async function pagarLancamentos(
   }
 }
 
+// Nome legível do operador (perfil) pra gravar no histórico do vale. Cai no e-mail
+// quando não há perfil — mesmo padrão do vendedor em finalizarVenda.
+async function nomeDoUsuario(
+  supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  usuario: { id: string; email: string | null },
+): Promise<string> {
+  const { data: perfil } = await supabase.from('perfis').select('nome').eq('id', usuario.id).maybeSingle()
+  return (perfil as { nome?: string } | null)?.nome ?? usuario.email ?? ''
+}
+
+// VALE-CRÉDITO em lote — mesma RPC atômica do vale avulso, pra várias notas de uma
+// vez. Não passa por caixa nem conta: a RPC debita o saldo e abate as dívidas.
+export async function pagarLancamentosVale(
+  accessToken: string,
+  alocacoes: { id: string; valor: number }[],
+  pessoaId: string,
+  operacaoId: string,
+  lojaId: string,
+): Promise<ResultadoReceb> {
+  if (alocacoes.length === 0) return { ok: true }
+  try {
+    const usuario = await requirePermissao('crediario_receber', accessToken)
+    const supabase = await createServiceClient()
+    const usuarioNome = await nomeDoUsuario(supabase, usuario)
+    const linhas = alocacoes.map((a) => ({ id: a.id, valor: Math.round(Number(a.valor) * 100) / 100 })).filter((a) => a.valor > 0)
+    const { data, error } = await supabase.rpc('receber_fiados_vale', {
+      p_pessoa_id: pessoaId,
+      p_alocacoes: linhas,
+      p_operacao_id: operacaoId,
+      p_loja_id: lojaId,
+      p_usuario: usuarioNome,
+    })
+    if (error) throw new Error(error.message)
+    return { ok: true, pagamentos: (data?.pagamentos ?? []) as { id: string; valor: number; quitado: boolean }[] }
+  } catch (e) {
+    return { ok: false, erro: e instanceof Error && e.message ? e.message : 'Erro ao usar o vale-crédito.' }
+  }
+}
+
 export async function registrarPagamentoParcial(
   accessToken: string,
   id: string,
@@ -839,22 +881,25 @@ export async function registrarPagamentoMisto(
   pagamentos: { forma: string; valor: number }[],
   lojaId?: string | null,
   pessoaId?: string | null,
+  operacaoId?: string,
 ): Promise<ResultadoReceb> {
   try {
-    await requirePermissao('crediario_receber', accessToken)
+    const usuario = await requirePermissao('crediario_receber', accessToken)
     const supabase = await createServiceClient()
+    const usuarioNome = await nomeDoUsuario(supabase, usuario)
 
     const linhas = (pagamentos ?? [])
       .map((p) => ({ forma: (p.forma || '').trim(), valor: Math.round((Number(p.valor) || 0) * 100) / 100 }))
       .filter((p) => p.forma && p.valor > 0)
     if (linhas.length === 0) throw new Error('Informe ao menos uma forma com valor.')
 
-    const linhaVale = linhas.find((p) => p.forma === FORMA_VALE_TXT)
-    if (linhaVale && !pessoaId) throw new Error('Cliente não identificado pra usar vale-crédito.')
+    const somaVale = Math.round(linhas.filter((p) => p.forma === FORMA_VALE_TXT).reduce((s, p) => s + p.valor, 0) * 100) / 100
+    const linhasReais = linhas.filter((p) => p.forma !== FORMA_VALE_TXT)
+    if (somaVale > 0 && !pessoaId) throw new Error('Cliente não identificado pra usar vale-crédito.')
 
     const { data: lanc, error: errBusca } = await supabase
       .from('lancamentos')
-      .select('valor, valor_pago, historico_pagamentos, pessoa_nome, codigo')
+      .select('valor, valor_pago, historico_pagamentos, pessoa_nome')
       .eq('id', id)
       .single()
     if (errBusca || !lanc) throw new Error('Lançamento não encontrado.')
@@ -867,120 +912,100 @@ export async function registrarPagamentoMisto(
     if (totalPago > restante + 0.01) {
       throw new Error(`Total das formas (${totalPago.toFixed(2)}) maior que o saldo devedor (${restante.toFixed(2)}).`)
     }
+    const quitado = Math.round((pagoAntes + totalPago) * 100) / 100 >= valor - 0.01
 
-    // débito do vale-crédito PRIMEIRO, antes de tocar no lançamento/caixa — se o
-    // saldo não cobrir, nada mais deste recebimento é aplicado (sem estado
-    // parcial: dinheiro contado na gaveta mas o vale falhando no meio).
-    if (linhaVale) {
-      const { error: erroCredito } = await supabase.rpc('usar_credito_cliente', {
+    // VALE primeiro, atômico (débito do saldo + baixa do fiado na MESMA RPC). Se o
+    // saldo não cobrir, a RPC recusa e nada deste recebimento é aplicado — sem
+    // estado parcial de vale debitado e dinheiro contado na gaveta.
+    if (somaVale > 0) {
+      const { error: erroCredito } = await supabase.rpc('receber_fiados_vale', {
         p_pessoa_id: pessoaId,
-        p_valor: linhaVale.valor,
-        p_descricao: `Uso no fiado #${lanc.codigo ?? id}`,
+        p_alocacoes: [{ id, valor: somaVale }],
+        p_operacao_id: operacaoId ?? crypto.randomUUID(),
+        p_loja_id: lojaId,
+        p_usuario: usuarioNome,
       })
       if (erroCredito) throw new Error(erroCredito.message)
     }
 
-    const totalPagoAtualizado = Math.round((pagoAntes + totalPago) * 100) / 100
-    const quitado = totalPagoAtualizado >= valor - 0.01
-    const today = hojeSP()
-    const agora = new Date().toISOString()
+    // Formas REAIS (dinheiro/PIX/cartão): abatem o fiado e caem no caixa. Re-lê o
+    // lançamento porque a RPC do vale já subiu o valor_pago.
+    const somaReais = Math.round(linhasReais.reduce((s, p) => s + p.valor, 0) * 100) / 100
+    if (somaReais > 0) {
+      const { data: lanc2, error: errBusca2 } = await supabase
+        .from('lancamentos')
+        .select('valor, valor_pago, historico_pagamentos, pessoa_nome')
+        .eq('id', id)
+        .single()
+      if (errBusca2 || !lanc2) throw new Error('Lançamento não encontrado.')
 
-    const historicoAtual = Array.isArray(lanc.historico_pagamentos) ? (lanc.historico_pagamentos as PagamentoHistorico[]) : []
-    const novos: PagamentoHistorico[] = linhas.map((p) => ({ valor: p.valor, forma: p.forma, data: agora }))
+      const pagoAgora = Math.round(((Number(lanc2.valor_pago) || 0) + somaReais) * 100) / 100
+      const hoje = hojeSP()
+      const agora = new Date().toISOString()
 
-    const update: Record<string, unknown> = {
-      valor_pago: totalPagoAtualizado,
-      forma_pagamento: linhas.map((p) => p.forma).join(' + '),
-      historico_pagamentos: [...historicoAtual, ...novos],
-      updated_at: agora,
+      const historicoAtual = Array.isArray(lanc2.historico_pagamentos) ? (lanc2.historico_pagamentos as PagamentoHistorico[]) : []
+      const novos: PagamentoHistorico[] = linhasReais.map((p) => ({ valor: p.valor, forma: p.forma, data: agora }))
+
+      const update: Record<string, unknown> = {
+        valor_pago: pagoAgora,
+        forma_pagamento: somaVale > 0 ? `Vale Crédito + ${linhasReais.map((p) => p.forma).join(' + ')}` : linhasReais.map((p) => p.forma).join(' + '),
+        historico_pagamentos: [...historicoAtual, ...novos],
+        updated_at: agora,
+      }
+      if (quitado) {
+        update.status = 'pago'
+        update.data_pagamento = hoje
+        // conta da forma REAL (vale não passa por conta) — dinheiro/PIX/cartão
+        update.conta_id = await contaDaFormaTexto(supabase, linhasReais[0].forma, lojaId)
+      }
+
+      const { error } = await supabase.from('lancamentos').update(update).eq('id', id)
+      if (error) throw new Error(error.message)
+
+      for (const p of linhasReais) {
+        await registrarNoCaixa(supabase, lojaId, p.valor, p.forma, `Fiado recebido — ${lanc2.pessoa_nome ?? 'cliente'}`)
+      }
     }
-    if (quitado) {
-      update.status = 'pago'
-      update.data_pagamento = today
-      // conta de uma forma REAL (vale-crédito não passa por conta nenhuma) — se
-      // for só vale, fica sem conta_id mesmo (dinheiro nenhum entrou de fato)
-      const formaRealParaConta = linhas.find((p) => p.forma !== FORMA_VALE_TXT)?.forma
-      update.conta_id = formaRealParaConta ? await contaDaFormaTexto(supabase, formaRealParaConta, lojaId) : null
-    }
 
-    const { error } = await supabase.from('lancamentos').update(update).eq('id', id)
-    if (error) throw new Error(error.message)
-
-    // caixa: uma linha por forma, vale incluso — vira linha "Vale Crédito" no Por
-    // Forma do fechamento (registrarNoCaixa não mexe na gaveta pra forma que não
-    // é dinheiro, só aparece na conferência, igual PIX/cartão).
-    for (const p of linhas) {
-      await registrarNoCaixa(supabase, lojaId, p.valor, p.forma, `Fiado recebido — ${lanc.pessoa_nome ?? 'cliente'}`)
-    }
     return { ok: true, quitado }
   } catch (e) {
     return { ok: false, erro: e instanceof Error && e.message ? e.message : 'Erro ao registrar pagamento.' }
   }
 }
 
-// PAGAR FIADO COM VALE-CRÉDITO — o vale já existia como forma de pagamento
-// numa venda NOVA (F9/PDV), mas nunca dava pra usar o mesmo saldo pra abater
-// um fiado já em aberto (achado testando de propósito 26/08). Diferente do
-// Desconto (que não é dinheiro nenhum — a dívida só encolhe): aqui existe
-// dinheiro de verdade por trás (o cliente pagou por aquele crédito antes).
-// Por isso PASSA por registrarNoCaixa também — vira linha "Vale Crédito" no
-// Por Forma do fechamento, senão a dívida encolhe sem nenhuma forma mostrando
-// pra onde foi (achado pelo dono 28/08: "não dá pra ver vale" no Por Forma).
-// registrarNoCaixa não mexe na gaveta pra formas que não são dinheiro — só
-// aparece na conferência, igual PIX/cartão.
+// PAGAR FIADO COM VALE-CRÉDITO — débito do saldo + baixa do fiado numa RPC só
+// (receber_fiados_vale). Antes era TypeScript em 3 passos sem transação
+// (usar_credito_cliente → update → registrarNoCaixa): se o update falhasse
+// depois do débito, o vale sumia e a dívida não caía. Vale não é dinheiro
+// entrando — não passa por caixa nem conta (conta_id null).
 export async function registrarPagamentoValeCredito(
   accessToken: string,
   id: string,
   pessoaId: string,
   valorPago: number,
   lojaId?: string | null,
+  operacaoId?: string,
 ): Promise<ResultadoReceb> {
   try {
-    await requirePermissao('crediario_receber', accessToken)
+    const usuario = await requirePermissao('crediario_receber', accessToken)
     const supabase = await createServiceClient()
+    const usuarioNome = await nomeDoUsuario(supabase, usuario)
 
-    const { data: lanc, error: errBusca } = await supabase
-      .from('lancamentos')
-      .select('valor, valor_pago, historico_pagamentos, pessoa_nome, codigo')
-      .eq('id', id)
-      .single()
-    if (errBusca || !lanc) throw new Error('Lançamento não encontrado.')
-
-    const restante = Math.round(((Number(lanc.valor) || 0) - (Number(lanc.valor_pago) || 0)) * 100) / 100
-    const valor = Math.round((Math.min(valorPago, restante)) * 100) / 100
+    const valor = Math.round((Number(valorPago) || 0) * 100) / 100
     if (!(valor > 0)) throw new Error('Valor inválido.')
 
-    // trava + débito atômicos no banco — recusa se o saldo não cobrir
-    const { error: erroCredito } = await supabase.rpc('usar_credito_cliente', {
+    const { data, error } = await supabase.rpc('receber_fiados_vale', {
       p_pessoa_id: pessoaId,
-      p_valor: valor,
-      p_descricao: `Uso no fiado #${lanc.codigo ?? id}`,
+      p_alocacoes: [{ id, valor }],
+      p_operacao_id: operacaoId ?? crypto.randomUUID(),
+      p_loja_id: lojaId,
+      p_usuario: usuarioNome,
     })
-    if (erroCredito) throw new Error(erroCredito.message)
-
-    const totalPagoAtualizado = Math.round(((Number(lanc.valor_pago) || 0) + valor) * 100) / 100
-    const quitado = totalPagoAtualizado >= (Number(lanc.valor) || 0) - 0.01
-    const historicoAtual = Array.isArray(lanc.historico_pagamentos) ? (lanc.historico_pagamentos as PagamentoHistorico[]) : []
-    const novoRegistro: PagamentoHistorico = { valor, forma: FORMA_VALE_TXT, data: new Date().toISOString() }
-
-    const update: Record<string, unknown> = {
-      valor_pago: totalPagoAtualizado,
-      forma_pagamento: FORMA_VALE_TXT,
-      historico_pagamentos: [...historicoAtual, novoRegistro],
-      updated_at: new Date().toISOString(),
-    }
-    if (quitado) {
-      update.status = 'pago'
-      update.data_pagamento = hojeSP()
-      // vale-crédito não passa por conta bancária nenhuma — não seta conta_id
-    }
-
-    const { error } = await supabase.from('lancamentos').update(update).eq('id', id)
     if (error) throw new Error(error.message)
 
-    await registrarNoCaixa(supabase, lojaId, valor, FORMA_VALE_TXT, `Fiado recebido — ${lanc.pessoa_nome ?? 'cliente'}`)
-
-    return { ok: true, quitado }
+    const pagos = (data?.pagamentos ?? []) as { id: string; valor: number; quitado: boolean }[]
+    const pago = pagos.find((p) => p.id === id)
+    return { ok: true, quitado: pago?.quitado ?? false, pagamentos: pagos }
   } catch (e) {
     return { ok: false, erro: e instanceof Error && e.message ? e.message : 'Erro ao usar o vale-crédito.' }
   }

@@ -17,13 +17,14 @@ export default async function EditarClientePage({
   const { erro } = await searchParams
   const supabase = await createServiceClient()
 
-  const [{ data: pessoa }, { data: tabelas }, { data: vendedores }, { data: vendas }, { data: creds }, { data: oss }] = await Promise.all([
+  const [{ data: pessoa }, { data: tabelas }, { data: vendedores }, { data: vendas }, { data: creds }, { data: oss }, { data: lojas }] = await Promise.all([
     supabase.from('pessoas').select('*').eq('id', id).single(),
     supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).eq('usa_preco_custo', false).order('nome'),
     supabase.from('perfis').select('id, nome').eq('ativo', true).order('nome'),
     supabase.from('vendas').select('id, numero, total, created_at, status').eq('pessoa_id', id).order('created_at', { ascending: false }).limit(20),
-    supabase.from('creditos_clientes').select('tipo, valor').eq('pessoa_id', id),
+    supabase.from('creditos_clientes').select('tipo, valor, loja_id').eq('pessoa_id', id),
     supabase.from('ordens_servico').select('id, numero, aparelho, modelo, status, total, created_at').eq('pessoa_id', id).order('created_at', { ascending: false }).limit(20),
+    supabase.from('lojas').select('id, nome').order('nome'),
   ])
   if (!pessoa) notFound()
 
@@ -50,9 +51,13 @@ export default async function EditarClientePage({
   const compras = [...comprasApp, ...comprasSige].sort((a, b) => (b.data || '').localeCompare(a.data || ''))
 
   const fiadoPendente = (lancs ?? []).reduce((s, l) => s + ((l.valor ?? 0) - (l.valor_pago ?? 0)), 0)
-  // 'uso' e 'estorno' subtraem; 'credito' soma. O estorno CANCELA um crédito
-  // (fix de sinal, igual ao RPC e ao buscarSaldoCredito) — antes ele somava.
-  const saldoCredito = (creds ?? []).reduce((s, c) => ((c.tipo === 'uso' || c.tipo === 'estorno') ? s - (c.valor ?? 0) : s + (c.valor ?? 0)), 0)
+  // Saldo por LOJA (vale-crédito é por loja). 'uso'/'estorno' subtraem; 'credito' soma.
+  const lojaNomeMap: Record<string, string> = Object.fromEntries((lojas ?? []).map((l) => [l.id, l.nome ?? '—']))
+  const saldoPorLoja: Record<string, number> = {}
+  for (const c of (creds ?? [])) {
+    const k = c.loja_id ?? ''
+    saldoPorLoja[k] = (saldoPorLoja[k] ?? 0) + ((c.tipo === 'uso' || c.tipo === 'estorno') ? -(c.valor ?? 0) : (c.valor ?? 0))
+  }
   const totalComprado = (vendas ?? []).reduce((s, v) => s + (v.total ?? 0), 0)
   const limite = Number(pessoa.limite_credito ?? 0)
   const { permissoes, isMaster } = await permissoesUsuarioAtual()
@@ -90,7 +95,17 @@ export default async function EditarClientePage({
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <p className="text-xs text-gray-500">Crédito disponível</p>
-          <p className={`text-xl font-bold ${saldoCredito > 0 ? 'text-green-600' : 'text-gray-900'}`}>{formatBRL(saldoCredito)}</p>
+          {Object.keys(saldoPorLoja).length === 0 ? (
+            <p className="text-xl font-bold text-gray-900">{formatBRL(0)}</p>
+          ) : (
+            <div className="space-y-0.5">
+              {Object.entries(saldoPorLoja).map(([lojaId, saldo]) => (
+                <p key={lojaId} className={`text-sm font-bold ${saldo > 0 ? 'text-green-600' : 'text-gray-900'}`}>
+                  {lojaNomeMap[lojaId] ?? 'Sem loja'} · {formatBRL(saldo)}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

@@ -9,13 +9,15 @@ export default async function CreditosClientePage({
   const { cliente: clienteFiltro, erro, ok } = await searchParams
   const supabase = await createServiceClient()
 
-  const [{ data: movimentos }, pessoas] = await Promise.all([
+  const [{ data: movimentos }, pessoas, { data: lojasData }] = await Promise.all([
     supabase
       .from('creditos_clientes')
-      .select('id, pessoa_id, pessoa_nome, valor, tipo, descricao, devolucao_id, created_at')
+      .select('id, pessoa_id, pessoa_nome, valor, tipo, descricao, devolucao_id, loja_id, created_at')
       .order('created_at', { ascending: false }),
     fetchAll((from, to) => supabase.from('pessoas').select('id, nome').in('tipo', ['cliente', 'ambos']).order('nome').range(from, to)),
+    supabase.from('lojas').select('id, nome').order('nome'),
   ])
+  const lojaNome: Record<string, string> = Object.fromEntries((lojasData ?? []).map((l) => [l.id, l.nome ?? '—']))
 
   // Busca detalhes das devoluções referenciadas
   const devolucaoIds = [...new Set(
@@ -57,19 +59,21 @@ export default async function CreditosClientePage({
   const mapaPessoa: Record<string, {
     id: string
     nome: string
+    loja: string
     saldo: number
     movimentos: Mov[]
   }> = {}
 
   for (const m of movimentos ?? []) {
     if (!m.pessoa_id) continue
-    if (!mapaPessoa[m.pessoa_id]) {
-      mapaPessoa[m.pessoa_id] = { id: m.pessoa_id, nome: m.pessoa_nome ?? '—', saldo: 0, movimentos: [] }
+    const chave = m.pessoa_id + '|' + (m.loja_id ?? '')
+    if (!mapaPessoa[chave]) {
+      mapaPessoa[chave] = { id: chave, nome: m.pessoa_nome ?? '—', loja: lojaNome[m.loja_id ?? ''] ?? '—', saldo: 0, movimentos: [] }
     }
     // 'uso' e 'estorno' saem (−); 'credito' entra (+). Estorno cancela um crédito.
-    if (m.tipo === 'uso' || m.tipo === 'estorno') mapaPessoa[m.pessoa_id].saldo -= m.valor ?? 0
-    else mapaPessoa[m.pessoa_id].saldo += m.valor ?? 0
-    mapaPessoa[m.pessoa_id].movimentos.push(m)
+    if (m.tipo === 'uso' || m.tipo === 'estorno') mapaPessoa[chave].saldo -= m.valor ?? 0
+    else mapaPessoa[chave].saldo += m.valor ?? 0
+    mapaPessoa[chave].movimentos.push(m)
   }
 
   const clientes = Object.values(mapaPessoa)
@@ -82,6 +86,7 @@ export default async function CreditosClientePage({
     <CreditosClient
       clientes={clientes}
       pessoas={pessoas ?? []}
+      lojas={(lojasData ?? []) as { id: string; nome: string }[]}
       totalEmCirculacao={totalEmCirculacao}
       clienteFiltroInicial={clienteFiltro ?? ''}
       detalhesDevolucao={detalhesDevolucao}

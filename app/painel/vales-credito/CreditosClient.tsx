@@ -26,6 +26,7 @@ type Movimento = {
 type ClienteComSaldo = {
   id: string
   nome: string
+  loja: string
   saldo: number
   movimentos: Movimento[]
 }
@@ -39,6 +40,7 @@ type DetalheDevolucao = {
 export function CreditosClient({
   clientes,
   pessoas,
+  lojas,
   totalEmCirculacao,
   clienteFiltroInicial,
   detalhesDevolucao,
@@ -47,6 +49,7 @@ export function CreditosClient({
 }: {
   clientes: ClienteComSaldo[]
   pessoas: { id: string; nome: string }[]
+  lojas: { id: string; nome: string }[]
   totalEmCirculacao: number
   clienteFiltroInicial: string
   detalhesDevolucao: Record<string, DetalheDevolucao>
@@ -129,7 +132,7 @@ export function CreditosClient({
                   </div>
                   <div>
                     <p className="font-semibold text-gray-800">{c.nome}</p>
-                    <p className="text-xs text-gray-400">{c.movimentos.length} movimento{c.movimentos.length !== 1 ? 's' : ''}</p>
+                    <p className="text-xs text-gray-400">{c.loja} · {c.movimentos.length} movimento{c.movimentos.length !== 1 ? 's' : ''}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -266,6 +269,13 @@ export function CreditosClient({
                     )}
                   </>
                 )}
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">Loja <span className="text-red-500">*</span></label>
+                <select name="loja_id" required defaultValue="" className="field w-full">
+                  <option value="" disabled>Selecione a loja</option>
+                  {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
+                </select>
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700">Valor (R$) <span className="text-red-500">*</span></label>

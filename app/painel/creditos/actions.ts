@@ -14,6 +14,7 @@ export interface MovimentoCredito {
 export async function buscarSaldoCredito(
   accessToken: string,
   pessoaId: string,
+  lojaId: string,
 ): Promise<{ saldo: number; movimentos: MovimentoCredito[] }> {
   // Ler o saldo pra aplicar numa venda faz parte de operar o caixa — quem tem
   // 'pdv' pode ver (a vendedora não tem 'financeiro'). Antes exigia 'financeiro'
@@ -32,6 +33,7 @@ export async function buscarSaldoCredito(
       .from('creditos_clientes')
       .select('id, tipo, valor, descricao, created_at')
       .eq('pessoa_id', pessoaId)
+      .eq('loja_id', lojaId)
       .order('created_at', { ascending: false })
       .range(from, to),
   )
@@ -53,6 +55,7 @@ export async function registrarCreditoCliente(
     pessoa_nome: string
     valor: number
     descricao: string
+    loja_id: string
     devolucao_id?: string
   },
 ): Promise<void> {
@@ -65,6 +68,7 @@ export async function registrarCreditoCliente(
     valor: input.valor,
     tipo: 'credito',
     descricao: input.descricao,
+    loja_id: input.loja_id,
     devolucao_id: input.devolucao_id ?? null,
   })
   if (error) throw new Error(error.message)

@@ -5,7 +5,7 @@ import { formatBRL, hojeSP } from '@/lib/utils'
 import { formaFoiEscolhida, labelPrazo, labelTipoPagamento } from '@/lib/formas-pagamento'
 import { createClient } from '@/lib/supabase/client'
 import { Spinner } from '@/components/Spinner'
-import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, carregarClientesPDV, buscarFiadoCliente, buscarVendas, buscarCrediario, pagarLancamentos, registrarPagamentoParcial, registrarPagamentoMisto, registrarPagamentoValeCredito, aplicarDescontoCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda } from './actions'
+import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, carregarClientesPDV, buscarFiadoCliente, buscarVendas, buscarCrediario, pagarLancamentos, pagarLancamentosVale, registrarPagamentoParcial, registrarPagamentoMisto, registrarPagamentoValeCredito, aplicarDescontoCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda, type ResultadoReceb } from './actions'
 import { criarClientePDV } from '../clientes/actions'
 import { buscarOSPorNumero, receberOS } from '../os/actions'
 import { PoliticaCadastro } from '../clientes/politica'
@@ -296,6 +296,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [totalQuitar, setTotalQuitar] = useState('')
   const loteEmCurso = useRef(false)
   const tentativaLote = useRef<{ assinatura: string; id: string } | null>(null)
+  const tentativaVale = useRef<{ assinatura: string; id: string } | null>(null)
   const [detalheVenda, setDetalheVenda] = useState<DetalheVenda | null>(null)
   const [carregandoDetalhe, setCarregandoDetalhe] = useState(false)
   // Modal de recebimento por linha
@@ -308,6 +309,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   // venda nova de propósito, pra abrir o recebimento nunca mexer no estado de
   // uma venda em andamento no carrinho.
   const [saldoCreditoReceb, setSaldoCreditoReceb] = useState(0)
+  // Saldo do cliente DESTE lote selecionado (pra quitar várias notas com vale).
+  const [saldoCreditoLote, setSaldoCreditoLote] = useState(0)
   // Recebimento MISTO — quitar um fiado com várias formas (dinheiro + Pix…) de uma vez.
   // Cada linha é { forma_id, valor }. Vazio/off = fluxo simples de uma forma só.
   const [modoMistoReceb, setModoMistoReceb] = useState(false)
@@ -370,7 +373,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     if (!pessoaId) { setSaldoCredito(0); setFiadoCliente(null); return }
     authToken().then((t) => {
       if (!t) return
-      buscarSaldoCredito(t, pessoaId).then(({ saldo }) => setSaldoCredito(saldo)).catch(() => {})
+      buscarSaldoCredito(t, pessoaId, lojaId).then(({ saldo }) => setSaldoCredito(saldo)).catch(() => {})
       buscarFiadoCliente(t, pessoaId).then(setFiadoCliente).catch(() => {})
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1490,6 +1493,16 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     }
   }
 
+  // Cliente comum das notas selecionadas — só dá pra usar vale se TODAS forem do
+  // mesmo cliente (o saldo é por pessoa). Retorna null se misturar clientes ou se
+  // alguma nota não tiver cliente identificado.
+  const clienteDoLote = (): string | null => {
+    if (itensSelecionados.length === 0) return null
+    const primeiro = itensSelecionados[0].pessoa_id
+    if (!primeiro) return null
+    return itensSelecionados.every((i) => i.pessoa_id === primeiro) ? primeiro : null
+  }
+
   const handlePagarCrediario = async (forma: string) => {
     if (loteEmCurso.current) return
     const alocacoes = itensSelecionados.map((i) => ({ id: i.id, valor: Math.min(restante(i), valoresQuitar[i.id] ?? restante(i)) })).filter((i) => i.valor > 0)
@@ -1500,7 +1513,16 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     setPagandoCrediario(true)
     setPagoCrediarioOk(false)
     try {
-      const res = await pagarLancamentos(await authToken(), alocacoes, forma, tentativaLote.current.id, lojaId)
+      let res: ResultadoReceb
+      if (forma === VALE_RECEB_ID) {
+        const comPessoa = itensSelecionados.filter((i) => i.pessoa_id)
+        if (comPessoa.length === 0) { setErro('Nenhum fiado selecionado tem cliente identificado para usar vale-crédito.'); return }
+        const ids = new Set(comPessoa.map((i) => i.pessoa_id))
+        if (ids.size > 1) { setErro('Selecione fiados do MESMO cliente para usar vale-crédito.'); return }
+        res = await pagarLancamentosVale(await authToken(), alocacoes, comPessoa[0].pessoa_id!, tentativaLote.current.id, lojaId)
+      } else {
+        res = await pagarLancamentos(await authToken(), alocacoes, forma, tentativaLote.current.id, lojaId)
+      }
       if (!res.ok) { setErro(res.erro); return }
       const pagos = new Map((res.pagamentos ?? []).map((p) => [p.id, p]))
       setCrediarioItens((prev) => prev.flatMap((i) => {
@@ -1536,7 +1558,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     if (item.pessoa_id) {
       authToken().then((t) => {
         if (!t) return
-        buscarSaldoCredito(t, item.pessoa_id!).then(({ saldo }) => setSaldoCreditoReceb(saldo)).catch(() => {})
+        buscarSaldoCredito(t, item.pessoa_id!, lojaId).then(({ saldo }) => setSaldoCreditoReceb(saldo)).catch(() => {})
       })
     }
   }
@@ -1565,8 +1587,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
     setPagandoCrediario(true)
     try {
-      const res = await registrarPagamentoMisto(await authToken(), recebendoItem.id, pagamentos, lojaId, recebendoItem.pessoa_id)
+      const assinaturaMisto = JSON.stringify([recebendoItem.id, pagamentos, recebendoItem.pessoa_id])
+      if (tentativaVale.current?.assinatura !== assinaturaMisto) tentativaVale.current = { assinatura: assinaturaMisto, id: crypto.randomUUID() }
+      const res = await registrarPagamentoMisto(await authToken(), recebendoItem.id, pagamentos, lojaId, recebendoItem.pessoa_id, tentativaVale.current.id)
       if (!res.ok) { setErro(res.erro); return }
+      tentativaVale.current = null
       if (res.quitado) {
         setCrediarioItens((prev) => prev.filter((i) => i.id !== recebendoItem.id))
       } else {
@@ -1614,8 +1639,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       // real que o cliente já tinha guardado, não perdão de dívida.
       if (formaRecebimento === VALE_RECEB_ID) {
         if (!recebendoItem.pessoa_id) { setErro('Este fiado não tem cliente identificado pra usar vale-crédito.'); return }
-        const res = await registrarPagamentoValeCredito(await authToken(), recebendoItem.id, recebendoItem.pessoa_id, valorNum, lojaId)
+        const assinaturaVale = JSON.stringify([recebendoItem.id, valorNum, recebendoItem.pessoa_id])
+        if (tentativaVale.current?.assinatura !== assinaturaVale) tentativaVale.current = { assinatura: assinaturaVale, id: crypto.randomUUID() }
+        const res = await registrarPagamentoValeCredito(await authToken(), recebendoItem.id, recebendoItem.pessoa_id, valorNum, lojaId, tentativaVale.current.id)
         if (!res.ok) { setErro(res.erro); return }
+        tentativaVale.current = null
         if (res.quitado) {
           setCrediarioItens((prev) => prev.filter((i) => i.id !== recebendoItem.id))
         } else {
@@ -3259,14 +3287,33 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                   </div>
                   <select
                     value={formaQuitar}
-                    onChange={(e) => setFormaQuitar(e.target.value)}
+                    onChange={(e) => {
+                      setFormaQuitar(e.target.value)
+                      setSaldoCreditoLote(0)
+                      if (e.target.value === VALE_RECEB_ID) {
+                        const cid = clienteDoLote()
+                        if (cid) {
+                          authToken().then((t) => {
+                            if (t) buscarSaldoCredito(t, cid, lojaId).then(({ saldo }) => setSaldoCreditoLote(saldo)).catch(() => {})
+                          })
+                        }
+                      }
+                    }}
                     className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Escolha pagamento</option>
                     {formasRecebimento.map((f) => (
                       <option key={f.id} value={f.nome}>{f.nome}</option>
                     ))}
+                    {clienteDoLote() && (
+                      <option value={VALE_RECEB_ID}>🎟️ Vale Crédito</option>
+                    )}
                   </select>
+                  {formaQuitar === VALE_RECEB_ID && (
+                    <span className="rounded-lg bg-purple-50 px-3 py-2 text-xs font-semibold text-purple-700">
+                      Saldo: <b className="tabular-nums">{formatBRL(saldoCreditoLote)}</b> · abate sem entrar na gaveta
+                    </span>
+                  )}
                   <button
                     type="button"
                     disabled={pagandoCrediario || !formaFoiEscolhida(formaQuitar)}

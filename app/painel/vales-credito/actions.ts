@@ -9,10 +9,12 @@ export async function emitirCredito(formData: FormData) {
   const supabase = await createServiceClient()
 
   const pessoa_id = formData.get('pessoa_id') as string
+  const loja_id = formData.get('loja_id') as string
   const valor = parseFloat(formData.get('valor') as string) || 0
   const descricao = (formData.get('descricao') as string).trim() || 'Crédito emitido'
 
   if (!pessoa_id) redirect(`/painel/vales-credito?erro=${encodeURIComponent('Selecione um cliente.')}`)
+  if (!loja_id) redirect(`/painel/vales-credito?erro=${encodeURIComponent('Selecione a loja do crédito.')}`)
   if (valor <= 0) redirect(`/painel/vales-credito?erro=${encodeURIComponent('Valor deve ser maior que zero.')}`)
 
   const { data: pessoa } = await supabase
@@ -27,6 +29,7 @@ export async function emitirCredito(formData: FormData) {
     valor,
     tipo: 'credito',
     descricao,
+    loja_id,
   })
 
   if (error) redirect(`/painel/vales-credito?erro=${encodeURIComponent(error.message)}`)
