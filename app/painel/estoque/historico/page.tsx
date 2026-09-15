@@ -1,7 +1,6 @@
 import { IconSwap } from '@/components/icons'
 import { createServiceClient, fetchAllIn } from '@/lib/supabase/server'
 import { formatBRL } from '@/lib/utils'
-import { incluiTexto } from '@/lib/texto-busca'
 import Link from 'next/link'
 import { ColunasToggler } from './ColunasToggler'
 import { NovaMovimentacaoForm } from './NovaMovimentacaoForm'
@@ -76,27 +75,25 @@ export default async function MovimentacoesPage({
   const fim = ate + 'T23:59:59-03:00'
 
   // 1. Fontes no período
-  let qManuais = supabase.from('movimentacoes_estoque')
-    .select('id, produto_id, deposito_id, operacao, quantidade, qtd_anterior, qtd_nova, observacao, created_at')
-    .gte('created_at', ini).lte('created_at', fim).order('created_at', { ascending: false }).limit(500)
-  if (params.deposito) qManuais = qManuais.eq('deposito_id', params.deposito)
-
-  let qVendas = supabase.from('vendas')
-    .select('id, numero, created_at, vendedor_nome, pessoa_id, deposito_id, status')
-    .neq('status', 'aberta')
-    .gte('created_at', ini).lte('created_at', fim).order('created_at', { ascending: false }).limit(500)
-  if (params.deposito) qVendas = qVendas.eq('deposito_id', params.deposito)
-
-  let qDevs = supabase.from('devolucoes')
-    .select('id, created_at, pessoa_nome, vendedor_nome, deposito_id, motivo')
-    .gte('created_at', ini).lte('created_at', fim).order('created_at', { ascending: false }).limit(500)
-  if (params.deposito) qDevs = qDevs.eq('deposito_id', params.deposito)
+  // Produto pesquisado → IDs (busca na ORIGEM, não carrega 500 e corta em JS — isso
+  // escondia peças vendidas antes do corte). Match por nome/código, igual ao filtro antigo.
+  let produtoIds: string[] | null = null
+  if (params.produto?.trim()) {
+    const t = params.produto.trim()
+    const { data: ps } = await supabase
+      .from('produtos')
+      .select('id')
+      .or(`nome.ilike.%${t}%,codigo.ilike.%${t}%`)
+      .limit(200)
+    produtoIds = ((ps ?? []) as { id: string }[]).map((p) => p.id)
+    if (produtoIds.length === 0) produtoIds = ['__nenhum__']  // sem match → nada
+  }
+  const porProduto = !!produtoIds
 
   const dataHoje = hoje
   const horaAgora = agoraBr.slice(11, 16)
 
-  const [{ data: manuais }, { data: vendas }, { data: devolucoes }, { data: depositos }, { data: todosProdutos }, { data: seriesEmEstoque }] = await Promise.all([
-    qManuais, qVendas, qDevs,
+  const [{ data: depositos }, { data: todosProdutos }, { data: seriesEmEstoque }] = await Promise.all([
     supabase.from('depositos').select('id, nome'),
     supabase.from('produtos').select('id, nome, codigo, controla_serie').eq('ativo', true).order('nome').limit(500),
     supabase.from('numeros_serie').select('produto_id, deposito_id, serie').eq('status', 'em_estoque').order('serie'),
@@ -110,18 +107,90 @@ export default async function MovimentacoesPage({
     seriesPorProduto[s.produto_id][s.deposito_id].push(s.serie)
   }
 
-  const vendaIds = (vendas ?? []).map((v) => v.id)
-  const devolucaoIds = (devolucoes ?? []).map((d) => d.id)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let manuais: any[] = []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let vendas: any[] = []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let devolucoes: any[] = []
+  let itensVenda: Record<string, unknown>[] = []
+  let itensDev: Record<string, unknown>[] = []
 
-  // 2. Itens + mapas
-  const [itensVenda, itensDev] = await Promise.all([
-    vendaIds.length
-      ? fetchAllIn<Record<string, unknown>>(vendaIds, (chunk, from, to) => supabase.from('itens_venda').select('id, venda_id, produto_id, quantidade, preco_unitario, total_item, produtos(nome)').in('venda_id', chunk).range(from, to))
-      : Promise.resolve([] as Record<string, unknown>[]),
-    devolucaoIds.length
-      ? fetchAllIn<Record<string, unknown>>(devolucaoIds, (chunk, from, to) => supabase.from('itens_devolucao').select('id, devolucao_id, produto_id, nome, quantidade, preco_unitario, total_item, status_produto').in('devolucao_id', chunk).range(from, to))
-      : Promise.resolve([] as Record<string, unknown>[]),
-  ])
+  if (porProduto) {
+    // BUSCA por produto: histórico INTEIRO da peça (ignora o corte de 500 e o mês
+    // default). Depósito ainda filtra. De/Até é ignorado — buscar peça = ver tudo dela.
+    const manuaisQ = fetchAllIn<Record<string, unknown>>(produtoIds!, (chunk, from, to) =>
+      supabase.from('movimentacoes_estoque').select('id, produto_id, deposito_id, operacao, quantidade, qtd_anterior, qtd_nova, observacao, created_at').in('produto_id', chunk).range(from, to))
+    const ivQ = fetchAllIn<Record<string, unknown>>(produtoIds!, (chunk, from, to) =>
+      supabase.from('itens_venda').select('id, venda_id, produto_id, quantidade, preco_unitario, total_item, produtos(nome)').in('produto_id', chunk).range(from, to))
+    const idQ = fetchAllIn<Record<string, unknown>>(produtoIds!, (chunk, from, to) =>
+      supabase.from('itens_devolucao').select('id, devolucao_id, produto_id, nome, quantidade, preco_unitario, total_item, status_produto').in('produto_id', chunk).range(from, to))
+    const [mv, iv, idv] = await Promise.all([manuaisQ, ivQ, idQ])
+    manuais = mv
+    itensVenda = iv
+    itensDev = idv
+    const vIds = [...new Set((iv as { venda_id: string | null }[]).map((i) => i.venda_id).filter(Boolean))] as string[]
+    const dIds = [...new Set((idv as { devolucao_id: string | null }[]).map((i) => i.devolucao_id).filter(Boolean))] as string[]
+    const [vr, dr] = await Promise.all([
+      vIds.length
+        ? fetchAllIn<Record<string, unknown>>(vIds, (chunk, from, to) => {
+            let q = supabase.from('vendas').select('id, numero, created_at, vendedor_nome, pessoa_id, deposito_id, status').in('id', chunk)
+            if (params.deposito) q = q.eq('deposito_id', params.deposito)
+            return q.range(from, to)
+          })
+        : Promise.resolve([] as Record<string, unknown>[]),
+      dIds.length
+        ? fetchAllIn<Record<string, unknown>>(dIds, (chunk, from, to) => {
+            let q = supabase.from('devolucoes').select('id, created_at, pessoa_nome, vendedor_nome, deposito_id, motivo').in('id', chunk)
+            if (params.deposito) q = q.eq('deposito_id', params.deposito)
+            return q.range(from, to)
+          })
+        : Promise.resolve([] as Record<string, unknown>[]),
+    ])
+    vendas = vr
+    devolucoes = dr
+    // drop itens cujo pai foi filtrado por depósito (mantém o relatório coerente)
+    const vendaSet = new Set(vendas.map((v) => v.id as string))
+    const devSet = new Set(devolucoes.map((d) => d.id as string))
+    itensVenda = itensVenda.filter((i) => vendaSet.has(i.venda_id as string))
+    itensDev = itensDev.filter((i) => devSet.has(i.devolucao_id as string))
+    if (params.deposito) {
+      manuais = manuais.filter((m) => m.deposito_id === params.deposito)
+    }
+  } else {
+    // PADRÃO: período + limite 500 (visão recente)
+    let qManuais = supabase.from('movimentacoes_estoque')
+      .select('id, produto_id, deposito_id, operacao, quantidade, qtd_anterior, qtd_nova, observacao, created_at')
+      .gte('created_at', ini).lte('created_at', fim).order('created_at', { ascending: false }).limit(500)
+    let qVendas = supabase.from('vendas')
+      .select('id, numero, created_at, vendedor_nome, pessoa_id, deposito_id, status')
+      .neq('status', 'aberta')
+      .gte('created_at', ini).lte('created_at', fim).order('created_at', { ascending: false }).limit(500)
+    let qDevs = supabase.from('devolucoes')
+      .select('id, created_at, pessoa_nome, vendedor_nome, deposito_id, motivo')
+      .gte('created_at', ini).lte('created_at', fim).order('created_at', { ascending: false }).limit(500)
+    if (params.deposito) {
+      qManuais = qManuais.eq('deposito_id', params.deposito)
+      qVendas = qVendas.eq('deposito_id', params.deposito)
+      qDevs = qDevs.eq('deposito_id', params.deposito)
+    }
+    const [{ data: m }, { data: v }, { data: dv }] = await Promise.all([qManuais, qVendas, qDevs])
+    manuais = m ?? []
+    vendas = v ?? []
+    devolucoes = dv ?? []
+    const vendaIds = (vendas ?? []).map((x) => x.id)
+    const devolucaoIds = (devolucoes ?? []).map((x) => x.id)
+    const [iv, idv] = await Promise.all([
+      vendaIds.length
+        ? fetchAllIn<Record<string, unknown>>(vendaIds, (chunk, from, to) => supabase.from('itens_venda').select('id, venda_id, produto_id, quantidade, preco_unitario, total_item, produtos(nome)').in('venda_id', chunk).range(from, to))
+        : Promise.resolve([] as Record<string, unknown>[]),
+      devolucaoIds.length
+        ? fetchAllIn<Record<string, unknown>>(devolucaoIds, (chunk, from, to) => supabase.from('itens_devolucao').select('id, devolucao_id, produto_id, nome, quantidade, preco_unitario, total_item, status_produto').in('devolucao_id', chunk).range(from, to))
+        : Promise.resolve([] as Record<string, unknown>[]),
+    ])
+    itensVenda = iv
+    itensDev = idv
+  }
 
   // 3. Nomes + CUSTO de produtos (manuais + venda + devolução) e pessoas (vendas). Isa 29/07: custo no relatório.
   const prodIds = [...new Set([
@@ -220,10 +289,6 @@ export default async function MovimentacoesPage({
   let rows = linhas
   if (params.tipo) rows = rows.filter((r) => r.tipo === params.tipo)
   if (params.vendedor) rows = rows.filter((r) => r.vendedor === params.vendedor)
-  if (params.produto) {
-    const t = params.produto.toLowerCase()
-    rows = rows.filter((r) => incluiTexto(r.produto, t))
-  }
   if (params.cliente) {
     const t = params.cliente.toLowerCase()
     rows = rows.filter((r) => r.parte.toLowerCase().includes(t))
