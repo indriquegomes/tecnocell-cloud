@@ -497,6 +497,7 @@ export interface CrediarioItem {
   created_at: string
   codigo: number | null
   venda_id: string | null
+  loja_id: string | null
   venda_numero: number | null
   pessoa_id: string | null
   historico_pagamentos: PagamentoHistorico[] | null
@@ -522,17 +523,18 @@ export interface DetalheVenda {
 // próprios fiados aqui no servidor: não precisa de segunda viagem pra descobri-los.
 export async function buscarCrediario(
   accessToken: string,
+  lojaId: string,
 ): Promise<{ itens: CrediarioItem[]; infoPessoas: Record<string, { limite: number; rotina: string | null }> }> {
   await requirePermissao('pdv', accessToken)
   const supabase = await createServiceClient()
   const { data, error } = await supabase
     .from('lancamentos')
-    .select('id, descricao, valor, valor_pago, pessoa_nome, pessoa_id, data_vencimento, created_at, codigo, venda_id, historico_pagamentos')
+    .select('id, descricao, valor, valor_pago, pessoa_nome, pessoa_id, data_vencimento, created_at, codigo, venda_id, loja_id, historico_pagamentos')
     .eq('tipo', 'receber')
     .eq('status', 'pendente')
     .order('data_vencimento', { ascending: true })
   if (error) throw new Error(error.message)
-  const itens = (data ?? []) as CrediarioItem[]
+  const todos = (data ?? []) as CrediarioItem[]
 
   // Número amigável da venda (#500) — coluna `vendas.numero`. Sem isso o código do
   // crediário cai no fatiado do UUID (#FF275D) e não bate com o número dos Pedidos.
@@ -543,21 +545,45 @@ export async function buscarCrediario(
   // arriscava descontar saldo do cliente errado.
   const numeroPorVenda: Record<string, number> = {}
   const pessoaPorVenda: Record<string, string | null> = {}
-  const vendaIds = [...new Set(itens.map((i) => i.venda_id).filter(Boolean))] as string[]
+  const caixaPorVenda: Record<string, string | null> = {}
+  const vendaIds = [...new Set(todos.map((i) => i.venda_id).filter(Boolean))] as string[]
   if (vendaIds.length) {
     try {
       for (let i = 0; i < vendaIds.length; i += 200) {
         const { data: vs } = await supabase
           .from('vendas')
-          .select('id, numero, pessoa_id')
+          .select('id, numero, pessoa_id, caixa_id')
           .in('id', vendaIds.slice(i, i + 200))
         for (const v of vs ?? []) {
           if (v.numero != null) numeroPorVenda[v.id as string] = v.numero as number
           pessoaPorVenda[v.id as string] = (v.pessoa_id as string | null) ?? null
+          caixaPorVenda[v.id as string] = (v.caixa_id as string | null) ?? null
         }
       }
     } catch { /* sem número/pessoa — o código cai no fallback (descrição/UUID), vale-crédito só não aparece */ }
   }
+
+  // Loja de cada fiado: `lancamentos.loja_id` primeiro; senão venda→caixa→loja
+  // (fiados antigos nasceram sem loja_id — o caixa resolve). F9 mostra SÓ a loja
+  // do caixa atual, igual à regra do vale (fiado de outra loja não aparece).
+  const lojaPorVenda: Record<string, string | null> = {}
+  const caixaIds = [...new Set(Object.values(caixaPorVenda).filter(Boolean))] as string[]
+  if (caixaIds.length) {
+    try {
+      const { data: cx } = await supabase.from('caixas').select('id, loja_id').in('id', caixaIds)
+      const lojaDoCaixa: Record<string, string | null> = {}
+      for (const c of cx ?? []) lojaDoCaixa[c.id as string] = (c.loja_id as string | null) ?? null
+      for (const [vid, cid] of Object.entries(caixaPorVenda)) {
+        lojaPorVenda[vid] = cid ? (lojaDoCaixa[cid] ?? null) : null
+      }
+    } catch { /* sem caixa/loja — o fiado fica de fora se a loja não for a do caixa */ }
+  }
+
+  const itens = todos.filter((it) => {
+    const lj = it.loja_id || (it.venda_id ? (lojaPorVenda[it.venda_id] ?? null) : null)
+    return lj === lojaId
+  })
+
   for (const it of itens) {
     it.venda_numero = (it.venda_id && numeroPorVenda[it.venda_id]) || null
     // Precedência IGUAL à RPC receber_fiados_vale: pessoa_id do lançamento primeiro,

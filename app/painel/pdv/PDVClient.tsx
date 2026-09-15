@@ -1482,7 +1482,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     try {
       // uma action só: fiados + limite/rotina das pessoas (o Next serializa actions,
       // duas viagens custavam o dobro)
-      const { itens, infoPessoas } = await buscarCrediario(await authToken())
+      const { itens, infoPessoas } = await buscarCrediario(await authToken(), lojaId)
       setCrediarioItens(itens)
       setInfoPessoas(infoPessoas)
     } catch {
