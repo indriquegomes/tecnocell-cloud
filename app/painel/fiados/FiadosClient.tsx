@@ -67,7 +67,7 @@ export function FiadosClient({
 }) {
   const [busca, setBusca] = useState('')
   const [vendedorSel, setVendedorSel] = useState('')   // '' = todos
-  const [lojaSel, setLojaSel] = useState('')            // '' = todas
+  const [lojaSel, setLojaSel] = useState(lojas[0] ?? '')  // abre na 1ª loja (não mistura)
   const [copiado, setCopiado] = useState<string | null>(null)
   const [aberto, setAberto] = useState<string | null>(null)
   const [ordem, setOrdem] = useState<'nome' | 'total'>('nome')   // Isa: padrão alfabético
