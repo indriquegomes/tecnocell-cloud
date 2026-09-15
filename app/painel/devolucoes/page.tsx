@@ -1,4 +1,4 @@
-import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { DevolucoesClient, type ItemDevolucaoLinha } from './DevolucoesClient'
@@ -36,13 +36,13 @@ export default async function DevolucoesPage({
   const { todasLojas, permitidas, todas: vemTodas } = await lojasDoUsuario()
   const nomesPermitidos = permitidas.map(l => l.nome)
   const vendaIds = [...new Set((devRaw as { venda_id?: string | null }[]).map(d => d.venda_id).filter(Boolean))] as string[]
-  const { data: vendasData } = vendaIds.length
-    ? await supabase.from('vendas').select('id, caixa_id').in('id', vendaIds)
-    : { data: [] as { id: string; caixa_id: string | null }[] }
+  const vendasData = vendaIds.length
+    ? await fetchAllIn<{ id: string; caixa_id: string | null }>(vendaIds, (chunk, from, to) => supabase.from('vendas').select('id, caixa_id').in('id', chunk).range(from, to))
+    : [] as { id: string; caixa_id: string | null }[]
   const caixaIds = [...new Set((vendasData ?? []).map(v => v.caixa_id).filter(Boolean))] as string[]
-  const { data: caixasData } = caixaIds.length
-    ? await supabase.from('caixas').select('id, loja_id').in('id', caixaIds)
-    : { data: [] as { id: string; loja_id: string | null }[] }
+  const caixasData = caixaIds.length
+    ? await fetchAllIn<{ id: string; loja_id: string | null }>(caixaIds, (chunk, from, to) => supabase.from('caixas').select('id, loja_id').in('id', chunk).range(from, to))
+    : [] as { id: string; loja_id: string | null }[]
   const nomeLoja: Record<string, string> = Object.fromEntries(todasLojas.map(l => [l.id, l.nome]))
   const lojaDoCaixa: Record<string, string | null> = Object.fromEntries((caixasData ?? []).map(c => [c.id, c.loja_id]))
   const caixaDaVenda: Record<string, string | null> = Object.fromEntries((vendasData ?? []).map(v => [v.id, v.caixa_id]))

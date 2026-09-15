@@ -67,7 +67,7 @@ export async function buscarVendaParaDevolucao(
   await requirePermissao('devolucoes', accessToken)
   const supabase = await createServiceClient()
 
-  const [vendaRes, itensRes, lancRes, seriesRes, pagRes] = await Promise.all([
+  const [vendaRes, itensRes, lancRes, seriesRes, pagRes, devolucoesRes] = await Promise.all([
     supabase
       .from('vendas')
       .select('id, numero, total, created_at, vendedor_nome, forma_pagamento_id, pessoa_id, deposito_id, pessoas!pessoa_id(nome, telefone, celular)')
@@ -92,12 +92,32 @@ export async function buscarVendaParaDevolucao(
       .from('pagamentos_venda')
       .select('taxa, valor, status, forma_pagamento_id, formas_pagamento(nome, tipo)')
       .eq('venda_id', vendaId),
+    supabase
+      .from('devolucoes')
+      .select('id')
+      .eq('venda_id', vendaId)
+      .eq('status', 'concluida'),
   ])
 
   // IMEIs vendidos agrupados por produto (aparelhos serializados desta venda)
   const seriesPorProduto: Record<string, string[]> = {}
   for (const s of (seriesRes.data ?? []) as { produto_id: string; serie: string }[]) {
     ;(seriesPorProduto[s.produto_id] ??= []).push(s.serie)
+  }
+
+  // Já devolvido desta venda (devolução parcial): subtrai pra não oferecer devolver
+  // de novo a peça que já saiu — era o "item cancelado que não sai da nota" e deixava
+  // devolver a MESMA peça duas vezes quando a nota tinha outro item pra devolver.
+  const devolvidoPorProduto: Record<string, number> = {}
+  const devIds = ((devolucoesRes.data ?? []) as { id: string }[]).map((d) => d.id)
+  if (devIds.length) {
+    const { data: itensDev } = await supabase
+      .from('itens_devolucao')
+      .select('produto_id, quantidade')
+      .in('devolucao_id', devIds)
+    for (const it of (itensDev ?? []) as { produto_id: string; quantidade: number | null }[]) {
+      if (it.produto_id) devolvidoPorProduto[it.produto_id] = (devolvidoPorProduto[it.produto_id] ?? 0) + (it.quantidade ?? 0)
+    }
   }
 
   if (!vendaRes.data) return null
@@ -157,14 +177,17 @@ export async function buscarVendaParaDevolucao(
     itens: ((itensRes.data ?? []) as unknown as {
       produto_id: string; quantidade: number; preco_unitario: number
       total_item: number; produtos: { nome: string } | null
-    }[]).map((i) => ({
-      produto_id: i.produto_id,
-      nome: i.produtos?.nome ?? '—',
-      quantidade: i.quantidade,
-      preco_unitario: i.total_item != null && i.quantidade > 0 ? i.total_item / i.quantidade : i.preco_unitario,
-      total_item: i.total_item,
-      series: seriesPorProduto[i.produto_id] ?? [],
-    })),
+    }[]).map((i) => {
+      const preco = i.total_item != null && i.quantidade > 0 ? i.total_item / i.quantidade : i.preco_unitario
+      return {
+        produto_id: i.produto_id,
+        nome: i.produtos?.nome ?? '—',
+        quantidade: Math.max(0, i.quantidade - (devolvidoPorProduto[i.produto_id] ?? 0)),
+        preco_unitario: preco,
+        total_item: i.total_item,
+        series: seriesPorProduto[i.produto_id] ?? [],
+      }
+    }).filter((i) => i.quantidade > 0),
   }
 }
 
