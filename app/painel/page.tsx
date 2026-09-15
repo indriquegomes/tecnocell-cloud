@@ -1,4 +1,5 @@
 import { createServiceClient, permissoesUsuarioAtual, fetchAll } from '@/lib/supabase/server'
+import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { getFaturamentoMetas, type VendaCash } from '@/lib/cache-dashboard'
 import { temPermissao } from '@/lib/permissoes'
 import { formatBRL, formatDate } from '@/lib/utils'
@@ -53,7 +54,10 @@ export default async function DashboardPage({
   const inicioMesSP = hoje.slice(0, 7) + '-01'   // 1º dia do mês corrente, no fuso SP
   const filtroDe = params.de || inicioMesSP
   const filtroAte = params.ate || hoje
-  const filtroLoja = params.loja || ''
+  // Loja ativa da sessão vira o padrão do filtro — o dashboard NÃO abre misturando
+  // as 2 lojas. O dono ainda vê "Todas as lojas" no FiltroDashboard, se quiser.
+  const { ativa: lojaAtiva } = await lojasDoUsuario().catch(() => ({ ativa: null }))
+  const filtroLoja = params.loja || lojaAtiva?.nome || ''
   const ehPadrao = !params.de && !params.ate && !params.loja
   const rotuloPeriodo = ehPadrao
     ? 'este mês'

@@ -1,9 +1,13 @@
+import { createServiceClient } from '@/lib/supabase/server'
+
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams: Promise<{ erro?: string; next?: string }>
 }) {
   const { erro, next } = await searchParams
+  const supabase = await createServiceClient()
+  const { data: lojas } = await supabase.from('lojas').select('id, nome').order('nome')
 
   return (
     <div className="flex min-h-screen">
@@ -64,6 +68,16 @@ export default async function LoginPage({
                 className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition focus:border-[#1B6CA8] focus:outline-none focus:ring-2 focus:ring-[#1B6CA8]/30"
                 placeholder="••••••••"
               />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Loja</label>
+              <select
+                name="loja_id"
+                className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition focus:border-[#1B6CA8] focus:outline-none focus:ring-2 focus:ring-[#1B6CA8]/30"
+              >
+                {(lojas ?? []).map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
+              </select>
             </div>
 
             {erro && (

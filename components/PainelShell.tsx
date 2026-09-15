@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { Sidebar } from '@/components/Sidebar'
+import { SeletorLoja } from '@/components/SeletorLoja'
 import { SessionGuard } from '@/components/SessionGuard'
 import { BotaoReport } from '@/components/BotaoReport'
 import { BarraAvisos } from '@/components/BarraAvisos'
@@ -15,13 +16,15 @@ import type { LembretePendente } from '@/lib/lembretes'
 const PDV_PATHS = ['/painel/pdv', '/painel/pdv/operacao']
 
 export function PainelShell({
-  children, email, nome, permissoes, isMaster, avisosCaixa = [], rotinas = [], badges = {},
+  children, email, nome, permissoes, isMaster, lojas = [], lojaAtivaId = '', avisosCaixa = [], rotinas = [], badges = {},
 }: {
   children: React.ReactNode
   email: string
   nome?: string
   permissoes: string[]
   isMaster: boolean
+  lojas?: { id: string; nome: string }[]
+  lojaAtivaId?: string
   avisosCaixa?: AvisoCaixa[]
   rotinas?: LembretePendente[]
   badges?: Record<string, number>
@@ -146,6 +149,7 @@ export function PainelShell({
           <div className="flex items-center gap-4">
             <OcultarValores />
             <BotaoReport />
+            <SeletorLoja lojas={lojas} ativa={lojaAtivaId} />
             <div className="text-right">
               <p className="text-sm font-medium text-gray-700">{nome ?? email}</p>
               <p className="text-xs text-gray-400">{isMaster ? 'Master' : 'Operador'}</p>

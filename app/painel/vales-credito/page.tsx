@@ -1,4 +1,5 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { CreditosClient } from './CreditosClient'
 
 export default async function CreditosClientePage({
@@ -19,9 +20,13 @@ export default async function CreditosClientePage({
   ])
   const lojaNome: Record<string, string> = Object.fromEntries((lojasData ?? []).map((l) => [l.id, l.nome ?? '—']))
 
+  // Loja ativa da sessão: o saldo de vale NÃO mistura lojas — mostra só a ativa.
+  const { ativa } = await lojasDoUsuario()
+  const movimentosFiltrados = (movimentos ?? []).filter((m) => !ativa || m.loja_id === ativa.id)
+
   // Busca detalhes das devoluções referenciadas
   const devolucaoIds = [...new Set(
-    (movimentos ?? []).map((m) => m.devolucao_id).filter(Boolean) as string[]
+    movimentosFiltrados.map((m) => m.devolucao_id).filter(Boolean) as string[]
   )]
 
   const detalhesDevolucao: Record<string, {
@@ -64,7 +69,7 @@ export default async function CreditosClientePage({
     movimentos: Mov[]
   }> = {}
 
-  for (const m of movimentos ?? []) {
+  for (const m of movimentosFiltrados) {
     if (!m.pessoa_id) continue
     const chave = m.pessoa_id + '|' + (m.loja_id ?? '')
     if (!mapaPessoa[chave]) {

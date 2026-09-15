@@ -5,6 +5,7 @@ import { NavProgress } from '@/components/NavProgress'
 import { createServiceClient, permissoesEfetivas, configAcesso } from '@/lib/supabase/server'
 import { permissaoPorRota, temPermissao } from '@/lib/permissoes'
 import { acessoBloqueado } from '@/lib/acesso'
+import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { lembretesDeCaixa, HORARIOS_PADRAO, type HorariosCaixa, type Lembrete as AvisoCaixa } from '@/lib/lembrete-caixa'
 import { pendentesDeHoje, hojeSP, type Lembrete, type LembretePendente } from '@/lib/lembretes'
 
@@ -124,6 +125,16 @@ export default async function PainelLayout({ children }: { children: React.React
     } catch {}
   }
 
+  // Loja ativa da sessão + lojas operáveis (pro seletor do topo). Fail-open: se
+  // falhar, fica sem seletor e sem filtro — não quebra o painel.
+  let lojasOperaveis: { id: string; nome: string }[] = []
+  let lojaAtivaId = ''
+  try {
+    const lj = await lojasDoUsuario()
+    lojasOperaveis = lj.operaveis
+    lojaAtivaId = lj.ativa?.id ?? ''
+  } catch {}
+
   return (
     <>
       <NavProgress />
@@ -132,6 +143,8 @@ export default async function PainelLayout({ children }: { children: React.React
         nome={nome}
         permissoes={permissoes}
         isMaster={isMaster}
+        lojas={lojasOperaveis}
+        lojaAtivaId={lojaAtivaId}
         avisosCaixa={avisosCaixa}
         rotinas={rotinas}
         badges={badges}

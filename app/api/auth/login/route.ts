@@ -41,5 +41,16 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  // Loja escolhida no login. Atendente com loja fixa é ignorado pelo
+  // lojasDoUsuario, que valida contra lojas_permitidas.
+  const lojaId = (formData.get('loja_id') as string | null) ?? ''
+  if (lojaId) {
+    response.cookies.set('tc_loja_ativa', lojaId, {
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: 'lax',
+    })
+  }
+
   return response
 }
