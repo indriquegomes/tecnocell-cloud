@@ -237,7 +237,6 @@ export function FiadosClient({
               title="Loja"
               className={`rounded-xl border bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B6CA8]/30 ${lojaSel ? 'border-[#1B6CA8] font-semibold text-[#1B6CA8]' : 'border-gray-200 text-gray-600'}`}
             >
-              <option value="">🏬 Todas as lojas</option>
               {lojas.map((l) => <option key={l} value={l}>{l}</option>)}
             </select>
           )}
