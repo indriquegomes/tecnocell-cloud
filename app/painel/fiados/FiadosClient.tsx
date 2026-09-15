@@ -165,11 +165,11 @@ export function FiadosClient({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase text-gray-400">Chave PIX da cobrança</p>
-            {pixContas.length === 0 ? (
-              <p className="mt-1 text-sm text-gray-400">Nenhuma chave cadastrada. Cadastre em Contas.</p>
+            {pixContas.filter((px) => !lojaSel || px.loja === lojaSel).length === 0 ? (
+              <p className="mt-1 text-sm text-gray-400">Nenhuma chave cadastrada nesta loja.</p>
             ) : (
               <div className="mt-1 space-y-1">
-                {pixContas.map((px) => (
+                {pixContas.filter((px) => !lojaSel || px.loja === lojaSel).map((px) => (
                   <div key={px.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
                     <span className="font-medium text-gray-400">{px.loja}</span>
                     <span className="font-semibold text-gray-800 tabular-nums">{px.chave}</span>
