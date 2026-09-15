@@ -135,11 +135,12 @@ export default async function FiadosPage() {
     .from('contas')
     .select('id, nome, chave_pix, titular, loja_id')
     .eq('ativa', true)
+    .ilike('nome', '%pix%')
   const pixPorLoja: Record<string, { chave: string; titular: string | null }> = {}
   const pixContas: { id: string; nome: string; loja: string; chave: string; titular: string | null }[] = []
   for (const c of (contasPix ?? []) as { id: string; nome: string; chave_pix: string | null; titular: string | null; loja_id: string | null }[]) {
     const nomeDaLoja = c.loja_id ? (todasLojas.find((l) => l.id === c.loja_id)?.nome ?? '') : ''
-    // pra EDIÇÃO: lista TODAS as contas ativas (com ou sem chave) — assim dá
+    // pra EDIÇÃO: só as contas PIX (uma por loja), com ou sem chave — assim dá
     // pra cadastrar a chave de Teresópolis na hora, sem ir nas Contas.
     pixContas.push({ id: c.id, nome: c.nome, loja: nomeDaLoja || 'Geral', chave: c.chave_pix ?? '', titular: c.titular })
     // pra COBRANÇA: só conta COM chave vira o Pix daquela loja.
