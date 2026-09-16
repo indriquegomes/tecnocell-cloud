@@ -171,6 +171,8 @@ const COR_GRUPO: Record<string, string> = {
   'Admin':       'text-rose-600',
 }
 
+const semAcento = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
 export function Sidebar({
   permissoes, isMaster, badges = {},
 }: {
@@ -189,6 +191,13 @@ export function Sidebar({
 
   const podeVer = (item: NavItem) =>
     !item.permissao || temPermissao(permissoes, item.permissao, isMaster)
+
+  // Busca rápida de menu (lupa no topo)
+  const [busca, setBusca] = useState('')
+  const todosItens = navCompleto.flatMap((s) => s.items.map((it) => ({ ...it, group: s.group })))
+  const resultados = busca.trim()
+    ? todosItens.filter((it) => podeVer(it) && semAcento(it.label).includes(semAcento(busca)))
+    : []
 
   // Seções recolhíveis: padrão é FECHADO, só abre sozinha a seção onde você
   // está (nunca esconde onde você está). Seção aberta manualmente fica salva
@@ -222,6 +231,46 @@ export function Sidebar({
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3">
+        {/* Busca rápida de menu (lupa) */}
+        <div className="px-3 pb-2">
+          <div className="relative">
+            <svg className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+            </svg>
+            <input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar menu..."
+              className="w-full rounded-lg border border-gray-200 bg-gray-50 pl-8 pr-3 py-1.5 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1B6CA8]/30"
+            />
+          </div>
+        </div>
+
+        {busca.trim() ? (
+          <div className="space-y-0.5">
+            {resultados.length === 0 ? (
+              <p className="px-4 py-3 text-sm text-gray-400">Nenhum menu encontrado.</p>
+            ) : (
+              resultados.map((item) => {
+                const Ic = ICONS[item.href]
+                return (
+                  <Link key={item.href} href={item.href}
+                    className={cn(
+                      'flex items-center gap-2.5 px-4 py-2 text-sm font-medium transition-colors',
+                      isActive(item.href) ? 'tc-ativo bg-blue-50 text-blue-700' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900',
+                    )}>
+                    {Ic
+                      ? <Ic className={cn('h-[18px] w-[18px] shrink-0', isActive(item.href) ? 'text-[#1B6CA8]' : COR_GRUPO[item.group] ?? 'text-gray-400')} />
+                      : <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />}
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    <span className="shrink-0 text-[9px] uppercase tracking-wide text-gray-300">{item.group}</span>
+                  </Link>
+                )
+              })
+            )}
+          </div>
+        ) : (
+          <>
         {/* Módulos completos */}
         {navCompleto.map((section) => {
           const itensVisiveis = section.items.filter(podeVer)
@@ -300,6 +349,8 @@ export function Sidebar({
             </div>
           )
         })}
+          </>
+        )}
       </nav>
 
       {/* Footer — logout via POST */}
