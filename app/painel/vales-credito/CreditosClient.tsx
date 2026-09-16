@@ -44,6 +44,12 @@ type DetalheVenda = {
   itens: { nome: string; quantidade: number }[]
 }
 
+type DetalheFiado = {
+  codigo: number | null
+  descricao: string | null
+  pessoa_nome: string | null
+}
+
 export function CreditosClient({
   clientes,
   pessoas,
@@ -52,6 +58,7 @@ export function CreditosClient({
   clienteFiltroInicial,
   detalhesDevolucao,
   detalhesVenda,
+  detalhesFiado,
   erro,
   ok,
 }: {
@@ -62,6 +69,7 @@ export function CreditosClient({
   clienteFiltroInicial: string
   detalhesDevolucao: Record<string, DetalheDevolucao>
   detalhesVenda: Record<string, DetalheVenda>
+  detalhesFiado: Record<string, DetalheFiado>
   erro?: string
   ok?: string
 }) {
@@ -176,7 +184,14 @@ export function CreditosClient({
                           <td className="px-5 py-2.5 text-xs text-gray-400 whitespace-nowrap">{fmtData(m.created_at)}</td>
                           <td className="px-5 py-2.5 text-gray-600">
                             <div>
-                              <span>{m.descricao ?? '—'}</span>
+                              <span>{m.tipo === 'uso' && m.lancamento_id && detalhesFiado[m.lancamento_id]
+                                ? (() => {
+                                    const f = detalhesFiado[m.lancamento_id!]
+                                    const num = f.codigo != null ? String(f.codigo) : (f.descricao?.match(/#\s*(\d+)/)?.[1] ?? null)
+                                    const rotulo = num ? `Fiado #${num}` : (f.descricao ?? 'Fiado')
+                                    return `Uso no fiado — ${f.pessoa_nome ? `${f.pessoa_nome} · ` : ''}${rotulo}`
+                                  })()
+                                : (m.descricao ?? '—')}</span>
                               {m.devolucao_id && detalhesDevolucao[m.devolucao_id] && (() => {
                                 const dev = detalhesDevolucao[m.devolucao_id!]
                                 return (

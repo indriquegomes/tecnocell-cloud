@@ -79,6 +79,19 @@ export default async function CreditosClientePage({
     }
   }
 
+  // Fiados quitados com vale — resolve nº/codigo/cliente pra não mostrar o UUID cru
+  const lancamentoIdsUso = [...new Set(
+    movimentosFiltrados.filter((m) => m.tipo === 'uso').map((m) => m.lancamento_id).filter(Boolean) as string[]
+  )]
+  const detalhesFiado: Record<string, { codigo: number | null; descricao: string | null; pessoa_nome: string | null }> = {}
+  if (lancamentoIdsUso.length > 0) {
+    const lans = await fetchAllIn<{ id: string; codigo: number | null; descricao: string | null; pessoa_nome: string | null }>(
+      lancamentoIdsUso,
+      (chunk, from, to) => supabase.from('lancamentos').select('id, codigo, descricao, pessoa_nome').in('id', chunk).range(from, to),
+    )
+    for (const l of lans) detalhesFiado[l.id] = { codigo: l.codigo, descricao: l.descricao, pessoa_nome: l.pessoa_nome }
+  }
+
   // Agrupa por pessoa e calcula saldo
   type Mov = NonNullable<typeof movimentos>[number]
   const mapaPessoa: Record<string, {
@@ -116,6 +129,7 @@ export default async function CreditosClientePage({
       clienteFiltroInicial={clienteFiltro ?? ''}
       detalhesDevolucao={detalhesDevolucao}
       detalhesVenda={detalhesVenda}
+      detalhesFiado={detalhesFiado}
       erro={erro}
       ok={ok}
     />
