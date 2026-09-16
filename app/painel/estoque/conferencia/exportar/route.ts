@@ -49,7 +49,8 @@ export async function GET(req: NextRequest) {
   const saldoPorProd: Record<string, number> = {}
   for (const e of estoqueRows) saldoPorProd[e.produto_id] = (saldoPorProd[e.produto_id] ?? 0) + Number(e.quantidade)
 
-  // ordem alfabética por nome — a estoquista percorre a prateleira acompanhando
+  // ordem NUMÉRICA por código — o físico da prateleira é organizado pelo número,
+  // não pelo nome. Código não-numérico (ou vazio) cai pro fim, ordenado por nome.
   const linhas = produtos
     .map((p) => ({
       codigo: p.codigo ?? '',
@@ -59,7 +60,16 @@ export async function GET(req: NextRequest) {
       saldo: saldoPorProd[p.id] ?? 0,
       id: p.id,
     }))
-    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+    .sort((a, b) => {
+      const na = parseInt(a.codigo, 10)
+      const nb = parseInt(b.codigo, 10)
+      if (!Number.isNaN(na) && !Number.isNaN(nb)) {
+        if (na !== nb) return na - nb
+      } else if (!Number.isNaN(na) || !Number.isNaN(nb)) {
+        return Number.isNaN(na) ? 1 : -1
+      }
+      return a.nome.localeCompare(b.nome, 'pt-BR')
+    })
 
   // 3) monta o Excel
   const wb = new ExcelJS.Workbook()
