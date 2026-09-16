@@ -159,6 +159,18 @@ const navCompleto: NavGroup[] = [
 
 const navEmConstrucao: NavGroup[] = []
 
+// Cor de cada seção do menu — acha o módulo de relance, sem ler tudo.
+const COR_GRUPO: Record<string, string> = {
+  'Geral':       'text-blue-600',
+  'Vendas':      'text-emerald-600',
+  'Serviços':    'text-orange-600',
+  'Estoque':     'text-violet-600',
+  'Financeiro':  'text-amber-600',
+  'Cadastros':   'text-cyan-600',
+  'Integrações': 'text-indigo-600',
+  'Admin':       'text-rose-600',
+}
+
 export function Sidebar({
   permissoes, isMaster, badges = {},
 }: {
@@ -220,7 +232,7 @@ export function Sidebar({
             <details key={section.group} open={aberta}
               onToggle={(e) => alternarSecao(section.group, e.currentTarget.open)}
               className="group/section mb-1">
-              <summary className="flex cursor-pointer select-none list-none items-center justify-between px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400 hover:text-gray-600 [&::-webkit-details-marker]:hidden">
+              <summary className={cn('flex cursor-pointer select-none list-none items-center justify-between px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest [&::-webkit-details-marker]:hidden', COR_GRUPO[section.group] ?? 'text-gray-400')}>
                 {section.group}
                 <svg className="h-3 w-3 shrink-0 text-gray-300 transition-transform group-open/section:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -243,7 +255,7 @@ export function Sidebar({
                           'h-[18px] w-[18px] shrink-0 transition-transform duration-200',
                           isActive(item.href)
                             ? 'text-[#1B6CA8] scale-110'          // o ativo cresce um tico
-                            : 'text-gray-400 group-hover:scale-110',  // e o que você mira, também
+                            : cn(COR_GRUPO[section.group] ?? 'text-gray-400', 'group-hover:scale-110'),  // cor da seção; o que você mira cresce
                         )} />
                       : <span className={cn('h-1.5 w-1.5 rounded-full', isActive(item.href) ? 'bg-accent-500' : 'bg-gray-300')} />}
                     {item.label}
