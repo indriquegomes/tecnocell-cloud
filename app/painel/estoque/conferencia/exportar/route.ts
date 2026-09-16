@@ -32,13 +32,13 @@ export async function GET(req: NextRequest) {
   const nomeDeposito = dep?.nome ?? 'deposito'
 
   // 1) todos os produtos (com filtro de categoria opcional)
-  const produtos = await fetchAll<{ id: string; nome: string; codigo: string | null; controla_serie: boolean | null; categoria: string | null; cat: { nome: string } | null }>(
+  const produtos = await fetchAll<{ id: string; nome: string; codigo: string | null; prateleira: string | null; controla_serie: boolean | null; categoria: string | null; cat: { nome: string } | null }>(
     (from, to) => {
       let q = supabase.from('produtos')
-        .select('id, nome, codigo, controla_serie, categoria, cat:categorias!categoria ( nome )')
+        .select('id, nome, codigo, prateleira, controla_serie, categoria, cat:categorias!categoria ( nome )')
         .eq('ativo', true)
       if (categoria) q = q.eq('categoria', categoria)
-      return q.range(from, to) as unknown as PromiseLike<{ data: { id: string; nome: string; codigo: string | null; controla_serie: boolean | null; categoria: string | null; cat: { nome: string } | null }[] | null }>
+      return q.range(from, to) as unknown as PromiseLike<{ data: { id: string; nome: string; codigo: string | null; prateleira: string | null; controla_serie: boolean | null; categoria: string | null; cat: { nome: string } | null }[] | null }>
     },
   )
 
@@ -49,25 +49,31 @@ export async function GET(req: NextRequest) {
   const saldoPorProd: Record<string, number> = {}
   for (const e of estoqueRows) saldoPorProd[e.produto_id] = (saldoPorProd[e.produto_id] ?? 0) + Number(e.quantidade)
 
-  // ordem NUMÉRICA por código — o físico da prateleira é organizado pelo número,
-  // não pelo nome. Código não-numérico (ou vazio) cai pro fim, ordenado por nome.
+  // Ordena pela GAVETA (prateleira) em ordem numérica: "C - 0036" < "C - 0052" <
+  // "G - 0598" < "G - 1136" (o número da gaveta manda; letra da seção desempata).
+  // Sem gaveta cai pro fim, ordenado pelo código.
   const linhas = produtos
     .map((p) => ({
       codigo: p.codigo ?? '',
       nome: p.nome,
+      gaveta: p.prateleira ?? '',
       categoria: p.cat?.nome ?? '',
       serial: !!p.controla_serie,
       saldo: saldoPorProd[p.id] ?? 0,
       id: p.id,
     }))
     .sort((a, b) => {
+      const ga = a.gaveta.trim()
+      const gb = b.gaveta.trim()
+      if (ga && gb) {
+        const c = ga.localeCompare(gb, 'pt-BR', { numeric: true })
+        if (c !== 0) return c
+      } else if (ga || gb) {
+        return ga ? -1 : 1
+      }
       const na = parseInt(a.codigo, 10)
       const nb = parseInt(b.codigo, 10)
-      if (!Number.isNaN(na) && !Number.isNaN(nb)) {
-        if (na !== nb) return na - nb
-      } else if (!Number.isNaN(na) || !Number.isNaN(nb)) {
-        return Number.isNaN(na) ? 1 : -1
-      }
+      if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb
       return a.nome.localeCompare(b.nome, 'pt-BR')
     })
 
@@ -77,6 +83,7 @@ export async function GET(req: NextRequest) {
   ws.columns = [
     { header: 'ID', key: 'id', width: 38 },
     { header: 'Código', key: 'codigo', width: 12 },
+    { header: 'Gaveta', key: 'gaveta', width: 12 },
     { header: 'Produto', key: 'nome', width: 46 },
     { header: 'Categoria', key: 'categoria', width: 18 },
     { header: 'Saldo sistema', key: 'saldo', width: 14 },
@@ -90,6 +97,7 @@ export async function GET(req: NextRequest) {
     const row = ws.addRow({
       id: l.id,
       codigo: l.codigo,
+      gaveta: l.gaveta,
       nome: l.nome,
       categoria: l.categoria,
       saldo: l.saldo,
