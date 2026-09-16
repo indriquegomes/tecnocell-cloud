@@ -51,7 +51,8 @@ export async function GET(req: NextRequest) {
 
   // Ordena pela GAVETA (prateleira) em ordem numérica: "C - 0036" < "C - 0052" <
   // "G - 0598" < "G - 1136" (o número da gaveta manda; letra da seção desempata).
-  // Sem gaveta cai pro fim, ordenado pelo código.
+  // Baterias/componentes têm gaveta. Item SEM gaveta (outros itens) cai pro fim,
+  // em ordem ALFABÉTICA — como era antes.
   const linhas = produtos
     .map((p) => ({
       codigo: p.codigo ?? '',
@@ -71,9 +72,7 @@ export async function GET(req: NextRequest) {
       } else if (ga || gb) {
         return ga ? -1 : 1
       }
-      const na = parseInt(a.codigo, 10)
-      const nb = parseInt(b.codigo, 10)
-      if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb
+      // mesma gaveta (ou ambos sem gaveta): ordem alfabética
       return a.nome.localeCompare(b.nome, 'pt-BR')
     })
 
