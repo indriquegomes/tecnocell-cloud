@@ -48,6 +48,7 @@ type DetalheFiado = {
   codigo: number | null
   descricao: string | null
   pessoa_nome: string | null
+  pecas: { nome: string; quantidade: number }[]
 }
 
 export function CreditosClient({
@@ -100,6 +101,14 @@ export function CreditosClient({
     const num = f.codigo != null ? String(f.codigo) : (f.descricao?.match(/#([0-9]+)/)?.[1] ?? null)
     const rotulo = num ? 'Fiado #' + num : (f.descricao ?? 'Fiado')
     return 'Uso no fiado — ' + (f.pessoa_nome ? f.pessoa_nome + ' · ' : '') + rotulo
+  }
+
+  // Peças do fiado quitado (o que o cliente comprou na época da dívida)
+  const pecasFiado = (m: Movimento): { nome: string; quantidade: number }[] => {
+    const uuidNoDescricao = m.descricao?.match(/Uso no fiado #([0-9a-fA-F-]{36})/)?.[1] ?? null
+    if (!uuidNoDescricao) return []
+    const key = m.lancamento_id || uuidNoDescricao
+    return key ? (detalhesFiado[key]?.pecas ?? []) : []
   }
 
   return (
@@ -227,6 +236,16 @@ export function CreditosClient({
                                     ))}
                                   </div>
                                 )
+                              })()}
+                              {(() => {
+                                const pecas = pecasFiado(m)
+                                return pecas.length > 0 ? (
+                                  <div className="mt-1 space-y-0.5">
+                                    {pecas.map((i, idx) => (
+                                      <div key={idx} className="text-xs text-gray-400">· {i.quantidade}x {i.nome}</div>
+                                    ))}
+                                  </div>
+                                ) : null
                               })()}
                             </div>
                           </td>

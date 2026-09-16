@@ -89,13 +89,32 @@ export default async function CreditosClientePage({
         return [m.lancamento_id, embutido].filter((x): x is string => !!x)
       })
   )]
-  const detalhesFiado: Record<string, { codigo: number | null; descricao: string | null; pessoa_nome: string | null }> = {}
+  const detalhesFiado: Record<string, { codigo: number | null; descricao: string | null; pessoa_nome: string | null; pecas: { nome: string; quantidade: number }[] }> = {}
   if (lancamentoIdsUso.length > 0) {
-    const lans = await fetchAllIn<{ id: string; codigo: number | null; descricao: string | null; pessoa_nome: string | null }>(
+    const lans = await fetchAllIn<{ id: string; codigo: number | null; descricao: string | null; pessoa_nome: string | null; venda_id: string | null }>(
       lancamentoIdsUso,
-      (chunk, from, to) => supabase.from('lancamentos').select('id, codigo, descricao, pessoa_nome').in('id', chunk).range(from, to),
+      (chunk, from, to) => supabase.from('lancamentos').select('id, codigo, descricao, pessoa_nome, venda_id').in('id', chunk).range(from, to),
     )
-    for (const l of lans) detalhesFiado[l.id] = { codigo: l.codigo, descricao: l.descricao, pessoa_nome: l.pessoa_nome }
+    for (const l of lans) detalhesFiado[l.id] = { codigo: l.codigo, descricao: l.descricao, pessoa_nome: l.pessoa_nome, pecas: [] }
+
+    // Peças da venda ORIGINAL de cada fiado (o que o cliente comprou na época)
+    const vendaIdsFiado = [...new Set(lans.map((l) => l.venda_id).filter(Boolean))] as string[]
+    if (vendaIdsFiado.length > 0) {
+      const itensFiado = await fetchAllIn<{ venda_id: string; quantidade: number; produtos: { nome: string } | { nome: string }[] | null }>(
+        vendaIdsFiado,
+        (chunk, from, to) => supabase.from('itens_venda').select('venda_id, quantidade, produtos(nome)').in('venda_id', chunk).range(from, to),
+      )
+      const pecasPorVenda: Record<string, { nome: string; quantidade: number }[]> = {}
+      for (const it of itensFiado) {
+        const prod = Array.isArray(it.produtos) ? it.produtos[0] : it.produtos
+        const nome = prod?.nome
+        if (!nome) continue
+        ;(pecasPorVenda[it.venda_id] ??= []).push({ nome, quantidade: it.quantidade })
+      }
+      for (const l of lans) {
+        if (l.venda_id) detalhesFiado[l.id].pecas = pecasPorVenda[l.venda_id] ?? []
+      }
+    }
   }
 
   // Agrupa por pessoa e calcula saldo
