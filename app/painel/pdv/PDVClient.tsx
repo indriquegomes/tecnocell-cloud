@@ -4114,6 +4114,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                           <p className="font-medium text-gray-700">{fichaSel.categoria || '—'}</p>
                         </div>
                         <div>
+                          <span className="text-gray-400">Gaveta</span>
+                          <p className="font-medium text-gray-700">{fichaSel.prateleira || '—'}</p>
+                        </div>
+                        <div>
                           <span className="text-gray-400">Preço de venda</span>
                           <p className="font-bold text-green-600">{formatBRL(precoDoProduto(fichaSel))}</p>
                         </div>
