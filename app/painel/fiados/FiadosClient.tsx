@@ -13,7 +13,7 @@ const semAcento = (s: string) =>
   s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
 
 type Nota = { id: string; codigo: number | null; numeroVenda: number | null; descricao: string | null; pecas: string | null; itens: { nome: string; quantidade: number; valor: number }[] | null; vendedor: string; loja: string; valor: number; valorPago: number; vencimento: string | null; venda_id: string | null; vencida: boolean; categoria?: string | null }
-type Cliente = { nome: string; total: number; vencido: number; qtd: number; telefone: string | null; notas: Nota[] }
+type Cliente = { nome: string; total: number; vencido: number; qtd: number; telefone: string | null; vale?: number; notas: Nota[] }
 
 const fmtData = (d: string | null) => (d ? d.slice(0, 10).split('-').reverse().join('/') : '—')
 
@@ -277,6 +277,7 @@ export function FiadosClient({
                   <p className="text-xs text-gray-400">
                     {c.qtd} nota{c.qtd !== 1 ? 's' : ''} em aberto
                     {c.vencido > 0.01 && <span className="ml-2 rounded-full bg-rose-50 px-2 py-0.5 font-medium text-rose-600">venceu {fmt(c.vencido)}</span>}
+                    {(c.vale ?? 0) > 0.01 && <span className="ml-2 rounded-full bg-purple-50 px-2 py-0.5 font-medium text-purple-600">🎟️ Vale {fmt(c.vale ?? 0)}</span>}
                   </p>
                 </div>
               </button>

@@ -1,4 +1,4 @@
-import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { reconciliarItensCobranca } from '@/lib/cobranca-fiado'
@@ -11,10 +11,10 @@ export default async function FiadosPage() {
   const supabase = await createServiceClient()
 
   const [lancamentos, pessoas] = await Promise.all([
-    fetchAll<{ id: string; codigo: number | null; descricao: string | null; pessoa_nome: string | null; valor: number | null; valor_pago: number | null; data_vencimento: string | null; venda_id: string | null; loja_id: string | null; categoria: string | null }>(
+    fetchAll<{ id: string; codigo: number | null; descricao: string | null; pessoa_nome: string | null; pessoa_id: string | null; valor: number | null; valor_pago: number | null; data_vencimento: string | null; venda_id: string | null; loja_id: string | null; categoria: string | null }>(
       (from, to) => supabase
         .from('lancamentos')
-        .select('id, codigo, descricao, pessoa_nome, valor, valor_pago, data_vencimento, venda_id, loja_id, categoria')
+        .select('id, codigo, descricao, pessoa_nome, pessoa_id, valor, valor_pago, data_vencimento, venda_id, loja_id, categoria')
         .eq('tipo', 'receber').eq('status', 'pendente')
         .order('id').range(from, to),
     ),
@@ -42,11 +42,12 @@ export default async function FiadosPage() {
   const vendedorPorVenda = new Map<string, string>()
   const numeroPorVenda = new Map<string, number>()
   const caixaPorVenda = new Map<string, string>()
+  const pessoaPorVenda = new Map<string, string | null>()
   for (let i = 0; i < vendaIds.length; i += 100) {
     const lote = vendaIds.slice(i, i + 100)
     const [{ data: itens }, { data: vendas }, { data: devolucoes, error: erroDevolucoes }] = await Promise.all([
       supabase.from('itens_venda').select('venda_id, produto_id, quantidade, total_item, produtos(nome)').in('venda_id', lote),
-      supabase.from('vendas').select('id, numero, vendedor_nome, caixa_id').in('id', lote),
+      supabase.from('vendas').select('id, numero, vendedor_nome, caixa_id, pessoa_id').in('id', lote),
       supabase.from('devolucoes').select('venda_id, itens_devolucao(produto_id, quantidade, total_item)').in('venda_id', lote).eq('status', 'concluida'),
     ])
     if (erroDevolucoes) throw new Error(`Não foi possível conferir devoluções da cobrança: ${erroDevolucoes.message}`)
@@ -68,10 +69,11 @@ export default async function FiadosPage() {
     for (const [vendaId, itensVenda] of vendidos) {
       pecasPorVenda.set(vendaId, reconciliarItensCobranca(itensVenda, devolvidos.get(vendaId) ?? []))
     }
-    for (const v of (vendas ?? []) as { id: string; numero: number | null; vendedor_nome: string | null; caixa_id: string | null }[]) {
+    for (const v of (vendas ?? []) as { id: string; numero: number | null; vendedor_nome: string | null; caixa_id: string | null; pessoa_id: string | null }[]) {
       if (v.numero != null) numeroPorVenda.set(v.id, v.numero)
       vendedorPorVenda.set(v.id, v.vendedor_nome?.trim() || 'Sem vendedor')
       if (v.caixa_id) caixaPorVenda.set(v.id, v.caixa_id)
+      pessoaPorVenda.set(v.id, v.pessoa_id ?? null)
     }
   }
 
@@ -96,17 +98,19 @@ export default async function FiadosPage() {
 
   // agrupa por cliente + guarda as notas (lançamentos) de cada um
   type Nota = { id: string; codigo: number | null; numeroVenda: number | null; descricao: string | null; pecas: string | null; itens: { nome: string; quantidade: number; valor: number }[] | null; vendedor: string; loja: string; valor: number; valorPago: number; vencimento: string | null; venda_id: string | null; vencida: boolean; categoria: string | null }
-  const mapa = new Map<string, { nome: string; total: number; vencido: number; qtd: number; notas: Nota[] }>()
+  const mapa = new Map<string, { nome: string; total: number; vencido: number; qtd: number; notas: Nota[]; pessoasLojas: Set<string> }>()
   for (const l of lancamentos) {
     const nome = l.pessoa_nome?.trim() || 'Sem nome'
     const devendo = (l.valor ?? 0) - (l.valor_pago ?? 0)
     if (devendo <= 0.01) continue
     const chave = semAcento(nome)
-    const atual = mapa.get(chave) ?? { nome, total: 0, vencido: 0, qtd: 0, notas: [] }
+    const atual = mapa.get(chave) ?? { nome, total: 0, vencido: 0, qtd: 0, notas: [], pessoasLojas: new Set() }
     const vencida = !!(l.data_vencimento && l.data_vencimento.slice(0, 10) < hoje)
     const lojaId = (l.loja_id && nomeLoja.has(l.loja_id) ? l.loja_id : null) ?? lojaIdPorVenda(l.venda_id)
     const loja = lojaId ? (nomeLoja.get(lojaId) ?? '') : ''
     if (!vemTodas && (!lojaId || !idsPermitidos.has(lojaId))) continue
+    const pessoaId = (l.pessoa_id ?? null) || (l.venda_id ? (pessoaPorVenda.get(l.venda_id) ?? null) : null)
+    if (pessoaId && lojaId) atual.pessoasLojas.add(`${pessoaId}|${lojaId}`)
     atual.total += devendo
     atual.qtd += 1
     if (vencida) atual.vencido += devendo
@@ -117,8 +121,30 @@ export default async function FiadosPage() {
     mapa.set(chave, atual)
   }
 
+  // Vale-crédito de cada cliente (pra avisar na tela que dá pra abater a dívida)
+  const paresVale = new Set<string>()
+  for (const c of mapa.values()) for (const k of c.pessoasLojas) paresVale.add(k)
+  const valePorPessoaLoja: Record<string, number> = {}
+  if (paresVale.size) {
+    const pessoaIdsVale = [...new Set([...paresVale].map((k) => k.split('|')[0]).filter(Boolean))] as string[]
+    if (pessoaIdsVale.length) {
+      const creditos = await fetchAllIn<{ pessoa_id: string; loja_id: string | null; tipo: string; valor: number | null }>(
+        pessoaIdsVale,
+        (chunk, from, to) => supabase.from('creditos_clientes').select('pessoa_id, loja_id, tipo, valor').in('pessoa_id', chunk).range(from, to),
+      )
+      for (const c of creditos) {
+        const k = `${c.pessoa_id}|${c.loja_id ?? ''}`
+        const v = (c.tipo === 'uso' || c.tipo === 'estorno') ? -(c.valor ?? 0) : (c.valor ?? 0)
+        valePorPessoaLoja[k] = (valePorPessoaLoja[k] ?? 0) + v
+      }
+    }
+  }
+
   const clientes = [...mapa.entries()]
-    .map(([chave, c]) => ({ ...c, telefone: telPorNome.get(chave) ?? null }))
+    .map(([chave, c]) => {
+      const vale = [...c.pessoasLojas].reduce((s, k) => s + (valePorPessoaLoja[k] ?? 0), 0)
+      return { ...c, telefone: telPorNome.get(chave) ?? null, vale: Math.max(0, vale) }
+    })
     .sort((a, b) => b.total - a.total)
 
   const totalReceber = clientes.reduce((s, c) => s + c.total, 0)
