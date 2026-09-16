@@ -19,12 +19,20 @@ const DIR_DATA = path.join(RAIZ_REPO, 'bot-whatsapp', 'data')
 // "Teste antes de valer pra cliente real") antes de conectar de verdade.
 const MODO_TESTE = process.env.BOT_WHATSAPP_TESTE === '1'
 
+// Uma loja só (pra testar primeiro em Petrópolis, ex.) — BOT_WHATSAPP_LOJA=petropolis.
+// Vazio = as duas lojas.
+const LOJA_SO = (process.env.BOT_WHATSAPP_LOJA || '').toLowerCase()
+
+const TODAS_LOJAS = [
+  { slug: 'petropolis', depositoId: '63d9054d59a9c829747233d4', pastaAuth: path.join(DIR_DATA, 'auth_petropolis') },
+  { slug: 'teresopolis', depositoId: '63e4dc8ede713ef765366d69', pastaAuth: path.join(DIR_DATA, 'auth_teresopolis') },
+]
+
 const LOJAS = MODO_TESTE
   ? [{ slug: 'teste', depositoId: '63d9054d59a9c829747233d4', pastaAuth: path.join(DIR_DATA, 'auth_teste') }]
-  : [
-      { slug: 'petropolis', depositoId: '63d9054d59a9c829747233d4', pastaAuth: path.join(DIR_DATA, 'auth_petropolis') },
-      { slug: 'teresopolis', depositoId: '63e4dc8ede713ef765366d69', pastaAuth: path.join(DIR_DATA, 'auth_teresopolis') },
-    ]
+  : LOJA_SO
+    ? TODAS_LOJAS.filter((l) => l.slug === LOJA_SO)
+    : TODAS_LOJAS
 
 console.log(MODO_TESTE ? '[bot-whatsapp] MODO TESTE — uma sessão só, pasta auth_teste' : '[bot-whatsapp] modo normal — Petrópolis + Teresópolis')
 

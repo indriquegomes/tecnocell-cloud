@@ -183,12 +183,13 @@ export function PessoaForm({ tabelas, vendedores, editando, podeCredito = true, 
         <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Comercial</h3>
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Tabela de preço padrão</label>
-            <select name="tabela_preco_id" defaultValue={editando?.tabela_preco_id ?? ''} className="field">
-              <option value="">Preço Padrão</option>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Tabela de preço <span className="text-red-500">*</span></label>
+            <select name="tabela_preco_id" defaultValue={editando ? (editando.tabela_preco_id ?? '__padrao__') : ''} required className="field">
+              <option value="" disabled>Selecione a tabela...</option>
+              <option value="__padrao__">Preço Padrão</option>
               {tabelas.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
             </select>
-            <p className="mt-1 text-[11px] text-gray-400">Aplicada sozinha no PDV ao escolher este cliente</p>
+            <p className="mt-1 text-[11px] text-gray-400">Qual tabela este cliente usa — define o preço pra ele no PDV e no WhatsApp</p>
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Rotina de pagamento do fiado</label>

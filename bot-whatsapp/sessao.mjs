@@ -4,10 +4,10 @@ import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion } from '
 import { pino } from 'pino'
 import qrcode from 'qrcode-terminal'
 import QRCode from 'qrcode'
-import { classificaPergunta, escolheProduto } from './lib/ia.mjs'
-import { buscaProdutos, buscaProdutosAmplo, buscaEstoque, buscaChavePix } from './lib/produtos.mjs'
-import { montaResposta } from './lib/resposta.mjs'
-import { ENDERECO, HORARIO, CADASTRO, POLITICA, ENCOMENDA } from './lib/info.mjs'
+import { classificaPergunta, escolheProduto, geraResposta } from './lib/ia.mjs'
+import { buscaProdutos, buscaProdutosAmplo, buscaEstoque, buscaChavePix, resumoLoja, ehConsultaGenerica, buscaTabelaDoCliente, buscaTabelaVarejoId, precosDaTabela } from './lib/produtos.mjs'
+import { montaResposta, AVISO } from './lib/resposta.mjs'
+import { ENDERECO, HORARIO, CADASTRO, POLITICA, ENCOMENDA, VENDEDORA, PERGUNTA_APARELHO } from './lib/info.mjs'
 import { registraTroca, jaAvisouHoje, marcaAvisoHoje } from './lib/db.mjs'
 import { guardaPendente, pegaPendente, limpaPendente } from './lib/estado.mjs'
 import { dorme } from '../bot/lib/util.mjs'
@@ -79,6 +79,8 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
   })
 
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
+    // DEBUG temporário: ver se o socket está recebendo mensagens
+    if (type === 'notify') console.log(`[${slug}] msg recebida: ${messages.map((m) => `${m.key.fromMe ? 'fromMe' : 'outro'}:${(m.key.remoteJid || '').slice(-15)}`).join(', ')}`)
     if (type !== 'notify') return
     for (const msg of messages) {
       if (!elegivel(msg)) continue
@@ -164,13 +166,25 @@ async function processaMensagem(sock, loja, jid, texto) {
   if (!produtos) {
     let classificacao
     try {
-      classificacao = await classificaPergunta(texto)
+      const resumo = await resumoLoja().catch(() => '')
+      classificacao = await classificaPergunta(texto, resumo)
     } catch (e) {
       console.error(`[${loja.slug}] [ERRO IA] falha ao classificar mensagem:`, e?.message || e)
       return // erro de IA nunca deve fazer o bot responder algo errado — só ignora
     }
+    if (classificacao.ehCompra) {
+      await dorme(1500 + Math.random() * 1500)
+      await sock.sendMessage(jid, { text: VENDEDORA })
+      return
+    }
     if (!classificacao.ehPerguntaProduto) return // fora do escopo: sem log, sem resposta
     buscaDescricao = classificacao.textoBusca
+
+    if (ehConsultaGenerica(buscaDescricao)) {
+      await dorme(1500 + Math.random() * 1500)
+      await sock.sendMessage(jid, { text: PERGUNTA_APARELHO })
+      return
+    }
 
     let candidatos = await buscaProdutos(classificacao.textoBusca)
     // Busca estrita (AND) veio vazia: tenta de novo com rede mais larga (OR) e
@@ -197,13 +211,39 @@ async function processaMensagem(sock, loja, jid, texto) {
     if (produtos.length > 1) guardaPendente(loja.slug, jid, produtos)
   }
 
-  const estoquePorId = new Map()
-  if (produtos.length === 1) {
-    estoquePorId.set(produtos[0].id, await buscaEstoque(produtos[0].id, loja.depositoId))
+  // Preço pela TABELA do cliente (ATACADO1/ATACADO2...): quem tem tabela cadastrada
+  // recebe o preço dela, não o varejo. Sem tabela = Preço Padrão.
+  const cliente = await buscaTabelaDoCliente(telefone).catch(() => ({ id: null, encontrado: false }))
+  let tabelaId = cliente.id
+  // Sem cadastro (telefone não bate) -> tabela VAREJO (cliente final). Cadastrado SEM
+  // tabela -> continua no Preço Padrão (produtos.preco).
+  if (!tabelaId && !cliente.encontrado) tabelaId = await buscaTabelaVarejoId().catch(() => null)
+  if (tabelaId) {
+    const precosTabela = await precosDaTabela(tabelaId, produtos.map((p) => p.id)).catch(() => new Map())
+    if (precosTabela.size > 0) {
+      produtos = produtos.map((p) => {
+        const pt = precosTabela.get(p.id)
+        return pt != null && pt > 0 ? { ...p, preco: pt } : p
+      })
+    }
   }
 
+  const estoquePorId = new Map()
+  await Promise.all(produtos.map(async (p) => {
+    estoquePorId.set(p.id, await buscaEstoque(p.id, loja.depositoId))
+  }))
+
   const comAviso = !jaAvisouHoje(loja.slug, chaveAviso)
-  const resposta = montaResposta({ produtos, estoquePorId, comAviso, linkEncomendas: LINK_ENCOMENDAS })
+  const itens = produtos.slice(0, 3).map((p) => ({ nome: p.nome, preco: p.preco, estoque: estoquePorId.get(p.id) ?? 0 }))
+  // Resposta natural via IA; se falhar, cai no template fixo (montaResposta)
+  let corpo
+  try {
+    corpo = await geraResposta(texto, itens, LINK_ENCOMENDAS)
+  } catch (e) {
+    console.error(`[${loja.slug}] [ERRO IA] falha ao gerar resposta:`, e?.message || e)
+    corpo = montaResposta({ produtos, estoquePorId, comAviso: false, linkEncomendas: LINK_ENCOMENDAS })
+  }
+  const resposta = comAviso ? AVISO + corpo : corpo
 
   await dorme(2000 + Math.random() * 2000) // parece digitação humana, não resposta instantânea
   await sock.sendMessage(jid, { text: resposta })

@@ -53,7 +53,7 @@ function camposPessoa(formData: FormData, cpfCnpj: string, email: string) {
     bairro: txt('bairro'),
     cidade: txt('cidade'),
     estado: txt('estado'),
-    tabela_preco_id: txt('tabela_preco_id'),
+    tabela_preco_id: (() => { const v = txt('tabela_preco_id'); return v === '__padrao__' ? null : v })(),
     limite_credito: Math.max(0, parseFloat(formData.get('limite_credito') as string) || 0),
     // combinado de pagamento do fiado ("paga no fim do dia") — mostrado no crediário do PDV
     rotina_pagamento: txt('rotina_pagamento'),
@@ -226,7 +226,7 @@ export async function criarClientePDV(accessToken: string, formData: FormData): 
       bairro: txt('bairro'),
       cidade: txt('cidade'),
       estado: txt('estado'),
-      tabela_preco_id: txt('tabela_preco_id'),
+      tabela_preco_id: (() => { const v = txt('tabela_preco_id'); return v === '__padrao__' ? null : v })(),
       foto_url,
     }).select('id, nome, cpf_cnpj, tabela_preco_id').single()
     if (error) return { ok: false, erro: error.code === '23505' ? mensagemDuplicidade(error.message) : error.message }

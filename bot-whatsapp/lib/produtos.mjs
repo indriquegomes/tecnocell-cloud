@@ -216,3 +216,141 @@ export async function buscaChavePix() {
   if (error) throw error
   return data ? { chave: data.chave_pix || null, titular: data.titular || null } : { chave: null, titular: null }
 }
+
+// --- Resumo do catálogo pra IA (contexto da loja) ---
+
+// Cache de 1h: o resumo só é refeito de vez em quando. A primeira chamada paga
+// a varredura paginada (~10 consultas pra ~9600 itens); as seguintes saem do cache.
+let _resumo = ''
+let _resumoEm = 0
+const RESUMO_TTL_MS = 60 * 60 * 1000
+
+export async function resumoLoja() {
+  if (_resumo && Date.now() - _resumoEm < RESUMO_TTL_MS) return _resumo
+
+  const cats = await supabase.from('categorias').select('hierarquia, nome')
+  if (cats.error) throw cats.error
+  // produtos.categoria guarda a hierarquia (texto), não o id — ex.: "ACESSÓRIOS"
+  const nomePorHierarquia = new Map((cats.data ?? []).map((c) => [c.hierarquia, c.nome]))
+
+  const grupos = new Map() // topo da hierarquia -> {n, min, max}
+  let offset = 0
+  for (;;) {
+    const { data, error } = await supabase.from('produtos')
+      .select('categoria, preco').eq('ativo', true).eq('visivel_catalogo', true)
+      .order('id').range(offset, offset + 999)
+    if (error) throw error
+    if (!data || data.length === 0) break
+    for (const p of data) {
+      const nome = nomePorHierarquia.get(p.categoria) ?? 'OUTROS'
+      const topo = (nome.split('|')[0] || 'OUTROS').trim()
+      const g = grupos.get(topo) ?? { n: 0, min: Infinity, max: -Infinity }
+      g.n++
+      const preco = Number(p.preco) || 0
+      if (preco > 0) { // preço 0 = sem preço cadastrado, não entra na faixa
+        if (preco < g.min) g.min = preco
+        if (preco > g.max) g.max = preco
+      }
+      grupos.set(topo, g)
+    }
+    if (data.length < 1000) break
+    offset += 1000
+  }
+
+  const linhas = [...grupos.entries()]
+    .sort((a, b) => b[1].n - a[1].n)
+    .map(([topo, g]) => `${topo} (${g.n} itens, R$${Math.round(g.min)} a R$${Math.round(g.max)})`)
+  _resumo = 'Resumo do catálogo da loja (tipo de item, quantidade e faixa de preço): ' + linhas.join('; ') + '.'
+  _resumoEm = Date.now()
+  return _resumo
+}
+
+// "tem película?" / "tem capa?" / "tem bateria?" — pergunta genérica por TIPO de
+// item, sem aparelho/modelo. Não dá pra chutar um produto (o catálogo tem dezenas
+// de películas); o certo é perguntar qual aparelho. Detecta quando TODAS as
+// palavras relevantes são tipo de peça conhecido (sem marca, modelo ou número).
+const FILLER_CONSULTA = new Set(['tem', 'vcs', 'voce', 'voces', 'algum', 'alguma', 'alguns', 'algumas'])
+
+export function ehConsultaGenerica(termo) {
+  const palavras = palavrasBusca(termo).filter((w) => !FILLER_CONSULTA.has(w))
+  if (palavras.length === 0) return false
+  if (categoriasPedidas(palavras).length === 0) return false
+  return palavras.every((w) => categoriaDe(w) !== null || SINONIMOS_TIPO[w] || ABREVIACOES_CURTAS[w])
+}
+
+// ---- Preço por TABELA do cliente ----
+// O WhatsApp manda "5524..." (DDI 55 + DDD + número); o cadastro grava "24 ...",
+// "2199...", com/sem hífen. Normaliza e casa pelo número (últimos 9) e pelo número+DDD.
+
+function chavesTelefone(t) {
+  let d = String(t || '').replace(/\D/g, '')
+  if (d.startsWith('55') && d.length > 11) d = d.slice(2)  // remove DDI 55
+  const chaves = new Set()
+  if (d.length >= 9) chaves.add(d.slice(-9))  // só o número
+  if (d.length >= 8) chaves.add(d)            // número + DDD
+  return [...chaves]
+}
+
+let _mapaTelefone = null
+let _mapaEm = 0
+const MAPA_TEL_TTL_MS = 5 * 60 * 1000
+
+// Cache de 5 min do mapa telefone -> tabela_preco_id (evita varrer as pessoas a cada msg)
+async function mapaTelefoneTabela() {
+  if (_mapaTelefone && Date.now() - _mapaEm < MAPA_TEL_TTL_MS) return _mapaTelefone
+  const mapa = new Map()
+  let offset = 0
+  for (;;) {
+    const { data, error } = await supabase.from('pessoas').select('telefone, celular, tabela_preco_id').range(offset, offset + 999)
+    if (error) throw error
+    if (!data || data.length === 0) break
+    for (const p of data) {
+      const tabela = p.tabela_preco_id || null
+      for (const t of [p.telefone, p.celular]) {
+        for (const c of chavesTelefone(t)) if (!mapa.has(c)) mapa.set(c, tabela)
+      }
+    }
+    if (data.length < 1000) break
+    offset += 1000
+  }
+  _mapaTelefone = mapa
+  _mapaEm = Date.now()
+  return mapa
+}
+
+// Tabela de preço do cliente que mandou a mensagem (null = Preço Padrão/varejo)
+export async function buscaTabelaDoCliente(telefone) {
+  const chaves = chavesTelefone(telefone)
+  if (chaves.length === 0) return { id: null, encontrado: false }
+  const mapa = await mapaTelefoneTabela()
+  for (const c of chaves) {
+    if (mapa.has(c)) return { id: mapa.get(c) ?? null, encontrado: true }
+  }
+  return { id: null, encontrado: false }
+}
+
+// Id da tabela VAREJO (fallback pra quem não tem cadastro).
+export async function buscaTabelaVarejoId() {
+  const { data } = await supabase.from('tabelas_preco').select('id').eq('nome', 'VAREJO').maybeSingle()
+  return data?.id ?? null
+}
+
+// Preço de cada produto na tabela do cliente. Produto sem linha na tabela fica
+// com o preço padrão (varejo).
+export async function precosDaTabela(tabelaId, produtoIds) {
+  const out = new Map()
+  if (!tabelaId || !produtoIds || produtoIds.length === 0) return out
+  for (let i = 0; i < produtoIds.length; i += 100) {
+    const chunk = produtoIds.slice(i, i + 100)
+    const { data, error } = await supabase
+      .from('itens_tabela_preco')
+      .select('produto_id, preco')
+      .eq('tabela_id', tabelaId)
+      .in('produto_id', chunk)
+    if (error) throw error
+    for (const it of data ?? []) {
+      if (!out.has(it.produto_id)) out.set(it.produto_id, Number(it.preco) || 0)
+    }
+  }
+  return out
+}
