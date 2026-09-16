@@ -89,6 +89,19 @@ export function CreditosClient({
     ? clientes.filter((c) => semAcento(c.nome).includes(semAcento(busca)))
     : clientes
 
+  // Rótulo legível do fiado quitado. Só resolve quando o descricao tem o UUID feio
+  // (36 hex) — os que já têm número (ex: "Uso no fiado #257776") ficam como estão.
+  const rotuloFiado = (m: Movimento): string | null => {
+    const uuidNoDescricao = m.descricao?.match(/Uso no fiado #([0-9a-fA-F-]{36})/)?.[1] ?? null
+    if (!uuidNoDescricao) return null
+    const key = m.lancamento_id || uuidNoDescricao
+    const f = key ? detalhesFiado[key] : null
+    if (!f) return null
+    const num = f.codigo != null ? String(f.codigo) : (f.descricao?.match(/#([0-9]+)/)?.[1] ?? null)
+    const rotulo = num ? 'Fiado #' + num : (f.descricao ?? 'Fiado')
+    return 'Uso no fiado — ' + (f.pessoa_nome ? f.pessoa_nome + ' · ' : '') + rotulo
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -184,14 +197,7 @@ export function CreditosClient({
                           <td className="px-5 py-2.5 text-xs text-gray-400 whitespace-nowrap">{fmtData(m.created_at)}</td>
                           <td className="px-5 py-2.5 text-gray-600">
                             <div>
-                              <span>{m.tipo === 'uso' && m.lancamento_id && detalhesFiado[m.lancamento_id]
-                                ? (() => {
-                                    const f = detalhesFiado[m.lancamento_id!]
-                                    const num = f.codigo != null ? String(f.codigo) : (f.descricao?.match(/#\s*(\d+)/)?.[1] ?? null)
-                                    const rotulo = num ? `Fiado #${num}` : (f.descricao ?? 'Fiado')
-                                    return `Uso no fiado — ${f.pessoa_nome ? `${f.pessoa_nome} · ` : ''}${rotulo}`
-                                  })()
-                                : (m.descricao ?? '—')}</span>
+                              <span>{m.tipo === 'uso' ? (rotuloFiado(m) ?? (m.descricao ?? '—')) : (m.descricao ?? '—')}</span>
                               {m.devolucao_id && detalhesDevolucao[m.devolucao_id] && (() => {
                                 const dev = detalhesDevolucao[m.devolucao_id!]
                                 return (

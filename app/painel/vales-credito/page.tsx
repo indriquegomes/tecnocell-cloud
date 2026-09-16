@@ -79,9 +79,15 @@ export default async function CreditosClientePage({
     }
   }
 
-  // Fiados quitados com vale — resolve nº/codigo/cliente pra não mostrar o UUID cru
+  // Fiados quitados com vale — resolve nº/codigo/cliente pra não mostrar o UUID cru.
+  // Alguns 'uso' antigos têm o UUID SÓ no descricao (lancamento_id null) — cobre os dois.
   const lancamentoIdsUso = [...new Set(
-    movimentosFiltrados.filter((m) => m.tipo === 'uso').map((m) => m.lancamento_id).filter(Boolean) as string[]
+    movimentosFiltrados
+      .filter((m) => m.tipo === 'uso')
+      .flatMap((m) => {
+        const embutido = m.descricao?.match(/Uso no fiado #([0-9a-fA-F-]{36})/)?.[1] ?? null
+        return [m.lancamento_id, embutido].filter((x): x is string => !!x)
+      })
   )]
   const detalhesFiado: Record<string, { codigo: number | null; descricao: string | null; pessoa_nome: string | null }> = {}
   if (lancamentoIdsUso.length > 0) {
