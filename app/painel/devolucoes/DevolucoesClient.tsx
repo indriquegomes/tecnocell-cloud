@@ -272,9 +272,10 @@ export function DevolucoesClient({
   // preço cheio fazia o desconto virar "reembolso": venda de R$66 com R$18 de desconto e fiado
   // de R$48 devolvia R$48 de abate + R$18 em dinheiro pra quem nunca pagou nada.
   // Por isso o valor devolvido é proporcional ao que a venda REALMENTE custou.
-  const totalCheio = venda
-    ? venda.itens.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0)
-    : 0
+  // Base fixa do rateio do desconto: soma dos itens a preço cheio, ANTES de qualquer
+  // devolução parcial. Recomputar a partir de venda.itens quebrava quando a venda já
+  // tinha item devolvido (sobrava só o restante e o fator de desconto virava 3x).
+  const totalCheio = venda?.total_original ?? 0
   // Base do reembolso = total SEM a taxa de cartão (a taxa é repasse do custo da
   // maquininha, não valor de produto — não se devolve). Ver taxa_cartao na action.
   const fatorDesconto = venda && totalCheio > 0 ? (venda.total - venda.taxa_cartao) / totalCheio : 1

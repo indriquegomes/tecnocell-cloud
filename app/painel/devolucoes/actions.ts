@@ -18,6 +18,7 @@ export interface VendaParaDevolucao {
   id: string
   numero: number | null
   total: number
+  total_original: number   // soma dos itens a preço cheio (antes do desconto da venda) — base fixa do rateio do desconto, mesmo após devolução parcial
   taxa_cartao: number   // taxa de cartão embutida no total — NÃO reembolsável na devolução
   created_at: string
   pessoa_id: string | null
@@ -159,6 +160,7 @@ export async function buscarVendaParaDevolucao(
     id: vRaw.id,
     numero: vRaw.numero ?? null,
     total: vRaw.total,
+    total_original: ((itensRes.data ?? []) as { total_item?: number | null }[]).reduce((s, i) => s + (Number(i.total_item) || 0), 0),
     taxa_cartao: taxaCartao,
     created_at: vRaw.created_at,
     pessoa_id: (vRaw.pessoa_id ?? null) as string | null,
