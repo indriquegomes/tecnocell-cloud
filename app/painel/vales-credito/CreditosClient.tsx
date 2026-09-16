@@ -20,6 +20,8 @@ type Movimento = {
   tipo: string
   descricao: string | null
   devolucao_id: string | null
+  venda_id: string | null
+  lancamento_id: string | null
   created_at: string
 }
 
@@ -37,6 +39,11 @@ type DetalheDevolucao = {
   itens: { nome: string; quantidade: number; preco_unitario: number }[]
 }
 
+type DetalheVenda = {
+  numero: number | null
+  itens: { nome: string; quantidade: number }[]
+}
+
 export function CreditosClient({
   clientes,
   pessoas,
@@ -44,6 +51,7 @@ export function CreditosClient({
   totalEmCirculacao,
   clienteFiltroInicial,
   detalhesDevolucao,
+  detalhesVenda,
   erro,
   ok,
 }: {
@@ -53,6 +61,7 @@ export function CreditosClient({
   totalEmCirculacao: number
   clienteFiltroInicial: string
   detalhesDevolucao: Record<string, DetalheDevolucao>
+  detalhesVenda: Record<string, DetalheVenda>
   erro?: string
   ok?: string
 }) {
@@ -185,6 +194,16 @@ export function CreditosClient({
                                     {dev.motivo && (
                                       <div className="text-xs text-gray-400 italic">"{dev.motivo}"</div>
                                     )}
+                                  </div>
+                                )
+                              })()}
+                              {m.tipo === 'uso' && m.venda_id && detalhesVenda[m.venda_id] && (() => {
+                                const v = detalhesVenda[m.venda_id!]
+                                return (
+                                  <div className="mt-1 space-y-0.5">
+                                    {v.itens.map((i, idx) => (
+                                      <div key={idx} className="text-xs text-gray-400">· {i.quantidade}x {i.nome}</div>
+                                    ))}
                                   </div>
                                 )
                               })()}

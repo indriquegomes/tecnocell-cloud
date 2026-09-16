@@ -1,4 +1,4 @@
-import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server'
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { CreditosClient } from './CreditosClient'
 
@@ -13,7 +13,7 @@ export default async function CreditosClientePage({
   const [{ data: movimentos }, pessoas, { data: lojasData }] = await Promise.all([
     supabase
       .from('creditos_clientes')
-      .select('id, pessoa_id, pessoa_nome, valor, tipo, descricao, devolucao_id, loja_id, created_at')
+      .select('id, pessoa_id, pessoa_nome, valor, tipo, descricao, devolucao_id, venda_id, lancamento_id, loja_id, created_at')
       .order('created_at', { ascending: false }),
     fetchAll((from, to) => supabase.from('pessoas').select('id, nome').in('tipo', ['cliente', 'ambos']).order('nome').range(from, to)),
     supabase.from('lojas').select('id, nome').order('nome'),
@@ -59,6 +59,26 @@ export default async function CreditosClientePage({
     }
   }
 
+  // Peças da VENDA onde o vale foi usado — o cliente pergunta "o que descontou?".
+  const vendaIdsUso = [...new Set(
+    movimentosFiltrados.filter((m) => m.tipo === 'uso').map((m) => m.venda_id).filter(Boolean) as string[]
+  )]
+  const detalhesVenda: Record<string, { numero: number | null; itens: { nome: string; quantidade: number }[] }> = {}
+  if (vendaIdsUso.length > 0) {
+    const [vendasUso, itensUso] = await Promise.all([
+      fetchAllIn<{ id: string; numero: number | null }>(vendaIdsUso, (chunk, from, to) => supabase.from('vendas').select('id, numero').in('id', chunk).range(from, to)),
+      fetchAllIn<{ venda_id: string; quantidade: number; produtos: { nome: string } | { nome: string }[] | null }>(vendaIdsUso, (chunk, from, to) => supabase.from('itens_venda').select('venda_id, quantidade, produtos(nome)').in('venda_id', chunk).range(from, to)),
+    ])
+    const numMap = Object.fromEntries((vendasUso ?? []).map((v) => [v.id, v.numero]))
+    for (const it of itensUso) {
+      const prod = Array.isArray(it.produtos) ? it.produtos[0] : it.produtos
+      const nome = prod?.nome
+      if (!nome) continue
+      if (!detalhesVenda[it.venda_id]) detalhesVenda[it.venda_id] = { numero: numMap[it.venda_id] ?? null, itens: [] }
+      detalhesVenda[it.venda_id].itens.push({ nome, quantidade: it.quantidade })
+    }
+  }
+
   // Agrupa por pessoa e calcula saldo
   type Mov = NonNullable<typeof movimentos>[number]
   const mapaPessoa: Record<string, {
@@ -95,6 +115,7 @@ export default async function CreditosClientePage({
       totalEmCirculacao={totalEmCirculacao}
       clienteFiltroInicial={clienteFiltro ?? ''}
       detalhesDevolucao={detalhesDevolucao}
+      detalhesVenda={detalhesVenda}
       erro={erro}
       ok={ok}
     />
