@@ -86,3 +86,6 @@ Produtos-*.json
 VendasPdv-*.json
 Clientes-*.json
 Vales-*.json
+
+# arquivo morto: mudanças que não serão usadas (guardadas fora do git)
+arquivo-nao-usado/
