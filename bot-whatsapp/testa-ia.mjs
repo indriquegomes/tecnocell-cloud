@@ -9,6 +9,10 @@ const casos = [
   'meu celular caiu na agua, conserta?',
   'oi',
   'e a tela daquele que eu perguntei ontem, chegou?',
+  'quero 1',
+  'me ve uma',
+  'vou levar',
+  'quero comprar essa',
 ]
 
 for (const texto of casos) {

@@ -87,20 +87,14 @@ function categoriasPedidas(palavras) {
   return [...cats]
 }
 
-// Sem categoria conhecida na pergunta: não filtra (deixa "16 pro max oled"
-// funcionar mesmo sem "oled" no nome — isso é detalhe descritivo, não tipo de
-// peça). Com categoria: exige a MESMA categoria nas DUAS PRIMEIRAS palavras do
-// nome — não em qualquer lugar do texto. Checar o nome inteiro pega falso
-// positivo: "CARCAÇA IPHONE 12 PRO MAX... CÂMERA FRONTAL..." tem a palavra
-// "frontal" (descrevendo peça que vem junto), mas o produto não É uma tela, é
-// carcaça — confirmado em produção 24/08 que isso passava pelo filtro antigo.
-// Só a primeira palavra é curto demais: "CAPAS CASE IPHONE 17 AIR" tem o tipo
-// espalhado nas 2 primeiras ("capas" + "case"). No catálogo real o tipo
-// sempre está bem no início, então 2 palavras é preciso e continua rápido.
+// Sem categoria conhecida na pergunta: não filtra. Com categoria: exige o TIPO
+// na PRIMEIRA palavra do nome. "CÂMERA FRONTAL" é CÂMERA (frontal é só adjetivo
+// "da frente"), não tela — verificar 2 palavras listava câmera como tela.
+// "CAPAS" já casa com "capa" via prefixo, então 1 palavra basta pros dois casos.
 function bateCategoria(nomeSemAcento, categorias) {
   if (categorias.length === 0) return true
-  const inicio = nomeSemAcento.split(/\s+/).slice(0, 2).filter(Boolean)
-  return categorias.some((cat) => inicio.some((w) => w.startsWith(cat) || cat.startsWith(w)))
+  const primeira = nomeSemAcento.split(/\s+/)[0] || ''
+  return categorias.some((cat) => primeira.startsWith(cat) || cat.startsWith(primeira))
 }
 
 export async function buscaProdutos(termo) {

@@ -51,3 +51,7 @@ export const ENCOMENDA = `📦 REGRAS DE ENCOMENDA – TECNOCELL
 3️⃣ É preciso um sinal de 50% do item, em cima da média base.
 
 4️⃣ Envie todas as informações necessárias da sua encomenda — assim a chance de vir item errado é mínima.`
+
+export const VENDEDORA = `Perfeito! 😊 Vou te mandar pra vendedora, ela finaliza seu pedido. Chama ela aqui 👉 https://wa.me/5524998266051`
+
+export const PERGUNTA_APARELHO = `Temos várias opções! 😊 Pra qual aparelho você precisa? Me diz o modelo (ex: iPhone 13, Moto G54).`

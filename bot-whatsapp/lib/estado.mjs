@@ -21,3 +21,23 @@ export function pegaPendente(loja, jid) {
 export function limpaPendente(loja, jid) {
   PENDENTES.delete(`${loja}:${jid}`)
 }
+
+// Contexto do último produto oferecido (1 produto só) — pra "sim/quero/pode
+// separar" virar pedido (confirma + alerta no grupo), não busca nova. Mesma validade.
+const CONTEXTOS = new Map()
+
+export function guardaContexto(loja, jid, produto) {
+  CONTEXTOS.set(`${loja}:${jid}`, { produto, expiraEm: Date.now() + VALIDADE_MS })
+}
+
+export function pegaContexto(loja, jid) {
+  const chave = `${loja}:${jid}`
+  const c = CONTEXTOS.get(chave)
+  if (!c) return null
+  if (Date.now() > c.expiraEm) { CONTEXTOS.delete(chave); return null }
+  return c.produto
+}
+
+export function limpaContexto(loja, jid) {
+  CONTEXTOS.delete(`${loja}:${jid}`)
+}

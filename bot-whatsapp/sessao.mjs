@@ -9,7 +9,9 @@ import { buscaProdutos, buscaProdutosAmplo, buscaEstoque, buscaChavePix, resumoL
 import { montaResposta, AVISO } from './lib/resposta.mjs'
 import { ENDERECO, HORARIO, CADASTRO, POLITICA, ENCOMENDA, VENDEDORA, PERGUNTA_APARELHO } from './lib/info.mjs'
 import { registraTroca, jaAvisouHoje, marcaAvisoHoje } from './lib/db.mjs'
-import { guardaPendente, pegaPendente, limpaPendente } from './lib/estado.mjs'
+import { guardaPendente, pegaPendente, limpaPendente, guardaContexto, pegaContexto, limpaContexto } from './lib/estado.mjs'
+import { respondePedido, ehConfirmacao } from './lib/pedido.mjs'
+import { aprendeContato, resolveTelefone, constroiMapa } from './lib/lid-telefone.mjs'
 import { dorme } from '../bot/lib/util.mjs'
 import { env, RAIZ_REPO } from '../bot/lib/env.mjs'
 
@@ -42,9 +44,20 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
   const { state, saveCreds } = await useMultiFileAuthState(pastaAuth)
   const { version } = await fetchLatestBaileysVersion()
 
-  const sock = makeWASocket({ version, auth: state, logger, printQRInTerminal: false })
+  // syncFullHistory: true faz o Baileys sincronizar os CONTATOS na conexão — é daí
+  // que vem o mapa lid->telefone (contacts.upsert traz { id, lid, jid }).
+  const sock = makeWASocket({ version, auth: state, logger, printQRInTerminal: false, syncFullHistory: true })
   sock.ev.on('creds.update', () => {
     saveCreds().catch((e) => console.error(`[${slug}] falha ao salvar credenciais:`, e))
+  })
+
+  // WhatsApp novo entrega o remetente como @lid (ID anônimo). O número real só
+  // vem nos eventos de contato — alimenta o mapa lid->telefone antes de responder.
+  sock.ev.on('contacts.upsert', (contatos) => {
+    for (const c of contatos ?? []) aprendeContato(c)
+  })
+  sock.ev.on('contacts.update', (contatos) => {
+    for (const c of contatos ?? []) aprendeContato(c)
   })
 
   let fechando = false // guarda contra 'close' disparando 2x pro mesmo socket (erro de stream) e abrindo 2 cadeias de reconexão em paralelo -> respostas duplicadas
@@ -75,12 +88,12 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
       }
     } else if (connection === 'open') {
       console.log(`[${slug}] conectado ao WhatsApp.`)
+      // constrói/atualiza o mapa lid->telefone em segundo plano (não bloqueia o bot)
+      constroiMapa(sock).catch((e) => console.error(`[${slug}] falha ao construir mapa lid->telefone:`, e?.message || e))
     }
   })
 
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
-    // DEBUG temporário: ver se o socket está recebendo mensagens
-    if (type === 'notify') console.log(`[${slug}] msg recebida: ${messages.map((m) => `${m.key.fromMe ? 'fromMe' : 'outro'}:${(m.key.remoteJid || '').slice(-15)}`).join(', ')}`)
     if (type !== 'notify') return
     for (const msg of messages) {
       if (!elegivel(msg)) continue
@@ -144,7 +157,9 @@ async function respondeAssuntoFixo(texto) {
 }
 
 async function processaMensagem(sock, loja, jid, texto) {
-  const telefone = jid.split('@')[0]
+  // jid pode vir como @lid (ID anônimo) — traduz pro número real antes de casar
+  // com a tabela de preço do cliente.
+  const telefone = resolveTelefone(jid) ?? jid.split('@')[0]
   const telefoneTruncado = telefone.slice(-4)
   // chave do "avisou hoje" é um hash do JID inteiro, não os últimos 4 dígitos: dois
   // clientes diferentes podem ter os mesmos 4 dígitos finais, e aí o segundo nunca
@@ -172,12 +187,13 @@ async function processaMensagem(sock, loja, jid, texto) {
       console.error(`[${loja.slug}] [ERRO IA] falha ao classificar mensagem:`, e?.message || e)
       return // erro de IA nunca deve fazer o bot responder algo errado — só ignora
     }
-    if (classificacao.ehCompra) {
-      await dorme(1500 + Math.random() * 1500)
-      await sock.sendMessage(jid, { text: VENDEDORA })
+    const contexto = pegaContexto(loja.slug, jid)
+    if (classificacao.ehCompra || (contexto && ehConfirmacao(texto))) {
+      await respondePedido(sock, loja.slug, jid, telefone, contexto)
       return
     }
     if (!classificacao.ehPerguntaProduto) return // fora do escopo: sem log, sem resposta
+    limpaContexto(loja.slug, jid) // pergunta nova de produto: contexto anterior ficou velho
     buscaDescricao = classificacao.textoBusca
 
     if (ehConsultaGenerica(buscaDescricao)) {
@@ -227,6 +243,10 @@ async function processaMensagem(sock, loja, jid, texto) {
       })
     }
   }
+
+  // Guarda o produto oferecido como contexto — se o cliente responder "sim/quero",
+  // vira pedido (confirma + alerta no grupo), não uma busca nova.
+  if (produtos.length === 1) guardaContexto(loja.slug, jid, { nome: produtos[0].nome, preco: produtos[0].preco })
 
   const estoquePorId = new Map()
   await Promise.all(produtos.map(async (p) => {

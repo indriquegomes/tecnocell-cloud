@@ -1,6 +1,6 @@
 const brl = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
 
-const AVISO = '🤖 Este é um assistente automático.\n\n'
+export const AVISO = '🤖 Este é um assistente automático.\n\n'
 
 export function montaResposta({ produtos, estoquePorId, comAviso, linkEncomendas }) {
   let corpo
