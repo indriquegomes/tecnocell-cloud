@@ -221,12 +221,12 @@ async function processaMensagem(sock, loja, jid, texto) {
     limpaContexto(loja.slug, jid) // pergunta nova de produto: contexto anterior ficou velho
     buscaDescricao = classificacao.textoBusca
 
-    // Continua o tipo de peça da conversa: "frontal iphone 11" e depois só
-    // "iphone 12" → vira "frontal iphone 12" (senão o bot chuta qualquer peça e
-    // volta "alto falante" só porque vem antes no alfabeto).
+    // Sem tipo de peça na pergunta ("iphone 12" solto): continua o tipo da
+    // conversa, ou assume "frontal" — a peça mais comum. Senão o bot chuta
+    // qualquer peça e volta "alto falante" só porque vem antes no alfabeto.
     if (categoriasDe(buscaDescricao).length === 0) {
-      const ultima = pegaCategoria(loja.slug, jid)
-      if (ultima) buscaDescricao = ultima + ' ' + buscaDescricao
+      const ultima = pegaCategoria(loja.slug, jid) || 'frontal'
+      buscaDescricao = ultima + ' ' + buscaDescricao
     }
     const catAtual = categoriasDe(buscaDescricao)
     if (catAtual.length > 0) guardaCategoria(loja.slug, jid, catAtual[0])
