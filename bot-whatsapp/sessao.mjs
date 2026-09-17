@@ -190,6 +190,17 @@ async function processaMensagem(sock, loja, jid, texto) {
     return
   }
 
+  // Confirmação de pedido ("sim", "quero", "pode separar"...) vem ANTES de
+  // resolver a lista — "Sim" é resposta a "quer que eu separe?", não seleção de
+  // opção. Mandar "Sim" pro escolheProduto faz a IA chutar uma opção e a
+  // confirmação se perde.
+  const contexto = pegaContexto(loja.slug, jid)
+  if (ehConfirmacao(texto)) console.log(`[${loja.slug}] [DEBUG] confirmacao "${texto}" jid=${(jid || '').slice(-10)} contexto=${contexto ? 'OK' : 'NULL'}`)
+  if (contexto && ehConfirmacao(texto)) {
+    await respondePedido(sock, loja.slug, jid, telefone, contexto, nomeCliente)
+    return
+  }
+
   let produtos = await tentaResolverPendente(loja, jid, texto)
   let buscaDescricao = null
 
@@ -202,9 +213,8 @@ async function processaMensagem(sock, loja, jid, texto) {
       console.error(`[${loja.slug}] [ERRO IA] falha ao classificar mensagem:`, e?.message || e)
       return // erro de IA nunca deve fazer o bot responder algo errado — só ignora
     }
-    const contexto = pegaContexto(loja.slug, jid)
-    if (classificacao.ehCompra || (contexto && ehConfirmacao(texto))) {
-      await respondePedido(sock, loja.slug, jid, telefone, contexto, nomeCliente)
+    if (classificacao.ehCompra) {
+      await respondePedido(sock, loja.slug, jid, telefone, null, nomeCliente)
       return
     }
     if (!classificacao.ehPerguntaProduto) return // fora do escopo: sem log, sem resposta
