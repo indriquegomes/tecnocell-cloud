@@ -20,7 +20,9 @@ function semAcento(t) {
 // e quebrou sigla de modelo curta de verdade ("xr" de iPhone XR virou
 // "frontal iphone" sozinho e bateu em produto errado) — por isso é lista
 // fechada de preposição, não regra de tamanho.
-const CONECTORES = new Set(['de', 'da', 'do', 'das', 'dos', 'para', 'pra', 'com', 'sem', 'uma', 'um', 'no', 'na'])
+// 'sub' entra aqui porque é qualificador de peça, não nome: "sub placa" no
+// catálogo é "placa (conector)". Sem tirar o 'sub', o AND nunca casa.
+const CONECTORES = new Set(['de', 'da', 'do', 'das', 'dos', 'para', 'pra', 'com', 'sem', 'uma', 'um', 'no', 'na', 'sub'])
 function palavrasBusca(t) {
   return semAcento(t).replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean)
     .filter((w) => !CONECTORES.has(w))
@@ -68,6 +70,9 @@ const SINONIMOS_TIPO = {
   tela: ['frontal', 'display'],
   frontal: ['tela', 'display'],
   display: ['tela', 'frontal'],
+  // marca: "redmi" é a linha da Xiaomi — o catálogo grava "xiaomi" (às vezes os
+  // dois). "tampa redmi 8 pro" precisa achar "TAMPA XIAOMI NOTE 8 PRO".
+  redmi: ['xiaomi'],
 }
 
 function categoriaDe(palavra) {
