@@ -720,7 +720,25 @@ async function fechar(loja: Loja, p: any, quem: string | null) {
 // Telegram), até ~45s por chamada, e se AUTO-CHAMA (fora dos 60s) até esvaziar a fila.
 const BASE = process.env.APP_BASE_URL || 'https://tecnocell-cloud.vercel.app'
 async function disparaReenvio(loja: Loja) {
-  try { await fetchT(`${BASE}/api/telegram/comprovante?loja=${loja.slug}&job=reenvio`, { method: 'POST', headers: { 'x-telegram-bot-api-secret-token': process.env.TELEGRAM_WEBHOOK_SECRET || '' } }) } catch { /* segue */ }
+  // 2 tentativas: uma falha transitória de rede não pode matar a cadeia em silêncio
+  // (era isso que deixava o reenvio parado no meio, sem ninguém avisar).
+  for (let tentativa = 1; tentativa <= 2; tentativa++) {
+    try {
+      await fetchT(`${BASE}/api/telegram/comprovante?loja=${loja.slug}&job=reenvio`, { method: 'POST', headers: { 'x-telegram-bot-api-secret-token': process.env.TELEGRAM_WEBHOOK_SECRET || '' } }, 8000)
+      return
+    } catch (e) {
+      console.error('[reenvio] disparaReenvio falhou (tentativa ' + tentativa + '/2):', String((e as Error)?.message || e))
+      if (tentativa < 2) await new Promise((r) => setTimeout(r, 2000))
+    }
+  }
+  await tgSend(loja.token, loja.grupo, '⚠️ O reenvio das fotos do fechamento falhou agora — ele retoma sozinho na próxima mensagem do grupo.')
+}
+
+// Retoma reenvio que ficou pendente (cadeia quebrada no meio). Chamada a cada mensagem
+// nova: qualquer movimento no grupo re-acende a fila, sem depender do self-call sobreviver.
+async function retomaReenvioPendente(loja: Loja) {
+  const { data: pend } = await sb().from('pix_periodos').select('id').eq('telegram_chat_id', loja.grupo).eq('reenvio_ativo', true).limit(1)
+  if (pend && pend.length) await disparaReenvio(loja)
 }
 // Imagem enviada COMO ARQUIVO vira 'document' no Telegram, mas o bot marca 'foto' — aí o
 // sendPhoto recusa ("can't use file of type Document as Photo") e a imagem sumia do arquivo.
@@ -755,7 +773,18 @@ async function processaReenvio(loja: Loja) {
   const itens = await itensReenvio(loja, p)
   let cur = Number(p.reenvio_cursor) || 0
   const t0 = Date.now()
-  while (cur < itens.length && Date.now() - t0 < 45000) {
+  // Janela menor (30s, era 45s) + reivindicação atômica: com a auto-retomada por mensagem,
+  // dois workers podem acordar juntos — sem a trava, mandariam a MESMA foto duas vezes.
+  while (cur < itens.length && Date.now() - t0 < 30000) {
+    // Reivindica o item ATOMICAMENTE (cursor avança só se ninguém pegou antes).
+    const { data: reivindicado } = await sb().from('pix_periodos')
+      .update({ reenvio_cursor: cur + 1 })
+      .eq('id', p.id).eq('reenvio_cursor', cur).select('id')
+    if (!reivindicado || reivindicado.length === 0) {
+      const { data: atual } = await sb().from('pix_periodos').select('reenvio_cursor').eq('id', p.id).maybeSingle()
+      cur = Number((atual as { reenvio_cursor?: number } | null)?.reenvio_cursor) || 0
+      continue
+    }
     const it = itens[cur]
     try {
       if (it.t === 'h') await tgSend(loja.token, loja.grupo, '📎 ' + it.nome + ' — ' + it.n + ' comprovantes — R$ ' + money(it.soma as number))
@@ -764,12 +793,14 @@ async function processaReenvio(loja: Loja) {
       else if (it.t === 'link') await tgSend(loja.token, loja.grupo, '🔗 ' + it.url)
     } catch { /* um item ruim não trava a fila */ }
     cur++
-    await sb().from('pix_periodos').update({ reenvio_cursor: cur }).eq('id', p.id)
-    if (cur < itens.length && Date.now() - t0 < 45000) await new Promise((r) => setTimeout(r, 4000))
+    if (cur < itens.length && Date.now() - t0 < 30000) await new Promise((r) => setTimeout(r, 4000))
   }
   if (cur >= itens.length) {
-    await sb().from('pix_periodos').update({ reenvio_ativo: false }).eq('id', p.id)
-    await tgSend(loja.token, loja.grupo, '✅ Arquivo do fechamento completo — ' + itens.length + ' itens enviados.')
+    // finaliza só quem realmente desligou a flag (evita 2x 'completo' com workers duplos)
+    const { data: finalizou } = await sb().from('pix_periodos').update({ reenvio_ativo: false }).eq('id', p.id).eq('reenvio_ativo', true).select('id')
+    if (finalizou && finalizou.length) {
+      await tgSend(loja.token, loja.grupo, '✅ Arquivo do fechamento completo — ' + itens.length + ' itens enviados.')
+    }
   } else {
     await disparaReenvio(loja) // continua numa próxima chamada (fora dos 60s)
   }
@@ -777,6 +808,9 @@ async function processaReenvio(loja: Loja) {
 
 // ---------- pipeline de uma mensagem ----------
 async function processa(loja: Loja, update: any) {
+  // REDE DE SEGURANÇA: se um /fechar deixou o reenvio de fotos pendente (a cadeia quebrou
+  // no meio), qualquer mensagem nova no grupo retoma de onde parou. Custo ~0 (1 query).
+  try { await retomaReenvioPendente(loja) } catch (e) { console.error('retoma reenvio:', e) }
   const m = update.message || update.channel_post
   if (!m || !m.chat || m.chat.id !== loja.grupo) return
   const txt = (m.text || '').trim().toLowerCase()
@@ -813,6 +847,16 @@ async function processa(loja: Loja, update: any) {
     await sb().from('comprovantes_pix').update({ status: 'extraido', extraido_raw: { ...((comp.extraido_raw as object) || {}), forcado: true } }).eq('id', (comp as { id: string }).id)
     await tgSend(loja.token, loja.grupo, '✅ Comprovante forçado a somar (não será mais marcado duplicado).')
     try { await escreveSheet(loja) } catch (e) { console.error('sheet corrigir:', e) }
+    return
+  }
+  if (txt.startsWith('/eliminar')) {
+    const alvo = m.reply_to_message?.message_id
+    if (!alvo) { await tgSend(loja.token, loja.grupo, 'ℹ️ Responda a imagem do comprovante com /eliminar pra tirar da soma.'); return }
+    const { data: comp } = await sb().from('comprovantes_pix').select('id').eq('telegram_chat_id', loja.grupo).eq('telegram_message_id', alvo).maybeSingle()
+    if (!comp) { await tgSend(loja.token, loja.grupo, '❌ Não achei o comprovante.'); return }
+    await sb().from('comprovantes_pix').update({ status: 'apagado' }).eq('id', (comp as { id: string }).id)
+    await tgSend(loja.token, loja.grupo, '🗑️ Comprovante eliminado — saiu da soma.')
+    try { await escreveSheet(loja) } catch (e) { console.error('sheet eliminar:', e) }
     return
   }
 
@@ -859,6 +903,24 @@ async function processa(loja: Loja, update: any) {
     await deduplica(loja)
     await escreveSheet(loja)
   } catch (e) { console.error('drena/dedup:', e) }
+}
+
+// Cron da Vercel chama por GET. Só re-dispara reenvio pendente das duas lojas —
+// rede de segurança pra quando o grupo fica parado (ex.: fechamento à noite).
+export async function GET(req: Request) {
+  if (process.env.CRON_SECRET && req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ erro: 'não autorizado' }, { status: 401 })
+  }
+  const { searchParams } = new URL(req.url)
+  if (searchParams.get('job') !== 'retomar') return NextResponse.json({ ok: true })
+  after(async () => {
+    for (const slug of ['petropolis', 'teresopolis']) {
+      const l = lojaDe(slug)
+      if (!l || !l.token || !l.grupo) continue
+      try { await retomaReenvioPendente(l as Loja) } catch (e) { console.error('retomar ' + slug + ':', e) }
+    }
+  })
+  return NextResponse.json({ ok: true })
 }
 
 export async function POST(req: Request) {

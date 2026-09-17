@@ -180,6 +180,39 @@ export default async function RelatoriosPage({
       totalVendidoItens += vendidoLinha
       totalCustoItens += custoLinha
     }
+
+    // Subtrai devoluções do período — senão o relatório conta como vendido o que
+    // o cliente devolveu ("20 vendidos, 5 devolvidos" virava 20 em vez de 15).
+    const devs = await fetchAll<{ id: string }>((from, to) => supabase.from('devolucoes')
+      .select('id').gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to))
+    const devIds = (devs ?? []).map((d) => d.id)
+    if (devIds.length) {
+      const devItens = await fetchAllIn<{ produto_id: string; nome: string; quantidade: number; total_item: number }>(devIds, (chunk, from, to) => supabase.from('itens_devolucao')
+        .select('produto_id, nome, quantidade, total_item').in('devolucao_id', chunk).range(from, to))
+      const devPids = [...new Set(devItens.map((i) => i.produto_id).filter(Boolean))] as string[]
+      let custoDevById: Record<string, number> = {}
+      if (devPids.length) {
+        const custosDev = await fetchAllIn<{ id: string; preco_custo: number | null }>(devPids, (chunk, from, to) => supabase.from('produtos').select('id, preco_custo').in('id', chunk).range(from, to))
+        custoDevById = Object.fromEntries(custosDev.map((p) => [p.id, p.preco_custo ?? 0]))
+      }
+      for (const it of devItens) {
+        const nome = it.nome ?? '—'
+        const qtd = Number(it.quantidade) || 0
+        const devolvido = Number(it.total_item) || 0
+        const custoLinha = (custoDevById[it.produto_id] ?? 0) * qtd
+        const agg = porProduto[it.produto_id]
+        if (agg) {
+          agg.qtd -= qtd
+          agg.vendido -= devolvido
+          agg.custo -= custoLinha
+        } else {
+          // devolvido mas não vendido no período → entra negativo
+          porProduto[it.produto_id] = { nome, qtd: -qtd, vendido: -devolvido, custo: -custoLinha }
+        }
+        totalVendidoItens -= devolvido
+        totalCustoItens -= custoLinha
+      }
+    }
   }
   const lucroTotal = totalVendidoItens - totalCustoItens
   const margemTotal = totalVendidoItens > 0 ? (lucroTotal / totalVendidoItens) * 100 : 0

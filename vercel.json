@@ -6,6 +6,10 @@
     {
       "path": "/api/sinc/worker",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/telegram/comprovante?job=retomar",
+      "schedule": "0 1 * * *"
     }
   ]
 }
