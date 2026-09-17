@@ -17,6 +17,9 @@ iphone 12", "vcs tem bateria pra moto g54", "qual valor da capinha do redmi
 note 12". NÃO é: reclamação, horário/endereço, negociação de prazo, conversa
 geral, cumprimento sem produto, e pergunta de STATUS de pedido anterior
 ("aquele que eu perguntei ontem chegou?", "já ficou pronto?").
+Também é pergunta de produto quando o cliente SÓ manda o nome da peça/modelo,
+sem verbo nenhum — ex: "frontal iphone 12", "tampa redmi 8 pro", "cabo tipo c"
+— nesse caso ele quer saber preço/disponibilidade disso.
 
 2) INTENÇÃO DE COMPRA (quer fechar agora): o cliente já decidiu levar — ex:
 "quero 1", "me vê uma", "vou levar", "quero comprar", "fecha pra mim", "pode

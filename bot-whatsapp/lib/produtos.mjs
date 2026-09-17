@@ -22,7 +22,7 @@ function semAcento(t) {
 // fechada de preposição, não regra de tamanho.
 // 'sub' entra aqui porque é qualificador de peça, não nome: "sub placa" no
 // catálogo é "placa (conector)". Sem tirar o 'sub', o AND nunca casa.
-const CONECTORES = new Set(['de', 'da', 'do', 'das', 'dos', 'para', 'pra', 'com', 'sem', 'uma', 'um', 'no', 'na', 'sub'])
+const CONECTORES = new Set(['de', 'da', 'do', 'das', 'dos', 'para', 'pra', 'com', 'sem', 'uma', 'um', 'no', 'na', 'sub', 'tem', 'temos', 'quanto', 'custa', 'preco', 'valor', 'valores', 'vcs', 'voce', 'voces'])
 function palavrasBusca(t) {
   return semAcento(t).replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean)
     .filter((w) => !CONECTORES.has(w))

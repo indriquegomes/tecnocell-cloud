@@ -121,13 +121,13 @@ async function tentaResolverPendente(loja, jid, texto) {
 
   const n = Number(texto.trim())
   if (Number.isInteger(n) && n >= 1 && n <= pendente.length) {
-    limpaPendente(loja.slug, jid)
+    // NÃO limpa: cliente pode ter errado o número e digitar outro logo depois.
     return [pendente[n - 1]]
   }
 
   const { indice } = await escolheProduto(texto, pendente).catch(() => ({ indice: null }))
   if (indice) {
-    limpaPendente(loja.slug, jid)
+    // também não limpa — mantém a lista pra cliente mudar de ideia
     return [pendente[indice - 1]]
   }
 
