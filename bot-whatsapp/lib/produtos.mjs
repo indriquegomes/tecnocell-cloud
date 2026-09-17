@@ -289,19 +289,19 @@ let _mapaTelefone = null
 let _mapaEm = 0
 const MAPA_TEL_TTL_MS = 5 * 60 * 1000
 
-// Cache de 5 min do mapa telefone -> tabela_preco_id (evita varrer as pessoas a cada msg)
+// Cache de 5 min do mapa telefone -> { tabela_preco_id, nome } (evita varrer as pessoas a cada msg)
 async function mapaTelefoneTabela() {
   if (_mapaTelefone && Date.now() - _mapaEm < MAPA_TEL_TTL_MS) return _mapaTelefone
   const mapa = new Map()
   let offset = 0
   for (;;) {
-    const { data, error } = await supabase.from('pessoas').select('telefone, celular, tabela_preco_id').range(offset, offset + 999)
+    const { data, error } = await supabase.from('pessoas').select('telefone, celular, tabela_preco_id, nome').range(offset, offset + 999)
     if (error) throw error
     if (!data || data.length === 0) break
     for (const p of data) {
-      const tabela = p.tabela_preco_id || null
+      const reg = { tabela: p.tabela_preco_id || null, nome: p.nome || null }
       for (const t of [p.telefone, p.celular]) {
-        for (const c of chavesTelefone(t)) if (!mapa.has(c)) mapa.set(c, tabela)
+        for (const c of chavesTelefone(t)) if (!mapa.has(c)) mapa.set(c, reg)
       }
     }
     if (data.length < 1000) break
@@ -315,12 +315,13 @@ async function mapaTelefoneTabela() {
 // Tabela de preço do cliente que mandou a mensagem (null = Preço Padrão/varejo)
 export async function buscaTabelaDoCliente(telefone) {
   const chaves = chavesTelefone(telefone)
-  if (chaves.length === 0) return { id: null, encontrado: false }
+  if (chaves.length === 0) return { id: null, nome: null, encontrado: false }
   const mapa = await mapaTelefoneTabela()
   for (const c of chaves) {
-    if (mapa.has(c)) return { id: mapa.get(c) ?? null, encontrado: true }
+    const reg = mapa.get(c)
+    if (reg) return { id: reg.tabela ?? null, nome: reg.nome ?? null, encontrado: true }
   }
-  return { id: null, encontrado: false }
+  return { id: null, nome: null, encontrado: false }
 }
 
 // Id da tabela VAREJO (fallback pra quem não tem cadastro).

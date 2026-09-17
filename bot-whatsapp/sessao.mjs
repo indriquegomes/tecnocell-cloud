@@ -11,7 +11,7 @@ import { ENDERECO, HORARIO, CADASTRO, POLITICA, ENCOMENDA, VENDEDORA, PERGUNTA_A
 import { registraTroca, jaAvisouHoje, marcaAvisoHoje } from './lib/db.mjs'
 import { guardaPendente, pegaPendente, limpaPendente, guardaContexto, pegaContexto, limpaContexto } from './lib/estado.mjs'
 import { respondePedido, ehConfirmacao } from './lib/pedido.mjs'
-import { aprendeContato, resolveTelefone, constroiMapa } from './lib/lid-telefone.mjs'
+import { aprendeContato, resolveTelefone, constroiMapa, resolveNome, aprendeNome } from './lib/lid-telefone.mjs'
 import { dorme } from '../bot/lib/util.mjs'
 import { env, RAIZ_REPO } from '../bot/lib/env.mjs'
 
@@ -99,6 +99,7 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
       if (!elegivel(msg)) continue
       const texto = textoDaMensagem(msg)
       if (!texto) continue
+      aprendeNome(msg.key.remoteJid, msg.pushName) // guarda o nome de exibição pra identificar no alerta
       try {
         await processaMensagem(sock, { slug, depositoId }, msg.key.remoteJid, texto)
       } catch (e) {
@@ -167,6 +168,11 @@ async function processaMensagem(sock, loja, jid, texto) {
   // servindo só pra exibição/log em registraTroca (não muda o schema do banco).
   const chaveAviso = createHash('sha256').update(jid).digest('hex').slice(0, 16)
 
+  // Cliente do telefone (nome + tabela de preço). Resolvido UMA vez aqui em cima pra
+  // servir tanto pro preço quanto pro alerta de pedido (nome no grupo).
+  const cliente = await buscaTabelaDoCliente(telefone).catch(() => ({ id: null, nome: null, encontrado: false }))
+  const nomeCliente = cliente.nome || resolveNome(jid) || null
+
   // assunto fixo (chave PIX etc.) responde direto, sem passar pela IA de produto
   const fixo = await respondeAssuntoFixo(texto).catch(() => null)
   if (fixo) {
@@ -189,7 +195,7 @@ async function processaMensagem(sock, loja, jid, texto) {
     }
     const contexto = pegaContexto(loja.slug, jid)
     if (classificacao.ehCompra || (contexto && ehConfirmacao(texto))) {
-      await respondePedido(sock, loja.slug, jid, telefone, contexto)
+      await respondePedido(sock, loja.slug, jid, telefone, contexto, nomeCliente)
       return
     }
     if (!classificacao.ehPerguntaProduto) return // fora do escopo: sem log, sem resposta
@@ -229,7 +235,6 @@ async function processaMensagem(sock, loja, jid, texto) {
 
   // Preço pela TABELA do cliente (ATACADO1/ATACADO2...): quem tem tabela cadastrada
   // recebe o preço dela, não o varejo. Sem tabela = Preço Padrão.
-  const cliente = await buscaTabelaDoCliente(telefone).catch(() => ({ id: null, encontrado: false }))
   let tabelaId = cliente.id
   // Sem cadastro (telefone não bate) -> tabela VAREJO (cliente final). Cadastrado SEM
   // tabela -> continua no Preço Padrão (produtos.preco).
