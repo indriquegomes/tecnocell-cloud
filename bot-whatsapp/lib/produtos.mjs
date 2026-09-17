@@ -291,6 +291,7 @@ function chavesTelefone(t) {
 }
 
 let _mapaTelefone = null
+let _mapaNome = null
 let _mapaEm = 0
 const MAPA_TEL_TTL_MS = 5 * 60 * 1000
 
@@ -298,6 +299,7 @@ const MAPA_TEL_TTL_MS = 5 * 60 * 1000
 async function mapaTelefoneTabela() {
   if (_mapaTelefone && Date.now() - _mapaEm < MAPA_TEL_TTL_MS) return _mapaTelefone
   const mapa = new Map()
+  const nomes = new Map()
   let offset = 0
   for (;;) {
     const { data, error } = await supabase.from('pessoas').select('telefone, celular, tabela_preco_id, nome').range(offset, offset + 999)
@@ -308,11 +310,14 @@ async function mapaTelefoneTabela() {
       for (const t of [p.telefone, p.celular]) {
         for (const c of chavesTelefone(t)) if (!mapa.has(c)) mapa.set(c, reg)
       }
+      const nn = normalizaNome(p.nome)
+      if (nn && !nomes.has(nn)) nomes.set(nn, reg)
     }
     if (data.length < 1000) break
     offset += 1000
   }
   _mapaTelefone = mapa
+  _mapaNome = nomes
   _mapaEm = Date.now()
   return mapa
 }
@@ -326,6 +331,35 @@ export async function buscaTabelaDoCliente(telefone) {
     const reg = mapa.get(c)
     if (reg) return { id: reg.tabela ?? null, nome: reg.nome ?? null, encontrado: true }
   }
+  return { id: null, nome: null, encontrado: false }
+}
+
+// Normaliza nome pra comparação: minúsculas, sem acento, pontuação vira espaço.
+function normalizaNome(n) {
+  return semAcento(n || '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+// Tabela do cliente pelo NOME (fallback quando o telefone não bate). O nome do
+// WhatsApp pode vir com sufixo ("/ acerto fim do dia") ou ser o nome completo do
+// cadastro — casa se o nome do WhatsApp CONTÉM o nome completo do cadastro. Só
+// casa nome completo (>= 10 letras), nunca primeiro nome solto — evita dar tabela
+// errada pra "joão" que é substring de vários cadastros.
+export async function buscaTabelaPorNome(nome) {
+  if (!nome) return { id: null, nome: null, encontrado: false }
+  const alvo = normalizaNome(nome)
+  if (!alvo) return { id: null, nome: null, encontrado: false }
+  await mapaTelefoneTabela() // garante que _mapaNome foi construído
+  if (_mapaNome.has(alvo)) {
+    const r = _mapaNome.get(alvo)
+    return { id: r.tabela ?? null, nome: r.nome ?? null, encontrado: true }
+  }
+  let melhor = null
+  let melhorKey = ''
+  for (const [k, reg] of _mapaNome) {
+    if (k.length < 10) continue
+    if (alvo.includes(k) && k.length > melhorKey.length) { melhor = reg; melhorKey = k }
+  }
+  if (melhor) return { id: melhor.tabela ?? null, nome: melhor.nome ?? null, encontrado: true }
   return { id: null, nome: null, encontrado: false }
 }
 

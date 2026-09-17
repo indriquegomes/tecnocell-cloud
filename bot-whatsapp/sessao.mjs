@@ -5,7 +5,7 @@ import { pino } from 'pino'
 import qrcode from 'qrcode-terminal'
 import QRCode from 'qrcode'
 import { classificaPergunta, escolheProduto, geraResposta } from './lib/ia.mjs'
-import { buscaProdutos, buscaProdutosAmplo, buscaEstoque, buscaChavePix, resumoLoja, ehConsultaGenerica, buscaTabelaDoCliente, buscaTabelaVarejoId, precosDaTabela } from './lib/produtos.mjs'
+import { buscaProdutos, buscaProdutosAmplo, buscaEstoque, buscaChavePix, resumoLoja, ehConsultaGenerica, buscaTabelaDoCliente, buscaTabelaVarejoId, precosDaTabela, buscaTabelaPorNome } from './lib/produtos.mjs'
 import { montaResposta, AVISO } from './lib/resposta.mjs'
 import { ENDERECO, HORARIO, CADASTRO, POLITICA, ENCOMENDA, VENDEDORA, PERGUNTA_APARELHO } from './lib/info.mjs'
 import { registraTroca, jaAvisouHoje, marcaAvisoHoje } from './lib/db.mjs'
@@ -170,8 +170,17 @@ async function processaMensagem(sock, loja, jid, texto) {
 
   // Cliente do telefone (nome + tabela de preço). Resolvido UMA vez aqui em cima pra
   // servir tanto pro preço quanto pro alerta de pedido (nome no grupo).
-  const cliente = await buscaTabelaDoCliente(telefone).catch(() => ({ id: null, nome: null, encontrado: false }))
-  const nomeCliente = cliente.nome || resolveNome(jid) || null
+  let cliente = await buscaTabelaDoCliente(telefone).catch(() => ({ id: null, nome: null, encontrado: false }))
+  let nomeCliente = cliente.nome || resolveNome(jid) || null
+  // Telefone não bateu (cliente chama de número fora do cadastro, ou @lid sem
+  // resolução): tenta a tabela pelo NOME do WhatsApp — senão reseller cai no varejo.
+  if (!cliente.encontrado && nomeCliente) {
+    const porNome = await buscaTabelaPorNome(nomeCliente).catch(() => null)
+    if (porNome && porNome.encontrado) {
+      cliente = porNome
+      nomeCliente = porNome.nome || nomeCliente
+    }
+  }
 
   // assunto fixo (chave PIX etc.) responde direto, sem passar pela IA de produto
   const fixo = await respondeAssuntoFixo(texto).catch(() => null)
