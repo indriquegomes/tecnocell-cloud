@@ -5,11 +5,11 @@ import { pino } from 'pino'
 import qrcode from 'qrcode-terminal'
 import QRCode from 'qrcode'
 import { classificaPergunta, escolheProduto, geraResposta } from './lib/ia.mjs'
-import { buscaProdutos, buscaProdutosAmplo, buscaEstoque, buscaChavePix, resumoLoja, ehConsultaGenerica, buscaTabelaDoCliente, buscaTabelaVarejoId, precosDaTabela, buscaTabelaPorNome } from './lib/produtos.mjs'
+import { buscaProdutos, buscaProdutosAmplo, buscaEstoque, buscaChavePix, resumoLoja, ehConsultaGenerica, buscaTabelaDoCliente, buscaTabelaVarejoId, precosDaTabela, buscaTabelaPorNome, categoriasDe } from './lib/produtos.mjs'
 import { montaResposta, AVISO } from './lib/resposta.mjs'
 import { ENDERECO, HORARIO, CADASTRO, POLITICA, ENCOMENDA, VENDEDORA, PERGUNTA_APARELHO } from './lib/info.mjs'
 import { registraTroca, jaAvisouHoje, marcaAvisoHoje } from './lib/db.mjs'
-import { guardaPendente, pegaPendente, limpaPendente, guardaContexto, pegaContexto, limpaContexto } from './lib/estado.mjs'
+import { guardaPendente, pegaPendente, limpaPendente, guardaContexto, pegaContexto, limpaContexto, guardaCategoria, pegaCategoria } from './lib/estado.mjs'
 import { respondePedido, ehConfirmacao } from './lib/pedido.mjs'
 import { aprendeContato, resolveTelefone, constroiMapa, resolveNome, aprendeNome } from './lib/lid-telefone.mjs'
 import { dorme } from '../bot/lib/util.mjs'
@@ -211,18 +211,28 @@ async function processaMensagem(sock, loja, jid, texto) {
     limpaContexto(loja.slug, jid) // pergunta nova de produto: contexto anterior ficou velho
     buscaDescricao = classificacao.textoBusca
 
+    // Continua o tipo de peça da conversa: "frontal iphone 11" e depois só
+    // "iphone 12" → vira "frontal iphone 12" (senão o bot chuta qualquer peça e
+    // volta "alto falante" só porque vem antes no alfabeto).
+    if (categoriasDe(buscaDescricao).length === 0) {
+      const ultima = pegaCategoria(loja.slug, jid)
+      if (ultima) buscaDescricao = ultima + ' ' + buscaDescricao
+    }
+    const catAtual = categoriasDe(buscaDescricao)
+    if (catAtual.length > 0) guardaCategoria(loja.slug, jid, catAtual[0])
+
     if (ehConsultaGenerica(buscaDescricao)) {
       await dorme(1500 + Math.random() * 1500)
       await sock.sendMessage(jid, { text: PERGUNTA_APARELHO })
       return
     }
 
-    let candidatos = await buscaProdutos(classificacao.textoBusca)
+    let candidatos = await buscaProdutos(buscaDescricao)
     // Busca estrita (AND) veio vazia: tenta de novo com rede mais larga (OR) e
     // deixa a IA decidir semanticamente — cobre "16 pro max oled" quando o
     // catálogo não tem a palavra "oled" no nome.
     let veioDaBuscaAmpla = candidatos.length === 0
-    if (veioDaBuscaAmpla) candidatos = await buscaProdutosAmplo(classificacao.textoBusca)
+    if (veioDaBuscaAmpla) candidatos = await buscaProdutosAmplo(buscaDescricao)
 
     // Busca estrita com 1 resultado: toda palavra do cliente bateu literalmente
     // no nome do produto, dá pra confiar sem gastar chamada de IA. Busca ampla

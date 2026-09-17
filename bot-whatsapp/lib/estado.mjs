@@ -41,3 +41,21 @@ export function pegaContexto(loja, jid) {
 export function limpaContexto(loja, jid) {
   CONTEXTOS.delete(`${loja}:${jid}`)
 }
+
+// Último TIPO de peça da conversa ("frontal", "tela", "bateria"...) — pra quando
+// o cliente muda só o modelo ("iphone 12" após "frontal iphone 11") e o bot
+// continua o tipo em vez de chutar qualquer peça. Mesma validade do contexto.
+const CATEGORIAS = new Map()
+
+export function guardaCategoria(loja, jid, cat) {
+  if (!cat) return
+  CATEGORIAS.set(`${loja}:${jid}`, { cat, expiraEm: Date.now() + VALIDADE_MS })
+}
+
+export function pegaCategoria(loja, jid) {
+  const chave = `${loja}:${jid}`
+  const c = CATEGORIAS.get(chave)
+  if (!c) return null
+  if (Date.now() > c.expiraEm) { CATEGORIAS.delete(chave); return null }
+  return c.cat
+}

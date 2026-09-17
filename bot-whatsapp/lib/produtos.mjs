@@ -92,6 +92,12 @@ function categoriasPedidas(palavras) {
   return [...cats]
 }
 
+// Tipos de peça pedidos num termo — exportada pro sessao.mjs carregar o tipo da
+// conversa ("frontal iphone 11" → "iphone 12" vira "frontal iphone 12").
+export function categoriasDe(termo) {
+  return categoriasPedidas(palavrasBusca(termo))
+}
+
 // Sem categoria conhecida na pergunta: não filtra. Com categoria: exige o TIPO
 // na PRIMEIRA palavra do nome. "CÂMERA FRONTAL" é CÂMERA (frontal é só adjetivo
 // "da frente"), não tela — verificar 2 palavras listava câmera como tela.
