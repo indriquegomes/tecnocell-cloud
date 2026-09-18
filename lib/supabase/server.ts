@@ -202,3 +202,14 @@ export async function requirePermissao(
   }
   return usuario
 }
+
+// Verifica se o usuário pode operar numa loja específica. lojas_permitidas vazio/null
+// = todas as lojas; preenchido = só aquelas. Usado pra bloquear abrir/fechar caixa de
+// outra loja (ex.: atendente de Teresópolis não pode abrir o caixa de Petrópolis).
+export async function podeAcessarLoja(usuarioId: string, lojaId: string | null): Promise<boolean> {
+  if (!lojaId) return true
+  const service = await createServiceClient()
+  const { data } = await service.from('perfis').select('lojas_permitidas').eq('id', usuarioId).maybeSingle()
+  const permitidas = (data?.lojas_permitidas as string[] | null) ?? []
+  return permitidas.length === 0 || permitidas.includes(lojaId)
+}

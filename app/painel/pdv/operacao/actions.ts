@@ -1,6 +1,6 @@
 'use server'
 
-import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao, podeAcessarLoja } from '@/lib/supabase/server'
 import { logAtividade } from '@/lib/log-atividade'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
@@ -15,6 +15,11 @@ export async function abrirCaixa(
     const usuario = await requirePermissao('pdv', formData.get('access_token') as string)
     const supabase = await createServiceClient()
     const lojaId = (formData.get('loja_id') as string | null) || null
+
+    // Atendente só abre caixa da SUA loja — evita abrir a loja errada por engano
+    if (!(await podeAcessarLoja(usuario.id, lojaId))) {
+      return { ok: false, message: 'Você não tem acesso ao caixa desta loja.' }
+    }
 
     // Impede caixa duplo — agora POR LOJA (cada loja tem o seu caixa)
     let qExist = supabase.from('caixas').select('id').eq('status', 'aberto').limit(1)
@@ -61,11 +66,16 @@ export async function fecharCaixa(
     // Busca caixa p/ obter aberto_em
     const { data: caixa } = await supabase
       .from('caixas')
-      .select('aberto_em')
+      .select('aberto_em, loja_id')
       .eq('id', id)
       .eq('status', 'aberto')
       .maybeSingle()
     if (!caixa) return { ok: false, message: 'Caixa não encontrado ou já fechado.' }
+
+    // Atendente só fecha caixa da SUA loja
+    if (!(await podeAcessarLoja(usuario.id, (caixa as { loja_id?: string | null }).loja_id ?? null))) {
+      return { ok: false, message: 'Você não tem acesso ao caixa desta loja.' }
+    }
 
     // Verifica limite de divergência configurado
     const valorEsperado = parseFloat(formData.get('valor_esperado') as string) || 0
