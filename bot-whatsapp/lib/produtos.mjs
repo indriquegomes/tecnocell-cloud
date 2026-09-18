@@ -366,6 +366,22 @@ export async function buscaTabelaPorNome(nome) {
     if (alvo.includes(k) && k.length > melhorKey.length) { melhor = reg; melhorKey = k }
   }
   if (melhor) return { id: melhor.tabela ?? null, nome: melhor.nome ?? null, encontrado: true }
+
+  // Sobreposição de palavras: nomes que compartilham >= 2 palavras "grandes"
+  // (>= 4 letras). Cobre "(ATACADO 2) Samira Amorim" vs "SAMIRA AMORIM DOS REIS"
+  // (um tem prefixo "atacado 2", o outro sufixo "dos reis" — o "contém" falha).
+  const alvoSet = new Set(alvo.split(' ').filter((w) => w.length >= 4))
+  let best = null
+  let bestOverlap = 0
+  let empate = false
+  for (const [k, reg] of _mapaNome) {
+    if (k.length < 8) continue
+    let overlap = 0
+    for (const w of k.split(' ')) if (w.length >= 4 && alvoSet.has(w)) overlap++
+    if (overlap > bestOverlap) { best = reg; bestOverlap = overlap; empate = false }
+    else if (overlap === bestOverlap && overlap > 0) empate = true
+  }
+  if (bestOverlap >= 2 && !empate && best) return { id: best.tabela ?? null, nome: best.nome ?? null, encontrado: true }
   return { id: null, nome: null, encontrado: false }
 }
 
