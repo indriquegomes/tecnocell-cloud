@@ -4,8 +4,8 @@ import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion } from '
 import { pino } from 'pino'
 import qrcode from 'qrcode-terminal'
 import QRCode from 'qrcode'
-import { classificaPergunta, escolheProduto, geraResposta } from './lib/ia.mjs'
-import { buscaProdutos, buscaProdutosAmplo, buscaPorPrioridade, buscaEstoque, buscaChavePix, resumoLoja, ehConsultaGenerica, buscaTabelaDoCliente, buscaTabelaVarejoId, precosDaTabela, buscaTabelaPorNome, categoriasDe, modelosDistintos } from './lib/produtos.mjs'
+import { classificaPergunta, geraResposta } from './lib/ia.mjs'
+import { buscaProdutos, buscaProdutosAmplo, buscaPorPrioridade, buscaEstoque, buscaChavePix, resumoLoja, ehConsultaGenerica, buscaTabelaDoCliente, buscaTabelaVarejoId, precosDaTabela, buscaTabelaPorNome, categoriasDe, modelosDistintos, resolveSelecao } from './lib/produtos.mjs'
 import { montaResposta, AVISO } from './lib/resposta.mjs'
 import { ENDERECO, HORARIO, CADASTRO, POLITICA, ENCOMENDA, VENDEDORA, PERGUNTA_APARELHO } from './lib/info.mjs'
 import { registraTroca, jaAvisouHoje, marcaAvisoHoje } from './lib/db.mjs'
@@ -19,7 +19,9 @@ const logger = pino({ level: 'silent' })
 const LINK_ENCOMENDAS = env('BOT_WHATSAPP_LINK_ENCOMENDAS')
 // Acima desse tanto de opções, e sendo MODELOS diferentes ("j7" casa Prime/Neo/Pro/
 // Metal), o bot pergunta qual modelo exato em vez de despejar a lista inteira.
-const LIMITE_OPCOES = 4
+// 7 é o teto de variações por peça no catálogo (dono confirmou 19/09): mais que
+// isso é sinal de que a busca pescou modelos demais.
+const LIMITE_OPCOES = 7
 
 // 401 loggedOut, 403 forbidden (conta banida), 440 connectionReplaced (WhatsApp
 // Web aberto em outro lugar) e 500 badSession não se resolvem tentando de novo —
@@ -128,30 +130,22 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
   })
 }
 
-// Tenta resolver a resposta do cliente contra a lista ambígua que o bot já
-// ofereceu antes ("1", "a segunda", "o pro max"...). Número bate na hora, sem
-// gastar chamada de IA; texto livre passa pela mesma escolheProduto() usada na
-// busca nova. Devolve null se não conseguiu resolver — quem chama trata como
-// pergunta nova (a lista pendente já foi limpa nesse caso, pra não interferir
-// com o assunto novo).
+// Resolve a resposta do cliente contra a lista que o bot mostrou, de forma
+// DETERMINÍSTICA (sem IA — a IA errava de forma inconsistente aqui: "incell 87"
+// e "a de 65" viravam busca nova e traziam fone gamer). Número → índice; preço
+// → casa o preço mostrado; palavra de qualidade/cor → filtra pelo nome.
+// Devolve null se não há pendência ou não entendeu (aí cai na busca nova).
 async function tentaResolverPendente(loja, jid, texto) {
   const pendente = pegaPendente(loja.slug, jid)
   if (!pendente) return null
 
-  const n = Number(texto.trim())
-  if (Number.isInteger(n) && n >= 1 && n <= pendente.length) {
-    // NÃO limpa: cliente pode ter errado o número e digitar outro logo depois.
-    return [pendente[n - 1]]
+  const resolvido = resolveSelecao(texto, pendente)
+  if (resolvido.length === 0) {
+    limpaPendente(loja.slug, jid) // não entendeu — abandona a pendência, trata como assunto novo
+    return null
   }
-
-  const { indice } = await escolheProduto(texto, pendente).catch(() => ({ indice: null }))
-  if (indice) {
-    // também não limpa — mantém a lista pra cliente mudar de ideia
-    return [pendente[indice - 1]]
-  }
-
-  limpaPendente(loja.slug, jid) // não resolveu — abandona a pendência, trata como assunto novo
-  return null
+  // NÃO limpa: cliente pode ter errado e digitar outro número/preço logo depois.
+  return resolvido
 }
 
 // Assuntos fixos fora de preço/estoque (chave PIX, horário...). Devolve a resposta
@@ -266,19 +260,12 @@ async function processaMensagem(sock, loja, jid, texto) {
     let veioDaBuscaAmpla = candidatos.length === 0
     if (veioDaBuscaAmpla) candidatos = await buscaProdutosAmplo(buscaDescricao)
 
-    // Busca estrita com 1 resultado: toda palavra do cliente bateu literalmente
-    // no nome do produto, dá pra confiar sem gastar chamada de IA. Busca ampla
-    // com 1 resultado NÃO tem essa garantia — ela pontua por palavra solta e
-    // pode "ganhar" ignorando uma palavra que não bateu em nada (cliente digitou
-    // "fro g24" abreviando "frontal", nenhum produto tem "fro", ela achou 1
-    // tampa só pelo "g24" e respondeu como se "fro" nem existisse). Por isso
-    // busca ampla sempre passa pela checagem de tipo, mesmo com 1 resultado só.
-    if (candidatos.length > 1 || (veioDaBuscaAmpla && candidatos.length === 1)) {
-      const { indice, nenhumServe } = await escolheProduto(texto, candidatos).catch(() => ({ indice: null, nenhumServe: false }))
-      if (indice) candidatos = [candidatos[indice - 1]]
-      else if (nenhumServe) candidatos = [] // achou só por bater no modelo/marca, não na peça pedida — não é opção de verdade
-      else if (candidatos.length === 1) candidatos = [] // 1 candidato ampla, IA não confirmou nem descartou — não responde sem certeza
-    }
+    // NÃO usa mais IA pra escolher a variação (escolheProduto): ela "adivinhava"
+    // uma opção e escondia as outras de preço diferente ("vivid" → mostrava só a de
+    // R$128 e sumia com a de R$65). Agora TODAS as variações sobem, e o cliente
+    // escolhe por número/preço/palavra (resolveSelecao, determinístico). A busca
+    // ampla já filtra o tipo certo via bateCategoria — a checagem de IA (nenhumServe)
+    // tentava a mesma coisa e errava, então saiu.
 
     produtos = candidatos
 
@@ -295,7 +282,6 @@ async function processaMensagem(sock, loja, jid, texto) {
       }
     }
 
-    if (produtos.length > 1) guardaPendente(loja.slug, jid, produtos)
   }
 
   // Preço pela TABELA do cliente (ATACADO1/ATACADO2...): quem tem tabela cadastrada
@@ -313,6 +299,11 @@ async function processaMensagem(sock, loja, jid, texto) {
       })
     }
   }
+
+  // Guarda a lista pendente DEPOIS do preço de tabela — o cliente escolhe pelo
+  // número ("2") OU pelo valor ("a de 87"). Se guardasse antes, a lista ficaria com
+  // o preço de varejo e a escolha "incell 87" não casava com a opção de R$ 87 da tabela.
+  if (produtos.length > 1) guardaPendente(loja.slug, jid, produtos)
 
   // Guarda o produto oferecido como contexto — se o cliente responder "sim/quero",
   // vira pedido (confirma + alerta no grupo), não uma busca nova.

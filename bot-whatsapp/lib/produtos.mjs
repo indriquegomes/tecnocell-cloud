@@ -22,7 +22,9 @@ function semAcento(t) {
 // fechada de preposição, não regra de tamanho.
 // 'sub' entra aqui porque é qualificador de peça, não nome: "sub placa" no
 // catálogo é "placa (conector)". Sem tirar o 'sub', o AND nunca casa.
-const CONECTORES = new Set(['de', 'da', 'do', 'das', 'dos', 'para', 'pra', 'com', 'sem', 'uma', 'um', 'no', 'na', 'sub', 'tem', 'temos', 'quanto', 'custa', 'preco', 'valor', 'valores', 'vcs', 'voce', 'voces'])
+// 'traseira'/'posterior' idem: "tampa traseira" é "TAMPA" no catálogo (toda tampa
+// já é traseira; "traseira" não aparece no nome) — sem tirar, o AND nunca casa.
+const CONECTORES = new Set(['de', 'da', 'do', 'das', 'dos', 'para', 'pra', 'com', 'sem', 'uma', 'um', 'no', 'na', 'sub', 'tem', 'temos', 'quanto', 'custa', 'preco', 'valor', 'valores', 'vcs', 'voce', 'voces', 'traseira', 'traseiro', 'posterior'])
 function palavrasBusca(t) {
   return semAcento(t).replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean)
     .filter((w) => !CONECTORES.has(w))
@@ -153,6 +155,41 @@ export function modelosDistintos(produtos) {
     if (m && !vistos.has(m)) { vistos.add(m); out.push(m) }
   }
   return out
+}
+
+// Resolve a ESCOLHA do cliente contra a lista que o bot mostrou, de forma
+// DETERMINÍSTICA (a IA errava aqui de forma inconsistente — "incell 87" e "a de
+// 65" viravam busca nova e traziam fone gamer/adaptador). Regras:
+//   1) número inteiro = índice ("2")
+//   2) preço ("a de 65", "incell 87,00", "128?") = casa o preço mostrado
+//   3) palavra de qualidade/cor ("vivid", "branca", "oled") = filtra pelo nome
+// Devolve as opções resolvidas, ou [] quando não entendeu (quem chama decide).
+export function resolveSelecao(texto, opcoes) {
+  const t = (texto || '').trim()
+  if (!opcoes || opcoes.length === 0) return []
+
+  // 1) número inteiro = índice
+  const n = Number(t)
+  if (Number.isInteger(n) && n >= 1 && n <= opcoes.length) return [opcoes[n - 1]]
+
+  // 2) preço — o cliente costuma escolher pelo valor, então casa exato no preço
+  const m = t.match(/\d+(?:[.,]\d{1,2})?/)
+  if (m) {
+    const preco = parseFloat(m[0].replace(',', '.'))
+    const porPreco = opcoes.filter((p) => Math.abs((Number(p.preco) || 0) - preco) < 0.005)
+    if (porPreco.length > 0) return porPreco
+  }
+
+  // 3) palavra de qualidade/cor presente no nome
+  const palavras = semAcento(t).replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean)
+    .filter((w) => !CONECTORES.has(w))
+  const filtrados = opcoes.filter((p) => {
+    const nome = semAcento(p.nome)
+    return palavras.some((w) => w.length >= 2 && nome.includes(w))
+  })
+  if (filtrados.length > 0) return filtrados
+
+  return []
 }
 
 function categoriaDe(palavra) {
