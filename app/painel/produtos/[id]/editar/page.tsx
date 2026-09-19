@@ -13,12 +13,14 @@ export default async function EditarProdutoPage({ params, searchParams }: { para
   const { erro } = await searchParams
   const supabase = await createServiceClient()
 
-  const [{ data: produto }, { data: categorias }, { data: marcas }, { data: fornecedoresRaw }] = await Promise.all([
+  const [{ data: produto }, { data: categorias }, { data: marcas }, { data: fornecedoresRaw }, { data: tabelas }, { data: itensTabela }] = await Promise.all([
     supabase.from('produtos').select('*').eq('id', id).single(),
     supabase.from('categorias').select('hierarquia, nome').order('nome'),
     supabase.from('marcas').select('nome').order('nome'),
     // só fornecedores (97), filtrado no servidor — antes pegava 500 pessoas e perdia o resto
     supabase.from('pessoas').select('id, nome').in('tipo', ['fornecedor', 'ambos']).order('nome'),
+    supabase.from('tabelas_preco').select('id, nome').in('nome', ['ATACADO1', 'ATACADO2', 'VAREJO']),
+    supabase.from('itens_tabela_preco').select('tabela_id, preco').eq('produto_id', id),
   ])
 
   if (!produto) notFound()
@@ -26,6 +28,12 @@ export default async function EditarProdutoPage({ params, searchParams }: { para
   const fornecedores = fornecedoresRaw ?? []
   const { permissoes, isMaster } = await permissoesUsuarioAtual()
   const podeCusto = temPermissao(permissoes, 'produto_custo', isMaster)
+
+  // preço atual de cada tabela (mantém o que já está; nada é migrado aqui)
+  const precoDe = (nome: string) => {
+    const t = (tabelas ?? []).find((x) => x.nome === nome)
+    return t ? (itensTabela ?? []).find((i) => i.tabela_id === t.id)?.preco ?? 0 : 0
+  }
 
   const action = editarProduto.bind(null, id)
 
@@ -55,7 +63,7 @@ export default async function EditarProdutoPage({ params, searchParams }: { para
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Descrição</label>
             <textarea name="descricao" rows={3} defaultValue={produto.descricao ?? ''} className="field resize-none" />
           </div>
-          <PrecoFields custoInicial={produto.preco_custo ?? 0} vendaInicial={produto.preco ?? 0} minimoInicial={produto.preco_minimo ?? 0} podeCusto={podeCusto} />
+          <PrecoFields custoInicial={produto.preco_custo ?? 0} atacado1Inicial={precoDe('ATACADO1')} atacado2Inicial={precoDe('ATACADO2')} varejoInicial={precoDe('VAREJO') || (produto.preco ?? 0)} minimoInicial={produto.preco_minimo ?? 0} podeCusto={podeCusto} />
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Categoria</label>
             <select name="categoria" defaultValue={produto.categoria ?? ''} className="field">
