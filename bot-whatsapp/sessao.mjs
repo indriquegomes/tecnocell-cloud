@@ -9,7 +9,7 @@ import { buscaProdutos, buscaProdutosAmplo, buscaPorPrioridade, buscaEstoque, bu
 import { montaResposta, AVISO } from './lib/resposta.mjs'
 import { ENDERECO, HORARIO, CADASTRO, POLITICA, ENCOMENDA, VENDEDORA, PERGUNTA_APARELHO } from './lib/info.mjs'
 import { registraTroca, jaAvisouHoje, marcaAvisoHoje } from './lib/db.mjs'
-import { guardaPendente, pegaPendente, limpaPendente, guardaContexto, pegaContexto, limpaContexto, guardaCategoria, pegaCategoria } from './lib/estado.mjs'
+import { guardaPendente, pegaPendente, limpaPendente, guardaContexto, pegaContexto, limpaContexto, guardaCategoria, pegaCategoria, guardaModelos, pegaModelos, limpaModelos } from './lib/estado.mjs'
 import { respondePedido, ehConfirmacao } from './lib/pedido.mjs'
 import { aprendeContato, resolveTelefone, constroiMapa, resolveNome, aprendeNome } from './lib/lid-telefone.mjs'
 import { dorme } from '../bot/lib/util.mjs'
@@ -139,12 +139,16 @@ async function tentaResolverPendente(loja, jid, texto) {
   const pendente = pegaPendente(loja.slug, jid)
   if (!pendente) return null
 
-  const resolvido = resolveSelecao(texto, pendente)
+  const modelos = pegaModelos(loja.slug, jid)
+  const resolvido = resolveSelecao(texto, pendente, modelos)
   if (resolvido.length === 0) {
     limpaPendente(loja.slug, jid) // não entendeu — abandona a pendência, trata como assunto novo
+    limpaModelos(loja.slug, jid)
     return null
   }
-  // NÃO limpa: cliente pode ter errado e digitar outro número/preço logo depois.
+  // Resolveu: limpa a lista de modelos (a escolha já foi feita). A pendência de
+  // produtos continua — o fluxo re-guarda com o preço de tabela e mostra a lista.
+  limpaModelos(loja.slug, jid)
   return resolvido
 }
 
@@ -275,13 +279,14 @@ async function processaMensagem(sock, loja, jid, texto) {
     if (produtos.length > LIMITE_OPCOES) {
       const modelos = modelosDistintos(produtos)
       if (modelos.length > 1) {
-        // Guarda a lista pra resolver a resposta do cliente por MODELO ("11" →
-        // iphone 11, não iphone 11 pro). Sem isso, "11" virava busca nova e o bot
-        // repetia a mesma pergunta pra sempre.
+        // Guarda a lista de produtos E a lista de modelos — o cliente responde o
+        // NÚMERO do modelo ("1" → primeiro), ou o nome ("11"/"pro"). Sem guardar,
+        // "11" virava busca nova e o bot repetia a pergunta pra sempre.
         guardaPendente(loja.slug, jid, produtos)
+        guardaModelos(loja.slug, jid, modelos)
         await dorme(1500 + Math.random() * 1500)
-        const lista = modelos.slice(0, 6).map((m) => `• ${m.toUpperCase()}`).join('\n')
-        await sock.sendMessage(jid, { text: `Achei várias opções. Qual modelo exato?\n${lista}` })
+        const lista = modelos.slice(0, 6).map((m, i) => `${i + 1}. ${m.toUpperCase()}`).join('\n')
+        await sock.sendMessage(jid, { text: `Achei vários modelos. Qual? (responda o número)\n${lista}` })
         return
       }
     }

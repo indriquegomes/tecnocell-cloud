@@ -42,6 +42,27 @@ export function limpaContexto(loja, jid) {
   CONTEXTOS.delete(`${loja}:${jid}`)
 }
 
+// Lista ORDENADA de modelos mostrada no "qual modelo?" — pra cliente responder o
+// NÚMERO ("1" → primeiro modelo, "2" → segundo). Sem isso, "1" virava "primeira
+// opção" da lista de produtos e nunca o modelo certo. Mesma validade.
+const MODELOS = new Map()
+
+export function guardaModelos(loja, jid, modelos) {
+  MODELOS.set(`${loja}:${jid}`, { modelos, expiraEm: Date.now() + VALIDADE_MS })
+}
+
+export function pegaModelos(loja, jid) {
+  const chave = `${loja}:${jid}`
+  const m = MODELOS.get(chave)
+  if (!m) return null
+  if (Date.now() > m.expiraEm) { MODELOS.delete(chave); return null }
+  return m.modelos
+}
+
+export function limpaModelos(loja, jid) {
+  MODELOS.delete(`${loja}:${jid}`)
+}
+
 // Último TIPO de peça da conversa ("frontal", "tela", "bateria"...) — pra quando
 // o cliente muda só o modelo ("iphone 12" após "frontal iphone 11") e o bot
 // continua o tipo em vez de chutar qualquer peça. Mesma validade do contexto.

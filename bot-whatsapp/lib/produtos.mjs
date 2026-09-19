@@ -160,15 +160,26 @@ export function modelosDistintos(produtos) {
 // Resolve a ESCOLHA do cliente contra a lista que o bot mostrou, de forma
 // DETERMINÍSTICA (a IA errava aqui de forma inconsistente — "incell 87" e "a de
 // 65" viravam busca nova e traziam fone gamer/adaptador). Regras em ordem:
-//   1) MODELO — resposta ao "qual modelo?": casa o FINAL da assinatura ("11" →
-//      "iphone 11", mas NÃO "iphone 11 pro" que termina em "pro")
+//   0) NÚMERO DO MODELO (só quando `modelos` veio): "1"/"2" → primeiro/segundo
+//      modelo do "qual modelo?" numerado
+//   1) MODELO — casa o FINAL da assinatura ("11" → "iphone 11", não "iphone 11 pro")
 //   2) número inteiro = índice ("2")
 //   3) preço ("a de 65", "incell 87,00", "128?") = casa o preço mostrado
 //   4) palavra de qualidade/cor ("vivid", "branca", "oled") = filtra pelo nome
 // Devolve as opções resolvidas, ou [] quando não entendeu (quem chama decide).
-export function resolveSelecao(texto, opcoes) {
+export function resolveSelecao(texto, opcoes, modelos = null) {
   const t = (texto || '').trim()
   if (!opcoes || opcoes.length === 0) return []
+
+  // 0) cliente respondeu o NÚMERO do modelo ("1" → iphone 11, "2" → iphone 11 pro)
+  if (modelos && modelos.length > 1) {
+    const nModelo = Number(t)
+    if (Number.isInteger(nModelo) && nModelo >= 1 && nModelo <= modelos.length) {
+      const modelo = modelos[nModelo - 1]
+      const porModelo = opcoes.filter((p) => assinaturaModelo(p.nome) === modelo)
+      if (porModelo.length > 0) return porModelo
+    }
+  }
 
   const palavras = semAcento(t).replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean)
     .filter((w) => !CONECTORES.has(w) && w.length >= 2)
