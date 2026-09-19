@@ -720,15 +720,16 @@ async function fechar(loja: Loja, p: any, quem: string | null) {
 // Telegram), até ~45s por chamada, e se AUTO-CHAMA (fora dos 60s) até esvaziar a fila.
 const BASE = process.env.APP_BASE_URL || 'https://tecnocell-cloud.vercel.app'
 async function disparaReenvio(loja: Loja) {
-  // 2 tentativas: uma falha transitória de rede não pode matar a cadeia em silêncio
-  // (era isso que deixava o reenvio parado no meio, sem ninguém avisar).
-  for (let tentativa = 1; tentativa <= 2; tentativa++) {
+  // Mais tentativas + timeout maior: cold start do Vercel passa dos 8s antigos e derrubava
+  // a corrente aqui — uma auto-chamada perdida deixava o arquivo parado no meio até alguém
+  // mandar mensagem no grupo ou o cron diário rodar.
+  for (let tentativa = 1; tentativa <= 5; tentativa++) {
     try {
-      await fetchT(`${BASE}/api/telegram/comprovante?loja=${loja.slug}&job=reenvio`, { method: 'POST', headers: { 'x-telegram-bot-api-secret-token': process.env.TELEGRAM_WEBHOOK_SECRET || '' } }, 8000)
+      await fetchT(`${BASE}/api/telegram/comprovante?loja=${loja.slug}&job=reenvio`, { method: 'POST', headers: { 'x-telegram-bot-api-secret-token': process.env.TELEGRAM_WEBHOOK_SECRET || '' } }, 20000)
       return
     } catch (e) {
-      console.error('[reenvio] disparaReenvio falhou (tentativa ' + tentativa + '/2):', String((e as Error)?.message || e))
-      if (tentativa < 2) await new Promise((r) => setTimeout(r, 2000))
+      console.error('[reenvio] disparaReenvio falhou (tentativa ' + tentativa + '/5):', String((e as Error)?.message || e))
+      if (tentativa < 5) await new Promise((r) => setTimeout(r, 2000 * tentativa))
     }
   }
   await tgSend(loja.token, loja.grupo, '⚠️ O reenvio das fotos do fechamento falhou agora — ele retoma sozinho na próxima mensagem do grupo.')
