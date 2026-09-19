@@ -5,7 +5,7 @@ import { pino } from 'pino'
 import qrcode from 'qrcode-terminal'
 import QRCode from 'qrcode'
 import { classificaPergunta, escolheProduto, geraResposta } from './lib/ia.mjs'
-import { buscaProdutos, buscaProdutosAmplo, buscaEstoque, buscaChavePix, resumoLoja, ehConsultaGenerica, buscaTabelaDoCliente, buscaTabelaVarejoId, precosDaTabela, buscaTabelaPorNome, categoriasDe } from './lib/produtos.mjs'
+import { buscaProdutos, buscaProdutosAmplo, buscaPorPrioridade, buscaEstoque, buscaChavePix, resumoLoja, ehConsultaGenerica, buscaTabelaDoCliente, buscaTabelaVarejoId, precosDaTabela, buscaTabelaPorNome, categoriasDe, modelosDistintos } from './lib/produtos.mjs'
 import { montaResposta, AVISO } from './lib/resposta.mjs'
 import { ENDERECO, HORARIO, CADASTRO, POLITICA, ENCOMENDA, VENDEDORA, PERGUNTA_APARELHO } from './lib/info.mjs'
 import { registraTroca, jaAvisouHoje, marcaAvisoHoje } from './lib/db.mjs'
@@ -17,12 +17,26 @@ import { env, RAIZ_REPO } from '../bot/lib/env.mjs'
 
 const logger = pino({ level: 'silent' })
 const LINK_ENCOMENDAS = env('BOT_WHATSAPP_LINK_ENCOMENDAS')
+// Acima desse tanto de opções, e sendo MODELOS diferentes ("j7" casa Prime/Neo/Pro/
+// Metal), o bot pergunta qual modelo exato em vez de despejar a lista inteira.
+const LIMITE_OPCOES = 4
 
 // 401 loggedOut, 403 forbidden (conta banida), 440 connectionReplaced (WhatsApp
 // Web aberto em outro lugar) e 500 badSession não se resolvem tentando de novo —
 // martelar reconexão numa conta já banida/deslogada só piora. Só reconecta em
 // código transitório (408, 428, 503, 515, sem código, erro de rede).
 const CODIGOS_DESCONEXAO_DEFINITIVA = new Set([401, 403, 440, 500])
+
+// Backoff exponencial de reconexão. Antes o bot tentava a cada 5s pra sempre — numa
+// madrugada de rede ruim isso virava 300+ quedas e CORROMPIA a sessão (o mesmo vínculo
+// reconectado em loop faz o WhatsApp invalidar a credencial). Agora cada queda espaça
+// mais: 5s → 10s → 20s → 40s → ... até 30min. Conectou de novo → zera o contador.
+const reconexoesSeguidas = new Map() // slug -> número de quedas sem conseguir reconectar
+function esperaReconexao(slug) {
+  const n = reconexoesSeguidas.get(slug) || 0
+  // 5s * 2^n, teto de 30min
+  return Math.min(5000 * Math.pow(2, n), 30 * 60 * 1000)
+}
 
 // Só conversa individual: remoteJid de grupo termina em @g.us, o de pessoa em
 // @s.whatsapp.net (ou @lid em contas mais novas — ver Baileys docs). Mensagem
@@ -67,8 +81,9 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
       console.log(`\n[${slug}] escaneie o QR code no WhatsApp (Aparelhos conectados):\n`)
       qrcode.generate(qr, { small: true })
       // salva o QR como PNG pra escanear com a câmera (o QR do terminal distorce)
-      QRCode.toFile(path.join(RAIZ_REPO, 'bot-whatsapp', 'data', `qr_${slug}.png`), qr, { width: 512, margin: 2 })
-        .then((destino) => console.log(`[${slug}] QR salvo em: ${destino}`))
+      const caminhoQr = path.join(RAIZ_REPO, 'bot-whatsapp', 'data', `qr_${slug}.png`)
+      QRCode.toFile(caminhoQr, qr, { width: 512, margin: 2 })
+        .then(() => console.log(`[${slug}] QR salvo em: ${caminhoQr}`))
         .catch(() => {})
     }
     if (connection === 'close') {
@@ -81,13 +96,17 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
       if (definitivo) {
         console.error(`[${slug}] conexão caiu (${code}). Sessão encerrada — precisa de ação humana: apague a pasta de auth e escaneie o QR de novo, ou verifique se a conta foi banida/aberta em outro lugar. Não vai reconectar sozinho.`)
       } else {
-        console.error(`[${slug}] conexão caiu (${code || 'sem código'}). Reconectando em 5s...`)
+        const n = (reconexoesSeguidas.get(slug) || 0) + 1
+        reconexoesSeguidas.set(slug, n)
+        const espera = esperaReconexao(slug)
+        console.error(`[${slug}] conexão caiu (${code || 'sem código'}). Reconectando em ${Math.round(espera / 1000)}s (queda ${n})...`)
         setTimeout(() => {
           iniciaSessao({ slug, depositoId, pastaAuth }).catch((e) => console.error(`[${slug}] falha ao reconectar:`, e))
-        }, 5000)
+        }, espera)
       }
     } else if (connection === 'open') {
       console.log(`[${slug}] conectado ao WhatsApp.`)
+      reconexoesSeguidas.set(slug, 0) // conectou: zera o backoff
       // constrói/atualiza o mapa lid->telefone em segundo plano (não bloqueia o bot)
       constroiMapa(sock).catch((e) => console.error(`[${slug}] falha ao construir mapa lid->telefone:`, e?.message || e))
     }
@@ -221,23 +240,26 @@ async function processaMensagem(sock, loja, jid, texto) {
     limpaContexto(loja.slug, jid) // pergunta nova de produto: contexto anterior ficou velho
     buscaDescricao = classificacao.textoBusca
 
-    // Sem tipo de peça na pergunta ("iphone 12" solto): continua o tipo da
-    // conversa, ou assume "frontal" — a peça mais comum. Senão o bot chuta
-    // qualquer peça e volta "alto falante" só porque vem antes no alfabeto.
-    if (categoriasDe(buscaDescricao).length === 0) {
-      const ultima = pegaCategoria(loja.slug, jid) || 'frontal'
-      buscaDescricao = ultima + ' ' + buscaDescricao
-    }
-    const catAtual = categoriasDe(buscaDescricao)
-    if (catAtual.length > 0) guardaCategoria(loja.slug, jid, catAtual[0])
-
+    // "tem película?" / "tem capa?" sem aparelho: pergunta qual aparelho, não chuta.
     if (ehConsultaGenerica(buscaDescricao)) {
       await dorme(1500 + Math.random() * 1500)
       await sock.sendMessage(jid, { text: PERGUNTA_APARELHO })
       return
     }
 
-    let candidatos = await buscaProdutos(buscaDescricao)
+    // Sem tipo de peça ("j7 amarelo" solto): a palavra-chave é o MODELO, cor é
+    // detalhe. Prioridade do tipo: frontal (tela) > bateria > outros itens do
+    // modelo. Continua o tipo da conversa anterior se já estava em "bateria" etc.
+    let candidatos
+    if (categoriasDe(buscaDescricao).length === 0) {
+      const res = await buscaPorPrioridade(buscaDescricao, pegaCategoria(loja.slug, jid))
+      candidatos = res.produtos
+      if (res.categoria) guardaCategoria(loja.slug, jid, res.categoria)
+    } else {
+      const catAtual = categoriasDe(buscaDescricao)
+      guardaCategoria(loja.slug, jid, catAtual[0])
+      candidatos = await buscaProdutos(buscaDescricao)
+    }
     // Busca estrita (AND) veio vazia: tenta de novo com rede mais larga (OR) e
     // deixa a IA decidir semanticamente — cobre "16 pro max oled" quando o
     // catálogo não tem a palavra "oled" no nome.
@@ -259,6 +281,20 @@ async function processaMensagem(sock, loja, jid, texto) {
     }
 
     produtos = candidatos
+
+    // Muitas opções de MODELOS diferentes ("j7" casa Prime/Neo/Pro/Metal): em vez
+    // de despejar 12 telas, pergunta qual modelo exato. Só quando são modelos
+    // distintos — várias cores/telas do MESMO modelo continuam listando normal.
+    if (produtos.length > LIMITE_OPCOES) {
+      const modelos = modelosDistintos(produtos)
+      if (modelos.length > 1) {
+        await dorme(1500 + Math.random() * 1500)
+        const lista = modelos.slice(0, 6).map((m) => `• ${m.toUpperCase()}`).join('\n')
+        await sock.sendMessage(jid, { text: `Achei várias opções. Qual modelo exato?\n${lista}` })
+        return
+      }
+    }
+
     if (produtos.length > 1) guardaPendente(loja.slug, jid, produtos)
   }
 

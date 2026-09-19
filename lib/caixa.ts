@@ -24,6 +24,7 @@ export async function registrarNoCaixa(
   valor: number,
   formaTexto: string,
   motivo: string,
+  lancamentoId?: string | null,
 ): Promise<void> {
   if (!lojaId || !(valor > 0)) return
   const { data: caixa, error: erroCaixa } = await supabase
@@ -44,6 +45,7 @@ export async function registrarNoCaixa(
     motivo,
     forma_pagamento: formaTexto || 'Dinheiro',
     valor,
+    ...(lancamentoId ? { lancamento_id: lancamentoId } : {}),
   })
   if (erroMovimento) console.error('registrarNoCaixa: falha ao registrar movimento:', erroMovimento.message)
 }

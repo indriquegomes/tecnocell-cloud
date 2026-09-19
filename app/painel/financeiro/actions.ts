@@ -153,8 +153,90 @@ export async function marcarPago(id: string, formData?: FormData) {
       Math.round(faltava * 100) / 100,
       forma,   // nunca vazio aqui: 'receber' sem forma já foi recusado acima
       `Fiado recebido — ${antes?.pessoa_nome ?? 'cliente'}`,
+      id,
     )
   }
+
+  revalidatePath('/painel/financeiro')
+  revalidatePath('/painel/fiados')
+}
+
+// DESFAZER PAGAMENTO — reverte uma quitação do botão "Pago" (marcarPago).
+// Antes não dava: pagamento com forma errada ficava preso, e excluir o lançamento
+// deixava o dinheiro órfão na gaveta. Agora o movimento do caixa guarda
+// lancamento_id (via registrarNoCaixa), então o desfazer é exato: apaga o movimento
+// e devolve o lançamento pra pendente.
+export async function desfazerPagamento(id: string) {
+  const usuario = await requirePermissao('financeiro')
+  const supabase = await createServiceClient()
+
+  const { data: lanc, error: erroLanc } = await supabase
+    .from('lancamentos')
+    .select('valor, valor_pago, tipo, status, pessoa_nome')
+    .eq('id', id)
+    .maybeSingle()
+  if (erroLanc) redirect(`/painel/financeiro?erro=${encodeURIComponent(erroLanc.message)}`)
+  if (!lanc || lanc.status !== 'pago') {
+    redirect(`/painel/financeiro?erro=${encodeURIComponent('Só é possível desfazer um lançamento já pago.')}`)
+  }
+
+  // Movimentos que o "Pago" jogou no caixa (só receber gera movimento) — é o que
+  // sai da gaveta agora.
+  const { data: movs, error: erroMov } = await supabase
+    .from('movimentos_caixa')
+    .select('id, valor, caixa_id')
+    .eq('lancamento_id', id)
+    .eq('tipo', 'recebimento')
+  if (erroMov) redirect(`/painel/financeiro?erro=${encodeURIComponent(erroMov.message)}`)
+  const lista = (movs ?? []) as { id: string; valor: number | null; caixa_id: string | null }[]
+  const valorMovido = Math.round(lista.reduce((s, m) => s + Number(m.valor ?? 0), 0) * 100) / 100
+
+  // Pago fora do Financeiro (PDV/OS) não tem movimento ligado — desfazer aqui
+  // voltaria a dívida mas deixaria o dinheiro na gaveta (o mesmo bug, ao contrário).
+  if (lanc.tipo === 'receber' && lista.length === 0) {
+    redirect(`/painel/financeiro?erro=${encodeURIComponent('Esse pagamento não tem movimento no caixa pra desfazer (foi feito fora do Financeiro).')}`)
+  }
+
+  // Caixa já fechado: o dinheiro foi contado no fechamento. Apagar o movimento
+  // mudaria o passado — recusa e pede estorno manual.
+  const caixaIds = [...new Set(lista.map((m) => m.caixa_id).filter((c): c is string => !!c))]
+  if (caixaIds.length > 0) {
+    const { data: caixas, error: erroCx } = await supabase
+      .from('caixas')
+      .select('id, status')
+      .in('id', caixaIds)
+    if (erroCx) redirect(`/painel/financeiro?erro=${encodeURIComponent(erroCx.message)}`)
+    if ((caixas ?? []).some((c) => c.status === 'fechado')) {
+      redirect(`/painel/financeiro?erro=${encodeURIComponent('Caixa já fechado — não dá pra desfazer sem estorno manual.')}`)
+    }
+  }
+
+  // Receber: devolve só o que o "Pago" adicionou (preserva parcial anterior).
+  // Pagar: não tem movimento na gaveta → zera o pago.
+  const pagoAtual = Number(lanc.valor_pago ?? 0)
+  const novoPago = lanc.tipo === 'receber'
+    ? Math.max(0, Math.round((pagoAtual - valorMovido) * 100) / 100)
+    : 0
+
+  await logAtividade('pagamento.desfazer', {
+    lancamento_id: id,
+    valor_estornado: valorMovido,
+    cliente: lanc.pessoa_nome ?? null,
+  }, usuario, '/painel/financeiro')
+
+  if (lista.length > 0) {
+    const { error: erroDel } = await supabase.from('movimentos_caixa').delete().eq('lancamento_id', id).eq('tipo', 'recebimento')
+    if (erroDel) redirect(`/painel/financeiro?erro=${encodeURIComponent(erroDel.message)}`)
+  }
+
+  const { error } = await supabase.from('lancamentos').update({
+    status: 'pendente',
+    valor_pago: novoPago,
+    data_pagamento: null,
+    forma_pagamento: null,
+    updated_at: new Date().toISOString(),
+  }).eq('id', id)
+  if (error) redirect(`/painel/financeiro?erro=${encodeURIComponent(error.message)}`)
 
   revalidatePath('/painel/financeiro')
   revalidatePath('/painel/fiados')

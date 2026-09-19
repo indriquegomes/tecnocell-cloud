@@ -30,13 +30,18 @@ function palavrasBusca(t) {
 }
 
 // busca_norm inclui o código interno do produto (ex.: "tampa iphone 8 branca
-// 06618 apple") pra permitir busca por SKU nas telas internas. Palavra
-// puramente numérica ("8") como pedaço solto bate em qualquer código que
-// contenha aquele dígito ("06598") — confirmado em produção 24/08: "tampa 8"
-// escondeu as tampas de iPhone 8 de verdade atrás de tampas de Asus/iPhone
-// 16 cujo único ponto em comum era o código interno. Número exige palavra
-// inteira (`\y...\y`, regex do Postgres) pra só bater em modelo de verdade.
-const numerica = (w) => /^\d+$/.test(w)
+// 06618 apple") pra permitir busca por SKU nas telas internas.
+const QUALIFICADORES_INTEIROS = new Set(['pro', 'max'])
+
+// Token que só casa como PALAVRA INTEIRA (\y...\y), não trecho:
+// - número ("8"): senão bate em qualquer código interno que contenha o dígito
+//   (confirmado em produção 24/08: "tampa 8" escondeu as tampas de iPhone 8 de
+//   verdade atrás de tampas de Asus/iPhone 16 que só compartilhavam o código)
+// - código alfanumérico ("g8", "j7", "a10s"): senão "g8" casa "g84"/"g82" e traz
+//   Edge 30/G84 pra uma busca de "moto g8"
+// - qualificador curto ("pro"/"max"): senão "pro" casa "PROMOÇÃO" e "j7 pro"
+//   trazia J7 PRIME só por causa do "*PROMOÇÃO TOP20*" no nome
+const exigePalavraInteira = (w) => /\d/.test(w) || QUALIFICADORES_INTEIROS.has(w)
 
 // Trava fixa, sem IA: se o cliente pede um TIPO de peça conhecido, o produto
 // tem que ter essa mesma palavra — senão nunca vira opção, ponto. A checagem
@@ -73,6 +78,81 @@ const SINONIMOS_TIPO = {
   // marca: "redmi" é a linha da Xiaomi — o catálogo grava "xiaomi" (às vezes os
   // dois). "tampa redmi 8 pro" precisa achar "TAMPA XIAOMI NOTE 8 PRO".
   redmi: ['xiaomi'],
+}
+
+// Cor com gênero: o catálogo grava a cor concordando com o nome da peça — botão
+// é masculino ("DOURADO"), frontal/película/tampa é feminino ("DOURADA"). O
+// cliente não sabe disso e fala no masculino por padrão ("j7 pro dourado"). Sem
+// essa equivalência, "dourado" não acha o "FRONTAL ... DOURADA" que existe —
+// confirmado em produção 19/09: bot respondeu "não encontrei" pra um item que tem.
+const COR_GENERO = {
+  dourado: 'dourada', dourada: 'dourado',
+  preto: 'preta', preta: 'preto',
+  branco: 'branca', branca: 'branco',
+  amarelo: 'amarela', amarela: 'amarelo',
+  vermelho: 'vermelha', vermelha: 'vermelho',
+  roxo: 'roxa', roxa: 'roxo',
+  prateado: 'prateada', prateada: 'prateado',
+  rosado: 'rosada', rosada: 'rosado',
+}
+
+// Palavra + o par de gênero oposto (se for cor). Busca e pontuação usam isso pra
+// casar "dourado" com "dourada" nos dois sentidos.
+function variantes(palavra) {
+  const par = COR_GENERO[palavra]
+  return par ? [palavra, par] : [palavra]
+}
+
+// Cores (invariantes + inglês comum no catálogo). Servem pro filtro MACIO: se o
+// modelo + cor não achar nada, a cor é descartada e a busca repete sem ela — a
+// palavra-chave é o MODELO, cor é detalhe. O dono confirmou 19/09: "j7 amarelo"
+// tem que priorizar o frontal do J7, não responder "não encontrei" por falta de amarelo.
+const CORES = new Set([
+  ...Object.keys(COR_GENERO),
+  'azul', 'verde', 'rosa', 'cinza', 'grafite', 'vinho', 'bege', 'lilas', 'transparente',
+  'prata', 'ouro', 'marrom', 'laranja', 'turquesa', 'champagne', 'champanhe', 'cristal',
+  'gold', 'silver', 'black', 'white', 'blue', 'red', 'green', 'pink', 'grey', 'gray', 'purple',
+])
+
+// Ordem de prioridade quando o cliente fala SÓ o modelo, sem tipo de peça:
+// frontal (tela) é o mais vendido, bateria vem depois, e se nenhum dos dois
+// existir pro modelo, sobem os outros itens relacionados.
+const PRIORIDADE_CATEGORIA = ['frontal', 'bateria']
+
+// Palavras que não identificam modelo (tipo de peça, cor, conectivo, qualidade).
+// Servem pra agrupar as opções e perguntar "qual modelo?" quando a busca volta
+// coisa demais ("j7" casa J7 Prime/Neo/Pro/Metal de uma vez).
+const STOP_MODELO = new Set([
+  ...CATEGORIAS,
+  ...CORES,
+  ...CONECTORES,
+  'aaa', 'oled', 'lcd', 'incell', 'amoled', 'tft', 'ips', 'premium', 'vivid', 'amg',
+  'jk', 'zl', 'kbs', 'top20', 'promocao', '3d', 'cristal', 'caixa', 'novo', 'nova',
+  'original', 'hd', 'fhd', 'super', 'full', 'hq',
+])
+
+// Assinatura do modelo de um produto: as 3 primeiras palavras do nome que não são
+// tipo/cor/qualidade. "FRONTAL SAMSUNG J7 PRO J730 OLED AAA DOURADA SEM ARO" vira
+// "samsung j7 pro" — agrupa as dezenas de telas do mesmo aparelho num rótulo só.
+function assinaturaModelo(nome) {
+  return semAcento(nome)
+    .replace(/[*+]/g, ' ') // "*" (promoção/qualidade) e "+" (HD+/FHD+) viram espaço
+    .split(/\s+/).filter(Boolean)
+    .filter((w) => !STOP_MODELO.has(w))
+    .slice(0, 3)
+    .join(' ')
+}
+
+// Modelos distintos (assinatura única) de uma lista de produtos, na ordem em que
+// aparecem. Exportado pra sessao.mjs decidir se pergunta "qual modelo exato?".
+export function modelosDistintos(produtos) {
+  const vistos = new Set()
+  const out = []
+  for (const p of produtos) {
+    const m = assinaturaModelo(p.nome)
+    if (m && !vistos.has(m)) { vistos.add(m); out.push(m) }
+  }
+  return out
 }
 
 function categoriaDe(palavra) {
@@ -116,13 +196,17 @@ export async function buscaProdutos(termo) {
 
   let q = supabase.from('produtos').select('id, nome, preco').eq('ativo', true).eq('visivel_catalogo', true)
   for (const w of palavras) {
-    if (numerica(w)) {
+    if (exigePalavraInteira(w)) {
       q = q.filter('busca_norm', 'imatch', `\\y${w}\\y`)
     } else if (SINONIMOS_TIPO[w]) {
       // palavra é um tipo com sinônimo (tela=frontal=display): busca qualquer variante
       q = q.or([w, ...SINONIMOS_TIPO[w]].map((s) => `busca_norm.ilike.%${s}%`).join(','))
     } else {
-      q = q.ilike('busca_norm', `%${w}%`)
+      const vars = variantes(w)
+      // cor com gênero (dourado/dourada): busca as duas formas, senão o cliente que
+      // fala "dourado" não acha a peça gravada como "DOURADA"
+      if (vars.length > 1) q = q.or(vars.map((s) => `busca_norm.ilike.%${s}%`).join(','))
+      else q = q.ilike('busca_norm', `%${w}%`)
     }
   }
   // ordena por preço (mais barato primeiro) e pega até 15 — mostra TODAS as
@@ -162,6 +246,14 @@ export async function buscaProdutos(termo) {
   const categorias = categoriasPedidas(palavras)
   resultado = resultado.filter((p) => bateCategoria(semAcento(p.nome), categorias))
 
+  // Cor é filtro MACIO: modelo + cor não achou nada -> repete sem as cores. A
+  // palavra-chave é o MODELO, cor é detalhe — "j7 amarelo" não pode virar
+  // "não encontrei" só porque o catálogo não tem amarelo pra esse modelo.
+  if (resultado.length === 0) {
+    const semCor = palavras.filter((w) => !CORES.has(w))
+    if (semCor.length > 0 && semCor.length < palavras.length) return buscaProdutos(semCor.join(' '))
+  }
+
   return resultado.map((p) => ({ id: p.id, nome: p.nome, preco: p.preco ?? 0 }))
 }
 
@@ -183,7 +275,7 @@ export async function buscaProdutosAmplo(termo) {
   const palavras = palavrasBusca(t)
   if (palavras.length === 0) return []
 
-  const orNorm = palavras.map((w) => numerica(w) ? `busca_norm.imatch.\\y${w}\\y` : `busca_norm.ilike.%${w}%`).join(',')
+  const orNorm = palavras.flatMap((w) => exigePalavraInteira(w) ? [`busca_norm.imatch.\\y${w}\\y`] : variantes(w).map((s) => `busca_norm.ilike.%${s}%`)).join(',')
   let { data, error } = await supabase.from('produtos').select('id, nome, preco')
     .eq('ativo', true).eq('visivel_catalogo', true).or(orNorm).limit(60)
 
@@ -199,12 +291,28 @@ export async function buscaProdutosAmplo(termo) {
   const categorias = categoriasPedidas(palavras)
   const pontuados = (data ?? [])
     .filter((p) => bateCategoria(semAcento(p.nome), categorias))
-    .map((p) => ({ produto: { id: p.id, nome: p.nome, preco: p.preco ?? 0 }, acertos: palavras.filter((w) => semAcento(p.nome).includes(w)).length }))
+    .map((p) => ({ produto: { id: p.id, nome: p.nome, preco: p.preco ?? 0 }, acertos: palavras.filter((w) => variantes(w).some((v) => semAcento(p.nome).includes(v))).length }))
     .filter((x) => x.acertos > 0)
     .sort((a, b) => b.acertos - a.acertos)
 
   const melhorPontuacao = pontuados[0]?.acertos ?? 0
   return pontuados.filter((x) => x.acertos === melhorPontuacao).slice(0, 8).map((x) => x.produto)
+}
+
+// Cliente falou SÓ o modelo, sem tipo de peça ("j7", "j7 amarelo"). Tenta os
+// tipos na ordem de prioridade (frontal > bateria > outros) e devolve junto o
+// tipo que casou, pra sessao.mjs lembrar dele na próxima pergunta. A cor já é
+// descartada dentro de buscaProdutos() quando não acha nada — aqui só manda o
+// termo completo pra cada tipo.
+export async function buscaPorPrioridade(termo, categoriaLembrada = null) {
+  const prioridades = categoriaLembrada && !PRIORIDADE_CATEGORIA.includes(categoriaLembrada)
+    ? [categoriaLembrada, ...PRIORIDADE_CATEGORIA]
+    : PRIORIDADE_CATEGORIA
+  for (const cat of prioridades) {
+    const r = await buscaProdutos(`${cat} ${termo}`)
+    if (r.length > 0) return { produtos: r, categoria: cat }
+  }
+  return { produtos: await buscaProdutos(termo), categoria: null }
 }
 
 export async function buscaEstoque(produtoId, depositoId) {

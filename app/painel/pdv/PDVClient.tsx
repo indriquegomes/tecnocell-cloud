@@ -1811,6 +1811,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const totalAVencer = crediarioItens.filter((i) => !i.data_vencimento || i.data_vencimento >= hoje).reduce((s, i) => s + restante(i), 0)
   const itensSelecionados = crediarioItens.filter((i) => selecionados.has(i.id))
   const subtotalSelecionado = itensSelecionados.reduce((s, i) => s + Math.min(restante(i), valoresQuitar[i.id] ?? restante(i)), 0)
+  // Troco do quitar em lote: total digitado acima do saldo selecionado, pago em dinheiro.
+  const formaQuitarTipo = formas.find((f) => f.nome === formaQuitar)?.tipo
+  const trocoQuitar = formaQuitarTipo === 'dinheiro' && (parseFloat(totalQuitar) || 0) > subtotalSelecionado + 0.005
+    ? Math.round(((parseFloat(totalQuitar) || 0) - subtotalSelecionado) * 100) / 100
+    : 0
   useEffect(() => {
     setValoresQuitar((atual) => Object.fromEntries(itensSelecionados.map((i) => [i.id, Math.min(restante(i), atual[i.id] ?? restante(i))])))
     setTotalQuitar('')
@@ -3314,6 +3319,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                       Saldo: <b className="tabular-nums">{formatBRL(saldoCreditoLote)}</b> · abate sem entrar na gaveta
                     </span>
                   )}
+                  {trocoQuitar > 0.005 && (
+                    <span className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+                      💵 Troco: <span className="tabular-nums">{formatBRL(trocoQuitar)}</span>
+                    </span>
+                  )}
                   <button
                     type="button"
                     disabled={pagandoCrediario || !formaFoiEscolhida(formaQuitar)}
@@ -3512,6 +3522,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       const ehDesconto = formaRecebimento === DESCONTO_ID
       const restanteReceb = recebendoItem.valor - (recebendoItem.valor_pago ?? 0)
       const descontoNum = parseFloat((valorRecebido || '').replace(',', '.')) || 0
+      // Troco em dinheiro: cliente dá mais que o aberto (dívida 97, paga 100 → troco 3).
+      // Só dinheiro — cartão/PIX passam o valor exato, não devolvem troco de gaveta.
+      const trocoReceb = !ehDesconto && isDinheiroForma(formaRecebimento) && descontoNum > restanteReceb + 0.005
+        ? Math.round((descontoNum - restanteReceb) * 100) / 100
+        : 0
       return (
         <div className="animate-fade-in fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl">
@@ -3567,6 +3582,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                     className={`w-full rounded-xl border py-3 pl-9 pr-4 text-right text-lg font-bold focus:outline-none focus:ring-2 ${ehDesconto ? 'border-amber-300 bg-amber-50/50 text-amber-800 focus:ring-amber-500' : 'border-gray-200 text-gray-900 focus:ring-blue-500'}`}
                   />
                 </div>
+                {trocoReceb > 0.005 && (
+                  <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
+                    💵 Troco: <span className="tabular-nums">{formatBRL(trocoReceb)}</span>
+                  </p>
+                )}
               </div>
               )}
 

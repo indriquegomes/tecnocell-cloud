@@ -4,7 +4,7 @@ import { IconWallet } from '@/components/icons'
 import { formatBRL, formatDate, hojeSP } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { BuscaLista } from '@/components/BuscaLista'
-import { marcarPago, deletarLancamento } from './actions'
+import { marcarPago, deletarLancamento, desfazerPagamento } from './actions'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
@@ -79,6 +79,15 @@ export default async function FinanceiroPage({
 
   type LancRow = { id: string; codigo: string | null; descricao: string | null; valor: number | null; tipo: string; status: string | null; data_vencimento: string | null; data_pagamento: string | null; data_competencia: string | null; forma_pagamento: string | null; pessoa_nome: string | null; categoria: string | null }
   const todos = (lancamentos ?? []) as LancRow[]
+
+  // Lancamentos com movimento de caixa ligado (quitados pelo Financeiro). Só esses
+  // têm "Desfazer" seguro — PDV/OS quitam sem gravar lancamento_id.
+  const { data: movsLigados } = await supabase
+    .from('movimentos_caixa')
+    .select('lancamento_id')
+    .not('lancamento_id', 'is', null)
+    .eq('tipo', 'recebimento')
+  const idsDesfazer = new Set(((movsLigados ?? []) as { lancamento_id: string }[]).map((m) => m.lancamento_id))
 
   // ✨ Totais DO FILTRO (não só os globais): soma exatamente o que está filtrado,
   // sem o cap de 200 da lista. Isa: "quanto tenho a receber em PIX vencendo em agosto".
@@ -293,6 +302,13 @@ export default async function FinanceiroPage({
                             )}
                             <button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-medium text-green-600 hover:bg-green-50 transition">
                               Pago
+                            </button>
+                          </form>
+                        )}
+                        {pago && (l.tipo === 'pagar' || idsDesfazer.has(l.id)) && (
+                          <form action={desfazerPagamento.bind(null, l.id)}>
+                            <button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 transition">
+                              Desfazer
                             </button>
                           </form>
                         )}
