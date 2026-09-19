@@ -288,7 +288,7 @@ async function processaMensagem(sock, loja, jid, texto) {
   }))
 
   const comAviso = !jaAvisouHoje(loja.slug, chaveAviso)
-  const itens = produtos.slice(0, 3).map((p) => ({ nome: p.nome, preco: p.preco, estoque: estoquePorId.get(p.id) ?? 0 }))
+  const itens = produtos.map((p) => ({ nome: p.nome, preco: p.preco, estoque: estoquePorId.get(p.id) ?? 0 }))
   // Resposta natural via IA; se falhar, cai no template fixo (montaResposta)
   let corpo
   try {

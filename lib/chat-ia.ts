@@ -34,7 +34,7 @@ export function buildSystemPrompt(
 ): string {
   const base = `Você é a assistente virtual da TecnoCell Cloud, loja de smartphones, acessórios e eletrônicos com unidades em Petrópolis e Teresópolis (RJ).
 Seja MEIGA e carinhosa, mas SUCINTA e OBJETIVA: responda em no máximo 2 ou 3 frases, direto ao ponto, sem enrolação.
-Nunca invente informações — use apenas os dados fornecidos no contexto.`
+Nunca invente informações. Para responder com dados reais, use as FERRAMENTAS disponíveis (chame a ferramenta certa e aguarde o resultado antes de responder). Só use os dados que as ferramentas devolverem.`
 
   if (tipo === 'funcionario') {
     const apelido = apelidoDe(nomeUsuario)
@@ -124,3 +124,79 @@ export async function* streamChat(
     reader.releaseLock()
   }
 }
+// ---- Ferramentas (function calling): a IA chama uma ferramenta, o código
+// roda a consulta no Supabase e devolve só o resultado — assim ela acessa
+// qualquer dado do app sem precisar de tudo no prompt. ----
+
+export interface Ferramenta {
+  nome: string
+  descricao: string
+  parametros: Record<string, unknown>
+  executar: (args: Record<string, unknown>) => Promise<string>
+}
+
+type MsgDeepSeek = {
+  role: string
+  content?: string | null
+  tool_calls?: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }>
+  tool_call_id?: string
+}
+
+async function chamaDeepSeekNaoStream(mensagens: MsgDeepSeek[], ferramentas: Ferramenta[]): Promise<{ content: string | null; toolCalls: Array<{ id: string; name: string; arguments: string }> }> {
+  const key = process.env.DEEPSEEK_API_KEY
+  if (!key) throw new Error('DEEPSEEK_API_KEY não configurada')
+  const resp = await fetch(DEEPSEEK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + key },
+    body: JSON.stringify({
+      model: MODELO,
+      messages: mensagens,
+      tools: ferramentas.map((f) => ({ type: 'function', function: { name: f.nome, description: f.descricao, parameters: f.parametros } })),
+      tool_choice: 'auto',
+      max_tokens: 1024,
+    }),
+  })
+  if (!resp.ok) throw new Error('DeepSeek API ' + resp.status + ': ' + (await resp.text().catch(() => '')))
+  const data = await resp.json()
+  const msg = data.choices?.[0]?.message as { content: string | null; tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }> } | undefined
+  const toolCalls = (msg?.tool_calls ?? []).map((tc) => ({ id: tc.id, name: tc.function.name, arguments: tc.function.arguments ?? '{}' }))
+  return { content: msg?.content ?? null, toolCalls }
+}
+
+export async function* streamChatComFerramentas(
+  mensagens: ChatMessage[],
+  systemPrompt: string,
+  ferramentas: Ferramenta[]
+): AsyncGenerator<string> {
+  const historico: MsgDeepSeek[] = [
+    { role: 'system', content: systemPrompt },
+    ...mensagens.map((m) => ({ role: m.role, content: m.content })),
+  ]
+
+  let resposta: string | null = null
+  for (let rodada = 0; rodada < 4; rodada++) {
+    const ret = await chamaDeepSeekNaoStream(historico, ferramentas)
+    if (ret.toolCalls.length === 0) { resposta = ret.content; break }
+
+    historico.push({
+      role: 'assistant',
+      content: ret.content ?? '',
+      tool_calls: ret.toolCalls.map((tc) => ({ id: tc.id, type: 'function' as const, function: { name: tc.name, arguments: tc.arguments } })),
+    })
+
+    for (const tc of ret.toolCalls) {
+      const f = ferramentas.find((x) => x.nome === tc.name)
+      let resultado: string
+      try {
+        const args = tc.arguments ? JSON.parse(tc.arguments) : {}
+        resultado = f ? await f.executar(args) : JSON.stringify({ erro: 'ferramenta não existe' })
+      } catch (e) {
+        resultado = JSON.stringify({ erro: String(e) })
+      }
+      historico.push({ role: 'tool', tool_call_id: tc.id, content: resultado })
+    }
+  }
+
+  yield resposta ?? 'Não consegui montar uma resposta agora. Pode reformular a pergunta?'
+}
+

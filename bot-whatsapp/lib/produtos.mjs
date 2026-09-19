@@ -125,7 +125,10 @@ export async function buscaProdutos(termo) {
       q = q.ilike('busca_norm', `%${w}%`)
     }
   }
-  let { data, error } = await q.order('nome').limit(5)
+  // ordena por preço (mais barato primeiro) e pega até 15 — mostra TODAS as
+  // opções compatíveis, não só as 5 primeiras em ordem alfabética (o "promoção"
+  // com asterisco ficava por último e sumia).
+  let { data, error } = await q.order('preco').limit(15)
 
   // Erro real (rede, 5xx, chave expirada) não pode virar "[]" em silêncio — o bot
   // diria "não encontrei" sobre um produto que existe. Só a ausência da coluna
@@ -135,7 +138,7 @@ export async function buscaProdutos(termo) {
   if (error) {
     let f = supabase.from('produtos').select('id, nome, preco').eq('ativo', true).eq('visivel_catalogo', true)
     for (const w of palavras) f = f.or(`nome.ilike.%${w}%,codigo.ilike.%${w}%`)
-    ;({ data, error } = await f.order('nome').limit(5))
+    ;({ data, error } = await f.order('preco').limit(15))
     if (error) throw error
   }
 
