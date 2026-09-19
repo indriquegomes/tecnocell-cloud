@@ -16,7 +16,7 @@ import { createClient } from '@supabase/supabase-js'
 // ============================================================================
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+export const maxDuration = 300
 
 type Loja = { slug: string; token: string; grupo: number; aba: string }
 function lojaDe(slug: string): Loja | null {
@@ -717,7 +717,7 @@ async function fechar(loja: Loja, p: any, quem: string | null) {
 
 // ---------- arquivo do fechamento: reenvio PAUSADO em segundo plano ----------
 // /fechar só enfileira; este worker manda ~1 item a cada 4s (≈15/min, dentro do limite do
-// Telegram), até ~45s por chamada, e se AUTO-CHAMA (fora dos 60s) até esvaziar a fila.
+// Telegram), até ~4min por chamada (maxDuration 300 no Pro), e se AUTO-CHAMA até esvaziar.
 const BASE = process.env.APP_BASE_URL || 'https://tecnocell-cloud.vercel.app'
 async function disparaReenvio(loja: Loja) {
   // Mais tentativas + timeout maior: cold start do Vercel passa dos 8s antigos e derrubava
@@ -774,9 +774,10 @@ async function processaReenvio(loja: Loja) {
   const itens = await itensReenvio(loja, p)
   let cur = Number(p.reenvio_cursor) || 0
   const t0 = Date.now()
-  // Janela menor (30s, era 45s) + reivindicação atômica: com a auto-retomada por mensagem,
-  // dois workers podem acordar juntos — sem a trava, mandariam a MESMA foto duas vezes.
-  while (cur < itens.length && Date.now() - t0 < 30000) {
+  // Janela longa (4min) + reivindicação atômica: um dia típico (<60 itens) sai numa chamada
+  // só, sem auto-chamada no meio — que era o ponto que quebrava a corrente. Dois workers
+  // acordando juntos não duplicam: a trava do cursor manda a MESMA foto só uma vez.
+  while (cur < itens.length && Date.now() - t0 < 240000) {
     // Reivindica o item ATOMICAMENTE (cursor avança só se ninguém pegou antes).
     const { data: reivindicado } = await sb().from('pix_periodos')
       .update({ reenvio_cursor: cur + 1 })
@@ -794,7 +795,7 @@ async function processaReenvio(loja: Loja) {
       else if (it.t === 'link') await tgSend(loja.token, loja.grupo, '🔗 ' + it.url)
     } catch { /* um item ruim não trava a fila */ }
     cur++
-    if (cur < itens.length && Date.now() - t0 < 30000) await new Promise((r) => setTimeout(r, 4000))
+    if (cur < itens.length && Date.now() - t0 < 240000) await new Promise((r) => setTimeout(r, 4000))
   }
   if (cur >= itens.length) {
     // finaliza só quem realmente desligou a flag (evita 2x 'completo' com workers duplos)
