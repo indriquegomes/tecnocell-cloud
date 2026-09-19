@@ -275,6 +275,10 @@ async function processaMensagem(sock, loja, jid, texto) {
     if (produtos.length > LIMITE_OPCOES) {
       const modelos = modelosDistintos(produtos)
       if (modelos.length > 1) {
+        // Guarda a lista pra resolver a resposta do cliente por MODELO ("11" →
+        // iphone 11, não iphone 11 pro). Sem isso, "11" virava busca nova e o bot
+        // repetia a mesma pergunta pra sempre.
+        guardaPendente(loja.slug, jid, produtos)
         await dorme(1500 + Math.random() * 1500)
         const lista = modelos.slice(0, 6).map((m) => `• ${m.toUpperCase()}`).join('\n')
         await sock.sendMessage(jid, { text: `Achei várias opções. Qual modelo exato?\n${lista}` })

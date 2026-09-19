@@ -159,20 +159,36 @@ export function modelosDistintos(produtos) {
 
 // Resolve a ESCOLHA do cliente contra a lista que o bot mostrou, de forma
 // DETERMINÍSTICA (a IA errava aqui de forma inconsistente — "incell 87" e "a de
-// 65" viravam busca nova e traziam fone gamer/adaptador). Regras:
-//   1) número inteiro = índice ("2")
-//   2) preço ("a de 65", "incell 87,00", "128?") = casa o preço mostrado
-//   3) palavra de qualidade/cor ("vivid", "branca", "oled") = filtra pelo nome
+// 65" viravam busca nova e traziam fone gamer/adaptador). Regras em ordem:
+//   1) MODELO — resposta ao "qual modelo?": casa o FINAL da assinatura ("11" →
+//      "iphone 11", mas NÃO "iphone 11 pro" que termina em "pro")
+//   2) número inteiro = índice ("2")
+//   3) preço ("a de 65", "incell 87,00", "128?") = casa o preço mostrado
+//   4) palavra de qualidade/cor ("vivid", "branca", "oled") = filtra pelo nome
 // Devolve as opções resolvidas, ou [] quando não entendeu (quem chama decide).
 export function resolveSelecao(texto, opcoes) {
   const t = (texto || '').trim()
   if (!opcoes || opcoes.length === 0) return []
 
-  // 1) número inteiro = índice
+  const palavras = semAcento(t).replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean)
+    .filter((w) => !CONECTORES.has(w) && w.length >= 2)
+
+  // 1) MODELO — o cliente respondeu o "qual modelo?" com o número/nome do modelo.
+  // Casa o SUFIXO da assinatura pra "11" não puxar "iphone 11 pro" junto.
+  if (palavras.length > 0) {
+    const alvo = palavras.join(' ')
+    const porModelo = opcoes.filter((p) => {
+      const fim = assinaturaModelo(p.nome).split(' ').slice(-palavras.length).join(' ')
+      return fim === alvo
+    })
+    if (porModelo.length > 0) return porModelo
+  }
+
+  // 2) número inteiro = índice
   const n = Number(t)
   if (Number.isInteger(n) && n >= 1 && n <= opcoes.length) return [opcoes[n - 1]]
 
-  // 2) preço — o cliente costuma escolher pelo valor, então casa exato no preço
+  // 3) preço — o cliente costuma escolher pelo valor, então casa exato no preço
   const m = t.match(/\d+(?:[.,]\d{1,2})?/)
   if (m) {
     const preco = parseFloat(m[0].replace(',', '.'))
@@ -180,12 +196,10 @@ export function resolveSelecao(texto, opcoes) {
     if (porPreco.length > 0) return porPreco
   }
 
-  // 3) palavra de qualidade/cor presente no nome
-  const palavras = semAcento(t).replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean)
-    .filter((w) => !CONECTORES.has(w))
+  // 4) palavra de qualidade/cor presente no nome
   const filtrados = opcoes.filter((p) => {
     const nome = semAcento(p.nome)
-    return palavras.some((w) => w.length >= 2 && nome.includes(w))
+    return palavras.some((w) => nome.includes(w))
   })
   if (filtrados.length > 0) return filtrados
 
