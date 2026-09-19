@@ -5,7 +5,8 @@ export const ENDERECO = `📍 Endereço: R. Dezesseis de Março, Galeria 336 - L
 
 export const HORARIO = `⏰ Horário de funcionamento:
 • Segunda a Sexta: 08h às 19h
-• Sábado: 08h às 17h`
+• Sábado: 08h às 17h
+• Domingo: fechado`
 
 export const CADASTRO = `📋 Para fazer seu cadastro, é bem simples!
 
@@ -27,6 +28,7 @@ export const POLITICA = `📢 POLÍTICA DE ATENDIMENTO – TECNOCELL
 ⏰ HORÁRIO DE FUNCIONAMENTO
 • Segunda a Sexta: 08h às 19h
 • Sábado: 08h às 17h
+• Domingo: fechado
 
 🚚 LOGÍSTICA DE ENTREGAS (GRATUITAS)
 📍 PETRÓPOLIS
