@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { hojeSP } from '@/lib/utils'
 import { criarLancamento } from '../actions'
 import { SubmitButton } from '@/components/SubmitButton'
@@ -15,6 +16,7 @@ export default async function NovoLancamentoPage({
   const supabase = await createServiceClient()
   const { data: formasRaw } = await supabase.from('formas_pagamento').select('id, nome').eq('ativo', true)
   const { data: contas } = await supabase.from('contas').select('id, nome, tipo').eq('ativa', true).order('nome')
+  const { ativa, operaveis } = await lojasDoUsuario().catch(() => ({ ativa: null, operaveis: [] as { id: string; nome: string }[] }))
   const ORDEM_FORMAS = ['PIX', 'Dinheiro', 'Crédito Loja (Fiado)', 'Cartão de Débito', 'Cartão de Crédito']
   const formas = (formasRaw ?? []).slice().sort((a, b) => {
     const ia = ORDEM_FORMAS.indexOf(a.nome)
@@ -49,6 +51,14 @@ export default async function NovoLancamentoPage({
             <select name="tipo" defaultValue={params.tipo ?? 'receber'} className="field">
               <option value="receber">A Receber</option>
               <option value="pagar">A Pagar</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Loja *</label>
+            <select name="loja_id" defaultValue={ativa?.id ?? ''} required className="field">
+              {(operaveis.length > 0 ? operaveis : [{ id: '', nome: 'Sem loja' }]).map((l) => (
+                <option key={l.id} value={l.id}>{l.nome}</option>
+              ))}
             </select>
           </div>
           <div>

@@ -1,4 +1,5 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { FinanceiroTabs } from './FinanceiroTabs'
 import { IconWallet } from '@/components/icons'
 import { formatBRL, formatDate, hojeSP } from '@/lib/utils'
@@ -14,10 +15,14 @@ import { BuscaAvancada } from '@/components/BuscaAvancada'
 export default async function FinanceiroPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tipo?: string; busca?: string; ordem?: string; dir?: string; status?: string; de?: string; ate?: string; pessoa?: string; forma?: string; conta?: string; categoria?: string; valor_min?: string; valor_max?: string; campo?: string; erro?: string }>
+  searchParams: Promise<{ tipo?: string; busca?: string; ordem?: string; dir?: string; status?: string; de?: string; ate?: string; pessoa?: string; forma?: string; conta?: string; categoria?: string; valor_min?: string; valor_max?: string; campo?: string; erro?: string; loja?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
+  // Loja ativa rege o default: financeiro mostra UMA loja por vez (contas fixas e
+  // novas de cada loja são separadas). 'sem' = despesas antigas ainda sem loja.
+  const { ativa, operaveis } = await lojasDoUsuario().catch(() => ({ ativa: null, operaveis: [] as { id: string; nome: string }[] }))
+  const lojaEfetiva = params.loja && (params.loja === 'sem' || params.loja === 'todas' || operaveis.some((l) => l.id === params.loja)) ? params.loja : (ativa?.id ?? 'sem')
 
   // Campo de data pelo qual filtrar o período (Busca Avançada, igual SIGE:
   // Vencimento × Competência × Pagamento). Default vencimento.
@@ -37,6 +42,8 @@ export default async function FinanceiroPage({
   // Aplica TODOS os filtros da busca avançada a uma query (reusado na lista e nos totais)
   /* eslint-disable @typescript-eslint/no-explicit-any */
   const aplica = (q: any): any => {
+    if (lojaEfetiva === 'sem') q = q.is('loja_id', null)
+    else if (lojaEfetiva !== 'todas') q = q.eq('loja_id', lojaEfetiva)
     if (params.tipo === 'pagar' || params.tipo === 'receber') q = q.eq('tipo', params.tipo)
     if (params.busca) { for (const w of params.busca.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)) q = q.or(`descricao.ilike.%${w}%,pessoa_nome.ilike.%${w}%`) }
     if (params.pessoa) q = q.ilike('pessoa_nome', `%${params.pessoa}%`)
@@ -59,7 +66,7 @@ export default async function FinanceiroPage({
   const ordemDir = params.dir === 'desc'
   const camposDB: Record<string, string> = { data_vencimento: 'data_vencimento', valor: 'valor', descricao: 'descricao', pessoa_nome: 'pessoa_nome', tipo: 'tipo', status: 'status' }
   const baseParams: Record<string, string> = {}
-  for (const k of ['tipo', 'busca', 'status', 'de', 'ate', 'pessoa', 'forma', 'conta', 'categoria', 'valor_min', 'valor_max', 'campo'] as const) {
+  for (const k of ['tipo', 'busca', 'status', 'de', 'ate', 'pessoa', 'forma', 'conta', 'categoria', 'valor_min', 'valor_max', 'campo', 'loja'] as const) {
     if (params[k]) baseParams[k] = params[k]!
   }
   const sortLink = (o: string) => {
@@ -186,6 +193,12 @@ export default async function FinanceiroPage({
           {params.busca && <input type="hidden" name="busca" value={params.busca} />}
           <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Cliente / Fornecedor</label>
             <input name="pessoa" defaultValue={params.pessoa ?? ''} placeholder="nome…" className={inp} /></div>
+          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Loja</label>
+            <select name="loja" defaultValue={lojaEfetiva} className={inp}>
+              {operaveis.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
+              <option value="sem">Sem loja</option>
+              <option value="todas">Todas</option>
+            </select></div>
           <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Forma de pagamento</label>
             <select name="forma" defaultValue={params.forma ?? ''} className={inp}>
               <option value="">Todas</option>{formasOpc.map((f) => <option key={f} value={f}>{f}</option>)}</select></div>

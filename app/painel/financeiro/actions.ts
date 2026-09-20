@@ -31,6 +31,7 @@ export async function criarLancamento(formData: FormData) {
   const competencia = (formData.get('data_competencia') as string) || null
   const vencimento = (formData.get('data_vencimento') as string) || hoje
   const contaId = (formData.get('conta_id') as string) || null
+  const lojaId = (formData.get('loja_id') as string) || null
 
   const repeticao = (formData.get('repeticao') as string) || 'nao'
   const n = Math.max(1, Math.min(60, parseInt((formData.get('repeticoes') as string) || '1', 10) || 1))
@@ -49,6 +50,7 @@ export async function criarLancamento(formData: FormData) {
     forma_pagamento: (formData.get('forma_pagamento') as string) || null,
     pessoa_nome: (formData.get('pessoa_nome') as string) || null,
     conta_id: contaId,
+    loja_id: lojaId,
     // só a 1ª pode nascer quitada; as futuras ficam pendentes
     status: quitado && i === 0 ? 'pago' : 'pendente',
     data_pagamento: quitado && i === 0 ? hoje : null,
