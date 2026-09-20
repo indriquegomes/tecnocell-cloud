@@ -171,10 +171,12 @@ export function resolveSelecao(texto, opcoes, modelos = null) {
   const t = (texto || '').trim()
   if (!opcoes || opcoes.length === 0) return []
 
-  // 0) cliente respondeu o NÚMERO do modelo ("1" → iphone 11, "2" → iphone 11 pro)
+  // 0) cliente respondeu o NÚMERO do modelo ("1" → iphone 11, "2" → iphone 11 pro).
+  // Só vale o que FOI mostrado (a lista exibe 6); acima disso "11" é iPhone 11, não
+  // "modelo #11" — cai na regra 1 (sufixo) e resolve pelo nome.
   if (modelos && modelos.length > 1) {
     const nModelo = Number(t)
-    if (Number.isInteger(nModelo) && nModelo >= 1 && nModelo <= modelos.length) {
+    if (Number.isInteger(nModelo) && nModelo >= 1 && nModelo <= Math.min(modelos.length, 6)) {
       const modelo = modelos[nModelo - 1]
       const porModelo = opcoes.filter((p) => assinaturaModelo(p.nome) === modelo)
       if (porModelo.length > 0) return porModelo

@@ -1261,7 +1261,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       setEtapa('venda')
       setCarrinho([])
       setPagamentos([{ uid: '1', forma_id: '', valor: '', maquina: '', parcelas: 1 }])
-      setValorAuto(true); setPessoaId(''); setDesconto(''); setSenhaDesconto(''); setObservacoes(''); setBuscaCliente(''); setDescontoTipo('valor'); setSaldoCredito(0); setFiadoCliente(null)
+      setValorAuto(true); setPessoaId(''); setDesconto(''); setSenhaDesconto(''); setObservacoes(''); setBuscaCliente(''); setDescontoTipo('valor'); setSaldoCredito(0); setFiadoCliente(null); setCombinadoEntrega(false)
       setMsgOrc('✅ Orçamento salvo! Carregue de volta no F3 (Orçamento/Pedido) pra finalizar.')
       setTimeout(() => setMsgOrc(''), 6000)
     } catch (e) {
@@ -1400,6 +1400,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       setBuscaCliente('')
       setDescontoTipo('valor')
       setSaldoCredito(0)
+      setCombinadoEntrega(false)
       // Atualiza o saldo local do depósito vendido sem router.refresh() (que dispara check de sessão)
       if (result.estoqueAtualizado) {
         const vendidoEm = depositoId

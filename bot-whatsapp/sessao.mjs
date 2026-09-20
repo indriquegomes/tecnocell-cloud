@@ -306,6 +306,8 @@ async function processaMensagem(sock, loja, jid, texto) {
         const pt = precosTabela.get(p.id)
         return pt != null && pt > 0 ? { ...p, preco: pt } : p
       })
+      // a busca ordenou pelo varejo; reordena pelo preço FINAL (tabela do cliente)
+      produtos.sort((a, b) => (Number(a.preco) || 0) - (Number(b.preco) || 0))
     }
   }
 
