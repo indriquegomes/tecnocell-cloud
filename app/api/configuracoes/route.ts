@@ -1,10 +1,13 @@
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient, permissoesEfetivas } from '@/lib/supabase/server'
+import { temPermissao } from '@/lib/permissoes'
 import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
   const authClient = await createClient()
-  const { data: { session } } = await authClient.auth.getSession()
-  if (!session) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  const { permissoes, isMaster, ativo } = await permissoesEfetivas(user.id)
+  if (!ativo || !temPermissao(permissoes, 'usuarios', isMaster)) return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
 
   const valor = await request.json()
   const supabase = await createServiceClient()

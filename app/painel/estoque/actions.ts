@@ -88,7 +88,7 @@ export async function registrarMovimento(formData: FormData) {
   // ...): negativa aqui inverteria a operação escondido (uma "entrada" negativa vira
   // saída de verdade sem aparecer como saída no histórico) -- o min="0" do form é só
   // client-side, não impede forçar direto na requisição.
-  const quantidade = Math.max(0, Math.round(parseFloat(formData.get('quantidade') as string)))
+  const quantidade = Math.max(0, Math.round(parseFloat(formData.get('quantidade') as string) || 0))
   const operacao = formData.get('operacao') as string
   const notaFiscal = (formData.get('nota_fiscal') as string | null)?.trim() || null
   const obsRaw = (formData.get('observacao') as string | null)?.trim() || null

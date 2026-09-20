@@ -85,7 +85,7 @@ export async function faturarPedido(id: string): Promise<{ ok: boolean; msg: str
   const supabase = await createServiceClient()
 
   const { data: pedido } = await supabase.from('pedidos')
-    .select('id, status, desconto, deposito_id, forma_pagamento_id, pessoa_id, vendedor_id, vendedor_nome, observacoes')
+    .select('id, status, desconto, frete, deposito_id, forma_pagamento_id, pessoa_id, vendedor_id, vendedor_nome, observacoes')
     .eq('id', id).single()
   if (!pedido) return { ok: false, msg: 'Pedido não encontrado.' }
   if (pedido.status === 'faturado') return { ok: false, msg: 'Este pedido já foi faturado.' }
@@ -109,8 +109,10 @@ export async function faturarPedido(id: string): Promise<{ ok: boolean; msg: str
   const isFiado = (forma?.tipo === 'fiado') || /fiado/i.test(forma?.nome ?? '')
 
   const desconto = pedido.desconto ?? 0
+  const frete = pedido.frete ?? 0
   const totalItens = lista.reduce((s, i) => s + (i.total_item ?? i.preco_unitario * i.quantidade), 0)
-  const total = Math.max(0, totalItens - desconto)
+  // frete entra no total (o pedido mostra subtotal - desconto + frete) — sem ele, entrega era faturada a menos
+  const total = Math.max(0, totalItens - desconto + frete)
 
   // Trava atômica: marca 'faturado' ANTES de criar a venda. Se dois cliques
   // caírem juntos, só um consegue (o outro não acha linha pra atualizar).
