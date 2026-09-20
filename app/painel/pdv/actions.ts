@@ -1024,49 +1024,16 @@ export async function aplicarDescontoCrediario(
     await requirePermissao('venda_desconto', accessToken)   // perdoar dívida = dar desconto
     const supabase = await createServiceClient()
 
-    const { data: lanc, error: errBusca } = await supabase
-      .from('lancamentos')
-      .select('valor, valor_pago, historico_pagamentos')
-      .eq('id', id)
-      .single()
-    if (errBusca || !lanc) throw new Error('Lançamento não encontrado.')
-
-    const valor = Number(lanc.valor) || 0
-    const pago = Number(lanc.valor_pago) || 0
-    const restante = Math.round((valor - pago) * 100) / 100
-
-    // trava: nunca perdoar mais do que o cliente ainda deve (senão a dívida vira negativa)
-    const desconto = Math.min(Math.round(valorDesconto * 100) / 100, restante)
-    if (!(desconto > 0)) throw new Error('Desconto inválido.')
-
-    const novoValor = Math.round((valor - desconto) * 100) / 100
-    const quitado = pago >= novoValor
-
-    const historico = Array.isArray(lanc.historico_pagamentos) ? (lanc.historico_pagamentos as PagamentoHistorico[]) : []
-    const registro: PagamentoHistorico = {
-      valor: desconto,
-      forma: motivo.trim() ? `Desconto — ${motivo.trim()}` : 'Desconto',
-      data: new Date().toISOString(),
-      tipo: 'desconto',
-    }
-
-    const update: Record<string, unknown> = {
-      valor: novoValor,
-      historico_pagamentos: [...historico, registro],
-      updated_at: new Date().toISOString(),
-    }
-    if (quitado) {
-      update.status = 'pago'
-      update.data_pagamento = hojeSP()
-      // a conta é a do ÚLTIMO pagamento REAL — o desconto não move dinheiro nenhum.
-      // Se a dívida foi 100% perdoada, conta_id fica null e nada entra em conta (correto).
-      const ultimoReal = [...historico].reverse().find((h) => h.tipo !== 'desconto')
-      if (ultimoReal) update.conta_id = await contaDaFormaTexto(supabase, ultimoReal.forma)
-    }
-
-    const { error } = await supabase.from('lancamentos').update(update).eq('id', id)
+    // RPC atômica: FOR UPDATE + abate o valor. Sem ela, duas abas descontando o
+    // MESMO fiado ao mesmo tempo liam o mesmo valor e um desconto se perdia.
+    const { data, error } = await supabase.rpc('aplicar_desconto_fiado', {
+      p_lancamento_id: id,
+      p_desconto: valorDesconto,
+      p_motivo: motivo ?? '',
+    })
     if (error) throw new Error(error.message)
-    return { ok: true, quitado, novoValor }
+    const res = data as { quitado?: boolean; novo_valor?: number } | null
+    return { ok: true, quitado: res?.quitado ?? false, novoValor: res?.novo_valor }
   } catch (e) {
     return { ok: false, erro: e instanceof Error && e.message ? e.message : 'Erro ao aplicar desconto.' }
   }
