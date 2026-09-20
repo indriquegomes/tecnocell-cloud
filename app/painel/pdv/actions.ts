@@ -848,43 +848,24 @@ export async function registrarPagamentoParcial(
     await requirePermissao('crediario_receber', accessToken)
     const supabase = await createServiceClient()
 
-    const { data: lanc, error: errBusca } = await supabase
-      .from('lancamentos')
-      .select('valor, valor_pago, historico_pagamentos, pessoa_nome')
-      .eq('id', id)
-      .single()
-    if (errBusca || !lanc) throw new Error('Lançamento não encontrado.')
+    // Nome só pra descrever o movimento de caixa — o incremento do valor_pago é
+    // ATÔMICO no RPC (duas abas recebendo o MESMO fiado não perdem mais um update).
+    const { data: lanc } = await supabase.from('lancamentos').select('pessoa_nome').eq('id', id).maybeSingle()
+    const contaId = await contaDaFormaTexto(supabase, formaPagamento, lojaId)
 
-    const totalPagoAtualizado = (lanc.valor_pago ?? 0) + valorPago
-    const quitado = totalPagoAtualizado >= lanc.valor
-    const today = hojeSP()
-
-    const novoRegistro: PagamentoHistorico = {
-      valor: valorPago,
-      forma: formaPagamento,
-      data: new Date().toISOString(),
-    }
-    // historico_pagamentos deveria ser sempre array; guarda contra registro legado
-    // malformado (objeto/null) — spread de não-array lançaria TypeError.
-    const historicoAtual = Array.isArray(lanc.historico_pagamentos) ? (lanc.historico_pagamentos as PagamentoHistorico[]) : []
-    const historicoAtualizado = [...historicoAtual, novoRegistro]
-
-    const update: Record<string, unknown> = {
-      valor_pago: totalPagoAtualizado,
-      forma_pagamento: formaPagamento,
-      historico_pagamentos: historicoAtualizado,
-      updated_at: new Date().toISOString(),
-    }
-    if (quitado) {
-      update.status = 'pago'
-      update.data_pagamento = today
-      update.conta_id = await contaDaFormaTexto(supabase, formaPagamento, lojaId)
-    }
-
-    const { error } = await supabase.from('lancamentos').update(update).eq('id', id)
+    const novoRegistro = { valor: valorPago, forma: formaPagamento, data: new Date().toISOString() }
+    const { data, error } = await supabase.rpc('receber_fiado_reais', {
+      p_lancamento_id: id,
+      p_valor: valorPago,
+      p_forma: formaPagamento,
+      p_historico: [novoRegistro],
+      p_conta_id: contaId,
+      p_loja_id: lojaId ?? null,
+    })
     if (error) throw new Error(error.message)
+    const quitado = (data as { quitado?: boolean } | null)?.quitado ?? false
 
-    await registrarNoCaixa(supabase, lojaId, valorPago, formaPagamento, `Fiado recebido — ${lanc.pessoa_nome ?? 'cliente'}`)
+    await registrarNoCaixa(supabase, lojaId, valorPago, formaPagamento, `Fiado recebido — ${lanc?.pessoa_nome ?? 'cliente'}`)
 
     return { ok: true, quitado }
   } catch (e) {
@@ -958,38 +939,25 @@ export async function registrarPagamentoMisto(
     // lançamento porque a RPC do vale já subiu o valor_pago.
     const somaReais = Math.round(linhasReais.reduce((s, p) => s + p.valor, 0) * 100) / 100
     if (somaReais > 0) {
-      const { data: lanc2, error: errBusca2 } = await supabase
-        .from('lancamentos')
-        .select('valor, valor_pago, historico_pagamentos, pessoa_nome')
-        .eq('id', id)
-        .single()
-      if (errBusca2 || !lanc2) throw new Error('Lançamento não encontrado.')
-
-      const pagoAgora = Math.round(((Number(lanc2.valor_pago) || 0) + somaReais) * 100) / 100
-      const hoje = hojeSP()
+      // Nome só pra descrever o movimento de caixa — o incremento é ATÔMICO no RPC.
+      const { data: lanc2 } = await supabase.from('lancamentos').select('pessoa_nome').eq('id', id).maybeSingle()
+      const contaId = await contaDaFormaTexto(supabase, linhasReais[0].forma, lojaId)
       const agora = new Date().toISOString()
+      const novos = linhasReais.map((p) => ({ valor: p.valor, forma: p.forma, data: agora }))
+      const formaTxt = somaVale > 0 ? `Vale Crédito + ${linhasReais.map((p) => p.forma).join(' + ')}` : linhasReais.map((p) => p.forma).join(' + ')
 
-      const historicoAtual = Array.isArray(lanc2.historico_pagamentos) ? (lanc2.historico_pagamentos as PagamentoHistorico[]) : []
-      const novos: PagamentoHistorico[] = linhasReais.map((p) => ({ valor: p.valor, forma: p.forma, data: agora }))
-
-      const update: Record<string, unknown> = {
-        valor_pago: pagoAgora,
-        forma_pagamento: somaVale > 0 ? `Vale Crédito + ${linhasReais.map((p) => p.forma).join(' + ')}` : linhasReais.map((p) => p.forma).join(' + '),
-        historico_pagamentos: [...historicoAtual, ...novos],
-        updated_at: agora,
-      }
-      if (quitado) {
-        update.status = 'pago'
-        update.data_pagamento = hoje
-        // conta da forma REAL (vale não passa por conta) — dinheiro/PIX/cartão
-        update.conta_id = await contaDaFormaTexto(supabase, linhasReais[0].forma, lojaId)
-      }
-
-      const { error } = await supabase.from('lancamentos').update(update).eq('id', id)
+      const { error } = await supabase.rpc('receber_fiado_reais', {
+        p_lancamento_id: id,
+        p_valor: somaReais,
+        p_forma: formaTxt,
+        p_historico: novos,
+        p_conta_id: contaId,
+        p_loja_id: lojaId ?? null,
+      })
       if (error) throw new Error(error.message)
 
       for (const p of linhasReais) {
-        await registrarNoCaixa(supabase, lojaId, p.valor, p.forma, `Fiado recebido — ${lanc2.pessoa_nome ?? 'cliente'}`)
+        await registrarNoCaixa(supabase, lojaId, p.valor, p.forma, `Fiado recebido — ${lanc2?.pessoa_nome ?? 'cliente'}`)
       }
     }
 
