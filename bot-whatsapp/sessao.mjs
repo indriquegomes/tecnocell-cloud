@@ -7,7 +7,7 @@ import QRCode from 'qrcode'
 import { classificaPergunta, geraResposta } from './lib/ia.mjs'
 import { buscaProdutos, buscaProdutosAmplo, buscaPorPrioridade, buscaEstoque, buscaChavePix, resumoLoja, ehConsultaGenerica, buscaTabelaDoCliente, buscaTabelaVarejoId, precosDaTabela, buscaTabelaPorNome, categoriasDe, modelosDistintos, resolveSelecao } from './lib/produtos.mjs'
 import { montaResposta, AVISO } from './lib/resposta.mjs'
-import { ENDERECO, HORARIO, CADASTRO, POLITICA, ENCOMENDA, VENDEDORA, PERGUNTA_APARELHO } from './lib/info.mjs'
+import { ENDERECO, HORARIO, CADASTRO, POLITICA, ENCOMENDA, VENDEDORA, PERGUNTA_APARELHO, FORA_HORARIO } from './lib/info.mjs'
 import { registraTroca, jaAvisouHoje, marcaAvisoHoje } from './lib/db.mjs'
 import { guardaPendente, pegaPendente, limpaPendente, guardaContexto, pegaContexto, limpaContexto, guardaCategoria, pegaCategoria, guardaModelos, pegaModelos, limpaModelos } from './lib/estado.mjs'
 import { respondePedido, ehConfirmacao } from './lib/pedido.mjs'
@@ -174,6 +174,18 @@ async function respondeAssuntoFixo(texto) {
   return null
 }
 
+// Fora do expediente? Seg-Sex 08h-19h, Sáb 08h-17h, Dom fechado (fuso da loja).
+function foraDoHorario() {
+  const p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date())
+  const partes = {}
+  for (const x of p) partes[x.type] = x.value
+  const dia = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(partes.weekday)
+  const min = Number(partes.hour) * 60 + Number(partes.minute)
+  if (dia === 0) return true // domingo
+  if (dia === 6) return min < 8 * 60 || min >= 17 * 60 // sábado 08-17
+  return min < 8 * 60 || min >= 19 * 60 // seg-sex 08-19
+}
+
 async function processaMensagem(sock, loja, jid, texto) {
   // jid pode vir como @lid (ID anônimo) — traduz pro número real antes de casar
   // com a tabela de preço do cliente.
@@ -234,7 +246,15 @@ async function processaMensagem(sock, loja, jid, texto) {
       await respondePedido(sock, loja.slug, jid, telefone, null, nomeCliente)
       return
     }
-    if (!classificacao.ehPerguntaProduto) return // fora do escopo: sem log, sem resposta
+    if (!classificacao.ehPerguntaProduto) {
+      // Mensagem fora do escopo de produto (oi, boa noite...): fora do expediente
+      // responde o horário + que o robô segue 24h, em vez de ficar mudo.
+      if (foraDoHorario()) {
+        await dorme(1500 + Math.random() * 1500)
+        await sock.sendMessage(jid, { text: FORA_HORARIO })
+      }
+      return
+    }
     limpaContexto(loja.slug, jid) // pergunta nova de produto: contexto anterior ficou velho
     buscaDescricao = classificacao.textoBusca
 

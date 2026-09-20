@@ -8,6 +8,14 @@ export const HORARIO = `⏰ Horário de funcionamento:
 • Sábado: 08h às 17h
 • Domingo: fechado`
 
+// Resposta quando chega mensagem fora do expediente (o robô fica 24h, mas avisa o horário)
+export const FORA_HORARIO = `Oi! No momento estamos fora do horário de atendimento — nosso horário:
+• Segunda a Sexta: 08h às 19h
+• Sábado: 08h às 17h
+• Domingo: fechado
+
+Mas eu sigo por aqui 24h! Me manda o modelo da peça que te digo o preço e se temos em estoque. 😊`
+
 export const CADASTRO = `📋 Para fazer seu cadastro, é bem simples!
 
 Me informe os seguintes dados:
