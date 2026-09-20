@@ -1,4 +1,5 @@
 import { createServiceClient, requireAuth } from '@/lib/supabase/server'
+import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { pixSemComprovante } from '@/lib/pix-pendentes'
 import { OperacaoClient } from './OperacaoClient'
 
@@ -10,10 +11,12 @@ export default async function OperacaoPDVPage({
   const { erro, fechado, aberto, esperado, contado, loja } = await searchParams
   const supabase = await createServiceClient()
 
-  // Loja atual (caixa é por loja): ?loja=<id> ou a 1ª loja ativa
+  // Loja atual (caixa é por loja): a loja ATIVA do usuário rege; atendente
+  // restrita não consegue trocar pra loja que não opera (URL ignorada).
   const { data: lojasData } = await supabase.from('lojas').select('id, nome').eq('ativa', true).order('nome')
   const lojas = lojasData ?? []
-  const lojaAtual = (loja && lojas.some((l) => l.id === loja)) ? loja : (lojas[0]?.id ?? '')
+  const { ativa, operaveis } = await lojasDoUsuario().catch(() => ({ ativa: null, operaveis: lojas }))
+  const lojaAtual = (loja && operaveis.some((l) => l.id === loja)) ? loja : (ativa?.id ?? lojas[0]?.id ?? '')
 
   // Caixa atual (da loja) + histórico + formas em paralelo
   const [caixaResult, historicoResult, formasResult] = await Promise.all([

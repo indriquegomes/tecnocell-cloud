@@ -1,4 +1,5 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, permissoesUsuarioAtual } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import { UsuariosClient } from './UsuariosClient'
 
 // Lê a config de PDV do perfil de forma tolerante — se a migration
@@ -32,6 +33,11 @@ async function configPdvPorPerfil(
 }
 
 export default async function UsuariosPage() {
+  // Gerenciar contas/permissões é informação delicada de TODOS os usuários — só
+  // master tem acesso total. Os demais veem só o próprio perfil (meu-perfil).
+  const { isMaster } = await permissoesUsuarioAtual()
+  if (!isMaster) redirect('/painel/meu-perfil')
+
   const supabase = await createServiceClient()
 
   // Lista usuários do Auth + perfis

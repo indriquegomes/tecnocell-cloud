@@ -1,5 +1,6 @@
 import { IconChart } from '@/components/icons'
 import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server'
+import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 import { formatDate, hojeSP, diaSP } from '@/lib/utils'
@@ -62,7 +63,12 @@ export default async function RelatoriosPage({
   // Loja selecionada → filtra vendas pelo CAIXA daquela loja (a venda não tem loja
   // direto; vem do caixa). Isa 29/07: relatórios por loja. Ver caixa-por-loja-gate-venda.
   const { data: lojasAll } = await supabase.from('lojas').select('id, nome').order('nome')
-  const lojaSel = loja && loja !== 'todas' ? loja : null
+  // Loja ativa do usuário rege o default: relatório mostra UMA loja por vez, nunca
+  // mistura. Atendente restrita não consegue trocar pra loja que não opera (o
+  // param da URL é ignorado se não estiver nas operáveis).
+  const { ativa: lojaAtiva, operaveis } = await lojasDoUsuario().catch(() => ({ ativa: null, operaveis: [] as { id: string; nome: string }[] }))
+  const lojaEfetiva = (loja && operaveis.some((l) => l.id === loja)) ? loja : (lojaAtiva?.id ?? 'todas')
+  const lojaSel = lojaEfetiva !== 'todas' ? lojaEfetiva : null
   let caixasDaLoja: string[] | null = null
   if (lojaSel) {
     const { data: cxs } = await supabase.from('caixas').select('id').eq('loja_id', lojaSel)
@@ -846,7 +852,7 @@ export default async function RelatoriosPage({
   }
   let caixasFech: CaixaFech[] = []
   let lojasFC: { id: string; nome: string }[] = []
-  const lojaFC = loja && loja !== 'todas' ? loja : null
+  const lojaFC = lojaSel
   if (aba === 'fechamentocaixa' && !caixa) {
     const { data: lojas } = await supabase.from('lojas').select('id, nome').order('nome')
     lojasFC = lojas ?? []
@@ -1088,7 +1094,7 @@ export default async function RelatoriosPage({
         {aba === 'fechamentocaixa' && !caixa && (
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-600">Loja</label>
-            <select name="loja" defaultValue={loja ?? 'todas'} className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <select name="loja" defaultValue={lojaEfetiva} className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="todas">Todas</option>
               {lojasFC.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
             </select>
@@ -1097,7 +1103,7 @@ export default async function RelatoriosPage({
         {abasComLoja.includes(aba) && (
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-600">Loja</label>
-            <select name="loja" defaultValue={loja ?? 'todas'} className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <select name="loja" defaultValue={lojaEfetiva} className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="todas">Todas</option>
               {(lojasAll ?? []).map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
             </select>
