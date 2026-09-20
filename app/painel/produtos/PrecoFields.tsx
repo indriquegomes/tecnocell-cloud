@@ -42,11 +42,13 @@ export function PrecoFields({
         <label className="mb-1.5 block text-sm font-medium text-gray-700">Varejo (R$)</label>
         <CampoDinheiro name="preco_varejo" defaultValue={varejoInicial} />
       </div>
-      <div className="sm:col-span-2">
-        <label className="mb-1.5 block text-sm font-medium text-gray-700">Preço Mínimo (R$)</label>
-        <CampoDinheiro name="preco_minimo" defaultValue={minimoInicial} />
-        <p className="mt-1 text-[11px] text-gray-400">Piso de venda. Só quem tem a permissão &quot;Vender abaixo do mínimo&quot; fecha venda abaixo disso.</p>
-      </div>
+      {podeCusto && (
+        <div className="sm:col-span-2">
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Preço Mínimo (R$)</label>
+          <CampoDinheiro name="preco_minimo" defaultValue={minimoInicial} />
+          <p className="mt-1 text-[11px] text-gray-400">Piso de venda. Só quem tem a permissão &quot;Vender abaixo do mínimo&quot; fecha venda abaixo disso.</p>
+        </div>
+      )}
     </div>
   )
 }

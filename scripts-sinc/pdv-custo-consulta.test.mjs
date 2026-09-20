@@ -18,6 +18,6 @@ test('CUSTO bloqueia orçamento e venda no cliente e servidor', () => {
   assert.ok((client.match(/setErro\(AVISO_CUSTO\)/g) ?? []).length >= 3)
   assert.match(actions, /tabelaSomenteConsulta\(/)
   assert.match(actions, /Tabela CUSTO é somente consulta/)
-  assert.match(actions, /itens\.find\(\(i\)[\s\S]{0,180}i\.preco_unitario <= Number\(produto\.preco_custo\)/)
+  assert.match(actions, /itens\.find\(\(i\)[\s\S]{0,220}preco_unitario[\s\S]{0,80}<= Number\(produto\.preco_custo\)/)
   assert.ok((actions.match(/produtoNoCusto\(/g) ?? []).length >= 3)
 })

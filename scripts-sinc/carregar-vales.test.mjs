@@ -6,11 +6,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawn } from 'node:child_process'
 
-test('carrega cliente limpo pelo cpfCnpj', async () => {
+test('carrega cliente limpo pelo id (pessoas.id = ObjectId do SIGE)', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'vale-'))
   const arquivo = join(dir, 'Clientes.json')
   await writeFile(arquivo, JSON.stringify([{
-    id: 'sige-1', nome: 'Cliente X', cpfCnpj: '12.345.678/0001-90', saldoValeCredito: 7,
+    id: 'sige-1', nome: 'Cliente X', saldoValeCredito: 7,
   }]))
 
   let enviado = null
@@ -19,7 +19,7 @@ test('carrega cliente limpo pelo cpfCnpj', async () => {
     req.on('data', (chunk) => { corpo += chunk })
     req.on('end', () => {
       if (req.method === 'POST') enviado = JSON.parse(corpo)[0]
-      const json = req.url.startsWith('/rest/v1/pessoas') ? [{ id: 'pessoa-1', cpf_cnpj: '12345678000190' }] : []
+      const json = req.url.startsWith('/rest/v1/pessoas') ? [{ id: 'sige-1' }] : []
       res.writeHead(req.method === 'POST' ? 201 : 200, { 'content-type': 'application/json' })
       res.end(JSON.stringify(json))
     })

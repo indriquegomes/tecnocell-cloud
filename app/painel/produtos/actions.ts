@@ -52,7 +52,8 @@ async function salvarPrecosTabela(supabase: Awaited<ReturnType<typeof createServ
   // conflito pela chave natural (tabela_id, produto_id, quantidade_minima) — o mesmo
   // índice único que o trigger da CUSTO usa. Assim nunca duplica: a VAREJO foi importada
   // com id uuid5('tecnocell:itemtabela:VAREJO:<produto>') e bateria errado pelo id.
-  await supabase.from('itens_tabela_preco').upsert(itens, { onConflict: 'tabela_id,produto_id,quantidade_minima' })
+  const { error } = await supabase.from('itens_tabela_preco').upsert(itens, { onConflict: 'tabela_id,produto_id,quantidade_minima' })
+  if (error) console.error('salvarPrecosTabela:', error.message)
 }
 
 export async function criarProduto(formData: FormData) {
