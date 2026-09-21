@@ -193,6 +193,8 @@ function ehProdutoLexico(texto) {
   return categoriasDe(texto).length > 0
 }
 
+const brl = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v || 0))
+
 async function processaMensagem(sock, loja, jid, texto) {
   // jid pode vir como @lid (ID anônimo) — traduz pro número real antes de casar
   // com a tabela de preço do cliente.
@@ -359,13 +361,19 @@ async function processaMensagem(sock, loja, jid, texto) {
 
   const comAviso = !jaAvisouHoje(loja.slug, chaveAviso)
   const itens = produtos.map((p) => ({ nome: p.nome, preco: p.preco, estoque: estoquePorId.get(p.id) ?? 0 }))
-  // Resposta natural via IA; se falhar, cai no template fixo (montaResposta)
   let corpo
-  try {
-    corpo = await geraResposta(texto, itens, LINK_ENCOMENDAS)
-  } catch (e) {
-    console.error(`[${loja.slug}] [ERRO IA] falha ao gerar resposta:`, e?.message || e)
-    corpo = montaResposta({ produtos, estoquePorId, comAviso: false, linkEncomendas: LINK_ENCOMENDAS })
+  if (produtos.length > 1) {
+    // Lista determinística na MESMA ordem da pendência: a IA omitia "sem estoque"
+    // e reordenava, então "1" resolvia pro produto errado. Aqui o número bate sempre.
+    corpo = 'Temos essas opções:\n\n' + produtos.map((p, i) => (i + 1) + '. ' + p.nome + ' — ' + brl(p.preco) + ((estoquePorId.get(p.id) ?? 0) > 0 ? '' : ' (sem estoque)')).join('\n') + '\n\nMe responde só com o número da opção que você quer! 👍'
+  } else {
+    // Resposta natural via IA; se falhar, cai no template fixo (montaResposta)
+    try {
+      corpo = await geraResposta(texto, itens, LINK_ENCOMENDAS)
+    } catch (e) {
+      console.error(`[${loja.slug}] [ERRO IA] falha ao gerar resposta:`, e?.message || e)
+      corpo = montaResposta({ produtos, estoquePorId, comAviso: false, linkEncomendas: LINK_ENCOMENDAS })
+    }
   }
   const resposta = comAviso ? AVISO + corpo : corpo
 
