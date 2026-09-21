@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { PainelShell } from '@/components/PainelShell'
+import { ChatWidget } from '@/components/ChatWidget'
 import { NavProgress } from '@/components/NavProgress'
 import { createServiceClient, permissoesEfetivas, configAcesso } from '@/lib/supabase/server'
 import { permissaoPorRota, temPermissao } from '@/lib/permissoes'
@@ -151,6 +152,7 @@ export default async function PainelLayout({ children }: { children: React.React
       >
         {children}
       </PainelShell>
+      <ChatWidget tipo={temPermissao(permissoes, 'chat_ia', isMaster) ? 'funcionario' : 'cliente'} />
     </>
   )
 }

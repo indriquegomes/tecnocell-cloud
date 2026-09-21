@@ -38,7 +38,6 @@ export default function ChatPage() {
         </div>
       </div>
 
-      <ChatWidget tipo="funcionario" />
     </div>
   )
 }

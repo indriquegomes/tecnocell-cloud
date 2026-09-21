@@ -180,7 +180,7 @@ export function ChatWidget({ tipo, className }: Props) {
                 )}
               </Button>
             </div>
-            <p className="mt-1 text-center text-xs text-gray-400">Powered by Claude · TecnoCell Cloud</p>
+            <p className="mt-1 text-center text-xs text-gray-400">Powered by DeepSeek · TecnoCell Cloud</p>
           </div>
         </div>
       )}
