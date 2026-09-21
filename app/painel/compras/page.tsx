@@ -1,4 +1,5 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { depositosDaLojaAtiva } from '@/lib/lojas-usuario'
 import { IconPlus, IconFile } from '@/components/icons'
 import { formatBRL } from '@/lib/utils'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
@@ -19,6 +20,8 @@ export default async function ComprasPage({
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
+  // Notas separadas por loja: filtra pelos depósitos da loja ATIVA.
+  const depositosAtiva = await depositosDaLojaAtiva().catch(() => [] as string[])
 
   const ordemAtual = params.ordem ?? 'created_at'
   const ordemDir = params.dir === 'desc'
@@ -31,15 +34,20 @@ export default async function ComprasPage({
     return { href: `/painel/compras?${qs}`, arrow, ativo }
   }
 
-  const { data: notas } = await supabase
+  let notasQ = supabase
     .from('notas_entrada')
     .select('id, numero, status, valor_total, data_entrada, data_emissao, pessoas(nome)')
     .order(camposDB[ordemAtual] ?? 'created_at', { ascending: !ordemDir })
     .limit(200)
+  if (depositosAtiva.length > 0) notasQ = notasQ.in('deposito_id', depositosAtiva)
+  const { data: notas } = await notasQ
 
   // Resumo do topo — via fetchAll pra contar/somar TODAS as notas (não só as 200 exibidas)
-  const resumo = await fetchAll<{ status: string; valor_total: number | null }>((from, to) =>
-    supabase.from('notas_entrada').select('status, valor_total').range(from, to))
+  const resumo = await fetchAll<{ status: string; valor_total: number | null }>((from, to) => {
+    let q = supabase.from('notas_entrada').select('status, valor_total')
+    if (depositosAtiva.length > 0) q = q.in('deposito_id', depositosAtiva)
+    return q.range(from, to)
+  })
   const totalNotas = resumo.length
   const totalRecebido = resumo.filter((n) => n.status === 'recebida').reduce((s, n) => s + (Number(n.valor_total) || 0), 0)
   const totalPendentes = resumo.filter((n) => n.status === 'pendente').length

@@ -1,5 +1,6 @@
 import { IconPackage } from '@/components/icons'
 import { createServiceClient } from '@/lib/supabase/server'
+import { depositosDaLojaAtiva } from '@/lib/lojas-usuario'
 import { Badge } from '@/components/ui/badge'
 import { Paginacao } from '@/components/Paginacao'
 import { BuscaEstoque } from './BuscaEstoque'
@@ -14,6 +15,8 @@ export default async function EstoquePage({
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
+  // Estoque separado por loja: sem depósito explícito, mostra só os depósitos da loja ATIVA.
+  const depositosAtiva = await depositosDaLojaAtiva().catch(() => [] as string[])
 
   // só Quantidade é ordenável (coluna direta, confiável com paginação). Produto/Marca/
   // Depósito viram cabeçalho fixo — a busca no servidor é a navegação (acha em tudo).
@@ -33,8 +36,8 @@ export default async function EstoquePage({
   const pagina = Math.max(1, parseInt(params.pagina ?? '1', 10) || 1)
 
   const [depositos, categorias] = await Promise.all([getDepositosCache(), getCategoriasCache()])
-  // só depósitos de loja viram botão (os "abstratos" tipo Estoque Geral ficam no menos-usado)
-  const depsBotao = depositos.filter((d) => d.loja_id)
+  // só depósitos de loja viram botão — e só os da loja ATIVA (o resto some pra não misturar)
+  const depsBotao = depositos.filter((d) => d.loja_id && (depositosAtiva.length === 0 || depositosAtiva.includes(d.id)))
 
   // busca sem acento em produtos.busca_norm (cada palavra, qualquer ordem)
   const semAcento = (s: string) => s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
@@ -43,7 +46,8 @@ export default async function EstoquePage({
   let query = supabase.from('estoque')
     .select('id, quantidade, produto:produtos!inner ( id, nome, marca, categoria, preco, busca_norm ), deposito:depositos ( id, nome )', { count: 'exact' })
     .order('quantidade', { ascending: !ordemDir })
-  if (params.deposito)  query = query.eq('deposito_id', params.deposito)
+  if (params.deposito && depositosAtiva.includes(params.deposito)) query = query.eq('deposito_id', params.deposito)
+  else if (depositosAtiva.length > 0) query = query.in('deposito_id', depositosAtiva)
   if (params.categoria) query = query.eq('produto.categoria', params.categoria)
   for (const w of palavras) query = query.ilike('produto.busca_norm', `%${w}%`)
   const { data: estoque, count } = await query.range((pagina - 1) * porPagina, pagina * porPagina - 1)
@@ -60,7 +64,8 @@ export default async function EstoquePage({
     let q = params.categoria
       ? supabase.from('estoque').select('id, produto:produtos!inner ( categoria )', { count: 'exact', head: true }).eq('produto.categoria', params.categoria)
       : supabase.from('estoque').select('id', { count: 'exact', head: true })
-    if (params.deposito) q = q.eq('deposito_id', params.deposito)
+    if (params.deposito && depositosAtiva.includes(params.deposito)) q = q.eq('deposito_id', params.deposito)
+    else if (depositosAtiva.length > 0) q = q.in('deposito_id', depositosAtiva)
     return q
   }
   const [emEstoque, estoqueBaixo, semEstoque] = await Promise.all([

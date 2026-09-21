@@ -32,3 +32,13 @@ export async function lojasDoUsuario(): Promise<{
   if (!ativa) return { todasLojas, operaveis, permitidas: operaveis, ativa: null, todas: true }
   return { todasLojas, operaveis, permitidas: [ativa], ativa, todas: false }
 }
+
+// Ids dos depósitos da loja ATIVA (cada loja tem LOJA + ESTOQUE). Usado pra filtrar
+// estoque/notas de entrada por loja. Vazio = sem loja ativa (não filtra).
+export async function depositosDaLojaAtiva(): Promise<string[]> {
+  const { ativa } = await lojasDoUsuario().catch(() => ({ ativa: null }))
+  if (!ativa?.id) return []
+  const supabase = await createServiceClient()
+  const { data } = await supabase.from('depositos').select('id').eq('loja_id', ativa.id)
+  return (data ?? []).map((d) => d.id as string)
+}
