@@ -34,18 +34,29 @@ export default async function ComprasPage({
     return { href: `/painel/compras?${qs}`, arrow, ativo }
   }
 
+  // Notas da loja ativa: a nota NÃO tem coluna deposito_id — a loja vem dos ITENS
+  // (itens_nota_entrada.deposito_id). O commit ba51adc filtrou notas_entrada.deposito_id
+  // (coluna inexistente) e a tela quebrava, escondendo TODAS as notas (as de quinta
+  // "sumiram"). Agora filtra pelas notas que têm pelo menos 1 item no depósito da loja.
+  const NENHUMA_NOTA = '00000000-0000-0000-0000-000000000000'
+  let notaIdsAtiva: string[] | null = null
+  if (depositosAtiva.length > 0) {
+    const { data: idsItens } = await supabase.from('itens_nota_entrada').select('nota_id').in('deposito_id', depositosAtiva)
+    notaIdsAtiva = [...new Set((idsItens ?? []).map((i) => i.nota_id as string))]
+  }
+
   let notasQ = supabase
     .from('notas_entrada')
     .select('id, numero, status, valor_total, data_entrada, data_emissao, pessoas(nome)')
     .order(camposDB[ordemAtual] ?? 'created_at', { ascending: !ordemDir })
     .limit(200)
-  if (depositosAtiva.length > 0) notasQ = notasQ.in('deposito_id', depositosAtiva)
+  if (notaIdsAtiva !== null) notasQ = notaIdsAtiva.length > 0 ? notasQ.in('id', notaIdsAtiva) : notasQ.eq('id', NENHUMA_NOTA)
   const { data: notas } = await notasQ
 
   // Resumo do topo — via fetchAll pra contar/somar TODAS as notas (não só as 200 exibidas)
   const resumo = await fetchAll<{ status: string; valor_total: number | null }>((from, to) => {
     let q = supabase.from('notas_entrada').select('status, valor_total')
-    if (depositosAtiva.length > 0) q = q.in('deposito_id', depositosAtiva)
+    if (notaIdsAtiva !== null) q = notaIdsAtiva.length > 0 ? q.in('id', notaIdsAtiva) : q.eq('id', NENHUMA_NOTA)
     return q.range(from, to)
   })
   const totalNotas = resumo.length
