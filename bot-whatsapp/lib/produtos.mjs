@@ -220,12 +220,18 @@ export function resolveSelecao(texto, opcoes, modelos = null) {
     if (porPreco.length > 0) return porPreco
   }
 
-  // 4) palavra de qualidade/cor presente no nome
-  const filtrados = opcoes.filter((p) => {
-    const nome = semAcento(p.nome)
-    return palavras.some((w) => nome.includes(w))
-  })
-  if (filtrados.length > 0) return filtrados
+  // 4) palavra de qualidade/cor presente no nome — o TIPO de peça fica de fora:
+  // "aro"/"tela"/"frontal" é comum a TODAS as opções (não distingue nada).
+  // "A03 com aro Vivid" não pode re-listar os aros do Motorola pendente — "A03" é
+  // outro modelo e vira busca nova (resolveSelecao devolve [] e o chamador busca do zero).
+  const seletores = palavras.filter((w) => !categoriaDe(w))
+  if (seletores.length > 0) {
+    const filtrados = opcoes.filter((p) => {
+      const nome = semAcento(p.nome)
+      return seletores.some((w) => nome.includes(w))
+    })
+    if (filtrados.length > 0) return filtrados
+  }
 
   return []
 }
