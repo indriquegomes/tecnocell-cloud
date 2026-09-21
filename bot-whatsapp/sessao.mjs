@@ -186,6 +186,13 @@ function foraDoHorario() {
   return min < 8 * 60 || min >= 19 * 60 // seg-sex 08-19
 }
 
+// Pergunta de produto óbvia (tem TIPO de peça conhecido: tela, manta, cabo...):
+// pula a IA de classificação — economiza ~1-3s. Mensagem sem tipo (oi, obrigado,
+// "iphone 11" solto) ainda passa pela IA pra decidir se é produto/compra/papo.
+function ehProdutoLexico(texto) {
+  return categoriasDe(texto).length > 0
+}
+
 async function processaMensagem(sock, loja, jid, texto) {
   // jid pode vir como @lid (ID anônimo) — traduz pro número real antes de casar
   // com a tabela de preço do cliente.
@@ -214,7 +221,7 @@ async function processaMensagem(sock, loja, jid, texto) {
   // assunto fixo (chave PIX etc.) responde direto, sem passar pela IA de produto
   const fixo = await respondeAssuntoFixo(texto).catch(() => null)
   if (fixo) {
-    await dorme(1500 + Math.random() * 1500)
+    await dorme(400 + Math.random() * 400)
     await sock.sendMessage(jid, { text: fixo })
     return
   }
@@ -235,12 +242,17 @@ async function processaMensagem(sock, loja, jid, texto) {
 
   if (!produtos) {
     let classificacao
-    try {
-      const resumo = await resumoLoja().catch(() => '')
-      classificacao = await classificaPergunta(texto, resumo)
-    } catch (e) {
-      console.error(`[${loja.slug}] [ERRO IA] falha ao classificar mensagem:`, e?.message || e)
-      return // erro de IA nunca deve fazer o bot responder algo errado — só ignora
+    if (ehProdutoLexico(texto)) {
+      // Tipo de peça óbvio: pula a IA de classificação (economiza ~1-3s).
+      classificacao = { ehPerguntaProduto: true, textoBusca: texto, ehCompra: false }
+    } else {
+      try {
+        const resumo = await resumoLoja().catch(() => '')
+        classificacao = await classificaPergunta(texto, resumo)
+      } catch (e) {
+        console.error(`[${loja.slug}] [ERRO IA] falha ao classificar mensagem:`, e?.message || e)
+        return // erro de IA nunca deve fazer o bot responder algo errado — só ignora
+      }
     }
     if (classificacao.ehCompra) {
       await respondePedido(sock, loja.slug, jid, telefone, null, nomeCliente)
@@ -250,7 +262,7 @@ async function processaMensagem(sock, loja, jid, texto) {
       // Mensagem fora do escopo de produto (oi, boa noite...): fora do expediente
       // responde o horário + que o robô segue 24h, em vez de ficar mudo.
       if (foraDoHorario()) {
-        await dorme(1500 + Math.random() * 1500)
+        await dorme(400 + Math.random() * 400)
         await sock.sendMessage(jid, { text: FORA_HORARIO })
       }
       return
@@ -260,7 +272,7 @@ async function processaMensagem(sock, loja, jid, texto) {
 
     // "tem película?" / "tem capa?" sem aparelho: pergunta qual aparelho, não chuta.
     if (ehConsultaGenerica(buscaDescricao)) {
-      await dorme(1500 + Math.random() * 1500)
+      await dorme(400 + Math.random() * 400)
       await sock.sendMessage(jid, { text: PERGUNTA_APARELHO })
       return
     }
@@ -304,7 +316,7 @@ async function processaMensagem(sock, loja, jid, texto) {
         // "11" virava busca nova e o bot repetia a pergunta pra sempre.
         guardaPendente(loja.slug, jid, produtos)
         guardaModelos(loja.slug, jid, modelos)
-        await dorme(1500 + Math.random() * 1500)
+        await dorme(400 + Math.random() * 400)
         const lista = modelos.slice(0, 6).map((m, i) => `${i + 1}. ${m.toUpperCase()}`).join('\n')
         await sock.sendMessage(jid, { text: `Achei vários modelos. Qual? (responda o número)\n${lista}` })
         return
@@ -357,7 +369,7 @@ async function processaMensagem(sock, loja, jid, texto) {
   }
   const resposta = comAviso ? AVISO + corpo : corpo
 
-  await dorme(2000 + Math.random() * 2000) // parece digitação humana, não resposta instantânea
+  await dorme(400 + Math.random() * 400) // parece digitação humana, não resposta instantânea
   await sock.sendMessage(jid, { text: resposta })
   if (comAviso) marcaAvisoHoje(loja.slug, chaveAviso)
 

@@ -32,7 +32,7 @@ function formataTelefone(tel) {
 // encaminha pra vendedora como antes. nomeCliente vem do cadastro (pessoas) ou do
 // contato do WhatsApp; cai pra "não identificado" se não achar.
 export async function respondePedido(sock, slug, jid, telefone, contexto, nomeCliente) {
-  await dorme(1500 + Math.random() * 1500)
+  await dorme(400 + Math.random() * 400)
   if (!contexto) {
     await sock.sendMessage(jid, { text: VENDEDORA })
     return
