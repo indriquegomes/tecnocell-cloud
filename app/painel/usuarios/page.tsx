@@ -1,4 +1,5 @@
 import { createServiceClient, permissoesUsuarioAtual } from '@/lib/supabase/server'
+import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { redirect } from 'next/navigation'
 import { UsuariosClient } from './UsuariosClient'
 
@@ -41,6 +42,8 @@ export default async function UsuariosPage() {
   if (!isMaster) redirect('/painel/meu-perfil')
 
   const supabase = await createServiceClient()
+  // Separa a lista por loja ativa (mesma regra do RH). Master vê tudo.
+  const { ativa, todas } = await lojasDoUsuario().catch(() => ({ ativa: null, todas: true }))
 
   // Lista usuários do Auth + perfis
   const [authResult, perfisResult, cargosResult, lojasResult, depositosResult, cfgPdv, tabelasResult] = await Promise.all([
@@ -86,5 +89,12 @@ export default async function UsuariosPage() {
       created_at: u.created_at,
     }))
 
-  return <UsuariosClient usuarios={usuarios} cargos={cargos} lojas={lojas} depositos={depositos} tabelas={tabelas} />
+  // Loja do funcionário = pdv_loja_id (padrão) ou a única em lojas_permitidas.
+  // Master (isMaster) vê tudo; sem loja fixa (misto) aparece nas duas.
+  const lojaDe = (u: (typeof usuarios)[number]) => u.pdvLojaId ?? (u.lojasPermitidas.length === 1 ? u.lojasPermitidas[0] : null)
+  const usuariosFiltrados = (todas || !ativa?.id)
+    ? usuarios
+    : usuarios.filter((u) => u.isMaster || lojaDe(u) == null || lojaDe(u) === ativa.id)
+
+  return <UsuariosClient usuarios={usuariosFiltrados} cargos={cargos} lojas={lojas} depositos={depositos} tabelas={tabelas} />
 }
