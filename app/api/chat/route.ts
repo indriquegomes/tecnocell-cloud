@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { createClient, createServiceClient, permissoesEfetivas, fetchAll } from '@/lib/supabase/server'
 import { createHash } from 'crypto'
 import { temPermissao } from '@/lib/permissoes'
+import { hojeSP } from '@/lib/utils'
 import { streamChatComFerramentas, buildSystemPrompt, type ChatMessage, type Ferramenta } from '@/lib/chat-ia'
 import regras from '@/lib/catalogo-regras.json'
 
@@ -50,7 +51,8 @@ export async function POST(req: NextRequest) {
   }
 
   const ferramentas = montaFerramentas(tipo, service)
-  const systemPrompt = buildSystemPrompt(tipo, {}, nomeUsuario)
+  // passa a data de hoje no fuso da loja, pra IA usar em 'quanto vendeu hoje' sem perguntar
+  const systemPrompt = buildSystemPrompt(tipo, { hoje: hojeSP() }, nomeUsuario)
 
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
@@ -308,15 +310,33 @@ function financeiroResumo(service: any): Ferramenta {
   }
 }
 
+async function depositosDaLoja(service: any, lojaNome: string): Promise<string[]> {
+  const { data: loja } = await service.from('lojas').select('id').ilike('nome', '%' + lojaNome.trim() + '%').maybeSingle()
+  if (!loja) return []
+  const { data: deps } = await service.from('depositos').select('id').eq('loja_id', loja.id)
+  return (deps ?? []).map((d: any) => d.id)
+}
+
 function vendasPeriodo(service: any): Ferramenta {
   return {
     nome: 'vendas_periodo',
-    descricao: 'Resumo de vendas concluídas num período (quantidade e total).',
-    parametros: { type: 'object', properties: { de: { type: 'string', description: 'data inicial AAAA-MM-DD' }, ate: { type: 'string', description: 'data final AAAA-MM-DD' } }, required: ['de', 'ate'] },
+    descricao: 'Resumo de vendas concluídas num período (quantidade e total). Pode filtrar por loja (Petrópolis ou Teresópolis).',
+    parametros: { type: 'object', properties: { de: { type: 'string', description: 'data inicial AAAA-MM-DD' }, ate: { type: 'string', description: 'data final AAAA-MM-DD' }, loja: { type: 'string', description: 'nome da loja: Petrópolis ou Teresópolis (opcional)' } }, required: ['de', 'ate'] },
     executar: async (args) => {
       const de = String(args.de ?? ''), ate = String(args.ate ?? '')
       if (!de || !ate) return JSON.stringify({ erro: 'informe de e ate (AAAA-MM-DD)' })
-      const vs = await fetchAll<{ total: number | null }>((from, to) => service.from('vendas').select('total').eq('status', 'concluida').gte('created_at', de + 'T00:00:00').lte('created_at', ate + 'T23:59:59').range(from, to))
+      // fuso da loja (America/Sao_Paulo): converte as pontas pro UTC pra nao perder
+      // venda depois das 21h (que em UTC ja virou o dia seguinte)
+      const inicio = new Date(de + 'T00:00:00-03:00').toISOString()
+      const fim = new Date(ate + 'T23:59:59-03:00').toISOString()
+      let q = service.from('vendas').select('total').eq('status', 'concluida').gte('created_at', inicio).lte('created_at', fim)
+      const lojaNome = String(args.loja ?? '').trim()
+      if (lojaNome) {
+        const depIds = await depositosDaLoja(service, lojaNome)
+        if (depIds.length === 0) return JSON.stringify({ erro: 'loja não encontrada' })
+        q = q.in('deposito_id', depIds)
+      }
+      const vs = await fetchAll<{ total: number | null }>((from, to) => q.range(from, to))
       const total = (vs ?? []).reduce((s, v) => s + (v.total ?? 0), 0)
       return JSON.stringify({ quantidade: vs?.length ?? 0, total })
     },
@@ -326,12 +346,21 @@ function vendasPeriodo(service: any): Ferramenta {
 function maisVendidos(service: any): Ferramenta {
   return {
     nome: 'mais_vendidos',
-    descricao: 'Produtos mais vendidos (quantidade) num período.',
-    parametros: { type: 'object', properties: { de: { type: 'string', description: 'data inicial AAAA-MM-DD' }, ate: { type: 'string', description: 'data final AAAA-MM-DD' } }, required: ['de', 'ate'] },
+    descricao: 'Produtos mais vendidos (quantidade) num período. Pode filtrar por loja (Petrópolis ou Teresópolis).',
+    parametros: { type: 'object', properties: { de: { type: 'string', description: 'data inicial AAAA-MM-DD' }, ate: { type: 'string', description: 'data final AAAA-MM-DD' }, loja: { type: 'string', description: 'nome da loja: Petrópolis ou Teresópolis (opcional)' } }, required: ['de', 'ate'] },
     executar: async (args) => {
       const de = String(args.de ?? ''), ate = String(args.ate ?? '')
       if (!de || !ate) return JSON.stringify({ erro: 'informe de e ate (AAAA-MM-DD)' })
-      const itens = await fetchAll<{ quantidade: number; produtos: { nome: string } | null }>((from, to) => service.from('itens_venda').select('quantidade, produtos(nome), vendas!inner(created_at, status)').eq('vendas.status', 'concluida').gte('vendas.created_at', de + 'T00:00:00').lte('vendas.created_at', ate + 'T23:59:59').range(from, to))
+      const inicio = new Date(de + 'T00:00:00-03:00').toISOString()
+      const fim = new Date(ate + 'T23:59:59-03:00').toISOString()
+      let q = service.from('itens_venda').select('quantidade, produtos(nome), vendas!inner(created_at, status, deposito_id)').eq('vendas.status', 'concluida').gte('vendas.created_at', inicio).lte('vendas.created_at', fim)
+      const lojaNome = String(args.loja ?? '').trim()
+      if (lojaNome) {
+        const depIds = await depositosDaLoja(service, lojaNome)
+        if (depIds.length === 0) return JSON.stringify({ erro: 'loja não encontrada' })
+        q = q.in('vendas.deposito_id', depIds)
+      }
+      const itens = await fetchAll<{ quantidade: number; produtos: { nome: string } | null }>((from, to) => q.range(from, to))
       const porProduto: Record<string, number> = {}
       for (const it of itens ?? []) {
         const nome = it.produtos?.nome ?? '?'
