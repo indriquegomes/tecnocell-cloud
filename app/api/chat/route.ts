@@ -85,6 +85,20 @@ function montaFerramentas(tipo: 'funcionario' | 'cliente', service: any): Ferram
   return fs
 }
 
+// "tela" = "frontal" = "display" (e "redmi" = "xiaomi"): o cliente fala um,
+// o catálogo grava outro. Sem isso, "tela iphone 11" não acha "FRONTAL IPHONE 11".
+function variantesDeBusca(t: string): string[] {
+  const sin: Array<[RegExp, string[]]> = [
+    [/\btelas?\b/i, ['frontal', 'display']],
+    [/\bfrontal\b/i, ['tela', 'display']],
+    [/\bdisplay\b/i, ['tela', 'frontal']],
+    [/\bredmi\b/i, ['xiaomi']],
+  ]
+  const variantes = [t]
+  for (const [re, subs] of sin) if (re.test(t)) for (const s of subs) variantes.push(t.replace(re, s))
+  return [...new Set(variantes)]
+}
+
 function buscarProdutos(service: any, publico: boolean): Ferramenta {
   return {
     nome: 'buscar_produtos',
@@ -93,7 +107,8 @@ function buscarProdutos(service: any, publico: boolean): Ferramenta {
     executar: async (args) => {
       const t = String(args.termo ?? '').trim()
       if (!t) return JSON.stringify({ erro: 'informe o termo de busca' })
-      let q = service.from('produtos').select('nome, preco, marca, categoria, codigo').or('nome.ilike.%' + t + '%,codigo.ilike.%' + t + '%').eq('ativo', true)
+      const orBusca = variantesDeBusca(t).flatMap((v) => ['nome.ilike.%' + v + '%,codigo.ilike.%' + v + '%'])
+      let q = service.from('produtos').select('nome, preco, marca, categoria, codigo').or(orBusca.join(',')).eq('ativo', true)
       if (publico) q = q.eq('visivel_catalogo', true)
       const { data, error } = await q.limit(15)
       if (error) return JSON.stringify({ erro: error.message })
