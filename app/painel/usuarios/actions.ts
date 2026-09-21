@@ -29,8 +29,9 @@ export async function criarConvite(_: ConviteResult | null, fd: FormData): Promi
   if (authErr || !authData.user) return { ok: false, message: authErr?.message ?? 'Erro ao criar conta' }
 
   const cargoId = (fd.get('cargo_id') as string) || null
+  const salario = Math.max(0, parseFloat((fd.get('salario') as string) || '0') || 0)
   const { error: perfErr } = await supabase.from('perfis').insert({
-    id: authData.user.id, nome, permissoes: isMaster ? TODAS_KEYS : perms, is_master: isMaster, ativo: true, cargo_id: cargoId,
+    id: authData.user.id, nome, permissoes: isMaster ? TODAS_KEYS : perms, is_master: isMaster, ativo: true, cargo_id: cargoId, salario,
   })
   if (perfErr) { await supabase.auth.admin.deleteUser(authData.user.id); return { ok: false, message: perfErr.message } }
 
@@ -77,6 +78,7 @@ export async function criarUsuario(_: ActionResult | null, fd: FormData): Promis
     is_master: isMaster,
     ativo: true,
     cargo_id: (fd.get('cargo_id') as string) || null,
+    salario: Math.max(0, parseFloat((fd.get('salario') as string) || '0') || 0),
   })
 
   if (perfErr) {
@@ -113,6 +115,8 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
   const bloqFeriado = fd.getAll('acesso_bloqueia_feriado').includes('1')
   const metaRaw = parseFloat((fd.get('meta_venda_mensal') as string) || '0')
   const metaVendaMensal = isNaN(metaRaw) ? 0 : Math.max(0, metaRaw)
+  const salarioRaw = parseFloat((fd.get('salario') as string) || '0')
+  const salario = isNaN(salarioRaw) ? 0 : Math.max(0, salarioRaw)
 
   const supabase = await createServiceClient()
   const { error } = await supabase.from('perfis').update({
@@ -131,6 +135,7 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
     acesso_bloqueia_domingo: bloqDomingo,
     acesso_bloqueia_feriado: bloqFeriado,
     meta_venda_mensal: metaVendaMensal,
+    salario,
   }).eq('id', userId)
 
   if (error) return { ok: false, message: error.message }

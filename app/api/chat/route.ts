@@ -202,11 +202,11 @@ function fiadoCliente(service: any): Ferramenta {
 function funcionarios(service: any): Ferramenta {
   return {
     nome: 'funcionarios',
-    descricao: 'Lista de funcionários ativos: nome, cargo e jornada (horário de acesso).',
+    descricao: 'Lista de funcionários ativos: nome, cargo, salário e jornada (horário de acesso).',
     parametros: { type: 'object', properties: {} },
     executar: async () => {
-      const { data } = await service.from('perfis').select('nome, cargo, acesso_hora_inicio, acesso_hora_fim').eq('ativo', true).order('nome')
-      return JSON.stringify({ funcionarios: (data ?? []).map((f: any) => ({ nome: f.nome, cargo: f.cargo, jornada: f.acesso_hora_inicio && f.acesso_hora_fim ? f.acesso_hora_inicio + ' - ' + f.acesso_hora_fim : null })) })
+      const { data } = await service.from('perfis').select('nome, cargo, salario, acesso_hora_inicio, acesso_hora_fim').eq('ativo', true).order('nome')
+      return JSON.stringify({ funcionarios: (data ?? []).map((f: any) => ({ nome: f.nome, cargo: f.cargo, salario: f.salario ?? 0, jornada: f.acesso_hora_inicio && f.acesso_hora_fim ? f.acesso_hora_inicio + ' - ' + f.acesso_hora_fim : null })) })
     },
   }
 }

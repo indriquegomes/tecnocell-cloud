@@ -9,12 +9,13 @@ type CfgPerfil = {
   acessoHoraInicio: string | null; acessoHoraFim: string | null
   acessoBloqSabado: boolean; acessoBloqDomingo: boolean; acessoBloqFeriado: boolean
   metaVendaMensal: number
+  salario: number
 }
 async function configPdvPorPerfil(
   supabase: Awaited<ReturnType<typeof createServiceClient>>
 ): Promise<Record<string, CfgPerfil>> {
   try {
-    const { data } = await supabase.from('perfis').select('id, lojas_permitidas, tabelas_permitidas, pdv_loja_id, pdv_deposito_id, acesso_hora_inicio, acesso_hora_fim, acesso_bloqueia_sabado, acesso_bloqueia_domingo, acesso_bloqueia_feriado, meta_venda_mensal')
+    const { data } = await supabase.from('perfis').select('id, lojas_permitidas, tabelas_permitidas, pdv_loja_id, pdv_deposito_id, acesso_hora_inicio, acesso_hora_fim, acesso_bloqueia_sabado, acesso_bloqueia_domingo, acesso_bloqueia_feriado, meta_venda_mensal, salario')
     return Object.fromEntries(
       (data ?? []).map((p) => [p.id, {
         lojasPermitidas: (p.lojas_permitidas ?? []) as string[],
@@ -27,6 +28,7 @@ async function configPdvPorPerfil(
         acessoBloqDomingo: p.acesso_bloqueia_domingo ?? false,
         acessoBloqFeriado: p.acesso_bloqueia_feriado ?? false,
         metaVendaMensal: Number(p.meta_venda_mensal ?? 0),
+        salario: Number(p.salario ?? 0),
       }])
     )
   } catch { return {} }
@@ -80,6 +82,7 @@ export default async function UsuariosPage() {
       acessoBloqDomingo: cfgPdv[u.id]?.acessoBloqDomingo ?? false,
       acessoBloqFeriado: cfgPdv[u.id]?.acessoBloqFeriado ?? false,
       metaVendaMensal: cfgPdv[u.id]?.metaVendaMensal ?? 0,
+      salario: cfgPdv[u.id]?.salario ?? 0,
       created_at: u.created_at,
     }))
 

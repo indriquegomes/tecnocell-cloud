@@ -33,6 +33,7 @@ export interface Usuario {
   acessoBloqDomingo: boolean
   acessoBloqFeriado: boolean
   metaVendaMensal: number
+  salario: number
   created_at: string
 }
 export type Cargo = { id: string; nome: string }
@@ -205,6 +206,11 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario }: { lojas: Loja[];
       <div className="w-48">
         <label className="mb-1 block text-xs font-medium text-gray-600">Meta de venda mensal (R$)</label>
         <CampoDinheiro name="meta_venda_mensal" defaultValue={Number(usuario.metaVendaMensal || 0)} className="text-sm" />
+      </div>
+
+      <div className="w-48">
+        <label className="mb-1 block text-xs font-medium text-gray-600">Salário (R$)</label>
+        <CampoDinheiro name="salario" defaultValue={Number(usuario.salario || 0)} className="text-sm" />
       </div>
 
       {tabelas.length > 0 && (
