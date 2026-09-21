@@ -1,10 +1,23 @@
 import { createClient } from '@supabase/supabase-js'
 import { env } from '../../bot/lib/env.mjs'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const supabase = createClient(
   env('NEXT_PUBLIC_SUPABASE_URL'),
   env('SUPABASE_SERVICE_ROLE_KEY'),
 )
+
+// Regras de busca compartilhadas com o chat do app (app/api/chat/route.ts) — um
+// só lugar pra sinônimos e palavras ignoradas. Fallback hardcoded se o JSON
+// sumir, pra não derrubar o bot.
+const REGRAS = (() => {
+  try {
+    const p = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'lib', 'catalogo-regras.json')
+    return JSON.parse(fs.readFileSync(p, 'utf8'))
+  } catch { return {} }
+})()
 
 // Mesma lógica de app/painel/tabelas-preco/actions.ts (buscarProdutosParaTabela):
 // tira acento via charCodeAt, ilike em busca_norm por palavra, com fallback pra
@@ -24,7 +37,7 @@ function semAcento(t) {
 // catálogo é "placa (conector)". Sem tirar o 'sub', o AND nunca casa.
 // 'traseira'/'posterior' idem: "tampa traseira" é "TAMPA" no catálogo (toda tampa
 // já é traseira; "traseira" não aparece no nome) — sem tirar, o AND nunca casa.
-const CONECTORES = new Set(['de', 'da', 'do', 'das', 'dos', 'para', 'pra', 'com', 'sem', 'uma', 'um', 'no', 'na', 'sub', 'tem', 'temos', 'quanto', 'custa', 'preco', 'valor', 'valores', 'vcs', 'voce', 'voces', 'traseira', 'traseiro', 'posterior'])
+const CONECTORES = new Set(REGRAS.ignorar ?? ['de', 'da', 'do', 'das', 'dos', 'para', 'pra', 'com', 'sem', 'uma', 'um', 'no', 'na', 'sub', 'tem', 'temos', 'quanto', 'custa', 'preco', 'valor', 'valores', 'vcs', 'voce', 'voces', 'traseira', 'traseiro', 'posterior'])
 function palavrasBusca(t) {
   return semAcento(t).replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean)
     .filter((w) => !CONECTORES.has(w))
@@ -73,12 +86,10 @@ const ABREVIACOES_CURTAS = { fr: 'frontal' }
 // Sinônimos de TIPO de peça: o cliente fala "tela", o catálogo grava "frontal"
 // ou "display" — mesma coisa na loja. Sem isso, "tela do moto g8" não acha
 // "FRONTAL MOTOROLA G8" e o bot responde "não encontrei" pra algo que TEM.
-const SINONIMOS_TIPO = {
+const SINONIMOS_TIPO = REGRAS.sinonimos ?? {
   tela: ['frontal', 'display'],
   frontal: ['tela', 'display'],
   display: ['tela', 'frontal'],
-  // marca: "redmi" é a linha da Xiaomi — o catálogo grava "xiaomi" (às vezes os
-  // dois). "tampa redmi 8 pro" precisa achar "TAMPA XIAOMI NOTE 8 PRO".
   redmi: ['xiaomi'],
 }
 

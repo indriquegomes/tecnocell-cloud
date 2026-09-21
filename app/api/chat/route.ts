@@ -3,6 +3,7 @@ import { createClient, createServiceClient, permissoesEfetivas, fetchAll } from 
 import { createHash } from 'crypto'
 import { temPermissao } from '@/lib/permissoes'
 import { streamChatComFerramentas, buildSystemPrompt, type ChatMessage, type Ferramenta } from '@/lib/chat-ia'
+import regras from '@/lib/catalogo-regras.json'
 
 // Rate-limit simples em memória por IP.
 const hits = new Map<string, number[]>()
@@ -85,18 +86,20 @@ function montaFerramentas(tipo: 'funcionario' | 'cliente', service: any): Ferram
   return fs
 }
 
-// "tela" = "frontal" = "display" (e "redmi" = "xiaomi"): o cliente fala um,
-// o catálogo grava outro. Sem isso, "tela iphone 11" não acha "FRONTAL IPHONE 11".
-function variantesDeBusca(t: string): string[] {
-  const sin: Array<[RegExp, string[]]> = [
-    [/\btelas?\b/i, ['frontal', 'display']],
-    [/\bfrontal\b/i, ['tela', 'display']],
-    [/\bdisplay\b/i, ['tela', 'frontal']],
-    [/\bredmi\b/i, ['xiaomi']],
-  ]
-  const variantes = [t]
-  for (const [re, subs] of sin) if (re.test(t)) for (const s of subs) variantes.push(t.replace(re, s))
-  return [...new Set(variantes)]
+// Mesmas regras do bot do WhatsApp (lib/catalogo-regras.json): sem acento,
+// sem preposição/verbo solto, sinônimo de tipo. Busca palavra por palavra.
+function semAcentoBusca(t: string): string {
+  return t.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
+}
+
+function palavrasBusca(t: string): string[] {
+  const ignorar = new Set((regras.ignorar as string[]) ?? [])
+  return semAcentoBusca(t).replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).filter((w) => !ignorar.has(w)).slice(0, 6)
+}
+
+function variantesDePalavra(w: string): string[] {
+  const sin = ((regras.sinonimos as Record<string, string[]>) ?? {})[w] ?? []
+  return [w, ...sin]
 }
 
 function buscarProdutos(service: any, publico: boolean): Ferramenta {
@@ -107,8 +110,13 @@ function buscarProdutos(service: any, publico: boolean): Ferramenta {
     executar: async (args) => {
       const t = String(args.termo ?? '').trim()
       if (!t) return JSON.stringify({ erro: 'informe o termo de busca' })
-      const orBusca = variantesDeBusca(t).flatMap((v) => ['nome.ilike.%' + v + '%,codigo.ilike.%' + v + '%'])
-      let q = service.from('produtos').select('nome, preco, marca, categoria, codigo').or(orBusca.join(',')).eq('ativo', true)
+      const palavras = palavrasBusca(t)
+      if (!palavras.length) return JSON.stringify({ erro: 'informe o nome ou código do produto' })
+      let q = service.from('produtos').select('nome, preco, marca, categoria, codigo')
+      for (const w of palavras) {
+        q = q.or(variantesDePalavra(w).map((v) => 'busca_norm.ilike.%' + v + '%').join(','))
+      }
+      q = q.eq('ativo', true)
       if (publico) q = q.eq('visivel_catalogo', true)
       const { data, error } = await q.limit(15)
       if (error) return JSON.stringify({ erro: error.message })
