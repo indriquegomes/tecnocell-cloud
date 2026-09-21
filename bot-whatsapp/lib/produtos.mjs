@@ -254,13 +254,20 @@ export function categoriasDe(termo) {
 }
 
 // Sem categoria conhecida na pergunta: não filtra. Com categoria: exige o TIPO
-// na PRIMEIRA palavra do nome. "CÂMERA FRONTAL" é CÂMERA (frontal é só adjetivo
-// "da frente"), não tela — verificar 2 palavras listava câmera como tela.
+// no começo do nome — 1ª palavra sempre, e 2ª palavra quando não é adjetivo
+// ambíguo. "FLEX CONECTOR"/"PLACA CONECTOR" têm o tipo na 2ª palavra e não podem
+// sumir da busca de "conector de carga". Já "CÂMERA FRONTAL" NÃO é tela: "frontal"
+// ali é adjetivo ("da frente"), então tela/frontal/display seguem só pela 1ª palavra.
 // "CAPAS" já casa com "capa" via prefixo, então 1 palavra basta pros dois casos.
+const TIPOS_ADJETIVO = new Set(['tela', 'frontal', 'display'])
 function bateCategoria(nomeSemAcento, categorias) {
   if (categorias.length === 0) return true
-  const primeira = nomeSemAcento.split(/\s+/)[0] || ''
-  return categorias.some((cat) => primeira.startsWith(cat) || cat.startsWith(primeira))
+  const palavras = nomeSemAcento.split(/\s+/)
+  const primeira = palavras[0] || ''
+  if (categorias.some((cat) => primeira.startsWith(cat) || cat.startsWith(primeira))) return true
+  const segunda = palavras[1] || ''
+  if (!segunda) return false
+  return categorias.some((cat) => !TIPOS_ADJETIVO.has(cat) && (segunda.startsWith(cat) || cat.startsWith(segunda)))
 }
 
 export async function buscaProdutos(termo) {
