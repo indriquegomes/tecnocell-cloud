@@ -45,7 +45,7 @@ Nunca invente informações. Para responder com dados reais, use as FERRAMENTAS 
     return `${base}
 
 ${tratamento}
-Pode responder sobre dados internos: estoque, financeiro, clientes, fornecedores.
+Pode responder sobre dados internos: estoque, financeiro, clientes, fornecedores, funcionários (equipe), vendas.
 
 CONTEXTO ATUAL DO SISTEMA:
 ${JSON.stringify(contexto, null, 2)}

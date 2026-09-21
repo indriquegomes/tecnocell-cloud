@@ -79,6 +79,8 @@ function montaFerramentas(tipo: 'funcionario' | 'cliente', service: any): Ferram
     fs.push(estoqueProduto(service))
     fs.push(buscarCliente(service))
     fs.push(fiadoCliente(service))
+    fs.push(funcionarios(service))
+    fs.push(fornecedores(service))
     fs.push(financeiroResumo(service))
     fs.push(vendasPeriodo(service))
     fs.push(maisVendidos(service))
@@ -185,6 +187,33 @@ function fiadoCliente(service: any): Ferramenta {
         porNome[n] = (porNome[n] ?? 0) + Math.max(0, (l.valor ?? 0) - (l.valor_pago ?? 0))
       }
       return JSON.stringify({ fiado: Object.entries(porNome).map(([cliente, em_aberto]) => ({ cliente, em_aberto })) })
+    },
+  }
+}
+
+function funcionarios(service: any): Ferramenta {
+  return {
+    nome: 'funcionarios',
+    descricao: 'Lista de funcionários/equipe ativa (nome e cargo).',
+    parametros: { type: 'object', properties: {} },
+    executar: async () => {
+      const { data } = await service.from('perfis').select('nome, cargo').eq('ativo', true).order('nome')
+      return JSON.stringify({ funcionarios: data ?? [] })
+    },
+  }
+}
+
+function fornecedores(service: any): Ferramenta {
+  return {
+    nome: 'fornecedores',
+    descricao: 'Lista de fornecedores cadastrados. Busca por parte do nome (opcional).',
+    parametros: { type: 'object', properties: { termo: { type: 'string', description: 'parte do nome do fornecedor (opcional)' } } },
+    executar: async (args) => {
+      const t = String(args.termo ?? '').trim()
+      let q = service.from('pessoas').select('nome').in('tipo', ['fornecedor', 'ambos'])
+      if (t) q = q.ilike('nome', '%' + t + '%')
+      const { data } = await q.order('nome').limit(30)
+      return JSON.stringify({ fornecedores: data ?? [] })
     },
   }
 }
