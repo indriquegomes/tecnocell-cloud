@@ -1,5 +1,6 @@
 import { IconUsers } from '@/components/icons'
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { Dica } from '@/components/Dica'
 import { formatDate } from '@/lib/utils'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
@@ -33,13 +34,23 @@ const fmtHora = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString(
 
 export default async function RhPage() {
   const supabase = await createServiceClient()
+  const { ativa, todas } = await lojasDoUsuario().catch(() => ({ ativa: null, todas: true }))
   const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-  const [{ data: perfis }, { data: pontos }, banco] = await Promise.all([
-    supabase.from('perfis').select('id, nome, cargo').eq('ativo', true).order('nome'),
+  const [{ data: perfisRaw }, { data: pontos }, banco] = await Promise.all([
+    supabase.from('perfis').select('id, nome, cargo, pdv_loja_id, lojas_permitidas').eq('ativo', true).order('nome'),
     supabase.from('pontos').select('usuario_id, tipo, criado_em').gte('criado_em', `${hoje}T00:00:00-03:00`).order('criado_em'),
     fetchAll<{ id: string; usuario_id: string; horas: number; data: string; motivo: string | null; obs: string | null }>(
       (from, to) => supabase.from('banco_horas').select('id, usuario_id, horas, data, motivo, obs').order('data', { ascending: false }).range(from, to)),
   ])
+  // Equipe separada por loja ativa. Loja do funcionário = pdv_loja_id (padrão) ou,
+  // sem ele, a única loja em lojas_permitidas. Master (lista vazia) vê tudo.
+  const lojaDe = (p: { pdv_loja_id: string | null; lojas_permitidas: string[] | null }) =>
+    p.pdv_loja_id ?? ((p.lojas_permitidas ?? []).length === 1 ? (p.lojas_permitidas as string[])[0] : null)
+  const perfis = (perfisRaw ?? []).filter((p) => {
+    if (todas || !ativa?.id) return true
+    const l = lojaDe(p as { pdv_loja_id: string | null; lojas_permitidas: string[] | null })
+    return l == null || l === ativa.id
+  })
   const porUser: Record<string, Ponto[]> = {}
   for (const p of (pontos ?? []) as Ponto[]) (porUser[p.usuario_id] ??= []).push(p)
 
