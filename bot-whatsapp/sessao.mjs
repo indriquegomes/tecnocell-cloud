@@ -10,7 +10,7 @@ import { montaResposta, AVISO } from './lib/resposta.mjs'
 import { ENDERECO, HORARIO, CADASTRO, POLITICA, ENCOMENDA, VENDEDORA, PERGUNTA_APARELHO, FORA_HORARIO } from './lib/info.mjs'
 import { registraTroca, jaAvisouHoje, marcaAvisoHoje } from './lib/db.mjs'
 import { guardaPendente, pegaPendente, limpaPendente, guardaContexto, pegaContexto, limpaContexto, guardaCategoria, pegaCategoria, guardaModelos, pegaModelos, limpaModelos } from './lib/estado.mjs'
-import { respondePedido, ehConfirmacao } from './lib/pedido.mjs'
+import { respondePedido, ehConfirmacao, marcaAlertaVisto } from './lib/pedido.mjs'
 import { aprendeContato, resolveTelefone, constroiMapa, resolveNome, aprendeNome } from './lib/lid-telefone.mjs'
 import { dorme } from '../bot/lib/util.mjs'
 import { env, RAIZ_REPO } from '../bot/lib/env.mjs'
@@ -126,6 +126,15 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
       } catch (e) {
         console.error(`[${slug}] falha ao processar mensagem:`, e?.message || e) // não deixa uma mensagem derrubar a sessão inteira
       }
+    }
+  })
+
+  // Recibo de leitura: quando o dono LÊ o alerta de venda no grupo, marca como
+  // visto pra não disparar o lembrete de 5 min.
+  sock.ev.on('message-receipt.update', (receipts) => {
+    for (const r of receipts ?? []) {
+      if (!r.receipt?.readTimestamp || !r.key?.id) continue
+      marcaAlertaVisto(r.key.id, r.receipt.userJid || '')
     }
   })
 }

@@ -8,6 +8,9 @@ import { dorme } from '../../bot/lib/util.mjs'
 const GRUPO_ALERTA = env('BOT_WHATSAPP_ALERTA_GRUPO', '120363429762566989@g.us')
 // Número que recebe o @mention no alerta do grupo (notificação específica pra equipe).
 const MENCIONAR = env('BOT_WHATSAPP_ALERTA_MENCIONAR', '5524998266051')
+const MENCIONAR_JID = MENCIONAR + '@s.whatsapp.net'
+// Se o dono não LER o alerta de venda no grupo nesse tempo, o bot avisa de novo.
+const TEMPO_LEMBRETE_MS = 5 * 60 * 1000
 
 const brl = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v || 0))
 
@@ -29,6 +32,33 @@ function formataTelefone(tel) {
   return null
 }
 
+// Alertas de venda aguardando o dono LER no grupo (idDaMensagem -> { visto, nome, preco, quem }).
+// O Baileys avisa via recibo de leitura; se em TEMPO_LEMBRETE_MS ninguém do número
+// mencionado leu, o bot reavisa — evita venda esquecida no meio do expediente.
+const alertasPendentes = new Map()
+
+// Recibo de leitura do grupo -> marca o alerta como visto pelo dono.
+export function marcaAlertaVisto(messageId, userJid) {
+  const a = alertasPendentes.get(messageId)
+  if (!a || a.visto) return
+  // só conta quando quem leu é o número mencionado (o dono), não outro da equipe
+  if (userJid && !userJid.startsWith(MENCIONAR)) return
+  a.visto = true
+}
+
+function agendaLembrete(sock, messageId) {
+  const timer = setTimeout(async () => {
+    const a = alertasPendentes.get(messageId)
+    if (!a || a.visto) return
+    await sock.sendMessage(GRUPO_ALERTA, {
+      text: '@' + MENCIONAR + ' ⏰ LEMBRETE — venda ainda NÃO vista:\nCliente: ' + a.quem + '\nProduto: ' + a.nome + ' — ' + brl(a.preco),
+      mentions: [MENCIONAR_JID],
+    }).catch((e) => console.error('[alerta] falha no lembrete:', e?.message || e))
+    alertasPendentes.delete(messageId)
+  }, TEMPO_LEMBRETE_MS)
+  timer.unref?.() // não segura o processo por causa do timer
+}
+
 // Cliente quer fechar: confirma pro cliente o produto separado e dispara o alerta
 // no grupo pra equipe. Sem contexto (ex.: "quero comprar" sem produto antes), só
 // encaminha pra vendedora como antes. nomeCliente vem do cadastro (pessoas) ou do
@@ -45,8 +75,13 @@ export async function respondePedido(sock, slug, jid, telefone, contexto, nomeCl
   await sock.sendMessage(jid, { text: '✅ Pedido recebido! O ' + nome + ' (' + brl(preco) + ') foi separado pela vendedora. Ela vai confirmar entrega e pagamento com você. 😊' })
   const tel = formataTelefone(telefone)
   const quem = nomeCliente ? (tel ? nomeCliente + ' (' + tel + ')' : nomeCliente) : (tel || 'não identificado')
-  await sock.sendMessage(GRUPO_ALERTA, {
+  const alerta = await sock.sendMessage(GRUPO_ALERTA, {
     text: '@' + MENCIONAR + ' 🔔 NOVO PEDIDO (WhatsApp)\nCliente: ' + quem + '\nProduto: ' + nome + ' — ' + brl(preco),
-    mentions: [MENCIONAR + '@s.whatsapp.net'],
+    mentions: [MENCIONAR_JID],
   })
+  // agenda o lembrete de 5 min (se o dono não ler o alerta, avisa de novo)
+  if (alerta?.key?.id) {
+    alertasPendentes.set(alerta.key.id, { visto: false, nome, preco, quem })
+    agendaLembrete(sock, alerta.key.id)
+  }
 }
