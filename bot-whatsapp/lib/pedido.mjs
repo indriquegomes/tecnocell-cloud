@@ -6,6 +6,8 @@ import { dorme } from '../../bot/lib/util.mjs'
 // Grupo que recebe o alerta de "novo pedido" quando o cliente confirma a compra.
 // 🚨 VENDA AGORA 🚨 (bot entrou nele via convite). Trocável por env.
 const GRUPO_ALERTA = env('BOT_WHATSAPP_ALERTA_GRUPO', '120363429762566989@g.us')
+// Número que recebe o @mention no alerta do grupo (notificação específica pra equipe).
+const MENCIONAR = env('BOT_WHATSAPP_ALERTA_MENCIONAR', '5524998266051')
 
 const brl = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v || 0))
 
@@ -43,5 +45,8 @@ export async function respondePedido(sock, slug, jid, telefone, contexto, nomeCl
   await sock.sendMessage(jid, { text: '✅ Pedido recebido! O ' + nome + ' (' + brl(preco) + ') foi separado pela vendedora. Ela vai confirmar entrega e pagamento com você. 😊' })
   const tel = formataTelefone(telefone)
   const quem = nomeCliente ? (tel ? nomeCliente + ' (' + tel + ')' : nomeCliente) : (tel || 'não identificado')
-  await sock.sendMessage(GRUPO_ALERTA, { text: '🔔 NOVO PEDIDO (WhatsApp)\nCliente: ' + quem + '\nProduto: ' + nome + ' — ' + brl(preco) })
+  await sock.sendMessage(GRUPO_ALERTA, {
+    text: '@' + MENCIONAR + ' 🔔 NOVO PEDIDO (WhatsApp)\nCliente: ' + quem + '\nProduto: ' + nome + ' — ' + brl(preco),
+    mentions: [MENCIONAR + '@s.whatsapp.net'],
+  })
 }
