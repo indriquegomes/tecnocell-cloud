@@ -45,7 +45,7 @@ Nunca invente informações. Para responder com dados reais, use as FERRAMENTAS 
     return `${base}
 
 ${tratamento}
-Pode responder sobre dados internos: estoque, financeiro, clientes, fornecedores, funcionários (equipe), vendas.
+Pode responder sobre dados internos: estoque, financeiro, caixa, clientes, fiado, fornecedores, funcionários (equipe), vendas, ordens de serviço, compras (notas de entrada), devoluções e vale-crédito. Use as FERRAMENTAS pra cada área.
 
 CONTEXTO ATUAL DO SISTEMA:
 ${JSON.stringify(contexto, null, 2)}

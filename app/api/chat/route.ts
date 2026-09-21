@@ -81,6 +81,11 @@ function montaFerramentas(tipo: 'funcionario' | 'cliente', service: any): Ferram
     fs.push(fiadoCliente(service))
     fs.push(funcionarios(service))
     fs.push(fornecedores(service))
+    fs.push(caixaResumo(service))
+    fs.push(osResumo(service))
+    fs.push(notasEntradaRecentes(service))
+    fs.push(devolucoesRecentes(service))
+    fs.push(valeCredito(service))
     fs.push(financeiroResumo(service))
     fs.push(vendasPeriodo(service))
     fs.push(maisVendidos(service))
@@ -214,6 +219,77 @@ function fornecedores(service: any): Ferramenta {
       if (t) q = q.ilike('nome', '%' + t + '%')
       const { data } = await q.order('nome').limit(30)
       return JSON.stringify({ fornecedores: data ?? [] })
+    },
+  }
+}
+
+function caixaResumo(service: any): Ferramenta {
+  return {
+    nome: 'caixa_resumo',
+    descricao: 'Caixas abertos por loja (valor de abertura e desde quando abriu).',
+    parametros: { type: 'object', properties: {} },
+    executar: async () => {
+      const { data } = await service.from('caixas').select('loja_id, status, valor_abertura, aberto_em, lojas(nome)').eq('status', 'aberto')
+      return JSON.stringify({ caixas_abertos: (data ?? []).map((c: any) => ({ loja: c.lojas?.nome ?? c.loja_id, aberto_em: c.aberto_em, valor_abertura: c.valor_abertura })) })
+    },
+  }
+}
+
+function osResumo(service: any): Ferramenta {
+  return {
+    nome: 'os_resumo',
+    descricao: 'Ordens de serviço: contagem por status e as mais recentes.',
+    parametros: { type: 'object', properties: {} },
+    executar: async () => {
+      const { data } = await service.from('ordens_servico').select('numero, pessoa_nome, equipamento, status, tecnico_nome, total, created_at').order('created_at', { ascending: false }).limit(20)
+      const porStatus: Record<string, number> = {}
+      for (const o of data ?? []) porStatus[o.status] = (porStatus[o.status] ?? 0) + 1
+      return JSON.stringify({ por_status: porStatus, recentes: (data ?? []).slice(0, 10) })
+    },
+  }
+}
+
+function notasEntradaRecentes(service: any): Ferramenta {
+  return {
+    nome: 'notas_entrada_recentes',
+    descricao: 'Últimas notas de entrada (compras): fornecedor, valor e status.',
+    parametros: { type: 'object', properties: {} },
+    executar: async () => {
+      const { data } = await service.from('notas_entrada').select('numero, valor_total, status, data_entrada, pessoas(nome)').order('created_at', { ascending: false }).limit(15)
+      return JSON.stringify({ notas: (data ?? []).map((n: any) => ({ numero: n.numero, fornecedor: n.pessoas?.nome, valor: n.valor_total, status: n.status, data_entrada: n.data_entrada })) })
+    },
+  }
+}
+
+function devolucoesRecentes(service: any): Ferramenta {
+  return {
+    nome: 'devolucoes_recentes',
+    descricao: 'Últimas devoluções: cliente, motivo e valor.',
+    parametros: { type: 'object', properties: {} },
+    executar: async () => {
+      const { data } = await service.from('devolucoes').select('pessoa_nome, motivo_tipo, motivo, valor_total, status, created_at').order('created_at', { ascending: false }).limit(15)
+      return JSON.stringify({ devolucoes: data ?? [] })
+    },
+  }
+}
+
+function valeCredito(service: any): Ferramenta {
+  return {
+    nome: 'vale_credito',
+    descricao: 'Saldo de vale-crédito de um cliente (busca por nome).',
+    parametros: { type: 'object', properties: { termo: { type: 'string', description: 'nome do cliente' } }, required: ['termo'] },
+    executar: async (args) => {
+      const t = String(args.termo ?? '').trim()
+      if (!t) return JSON.stringify({ erro: 'informe o nome do cliente' })
+      const { data } = await service.from('creditos_clientes').select('pessoa_nome, valor, tipo').ilike('pessoa_nome', '%' + t + '%').limit(200)
+      if (!data?.length) return JSON.stringify({ erro: 'nenhum vale encontrado para esse cliente' })
+      const saldos: Record<string, number> = {}
+      for (const c of data) {
+        const n = c.pessoa_nome ?? '?'
+        // 'credito' entra (+); 'uso' e 'estorno' saem (−) — mesma regra da tela de vales.
+        saldos[n] = (saldos[n] ?? 0) + (c.tipo === 'uso' || c.tipo === 'estorno' ? -(Number(c.valor) || 0) : (Number(c.valor) || 0))
+      }
+      return JSON.stringify({ vales: Object.entries(saldos).map(([cliente, saldo]) => ({ cliente, saldo })) })
     },
   }
 }
