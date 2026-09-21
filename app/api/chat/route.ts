@@ -82,6 +82,7 @@ function montaFerramentas(tipo: 'funcionario' | 'cliente', service: any): Ferram
     fs.push(buscarCliente(service))
     fs.push(fiadoCliente(service))
     fs.push(funcionarios(service))
+    fs.push(pontoHoje(service))
     fs.push(fornecedores(service))
     fs.push(caixaResumo(service))
     fs.push(osResumo(service))
@@ -201,11 +202,28 @@ function fiadoCliente(service: any): Ferramenta {
 function funcionarios(service: any): Ferramenta {
   return {
     nome: 'funcionarios',
-    descricao: 'Lista de funcionários/equipe ativa (nome e cargo).',
+    descricao: 'Lista de funcionários ativos: nome, cargo e jornada (horário de acesso).',
     parametros: { type: 'object', properties: {} },
     executar: async () => {
-      const { data } = await service.from('perfis').select('nome, cargo').eq('ativo', true).order('nome')
-      return JSON.stringify({ funcionarios: data ?? [] })
+      const { data } = await service.from('perfis').select('nome, cargo, acesso_hora_inicio, acesso_hora_fim').eq('ativo', true).order('nome')
+      return JSON.stringify({ funcionarios: (data ?? []).map((f: any) => ({ nome: f.nome, cargo: f.cargo, jornada: f.acesso_hora_inicio && f.acesso_hora_fim ? f.acesso_hora_inicio + ' - ' + f.acesso_hora_fim : null })) })
+    },
+  }
+}
+
+function pontoHoje(service: any): Ferramenta {
+  return {
+    nome: 'ponto_hoje',
+    descricao: 'Ponto de hoje: quem bateu entrada/saída e o horário de cada batida.',
+    parametros: { type: 'object', properties: {} },
+    executar: async () => {
+      const hoje = hojeSP()
+      const { data } = await service.from('pontos').select('usuario_id, tipo, criado_em').gte('criado_em', hoje + 'T00:00:00-03:00').order('criado_em')
+      if (!data?.length) return JSON.stringify({ ponto_hoje: [], obs: 'ninguém bateu ponto hoje' })
+      const { data: perfis } = await service.from('perfis').select('id, nome')
+      const nomePorId = Object.fromEntries((perfis ?? []).map((p: any) => [p.id, p.nome]))
+      const batidas = data.map((b: any) => ({ nome: nomePorId[b.usuario_id] ?? b.usuario_id, tipo: b.tipo, hora: b.criado_em }))
+      return JSON.stringify({ ponto_hoje: batidas })
     },
   }
 }
