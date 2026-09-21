@@ -2392,15 +2392,26 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
           {produtosFiltrados.length > 0 && (
             <div className="animate-pop-in absolute top-full left-0 right-0 z-10 mt-1 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
-              <label className="flex cursor-pointer items-center gap-2 border-b border-gray-100 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100">
-                <input
-                  type="checkbox"
-                  checked={produtosFiltrados.length > 0 && produtosFiltrados.every((p) => selCopia.has(p.id))}
-                  onChange={(e) => setSelCopia(e.target.checked ? new Set(produtosFiltrados.map((p) => p.id)) : new Set())}
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                Selecionar todas
-              </label>
+              <div className="flex items-center gap-3 border-b border-gray-100 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600">
+                <label className="flex cursor-pointer items-center gap-2 hover:opacity-80">
+                  <input
+                    type="checkbox"
+                    checked={produtosFiltrados.length > 0 && produtosFiltrados.every((p) => selCopia.has(p.id))}
+                    onChange={(e) => setSelCopia(e.target.checked ? new Set(produtosFiltrados.map((p) => p.id)) : new Set())}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  Todas
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 hover:opacity-80">
+                  <input
+                    type="checkbox"
+                    checked={produtosDisponiveis.length > 0 && produtosDisponiveis.every((p) => selCopia.has(p.id))}
+                    onChange={(e) => setSelCopia(e.target.checked ? new Set(produtosDisponiveis.map((p) => p.id)) : new Set())}
+                    className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                  />
+                  Só disponíveis
+                </label>
+              </div>
               <div className="max-h-[60vh] overflow-y-auto overscroll-contain">
               {(() => {
                 const renderItem = (p: Produto, idx: number) => {
