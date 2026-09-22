@@ -5,7 +5,7 @@ import { IconWallet } from '@/components/icons'
 import { formatBRL, formatDate, hojeSP } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { BuscaLista } from '@/components/BuscaLista'
-import { marcarPago, deletarLancamento, desfazerPagamento } from './actions'
+import { marcarPago, deletarLancamento, desfazerPagamento, gerarFolha } from './actions'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
@@ -15,7 +15,7 @@ import { BuscaAvancada } from '@/components/BuscaAvancada'
 export default async function FinanceiroPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tipo?: string; busca?: string; ordem?: string; dir?: string; status?: string; de?: string; ate?: string; pessoa?: string; forma?: string; conta?: string; categoria?: string; valor_min?: string; valor_max?: string; campo?: string; erro?: string; loja?: string }>
+  searchParams: Promise<{ tipo?: string; busca?: string; ordem?: string; dir?: string; status?: string; de?: string; ate?: string; pessoa?: string; forma?: string; conta?: string; categoria?: string; valor_min?: string; valor_max?: string; campo?: string; erro?: string; ok?: string; loja?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
@@ -79,13 +79,21 @@ export default async function FinanceiroPage({
 
   const listaQuery = supabase
     .from('lancamentos')
-    .select('id, codigo, descricao, valor, tipo, status, data_vencimento, data_pagamento, data_competencia, forma_pagamento, pessoa_nome, categoria')
+    .select('id, codigo, descricao, valor, tipo, status, data_vencimento, data_pagamento, data_competencia, forma_pagamento, pessoa_nome, categoria, comprovante_url')
     .order(camposDB[ordemAtual] ?? 'data_vencimento', { ascending: !ordemDir })
     .limit(200)
   const { data: lancamentos } = await aplica(listaQuery)
 
-  type LancRow = { id: string; codigo: string | null; descricao: string | null; valor: number | null; tipo: string; status: string | null; data_vencimento: string | null; data_pagamento: string | null; data_competencia: string | null; forma_pagamento: string | null; pessoa_nome: string | null; categoria: string | null }
+  type LancRow = { id: string; codigo: string | null; descricao: string | null; valor: number | null; tipo: string; status: string | null; data_vencimento: string | null; data_pagamento: string | null; data_competencia: string | null; forma_pagamento: string | null; pessoa_nome: string | null; categoria: string | null; comprovante_url: string | null }
   const todos = (lancamentos ?? []) as LancRow[]
+
+  // Comprovantes ficam no bucket privado `pagamentos` — troca o caminho por URL
+  // assinada (1h) pra abrir no navegador.
+  const comprovanteUrl = new Map<string, string>()
+  await Promise.all(todos.filter((l) => l.comprovante_url).map(async (l) => {
+    const { data } = await supabase.storage.from('pagamentos').createSignedUrl(l.comprovante_url!, 3600)
+    if (data?.signedUrl) comprovanteUrl.set(l.id, data.signedUrl)
+  }))
 
   // Lancamentos com movimento de caixa ligado (quitados pelo Financeiro). Só esses
   // têm "Desfazer" seguro — PDV/OS quitam sem gravar lancamento_id.
@@ -132,7 +140,16 @@ export default async function FinanceiroPage({
           <h2 className="text-2xl font-bold text-gray-900">Financeiro</h2>
           <Dica texto="Controle de contas a pagar e a receber. Registre despesas, receitas e acompanhe o saldo pendente." />
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <form action={gerarFolha} className="flex items-center gap-2">
+            <input type="date" name="vencimento" defaultValue={hojeSP()}
+              title="Vencimento dos salários"
+              className="rounded-lg border border-gray-200 px-2 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+            <button type="submit"
+              className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 transition">
+              Gerar folha
+            </button>
+          </form>
           <Link href="/painel/financeiro/novo?tipo=receber"
             className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
             + A Receber
@@ -146,6 +163,10 @@ export default async function FinanceiroPage({
 
       {params.erro && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{params.erro}</div>
+      )}
+
+      {params.ok && (
+        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{params.ok}</div>
       )}
 
       <FinanceiroTabs active="lancamentos" />
@@ -276,7 +297,13 @@ export default async function FinanceiroPage({
                 const pago = (l.status ?? '').toLowerCase().includes('pago')
                 return (
                   <tr key={l.id} className="hover:bg-blue-50/60 transition">
-                    <td className="px-4 py-3 text-sm text-gray-800">{l.descricao || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-800">
+                      {l.descricao || '—'}
+                      {comprovanteUrl.get(l.id) && (
+                        <a href={comprovanteUrl.get(l.id)} target="_blank" rel="noreferrer"
+                          className="ml-1.5 text-blue-600 underline" title="Ver comprovante">📎</a>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm text-gray-500">{l.pessoa_nome || '—'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">
                       {l.data_vencimento ? formatDate(l.data_vencimento) : '—'}
@@ -295,7 +322,7 @@ export default async function FinanceiroPage({
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-1">
                         {!pago && (
-                          <form action={marcarPago.bind(null, l.id)} className="flex items-center gap-1">
+                          <form action={marcarPago.bind(null, l.id)} encType="multipart/form-data" className="flex items-center gap-1">
                             {/* Só "a receber" é dinheiro ENTRANDO, e o fechamento de caixa
                                 confere isso. Perguntar a forma aqui é o que impede o
                                 sistema de assumir "Dinheiro" num fiado pago por PIX. */}
@@ -312,6 +339,11 @@ export default async function FinanceiroPage({
                                   <option key={f} value={f}>{f}</option>
                                 ))}
                               </select>
+                            )}
+                            {l.tipo === 'pagar' && (
+                              <input type="file" name="comprovante" accept="image/*"
+                                title="Anexar comprovante do Pix"
+                                className="max-w-[7rem] text-[10px] text-gray-500 file:mr-1 file:rounded file:border-0 file:bg-blue-50 file:px-1.5 file:py-1 file:text-[10px] file:font-semibold file:text-blue-700" />
                             )}
                             <button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-medium text-green-600 hover:bg-green-50 transition">
                               Pago

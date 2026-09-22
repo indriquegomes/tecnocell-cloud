@@ -34,6 +34,7 @@ export interface Usuario {
   acessoBloqFeriado: boolean
   metaVendaMensal: number
   salario: number
+  chavePix: string | null
   created_at: string
 }
 export type Cargo = { id: string; nome: string }
@@ -211,6 +212,11 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario }: { lojas: Loja[];
       <div className="w-48">
         <label className="mb-1 block text-xs font-medium text-gray-600">Salário (R$)</label>
         <CampoDinheiro name="salario" defaultValue={Number(usuario.salario || 0)} className="text-sm" />
+      </div>
+
+      <div className="w-full">
+        <label className="mb-1 block text-xs font-medium text-gray-600">Chave Pix</label>
+        <input name="chave_pix" defaultValue={usuario.chavePix ?? ''} className="field w-full text-sm" placeholder="CPF/CNPJ, telefone, e-mail ou aleatória" />
       </div>
 
       {tabelas.length > 0 && (

@@ -117,6 +117,7 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
   const metaVendaMensal = isNaN(metaRaw) ? 0 : Math.max(0, metaRaw)
   const salarioRaw = parseFloat((fd.get('salario') as string) || '0')
   const salario = isNaN(salarioRaw) ? 0 : Math.max(0, salarioRaw)
+  const chavePix = ((fd.get('chave_pix') as string) ?? '').trim() || null
 
   const supabase = await createServiceClient()
   const { error } = await supabase.from('perfis').update({
@@ -136,6 +137,7 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
     acesso_bloqueia_feriado: bloqFeriado,
     meta_venda_mensal: metaVendaMensal,
     salario,
+    chave_pix: chavePix,
   }).eq('id', userId)
 
   if (error) return { ok: false, message: error.message }

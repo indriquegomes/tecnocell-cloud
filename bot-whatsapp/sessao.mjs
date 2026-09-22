@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import fs from 'node:fs'
 import path from 'node:path'
 import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion } from '@whiskeysockets/baileys'
 import { pino } from 'pino'
@@ -17,6 +18,15 @@ import { env, RAIZ_REPO } from '../bot/lib/env.mjs'
 
 const logger = pino({ level: 'silent' })
 const LINK_ENCOMENDAS = env('BOT_WHATSAPP_LINK_ENCOMENDAS')
+
+// Heartbeat pro vigia (monitor.mjs): prova de vida do bot. Grava o horário quando
+// conecta OU processa mensagem. O vigia reinicia se o arquivo ficar velho demais.
+const ARQ_HEARTBEAT = path.join(RAIZ_REPO, 'bot-whatsapp', 'data', 'heartbeat.txt')
+let conectado = false
+function bateCoracao() { fs.writeFile(ARQ_HEARTBEAT, String(Date.now()), () => {}) }
+// Enquanto conectado, renova a prova de vida a cada 5 min (senão à noite, sem
+// mensagem nenhuma, o vigia acharia o bot morto e reiniciaria à toa).
+setInterval(() => { if (conectado) bateCoracao() }, 5 * 60 * 1000)
 // Acima desse tanto de opções, e sendo MODELOS diferentes ("j7" casa Prime/Neo/Pro/
 // Metal), o bot pergunta qual modelo exato em vez de despejar a lista inteira.
 // 7 é o teto de variações por peça no catálogo (dono confirmou 19/09): mais que
@@ -91,6 +101,7 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
     if (connection === 'close') {
       if (fechando) return
       fechando = true
+      conectado = false
       sock.ev.removeAllListeners()
 
       const code = lastDisconnect?.error?.output?.statusCode
@@ -108,6 +119,8 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
       }
     } else if (connection === 'open') {
       console.log(`[${slug}] conectado ao WhatsApp.`)
+      conectado = true
+      bateCoracao()
       reconexoesSeguidas.set(slug, 0) // conectou: zera o backoff
       // constrói/atualiza o mapa lid->telefone em segundo plano (não bloqueia o bot)
       constroiMapa(sock).catch((e) => console.error(`[${slug}] falha ao construir mapa lid->telefone:`, e?.message || e))
@@ -116,6 +129,7 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
 
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     if (type !== 'notify') return
+    bateCoracao()
     for (const msg of messages) {
       if (!elegivel(msg)) continue
       const texto = textoDaMensagem(msg)

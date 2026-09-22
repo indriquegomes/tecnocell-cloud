@@ -13,5 +13,9 @@ module.exports = {
     // SEM watch mode de propósito: reiniciar a cada mudança de arquivo CORROMPIA a
     // sessão do WhatsApp (MessageCounterError / Bad MAC) e derrubava o bot o tempo
     // todo. Código novo entra com restart manual controlado (pm2 restart), nunca sozinho.
+  }, {
+    name: 'tecnocell-bot-monitor',
+    script: 'bot-whatsapp/monitor.mjs',
+    autorestart: true,
   }],
 }

@@ -17,6 +17,12 @@ function somaMeses(iso: string, n: number): string {
   return base.toISOString().slice(0, 10)
 }
 
+// Comprovante de pagamento (Pix) — imagem pro bucket privado `pagamentos`.
+// Mesmo padrão do lembretes/actions.ts: extensão vem do content-type, não do nome.
+const EXT_COMPROVANTE: Record<string, string> = {
+  'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif',
+}
+
 export async function criarLancamento(formData: FormData) {
   await requirePermissao('financeiro')
   const supabase = await createServiceClient()
@@ -118,6 +124,23 @@ export async function marcarPago(id: string, formData?: FormData) {
     redirect(`/painel/financeiro?erro=${encodeURIComponent('Escolha a forma de pagamento antes de marcar como pago — ela entra na conferência do caixa.')}`)
   }
 
+  // Comprovante do Pix (opcional) — vai pro bucket privado `pagamentos`, caminho
+  // gravado no lançamento e aberto depois por URL assinada na listagem.
+  let comprovanteUrl: string | null = null
+  const comprovante = (formData?.get('comprovante') as File | null) ?? null
+  if (comprovante && comprovante.size > 0) {
+    const ext = EXT_COMPROVANTE[comprovante.type]
+    if (!ext) redirect(`/painel/financeiro?erro=${encodeURIComponent('Comprovante deve ser imagem (JPG, PNG, WEBP ou GIF).')}`)
+    const path = `lancamentos/${id}/${hojeSP()}.${ext}`
+    const buffer = Buffer.from(await comprovante.arrayBuffer())
+    const { error: upErr } = await supabase.storage.from('pagamentos').upload(path, buffer, {
+      contentType: comprovante.type,
+      upsert: true,
+    })
+    if (upErr) redirect(`/painel/financeiro?erro=${encodeURIComponent(upErr.message)}`)
+    comprovanteUrl = path
+  }
+
   await logAtividade('pagamento.marcar_pago', {
     lancamento_id: id,
     valor: antes?.valor ?? null,
@@ -134,6 +157,7 @@ export async function marcarPago(id: string, formData?: FormData) {
     // Grava a forma escolhida: sem isso o lançamento seguia sem forma e o
     // relatório por forma de pagamento ficava cego justamente pro fiado quitado.
     ...(forma ? { forma_pagamento: forma } : {}),
+    ...(comprovanteUrl ? { comprovante_url: comprovanteUrl } : {}),
     updated_at: new Date().toISOString(),
   }).eq('id', id)
   if (error) redirect(`/painel/financeiro?erro=${encodeURIComponent(error.message)}`)
@@ -236,6 +260,7 @@ export async function desfazerPagamento(id: string) {
     valor_pago: novoPago,
     data_pagamento: null,
     forma_pagamento: null,
+    comprovante_url: null,
     updated_at: new Date().toISOString(),
   }).eq('id', id)
   if (error) redirect(`/painel/financeiro?erro=${encodeURIComponent(error.message)}`)
@@ -309,4 +334,64 @@ export async function registrarSangria(formData: FormData) {
   if (error) redirect(`/painel/contas?aba=saldos&erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/contas'); revalidatePath('/painel/financeiro')
   redirect(`/painel/contas?aba=saldos&ok=${Date.now()}`)
+}
+
+// Gera a folha de salários: uma conta a pagar por funcionário ativo com salário
+// > 0, na loja de origem dele (pdv_loja_id ou a única loja permitida). Comissões/
+// porcentagens ainda entram à mão (não há regra definida no sistema ainda).
+export async function gerarFolha(formData: FormData) {
+  await requirePermissao('financeiro')
+  const supabase = await createServiceClient()
+  const vencimento = (formData.get('vencimento') as string) || hojeSP()
+
+  const { data } = await supabase
+    .from('perfis')
+    .select('nome, salario, is_master, pdv_loja_id, lojas_permitidas')
+    .eq('ativo', true)
+    .gt('salario', 0)
+  const perfis = ((data ?? []) as {
+    nome: string; salario: number | null; is_master: boolean | null; pdv_loja_id: string | null; lojas_permitidas: string[] | null
+  }[]).filter((p) => !p.is_master)
+
+  // Evita duplicar se clicar 2x no mesmo vencimento: pula quem já tem salário
+  // pendente naquela data.
+  const { data: jaGerados } = await supabase
+    .from('lancamentos')
+    .select('pessoa_nome')
+    .eq('tipo', 'pagar')
+    .eq('categoria', 'Salários')
+    .eq('status', 'pendente')
+    .eq('data_vencimento', vencimento)
+  const jaTem = new Set(((jaGerados ?? []) as { pessoa_nome: string | null }[]).map((x) => x.pessoa_nome))
+
+  const criados: string[] = []
+  const pulados: string[] = []
+  for (const p of perfis) {
+    if (jaTem.has(p.nome)) continue
+    const lojaId = p.pdv_loja_id ?? (p.lojas_permitidas && p.lojas_permitidas.length === 1 ? p.lojas_permitidas[0] : null)
+    if (!lojaId) { pulados.push(p.nome); continue }
+    const { error } = await supabase.from('lancamentos').insert({
+      id: crypto.randomUUID(),
+      descricao: `Salário — ${p.nome}`,
+      valor: Number(p.salario ?? 0),
+      tipo: 'pagar',
+      categoria: 'Salários',
+      pessoa_nome: p.nome,
+      loja_id: lojaId,
+      data_competencia: hojeSP(),
+      data_vencimento: vencimento,
+      status: 'pendente',
+      valor_pago: 0,
+      updated_at: new Date().toISOString(),
+    })
+    if (error) redirect(`/painel/financeiro?erro=${encodeURIComponent(error.message)}`)
+    criados.push(p.nome)
+  }
+
+  revalidatePath('/painel/financeiro')
+  if (criados.length === 0) {
+    redirect(`/painel/financeiro?erro=${encodeURIComponent('Nenhum salário a gerar (funcionários sem salário, já gerados nesta data, ou sem loja definida).')}`)
+  }
+  const msg = `${criados.length} salário(s) gerado(s)` + (pulados.length ? ` — sem loja definida: ${pulados.join(', ')}` : '')
+  redirect(`/painel/financeiro?ok=${encodeURIComponent(msg)}`)
 }
