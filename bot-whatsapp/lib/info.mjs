@@ -39,15 +39,17 @@ export const POLITICA = `📢 POLÍTICA DE ATENDIMENTO – TECNOCELL
 • Domingo: fechado
 
 🚚 LOGÍSTICA DE ENTREGAS (GRATUITAS)
-📍 PETRÓPOLIS
-• Centro: a partir das 09h30.
-• Bairros (Bingen, Quitandinha, etc): Seg a Sex (10h e 14h) | Sábado (13h30).
-• Itaipava e região: Seg a Sex (11h30, 15h e 17h) | Sábado (11h30).
+📍 ITAIPAVA
+• Seg a Sex: 11h30 e 16h30
+• Sábado: 11h30 e 15h30
 
-📍 TERESÓPOLIS
-• Centro: a partir das 10h.
-• Interior: Seg a Sex (10h e 15h) | Sábado (10h).
-• Guapimirim: Seg a Sábado (12h).
+📍 BAIRRO
+• Seg a Sex: 10h00 e 14h30
+• Sábado: 13h30
+
+📍 CENTRO
+• Seg a Sex: 10h00, 10h40, 11h20, 12h00, 12h40, 13h20, 14h00, 15h20, 16h00, 16h40, 17h20, 18h00
+• Sábado: 10h00, 10h40, 11h20, 12h00, 12h40, 13h20, 14h00, 14h40, 16h00, 16h40
 
 ⚠️ Regras de Ouro:
 • Pedido mínimo: R$ 20,00.`
