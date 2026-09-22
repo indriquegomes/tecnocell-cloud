@@ -27,6 +27,36 @@ function bateCoracao() { fs.writeFile(ARQ_HEARTBEAT, String(Date.now()), () => {
 // Enquanto conectado, renova a prova de vida a cada 5 min (senão à noite, sem
 // mensagem nenhuma, o vigia acharia o bot morto e reiniciaria à toa).
 setInterval(() => { if (conectado) bateCoracao() }, 5 * 60 * 1000)
+
+// Estado da sessão ativa (pro health check e pra evitar socket duplicado).
+let sockAtual = null
+let sessaoAtual = null // { slug, depositoId, pastaAuth }
+let geracao = 0 // cada iniciaSessao ganha um número; só a chamada mais recente "vence"
+let recuperando = false // trava contra reconexão em loop no health check
+
+// Health check: o Baileys às vezes derruba o WebSocket SEM emitir 'connection.update
+// close' (queda silenciosa). Aí o bot fica "conectado" (heartbeat batendo via timer)
+// mas não recebe nada — o vigia nunca reinicia e o bot fica mudo. Este intervalo olha
+// o ws de verdade a cada 60s e reconecta se ele fechou sem aviso.
+setInterval(() => {
+  if (recuperando || !conectado || !sockAtual || !sessaoAtual) return
+  const ws = sockAtual.ws
+  const fechado = ws && typeof ws.isOpen === 'boolean' && !ws.isOpen
+  if (fechado) {
+    recuperando = true
+    conectado = false
+    console.error(`[${sessaoAtual.slug}] conexão caiu em silêncio (ws fechado sem aviso). Reconectando...`)
+    // Não chama sockAtual.end() aqui: o end dispara o handler de 'close' (que também
+    // agenda reconexão) e abriria DUAS sessões em paralelo. A nova iniciaSessao (abaixo)
+    // fecha o socket velho depois de incrementar a geração — aí o close antigo vira no-op.
+    const { slug, depositoId, pastaAuth } = sessaoAtual
+    setTimeout(() => {
+      iniciaSessao({ slug, depositoId, pastaAuth })
+        .catch((e) => console.error(`[${slug}] falha ao reconectar (health check):`, e?.message || e))
+        .finally(() => { recuperando = false })
+    }, 5000)
+  }
+}, 60 * 1000)
 // Acima desse tanto de opções, e sendo MODELOS diferentes ("j7" casa Prime/Neo/Pro/
 // Metal), o bot pergunta qual modelo exato em vez de despejar a lista inteira.
 // 7 é o teto de variações por peça no catálogo (dono confirmou 19/09): mais que
@@ -67,6 +97,8 @@ function textoDaMensagem(msg) {
 }
 
 export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
+  const minhaGeracao = ++geracao // socket mais novo vence; os antigos fecham sozinhos
+
   // Backup de creds: se creds.json corromper (crash no meio da gravação), restaura
   // do .bak e NÃO precisa escanear QR de novo.
   try {
@@ -88,6 +120,16 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
   // syncFullHistory: true faz o Baileys sincronizar os CONTATOS na conexão — é daí
   // que vem o mapa lid->telefone (contacts.upsert traz { id, lid, jid }).
   const sock = makeWASocket({ version, auth: state, logger, printQRInTerminal: false, syncFullHistory: true })
+
+  // Fecha socket anterior da MESMA pasta de auth antes de assumir o novo — dois
+  // vínculos abertos ao mesmo tempo fazem o WhatsApp trocar o vínculo (440) e
+  // invalidar a sessão = novo QR. Só a chamada mais recente fica de pé.
+  if (sockAtual && sessaoAtual?.pastaAuth === pastaAuth) {
+    try { sockAtual.end?.(new Error('substituido')) } catch {}
+  }
+  sockAtual = sock
+  sessaoAtual = { slug, depositoId, pastaAuth }
+
   sock.ev.on('creds.update', () => {
     saveCreds()
       .then(() => {
@@ -121,6 +163,7 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
     }
     if (connection === 'close') {
       if (fechando) return
+      if (minhaGeracao !== geracao) return // socket já substituído por outro mais novo
       fechando = true
       conectado = false
       sock.ev.removeAllListeners()
@@ -139,6 +182,12 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
         }, espera)
       }
     } else if (connection === 'open') {
+      // Socket velho conectou depois que um mais novo assumiu: fecha na hora. Dois
+      // vínculos abertos juntos = WhatsApp troca o vínculo e invalida a sessão.
+      if (minhaGeracao !== geracao) {
+        try { sock.end?.(new Error('socket duplicado')) } catch {}
+        return
+      }
       console.log(`[${slug}] conectado ao WhatsApp.`)
       conectado = true
       bateCoracao()
