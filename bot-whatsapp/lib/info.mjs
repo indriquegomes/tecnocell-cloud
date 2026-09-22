@@ -31,28 +31,55 @@ E a etapa mais importante — provar que você é técnico e/ou lojista:
 
 Trabalha como técnico autônomo e caseiro? Não se preocupe, você também é bem-vindo! Só precisa provar que trabalha com isso.`
 
-export const POLITICA = `📢 POLÍTICA DE ATENDIMENTO – TECNOCELL
+// Entregas por zona — a fonte de verdade fica no PAINEL (configuracoes.chave='entregas').
+// O bot lê de lá e formata; isto aqui é só o fallback se o painel nunca gravou.
+const ZONAS_ENTREGA = [
+  ['itaipava', 'ITAIPAVA'],
+  ['bairro', 'BAIRRO'],
+  ['centro', 'CENTRO'],
+]
+
+function formataHorarios(txt) {
+  return (txt || '').split(',').map((s) => s.trim()).filter(Boolean).join(', ')
+}
+
+export function montaEntregas(obj) {
+  const o = obj || {}
+  const linhas = ['🚚 LOGÍSTICA DE ENTREGAS (GRATUITAS)']
+  for (const [key, label] of ZONAS_ENTREGA) {
+    const z = o[key] || {}
+    const semana = formataHorarios(z.semana)
+    const sabado = formataHorarios(z.sabado)
+    if (!semana && !sabado) continue
+    linhas.push(`📍 ${label}`)
+    if (semana) linhas.push(`• Seg a Sex: ${semana}`)
+    if (sabado) linhas.push(`• Sábado: ${sabado}`)
+    linhas.push('')
+  }
+  return linhas.join('\n').trimEnd()
+}
+
+export const ENTREGAS_PADRAO = montaEntregas({
+  itaipava: { semana: '11h30, 16h30', sabado: '11h30, 15h30' },
+  bairro: { semana: '10h00, 14h30', sabado: '13h30' },
+  centro: { semana: '10h00, 10h40, 11h20, 12h00, 12h40, 13h20, 14h00, 15h20, 16h00, 16h40, 17h20, 18h00', sabado: '10h00, 10h40, 11h20, 12h00, 12h40, 13h20, 14h00, 14h40, 16h00, 16h40' },
+})
+
+const POLITICA_TOPO = `📢 POLÍTICA DE ATENDIMENTO – TECNOCELL
 
 ⏰ HORÁRIO DE FUNCIONAMENTO
 • Segunda a Sexta: 08h às 19h
 • Sábado: 08h às 17h
-• Domingo: fechado
+• Domingo: fechado`
 
-🚚 LOGÍSTICA DE ENTREGAS (GRATUITAS)
-📍 ITAIPAVA
-• Seg a Sex: 11h30 e 16h30
-• Sábado: 11h30 e 15h30
-
-📍 BAIRRO
-• Seg a Sex: 10h00 e 14h30
-• Sábado: 13h30
-
-📍 CENTRO
-• Seg a Sex: 10h00, 10h40, 11h20, 12h00, 12h40, 13h20, 14h00, 15h20, 16h00, 16h40, 17h20, 18h00
-• Sábado: 10h00, 10h40, 11h20, 12h00, 12h40, 13h20, 14h00, 14h40, 16h00, 16h40
-
-⚠️ Regras de Ouro:
+const POLITICA_RODAPE = `⚠️ Regras de Ouro:
 • Pedido mínimo: R$ 20,00.`
+
+export function montaPolitica(entregasTexto) {
+  return `${POLITICA_TOPO}\n\n${entregasTexto || ENTREGAS_PADRAO}\n\n${POLITICA_RODAPE}`
+}
+
+export const POLITICA = montaPolitica(ENTREGAS_PADRAO)
 
 export const ENCOMENDA = `📦 REGRAS DE ENCOMENDA – TECNOCELL
 

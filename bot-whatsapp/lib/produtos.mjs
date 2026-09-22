@@ -3,6 +3,7 @@ import { env } from '../../bot/lib/env.mjs'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { montaEntregas, ENTREGAS_PADRAO } from './info.mjs'
 
 const supabase = createClient(
   env('NEXT_PUBLIC_SUPABASE_URL'),
@@ -419,6 +420,14 @@ export async function buscaChavePix() {
   const { data, error } = await supabase.from('contas').select('chave_pix, titular').eq('nome', 'PIX').maybeSingle()
   if (error) throw error
   return data ? { chave: data.chave_pix || null, titular: data.titular || null } : { chave: null, titular: null }
+}
+
+// Horários de entrega — lidos do painel (configuracoes.chave='entregas'). Sem
+// config gravada, devolve o padrão. O bot formata e usa na resposta de entrega.
+export async function buscaEntregas() {
+  const { data, error } = await supabase.from('configuracoes').select('valor').eq('chave', 'entregas').maybeSingle()
+  if (error || !data?.valor) return ENTREGAS_PADRAO
+  return montaEntregas(data.valor)
 }
 
 // --- Resumo do catálogo pra IA (contexto da loja) ---

@@ -30,12 +30,25 @@ export async function salvarConfiguracoes(_prev: State, formData: FormData): Pro
     hora_fechar_sabado: (formData.get('hora_fechar_sabado') as string) || '16:30',
   }
 
-  const [r1, r2] = await Promise.all([
+  // Horários de entrega do bot WhatsApp — fonte de verdade lida pelo bot (info.mjs).
+  const zona = (prefixo: string) => ({
+    semana: ((formData.get(`entregas_${prefixo}_semana`) as string) ?? '').trim(),
+    sabado: ((formData.get(`entregas_${prefixo}_sabado`) as string) ?? '').trim(),
+  })
+  const valorEntregas = {
+    itaipava: zona('itaipava'),
+    bairro: zona('bairro'),
+    centro: zona('centro'),
+  }
+
+  const [r1, r2, r3] = await Promise.all([
     supabase.from('configuracoes').upsert({ chave: 'empresa', valor: valorEmpresa }, { onConflict: 'chave' }),
     supabase.from('configuracoes').upsert({ chave: 'pdv', valor: valorPdv }, { onConflict: 'chave' }),
+    supabase.from('configuracoes').upsert({ chave: 'entregas', valor: valorEntregas }, { onConflict: 'chave' }),
   ])
 
   if (r1.error) return { ok: false, erro: r1.error.message }
   if (r2.error) return { ok: false, erro: r2.error.message }
+  if (r3.error) return { ok: false, erro: r3.error.message }
   return { ok: true, erro: null }
 }

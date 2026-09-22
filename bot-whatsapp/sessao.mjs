@@ -6,9 +6,9 @@ import { pino } from 'pino'
 import qrcode from 'qrcode-terminal'
 import QRCode from 'qrcode'
 import { classificaPergunta, geraResposta } from './lib/ia.mjs'
-import { buscaProdutos, buscaProdutosAmplo, buscaPorPrioridade, buscaEstoque, buscaChavePix, resumoLoja, ehConsultaGenerica, buscaTabelaDoCliente, buscaTabelaVarejoId, precosDaTabela, buscaTabelaPorNome, categoriasDe, modelosDistintos, resolveSelecao } from './lib/produtos.mjs'
+import { buscaProdutos, buscaProdutosAmplo, buscaPorPrioridade, buscaEstoque, buscaChavePix, buscaEntregas, resumoLoja, ehConsultaGenerica, buscaTabelaDoCliente, buscaTabelaVarejoId, precosDaTabela, buscaTabelaPorNome, categoriasDe, modelosDistintos, resolveSelecao } from './lib/produtos.mjs'
 import { montaResposta, AVISO } from './lib/resposta.mjs'
-import { ENDERECO, HORARIO, CADASTRO, POLITICA, ENCOMENDA, VENDEDORA, PERGUNTA_APARELHO, FORA_HORARIO } from './lib/info.mjs'
+import { ENDERECO, HORARIO, CADASTRO, montaPolitica, ENCOMENDA, VENDEDORA, PERGUNTA_APARELHO, FORA_HORARIO } from './lib/info.mjs'
 import { registraTroca, jaAvisouHoje, marcaAvisoHoje } from './lib/db.mjs'
 import { guardaPendente, pegaPendente, limpaPendente, guardaContexto, pegaContexto, limpaContexto, guardaCategoria, pegaCategoria, guardaModelos, pegaModelos, limpaModelos } from './lib/estado.mjs'
 import { respondePedido, ehConfirmacao, marcaAlertaVisto } from './lib/pedido.mjs'
@@ -213,8 +213,8 @@ async function respondeAssuntoFixo(texto) {
   if (/(cadastro|cadastrar|me cadastro|quero me cadastrar)/.test(t)) return CADASTRO
   // encomenda (antes de 'regras' — "regras de encomenda" cai aqui, não na política)
   if (/(encomend)/.test(t)) return ENCOMENDA
-  // política / entrega / garantia
-  if (/(politica|regras|garantia|entrega|logistica|frete)/.test(t)) return POLITICA
+  // política / entrega / garantia (entregas vêm do painel, não mais hardcoded)
+  if (/(politica|regras|garantia|entrega|logistica|frete)/.test(t)) return montaPolitica(await buscaEntregas())
   return null
 }
 

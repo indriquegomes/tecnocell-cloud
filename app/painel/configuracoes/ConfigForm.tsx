@@ -5,7 +5,7 @@ import { useActionState } from 'react'
 import { salvarConfiguracoes } from './actions'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
 
-export function ConfigForm({ dados, dadosPdv }: { dados: Record<string, string>; dadosPdv: Record<string, number> }) {
+export function ConfigForm({ dados, dadosPdv, dadosEntregas }: { dados: Record<string, string>; dadosPdv: Record<string, number>; dadosEntregas: Record<string, { semana?: string; sabado?: string }> }) {
   const [state, formAction, pending] = useActionState(salvarConfiguracoes, { ok: false, erro: null })
 
   // Scroll to top so success/error message is visible
@@ -116,6 +116,33 @@ export function ConfigForm({ dados, dadosPdv }: { dados: Record<string, string>;
           />
           <p className="text-xs text-gray-400 mt-1">Caixa que virar a noite aberto é avisado no dia seguinte, em vermelho.</p>
         </div>
+      </div>
+
+      <h3 className="text-sm font-semibold text-gray-700 border-b border-gray-100 pb-3 pt-2">Horários de entrega (bot WhatsApp)</h3>
+      <p className="text-xs text-gray-400">O que o bot responde quando perguntam de entrega/logística/frete. Separe os horários por vírgula.</p>
+      <div className="space-y-4">
+        {([
+          ['itaipava', 'Itaipava'],
+          ['bairro', 'Bairro'],
+          ['centro', 'Centro'],
+        ] as const).map(([key, label]) => {
+          const z = dadosEntregas[key] ?? {}
+          return (
+            <div key={key} className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs text-gray-600">Seg a Sex</label>
+                  <input name={`entregas_${key}_semana`} defaultValue={z.semana ?? ''} className="field" placeholder="11h30, 16h30" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-gray-600">Sábado</label>
+                  <input name={`entregas_${key}_sabado`} defaultValue={z.sabado ?? ''} className="field" placeholder="11h30, 15h30" />
+                </div>
+              </div>
+            </div>
+          )
+        })}
       </div>
 
       <div className="pt-2">
