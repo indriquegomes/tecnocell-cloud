@@ -42,14 +42,14 @@ export default async function RhPage() {
     fetchAll<{ id: string; usuario_id: string; horas: number; data: string; motivo: string | null; obs: string | null }>(
       (from, to) => supabase.from('banco_horas').select('id, usuario_id, horas, data, motivo, obs').order('data', { ascending: false }).range(from, to)),
   ])
-  // Equipe separada por loja ativa. Loja do funcionário = pdv_loja_id (padrão) ou,
-  // sem ele, a única loja em lojas_permitidas. Master (lista vazia) vê tudo.
-  const lojaDe = (p: { pdv_loja_id: string | null; lojas_permitidas: string[] | null }) =>
-    p.pdv_loja_id ?? ((p.lojas_permitidas ?? []).length === 1 ? (p.lojas_permitidas as string[])[0] : null)
+  // Equipe separada por loja ativa. Funcionário pertence às lojas em
+  // lojas_permitidas (vazio = master/dono, vê tudo). Quem tem as DUAS (gerente geral)
+  // aparece nas duas — pdv_loja_id é só o padrão do PDV, não define a lista.
+  const lojasDe = (p: { lojas_permitidas: string[] | null }) => (p.lojas_permitidas ?? [])
   const perfis = (perfisRaw ?? []).filter((p) => {
     if (todas || !ativa?.id) return true
-    const l = lojaDe(p as { pdv_loja_id: string | null; lojas_permitidas: string[] | null })
-    return l == null || l === ativa.id
+    const ls = lojasDe(p as { lojas_permitidas: string[] | null })
+    return ls.length === 0 || ls.includes(ativa.id)
   })
   const porUser: Record<string, Ponto[]> = {}
   for (const p of (pontos ?? []) as Ponto[]) (porUser[p.usuario_id] ??= []).push(p)

@@ -89,12 +89,12 @@ export default async function UsuariosPage() {
       created_at: u.created_at,
     }))
 
-  // Loja do funcionário = pdv_loja_id (padrão) ou a única em lojas_permitidas.
-  // Master (isMaster) vê tudo; sem loja fixa (misto) aparece nas duas.
-  const lojaDe = (u: (typeof usuarios)[number]) => u.pdvLojaId ?? (u.lojasPermitidas.length === 1 ? u.lojasPermitidas[0] : null)
+  // Funcionário pertence às lojas em lojas_permitidas (vazio = master/dono).
+  // Quem tem as DUAS (gerente geral) aparece nas duas — pdv_loja_id é só o padrão.
+  const lojasDe = (u: (typeof usuarios)[number]) => u.lojasPermitidas
   const usuariosFiltrados = (todas || !ativa?.id)
     ? usuarios
-    : usuarios.filter((u) => u.isMaster || lojaDe(u) == null || lojaDe(u) === ativa.id)
+    : usuarios.filter((u) => u.isMaster || lojasDe(u).length === 0 || lojasDe(u).includes(ativa.id))
 
   return <UsuariosClient usuarios={usuariosFiltrados} cargos={cargos} lojas={lojas} depositos={depositos} tabelas={tabelas} />
 }
