@@ -1114,11 +1114,13 @@ export function DevolucoesClient({
                             </span>
                           )}
                         </button>
-                        <label className="mt-3 flex items-start gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm">
-                          <input type="checkbox" checked={confirmouReembolso} onChange={(e) => setConfirmouReembolso(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300" />
-                          <span className="text-gray-700">Confirmei a forma de reembolso acima.</span>
-                        </label>
                       </div>
+                    )}
+                    {reembolso > 0.01 && (
+                      <label className="mt-3 flex items-start gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm">
+                        <input type="checkbox" checked={confirmouReembolso} onChange={(e) => setConfirmouReembolso(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300" />
+                        <span className="text-gray-700">Confirmei a forma de reembolso acima.</span>
+                      </label>
                     )}
                   </div>
 
