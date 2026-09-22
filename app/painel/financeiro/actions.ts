@@ -2,6 +2,7 @@
 
 import crypto from 'node:crypto'
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { logAtividade } from '@/lib/log-atividade'
 import { registrarNoCaixa, lojaDoLancamento } from '@/lib/caixa'
 import { hojeSP } from '@/lib/utils'
@@ -129,6 +130,9 @@ export async function marcarPago(id: string, formData?: FormData) {
   let comprovanteUrl: string | null = null
   const comprovante = (formData?.get('comprovante') as File | null) ?? null
   if (comprovante && comprovante.size > 0) {
+    if (comprovante.size > 10 * 1024 * 1024) {
+      redirect(`/painel/financeiro?erro=${encodeURIComponent('Comprovante muito grande (máximo 10 MB).')}`)
+    }
     const ext = EXT_COMPROVANTE[comprovante.type]
     if (!ext) redirect(`/painel/financeiro?erro=${encodeURIComponent('Comprovante deve ser imagem (JPG, PNG, WEBP ou GIF).')}`)
     const path = `lancamentos/${id}/${hojeSP()}.${ext}`
@@ -344,6 +348,11 @@ export async function gerarFolha(formData: FormData) {
   const supabase = await createServiceClient()
   const vencimento = (formData.get('vencimento') as string) || hojeSP()
 
+  // Respeita a separação por loja: só gera salário de funcionário cuja loja de
+  // origem o usuário pode operar (master = todas).
+  const { operaveis } = await lojasDoUsuario().catch(() => ({ operaveis: null as { id: string }[] | null }))
+  const lojasPermitidasUser = operaveis ? new Set(operaveis.map((l) => l.id)) : null
+
   const { data } = await supabase
     .from('perfis')
     .select('nome, salario, is_master, pdv_loja_id, lojas_permitidas')
@@ -354,13 +363,12 @@ export async function gerarFolha(formData: FormData) {
   }[]).filter((p) => !p.is_master)
 
   // Evita duplicar se clicar 2x no mesmo vencimento: pula quem já tem salário
-  // pendente naquela data.
+  // naquela data (pago ou pendente).
   const { data: jaGerados } = await supabase
     .from('lancamentos')
     .select('pessoa_nome')
     .eq('tipo', 'pagar')
     .eq('categoria', 'Salários')
-    .eq('status', 'pendente')
     .eq('data_vencimento', vencimento)
   const jaTem = new Set(((jaGerados ?? []) as { pessoa_nome: string | null }[]).map((x) => x.pessoa_nome))
 
@@ -370,6 +378,7 @@ export async function gerarFolha(formData: FormData) {
     if (jaTem.has(p.nome)) continue
     const lojaId = p.pdv_loja_id ?? (p.lojas_permitidas && p.lojas_permitidas.length === 1 ? p.lojas_permitidas[0] : null)
     if (!lojaId) { pulados.push(p.nome); continue }
+    if (lojasPermitidasUser && !lojasPermitidasUser.has(lojaId)) continue
     const { error } = await supabase.from('lancamentos').insert({
       id: crypto.randomUUID(),
       descricao: `Salário — ${p.nome}`,
