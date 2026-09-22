@@ -10,10 +10,8 @@ module.exports = {
     },
     max_memory_restart: '512M',
     autorestart: true,
-    // Watch: reinicia sozinho quando o CÓDIGO do bot muda (pra não rodar versão
-    // velha depois de corrigir). NUNCA vigia data/ — auth/QR/mapas mudam o tempo
-    // todo em runtime; vigiar isso causaria loop de restart + sessão corrompida.
-    watch: ['bot-whatsapp', 'bot'],
-    ignore_watch: ['bot-whatsapp/data'],
+    // SEM watch mode de propósito: reiniciar a cada mudança de arquivo CORROMPIA a
+    // sessão do WhatsApp (MessageCounterError / Bad MAC) e derrubava o bot o tempo
+    // todo. Código novo entra com restart manual controlado (pm2 restart), nunca sozinho.
   }],
 }

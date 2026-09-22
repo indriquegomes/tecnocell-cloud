@@ -6,6 +6,10 @@ import { RAIZ_REPO, env } from '../bot/lib/env.mjs'
 // rejeição que escape de um .catch() aqui perto não pode derrubar o processo Node em
 // silêncio — as duas lojas compartilham esse processo, então um erro assim tiraria as duas do ar.
 process.on('unhandledRejection', (e) => console.error('[bot-whatsapp] rejeicao nao tratada:', e))
+// Exceção síncrona (socket libsignal etc.) não pode derrubar o processo — derrubar
+// = PM2 reinicia = sessão do WhatsApp sai de sync (MessageCounterError) e o bot
+// "para de responder". Loga e segue em vez de cair.
+process.on('uncaughtException', (e) => console.error('[bot-whatsapp] excecao nao tratada (seguindo):', e))
 
 if (!env('DEEPSEEK_API_KEY')) {
   console.error('[bot-whatsapp] DEEPSEEK_API_KEY não configurada no .env.local — sem ela o bot classifica toda mensagem como erro e fica mudo, indistinguível de estar funcionando bem. Não vou subir assim.')
