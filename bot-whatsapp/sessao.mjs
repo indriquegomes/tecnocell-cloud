@@ -67,6 +67,21 @@ function textoDaMensagem(msg) {
 }
 
 export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
+  // Backup de creds: se creds.json corromper (crash no meio da gravação), restaura
+  // do .bak e NÃO precisa escanear QR de novo.
+  try {
+    const creds = JSON.parse(fs.readFileSync(path.join(pastaAuth, 'creds.json'), 'utf8'))
+    if (!creds?.me?.id || !creds?.signedIdentityKey) throw new Error('incompleto')
+  } catch {
+    try {
+      const bak = JSON.parse(fs.readFileSync(path.join(pastaAuth, 'creds.json.bak'), 'utf8'))
+      if (bak?.me?.id && bak?.signedIdentityKey) {
+        fs.writeFileSync(path.join(pastaAuth, 'creds.json'), JSON.stringify(bak))
+        console.log(`[${slug}] creds corrompido — restaurado do backup (sem QR)`)
+      }
+    } catch {}
+  }
+
   const { state, saveCreds } = await useMultiFileAuthState(pastaAuth)
   const { version } = await fetchLatestBaileysVersion()
 
@@ -74,7 +89,13 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
   // que vem o mapa lid->telefone (contacts.upsert traz { id, lid, jid }).
   const sock = makeWASocket({ version, auth: state, logger, printQRInTerminal: false, syncFullHistory: true })
   sock.ev.on('creds.update', () => {
-    saveCreds().catch((e) => console.error(`[${slug}] falha ao salvar credenciais:`, e))
+    saveCreds()
+      .then(() => {
+        try {
+          fs.copyFileSync(path.join(pastaAuth, 'creds.json'), path.join(pastaAuth, 'creds.json.bak'))
+        } catch {}
+      })
+      .catch((e) => console.error(`[${slug}] falha ao salvar credenciais:`, e))
   })
 
   // WhatsApp novo entrega o remetente como @lid (ID anônimo). O número real só
