@@ -11,6 +11,7 @@ import { buscarOSPorNumero, receberOS } from '../os/actions'
 import { PoliticaCadastro } from '../clientes/politica'
 import { rotulaRotina } from '@/lib/rotina-pagamento'
 import { badgeTabela } from '@/lib/badge-tabela'
+import { mensagemPagamentoCrediario } from '@/lib/mensagem-crediario'
 
 // "Desconto" aparece junto das formas de recebimento porque é ali que a Duda procura,
 // mas NÃO é forma de pagamento: não entra dinheiro, ele abate a dívida. Id falso pra
@@ -290,6 +291,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
   const [pagandoCrediario, setPagandoCrediario] = useState(false)
   const [pagoCrediarioOk, setPagoCrediarioOk] = useState(false)
+  // Mensagem pronta pra copiar pro cliente após quitar (F9) + feedback de cópia
+  const [mensagemCrediario, setMensagemCrediario] = useState<string | null>(null)
+  const [mensagemCopiada, setMensagemCopiada] = useState(false)
   // forma escolhida pra quitar VÁRIAS notas de uma vez (Isa: "quitar todas de uma vez só")
   const [formaQuitar, setFormaQuitar] = useState('')
   const [valoresQuitar, setValoresQuitar] = useState<Record<string, number>>({})
@@ -1534,6 +1538,32 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       setSelecionados(new Set())
       tentativaLote.current = null
       setRecebendoItem(null)
+      // Mensagem pronta pra copiar pro cliente (F9 quitar): agrupa por cliente e monta
+      // UMA mensagem por cliente (cliente, valor pago, forma, notas e saldo restante).
+      const porCliente = new Map<string | null, { nome: string; notas: (string | null)[]; valor: number }>()
+      for (const i of itensSelecionados) {
+        const v = Math.min(restante(i), valoresQuitar[i.id] ?? restante(i))
+        if (v <= 0) continue // mesmo filtro do alocacoes (valor 0 não entra no lote)
+        const k = i.pessoa_id ?? null
+        const cur = porCliente.get(k) ?? { nome: i.pessoa_nome ?? 'Cliente', notas: [], valor: 0 }
+        cur.notas.push(numeroNota(i))
+        cur.valor += v
+        porCliente.set(k, cur)
+      }
+      const mensagens = [...porCliente.entries()].map(([pessoaId, c]) => {
+        const totalDevendo = crediarioItens
+          .filter((i) => (pessoaId ? i.pessoa_id === pessoaId : !i.pessoa_id))
+          .reduce((s, i) => s + restante(i), 0)
+        return mensagemPagamentoCrediario({
+          cliente: c.nome,
+          valor: c.valor,
+          forma: forma === VALE_RECEB_ID ? 'Vale Crédito' : forma,
+          notas: c.notas,
+          saldoRestante: Math.max(0, totalDevendo - c.valor),
+        })
+      })
+      setMensagemCrediario(mensagens.join('\n\n---\n\n'))
+      setMensagemCopiada(false)
       setPagoCrediarioOk(true)
       setTimeout(() => setPagoCrediarioOk(false), 3000)
     } catch {
@@ -1775,6 +1805,14 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     if (m) return `#${m[1]}`
     if (item.venda_id) return `#${item.venda_id.slice(-6).toUpperCase()}`  // último recurso
     return '—'
+  }
+  // Número cru da nota (sem #), pro texto da mensagem. null quando não há número real
+  // (não usa o fatiado do UUID — não é número de nota que o cliente reconhece).
+  const numeroNota = (item: CrediarioItem): string | null => {
+    if (item.codigo) return String(item.codigo)
+    if (item.venda_numero) return String(item.venda_numero)
+    const m = item.descricao?.match(/#(\d+)/)
+    return m ? m[1] : null
   }
   const statusCrediario = (dataVenc: string | null) => {
     if (!dataVenc) return { label: 'Pendente', cor: 'text-gray-500' }
@@ -3525,6 +3563,31 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 <p className="mt-2 text-center text-sm font-medium text-green-600">✓ Pagamento registrado com sucesso.</p>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast — mensagem pronta pra copiar pro cliente após quitar (F9) */}
+      {mensagemCrediario && (
+        <div className="fixed top-5 right-5 z-[80] max-w-md rounded-xl bg-white p-4 text-sm text-gray-800 shadow-xl border border-blue-200">
+          <div className="flex items-start justify-between gap-4">
+            <strong className="text-blue-700">💬 Mensagem pro cliente</strong>
+            <button onClick={() => setMensagemCrediario(null)} className="text-gray-400 hover:text-gray-700" aria-label="Fechar">×</button>
+          </div>
+          <p className="mt-2 whitespace-pre-line text-xs text-gray-600">{mensagemCrediario}</p>
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(mensagemCrediario)
+                  setMensagemCopiada(true)
+                  setTimeout(() => setMensagemCopiada(false), 2500)
+                } catch { /* clipboard bloqueado */ }
+              }}
+              className="rounded-lg border border-blue-200 px-3 py-2 font-semibold text-blue-700 hover:bg-blue-50"
+            >
+              {mensagemCopiada ? '✓ Copiado!' : 'Copiar mensagem'}
+            </button>
           </div>
         </div>
       )}
