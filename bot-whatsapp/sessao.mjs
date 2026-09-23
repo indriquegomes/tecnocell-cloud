@@ -113,6 +113,7 @@ function textoDaMensagem(msg) {
 
 export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
   const minhaGeracao = ++geracao // socket mais novo vence; os antigos fecham sozinhos
+  bateCoracao() // marca "vivo" já no início (aguardando QR/connect) — o vigia não reinicia à toa
 
   // Backup de creds: se creds.json corromper (crash no meio da gravação), restaura
   // do .bak e NÃO precisa escanear QR de novo.
