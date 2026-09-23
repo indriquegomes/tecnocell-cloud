@@ -329,10 +329,14 @@ export async function registrarSangria(formData: FormData) {
   if (!contaId || !(valor > 0)) redirect(`/painel/contas?aba=saldos&erro=${encodeURIComponent('Escolha a conta e um valor maior que zero.')}`)
   const supabase = await createServiceClient()
   const hoje = hojeSP()
+  // Loja vem da conta (ex.: Caixa Petrópolis → Petrópolis) — sem isso a sangria
+  // nascia sem loja_id e caía em "Sem loja" no financeiro.
+  const { data: conta } = await supabase.from('contas').select('loja_id').eq('id', contaId).maybeSingle()
   const { error } = await supabase.from('lancamentos').insert({
     id: crypto.randomUUID(),
     descricao: motivo, valor, tipo: 'pagar', categoria: 'Sangria / Retirada',
     data_competencia: hoje, data_vencimento: hoje, conta_id: contaId,
+    loja_id: (conta as { loja_id?: string | null } | null)?.loja_id ?? null,
     status: 'pago', data_pagamento: hoje, valor_pago: valor, updated_at: new Date().toISOString(),
   })
   if (error) redirect(`/painel/contas?aba=saldos&erro=${encodeURIComponent(error.message)}`)

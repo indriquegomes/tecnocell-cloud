@@ -352,7 +352,6 @@ async function processaMensagem(sock, loja, jid, texto) {
   // opção. Mandar "Sim" pro escolheProduto faz a IA chutar uma opção e a
   // confirmação se perde.
   const contexto = pegaContexto(loja.slug, jid)
-  if (ehConfirmacao(texto)) console.log(`[${loja.slug}] [DEBUG] confirmacao "${texto}" jid=${(jid || '').slice(-10)} contexto=${contexto ? 'OK' : 'NULL'}`)
   if (contexto && ehConfirmacao(texto)) {
     await respondePedido(sock, loja.slug, jid, telefone, contexto, nomeCliente)
     return

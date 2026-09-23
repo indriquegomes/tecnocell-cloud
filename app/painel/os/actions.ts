@@ -192,6 +192,7 @@ export async function receberOS(osId: string, forma: string, lojaId: string): Pr
     status: 'pago', data_competencia: today, data_vencimento: today, data_pagamento: today,
     forma_pagamento: forma, pessoa_nome: (os as { pessoa_nome?: string | null }).pessoa_nome ?? null,
     conta_id: await contaDaFormaOS(supabase, forma, lojaId),
+    loja_id: lojaId,
   })
   if (eLancamento) {
     await supabase.from('ordens_servico').update({ recebido_em: null, forma_recebimento: null, status: statusAnterior }).eq('id', osId)
