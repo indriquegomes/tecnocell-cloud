@@ -149,8 +149,13 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
   sockAtual = sock
   sessaoAtual = { slug, depositoId, pastaAuth }
 
+  // Serializa a gravação de creds: 'creds.update' dispara em rajada durante
+  // reconexão, e gravar em paralelo dava EBUSY — que corrompe o creds.json no
+  // meio da escrita e derruba a sessão (QR de novo).
+  let filaCreds = Promise.resolve()
   sock.ev.on('creds.update', () => {
-    saveCreds()
+    filaCreds = filaCreds
+      .then(() => saveCreds())
       .then(() => {
         try {
           fs.copyFileSync(path.join(pastaAuth, 'creds.json'), path.join(pastaAuth, 'creds.json.bak'))
@@ -189,22 +194,24 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
 
       const code = lastDisconnect?.error?.output?.statusCode
       const definitivo = CODIGOS_DESCONEXAO_DEFINITIVA.has(code)
+      // Reconecta SEMPRE. Em queda definitiva (sessão invalidada) o reconnect
+      // gera um QR novo sozinho (sem apagar pasta na mão) — mas a conta banida
+      // (403) não tem volta e só vai ficar tentando; loga pra não ficar mudo.
       if (definitivo) {
-        console.error(`[${slug}] conexão caiu (${code}). Sessão encerrada — precisa de ação humana: apague a pasta de auth e escaneie o QR de novo, ou verifique se a conta foi banida/aberta em outro lugar. Não vai reconectar sozinho.`)
-      } else {
-        // Ainda sem sessão (aguardando QR): o WS de pareamento do WhatsApp expira em
-        // ~60s e fecha com 408. NÃO aplicar backoff aqui — senão o bot fica 10s→30min
-        // dormindo e o QR some por longos períodos. Reconecta na hora pra manter o QR
-        // sempre fresco.
-        const semSessao = !sock.user
-        const n = semSessao ? 0 : (reconexoesSeguidas.get(slug) || 0) + 1
-        reconexoesSeguidas.set(slug, n)
-        const espera = semSessao ? 2000 : esperaReconexao(slug)
-        console.error(`[${slug}] conexão caiu (${code || 'sem código'}). Reconectando em ${Math.round(espera / 1000)}s (queda ${n})...`)
-        setTimeout(() => {
-          iniciaSessao({ slug, depositoId, pastaAuth }).catch((e) => console.error(`[${slug}] falha ao reconectar:`, e))
-        }, espera)
+        console.error(`[${slug}] conexão caiu (${code}). Sessão inválida — reconectando pra gerar QR novo.`)
       }
+      // Ainda sem sessão (aguardando QR): o WS de pareamento do WhatsApp expira em
+      // ~60s e fecha com 408. NÃO aplicar backoff aqui — senão o bot fica 10s→30min
+      // dormindo e o QR some por longos períodos. Reconecta na hora pra manter o QR
+      // sempre fresco.
+      const semSessao = !sock.user
+      const n = semSessao ? 0 : (reconexoesSeguidas.get(slug) || 0) + 1
+      reconexoesSeguidas.set(slug, n)
+      const espera = semSessao ? 2000 : esperaReconexao(slug)
+      console.error(`[${slug}] conexão caiu (${code || 'sem código'}). Reconectando em ${Math.round(espera / 1000)}s (queda ${n})...`)
+      setTimeout(() => {
+        iniciaSessao({ slug, depositoId, pastaAuth }).catch((e) => console.error(`[${slug}] falha ao reconectar:`, e))
+      }, espera)
     } else if (connection === 'open') {
       // Socket velho conectou depois que um mais novo assumiu: fecha na hora. Dois
       // vínculos abertos juntos = WhatsApp troca o vínculo e invalida a sessão.
