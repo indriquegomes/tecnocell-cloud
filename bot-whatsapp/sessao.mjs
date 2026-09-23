@@ -117,9 +117,12 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
   const { state, saveCreds } = await useMultiFileAuthState(pastaAuth)
   const { version } = await fetchLatestBaileysVersion()
 
-  // syncFullHistory: true faz o Baileys sincronizar os CONTATOS na conexão — é daí
-  // que vem o mapa lid->telefone (contacts.upsert traz { id, lid, jid }).
-  const sock = makeWASocket({ version, auth: state, logger, printQRInTerminal: false, syncFullHistory: true })
+  // syncFullHistory fica FALSE (padrão). Com true o Baileys baixa e reprocessa o
+  // HISTÓRICO INTEIRO de mensagens na conexão — mensagem velha repetida vira
+  // "MessageCounterError / Bad MAC" (contador já usado), dessincroniza a sessão e é
+  // a causa provável do "bot parou de responder". O mapa lid->telefone NÃO depende
+  // disso: ele vem de sock.onWhatsApp() (lib/lid-telefone.mjs) + contacts.upsert.
+  const sock = makeWASocket({ version, auth: state, logger, printQRInTerminal: false })
 
   // Fecha socket anterior da MESMA pasta de auth antes de assumir o novo — dois
   // vínculos abertos ao mesmo tempo fazem o WhatsApp trocar o vínculo (440) e
