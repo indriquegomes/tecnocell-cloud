@@ -33,6 +33,16 @@ let sockAtual = null
 let sessaoAtual = null // { slug, depositoId, pastaAuth }
 let geracao = 0 // cada iniciaSessao ganha um número; só a chamada mais recente "vence"
 let recuperando = false // trava contra reconexão em loop no health check
+let ultimoRecv = Date.now() // última mensagem recebida — pra detectar "conectado mas mudo" (half-open)
+
+// Loja aberta 7:40–19:30 (São Paulo). Fora disso, "sem mensagem" é normal e não deve
+// forçar reconexão (senão de madrugada o bot reinicia à toa e corrói a sessão).
+function emHorarioComercial() {
+  const hm = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false })
+  const [h, m] = hm.split(':').map(Number)
+  const minutos = h * 60 + m
+  return minutos >= 7 * 60 + 40 && minutos <= 19 * 60 + 30
+}
 
 // Health check: o Baileys às vezes derruba o WebSocket SEM emitir 'connection.update
 // close' (queda silenciosa). Aí o bot fica "conectado" (heartbeat batendo via timer)
@@ -41,11 +51,16 @@ let recuperando = false // trava contra reconexão em loop no health check
 setInterval(() => {
   if (recuperando || !conectado || !sockAtual || !sessaoAtual) return
   const ws = sockAtual.ws
-  const fechado = ws && typeof ws.isOpen === 'boolean' && !ws.isOpen
-  if (fechado) {
+  const wsFechado = ws && typeof ws.isOpen === 'boolean' && !ws.isOpen
+  // "Conectado mas mudo": ws AINDA aberto (half-open) porém nenhuma mensagem chegou em
+  // 15 min dentro do horário comercial — queda silenciosa que o ws.isOpen NÃO pega
+  // (o TCP fica "Established" mas o WhatsApp parou de mandar dados).
+  const mudo = emHorarioComercial() && (Date.now() - ultimoRecv > 15 * 60 * 1000)
+  if (wsFechado || mudo) {
     recuperando = true
     conectado = false
-    console.error(`[${sessaoAtual.slug}] conexão caiu em silêncio (ws fechado sem aviso). Reconectando...`)
+    const motivo = wsFechado ? 'ws fechado sem aviso' : 'sem mensagens há 15min em horário comercial'
+    console.error(`[${sessaoAtual.slug}] conexão caiu em silêncio (${motivo}). Reconectando...`)
     // Não chama sockAtual.end() aqui: o end dispara o handler de 'close' (que também
     // agenda reconexão) e abriria DUAS sessões em paralelo. A nova iniciaSessao (abaixo)
     // fecha o socket velho depois de incrementar a geração — aí o close antigo vira no-op.
@@ -193,6 +208,7 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
       }
       console.log(`[${slug}] conectado ao WhatsApp.`)
       conectado = true
+      ultimoRecv = Date.now()
       bateCoracao()
       reconexoesSeguidas.set(slug, 0) // conectou: zera o backoff
       // constrói/atualiza o mapa lid->telefone em segundo plano (não bloqueia o bot)
@@ -202,6 +218,7 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
 
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     if (type !== 'notify') return
+    ultimoRecv = Date.now()
     bateCoracao()
     for (const msg of messages) {
       if (!elegivel(msg)) continue
