@@ -197,11 +197,17 @@ export default async function RelatoriosPage({
         .select('produto_id, nome, quantidade, total_item').in('devolucao_id', chunk).range(from, to))
       const devPids = [...new Set(devItens.map((i) => i.produto_id).filter(Boolean))] as string[]
       let custoDevById: Record<string, number> = {}
+      let categoriaDevById: Record<string, string | null> = {}
       if (devPids.length) {
-        const custosDev = await fetchAllIn<{ id: string; preco_custo: number | null }>(devPids, (chunk, from, to) => supabase.from('produtos').select('id, preco_custo').in('id', chunk).range(from, to))
+        const custosDev = await fetchAllIn<{ id: string; preco_custo: number | null; categoria: string | null }>(devPids, (chunk, from, to) => supabase.from('produtos').select('id, preco_custo, categoria').in('id', chunk).range(from, to))
         custoDevById = Object.fromEntries(custosDev.map((p) => [p.id, p.preco_custo ?? 0]))
+        categoriaDevById = Object.fromEntries(custosDev.map((p) => [p.id, p.categoria ?? null]))
       }
       for (const it of devItens) {
+        // Filtro de categoria vale também pras devoluções — senão item devolvido de
+        // OUTRA categoria vaza no condensado filtrado ("só FRONTAL" mostrava bateria/
+        // componente devolvidos como linha negativa).
+        if (catprod && (categoriaDevById[it.produto_id] ?? null) !== catprod) continue
         const nome = it.nome ?? '—'
         const qtd = Number(it.quantidade) || 0
         const devolvido = Number(it.total_item) || 0
