@@ -192,9 +192,14 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
       if (definitivo) {
         console.error(`[${slug}] conexão caiu (${code}). Sessão encerrada — precisa de ação humana: apague a pasta de auth e escaneie o QR de novo, ou verifique se a conta foi banida/aberta em outro lugar. Não vai reconectar sozinho.`)
       } else {
-        const n = (reconexoesSeguidas.get(slug) || 0) + 1
+        // Ainda sem sessão (aguardando QR): o WS de pareamento do WhatsApp expira em
+        // ~60s e fecha com 408. NÃO aplicar backoff aqui — senão o bot fica 10s→30min
+        // dormindo e o QR some por longos períodos. Reconecta na hora pra manter o QR
+        // sempre fresco.
+        const semSessao = !sock.user
+        const n = semSessao ? 0 : (reconexoesSeguidas.get(slug) || 0) + 1
         reconexoesSeguidas.set(slug, n)
-        const espera = esperaReconexao(slug)
+        const espera = semSessao ? 2000 : esperaReconexao(slug)
         console.error(`[${slug}] conexão caiu (${code || 'sem código'}). Reconectando em ${Math.round(espera / 1000)}s (queda ${n})...`)
         setTimeout(() => {
           iniciaSessao({ slug, depositoId, pastaAuth }).catch((e) => console.error(`[${slug}] falha ao reconectar:`, e))
