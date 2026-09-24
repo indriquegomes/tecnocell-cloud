@@ -376,6 +376,7 @@ async function processaMensagem(sock, loja, jid, texto) {
 
   let produtos = await tentaResolverPendente(loja, jid, texto)
   let buscaDescricao = null
+  let sugestaoNota = null
 
   if (!produtos) {
     let classificacao
@@ -406,7 +407,6 @@ async function processaMensagem(sock, loja, jid, texto) {
     }
     limpaContexto(loja.slug, jid) // pergunta nova de produto: contexto anterior ficou velho
     buscaDescricao = classificacao.textoBusca
-    let sugestaoNota = null
 
     // "tem película?" / "tem capa?" sem aparelho: pergunta qual aparelho, não chuta.
     if (ehConsultaGenerica(buscaDescricao)) {
