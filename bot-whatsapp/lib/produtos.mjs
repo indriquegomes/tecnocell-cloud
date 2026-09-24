@@ -494,6 +494,21 @@ export async function buscaEntregas() {
   return montaEntregas(data.valor)
 }
 
+// "entregue N" — o motoboy marca a entrega pelo WhatsApp. Devolve o número da
+// venda marcada, ou null se não achou entrega em aberto com esse número.
+export async function marcarEntregaBot(numero) {
+  const { data: venda } = await supabase.from('vendas')
+    .select('id, numero')
+    .eq('numero', numero)
+    .eq('tipo_entrega', 'entrega')
+    .is('entregue_em', null)
+    .maybeSingle()
+  if (!venda) return null
+  const { error } = await supabase.from('vendas').update({ entregue_em: new Date().toISOString() }).eq('id', venda.id)
+  if (error) throw error
+  return venda.numero
+}
+
 // --- Resumo do catálogo pra IA (contexto da loja) ---
 
 // Cache de 1h: o resumo só é refeito de vez em quando. A primeira chamada paga

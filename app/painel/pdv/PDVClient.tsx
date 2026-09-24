@@ -219,9 +219,10 @@ interface Props {
   seriesPorProduto: Record<string, Record<string, string[]>>  // produto_id → deposito_id → [IMEIs em_estoque]
   depositoInicial?: string   // depósito padrão do usuário (config PDV do perfil)
   bairrosPorLoja?: Record<string, string[]>   // loja_id → bairros que a loja entrega
+  horariosEntregas?: Record<string, { semana?: string; sabado?: string }>   // rota → horários (Configurações)
 }
 
-export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoasIniciais, depositos, lojas, maquinas, tabelas, precosPorTabela, tabelasUsadas = [], promosPorProduto, seriesPorProduto: seriesIniciais, depositoInicial, bairrosPorLoja = {} }: Props) {
+export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoasIniciais, depositos, lojas, maquinas, tabelas, precosPorTabela, tabelasUsadas = [], promosPorProduto, seriesPorProduto: seriesIniciais, depositoInicial, bairrosPorLoja = {}, horariosEntregas = {} }: Props) {
   // produtos/pessoas/IMEIs viram CACHE acumulável: começam vazios (não vêm mais no HTML)
   // e vão sendo preenchidos pela busca sob demanda. Os `.find()` do carrinho leem daqui,
   // e como só entra no carrinho o que veio da busca, o item sempre está no cache.
@@ -588,6 +589,13 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   // Retirada (padrão) ou Entrega — só entra no cupom, não mexe em pagamento nem estoque.
   const [tipoEntrega, setTipoEntrega] = useState<'retirada' | 'entrega'>('retirada')
   const [bairroEntrega, setBairroEntrega] = useState('')
+  const [rotaEntrega, setRotaEntrega] = useState('')
+  const [horarioEntrega, setHorarioEntrega] = useState('')
+  // Horários da rota selecionada (centro/bairro/itaipava) — de Configurações.
+  const horariosDaRota = (rota: string) => {
+    const r = (horariosEntregas?.[rota] ?? {}) as { semana?: string; sabado?: string }
+    return [...new Set([...(r.semana ?? '').split(','), ...(r.sabado ?? '').split(',')].map((s) => s.trim()).filter(Boolean))]
+  }
   const [enderecoCustom, setEnderecoCustom] = useState('')
   const [depositoId, setDepositoId] = useState(depoDefaultDaLoja(lojas[0]?.id ?? ''))
   // Formas mostradas no PDV: sem loja aparecem sempre; com loja, só na loja delas.
@@ -1342,6 +1350,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         tipoEntrega,
         tipoEntrega === 'entrega' ? (bairroEntrega === 'outro' ? enderecoCustom.trim() || null : bairroEntrega || null) : null,
         tabelaId || null,
+        rotaEntrega || null,
+        horarioEntrega || null,
       )
       if ('erro' in result) { setErro(result.erro); return }
 
@@ -2216,7 +2226,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               <CopiarWhatsAppBtn texto={textoWhatsApp()} />
             </div>
             <button
-              onClick={() => { setVendaConcluidaId(null); setVendaSnapshot(null); setTipoEntrega('retirada'); setBairroEntrega(''); setEnderecoCustom('') }}
+              onClick={() => { setVendaConcluidaId(null); setVendaSnapshot(null); setTipoEntrega('retirada'); setBairroEntrega(''); setEnderecoCustom(''); setRotaEntrega(''); setHorarioEntrega('') }}
               className="w-full rounded-xl bg-blue-600 px-8 py-3 font-semibold text-white hover:bg-blue-700 transition"
             >
               Nova Venda
@@ -2834,6 +2844,26 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 </div>
                 {tipoEntrega === 'entrega' && (
                   <div className="mt-2 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="mb-1 block text-[11px] font-medium text-gray-400">Rota</label>
+                        <select value={rotaEntrega} onChange={(e) => { setRotaEntrega(e.target.value); setHorarioEntrega('') }}
+                          className="field w-full text-sm">
+                          <option value="">Rota…</option>
+                          <option value="centro">Centro</option>
+                          <option value="bairro">Bairro</option>
+                          <option value="itaipava">Itaipava</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[11px] font-medium text-gray-400">Horário de saída</label>
+                        <select value={horarioEntrega} onChange={(e) => setHorarioEntrega(e.target.value)}
+                          className="field w-full text-sm" disabled={!rotaEntrega}>
+                          <option value="">Horário…</option>
+                          {horariosDaRota(rotaEntrega).map((h) => <option key={h} value={h}>{h}</option>)}
+                        </select>
+                      </div>
+                    </div>
                     <select value={bairroEntrega} onChange={(e) => setBairroEntrega(e.target.value)}
                       className="field w-full text-sm">
                       <option value="">Selecione o bairro…</option>

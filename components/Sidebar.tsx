@@ -81,6 +81,7 @@ const navCompleto: NavGroup[] = [
       { href: '/painel/pdv/operacao',   label: 'Operação do PDV',       permissao: 'pdv' },
       { href: '/painel/vendas',         label: 'Painel de Vendas',      permissao: 'vendas' },
       { href: '/painel/pedidos',        label: 'Pedidos e Orçamentos',  permissao: 'pedidos' },
+      { href: '/painel/entregas',       label: 'Entregas do motoboy',    permissao: 'pdv' },
       { href: '/painel/devolucoes',     label: 'Devoluções',            permissao: 'devolucoes' },
       { href: '/painel/painel-vendedor', label: 'Painel Vendedor',      permissao: 'relatorios' },
       { href: '/painel/metas',          label: 'Metas',                 permissao: 'metas' },

@@ -6,7 +6,7 @@ import { pino } from 'pino'
 import qrcode from 'qrcode-terminal'
 import QRCode from 'qrcode'
 import { classificaPergunta, geraResposta } from './lib/ia.mjs'
-import { buscaProdutos, buscaProdutosAmplo, buscaPorPrioridade, buscaEstoque, buscaChavePix, buscaEntregas, resumoLoja, ehConsultaGenerica, ehMarcaSolta, buscaTabelaDoCliente, buscaTabelaVarejoId, precosDaTabela, buscaTabelaPorNome, categoriasDe, modelosDistintos, resolveSelecao, buscaComAlternativa } from './lib/produtos.mjs'
+import { buscaProdutos, buscaProdutosAmplo, buscaPorPrioridade, buscaEstoque, buscaChavePix, buscaEntregas, marcarEntregaBot, resumoLoja, ehConsultaGenerica, ehMarcaSolta, buscaTabelaDoCliente, buscaTabelaVarejoId, precosDaTabela, buscaTabelaPorNome, categoriasDe, modelosDistintos, resolveSelecao, buscaComAlternativa } from './lib/produtos.mjs'
 import { montaResposta, AVISO } from './lib/resposta.mjs'
 import { ENDERECO, HORARIO, CADASTRO, montaPolitica, ENCOMENDA, VENDEDORA, PERGUNTA_APARELHO, FORA_HORARIO } from './lib/info.mjs'
 import { registraTroca, jaAvisouHoje, marcaAvisoHoje } from './lib/db.mjs'
@@ -283,6 +283,15 @@ async function tentaResolverPendente(loja, jid, texto) {
 // pronta ou null — null segue pro fluxo normal de produto.
 async function respondeAssuntoFixo(texto) {
   const t = (texto || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  // "entregue N" — o motoboy marca a entrega pelo WhatsApp (palavra-chave).
+  const mEntregue = t.match(/^entregue[!.]?\s*(\d+)/)
+  if (mEntregue) {
+    const numero = Number(mEntregue[1])
+    const ok = await marcarEntregaBot(numero).catch(() => null)
+    return ok != null
+      ? `✅ Entrega #${ok} marcada como entregue!`
+      : `Não achei a entrega #${numero} em aberto.`
+  }
   // PIX: qualquer menção -> chave + pedido de comprovante
   if (/\bpix\b/.test(t)) {
     const p = await buscaChavePix()

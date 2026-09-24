@@ -306,6 +306,8 @@ export async function finalizarVenda(
   tipo_entrega: 'retirada' | 'entrega' = 'retirada',
   endereco_entrega: string | null = null,
   tabela_preco_id: string | null = null,
+  rota_entrega: string | null = null,
+  horario_entrega: string | null = null,
 ): Promise<
   | { erro: string }
   | { vendaId: string; vendaNumero: number | null; total: number; estoqueAtualizado: Record<string, number>; vendedorNome: string }
@@ -446,6 +448,13 @@ export async function finalizarVenda(
       .eq('venda_id', data.venda_id as string)
       .eq('tipo', 'receber').eq('status', 'pendente')
     if (eComb) console.error('finalizarVenda: falha ao marcar combinado entrega:', eComb.message)
+  }
+
+  // Rota + horário da entrega (centro/bairro/itaipava) — gravado pós-RPC pra não
+  // mexer no finalizar_venda (RPC crítico). Colunas adicionadas em 2026-09-23.
+  if (rota_entrega || horario_entrega) {
+    const { error: eRota } = await supabase.from('vendas').update({ rota_entrega, horario_entrega }).eq('id', data.venda_id as string)
+    if (eRota) console.error('finalizarVenda: falha ao gravar rota de entrega:', eRota.message)
   }
 
   // Amarra a venda ao caixa aberto (pro fechamento X/Z reconciliar por caixa).

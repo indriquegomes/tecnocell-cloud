@@ -43,7 +43,7 @@ export default async function PDVPage() {
   // Produtos (7.983) e clientes (2.397) NÃO são mais embutidos no HTML — o PDV busca
   // sob demanda no servidor conforme digita (buscarProdutosPDV/buscarClientesPDV). Idem
   // os itens de tabela de preço (45k, buscarItensTabela). Isso derruba o payload do PDV.
-  const [{ count: totalProdutos }, { data: formas }, { data: depositos }, { data: tabelas }, { data: lojas }, { data: maquinas }, { data: bairrosData }] = await Promise.all([
+  const [{ count: totalProdutos }, { data: formas }, { data: depositos }, { data: tabelas }, { data: lojas }, { data: maquinas }, { data: bairrosData }, { data: entregasData }] = await Promise.all([
     supabase.from('produtos').select('id', { count: 'exact', head: true }).eq('ativo', true),
     supabase.from('formas_pagamento').select('id, nome, tipo, maquina_id, prazo_recebimento, loja_id').eq('ativo', true),
     supabase.from('depositos').select('id, nome, loja_id').order('nome'),
@@ -52,9 +52,12 @@ export default async function PDVPage() {
     supabase.from('maquinas_cartao').select('id, nome, taxa_debito, taxas_credito, max_parcelas').eq('ativo', true).order('nome'),
     // bairros de entrega por loja — pra selecionar endereço na venda (Retirada/Entrega)
     supabase.from('bairros_entrega').select('id, nome, loja_id').eq('ativo', true).order('nome'),
+    // horários de entrega por rota (centro/bairro/itaipava) — Configurações
+    supabase.from('configuracoes').select('valor').eq('chave', 'entregas').maybeSingle(),
   ])
   const bairrosPorLoja: Record<string, string[]> = {}
   for (const b of bairrosData ?? []) (bairrosPorLoja[b.loja_id] ??= []).push(b.nome)
+  const horariosEntregas = (entregasData?.valor ?? {}) as Record<string, { semana?: string; sabado?: string }>
 
   // IMEIs vêm junto do resultado da busca de produto (buscarProdutosPDV) — começa vazio.
   const seriesPorProduto: Record<string, Record<string, string[]>> = {}
@@ -185,6 +188,7 @@ export default async function PDVPage() {
         promosPorProduto={promosPorProduto}
         seriesPorProduto={seriesPorProduto}
         bairrosPorLoja={bairrosPorLoja}
+        horariosEntregas={horariosEntregas}
       />
     </div>
   )
