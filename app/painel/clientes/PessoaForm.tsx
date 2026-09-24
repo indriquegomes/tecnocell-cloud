@@ -13,6 +13,9 @@ const TIPOS: [string, string][] = [
   ['tecnico', 'Técnico'], ['transportadora', 'Transportadora'], ['vendedor', 'Vendedor'],
 ]
 const ORIGENS = ['Indicação', 'Instagram', 'Facebook', 'Google', 'Passou na loja', 'Cliente antigo', 'Outro']
+// Formas de pagamento que um fornecedor pode aceitar + tipos de chave Pix
+const FORMAS_PAGAMENTO = ['Pix', 'Boleto', 'TED', 'Dinheiro', 'Cartão']
+const TIPOS_CHAVE = ['CPF', 'CNPJ', 'E-mail', 'Celular', 'Aleatória']
 
 type Tabela = { id: string; nome: string }
 type Vendedor = { id: string; nome: string }
@@ -25,6 +28,8 @@ export type PessoaEdit = {
   rotina_pagamento?: string | null
   nao_vender?: boolean | null; nao_vender_motivo?: string | null
   permite_fiado?: boolean | null
+  chave_pix?: string | null; tipo_chave_pix?: string | null
+  formas_pagamento?: string[] | null; forma_padrao?: string | null
   vendedor_id: string | null; origem: string | null; observacoes: string | null
 }
 
@@ -38,6 +43,8 @@ export function PessoaForm({ tabelas, vendedores, editando, podeCredito = true, 
   const [cidade, setCidade] = useState(editando?.cidade ?? '')
   const [estado, setEstado] = useState(editando?.estado ?? '')
   const [buscandoCep, setBuscandoCep] = useState(false)
+  const [tipo, setTipo] = useState(editando?.tipo ?? 'cliente')
+  const [formas, setFormas] = useState<string[]>(editando?.formas_pagamento ?? [])
 
   async function buscarCep() {
     const num = cep.replace(/\D/g, '')
@@ -75,7 +82,7 @@ export function PessoaForm({ tabelas, vendedores, editando, podeCredito = true, 
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Rótulo (tipo) *</label>
-            <select name="tipo" defaultValue={editando?.tipo ?? 'cliente'} className="field">
+            <select name="tipo" value={tipo} onChange={(e) => setTipo(e.target.value)} className="field">
               {TIPOS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
           </div>
@@ -257,6 +264,48 @@ export function PessoaForm({ tabelas, vendedores, editando, podeCredito = true, 
           </div>
         </div>
       </div>
+
+      {/* Pagamento (fornecedor) — só aparece pra fornecedor/ambos. Chave Pix é obrigatória. */}
+      {(tipo === 'fornecedor' || tipo === 'ambos') && (
+        <div>
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Pagamento (Fornecedor)</h3>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Chave Pix <span className="text-red-500">*</span></label>
+              <input name="chave_pix" required defaultValue={editando?.chave_pix ?? ''} className="field" placeholder="Cole a chave Pix do fornecedor" />
+              <p className="mt-1 text-[11px] text-gray-400">É por aqui que você paga o fornecedor.</p>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Tipo da chave</label>
+              <select name="tipo_chave_pix" defaultValue={editando?.tipo_chave_pix ?? ''} className="field">
+                <option value="">—</option>
+                {TIPOS_CHAVE.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Formas de pagamento aceitas</label>
+              <div className="flex flex-wrap gap-2">
+                {FORMAS_PAGAMENTO.map((f) => (
+                  <label key={f} className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">
+                    <input type="checkbox" name="formas_pagamento" value={f} checked={formas.includes(f)}
+                      onChange={(e) => setFormas(e.target.checked ? [...formas, f] : formas.filter((x) => x !== f))}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                    {f}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Forma padrão</label>
+              <select name="forma_padrao" defaultValue={editando?.forma_padrao ?? ''} className="field">
+                <option value="">—</option>
+                {FORMAS_PAGAMENTO.map((f) => <option key={f} value={f}>{f}</option>)}
+              </select>
+              <p className="mt-1 text-[11px] text-gray-400">Já vem marcada na hora de pagar.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Observações */}
       <div>

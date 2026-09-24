@@ -65,8 +65,16 @@ function camposPessoa(formData: FormData, cpfCnpj: string, email: string) {
     vendedor_id: txt('vendedor_id'),
     origem: txt('origem'),
     observacoes: txt('observacoes'),
+    // Fornecedor: chave Pix (pra pagar) + formas que aceita
+    chave_pix: txt('chave_pix'),
+    tipo_chave_pix: txt('tipo_chave_pix'),
+    formas_pagamento: (formData.getAll('formas_pagamento') as string[]).filter(Boolean),
+    forma_padrao: txt('forma_padrao'),
   }
 }
+
+// Fornecedor é obrigado a ter chave Pix no cadastro (dono 24/09) — é como ele é pago.
+const EXIGE_CHAVE = ['fornecedor', 'ambos']
 
 // Traduz o erro cru do Postgres (nome do índice único) pra mensagem que a pessoa
 // entende. Índice vem de supabase/migrations/2026-08-25-pessoas-cpf-email-unico.sql.
@@ -101,6 +109,7 @@ export async function criarPessoa(formData: FormData) {
 
   const campos = camposPessoa(formData, cpfCnpj, email)
   if (!campos.nome) redirect(`/painel/clientes/novo?erro=${encodeURIComponent('Nome não pode ficar vazio.')}`)
+  if (EXIGE_CHAVE.includes(campos.tipo) && !campos.chave_pix) redirect(`/painel/clientes/novo?erro=${encodeURIComponent('Fornecedor precisa ter a chave Pix preenchida.')}`)
   if (!(await podeAcao('credito_limite'))) campos.limite_credito = 0
   const id = crypto.randomUUID()
   const foto_url = await uploadFotoCliente(supabase, formData.get('foto') as File | null, id)
@@ -140,6 +149,7 @@ export async function editarPessoa(id: string, formData: FormData) {
 
   const campos: Partial<ReturnType<typeof camposPessoa>> & { foto_url?: string } = camposPessoa(formData, cpfCnpj, email)
   if (!campos.nome) redirect(`/painel/clientes/${id}/editar?erro=${encodeURIComponent('Nome não pode ficar vazio.')}`)
+  if (campos.tipo && EXIGE_CHAVE.includes(campos.tipo) && !campos.chave_pix) redirect(`/painel/clientes/${id}/editar?erro=${encodeURIComponent('Fornecedor precisa ter a chave Pix preenchida.')}`)
   // sem permissão: não mexe no limite de crédito (preserva o existente)
   if (!(await podeAcao('credito_limite'))) delete campos.limite_credito
   // só troca a foto se enviaram uma nova (senão preserva a atual)
