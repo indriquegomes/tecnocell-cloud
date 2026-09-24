@@ -84,6 +84,10 @@ const CATEGORIAS = [
 // ip 13" passavam sem filtro nenhum com a regra de 3 letras).
 const ABREVIACOES_CURTAS = { fr: 'frontal' }
 
+// Palavra composta que o cliente escreve JUNTO ("subplaca") = tipo de peça ("placa").
+// O cliente junta "sub"+"placa"; sem isso o AND não casa e o bot diz "não encontrei".
+const ALIAS_TIPO = { subplaca: 'placa' }
+
 // Sinônimos de TIPO de peça: o cliente fala "tela", o catálogo grava "frontal"
 // ou "display" — mesma coisa na loja. Sem isso, "tela do moto g8" não acha
 // "FRONTAL MOTOROLA G8" e o bot responde "não encontrei" pra algo que TEM.
@@ -239,6 +243,7 @@ export function resolveSelecao(texto, opcoes, modelos = null) {
 
 function categoriaDe(palavra) {
   if (ABREVIACOES_CURTAS[palavra]) return ABREVIACOES_CURTAS[palavra]
+  if (ALIAS_TIPO[palavra]) return ALIAS_TIPO[palavra]
   if (palavra.length < 3) return null
   return CATEGORIAS.find((c) => c.startsWith(palavra) || palavra.startsWith(c)) ?? null
 }
