@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { IconPlus, IconClipboard } from '@/components/icons'
 import Link from 'next/link'
@@ -62,19 +62,27 @@ export default async function PedidosPage({
     return { href: `/painel/pedidos?${qs}`, arrow, ativo }
   }
 
-  // catálogos pra traduzir id → nome (loja, forma) numa ida só cada
-  let qPedidos = supabase.from('pedidos')
-    .select('id, numero, tipo, status, total, created_at, deposito_id, forma_pagamento_id, pessoas(nome)')
-    .order('created_at', { ascending: false })
-  let qVendas = supabase.from('vendas')
-    .select('id, numero, status, total, created_at, deposito_id, caixa_id, forma_pagamento_id, pessoas(nome)')
-    .order('created_at', { ascending: false })
-  if (de) { qPedidos = qPedidos.gte('created_at', de); qVendas = qVendas.gte('created_at', de) }
-  if (ate) { qPedidos = qPedidos.lte('created_at', ate + 'T23:59:59'); qVendas = qVendas.lte('created_at', ate + 'T23:59:59') }
-
+  // catálogos pra traduzir id → nome (loja, forma) numa ida só cada.
+  // fetchAll (sem .limit) — antes o .limit(300) CAPAVA a lista em 300 e o
+  // "histórico geral" sumia quando o período tinha mais que isso.
+  const buscaRaw = q?.trim() ?? ''
+  type RowPedido = { id: string; numero: number | null; tipo: string; status: string; total: number; created_at: string; deposito_id: string | null; forma_pagamento_id: string | null; pessoas: { nome: string }[] | null }
+  type RowVenda = { id: string; numero: number | null; status: string; total: number; created_at: string; deposito_id: string | null; caixa_id: string | null; forma_pagamento_id: string | null; pessoas: { nome: string }[] | null }
   const [pedidosRes, vendasRes, { data: depositos }, { data: lojas }, { data: formas }] = await Promise.all([
-    qPedidos.limit(300),
-    qVendas.limit(300),
+    fetchAll<RowPedido>((from, to) => {
+      let query = supabase.from('pedidos').select('id, numero, tipo, status, total, created_at, deposito_id, forma_pagamento_id, pessoas(nome)').order('created_at', { ascending: false }).range(from, to)
+      if (de) query = query.gte('created_at', de)
+      if (ate) query = query.lte('created_at', ate + 'T23:59:59')
+      if (buscaRaw) query = query.ilike('pessoas.nome', `%${buscaRaw}%`)
+      return query
+    }),
+    fetchAll<RowVenda>((from, to) => {
+      let query = supabase.from('vendas').select('id, numero, status, total, created_at, deposito_id, caixa_id, forma_pagamento_id, pessoas(nome)').order('created_at', { ascending: false }).range(from, to)
+      if (de) query = query.gte('created_at', de)
+      if (ate) query = query.lte('created_at', ate + 'T23:59:59')
+      if (buscaRaw) query = query.ilike('pessoas.nome', `%${buscaRaw}%`)
+      return query
+    }),
     supabase.from('depositos').select('id, loja_id'),
     supabase.from('lojas').select('id, nome'),
     supabase.from('formas_pagamento').select('id, nome'),
@@ -86,7 +94,7 @@ export default async function PedidosPage({
   }
   // Venda do PDV: a loja vem do CAIXA (o depósito tem loja NULL em alguns).
   // Mesma lógica do Painel de Vendas. Isa 29/07.
-  const caixaIds = [...new Set((vendasRes.data ?? []).map((v) => v.caixa_id).filter(Boolean))] as string[]
+  const caixaIds = [...new Set((vendasRes ?? []).map((v) => v.caixa_id).filter(Boolean))] as string[]
   const { data: caixas } = caixaIds.length
     ? await supabase.from('caixas').select('id, loja_id').in('id', caixaIds)
     : { data: [] as { id: string; loja_id: string | null }[] }
@@ -101,13 +109,13 @@ export default async function PedidosPage({
   const nomeCli = (r: { pessoas?: unknown }) => (r.pessoas as { nome: string } | null)?.nome ?? null
 
   const linhas: Linha[] = [
-    ...(pedidosRes.data ?? []).map((p): Linha => ({
+    ...(pedidosRes ?? []).map((p): Linha => ({
       id: p.id, numero: p.numero, tipo: p.tipo === 'orcamento' ? 'orcamento' : 'pedido',
       status: p.status, total: Number(p.total) || 0, created_at: p.created_at,
       cliente: nomeCli(p), loja: p.deposito_id ? lojaDoDep[p.deposito_id] ?? null : null,
       forma: p.forma_pagamento_id ? nomeForma[p.forma_pagamento_id] ?? null : null,
     })),
-    ...(vendasRes.data ?? []).map((v): Linha => ({
+    ...(vendasRes ?? []).map((v): Linha => ({
       id: v.id, numero: v.numero, tipo: 'venda',
       status: v.status, total: Number(v.total) || 0, created_at: v.created_at,
       cliente: nomeCli(v), loja: (v.caixa_id && lojaDoCaixa[v.caixa_id]) || (v.deposito_id ? lojaDoDep[v.deposito_id] ?? null : null),
