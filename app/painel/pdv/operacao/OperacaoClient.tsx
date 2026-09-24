@@ -1033,9 +1033,19 @@ function SaldoPanel({
         recebidosDinheiro={recebidosDinheiro}
         saldoGaveta={saldoCaixa}
       />
-      <div className="flex justify-between rounded-xl bg-cyan-50 px-4 py-3 font-bold text-sm">
-        <span className="text-cyan-900">Total do turno (todas as formas, incl. fiado)</span>
-        <span className="text-cyan-700 tabular-nums">{fmt(saldoTotal)}</span>
+      <div className="rounded-xl bg-cyan-50 px-4 py-3 space-y-1.5 text-sm">
+        <div className="flex justify-between">
+          <span className="text-cyan-800">Vendas do turno (sem troco)</span>
+          <span className="font-semibold text-cyan-700 tabular-nums">{fmt(saldoTotal - caixaAberto.valor_abertura)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-cyan-800">Troco (fundo)</span>
+          <span className="tabular-nums text-cyan-600">{fmt(caixaAberto.valor_abertura)}</span>
+        </div>
+        <div className="flex justify-between font-bold border-t border-cyan-200 pt-1.5">
+          <span className="text-cyan-900">Total (com troco)</span>
+          <span className="text-cyan-700 tabular-nums">{fmt(saldoTotal)}</span>
+        </div>
       </div>
       {Object.keys(porForma).length > 0 && (
         <div>
@@ -1318,6 +1328,11 @@ export function OperacaoClient({
   // em cartão/PIX não é dinheiro que o turno produziu — antes inflava este total (Isa 29/07).
   const saldoTotal =
     (caixaAberto?.valor_abertura ?? 0) + totalVendas + reforcosDinheiro - retiradasDinheiro - totalDevolucoes
+  // Caixa aberto num dia e ainda aberto no seguinte = bagunça na conferência.
+  const caixaEhDeOntem =
+    caixaAberto &&
+    new Date(caixaAberto.aberto_em).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) !==
+      new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
 
   return (
     <div className="space-y-6">
@@ -1409,6 +1424,11 @@ export function OperacaoClient({
 
       {caixaAberto ? (
         <>
+          {caixaEhDeOntem && (
+            <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+              ⚠️ Caixa aberto desde {fmtDate(caixaAberto.aberto_em)} — está de ontem. Feche antes de continuar vendendo.
+            </div>
+          )}
           {/* Resumo rápido */}
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">

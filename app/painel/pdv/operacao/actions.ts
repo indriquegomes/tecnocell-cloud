@@ -25,7 +25,7 @@ export async function abrirCaixa(
     let qExist = supabase.from('caixas').select('id').eq('status', 'aberto').limit(1)
     if (lojaId) qExist = qExist.eq('loja_id', lojaId)
     const { data: existente } = await qExist.maybeSingle()
-    if (existente) return { ok: false, message: 'Já existe um caixa aberto nesta loja.' }
+    if (existente) return { ok: false, message: 'Já existe um caixa aberto nesta loja. Feche ele antes de abrir outro.' }
 
     const { error } = await supabase.from('caixas').insert({
       valor_abertura: Math.max(0, parseFloat(formData.get('valor_abertura') as string) || 0),
