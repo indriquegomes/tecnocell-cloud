@@ -42,8 +42,9 @@ export default async function NovaNotaPage({ searchParams }: { searchParams: Pro
             <input name="data_emissao" type="date" className="field" />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Fornecedor</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Fornecedor <span className="text-red-500">*</span></label>
             <FornecedorSelect fornecedores={fornecedores} />
+            <p className="mt-1 text-xs text-gray-400">Obrigatório — liga os produtos ao fornecedor certo.</p>
           </div>
           <div className="sm:col-span-2">
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Observações</label>

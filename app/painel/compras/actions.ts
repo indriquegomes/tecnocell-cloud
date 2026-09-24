@@ -12,9 +12,15 @@ export async function criarNotaEntrada(formData: FormData) {
   // (pra não precisar digitar quando a mercadoria chega sem nota).
   const numeroInformado = ((formData.get('numero') as string) || '').trim()
   const numeroNota = numeroInformado || String(Math.floor(100000 + Math.random() * 900000))
+  // Fornecedor obrigatório: é ele que liga cada produto ao fornecedor certo (o
+  // nome/marca do produto não basta — vários fornecedores vendem a mesma marca).
+  const fornecedorId = ((formData.get('fornecedor_id') as string) || '').trim()
+  if (!fornecedorId) {
+    redirect(`/painel/compras/nova?erro=${encodeURIComponent('Escolha o fornecedor da nota — é ele que liga os produtos ao fornecedor certo.')}`)
+  }
   const { data: nota, error } = await supabase.from('notas_entrada').insert({
     numero: numeroNota,
-    fornecedor_id: (formData.get('fornecedor_id') as string) || null,
+    fornecedor_id: fornecedorId,
     data_emissao: (formData.get('data_emissao') as string) || null,
     data_entrada: (formData.get('data_entrada') as string) || hojeSP(),
     observacoes: (formData.get('observacoes') as string) || null,
@@ -49,9 +55,24 @@ export async function receberNota(id: string) {
     }
   }
 
+  // fornecedor da nota — usado pra ligar cada produto ao fornecedor certo ao receber
+  const { data: notaEntrada } = await supabase.from('notas_entrada').select('fornecedor_id').eq('id', id).maybeSingle()
+
   // entrada atômica no estoque + IMEIs + atualiza custo do produto (tudo ou nada)
   const { error } = await supabase.rpc('receber_nota_entrada', { p_nota_id: id })
   if (error) redirect(`/painel/compras/${id}?erro=${encodeURIComponent(error.message)}`)
+
+  // Liga os produtos desta nota ao fornecedor (fornecedor_id). É o que permite filtrar
+  // o financeiro por fornecedor (ex: Inova) sem depender do nome/marca do produto.
+  if (notaEntrada?.fornecedor_id) {
+    const { data: itensNota } = await supabase.from('itens_nota_entrada').select('produto_id').eq('nota_id', id)
+    const produtoIds = [...new Set((itensNota ?? []).map((i) => i.produto_id).filter(Boolean))] as string[]
+    if (produtoIds.length > 0) {
+      const { error: erroForn } = await supabase.from('produtos').update({ fornecedor_id: notaEntrada.fornecedor_id }).in('id', produtoIds)
+      if (erroForn) console.error('receberNota: falha ao ligar fornecedor aos produtos:', erroForn.message)
+    }
+  }
+
   revalidatePath('/painel/compras')
   revalidatePath(`/painel/compras/${id}`)
   revalidatePath('/painel/estoque')
