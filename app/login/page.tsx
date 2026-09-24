@@ -37,20 +37,22 @@ export default async function LoginPage({
           </div>
 
           <h2 className="text-2xl font-bold tracking-tight text-gray-900">Entrar</h2>
-          <p className="mt-1 mb-6 text-sm text-gray-500">Acesse com seu e-mail e senha.</p>
+          <p className="mt-1 mb-6 text-sm text-gray-500">Acesse com seu usuário e senha.</p>
 
           <form action="/api/auth/login" method="POST" className="space-y-4">
             {next && <input type="hidden" name="next" value={next} />}
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">E-mail</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Usuário</label>
               <input
-                name="email"
-                type="email"
+                name="usuario"
+                type="text"
                 required
-                autoComplete="email"
+                autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
                 className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition focus:border-[#1B6CA8] focus:outline-none focus:ring-2 focus:ring-[#1B6CA8]/30"
-                placeholder="funcionario@tecnocell.com.br"
+                placeholder="ex: mariana"
               />
             </div>
 

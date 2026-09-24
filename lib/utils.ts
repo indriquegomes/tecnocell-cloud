@@ -48,3 +48,16 @@ export function slugify(text: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '')
 }
+
+// Normaliza o "usuário" de login: minúsculas, sem acento, separadores viram ponto.
+// "Isabela Ponciano" → "isabela.ponciano"; "João" → "joao"; "Letícia" → "leticia".
+export function normalizarUsuario(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\s_-]+/g, '.')
+    .replace(/\.{2,}/g, '.')
+    .replace(/^\.+|\.+$/g, '')
+}

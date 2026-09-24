@@ -2,6 +2,7 @@
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { TODAS_PERMISSOES } from '@/lib/permissoes'
+import { normalizarUsuario } from '@/lib/utils'
 import { revalidatePath } from 'next/cache'
 
 export type ActionResult = { ok: true; message: string } | { ok: false; message: string }
@@ -14,11 +15,13 @@ export async function criarConvite(_: ConviteResult | null, fd: FormData): Promi
   let admin: { id: string }
   try { admin = await requirePermissao('usuarios', token) } catch { return { ok: false, message: 'Não autorizado' } }
 
-  const email    = (fd.get('email') as string ?? '').trim()
+  const usuario  = (fd.get('usuario') as string ?? '').trim()
   const nome     = (fd.get('nome') as string ?? '').trim()
   const isMaster = fd.getAll('is_master').includes('1')
   const perms    = fd.getAll('permissoes') as string[]
-  if (!email || !nome) return { ok: false, message: 'Preencha nome e e-mail' }
+  if (!usuario || !nome) return { ok: false, message: 'Preencha nome e usuário' }
+  const username = normalizarUsuario(usuario)
+  const email = username + '@tecnocell.local'
 
   const supabase = await createServiceClient()
 
@@ -31,7 +34,7 @@ export async function criarConvite(_: ConviteResult | null, fd: FormData): Promi
   const cargoId = (fd.get('cargo_id') as string) || null
   const salario = Math.max(0, parseFloat((fd.get('salario') as string) || '0') || 0)
   const { error: perfErr } = await supabase.from('perfis').insert({
-    id: authData.user.id, nome, permissoes: isMaster ? TODAS_KEYS : perms, is_master: isMaster, ativo: true, cargo_id: cargoId, salario,
+    id: authData.user.id, nome, username, permissoes: isMaster ? TODAS_KEYS : perms, is_master: isMaster, ativo: true, cargo_id: cargoId, salario,
   })
   if (perfErr) { await supabase.auth.admin.deleteUser(authData.user.id); return { ok: false, message: perfErr.message } }
 
@@ -50,14 +53,17 @@ export async function criarUsuario(_: ActionResult | null, fd: FormData): Promis
   const token = fd.get('access_token') as string
   try { await requirePermissao('usuarios', token) } catch { return { ok: false, message: 'Não autorizado' } }
 
-  const email    = (fd.get('email') as string ?? '').trim()
+  const usuario  = (fd.get('usuario') as string ?? '').trim()
   const senha    = (fd.get('senha') as string ?? '').trim()
   const nome     = (fd.get('nome') as string ?? '').trim()
   const isMaster = fd.getAll('is_master').includes('1')
   const perms    = fd.getAll('permissoes') as string[]
 
-  if (!email || !senha || !nome) return { ok: false, message: 'Preencha todos os campos obrigatórios' }
-  if (senha.length < 4) return { ok: false, message: 'Senha deve ter ao menos 4 caracteres' }
+  if (!usuario || !senha || !nome) return { ok: false, message: 'Preencha todos os campos obrigatórios' }
+  if (senha.length < 6) return { ok: false, message: 'Senha deve ter ao menos 6 caracteres' }
+  const username = normalizarUsuario(usuario)
+  if (!username) return { ok: false, message: 'Usuário inválido' }
+  const email = username + '@tecnocell.local'
 
   const supabase = await createServiceClient()
 
@@ -74,6 +80,7 @@ export async function criarUsuario(_: ActionResult | null, fd: FormData): Promis
   const { error: perfErr } = await supabase.from('perfis').insert({
     id: authData.user.id,
     nome,
+    username,
     permissoes: isMaster ? TODAS_KEYS : perms,
     is_master: isMaster,
     ativo: true,
@@ -96,6 +103,7 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
 
   const userId   = fd.get('user_id') as string
   const nome     = (fd.get('nome') as string ?? '').trim()
+  const username = normalizarUsuario((fd.get('username') as string ?? '').trim()) || null
   const isMaster = fd.getAll('is_master').includes('1')
   const ativo    = fd.getAll('ativo').includes('1')
   const perms    = fd.getAll('permissoes') as string[]
@@ -122,6 +130,7 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
   const supabase = await createServiceClient()
   const { error } = await supabase.from('perfis').update({
     nome,
+    username,
     permissoes: isMaster ? TODAS_KEYS : perms,
     is_master: isMaster,
     ativo,
@@ -154,7 +163,7 @@ export async function alterarSenha(_: ActionResult | null, fd: FormData): Promis
   const senha  = (fd.get('senha') as string ?? '').trim()
 
   if (!userId || !senha) return { ok: false, message: 'Dados inválidos' }
-  if (senha.length < 4) return { ok: false, message: 'Senha deve ter ao menos 4 caracteres' }
+  if (senha.length < 6) return { ok: false, message: 'Senha deve ter ao menos 6 caracteres' }
 
   const supabase = await createServiceClient()
   const { error } = await supabase.auth.admin.updateUserById(userId, { password: senha })

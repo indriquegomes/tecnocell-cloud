@@ -18,6 +18,7 @@ async function authToken() {
 export interface Usuario {
   id: string
   email: string
+  username: string
   nome: string
   permissoes: string[]
   isMaster: boolean
@@ -303,8 +304,8 @@ function NovoUsuarioModal({ cargos, onClose }: { cargos: Cargo[]; onClose: () =>
                 <input name="nome" className="field" placeholder="Ex: Mariana" required />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">E-mail *</label>
-                <input name="email" type="email" className="field" placeholder="mariana@tecnocell.com" required />
+                <label className="mb-1 block text-sm font-medium text-gray-700">Usuário *</label>
+                <input name="usuario" type="text" className="field" placeholder="ex: mariana" required />
               </div>
             </div>
             <div>
@@ -377,8 +378,8 @@ function ConvidarModal({ cargos, onClose }: { cargos: Cargo[]; onClose: () => vo
                 <input name="nome" className="field" placeholder="Ex: Mariana" required />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">E-mail *</label>
-                <input name="email" type="email" className="field" placeholder="mariana@tecnocell.com" required />
+                <label className="mb-1 block text-sm font-medium text-gray-700">Usuário *</label>
+                <input name="usuario" type="text" className="field" placeholder="ex: mariana" required />
               </div>
             </div>
             <div>
@@ -422,7 +423,7 @@ function EditarModal({ usuario, cargos, lojas, depositos, tabelas, onClose }: { 
         <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-4">
           <div>
             <h3 className="text-base font-semibold text-gray-800">{usuario.nome}</h3>
-            <p className="text-xs text-gray-400">{usuario.email}</p>
+            <p className="text-xs text-gray-400">Usuário: {usuario.username || usuario.email.split('@')[0]}</p>
           </div>
           <button onClick={onClose} className="text-xl leading-none text-gray-400 hover:text-gray-600">×</button>
         </div>
@@ -449,6 +450,10 @@ function EditarModal({ usuario, cargos, lojas, depositos, tabelas, onClose }: { 
                   Conta ativa
                 </label>
               </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Usuário (login)</label>
+              <input name="username" className="field" defaultValue={usuario.username} placeholder="ex: mariana" />
             </div>
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">Cargo / Permissões</label>
@@ -547,7 +552,7 @@ export function UsuariosClient({ usuarios, cargos, lojas, depositos, tabelas }: 
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Nome</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">E-mail</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Usuário</th>
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Permissões</th>
               <th className="px-6 py-3 text-center text-xs font-semibold uppercase text-gray-500">Status</th>
               <th className="px-6 py-3" />
@@ -571,7 +576,7 @@ export function UsuariosClient({ usuarios, cargos, lojas, depositos, tabelas }: 
                     <span className="text-sm font-medium text-gray-900">{u.nome}</span>
                   </div>
                 </td>
-                <td className="px-6 py-3 text-sm text-gray-500">{u.email}</td>
+                <td className="px-6 py-3 text-sm text-gray-500">{u.username || u.email.split('@')[0]}</td>
                 <td className="px-6 py-3">
                   {u.isMaster ? (
                     <span className="inline-flex rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-semibold text-purple-700">

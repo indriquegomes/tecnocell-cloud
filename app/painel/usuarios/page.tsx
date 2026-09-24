@@ -50,7 +50,7 @@ export default async function UsuariosPage() {
   // Lista usuários do Auth + perfis
   const [authResult, perfisResult, cargosResult, lojasResult, depositosResult, cfgPdv, tabelasResult] = await Promise.all([
     supabase.auth.admin.listUsers(),
-    supabase.from('perfis').select('id, nome, permissoes, is_master, ativo, created_at, cargo_id'),
+    supabase.from('perfis').select('id, nome, username, permissoes, is_master, ativo, created_at, cargo_id'),
     supabase.from('cargos').select('id, nome').eq('ativo', true).order('nome'),
     supabase.from('lojas').select('id, nome').eq('ativa', true).order('nome'),
     supabase.from('depositos').select('id, nome, loja_id').order('nome'),
@@ -72,6 +72,7 @@ export default async function UsuariosPage() {
     .map((u) => ({
       id: u.id,
       email: u.email ?? '',
+      username: (perfisMap[u.id] as { username?: string | null })?.username ?? '',
       nome: perfisMap[u.id]?.nome ?? u.email ?? '',
       permissoes: (perfisMap[u.id]?.permissoes ?? []) as string[],
       isMaster: perfisMap[u.id]?.is_master ?? false,

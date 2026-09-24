@@ -12,7 +12,7 @@ export async function validarConvite(token: string): Promise<{ valido: boolean; 
 }
 
 export async function definirSenhaConvite(token: string, senha: string): Promise<{ ok: boolean; message: string }> {
-  if (senha.trim().length < 4) return { ok: false, message: 'A senha deve ter ao menos 4 caracteres.' }
+  if (senha.trim().length < 6) return { ok: false, message: 'A senha deve ter ao menos 6 caracteres.' }
   const s = await createServiceClient()
   const { data } = await s.from('convites').select('id, user_id, usado, expires_at').eq('token', token).maybeSingle()
   if (!data) return { ok: false, message: 'Convite inválido.' }
