@@ -129,19 +129,30 @@ type GPart = { inline?: { mime: string; b64: string }; text?: string }
 async function geminiLe(parts: GPart[], maxTokens: number): Promise<string> {
   const key = process.env.GEMINI_API_KEY
   if (!key) throw new Error('GEMINI_API_KEY não configurada')
-  const r = await fetchT(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODELO}:generateContent`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: parts.map((p) => p.inline
-        ? { inline_data: { mime_type: p.inline.mime, data: p.inline.b64 } }
-        : { text: p.text }) }],
-      generationConfig: { maxOutputTokens: maxTokens, thinkingConfig: { thinkingLevel: 'low' } },
-    }),
-  }, 30000)
-  if (!r.ok) throw new Error('gemini ' + r.status + ': ' + (await r.text()).slice(0, 200))
-  const j = await r.json()
-  return (j.candidates?.[0]?.content?.parts || []).map((p: { text?: string }) => p.text || '').join('')
+  let ultimo = ''
+  for (let tent = 0; tent < 3; tent++) {
+    const r = await fetchT(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODELO}:generateContent`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: parts.map((p) => p.inline
+          ? { inline_data: { mime_type: p.inline.mime, data: p.inline.b64 } }
+          : { text: p.text }) }],
+        generationConfig: { maxOutputTokens: maxTokens, thinkingConfig: { thinkingLevel: 'low' } },
+      }),
+    }, 30000)
+    if (r.ok) {
+      const j = await r.json()
+      return (j.candidates?.[0]?.content?.parts || []).map((p: { text?: string }) => p.text || '').join('')
+    }
+    ultimo = 'gemini ' + r.status + ': ' + (await r.text().catch(() => '')).slice(0, 200)
+    // 503/429/5xx = sobrecarga ou limite (transitório) → espera um pouco e tenta de novo.
+    // Sem isso, um pico de demanda de 1-2 min queimava as tentativas e o comprovante ia
+    // pra 'ilegivel' (ficava sem valor e só resolvia no /corrigir manual).
+    if (r.status !== 429 && r.status !== 503 && r.status !== 408 && r.status < 500) break
+    await new Promise((res) => setTimeout(res, 1200 * (tent + 1)))
+  }
+  throw new Error(ultimo || 'gemini falhou')
 }
 // 2ª OPINIÃO independente (DeepSeek Vision) — cruza o VALOR lido pelo Gemini.
 // Barato e rápido; só roda pra IMAGEM (não PDF/link). Best-effort: se falhar,
