@@ -289,7 +289,7 @@ async function respondeAssuntoFixo(texto) {
     const numero = Number(mEntregue[1])
     const ok = await marcarEntregaBot(numero).catch(() => null)
     return ok != null
-      ? `✅ Entrega #${ok} marcada como entregue!`
+      ? `✅ Entrega #${ok.numero} entregue${ok.cliente ? ` — ${ok.cliente}` : ''}${ok.pecas ? ` (${ok.pecas})` : ''}!`
       : `Não achei a entrega #${numero} em aberto.`
   }
   // PIX: qualquer menção -> chave + pedido de comprovante

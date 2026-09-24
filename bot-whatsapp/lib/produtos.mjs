@@ -498,7 +498,7 @@ export async function buscaEntregas() {
 // venda marcada, ou null se não achou entrega em aberto com esse número.
 export async function marcarEntregaBot(numero) {
   const { data: venda } = await supabase.from('vendas')
-    .select('id, numero')
+    .select('id, numero, pessoas(nome)')
     .eq('numero', numero)
     .eq('tipo_entrega', 'entrega')
     .is('entregue_em', null)
@@ -506,7 +506,13 @@ export async function marcarEntregaBot(numero) {
   if (!venda) return null
   const { error } = await supabase.from('vendas').update({ entregue_em: new Date().toISOString() }).eq('id', venda.id)
   if (error) throw error
-  return venda.numero
+  // peças + cliente — pra resposta servir de comprovante pro balconista
+  const { data: itens } = await supabase.from('itens_venda')
+    .select('quantidade, produtos(nome)')
+    .eq('venda_id', venda.id)
+  const pecas = (itens ?? []).map((i) => `${i.quantidade}x ${i.produtos?.nome ?? 'peça'}`).join(', ')
+  const cliente = venda.pessoas?.nome ?? null
+  return { numero: venda.numero, cliente, pecas }
 }
 
 // --- Resumo do catálogo pra IA (contexto da loja) ---
