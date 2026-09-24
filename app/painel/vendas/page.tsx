@@ -12,8 +12,9 @@ export default async function PainelVendasPage({
   const supabase = await createServiceClient()
 
   const hoje = hojeSP()
-  const inicioMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
-  const dataInicio = de ?? inicioMes
+  // Default = SÓ HOJE (rápido). Antes era o mês inteiro — carregava 30k+ vendas
+  // de uma vez e a página demorava. Quem quer período maior escolhe no filtro.
+  const dataInicio = de ?? hoje
   const dataFim = ate ?? hoje
 
   // Carrega TODAS as vendas do período (fetchAll) — antes capava em 500 e os

@@ -556,6 +556,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     clienteTelefone: string | null
     clienteEndereco: string | null
     entrega?: string | null
+    rota?: string | null
+    tipo?: 'retirada' | 'entrega'
     vendedor: string | null
     deposito: string
     loja: string | null
@@ -587,7 +589,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   }
   const [lojaId, setLojaId] = useState(lojas[0]?.id ?? '')
   // Retirada (padrão) ou Entrega — só entra no cupom, não mexe em pagamento nem estoque.
-  const [tipoEntrega, setTipoEntrega] = useState<'retirada' | 'entrega'>('retirada')
+  const [tipoEntrega, setTipoEntrega] = useState<'retirada' | 'entrega' | ''>('')
   const [bairroEntrega, setBairroEntrega] = useState('')
   const [rotaEntrega, setRotaEntrega] = useState('')
   const [horarioEntrega, setHorarioEntrega] = useState('')
@@ -1286,6 +1288,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const handleFinalizar = async () => {
     if (emConsultaCusto) { setErro(AVISO_CUSTO); return }
     if (faltamPg > 0.01 || sobraPg > 0.01) { setErro('Ajuste os pagamentos ao novo total antes de confirmar.'); return }
+    if (!tipoEntrega) { setErro('Selecione Retirada ou Entrega antes de finalizar.'); return }
     setErro(null)
     setLoading(true)
     try {
@@ -1379,6 +1382,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           return partes.length > 0 ? partes.join(', ') : null
         })(),
         entrega: tipoEntrega === 'entrega' ? ((bairroEntrega === 'outro' ? enderecoCustom.trim() : bairroEntrega) || null) : null,
+        rota: tipoEntrega === 'entrega' ? (rotaEntrega || null) : null,
+        tipo: tipoEntrega,
         vendedor: result.vendedorNome || null,
         deposito: nomeDeposito,
         loja: lojaSel?.nome ?? null,
@@ -2025,6 +2030,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     ${snap.lojaTelefone ? `<p>Tel: ${snap.lojaTelefone}</p>` : ''}
 
     <hr class="sep">
+    <div style="text-align:center;font-size:24px;font-weight:900;letter-spacing:1px;margin:5px 0;${snap.tipo === 'entrega' ? 'color:#1B6CA8' : 'color:#F47920'}">
+      ${snap.tipo === 'entrega' ? `🛵 ENTREGA${snap.rota ? ' ' + snap.rota.toUpperCase() : ''}` : '🏪 RETIRADA'}
+    </div>
+    <hr class="sep">
     <p class="bold" style="font-size:13px">COMPROVANTE DE VENDA</p>
     <p>&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; SEM VALOR FISCAL &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;</p>
 
@@ -2226,7 +2235,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               <CopiarWhatsAppBtn texto={textoWhatsApp()} />
             </div>
             <button
-              onClick={() => { setVendaConcluidaId(null); setVendaSnapshot(null); setTipoEntrega('retirada'); setBairroEntrega(''); setEnderecoCustom(''); setRotaEntrega(''); setHorarioEntrega('') }}
+              onClick={() => { setVendaConcluidaId(null); setVendaSnapshot(null); setTipoEntrega(''); setBairroEntrega(''); setEnderecoCustom(''); setRotaEntrega(''); setHorarioEntrega('') }}
               className="w-full rounded-xl bg-blue-600 px-8 py-3 font-semibold text-white hover:bg-blue-700 transition"
             >
               Nova Venda
