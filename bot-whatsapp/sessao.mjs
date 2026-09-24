@@ -6,7 +6,7 @@ import { pino } from 'pino'
 import qrcode from 'qrcode-terminal'
 import QRCode from 'qrcode'
 import { classificaPergunta, geraResposta } from './lib/ia.mjs'
-import { buscaProdutos, buscaProdutosAmplo, buscaPorPrioridade, buscaEstoque, buscaChavePix, buscaEntregas, resumoLoja, ehConsultaGenerica, ehMarcaSolta, buscaTabelaDoCliente, buscaTabelaVarejoId, precosDaTabela, buscaTabelaPorNome, categoriasDe, modelosDistintos, resolveSelecao } from './lib/produtos.mjs'
+import { buscaProdutos, buscaProdutosAmplo, buscaPorPrioridade, buscaEstoque, buscaChavePix, buscaEntregas, resumoLoja, ehConsultaGenerica, ehMarcaSolta, buscaTabelaDoCliente, buscaTabelaVarejoId, precosDaTabela, buscaTabelaPorNome, categoriasDe, modelosDistintos, resolveSelecao, buscaComAlternativa } from './lib/produtos.mjs'
 import { montaResposta, AVISO } from './lib/resposta.mjs'
 import { ENDERECO, HORARIO, CADASTRO, montaPolitica, ENCOMENDA, VENDEDORA, PERGUNTA_APARELHO, FORA_HORARIO } from './lib/info.mjs'
 import { registraTroca, jaAvisouHoje, marcaAvisoHoje } from './lib/db.mjs'
@@ -397,6 +397,7 @@ async function processaMensagem(sock, loja, jid, texto) {
     }
     limpaContexto(loja.slug, jid) // pergunta nova de produto: contexto anterior ficou velho
     buscaDescricao = classificacao.textoBusca
+    let sugestaoNota = null
 
     // "tem película?" / "tem capa?" sem aparelho: pergunta qual aparelho, não chuta.
     if (ehConsultaGenerica(buscaDescricao)) {
@@ -439,6 +440,13 @@ async function processaMensagem(sock, loja, jid, texto) {
     // tentava a mesma coisa e errava, então saiu.
 
     produtos = candidatos
+
+    // Busca vazia: tenta alternativa (carcaça→tampa, botão→flex, combinação→peça
+    // principal) em vez de responder "não encontrei" seco.
+    if (produtos.length === 0 && buscaDescricao) {
+      const alt = await buscaComAlternativa(buscaDescricao).catch(() => null)
+      if (alt?.produtos.length) { produtos = alt.produtos; sugestaoNota = alt.nota }
+    }
 
     // Muitas opções de MODELOS diferentes ("j7" casa Prime/Neo/Pro/Metal): em vez
     // de despejar 12 telas, pergunta qual modelo exato. Só quando são modelos
@@ -508,7 +516,7 @@ async function processaMensagem(sock, loja, jid, texto) {
       corpo = montaResposta({ produtos, estoquePorId, comAviso: false, linkEncomendas: LINK_ENCOMENDAS })
     }
   }
-  const resposta = comAviso ? AVISO + corpo : corpo
+  const resposta = (sugestaoNota ? sugestaoNota + '\n\n' : '') + (comAviso ? AVISO + corpo : corpo)
 
   await dorme(400 + Math.random() * 400) // parece digitação humana, não resposta instantânea
   await sock.sendMessage(jid, { text: resposta })

@@ -422,6 +422,44 @@ export async function buscaPorPrioridade(termo, categoriaLembrada = null) {
   return { produtos: await buscaProdutos(termo), categoria: null }
 }
 
+// Busca vazia → tenta alternativa de peça, em vez de responder "não encontrei" seco:
+//   - carcaça → tampa (cliente fala "carcaça" querendo a parte de trás)
+//   - botão → flex (botão físico quase sempre vem no flex/carcaça)
+//   - combinação de 2+ peças → prioriza tela/frontal (remove as secundárias)
+// Devolve { produtos, nota } — nota é a frase pra explicar a troca, ou null.
+export async function buscaComAlternativa(termo) {
+  const cats = categoriasDe(termo)
+  if (cats.length === 0) return null
+  const norm = semAcento(termo)
+
+  const TROCAS = {
+    carcaca: { para: 'tampa', nota: 'Não temos carcaça, mas temos tampa:' },
+    botao: { para: 'flex', nota: 'Não temos botão avulso, mas o flex já vem com o botão:' },
+  }
+  for (const de of Object.keys(TROCAS)) {
+    if (!cats.includes(de)) continue
+    const alt = norm.replace(new RegExp('\\b' + de + '\\b', 'i'), TROCAS[de].para)
+    const r = await buscaProdutos(alt)
+    if (r.length > 0) return { produtos: r, nota: TROCAS[de].nota }
+  }
+
+  if (cats.length >= 2) {
+    const principal = cats.find((c) => ['tela', 'frontal', 'display'].includes(c))
+    if (principal) {
+      let alt = norm
+      for (const s of cats) if (s !== principal) alt = alt.replace(new RegExp('\\b' + s + '\\b', 'i'), ' ')
+      const r = await buscaProdutos(alt)
+      if (r.length > 0) return { produtos: r, nota: null }
+    } else {
+      let alt = norm
+      for (const c of cats) alt = alt.replace(new RegExp('\\b' + c + '\\b', 'i'), ' ')
+      const res = await buscaPorPrioridade(alt)
+      if (res.produtos.length > 0) return { produtos: res.produtos, nota: null }
+    }
+  }
+  return null
+}
+
 export async function buscaEstoque(produtoId, depositoId) {
   const { data, error } = await supabase
     .from('estoque')
