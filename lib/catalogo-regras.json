@@ -4,7 +4,9 @@
     "frontal": ["tela", "display"],
     "display": ["tela", "frontal"],
     "redmi": ["xiaomi"],
-    "subplaca": ["placa"]
+    "subplaca": ["placa"],
+    "telas": ["tela", "frontal", "display"],
+    "tele": ["tela", "frontal", "display"]
   },
-  "ignorar": ["de", "da", "do", "das", "dos", "para", "pra", "com", "sem", "uma", "um", "no", "na", "sub", "tem", "temos", "quanto", "custa", "preco", "valor", "valores", "vcs", "voce", "voces", "traseira", "traseiro", "posterior", "bom", "dia", "boa", "tarde", "noite", "teria", "teriam", "carga", "ta", "qt", "qto"]
+  "ignorar": ["de", "da", "do", "das", "dos", "para", "pra", "com", "sem", "uma", "um", "no", "na", "sub", "tem", "temos", "quanto", "custa", "preco", "valor", "valores", "vcs", "voce", "voces", "traseira", "traseiro", "posterior", "bom", "dia", "boa", "tarde", "noite", "teria", "teriam", "carga", "ta", "qt", "qto", "preciso", "quero", "qual", "estoque", "quantas", "quantos", "xd", "mais", "barato", "que", "reais", "essa", "esta", "vc", "precisa", "me", "q", "petropolis", "teresopolis", "diferenca", "atacado", "original"]
 }

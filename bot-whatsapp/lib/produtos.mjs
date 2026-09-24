@@ -74,7 +74,7 @@ const CATEGORIAS = [
   'cabo', 'suporte', 'alcool', 'estacao', 'manta', 'malha', 'maquina', 'separadora',
   'ativador', 'pasta', 'estilete', 'fonte', 'organizador', 'soprador', 'esponja',
   'estanho', 'bateria', 'tela', 'frontal', 'display', 'flex', 'conector', 'microfone',
-  'camera', 'lente', 'antena', 'chip', 'vidro', 'pelicula',
+  'camera', 'lente', 'antena', 'chip', 'vidro', 'pelicula', 'botao',
 ]
 
 // Abreviação de 2 letras não entra na regra geral de prefixo — abrir prefixo
