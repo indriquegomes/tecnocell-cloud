@@ -54,63 +54,59 @@ export function FechamentoDetalhe({
 
   const sel = 'rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500'
 
-  // 🖨️ Demonstrativo de Fechamento de Caixa — documento A4 espelhando o PDF do SIGE.
-  // Seções por tipo de operação (vendas por forma, recebimentos, reforços, retiradas,
-  // devoluções) com SALDO CORRENDO a partir do valor de abertura, + saldos por forma.
+  // 🖨️ Demonstrativo de Fechamento de Caixa — RESUMIDO (uma linha por forma/operação,
+  // não cada venda individual) e com fonte maior pra ler sem esforço.
   const imprimirDemonstrativo = () => {
     const dtFull = (s: string) => new Date(s).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-    let saldo = header.valorAbertura
-    const rowVenda = (m: MovDetalhe) => { saldo += m.valor; return `<tr><td>${m.rotulo}</td><td>${dtFull(m.data)}</td><td>${m.forma}</td><td class="r">${money(m.valor)}</td><td class="r">${money(saldo)}</td></tr>` }
-    const rowMot = (m: MovDetalhe) => { saldo += m.valor; return `<tr><td>${dtFull(m.data)}</td><td>${m.forma}</td><td>${m.rotulo}</td><td class="r">${money(m.valor)}</td><td class="r">${money(saldo)}</td></tr>` }
-    const secaoVenda = (titulo: string, rows: MovDetalhe[]) => rows.length ? `<h3>${titulo}</h3><table><thead><tr><th>Código</th><th>Data</th><th>Forma</th><th class="r">Valor</th><th class="r">Saldo</th></tr></thead><tbody>${rows.sort((a, b) => a.data.localeCompare(b.data)).map(rowVenda).join('')}</tbody></table>` : ''
-    const secaoMot = (titulo: string, rows: MovDetalhe[]) => rows.length ? `<h3>${titulo}</h3><table><thead><tr><th>Data</th><th>Forma</th><th>Motivo</th><th class="r">Valor</th><th class="r">Saldo</th></tr></thead><tbody>${rows.sort((a, b) => a.data.localeCompare(b.data)).map(rowMot).join('')}</tbody></table>` : ''
+    const soma = (arr: MovDetalhe[]) => arr.reduce((s, m) => s + m.valor, 0)
+    const porTipo = (tipo: string) => soma(movimentos.filter((m) => m.movimentacao === tipo))
 
+    // Vendas agrupadas por forma (só totais)
     const vendas = movimentos.filter((m) => m.movimentacao === 'Venda')
-    const formasVenda = [...new Set(vendas.map((m) => m.forma))]
-    let corpo = ''
-    for (const f of formasVenda) corpo += secaoVenda(`Vendas Realizadas no PDV - ${f}`, vendas.filter((m) => m.forma === f))
-    corpo += secaoVenda('Pagamentos no Crediário', movimentos.filter((m) => m.movimentacao === 'Recebimento'))
-    corpo += secaoMot('Reforços no Caixa', movimentos.filter((m) => m.movimentacao === 'Reforço'))
-    corpo += secaoMot('Retiradas Realizadas no Caixa', movimentos.filter((m) => m.movimentacao === 'Retirada'))
-    corpo += secaoVenda('Devoluções Realizadas no Caixa', movimentos.filter((m) => m.movimentacao === 'Devolução'))
+    const vendasPorForma = [...new Set(vendas.map((m) => m.forma))]
+      .map((f) => [f, soma(vendas.filter((m) => m.forma === f))] as [string, number])
+      .sort((a, b) => b[1] - a[1])
 
+    const linhas: [string, number][] = [['Abertura', header.valorAbertura]]
+    for (const [f, v] of vendasPorForma) linhas.push([`Vendas — ${f}`, v])
+    const receb = porTipo('Recebimento'); if (receb !== 0) linhas.push(['Recebimentos (Crediário)', receb])
+    const refor = porTipo('Reforço'); if (refor !== 0) linhas.push(['Reforços', refor])
+    const retir = porTipo('Retirada'); if (retir !== 0) linhas.push(['Retiradas', retir])
+    const devol = porTipo('Devolução'); if (devol !== 0) linhas.push(['Devoluções', devol])
+
+    const saldoFinal = header.valorAbertura + soma(movimentos)
     const porFormaTodos = Object.entries(movimentos.reduce<Record<string, number>>((a, m) => { a[m.forma] = (a[m.forma] ?? 0) + m.valor; return a }, {})).sort((a, b) => b[1] - a[1])
-    // Dinheiro FÍSICO na gaveta: abertura + tudo que é tipo Dinheiro (recebido − troco − retiradas).
-    // Vale Crédito tem tipoForma próprio, então já fica de fora daqui — não é cédula.
-    const dinheiroGaveta = header.valorAbertura + movimentos.filter((m) => m.tipoForma === 'Dinheiro').reduce((s, m) => s + m.valor, 0)
-    // Vale Crédito aparece discriminado na lista, mas com "Não" no somatório do caixa:
-    // o dinheiro dele já entrou quando o crédito foi gerado (devolução/troca).
-    const tipoDaForma = Object.fromEntries(movimentos.map((m) => [m.forma, m.tipoForma]))
-    const somaNoCaixa = (f: string) => (tipoDaForma[f] === 'Vale Crédito' ? 'Não' : 'Sim')
-    const saldosFech = `<h3>Saldos no Fechamento do Caixa</h3><table><thead><tr><th>Somar nos totalizadores de Caixa</th><th>Forma Pagamento</th><th class="r">Saldo</th></tr></thead><tbody>${porFormaTodos.map(([f, v]) => `<tr><td>${somaNoCaixa(f)}</td><td>${f}</td><td class="r">${money(v)}</td></tr>`).join('')}</tbody></table>`
-    const gaveta = `<h3>Total em Dinheiro na Gaveta</h3><table><tbody><tr><td>Abertura + dinheiro recebido − troco/retiradas em dinheiro</td><td class="r"><b>${money(dinheiroGaveta)}</b></td></tr></tbody></table>`
+    const dinheiroGaveta = header.valorAbertura + soma(movimentos.filter((m) => m.tipoForma === 'Dinheiro'))
 
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Demonstrativo de Fechamento — ${header.loja}</title><style>
-      @page { size: A4; margin: 14mm; }
-      body { font-family: 'Times New Roman', serif; font-size: 11px; color: #000; }
-      h1 { text-align: center; font-size: 17px; margin: 0 0 4px; }
-      .sub { text-align: center; font-weight: bold; margin: 2px 0; }
-      .box { text-align: center; font-weight: bold; margin: 10px 0; font-size: 11px; }
-      h3 { font-size: 12px; margin: 16px 0 4px; page-break-after: avoid; }
-      table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
-      th, td { border: 1px dashed #999; padding: 3px 5px; text-align: left; vertical-align: top; }
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Fechamento — ${header.loja}</title><style>
+      @page { size: A4; margin: 16mm; }
+      body { font-family: Arial, sans-serif; font-size: 14px; color: #000; }
+      h1 { text-align: center; font-size: 21px; margin: 0 0 4px; }
+      .sub { text-align: center; font-weight: bold; margin: 2px 0; font-size: 16px; }
+      .box { text-align: center; margin: 12px 0; font-size: 14px; }
+      h3 { font-size: 16px; margin: 16px 0 6px; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+      th, td { border-bottom: 1px solid #ccc; padding: 7px 10px; text-align: left; }
       th { font-weight: bold; }
-      thead { display: table-header-group; }   /* repete cabeçalho a cada página */
-      tr { page-break-inside: avoid; }
       .r { text-align: right; white-space: nowrap; }
-      .foot { text-align: center; font-weight: bold; margin-top: 14px; }
-      @media print { button { display: none; } }
+      .tot { font-weight: bold; border-top: 2px solid #000; }
+      .foot { text-align: center; font-weight: bold; margin-top: 18px; font-size: 15px; }
     </style></head><body>
       <h1>Demonstrativo de Fechamento de Caixa</h1>
       <p class="sub">${header.loja}</p>
-      <p class="box">Caixa aberto em ${dtFull(header.abriu)} com o valor de ${money(header.valorAbertura)}${(header.operador !== '—' ? header.operador : header.obsAbertura) ? ` pelo usuário: ${header.operador !== '—' ? header.operador : header.obsAbertura}` : ''}</p>
-      <h3>Saldo na Abertura do Caixa</h3>
-      <table><thead><tr><th>Forma Pagamento</th><th class="r">Saldo</th></tr></thead><tbody><tr><td>Dinheiro</td><td class="r">${money(header.valorAbertura)}</td></tr></tbody></table>
-      ${corpo}
-      ${saldosFech}
-      ${gaveta}
-      <p class="foot">Caixa ${header.fechou ? `fechado em ${dtFull(header.fechou)}` : 'ainda ABERTO'} com o valor de ${money(saldo)}</p>
-      <p style="text-align:center;margin-top:6px;font-size:10px;">TecnoCell Cloud PDV</p>
+      <p class="box">Caixa aberto em ${dtFull(header.abriu)} com ${money(header.valorAbertura)}${header.operador !== '—' ? ` por ${header.operador}` : ''}</p>
+      <h3>Resumo do Caixa</h3>
+      <table><tbody>
+        ${linhas.map(([r, v]) => `<tr><td>${r}</td><td class="r">${money(v)}</td></tr>`).join('')}
+        <tr class="tot"><td>Saldo final</td><td class="r">${money(saldoFinal)}</td></tr>
+      </tbody></table>
+      <h3>Saldos por forma de pagamento</h3>
+      <table><tbody>
+        ${porFormaTodos.map(([f, v]) => `<tr><td>${f}</td><td class="r">${money(v)}</td></tr>`).join('')}
+      </tbody></table>
+      <table><tbody><tr class="tot"><td>Total em dinheiro na gaveta</td><td class="r">${money(dinheiroGaveta)}</td></tr></tbody></table>
+      <p class="foot">Caixa ${header.fechou ? `fechado em ${dtFull(header.fechou)}` : 'ainda ABERTO'} com ${money(saldoFinal)}</p>
+      <p style="text-align:center;margin-top:6px;font-size:12px;">TecnoCell Cloud PDV</p>
     </body></html>`
     const w = window.open('', '_blank')
     if (!w) return
