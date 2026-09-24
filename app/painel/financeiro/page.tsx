@@ -116,12 +116,16 @@ export default async function FinanceiroPage({
   const labelCampo: Record<string, string> = { data_vencimento: 'Vencimento', data_competencia: 'Competência', data_pagamento: 'Pagamento' }
   // Cards de resumo somam TODOS os pendentes (globais), sem o cap de 200 da lista
   // nem o filtro de busca/tipo — senão os totais subcontam quando houver >200 lançamentos.
-  const paraTotais = await fetchAll<{ valor: number | null; tipo: string; status: string | null }>(
-    (from, to) => supabase.from('lancamentos').select('valor, tipo, status').range(from, to)
+  const paraTotais = await fetchAll<{ valor: number | null; valor_pago: number | null; tipo: string; status: string | null }>(
+    (from, to) => supabase.from('lancamentos').select('valor, valor_pago, tipo, status').range(from, to)
   )
-  const totalReceber = paraTotais.filter((l) => l.tipo === 'receber' && l.status !== 'pago').reduce((s, l) => s + (l.valor ?? 0), 0)
-  const totalPagar = paraTotais.filter((l) => l.tipo === 'pagar' && l.status !== 'pago').reduce((s, l) => s + (l.valor ?? 0), 0)
-  const pendentes = paraTotais.filter((l) => (l.status ?? '').toLowerCase() !== 'pago').length
+  // Só conta status 'pendente' (não 'cancelado') e soma o RESTANTE (valor - valor_pago),
+  // não o valor cheio. Antes somava o cheio e incluía cancelado — o card "A Receber"
+  // aparecia com ~o dobro do que é de verdade.
+  const restanteDe = (l: { valor: number | null; valor_pago: number | null }) => (l.valor ?? 0) - (l.valor_pago ?? 0)
+  const totalReceber = paraTotais.filter((l) => l.tipo === 'receber' && l.status === 'pendente').reduce((s, l) => s + restanteDe(l), 0)
+  const totalPagar = paraTotais.filter((l) => l.tipo === 'pagar' && l.status === 'pendente').reduce((s, l) => s + restanteDe(l), 0)
+  const pendentes = paraTotais.filter((l) => l.status === 'pendente').length
 
 
   function statusVariant(status: string | null): 'success' | 'warning' | 'danger' | 'outline' {
