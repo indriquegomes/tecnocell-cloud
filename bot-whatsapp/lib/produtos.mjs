@@ -443,18 +443,26 @@ export async function buscaComAlternativa(termo) {
     if (r.length > 0) return { produtos: r, nota: TROCAS[de].nota }
   }
 
-  if (cats.length >= 2) {
-    const principal = cats.find((c) => ['tela', 'frontal', 'display'].includes(c))
-    if (principal) {
-      let alt = norm
-      for (const s of cats) if (s !== principal) alt = alt.replace(new RegExp('\\b' + s + '\\b', 'i'), ' ')
-      const r = await buscaProdutos(alt)
-      if (r.length > 0) return { produtos: r, nota: null }
-    } else {
-      let alt = norm
-      for (const c of cats) alt = alt.replace(new RegExp('\\b' + c + '\\b', 'i'), ' ')
-      const res = await buscaPorPrioridade(alt)
-      if (res.produtos.length > 0) return { produtos: res.produtos, nota: null }
+  // Combinação de 2+ peças: busca CADA peça separada contra o modelo e responde
+  // a(s) que casou de verdade. Casou uma só → responde ela (certeza). Casou mais de
+  // uma → mostra as 2/3 com valores e pergunta qual. Nenhuma → volta null (o fluxo
+  // normal pergunta "não entendi, me manda o modelo"). Não chuta.
+  const palavras = palavrasBusca(norm)
+  const pecas = [...new Set(palavras.map((w) => categoriaDe(w)).filter(Boolean))]
+  if (pecas.length >= 2) {
+    const modelo = palavras.filter((w) => !categoriaDe(w)).join(' ')
+    if (!modelo) return null
+    const achados = []
+    for (const p of pecas) {
+      const r = await buscaProdutos(`${p} ${modelo}`)
+      if (r.length > 0) achados.push({ peca: p, produtos: r.slice(0, 4) })
+    }
+    if (achados.length === 1) return { produtos: achados[0].produtos, nota: null }
+    if (achados.length >= 2) {
+      return {
+        produtos: achados.flatMap((x) => x.produtos),
+        nota: `Você pediu peças juntas. Achei ${achados.map((x) => x.peca).join(' e ')} — qual você quer?`,
+      }
     }
   }
   return null
