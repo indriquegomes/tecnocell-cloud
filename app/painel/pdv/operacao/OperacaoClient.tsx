@@ -1695,37 +1695,52 @@ export function OperacaoClient({
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Abertura</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Fechamento</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Saldo Inicial</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Saldo Final</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Abertura</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Fechamento</th>
+              <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase">Saldo Inicial</th>
+              <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase">Saldo Final</th>
+              <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase">Vendido no dia</th>
+              <th className="px-3 py-2 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {historico.map((c) => (
-              <tr key={c.id} className="hover:bg-blue-50/60 transition">
-                <td className="px-4 py-3 text-sm text-gray-600">{fmtDate(c.aberto_em)}</td>
-                <td className="px-4 py-3 text-sm text-gray-500">
-                  {c.fechado_em ? fmtDate(c.fechado_em) : '—'}
-                </td>
-                <td className="px-4 py-3 text-sm text-right text-gray-700">
-                  {fmt(c.valor_abertura ?? 0)}
-                </td>
-                <td className="px-4 py-3 text-sm text-right text-gray-700">
-                  {c.valor_fechamento != null ? fmt(c.valor_fechamento) : '—'}
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <span
-                    className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                      c.status === 'aberto' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                    }`}
-                  >
-                    {c.status}
-                  </span>
-                </td>
-              </tr>
-            ))}
+            {historico.map((c) => {
+              const spansDay =
+                c.fechado_em &&
+                new Date(c.aberto_em).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) !==
+                  new Date(c.fechado_em).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+              const vendido = c.valor_fechamento != null ? c.valor_fechamento - (c.valor_abertura ?? 0) : null
+              return (
+                <tr key={c.id} className={`transition ${
+                  spansDay ? 'bg-amber-50 hover:bg-amber-100/70' : 'hover:bg-blue-50/60'
+                }`}>
+                  <td className="px-3 py-2 text-sm text-gray-600">{fmtDate(c.aberto_em)}</td>
+                  <td className="px-3 py-2 text-sm text-gray-500">
+                    {c.fechado_em ? fmtDate(c.fechado_em) : '—'}
+                  </td>
+                  <td className="px-3 py-2 text-sm text-right text-gray-700 tabular-nums">
+                    {fmt(c.valor_abertura ?? 0)}
+                  </td>
+                  <td className="px-3 py-2 text-sm text-right text-gray-700 tabular-nums">
+                    {c.valor_fechamento != null ? fmt(c.valor_fechamento) : '—'}
+                  </td>
+                  <td className={`px-3 py-2 text-sm text-right font-semibold tabular-nums ${
+                    vendido == null ? 'text-gray-300' : vendido >= 0 ? 'text-green-700' : 'text-red-500'
+                  }`}>
+                    {vendido != null ? fmt(vendido) : '—'}
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    <span
+                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                        c.status === 'aberto' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                      }`}
+                    >
+                      {c.status}
+                    </span>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
