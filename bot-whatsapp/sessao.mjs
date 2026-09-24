@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion } from '@whiskeysockets/baileys'
+import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion, Browsers } from '@whiskeysockets/baileys'
 import { pino } from 'pino'
 import qrcode from 'qrcode-terminal'
 import QRCode from 'qrcode'
 import { classificaPergunta, geraResposta } from './lib/ia.mjs'
-import { buscaProdutos, buscaProdutosAmplo, buscaPorPrioridade, buscaEstoque, buscaChavePix, buscaEntregas, resumoLoja, ehConsultaGenerica, buscaTabelaDoCliente, buscaTabelaVarejoId, precosDaTabela, buscaTabelaPorNome, categoriasDe, modelosDistintos, resolveSelecao } from './lib/produtos.mjs'
+import { buscaProdutos, buscaProdutosAmplo, buscaPorPrioridade, buscaEstoque, buscaChavePix, buscaEntregas, resumoLoja, ehConsultaGenerica, ehMarcaSolta, buscaTabelaDoCliente, buscaTabelaVarejoId, precosDaTabela, buscaTabelaPorNome, categoriasDe, modelosDistintos, resolveSelecao } from './lib/produtos.mjs'
 import { montaResposta, AVISO } from './lib/resposta.mjs'
 import { ENDERECO, HORARIO, CADASTRO, montaPolitica, ENCOMENDA, VENDEDORA, PERGUNTA_APARELHO, FORA_HORARIO } from './lib/info.mjs'
 import { registraTroca, jaAvisouHoje, marcaAvisoHoje } from './lib/db.mjs'
@@ -138,7 +138,8 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
   // "MessageCounterError / Bad MAC" (contador já usado), dessincroniza a sessão e é
   // a causa provável do "bot parou de responder". O mapa lid->telefone NÃO depende
   // disso: ele vem de sock.onWhatsApp() (lib/lid-telefone.mjs) + contacts.upsert.
-  const sock = makeWASocket({ version, auth: state, logger, printQRInTerminal: false })
+  // Identifica como Chrome normal (não o 'Baileys' default) — reduz queda de sessão.
+  const sock = makeWASocket({ version, auth: state, logger, printQRInTerminal: false, browser: Browsers.ubuntu('Chrome') })
 
   // Fecha socket anterior da MESMA pasta de auth antes de assumir o novo — dois
   // vínculos abertos ao mesmo tempo fazem o WhatsApp trocar o vínculo (440) e
@@ -409,6 +410,13 @@ async function processaMensagem(sock, loja, jid, texto) {
     // modelo. Continua o tipo da conversa anterior se já estava em "bateria" etc.
     let candidatos
     if (categoriasDe(buscaDescricao).length === 0) {
+      // Marca solta ("iPhone", "Samsung", "telefone" sem modelo): pergunta o modelo,
+      // não chuta frontal/bateria aleatória (erro visto em produção).
+      if (ehMarcaSolta(buscaDescricao)) {
+        await dorme(400 + Math.random() * 400)
+        await sock.sendMessage(jid, { text: 'Me manda o modelo exato pra eu ver o preço (ex: iPhone 11, Moto G54). 😊' })
+        return
+      }
       const res = await buscaPorPrioridade(buscaDescricao, pegaCategoria(loja.slug, jid))
       candidatos = res.produtos
       if (res.categoria) guardaCategoria(loja.slug, jid, res.categoria)

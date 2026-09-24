@@ -75,6 +75,7 @@ const CATEGORIAS = [
   'ativador', 'pasta', 'estilete', 'fonte', 'organizador', 'soprador', 'esponja',
   'estanho', 'bateria', 'tela', 'frontal', 'display', 'flex', 'conector', 'microfone',
   'camera', 'lente', 'antena', 'chip', 'vidro', 'pelicula', 'botao',
+  'falante', 'altofalante', 'autofalante',
 ]
 
 // Abreviação de 2 letras não entra na regra geral de prefixo — abrir prefixo
@@ -132,6 +133,10 @@ const CORES = new Set([
   'gold', 'silver', 'black', 'white', 'blue', 'red', 'green', 'pink', 'grey', 'gray', 'purple',
 ])
 
+// Marcas / palavras genéricas de aparelho. Quando o cliente manda SÓ isso (sem
+// modelo), não dá pra chutar um produto — o bot pergunta "qual modelo?".
+const MARCAS = new Set(['iphone', 'samsung', 'motorola', 'moto', 'xiaomi', 'redmi', 'lg', 'poco', 'nokia', 'asus', 'multilaser', 'positivo', 'telefone', 'celular', 'aparelho', 'smartphone', 'tablet', 'ipad', 'galaxy'])
+
 // Ordem de prioridade quando o cliente fala SÓ o modelo, sem tipo de peça:
 // frontal (tela) é o mais vendido, bateria vem depois, e se nenhum dos dois
 // existir pro modelo, sobem os outros itens relacionados.
@@ -186,6 +191,14 @@ export function modelosDistintos(produtos) {
 export function resolveSelecao(texto, opcoes, modelos = null) {
   const t = (texto || '').trim()
   if (!opcoes || opcoes.length === 0) return []
+
+  // 0.5) Referência anafórica ("essa"/"esse"/"dessa"/"aquela") — o cliente aponta
+  // a peça que acabou de ver ("valor dessa", "essa"). Só resolve com UMA pendente;
+  // com várias não dá pra saber qual "essa" é, então devolve vazio e o chamador
+  // pede pra escolher.
+  if (/\b(essa|esse|dessa|desse|aquela|aquele|aquilo|isso|esta)\b/.test(semAcento(t)) && opcoes.length === 1) {
+    return [opcoes[0]]
+  }
 
   // 0) cliente respondeu o NÚMERO do modelo ("1" → iphone 11, "2" → iphone 11 pro).
   // Só vale o que FOI mostrado (a lista exibe 6); acima disso "11" é iPhone 11, não
@@ -494,6 +507,16 @@ export function ehConsultaGenerica(termo) {
   if (palavras.length === 0) return false
   if (categoriasPedidas(palavras).length === 0) return false
   return palavras.every((w) => categoriaDe(w) !== null || SINONIMOS_TIPO[w] || ABREVIACOES_CURTAS[w])
+}
+
+// Marca solta ("iPhone", "Samsung", "telefone" sem modelo): true quando o termo
+// só tem marca/genericidade, sem modelo. O bot então pergunta "qual modelo?" em
+// vez de chutar frontal/bateria aleatória (erro visto em produção: "iPhone"
+// devolvia BATERIA IPHONE 5S).
+export function ehMarcaSolta(termo) {
+  const palavras = palavrasBusca(termo).filter((w) => !CORES.has(w))
+  if (palavras.length === 0) return false
+  return palavras.every((w) => MARCAS.has(w))
 }
 
 // ---- Preço por TABELA do cliente ----
