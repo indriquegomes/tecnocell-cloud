@@ -8,6 +8,8 @@ export function PedidosFiltros({
   status,
   q,
   loja,
+  de,
+  ate,
   lojas,
   total,
 }: {
@@ -15,6 +17,8 @@ export function PedidosFiltros({
   status: string
   q: string
   loja: string
+  de: string
+  ate: string
   lojas: string[]
   total: number
 }) {
@@ -22,11 +26,13 @@ export function PedidosFiltros({
 
   const buildUrl = (overrides: Record<string, string>) => {
     const p = new URLSearchParams()
-    const vals = { tipo, status, q, loja, ...overrides }
+    const vals = { tipo, status, q, loja, de, ate, ...overrides }
     if (vals.tipo) p.set('tipo', vals.tipo)
     if (vals.status) p.set('status', vals.status)
     if (vals.loja) p.set('loja', vals.loja)
     if (vals.q) p.set('q', vals.q)
+    if (vals.de) p.set('de', vals.de)
+    if (vals.ate) p.set('ate', vals.ate)
     return `/painel/pedidos?${p.toString()}`
   }
 
@@ -69,6 +75,8 @@ export function PedidosFiltros({
         {tipo && <input type="hidden" name="tipo" value={tipo} />}
         {status && <input type="hidden" name="status" value={status} />}
         {loja && <input type="hidden" name="loja" value={loja} />}
+        <input name="de" type="date" defaultValue={de} title="De" className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        <input name="ate" type="date" defaultValue={ate} title="Até" className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400" />
         <input name="q" defaultValue={q} placeholder="Buscar por cliente ou nº..."
           className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 w-56" />
         <button type="submit"

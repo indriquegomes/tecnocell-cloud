@@ -37,9 +37,9 @@ type Linha = {
 export default async function PedidosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tipo?: string; status?: string; q?: string; ordem?: string; dir?: string; loja?: string }>
+  searchParams: Promise<{ tipo?: string; status?: string; q?: string; ordem?: string; dir?: string; loja?: string; de?: string; ate?: string }>
 }) {
-  const { tipo, status, q, ordem, dir, loja } = await searchParams
+  const { tipo, status, q, ordem, dir, loja, de, ate } = await searchParams
   const supabase = await createServiceClient()
 
   const ordemAtual = ordem ?? 'cliente'
@@ -52,6 +52,8 @@ export default async function PedidosPage({
   if (tipo)   baseParams.tipo   = tipo
   if (status) baseParams.status = status
   if (q)      baseParams.q      = q
+  if (de)     baseParams.de     = de
+  if (ate)    baseParams.ate    = ate
   const sortLink = (o: string) => {
     const ativo = ordemAtual === o
     const nextDir = ativo ? (ordemDir ? 'asc' : 'desc') : 'desc'
@@ -61,13 +63,18 @@ export default async function PedidosPage({
   }
 
   // catálogos pra traduzir id → nome (loja, forma) numa ida só cada
+  let qPedidos = supabase.from('pedidos')
+    .select('id, numero, tipo, status, total, created_at, deposito_id, forma_pagamento_id, pessoas(nome)')
+    .order('created_at', { ascending: false })
+  let qVendas = supabase.from('vendas')
+    .select('id, numero, status, total, created_at, deposito_id, caixa_id, forma_pagamento_id, pessoas(nome)')
+    .order('created_at', { ascending: false })
+  if (de) { qPedidos = qPedidos.gte('created_at', de); qVendas = qVendas.gte('created_at', de) }
+  if (ate) { qPedidos = qPedidos.lte('created_at', ate + 'T23:59:59'); qVendas = qVendas.lte('created_at', ate + 'T23:59:59') }
+
   const [pedidosRes, vendasRes, { data: depositos }, { data: lojas }, { data: formas }] = await Promise.all([
-    supabase.from('pedidos')
-      .select('id, numero, tipo, status, total, created_at, deposito_id, forma_pagamento_id, pessoas(nome)')
-      .order('created_at', { ascending: false }).limit(300),
-    supabase.from('vendas')
-      .select('id, numero, status, total, created_at, deposito_id, caixa_id, forma_pagamento_id, pessoas(nome)')
-      .order('created_at', { ascending: false }).limit(300),
+    qPedidos.limit(300),
+    qVendas.limit(300),
     supabase.from('depositos').select('id, loja_id'),
     supabase.from('lojas').select('id, nome'),
     supabase.from('formas_pagamento').select('id, nome'),
@@ -168,6 +175,8 @@ export default async function PedidosPage({
         status={status ?? ''}
         q={q ?? ''}
         loja={loja ?? ''}
+        de={de ?? ''}
+        ate={ate ?? ''}
         lojas={nomesPermitidos}
         total={lista.length}
       />

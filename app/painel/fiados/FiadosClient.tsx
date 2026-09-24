@@ -36,8 +36,14 @@ const blocoPix = (c: Cliente, pixPorLoja: Record<string, Pix>) => {
   return `\n\n💠 PIX: ${pix.chave}` + (pix.titular ? `\n👤 Em nome de: ${pix.titular}` : '')
 }
 
-const mensagem = (c: Cliente, pixPorLoja: Record<string, Pix> = {}) =>
-  montarMensagemCobranca(c, hojeSP(), blocoPix(c, pixPorLoja))
+const mensagem = (c: Cliente, pixPorLoja: Record<string, Pix> = {}) => {
+  const base = montarMensagemCobranca(c, hojeSP(), blocoPix(c, pixPorLoja))
+  if ((c.vale ?? 0) > 0.01) {
+    const valeLinha = '💌 Você possui um vale de ' + fmt(c.vale!) + '. Deseja usar?\n'
+    return base.replace('Período:', valeLinha + 'Período:')
+  }
+  return base
+}
 
 // telefone -> só dígitos, com 55 na frente (Brasil)
 const waLink = (tel: string, msg: string) => {

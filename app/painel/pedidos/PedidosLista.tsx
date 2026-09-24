@@ -133,7 +133,7 @@ export function PedidosLista({ lista, sortLinks }: { lista: Linha[]; sortLinks: 
                 <td className="px-4 py-3 text-right text-sm font-semibold text-gray-800 tabular-nums">{fmt(l.total)}</td>
                 <td className="px-4 py-3 text-center">
                   <div className="flex items-center justify-center gap-2">
-                    <Link href={l.tipo === 'venda' ? `/painel/vendas?q=${l.numero ?? ''}` : `/painel/pedidos/${l.id}`}
+                    <Link href={l.tipo === 'venda' ? `/painel/vendas?venda=${l.id}` : `/painel/pedidos/${l.id}`}
                       className="rounded-lg px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 transition">Abrir</Link>
                     {l.tipo !== 'venda' && (
                       <form action={deletarPedido.bind(null, l.id)}>
