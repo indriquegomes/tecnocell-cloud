@@ -92,6 +92,7 @@ function montaFerramentas(tipo: 'funcionario' | 'cliente', service: any): Ferram
     fs.push(financeiroResumo(service))
     fs.push(vendasPeriodo(service))
     fs.push(maisVendidos(service))
+    fs.push(entregasPendentes(service))
   }
   return fs
 }
@@ -386,6 +387,41 @@ function maisVendidos(service: any): Ferramenta {
       }
       const top = Object.entries(porProduto).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([produto, quantidade]) => ({ produto, quantidade }))
       return JSON.stringify({ mais_vendidos: top })
+    },
+  }
+}
+
+// Entregas do motoboy pendentes (não entregues) — quantas entregas e peças
+// estão pra sair, agrupadas por rota. Responde "quantas peças pra sair na
+// próxima entrega?".
+function entregasPendentes(service: any): Ferramenta {
+  return {
+    nome: 'entregas_pendentes',
+    descricao: 'Entregas do motoboy pendentes (não entregues): quantas entregas e quantas peças estão pra sair, agrupadas por rota (Centro/Bairro/Itaipava/São José/etc).',
+    parametros: { type: 'object', properties: {}, required: [] },
+    executar: async () => {
+      const { data: vendas } = await service.from('vendas')
+        .select('id, rota_entrega, horario_entrega, pessoas(nome)')
+        .eq('tipo_entrega', 'entrega')
+        .is('entregue_em', null)
+      const lista = (vendas ?? []) as { id: string; rota_entrega: string | null; horario_entrega: string | null; pessoas: { nome: string }[] | null }[]
+      const ids = lista.map((v) => v.id)
+      const { data: itens } = ids.length
+        ? await service.from('itens_venda').select('venda_id, quantidade').in('venda_id', ids)
+        : { data: [] }
+      const qtdPorVenda: Record<string, number> = {}
+      for (const it of (itens ?? []) as { venda_id: string; quantidade: number }[]) {
+        qtdPorVenda[it.venda_id] = (qtdPorVenda[it.venda_id] ?? 0) + (Number(it.quantidade) || 0)
+      }
+      const porRota: Record<string, { entregas: number; pecas: number }> = {}
+      for (const v of lista) {
+        const rota = v.rota_entrega || 'Sem rota'
+        porRota[rota] = porRota[rota] ?? { entregas: 0, pecas: 0 }
+        porRota[rota].entregas++
+        porRota[rota].pecas += qtdPorVenda[v.id] ?? 0
+      }
+      const totalPecas = lista.reduce((s, v) => s + (qtdPorVenda[v.id] ?? 0), 0)
+      return JSON.stringify({ entregas_pendentes: lista.length, pecas: totalPecas, por_rota: porRota })
     },
   }
 }

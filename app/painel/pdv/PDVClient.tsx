@@ -593,9 +593,15 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [bairroEntrega, setBairroEntrega] = useState('')
   const [rotaEntrega, setRotaEntrega] = useState('')
   const [horarioEntrega, setHorarioEntrega] = useState('')
-  // Horários da rota selecionada (centro/bairro/itaipava) — de Configurações.
+  // Rotas (local de entrega) por loja — Petrópolis e Teresópolis têm listas próprias.
+  const ROTAS_POR_LOJA: Record<string, string[]> = {
+    'Petrópolis': ['Centro', 'Itaipava', 'Bairro', 'São José', 'Areal', 'Posse', 'Pedro do Rio'],
+    'Teresópolis': ['Cidade', 'Interior', 'Guapimirim', 'São José', 'Areal', 'Posse', 'Pedro do Rio'],
+  }
+  // Horários da rota selecionada — só centro/bairro/itaipava têm (Configurações).
   const horariosDaRota = (rota: string) => {
-    const r = (horariosEntregas?.[rota] ?? {}) as { semana?: string; sabado?: string }
+    const key = rota.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    const r = (horariosEntregas?.[key] ?? {}) as { semana?: string; sabado?: string }
     return [...new Set([...(r.semana ?? '').split(','), ...(r.sabado ?? '').split(',')].map((s) => s.trim()).filter(Boolean))]
   }
   const [enderecoCustom, setEnderecoCustom] = useState('')
@@ -2859,9 +2865,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                         <select value={rotaEntrega} onChange={(e) => { setRotaEntrega(e.target.value); setHorarioEntrega('') }}
                           className="field w-full text-sm">
                           <option value="">Rota…</option>
-                          <option value="centro">Centro</option>
-                          <option value="bairro">Bairro</option>
-                          <option value="itaipava">Itaipava</option>
+                          {(ROTAS_POR_LOJA[lojaSel?.nome ?? ''] ?? ['Centro', 'Bairro', 'Itaipava']).map((r) => <option key={r} value={r}>{r}</option>)}
                         </select>
                       </div>
                       <div>

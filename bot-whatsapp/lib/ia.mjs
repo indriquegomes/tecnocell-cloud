@@ -26,6 +26,14 @@ sem verbo nenhum — ex: "frontal iphone 12", "tampa redmi 8 pro", "cabo tipo c"
 separar", "me vende". NÃO é intenção de compra: perguntar preço, perguntar se
 tem, ou conversa geral. Só é compra quando ele já demonstra que VAI fechar.
 
+EXEMPLOS (siga EXATAMENTE esta lógica):
+- "a bateria não veio" → eh_pergunta_produto FALSE (é RECLAMAÇÃO, não pergunta de preço)
+- "a tela veio quebrada" → eh_pergunta_produto FALSE (reclamação)
+- "cadê meu pedido" / "já mandou as telas" → eh_pergunta_produto FALSE (status de pedido)
+- "quanto custa a bateria do iphone 12" → eh_pergunta_produto TRUE
+- "tela do iphone 11" → eh_pergunta_produto TRUE (nome de peça sem verbo)
+- "quero 1 tela do iphone 12" → eh_pergunta_produto FALSE e eh_compra TRUE
+
 Responda SÓ JSON: {"eh_pergunta_produto": <true|false>, "texto_busca": "<como o
 cliente descreveu o produto, nas palavras dele, sem traduzir pro nome oficial;
 null se eh_pergunta_produto for false>", "eh_compra": <true|false>}
