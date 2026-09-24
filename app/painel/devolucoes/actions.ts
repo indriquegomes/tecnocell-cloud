@@ -349,7 +349,7 @@ export interface RegistrarDevolucaoInput {
 export async function registrarDevolucao(
   accessToken: string,
   input: RegistrarDevolucaoInput,
-): Promise<{ id: string; abate_fiado: number; reembolso: number }> {
+): Promise<{ id: string; abate_fiado: number; reembolso: number; saldo_devedor: number | null }> {
   const usuario = await requirePermissao('devolucoes', accessToken)
   const supabase = await createServiceClient()
 
@@ -479,7 +479,23 @@ export async function registrarDevolucao(
     reembolso,
   }, usuario, '/painel/devolucoes')
 
-  return { id: devolucaoId, abate_fiado: abateFiado, reembolso }
+  // Saldo devedor ATUALIZADO do cliente (depois do abate) — a mensagem de
+  // cancelamento de fiado mostra quanto ele AINDA deve. Só por pessoa_id (FK de
+  // verdade); sem pessoa_id não dá pra confiar (nome duplicado é problema real).
+  let saldoDevedor: number | null = null
+  if (input.pessoa_id) {
+    const { data: lancs } = await supabase.from('lancamentos')
+      .select('valor, valor_pago')
+      .eq('pessoa_id', input.pessoa_id)
+      .eq('tipo', 'receber')
+      .eq('status', 'pendente')
+    saldoDevedor = (lancs ?? []).reduce(
+      (s, l) => s + Math.max(0, ((l as { valor: number | null }).valor ?? 0) - ((l as { valor_pago: number | null }).valor_pago ?? 0)),
+      0,
+    )
+  }
+
+  return { id: devolucaoId, abate_fiado: abateFiado, reembolso, saldo_devedor: saldoDevedor }
 }
 
 export async function buscarItensDevolucao(

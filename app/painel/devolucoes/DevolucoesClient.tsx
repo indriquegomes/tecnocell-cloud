@@ -403,6 +403,7 @@ export function DevolucoesClient({
         tipo,
         cliente: venda.pessoa_nome ?? 'Cliente',
         valor: tipo === 'cancelamento_fiado' ? resultado.abate_fiado : resultado.reembolso,
+        saldo: tipo === 'cancelamento_fiado' ? resultado.saldo_devedor : null,
         numero: venda.numero,
         produtos: itensDev.map(({ nome, quantidade }) => ({ nome, quantidade })),
       })

@@ -4,6 +4,8 @@ type DadosMensagemDevolucao = {
   valor: number
   numero: number | null
   produtos: { nome: string; quantidade: number }[]
+  /** saldo devedor RESTANTE do cliente (só cancelamento de fiado) */
+  saldo?: number | null
 }
 
 const dinheiro = (valor: number) =>
@@ -32,7 +34,7 @@ Crédito disponível para próxima compra.
 
 Registramos devolução ${varios ? 'dos produtos' : 'do produto'} ${produto} da venda nº ${venda}.
 
-Dívida de ${dinheiro(dados.valor)} foi cancelada. Saldo atualizado.
+Dívida de ${dinheiro(dados.valor)} foi cancelada.${dados.saldo != null ? ` Saldo atualizado ${dinheiro(dados.saldo)}.` : ''}
 
 #TecnocellBrasil`
 }
