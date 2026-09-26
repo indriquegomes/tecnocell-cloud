@@ -12,7 +12,7 @@ const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', curren
 const semAcento = (s: string) =>
   s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
 
-type Nota = { id: string; codigo: number | null; numeroVenda: number | null; descricao: string | null; pecas: string | null; itens: { nome: string; quantidade: number; valor: number }[] | null; vendedor: string; loja: string; valor: number; valorPago: number; vencimento: string | null; venda_id: string | null; vencida: boolean; categoria?: string | null }
+type Nota = { id: string; codigo: number | null; numeroVenda: number | null; descricao: string | null; pecas: string | null; itens: { nome: string; quantidade: number; valor: number }[] | null; vendedor: string; loja: string; valor: number; valorPago: number; vencimento: string | null; venda_id: string | null; vencida: boolean; categoria?: string | null; criadoEm?: string | null }
 type Cliente = { nome: string; total: number; vencido: number; qtd: number; telefone: string | null; vale?: number; notas: Nota[] }
 
 const fmtData = (d: string | null) => (d ? d.slice(0, 10).split('-').reverse().join('/') : '—')
@@ -335,6 +335,9 @@ export function FiadosClient({
                         </td>
                         <td className={`px-5 py-2.5 ${n.vencida ? 'font-medium text-rose-600' : 'text-gray-500'}`}>
                           {fmtData(n.vencimento)}{n.vencida && ' · vencida'}
+                          {n.criadoEm && (
+                            <div className="text-[10px] font-normal text-gray-400">Lançado {new Date(n.criadoEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })}</div>
+                          )}
                         </td>
                         <td className="px-5 py-2.5 text-right font-semibold text-gray-900 tabular-nums">{fmt(n.valor)}</td>
                         <td className="px-5 py-2.5 text-right">

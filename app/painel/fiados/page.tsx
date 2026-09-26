@@ -3,6 +3,7 @@ import { hojeSP } from '@/lib/utils'
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { reconciliarItensCobranca } from '@/lib/cobranca-fiado'
 import { FiadosClient } from './FiadosClient'
+import { ExportCsv } from '../relatorios/ExportCsv'
 
 const semAcento = (s: string) =>
   s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toUpperCase().trim()
@@ -11,10 +12,10 @@ export default async function FiadosPage() {
   const supabase = await createServiceClient()
 
   const [lancamentos, pessoas] = await Promise.all([
-    fetchAll<{ id: string; codigo: number | null; descricao: string | null; pessoa_nome: string | null; pessoa_id: string | null; valor: number | null; valor_pago: number | null; data_vencimento: string | null; venda_id: string | null; loja_id: string | null; categoria: string | null }>(
+    fetchAll<{ id: string; codigo: number | null; descricao: string | null; pessoa_nome: string | null; pessoa_id: string | null; valor: number | null; valor_pago: number | null; data_vencimento: string | null; venda_id: string | null; loja_id: string | null; categoria: string | null; created_at: string | null }>(
       (from, to) => supabase
         .from('lancamentos')
-        .select('id, codigo, descricao, pessoa_nome, pessoa_id, valor, valor_pago, data_vencimento, venda_id, loja_id, categoria')
+        .select('id, codigo, descricao, pessoa_nome, pessoa_id, valor, valor_pago, data_vencimento, venda_id, loja_id, categoria, created_at')
         .eq('tipo', 'receber').eq('status', 'pendente')
         .order('id').range(from, to),
     ),
@@ -97,7 +98,7 @@ export default async function FiadosPage() {
   const hoje = hojeSP()
 
   // agrupa por cliente + guarda as notas (lançamentos) de cada um
-  type Nota = { id: string; codigo: number | null; numeroVenda: number | null; descricao: string | null; pecas: string | null; itens: { nome: string; quantidade: number; valor: number }[] | null; vendedor: string; loja: string; valor: number; valorPago: number; vencimento: string | null; venda_id: string | null; vencida: boolean; categoria: string | null }
+  type Nota = { id: string; codigo: number | null; numeroVenda: number | null; descricao: string | null; pecas: string | null; itens: { nome: string; quantidade: number; valor: number }[] | null; vendedor: string; loja: string; valor: number; valorPago: number; vencimento: string | null; venda_id: string | null; vencida: boolean; categoria: string | null; criadoEm: string | null }
   const mapa = new Map<string, { nome: string; total: number; vencido: number; qtd: number; notas: Nota[]; pessoasLojas: Set<string> }>()
   for (const l of lancamentos) {
     const nome = l.pessoa_nome?.trim() || 'Sem nome'
@@ -117,7 +118,7 @@ export default async function FiadosPage() {
     const itens = l.venda_id ? (pecasPorVenda.get(l.venda_id) ?? null) : null
     const pecas = itens?.map((item) => item.nome).join(', ') ?? null
     const vendedor = (l.venda_id && vendedorPorVenda.get(l.venda_id)) || 'Sem vendedor'
-    atual.notas.push({ id: l.id, codigo: l.codigo, numeroVenda: l.venda_id ? (numeroPorVenda.get(l.venda_id) ?? null) : null, descricao: l.descricao, pecas, itens, vendedor, loja, valor: devendo, valorPago: l.valor_pago ?? 0, vencimento: l.data_vencimento, venda_id: l.venda_id, vencida, categoria: l.categoria })
+    atual.notas.push({ id: l.id, codigo: l.codigo, numeroVenda: l.venda_id ? (numeroPorVenda.get(l.venda_id) ?? null) : null, descricao: l.descricao, pecas, itens, vendedor, loja, valor: devendo, valorPago: l.valor_pago ?? 0, vencimento: l.data_vencimento, venda_id: l.venda_id, vencida, categoria: l.categoria, criadoEm: l.created_at ?? null })
     mapa.set(chave, atual)
   }
 
@@ -176,15 +177,27 @@ export default async function FiadosPage() {
     }
   }
 
+  // Lista achatada pro export (só nome, valor e data — sem peças)
+  const linhasExport = clientes.flatMap((c) => c.notas.map((n) => ({ nome: c.nome, valor: n.valor, vencimento: n.vencimento, loja: n.loja, vendedor: n.vendedor })))
+
   return (
-    <FiadosClient
-      clientes={clientes}
-      totalReceber={totalReceber}
-      totalVencido={totalVencido}
-      vendedores={vendedores}
-      lojas={nomesPermitidos}
-      pixPorLoja={pixPorLoja}
-      pixContas={pixContas}
-    />
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <ExportCsv
+          filename={`fiados_${hoje}.csv`}
+          cols={[{ key: 'nome', label: 'Cliente' }, { key: 'valor', label: 'Valor', money: true }, { key: 'vencimento', label: 'Vencimento' }, { key: 'loja', label: 'Loja' }, { key: 'vendedor', label: 'Vendedor' }]}
+          rows={linhasExport as unknown as Record<string, unknown>[]}
+        />
+      </div>
+      <FiadosClient
+        clientes={clientes}
+        totalReceber={totalReceber}
+        totalVencido={totalVencido}
+        vendedores={vendedores}
+        lojas={nomesPermitidos}
+        pixPorLoja={pixPorLoja}
+        pixContas={pixContas}
+      />
+    </div>
   )
 }

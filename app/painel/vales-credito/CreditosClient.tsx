@@ -190,6 +190,13 @@ export function CreditosClient({
               {/* Histórico expandido */}
               {aberto && (
                 <div className="border-t border-gray-100">
+                  <div className="flex justify-end px-5 pt-2">
+                    <button type="button"
+                      onClick={() => navigator.clipboard?.writeText(`💳 Você tem um vale aqui na TecnoCell de ${fmt(Math.max(0, c.saldo))} e pode usar como quiser! 🎉\nDeseja realizar uma compra hoje? 😊`)}
+                      className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700 transition">
+                      📋 Copiar mensagem do vale
+                    </button>
+                  </div>
                   <table className="min-w-full divide-y divide-gray-50 text-sm">
                     <thead className="bg-gray-50">
                       <tr className="text-left text-xs font-semibold uppercase text-gray-400">
