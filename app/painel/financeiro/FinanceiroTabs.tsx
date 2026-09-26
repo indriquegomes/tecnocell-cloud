@@ -2,10 +2,11 @@ import Link from 'next/link'
 
 // Nav de abas do hub Financeiro. Mesma barra em /painel/financeiro e /painel/contas,
 // unindo as telas de dinheiro num lugar só. `active` vem de cada página (server-friendly).
-export function FinanceiroTabs({ active }: { active: 'saldos' | 'lancamentos' | 'contas' | 'lucro' }) {
+export function FinanceiroTabs({ active }: { active: 'saldos' | 'lancamentos' | 'contas' | 'lucro' | 'fluxo' }) {
   const tabs = [
     { key: 'saldos', label: '💰 Saldos', href: '/painel/contas?aba=saldos' },
     { key: 'lancamentos', label: '📊 A Receber / A Pagar', href: '/painel/financeiro' },
+    { key: 'fluxo', label: '📅 Fluxo de Caixa', href: '/painel/financeiro/fluxo' },
     { key: 'lucro', label: '📈 Lucro Mensal', href: '/painel/financeiro/lucro' },
     { key: 'contas', label: '⚙️ Contas & Transferências', href: '/painel/contas?aba=contas' },
   ] as const
