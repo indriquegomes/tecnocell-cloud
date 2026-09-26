@@ -872,6 +872,26 @@ async function processa(loja: Loja, update: any) {
     try { await escreveSheet(loja) } catch (e) { console.error('sheet eliminar:', e) }
     return
   }
+  if (txt.startsWith('/valor')) {
+    const alvo = m.reply_to_message?.message_id
+    const bruto = (m.text || '').trim().slice(6).trim() // tira o '/valor'
+    if (!alvo) { await tgSend(loja.token, loja.grupo, 'ℹ️ Responda o comprovante (foto/PDF) com /valor NUMERO'); return }
+    const novo = parseValor(bruto)
+    if (novo == null || novo <= 0) { await tgSend(loja.token, loja.grupo, 'ℹ️ Uso: /valor NUMERO (ex: /valor 67) — respondendo o comprovante'); return }
+    const { data: comp } = await sb().from('comprovantes_pix').select('id, valor, extraido_raw').eq('telegram_chat_id', loja.grupo).eq('telegram_message_id', alvo).maybeSingle()
+    if (!comp) { await tgSend(loja.token, loja.grupo, '❌ Não achei o comprovante.'); return }
+    const c = comp as { id: string; valor?: number | null; extraido_raw?: Record<string, unknown> | null }
+    const antigo = c.valor ?? null
+    const rawAnt = c.extraido_raw || {}
+    const original = rawAnt.valor_original != null ? (rawAnt.valor_original as number) : (antigo ?? novo)
+    await sb().from('comprovantes_pix').update({
+      valor: novo,
+      extraido_raw: { ...rawAnt, valor: novo, valor_original: original, corrigido_manual: true },
+    }).eq('id', c.id)
+    await tgSend(loja.token, loja.grupo, `✅ Valor: R$ ${money(novo)}${antigo != null && antigo !== novo ? ` (era R$ ${money(antigo)})` : ''}`)
+    try { await escreveSheet(loja) } catch (e) { console.error('sheet valor:', e) }
+    return
+  }
 
   const t = tipo(m)
   if (!t) {
