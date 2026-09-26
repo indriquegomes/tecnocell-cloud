@@ -570,6 +570,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     lojaTermos: string | null
     desconto: number
     horario: string
+    receberNaEntrega?: boolean
   } | null>(null)
   const [mostrarConfirmacao, setMostrarConfirmacao] = useState(false)
   // PDV em 2 etapas (pedido da Isa): 'venda' = monta o carrinho/cliente/tabela;
@@ -1390,6 +1391,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         entrega: tipoEntrega === 'entrega' ? ((bairroEntrega === 'outro' ? enderecoCustom.trim() : bairroEntrega) || null) : null,
         rota: tipoEntrega === 'entrega' ? (rotaEntrega || null) : null,
         tipo: tipoEntrega,
+        receberNaEntrega: combinadoEntrega && temFiado,
         vendedor: result.vendedorNome || null,
         deposito: nomeDeposito,
         loja: lojaSel?.nome ?? null,
@@ -2039,6 +2041,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     <div style="text-align:center;font-size:24px;font-weight:900;letter-spacing:1px;margin:5px 0;${snap.tipo === 'entrega' ? 'color:#1B6CA8' : 'color:#F47920'}">
       ${snap.tipo === 'entrega' ? `🛵 ENTREGA${snap.rota ? ' ' + snap.rota.toUpperCase() : ''}` : '🏪 RETIRADA'}
     </div>
+    ${snap.receberNaEntrega ? `<div style="text-align:center;font-size:28px;font-weight:900;letter-spacing:2px;margin:8px 0;border:3px solid #000;padding:8px 2px">RECEBER</div><div style="text-align:center;font-size:11px;font-weight:700;margin-bottom:4px">DINHEIRO NA ENTREGA</div>` : ''}
     <hr class="sep">
     <p class="bold" style="font-size:13px">COMPROVANTE DE VENDA</p>
     <p>&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; SEM VALOR FISCAL &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;</p>
@@ -2362,6 +2365,12 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                     </span>
                   )}
                 </div>
+              )}
+              {temFiado && (
+                <label className="flex items-center gap-2 rounded-lg bg-blue-50 border border-blue-200 px-2.5 py-1.5 text-xs font-medium text-blue-700">
+                  <input type="checkbox" checked={combinadoEntrega} onChange={(e) => setCombinadoEntrega(e.target.checked)} className="h-3.5 w-3.5 rounded border-gray-300" />
+                  💵 Pagar em dinheiro na entrega (cobrar na entrega)
+                </label>
               )}
             </div>
           ) : (
@@ -2902,6 +2911,12 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               </div>
             </div>
 
+            {temFiado && (
+              <label className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm">
+                <input type="checkbox" checked={combinadoEntrega} onChange={(e) => setCombinadoEntrega(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
+                <span className="font-medium text-blue-700">💵 Pagar em dinheiro na entrega (cobrar na entrega)</span>
+              </label>
+            )}
 
           <div className="space-y-3 border-t border-gray-100 pt-4">
             <div>
@@ -3283,6 +3298,12 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               </div>
             </div>
 
+            {temFiado && (
+              <label className="mx-6 mt-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm">
+                <input type="checkbox" checked={combinadoEntrega} onChange={(e) => setCombinadoEntrega(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
+                <span className="font-medium text-blue-700">💵 Pagar em dinheiro na entrega (cobrar na entrega)</span>
+              </label>
+            )}
 
             <div className="flex gap-3 border-t border-gray-100 px-6 py-4">
               <button type="button" onClick={() => setMostrarConfirmacao(false)} disabled={loading}
