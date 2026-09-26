@@ -33,6 +33,11 @@ EXEMPLOS (siga EXATAMENTE esta lógica):
 - "quanto custa a bateria do iphone 12" → eh_pergunta_produto TRUE
 - "tela do iphone 11" → eh_pergunta_produto TRUE (nome de peça sem verbo)
 - "quero 1 tela do iphone 12" → eh_pergunta_produto FALSE e eh_compra TRUE
+- "vcs tem bateria pra moto g54" → eh_pergunta_produto TRUE (pergunta se TEM = disponibilidade)
+- "essa tela serve no iphone 11 pro max?" → eh_pergunta_produto TRUE (dúvida de compatibilidade é pergunta de produto)
+- "meu celular caiu na água, conserta?" → eh_pergunta_produto FALSE (conserto/reparo, não preço de peça)
+- "parcela no cartão?" / "vende fiado?" / "tem garantia?" → eh_pergunta_produto FALSE (forma de pagamento/política)
+- "me vende essa bateria" → eh_pergunta_produto FALSE e eh_compra TRUE
 
 Responda SÓ JSON: {"eh_pergunta_produto": <true|false>, "texto_busca": "<como o
 cliente descreveu o produto, nas palavras dele, sem traduzir pro nome oficial;
