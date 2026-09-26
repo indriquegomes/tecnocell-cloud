@@ -7,10 +7,24 @@ import { createServiceClient, fetchAll, requirePermissao } from '@/lib/supabase/
 // A tela mostra só as primeiras ~200 linhas (o número/agregado continua certo).
 export async function exportarRelatorio(
   accessToken: string,
-  aba: 'precificacao' | 'inventario' | 'contatos' | 'estoque',
+  aba: 'precificacao' | 'inventario' | 'contatos' | 'estoque' | 'financeiro',
+  periodo?: { de: string; ate: string },
 ): Promise<Record<string, unknown>[]> {
   await requirePermissao('relatorios', accessToken)
   const supabase = await createServiceClient()
+
+  if (aba === 'financeiro') {
+    const de = periodo?.de, ate = periodo?.ate
+    let q = supabase.from('lancamentos').select('descricao, pessoa_nome, data_vencimento, valor, tipo, status')
+    if (de) q = q.gte('data_vencimento', de)
+    if (ate) q = q.lte('data_vencimento', ate + 'T23:59:59')
+    const data = await fetchAll((from, to) => q.order('data_vencimento').range(from, to))
+    return (data ?? []).map((l) => ({
+      descricao: (l.descricao as string) ?? '', pessoa_nome: (l.pessoa_nome as string) ?? '',
+      data_vencimento: l.data_vencimento as string, valor: l.valor as number,
+      tipo: l.tipo as string, status: l.status as string,
+    }))
+  }
 
   if (aba === 'precificacao') {
     const data = await fetchAll((from, to) => supabase.from('produtos')

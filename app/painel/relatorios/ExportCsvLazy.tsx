@@ -18,10 +18,11 @@ function celula(v: unknown, money?: boolean): string {
 
 const supabaseBrowser = createClient()
 
-export function ExportCsvLazy({ aba, cols, filename }: {
-  aba: 'precificacao' | 'inventario' | 'contatos' | 'estoque'
+export function ExportCsvLazy({ aba, cols, filename, periodo }: {
+  aba: 'precificacao' | 'inventario' | 'contatos' | 'estoque' | 'financeiro'
   cols: Col[]
   filename: string
+  periodo?: { de: string; ate: string }
 }) {
   const [carregando, setCarregando] = useState(false)
 
@@ -29,7 +30,7 @@ export function ExportCsvLazy({ aba, cols, filename }: {
     setCarregando(true)
     try {
       const { data } = await supabaseBrowser.auth.getSession()
-      const rows = await exportarRelatorio(data.session?.access_token ?? '', aba)
+      const rows = await exportarRelatorio(data.session?.access_token ?? '', aba, periodo)
       const head = cols.map((c) => c.label).join(';')
       const body = rows.map((r) => cols.map((c) => celula(r[c.key], c.money)).join(';')).join('\n')
       const csv = '﻿' + head + '\n' + body

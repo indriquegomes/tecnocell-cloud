@@ -1212,13 +1212,13 @@ export default async function RelatoriosPage({
             <Card label="Saldo" valor={fmt(totalReceber - totalPagar)} cor={totalReceber - totalPagar >= 0 ? 'text-blue-600' : 'text-red-500'} />
           </div>
           <div className="flex justify-end">
-            <ExportCsv filename={`financeiro_${dataInicio}_${dataFim}.csv`}
-              cols={[{ key: 'descricao', label: 'Descrição' }, { key: 'pessoa_nome', label: 'Pessoa' }, { key: 'data_vencimento', label: 'Vencimento' }, { key: 'valor', label: 'Valor', money: true }, { key: 'tipo', label: 'Tipo' }, { key: 'status', label: 'Status' }]}
-              rows={asRows(lancamentos)} />
+            <ExportCsvLazy aba="financeiro" periodo={{ de: dataInicio, ate: dataFim }} filename={`financeiro_${dataInicio}_${dataFim}.csv`}
+              cols={[{ key: 'descricao', label: 'Descrição' }, { key: 'pessoa_nome', label: 'Pessoa' }, { key: 'data_vencimento', label: 'Vencimento' }, { key: 'valor', label: 'Valor', money: true }, { key: 'tipo', label: 'Tipo' }, { key: 'status', label: 'Status' }]} />
           </div>
+          {lancamentos.length > AMOSTRA && <p className="mb-2 text-[11px] text-gray-400">Mostrando {AMOSTRA} de {lancamentos.length} — exporte o CSV pra lista completa.</p>}
           <Tabela vazio={lancamentos.length === 0} vazioMsg="Nenhum lançamento no período."
             head={['Descrição', 'Pessoa', 'Vencimento', 'Valor', 'Tipo', 'Status']} alinhas={['l', 'l', 'l', 'r', 'c', 'c']}>
-            {lancamentos.map((l, i) => (
+            {lancamentos.slice(0, AMOSTRA).map((l, i) => (
               <tr key={i} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-sm text-gray-800">{l.descricao || '—'}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">{l.pessoa_nome || '—'}</td>
