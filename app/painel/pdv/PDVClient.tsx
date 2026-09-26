@@ -2058,7 +2058,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     ${snap.lojaTelefone ? `<p>Tel: ${snap.lojaTelefone}</p>` : ''}
 
     <hr class="sep">
-    <div style="text-align:center;font-size:24px;font-weight:900;letter-spacing:1px;margin:5px 0;${snap.tipo === 'entrega' ? 'color:#1B6CA8' : 'color:#F47920'}">
+    <div style="text-align:center;font-size:24px;font-weight:900;letter-spacing:1px;margin:5px 0;color:#000">
       ${snap.tipo === 'entrega' ? `🛵 ENTREGA${snap.rota ? ' ' + snap.rota.toUpperCase() : ''}` : '🏪 RETIRADA'}
     </div>
     ${snap.receberNaEntrega ? `<div style="text-align:center;font-size:28px;font-weight:900;letter-spacing:2px;margin:8px 0;border:3px solid #000;padding:8px 2px">RECEBER</div><div style="text-align:center;font-size:11px;font-weight:700;margin-bottom:4px">DINHEIRO NA ENTREGA</div>` : ''}
