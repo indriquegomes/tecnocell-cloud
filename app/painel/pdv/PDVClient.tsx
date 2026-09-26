@@ -1597,6 +1597,20 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     }
   }
 
+  // Mensagem pronta pra copiar no recebimento de UMA nota (mesma cara do F9 quitar em lote).
+  const montarMsgRecebimento = (item: CrediarioItem, valor: number, forma: string) => {
+    const totalDevendo = crediarioItens
+      .filter((i) => i.pessoa_id === item.pessoa_id)
+      .reduce((s, i) => s + (i.valor - (i.valor_pago ?? 0)), 0)
+    return mensagemPagamentoCrediario({
+      cliente: item.pessoa_nome ?? 'Cliente',
+      valor,
+      forma,
+      notas: [numeroNota(item)],
+      saldoRestante: Math.max(0, totalDevendo - valor),
+    })
+  }
+
   const handleAbrirRecebimento = (item: CrediarioItem) => {
     setRecebendoItem(item)
     // default: Dinheiro (ou 1ª forma não-fiado)
@@ -1653,6 +1667,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           i.id === recebendoItem.id ? { ...i, valor_pago: (i.valor_pago ?? 0) + soma } : i
         ))
       }
+      setMensagemCrediario(montarMsgRecebimento(recebendoItem, soma, pagamentos.map((p) => p.forma).join(' + ')))
+      setMensagemCopiada(false)
       setRecebendoItem(null)
       setPagoCrediarioOk(true)
       setTimeout(() => setPagoCrediarioOk(false), 3000)
@@ -1705,6 +1721,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             i.id === recebendoItem.id ? { ...i, valor_pago: (i.valor_pago ?? 0) + valorNum } : i
           ))
         }
+        setMensagemCrediario(montarMsgRecebimento(recebendoItem, valorNum, 'Vale Crédito'))
+        setMensagemCopiada(false)
         setRecebendoItem(null)
         setPagoCrediarioOk(true)
         setTimeout(() => setPagoCrediarioOk(false), 3000)
@@ -1725,6 +1743,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           i.id === recebendoItem.id ? { ...i, valor_pago: (i.valor_pago ?? 0) + valorNum } : i
         ))
       }
+      setMensagemCrediario(montarMsgRecebimento(recebendoItem, valorNum, formaTxt))
+      setMensagemCopiada(false)
       setRecebendoItem(null)
       setPagoCrediarioOk(true)
       setTimeout(() => setPagoCrediarioOk(false), 3000)
