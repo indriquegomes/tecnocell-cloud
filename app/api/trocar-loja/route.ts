@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     lojaId = typeof body?.loja_id === 'string' ? body.loja_id : ''
-  } catch {}
+  } catch { /* body sem JSON válido → lojaId fica vazio */ }
 
   const res = NextResponse.json({ ok: true })
   if (lojaId) {

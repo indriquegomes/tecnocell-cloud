@@ -135,7 +135,7 @@ export async function criarRemessa(formData: FormData) {
   let itens: { produto_id: string; quantidade: number; series: string[] }[] = []
   try {
     itens = JSON.parse((formData.get('itens') as string) || '[]')
-  } catch {}
+  } catch { /* JSON inválido → itens vazio (validado depois) */ }
 
   if (!origem || !destino) redirect(`/painel/estoque/transferencias?erro=${encodeURIComponent('Selecione origem e destino.')}`)
   if (itens.length === 0) redirect(`/painel/estoque/transferencias?erro=${encodeURIComponent('Adicione ao menos um item.')}`)
@@ -188,7 +188,7 @@ export async function registrarMovimentos(formData: FormData) {
     : new Date().toISOString()
 
   let itens: { produto_busca: string; quantidade: number; operacao: string; imeis?: string[] }[] = []
-  try { itens = JSON.parse((formData.get('itens') as string) || '[]') } catch {}
+  try { itens = JSON.parse((formData.get('itens') as string) || '[]') } catch { /* JSON inválido → itens vazio */ }
 
   if (itens.length === 0) {
     redirect('/painel/estoque/historico?erro=sem-itens')

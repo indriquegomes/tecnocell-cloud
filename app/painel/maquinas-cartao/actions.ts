@@ -10,7 +10,7 @@ function campos(formData: FormData) {
   try {
     taxas = (JSON.parse((formData.get('taxas_credito') as string) || '[]') as unknown[])
       .map((x) => Math.max(0, Number(x) || 0))
-  } catch {}
+  } catch { /* JSON inválido → taxas vazio (preenche com 0 depois) */ }
   // garante tamanho = max_parcelas (preenche com 0 o que faltar)
   const taxasCredito = Array.from({ length: maxP }, (_, i) => taxas[i] ?? 0)
   return {
