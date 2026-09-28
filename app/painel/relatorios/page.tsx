@@ -854,7 +854,7 @@ export default async function RelatoriosPage({
   type CaixaFech = {
     id: string; status: string; loja: string; abriu: string; fechou: string | null
     operador: string; vendas: number; entradas: number; saidas: number
-    esperado: number; contado: number | null; diferenca: number | null
+    esperado: number; contado: number | null; diferenca: number | null; dinV: number
   }
   let caixasFech: CaixaFech[] = []
   let lojasFC: { id: string; nome: string }[] = []
@@ -938,7 +938,7 @@ export default async function RelatoriosPage({
           abriu: c.aberto_em as string, fechou: (c.fechado_em as string | null) ?? null,
           operador: c.usuario_id ? (nomePerfil[c.usuario_id as string] ?? '—') : '—',
           vendas: a.vendas, entradas: a.ref + a.rec, saidas: a.ret + a.dev,
-          esperado, contado, diferenca: contado === null ? null : contado - esperado,
+          esperado, contado, dinV: a.dinV, diferenca: contado === null ? null : contado - esperado,
         }
       })
     }
@@ -1242,7 +1242,7 @@ export default async function RelatoriosPage({
             <Card label="Saiu (retiradas/devol.)" valor={fmt(caixasFech.reduce((s, c) => s + c.saidas, 0))} cor="text-red-500" />
           </div>
           <Tabela vazio={caixasFech.length === 0} vazioMsg="Nenhum caixa no período."
-            head={['Loja', 'Abriu', 'Fechou', 'Operador', 'Vendas', 'Dinheiro (vendas + troco)', 'Dinheiro contado', 'Diferença', '']}
+            head={['Loja', 'Abriu', 'Fechou', 'Operador', 'Vendas', 'Dinheiro total', 'Dinheiro vendas', 'Diferença', '']}
             alinhas={['l', 'l', 'l', 'l', 'r', 'r', 'r', 'r', 'c']}>
             {caixasFech.map((c) => (
               <tr key={c.id} className="hover:bg-blue-50/60">
@@ -1252,7 +1252,7 @@ export default async function RelatoriosPage({
                 <td className="px-4 py-3 text-sm text-gray-600">{c.operador}</td>
                 <td className="px-4 py-3 text-sm text-right font-medium text-gray-800">{fmt(c.vendas)}</td>
                 <td className="px-4 py-3 text-sm text-right text-gray-600">{fmt(c.esperado)}</td>
-                <td className="px-4 py-3 text-sm text-right text-gray-600">{c.contado === null ? '—' : fmt(c.contado)}</td>
+                <td className="px-4 py-3 text-sm text-right text-gray-600">{fmt(c.dinV)}</td>
                 <td className="px-4 py-3 text-sm text-right">{c.diferenca === null ? '—' : <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${Math.abs(c.diferenca) < 0.01 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>{c.diferenca < 0 ? '−' : ''}{fmt(Math.abs(c.diferenca))}</span>}</td>
                 <td className="px-4 py-3 text-center"><Link prefetch={false} href={`/painel/relatorios?aba=fechamentocaixa&de=${dataInicio}&ate=${dataFim}&loja=${loja ?? 'todas'}&caixa=${c.id}`} className="text-sm font-medium text-blue-600 hover:underline">ver ▸</Link></td>
               </tr>
