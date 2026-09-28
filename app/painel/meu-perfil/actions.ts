@@ -154,6 +154,7 @@ export async function buscarMeuBanco(token: string): Promise<{ saldo: number; it
   const { data } = await s.from('banco_horas')
     .select('id, horas, data, motivo, obs')
     .eq('usuario_id', user.id)
+    .eq('confirmado', true)
     .order('data', { ascending: false })
   const itens = (data ?? []) as BancoHora[]
   const saldo = itens.reduce((acc, i) => acc + Number(i.horas), 0)

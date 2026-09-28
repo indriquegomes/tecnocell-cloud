@@ -66,7 +66,7 @@ export default async function RhPage() {
   const bancoItens = (banco ?? []) as { id: string; usuario_id: string; horas: number; data: string; motivo: string | null; obs: string | null; confirmado: boolean | null }[]
   const dobrasPendentes = bancoItens.filter((b) => b.confirmado === false)
   const saldoPorUser: Record<string, number> = {}
-  for (const b of bancoItens) saldoPorUser[b.usuario_id] = (saldoPorUser[b.usuario_id] ?? 0) + Number(b.horas)
+  for (const b of bancoItens) if (b.confirmado !== false) saldoPorUser[b.usuario_id] = (saldoPorUser[b.usuario_id] ?? 0) + Number(b.horas)
   const nomePorUser: Record<string, string> = Object.fromEntries((perfis ?? []).map((u) => [u.id, u.nome]))
   const saldos = (perfis ?? []).map((u) => ({ id: u.id, nome: u.nome, saldo: saldoPorUser[u.id] ?? 0 })).sort((a, b) => b.saldo - a.saldo)
   const corSaldo = (h: number) => (h < 0 ? 'text-rose-600' : h >= LIMITE_EXTRA ? 'text-amber-600' : 'text-emerald-600')
