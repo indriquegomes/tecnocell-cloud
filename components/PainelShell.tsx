@@ -12,6 +12,7 @@ import { BarraAvisos } from '@/components/BarraAvisos'
 import { OcultarValores, scriptOcultarValores } from '@/components/OcultarValores'
 import type { Lembrete as AvisoCaixa } from '@/lib/lembrete-caixa'
 import type { LembretePendente } from '@/lib/lembretes'
+import { moduloAtual } from '@/lib/modulo'
 
 const PDV_PATHS = ['/painel/pdv', '/painel/pdv/operacao']
 
@@ -131,6 +132,15 @@ export function PainelShell({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
+            {(() => {
+              const m = moduloAtual(pathname)
+              return m ? (
+                <span className="ml-3 hidden items-center gap-1.5 sm:flex">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: m.cor }} />
+                  <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: m.cor }}>{m.nome}</span>
+                </span>
+              ) : null
+            })()}
             {/* Logo = atalho pro Dashboard. Aparece SÓ com a sidebar recolhida (ou no
                 celular): aberta, o logo do topo dela já é o atalho — sem logo em dobro.
                 Pedido Isa: voltar fácil pro Dashboard de qualquer janela. */}
