@@ -126,6 +126,14 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
   const salarioRaw = parseFloat((fd.get('salario') as string) || '0')
   const salario = isNaN(salarioRaw) ? 0 : Math.max(0, salarioRaw)
   const chavePix = ((fd.get('chave_pix') as string) ?? '').trim() || null
+  // Config do MOTOBOY (valor fixo + adicional por loja + adicional extra + tipo)
+  const mf = parseFloat((fd.get('motoboy_valor_fixo') as string) || '0')
+  const ml = parseFloat((fd.get('motoboy_adicional_loja') as string) || '0')
+  const me = parseFloat((fd.get('motoboy_adicional_extra') as string) || '0')
+  const motoboyValorFixo = isNaN(mf) ? 0 : Math.max(0, mf)
+  const motoboyAdicionalLoja = isNaN(ml) ? 0 : Math.max(0, ml)
+  const motoboyAdicionalExtra = isNaN(me) ? 0 : Math.max(0, me)
+  const motoboyTipo = (fd.get('motoboy_tipo') as string) || 'diaria'
 
   const supabase = await createServiceClient()
   const { error } = await supabase.from('perfis').update({
@@ -147,6 +155,10 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
     meta_venda_mensal: metaVendaMensal,
     salario,
     chave_pix: chavePix,
+    motoboy_valor_fixo: motoboyValorFixo,
+    motoboy_adicional_loja: motoboyAdicionalLoja,
+    motoboy_adicional_extra: motoboyAdicionalExtra,
+    motoboy_tipo: motoboyTipo,
   }).eq('id', userId)
 
   if (error) return { ok: false, message: error.message }

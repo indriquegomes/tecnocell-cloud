@@ -12,12 +12,13 @@ type CfgPerfil = {
   metaVendaMensal: number
   salario: number
   chavePix: string | null
+  motoboyValorFixo: number; motoboyAdicionalLoja: number; motoboyAdicionalExtra: number; motoboyTipo: string | null
 }
 async function configPdvPorPerfil(
   supabase: Awaited<ReturnType<typeof createServiceClient>>
 ): Promise<Record<string, CfgPerfil>> {
   try {
-    const { data } = await supabase.from('perfis').select('id, lojas_permitidas, tabelas_permitidas, pdv_loja_id, pdv_deposito_id, acesso_hora_inicio, acesso_hora_fim, acesso_bloqueia_sabado, acesso_bloqueia_domingo, acesso_bloqueia_feriado, meta_venda_mensal, salario, chave_pix')
+    const { data } = await supabase.from('perfis').select('id, lojas_permitidas, tabelas_permitidas, pdv_loja_id, pdv_deposito_id, acesso_hora_inicio, acesso_hora_fim, acesso_bloqueia_sabado, acesso_bloqueia_domingo, acesso_bloqueia_feriado, meta_venda_mensal, salario, chave_pix, motoboy_valor_fixo, motoboy_adicional_loja, motoboy_adicional_extra, motoboy_tipo')
     return Object.fromEntries(
       (data ?? []).map((p) => [p.id, {
         lojasPermitidas: (p.lojas_permitidas ?? []) as string[],
@@ -32,6 +33,10 @@ async function configPdvPorPerfil(
         metaVendaMensal: Number(p.meta_venda_mensal ?? 0),
         salario: Number(p.salario ?? 0),
         chavePix: p.chave_pix ?? null,
+        motoboyValorFixo: Number(p.motoboy_valor_fixo ?? 0),
+        motoboyAdicionalLoja: Number(p.motoboy_adicional_loja ?? 0),
+        motoboyAdicionalExtra: Number(p.motoboy_adicional_extra ?? 0),
+        motoboyTipo: p.motoboy_tipo ?? null,
       }])
     )
   } catch { return {} }
@@ -90,6 +95,10 @@ export default async function UsuariosPage() {
       metaVendaMensal: cfgPdv[u.id]?.metaVendaMensal ?? 0,
       salario: cfgPdv[u.id]?.salario ?? 0,
       chavePix: cfgPdv[u.id]?.chavePix ?? null,
+      motoboyValorFixo: cfgPdv[u.id]?.motoboyValorFixo ?? 0,
+      motoboyAdicionalLoja: cfgPdv[u.id]?.motoboyAdicionalLoja ?? 0,
+      motoboyAdicionalExtra: cfgPdv[u.id]?.motoboyAdicionalExtra ?? 0,
+      motoboyTipo: cfgPdv[u.id]?.motoboyTipo ?? null,
       created_at: u.created_at,
     }))
 
