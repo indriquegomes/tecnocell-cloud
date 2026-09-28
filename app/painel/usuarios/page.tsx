@@ -78,6 +78,13 @@ export default async function UsuariosPage() {
   const depositos = (depositosResult.data ?? []) as { id: string; nome: string; loja_id: string | null }[]
   const tabelas = (tabelasResult.data ?? []) as { id: string; nome: string }[]
 
+  // Horários (escala semanal) de cada usuário — pra preencher o editor nos Usuários.
+  const { data: escalasRaw } = await supabase.from('escalas').select('perfil_id, dia, entrada, saida').eq('ativo', true)
+  const horariosPorPerfil: Record<string, Record<number, { entrada: string; saida: string }>> = {}
+  for (const e of (escalasRaw ?? []) as { perfil_id: string; dia: number; entrada: string; saida: string }[]) {
+    ;(horariosPorPerfil[e.perfil_id] = horariosPorPerfil[e.perfil_id] || {})[e.dia] = { entrada: e.entrada, saida: e.saida }
+  }
+
   const usuarios = authUsers
     .filter((u) => perfisMap[u.id])
     .map((u) => ({
@@ -110,6 +117,7 @@ export default async function UsuariosPage() {
       meiDiaPagamento: cfgPdv[u.id]?.meiDiaPagamento ?? null,
       meiFuncoes: cfgPdv[u.id]?.meiFuncoes ?? null,
       cltValeTransporte: cfgPdv[u.id]?.cltValeTransporte ?? 0,
+      horarios: horariosPorPerfil[u.id] ?? {},
       created_at: u.created_at,
     }))
 

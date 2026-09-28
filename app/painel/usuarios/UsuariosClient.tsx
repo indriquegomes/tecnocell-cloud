@@ -47,6 +47,7 @@ export interface Usuario {
   meiDiaPagamento: string | null
   meiFuncoes: string | null
   cltValeTransporte: number
+  horarios: Record<number, { entrada: string; saida: string }>
   created_at: string
 }
 export type Cargo = { id: string; nome: string }
@@ -304,6 +305,36 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario }: { lojas: Loja[];
             </div>
           )
         })()}
+      </div>
+
+      <div className="border-t border-gray-200 pt-3 mt-3">
+        <p className="text-sm font-semibold text-gray-700">Horários (escala semanal)</p>
+        <p className="text-xs text-gray-400">Vinculado à aba Escala. Preencha entrada/saída ou marque folga.</p>
+        <div className="mt-2 space-y-1">
+          {[
+            { dia: 1, nome: 'Segunda' },
+            { dia: 2, nome: 'Terça' },
+            { dia: 3, nome: 'Quarta' },
+            { dia: 4, nome: 'Quinta' },
+            { dia: 5, nome: 'Sexta' },
+            { dia: 6, nome: 'Sábado' },
+            { dia: 0, nome: 'Domingo' },
+          ].map((d) => {
+            const h = usuario.horarios?.[d.dia]
+            return (
+              <div key={d.dia} className="flex items-center gap-2">
+                <span className="w-16 text-xs text-gray-600">{d.nome}</span>
+                <input name={'horario_' + d.dia + '_entrada'} type="time" defaultValue={h?.entrada ?? ''} className="field w-24 text-xs" />
+                <span className="text-xs text-gray-400">até</span>
+                <input name={'horario_' + d.dia + '_saida'} type="time" defaultValue={h?.saida ?? ''} className="field w-24 text-xs" />
+                <label className="flex items-center gap-1 text-xs text-gray-600 ml-2">
+                  <input type="checkbox" name={'horario_' + d.dia + '_folga'} value="1" defaultChecked={!h} className="h-3.5 w-3.5 rounded" />
+                  Folga
+                </label>
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {tabelas.length > 0 && (

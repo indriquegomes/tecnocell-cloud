@@ -176,6 +176,22 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
 
   if (error) return { ok: false, message: error.message }
 
+  // Horários (escala semanal) — salva na MESMA tabela da aba Escala, assim
+  // ficam vinculados. seg=1 .. dom=0 (mesma convenção de escalas.dia).
+  for (const dia of [1, 2, 3, 4, 5, 6, 0]) {
+    const entrada = (fd.get('horario_' + dia + '_entrada') as string) || ''
+    const saida = (fd.get('horario_' + dia + '_saida') as string) || ''
+    const folga = fd.getAll('horario_' + dia + '_folga').includes('1')
+    if (folga || !entrada || !saida) {
+      await supabase.from('escalas').delete().eq('perfil_id', userId).eq('dia', dia)
+    } else {
+      await supabase.from('escalas').upsert(
+        { perfil_id: userId, loja_id: null, dia, entrada, saida, ativo: true },
+        { onConflict: 'perfil_id,dia' },
+      )
+    }
+  }
+
   revalidatePath('/painel/usuarios')
   return { ok: true, message: 'Perfil atualizado' }
 }
