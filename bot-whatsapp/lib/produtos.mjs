@@ -75,7 +75,7 @@ const CATEGORIAS = [
   'ativador', 'pasta', 'estilete', 'fonte', 'organizador', 'soprador', 'esponja',
   'estanho', 'bateria', 'tela', 'frontal', 'display', 'flex', 'conector', 'microfone',
   'camera', 'lente', 'antena', 'chip', 'vidro', 'pelicula', 'botao',
-  'falante', 'altofalante', 'autofalante',
+  'falante', 'altofalante', 'autofalante', 'fone',
 ]
 
 // Abreviação de 2 letras não entra na regra geral de prefixo — abrir prefixo
@@ -87,7 +87,7 @@ const ABREVIACOES_CURTAS = { fr: 'frontal' }
 
 // Palavra composta que o cliente escreve JUNTO ("subplaca") = tipo de peça ("placa").
 // O cliente junta "sub"+"placa"; sem isso o AND não casa e o bot diz "não encontrei".
-const ALIAS_TIPO = { subplaca: 'placa' }
+const ALIAS_TIPO = { subplaca: 'conector' }
 
 // Sinônimos de TIPO de peça: o cliente fala "tela", o catálogo grava "frontal"
 // ou "display" — mesma coisa na loja. Sem isso, "tela do moto g8" não acha
@@ -658,33 +658,40 @@ export async function buscaTabelaPorNome(nome) {
   const alvo = normalizaNome(nome)
   if (!alvo) return { id: null, nome: null, encontrado: false }
   await mapaTelefoneTabela() // garante que _mapaNome foi construído
+  // Remove prefixo "(ATACADO 1/2)" do nome de cadastro antes de casar — o nome
+  // limpo casa por "contém" com o nome do WhatsApp ("Samira Amorim dos Reis").
+  const limpa = (k) => k.replace(/^atacado\s*\d*\s+/, '')
   if (_mapaNome.has(alvo)) {
     const r = _mapaNome.get(alvo)
     return { id: r.tabela ?? null, nome: r.nome ?? null, encontrado: true }
   }
+  // "Contém" SÓ com nome COMPLETO (3+ palavras): evita "André Luiz" (2 palavras)
+  // casar com "André Luiz Roque" e dar atacado pra pessoa errada. Nome curto de
+  // 2 palavras agora só casa por telefone ou por "contém" exato.
   let melhor = null
   let melhorKey = ''
   for (const [k, reg] of _mapaNome) {
-    if (k.length < 10) continue
-    if (alvo.includes(k) && k.length > melhorKey.length) { melhor = reg; melhorKey = k }
+    const kc = limpa(k)
+    if (kc.split(' ').filter((w) => w.length >= 2).length < 3) continue
+    if (alvo.includes(kc) && kc.length > melhorKey.length) { melhor = reg; melhorKey = kc }
   }
   if (melhor) return { id: melhor.tabela ?? null, nome: melhor.nome ?? null, encontrado: true }
 
-  // Sobreposição de palavras: nomes que compartilham >= 2 palavras "grandes"
-  // (>= 4 letras). Cobre "(ATACADO 2) Samira Amorim" vs "SAMIRA AMORIM DOS REIS"
-  // (um tem prefixo "atacado 2", o outro sufixo "dos reis" — o "contém" falha).
+  // Sobreposição: exige 3+ palavras "grandes" em comum (antes 2 casava "Maria da
+  // Silva" com "Maria José da Silva" — duas pessoas diferentes, tabela errada).
   const alvoSet = new Set(alvo.split(' ').filter((w) => w.length >= 4))
   let best = null
   let bestOverlap = 0
   let empate = false
   for (const [k, reg] of _mapaNome) {
-    if (k.length < 8) continue
+    const kc = limpa(k)
+    if (kc.split(' ').filter((w) => w.length >= 2).length < 3) continue
     let overlap = 0
-    for (const w of k.split(' ')) if (w.length >= 4 && alvoSet.has(w)) overlap++
+    for (const w of kc.split(' ')) if (w.length >= 4 && alvoSet.has(w)) overlap++
     if (overlap > bestOverlap) { best = reg; bestOverlap = overlap; empate = false }
     else if (overlap === bestOverlap && overlap > 0) empate = true
   }
-  if (bestOverlap >= 2 && !empate && best) return { id: best.tabela ?? null, nome: best.nome ?? null, encontrado: true }
+  if (bestOverlap >= 3 && !empate && best) return { id: best.tabela ?? null, nome: best.nome ?? null, encontrado: true }
   return { id: null, nome: null, encontrado: false }
 }
 
