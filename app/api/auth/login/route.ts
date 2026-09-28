@@ -60,12 +60,27 @@ export async function POST(request: NextRequest) {
     },
   })
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
     return NextResponse.redirect(
       new URL(`/login?erro=${encodeURIComponent(ERRO)}`, request.url)
     )
+  }
+
+  // Motoboy (cargo MOTOBOY) cai direto na tela de registro de rotas.
+  if (data?.user?.id) {
+    const service = createServerClient(url, serviceKey, {
+      cookies: { getAll() { return [] }, setAll() {} },
+    })
+    const { data: perf } = await service.from('perfis').select('cargo_id').eq('id', data.user.id).maybeSingle()
+    const cargoId = (perf as { cargo_id?: string | null } | null)?.cargo_id ?? null
+    if (cargoId) {
+      const { data: cargo } = await service.from('cargos').select('nome').eq('id', cargoId).maybeSingle()
+      if ((cargo as { nome?: string } | null)?.nome === 'MOTOBOY') {
+        response.headers.set('Location', new URL('/painel/motoboy', request.url).toString())
+      }
+    }
   }
 
   return response
