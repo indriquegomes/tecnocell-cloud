@@ -129,10 +129,11 @@ export default async function FinanceiroPage({
 
 
   function statusVariant(status: string | null): 'success' | 'warning' | 'danger' | 'outline' {
-    const s = (status ?? '').toLowerCase()
-    if (s.includes('pago') || s.includes('recebido')) return 'success'
+    // null mostra "Pendente" na tabela → âmbar (padrão do dono: âmbar = pendente)
+    const s = (status ?? 'pendente').toLowerCase()
+    if (s.includes('pago') || s.includes('recebido') || s.includes('quitado')) return 'success'
     if (s.includes('vencido') || s.includes('atrasado')) return 'danger'
-    if (s.includes('parcial')) return 'warning'
+    if (s.includes('parcial') || s.includes('pendente') || s.includes('em aberto')) return 'warning'
     return 'outline'
   }
 
