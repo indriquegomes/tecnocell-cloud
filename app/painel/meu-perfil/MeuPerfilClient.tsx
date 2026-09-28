@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Spinner } from '@/components/Spinner'
 import { createClient } from '@/lib/supabase/client'
-import { buscarMeuPerfil, atualizarMeuNome, alterarMinhaSenha, atualizarMinhaFoto, baterPonto, buscarMeuPontoHoje, buscarMeuBanco, type Res, type Ponto, type BancoHora } from './actions'
+import { buscarMeuPerfil, atualizarMeuNome, alterarMinhaSenha, atualizarMinhaFoto, baterPonto, verificarDiaFolga, buscarMeuPontoHoje, buscarMeuBanco, type Res, type Ponto, type BancoHora } from './actions'
 
 export function MeuPerfilClient() {
   const supabase = createClient()
@@ -28,6 +28,10 @@ export function MeuPerfilClient() {
   const [pontos, setPontos] = useState<Ponto[]>([])
   const [batendo, setBatendo] = useState(false)
   const [banco, setBanco] = useState<{ saldo: number; itens: BancoHora[] }>({ saldo: 0, itens: [] })
+  const [dobraPrompt, setDobraPrompt] = useState(false)
+  const [dobraMotivo, setDobraMotivo] = useState<'folga' | 'feriado'>('folga')
+  const [trocaAberta, setTrocaAberta] = useState(false)
+  const [trocaData, setTrocaData] = useState('')
 
   const token = async () => (await supabase.auth.getSession()).data.session?.access_token ?? ''
 
@@ -45,10 +49,18 @@ export function MeuPerfilClient() {
   }, [])
 
   async function registrarPonto(tipo: string) {
+    if (tipo === 'entrada') {
+      const d = await verificarDiaFolga(await token()).catch(() => ({ folga: false, feriado: false }))
+      if (d.folga || d.feriado) { setDobraMotivo(d.feriado ? 'feriado' : 'folga'); setDobraPrompt(true); return }
+    }
+    await baterPontoDireto(tipo)
+  }
+  async function baterPontoDireto(tipo: string, dobraTipo?: string, dobraData?: string) {
     setBatendo(true)
-    const r = await baterPonto(await token(), tipo)
+    const r = await baterPonto(await token(), tipo, dobraTipo, dobraData)
     if (r.ok) setPontos(await buscarMeuPontoHoje(await token()).catch(() => pontos))
     setBatendo(false)
+    setDobraPrompt(false); setTrocaAberta(false)
   }
 
   async function salvarNome(e: React.FormEvent) {
@@ -179,6 +191,29 @@ export function MeuPerfilClient() {
           </div>
         )}
       </div>
+
+      {/* Dobra folga/feriado */}
+      {dobraPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => { setDobraPrompt(false); setTrocaAberta(false) }}>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold text-gray-900">{dobraMotivo === 'feriado' ? '🎉 Hoje é feriado!' : '🗓 Hoje é sua folga!'}</h3>
+            <p className="mt-1 text-sm text-gray-500">Você vai fazer hora extra ou trocou o dia da folga?</p>
+            {!trocaAberta ? (
+              <div className="mt-4 space-y-2">
+                <button type="button" onClick={() => baterPontoDireto('entrada', 'extra')} className="w-full rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-600 transition">💰 Vou fazer hora extra (dobra)</button>
+                <button type="button" onClick={() => setTrocaAberta(true)} className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">🔁 Vou trocar a folga</button>
+                <button type="button" onClick={() => setDobraPrompt(false)} className="w-full rounded-xl px-4 py-2 text-sm text-gray-400 hover:text-gray-600 transition">Cancelar</button>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-2">
+                <label className="block text-xs font-medium text-gray-600">Qual dia você vai folgar no lugar?</label>
+                <input type="date" value={trocaData} onChange={(e) => setTrocaData(e.target.value)} className="field w-full" />
+                <button type="button" onClick={() => baterPontoDireto('entrada', 'troca', trocaData)} disabled={!trocaData} className="w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50">Confirmar troca</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Banco de horas (só leitura — o RH lança) */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">

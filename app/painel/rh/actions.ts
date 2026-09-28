@@ -33,3 +33,11 @@ export async function excluirHora(id: string) {
   await s.from('banco_horas').delete().eq('id', id)
   revalidatePath('/painel/rh')
 }
+
+// Confirma uma dobra (folga/feriado) lançada automaticamente pelo ponto.
+export async function confirmarDobra(id: string) {
+  await requirePermissao('rh')
+  const s = await createServiceClient()
+  await s.from('banco_horas').update({ confirmado: true }).eq('id', id)
+  revalidatePath('/painel/rh')
+}

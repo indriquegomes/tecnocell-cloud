@@ -55,16 +55,77 @@ export async function atualizarMeuNome(token: string, nome: string): Promise<Res
 
 export type Ponto = { id: string; tipo: string; criado_em: string }
 
+// Cidade (slug) da loja da pessoa, pra bater com feriados.cidade.
+async function cidadeDaLoja(s: Awaited<ReturnType<typeof createServiceClient>>, lojaId: string | null | undefined): Promise<string> {
+  if (!lojaId) return ''
+  const { data } = await s.from('lojas').select('nome').eq('id', lojaId).maybeSingle()
+  return String((data as { nome?: string } | null)?.nome ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
+
+// Hoje é folga ou feriado pra pessoa? (escala semanal + exceção + feriados)
+async function diaFolgaFeriado(s: Awaited<ReturnType<typeof createServiceClient>>, userId: string, hoje: string): Promise<{ folga: boolean; feriado: boolean }> {
+  const { data: perfil } = await s.from('perfis').select('pdv_loja_id').eq('id', userId).maybeSingle()
+  const cidade = await cidadeDaLoja(s, (perfil as { pdv_loja_id?: string | null } | null)?.pdv_loja_id)
+  const { data: fers } = await s.from('feriados').select('cidade').eq('data', hoje)
+  const feriado = (fers ?? []).some((f) => f.cidade === 'todas' || f.cidade === cidade)
+
+  const { data: exc } = await s.from('escala_excecoes').select('folga').eq('perfil_id', userId).eq('data', hoje).maybeSingle()
+  if (exc) return { folga: !!exc.folga, feriado }
+  const dia = new Date(hoje + 'T12:00:00').getDay()
+  const { data: esc } = await s.from('escalas').select('id').eq('perfil_id', userId).eq('dia', dia).eq('ativo', true).limit(1)
+  return { folga: !(esc && esc.length > 0), feriado }
+}
+
+// Na saída: se a entrada foi marcada como 'extra' (dobra), calcula o trabalhado × 2 e
+// lança no banco de horas (confirmado=false, o master confirma no RH).
+async function aplicarDobra(s: Awaited<ReturnType<typeof createServiceClient>>, userId: string, hoje: string) {
+  const { data: pts } = await s.from('pontos')
+    .select('tipo, criado_em, dobra_tipo')
+    .eq('usuario_id', userId).gte('criado_em', hoje + 'T00:00:00-03:00').order('criado_em')
+  const entradaExtra = (pts ?? []).find((p) => p.tipo === 'entrada' && p.dobra_tipo === 'extra')
+  if (!entradaExtra) return
+  const { data: ja } = await s.from('banco_horas').select('id').eq('usuario_id', userId).eq('data', hoje).eq('motivo', 'dobra').limit(1)
+  if (ja && ja.length > 0) return
+  let min = 0, aberto: number | null = null
+  for (const p of (pts ?? [])) {
+    const t = new Date(p.criado_em).getTime()
+    if (p.tipo === 'entrada' || p.tipo === 'retorno') aberto = t
+    else if ((p.tipo === 'pausa' || p.tipo === 'saida') && aberto != null) { min += (t - aberto) / 60000; aberto = null }
+  }
+  const horas = min / 60
+  if (horas <= 0) return
+  await s.from('banco_horas').insert({ usuario_id: userId, horas: horas * 2, data: hoje, motivo: 'dobra', obs: 'Dobra (folga/feriado)', confirmado: false })
+}
+
+// Hoje é folga/feriado? (pro Meu Perfil avisar na hora de bater a entrada)
+export async function verificarDiaFolga(token: string): Promise<{ folga: boolean; feriado: boolean }> {
+  const user = await requireAuth(token)
+  const s = await createServiceClient()
+  const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  return diaFolgaFeriado(s, user.id, hoje)
+}
+
 // Registra uma batida de ponto (entrada/pausa/retorno/saida) do usuário logado.
-export async function baterPonto(token: string, tipo: string): Promise<{ ok: boolean; message?: string; ponto?: Ponto }> {
+// dobraTipo/dobraData só valem na ENTRADA em dia de folga/feriado ('extra' ou 'troca').
+export async function baterPonto(token: string, tipo: string, dobraTipo?: string, dobraData?: string): Promise<{ ok: boolean; message?: string; ponto?: Ponto }> {
   const user = await requireAuth(token)
   if (!['entrada', 'pausa', 'retorno', 'saida'].includes(tipo)) return { ok: false, message: 'Tipo inválido' }
   const s = await createServiceClient()
   const { data: perfil } = await s.from('perfis').select('pdv_loja_id').eq('id', user.id).maybeSingle()
   const { data, error } = await s.from('pontos')
-    .insert({ usuario_id: user.id, tipo, loja_id: (perfil as { pdv_loja_id?: string | null } | null)?.pdv_loja_id ?? null })
+    .insert({
+      usuario_id: user.id,
+      tipo,
+      loja_id: (perfil as { pdv_loja_id?: string | null } | null)?.pdv_loja_id ?? null,
+      dobra_tipo: tipo === 'entrada' ? (dobraTipo || null) : null,
+      dobra_data: tipo === 'entrada' && dobraTipo === 'troca' ? (dobraData || null) : null,
+    })
     .select('id, tipo, criado_em').single()
   if (error) return { ok: false, message: error.message }
+  if (tipo === 'saida') {
+    const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+    await aplicarDobra(s, user.id, hoje)
+  }
   return { ok: true, ponto: data as Ponto }
 }
 

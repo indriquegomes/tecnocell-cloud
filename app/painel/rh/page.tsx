@@ -6,12 +6,12 @@ import { Dica } from '@/components/Dica'
 import { formatDate } from '@/lib/utils'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { LancarHoraForm } from './LancarHoraForm'
-import { excluirHora } from './actions'
+import { excluirHora, confirmarDobra } from './actions'
 
 const LIMITE_EXTRA = 8
 const MOTIVO_LABEL: Record<string, string> = {
   solicitacao_loja: 'Solicitação da loja', cobrir_colega: 'Cobrir colega',
-  atraso: 'Atraso', pagamento: 'Pagamento', folga: 'Folga', outro: 'Outro',
+  atraso: 'Atraso', pagamento: 'Pagamento', folga: 'Folga', dobra: 'Dobra (folga/feriado)', outro: 'Outro',
 }
 const fmtH = (h: number) => `${h > 0 ? '+' : ''}${h.toFixed(2).replace('.', ',')}h`
 
@@ -40,8 +40,8 @@ export default async function RhPage() {
   const [{ data: perfisRaw }, { data: pontos }, banco] = await Promise.all([
     supabase.from('perfis').select('id, nome, cargo, pdv_loja_id, lojas_permitidas').eq('ativo', true).order('nome'),
     supabase.from('pontos').select('usuario_id, tipo, criado_em').gte('criado_em', `${hoje}T00:00:00-03:00`).order('criado_em'),
-    fetchAll<{ id: string; usuario_id: string; horas: number; data: string; motivo: string | null; obs: string | null }>(
-      (from, to) => supabase.from('banco_horas').select('id, usuario_id, horas, data, motivo, obs').order('data', { ascending: false }).range(from, to)),
+    fetchAll<{ id: string; usuario_id: string; horas: number; data: string; motivo: string | null; obs: string | null; confirmado: boolean | null }>(
+      (from, to) => supabase.from('banco_horas').select('id, usuario_id, horas, data, motivo, obs, confirmado').order('data', { ascending: false }).range(from, to)),
   ])
   // Equipe separada por loja ativa. Funcionário pertence às lojas em
   // lojas_permitidas (vazio = master/dono, vê tudo). Quem tem as DUAS (gerente geral)
@@ -63,7 +63,8 @@ export default async function RhPage() {
   const label = (s: string) => (s === 'trabalhando' ? '🟢 Trabalhando' : s === 'pausa' ? '⏸ Pausa' : s === 'encerrado' ? '✓ Encerrado' : 'Fora')
 
   // ---- Banco de horas ----
-  const bancoItens = (banco ?? []) as { id: string; usuario_id: string; horas: number; data: string; motivo: string | null; obs: string | null }[]
+  const bancoItens = (banco ?? []) as { id: string; usuario_id: string; horas: number; data: string; motivo: string | null; obs: string | null; confirmado: boolean | null }[]
+  const dobrasPendentes = bancoItens.filter((b) => b.confirmado === false)
   const saldoPorUser: Record<string, number> = {}
   for (const b of bancoItens) saldoPorUser[b.usuario_id] = (saldoPorUser[b.usuario_id] ?? 0) + Number(b.horas)
   const nomePorUser: Record<string, string> = Object.fromEntries((perfis ?? []).map((u) => [u.id, u.nome]))
@@ -138,6 +139,23 @@ export default async function RhPage() {
       </div>
 
       <LancarHoraForm pessoas={(perfis ?? []).map((u) => ({ id: u.id, nome: u.nome }))} />
+
+      {/* Dobras aguardando confirmação do master */}
+      {dobrasPendentes.length > 0 && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-sm font-semibold text-amber-800">⏳ Dobras aguardando confirmação</p>
+          <div className="mt-2 space-y-2">
+            {dobrasPendentes.map((b) => (
+              <div key={b.id} className="flex flex-wrap items-center justify-between gap-3">
+                <span className="text-sm text-gray-700">{nomePorUser[b.usuario_id] ?? '—'} <span className="text-gray-400">· {formatDate(b.data)} ·</span> <b className="text-emerald-600">{fmtH(Number(b.horas))}</b></span>
+                <form action={confirmarDobra.bind(null, b.id)}>
+                  <button type="submit" className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition">Confirmar dobra</button>
+                </form>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Saldos */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
