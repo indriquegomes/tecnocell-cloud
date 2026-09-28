@@ -22,6 +22,23 @@ export default async function CompararPage({
     .select('produto_id, deposito_id, quantidade, produtos(nome, categoria)')
     .gt('quantidade', 0).range(from, to))
 
+  // Itens em trânsito saem da origem na hora, mas só entram no destino no recebimento.
+  // Conta pro destino pra não aparecer como "só na origem" logo depois de transferir.
+  const remessasTransito = await fetchAll((from, to) => supabase.from('remessas_estoque')
+    .select('destino, remessas_estoque_itens(produto_id, quantidade)')
+    .eq('status', 'em_transito').range(from, to))
+  const emTransito = new Map<string, { petr: number; ter: number }>()
+  for (const r of (remessasTransito ?? []) as unknown as { destino: string; remessas_estoque_itens: { produto_id: string; quantidade: number }[] | null }[]) {
+    const ladoTer = r.destino === TL || r.destino === TE
+    for (const it of (r.remessas_estoque_itens ?? [])) {
+      if (!it.produto_id) continue
+      const cur = emTransito.get(it.produto_id) ?? { petr: 0, ter: 0 }
+      if (ladoTer) cur.ter += Number(it.quantidade)
+      else cur.petr += Number(it.quantidade)
+      emTransito.set(it.produto_id, cur)
+    }
+  }
+
   type Agg = { nome: string; categoria: string | null; pl: number; pe: number; tl: number; te: number }
   const agg = new Map<string, Agg>()
   for (const e of (estoque ?? [])) {
@@ -38,9 +55,10 @@ export default async function CompararPage({
   type Linha = { nome: string; categoria: string | null; qtd: number; detalhe: string }
   const soPetr: Linha[] = []
   const soTer: Linha[] = []
-  for (const a of agg.values()) {
-    const petr = a.pl + a.pe
-    const ter = a.tl + a.te
+  for (const [pid, a] of agg.entries()) {
+    const t = emTransito.get(pid) ?? { petr: 0, ter: 0 }
+    const petr = a.pl + a.pe + t.petr
+    const ter = a.tl + a.te + t.ter
     if (petr > 0 && ter === 0) soPetr.push({ nome: a.nome, categoria: a.categoria, qtd: petr, detalhe: 'Loja ' + a.pl + ' · Estoque ' + a.pe })
     else if (ter > 0 && petr === 0) soTer.push({ nome: a.nome, categoria: a.categoria, qtd: ter, detalhe: 'Loja ' + a.tl + ' · Estoque ' + a.te })
   }
@@ -92,7 +110,7 @@ export default async function CompararPage({
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <h2 className="text-2xl font-bold text-gray-900">Comparar lojas</h2>
-        <Dica texto="Mostra o que uma cidade tem e a outra não tem (loja + estoque). Daqui você vê a diferença e manda transferir." lado="baixo" />
+        <Dica texto="Mostra o que uma cidade tem e a outra não tem (loja + estoque). Itens em trânsito contam pro destino." lado="baixo" />
       </div>
 
       <form method="GET" className="flex flex-wrap items-center gap-2 text-sm">
