@@ -551,6 +551,23 @@ function FecharCaixaPanel({
           <p className="text-sm text-gray-500 mt-0.5">Cada forma se confere no seu lugar — a contagem da gaveta é só o dinheiro</p>
         </div>
 
+        {/* Dinheiro a separar no envelope: gaveta − troco que fica. Os outros
+            tipos (PIX, cartão, fiado, vale) seguem no card abaixo. */}
+        <div className="px-6 py-4 border-b border-gray-100 bg-emerald-50/70">
+          <div className="flex justify-between text-sm text-emerald-800">
+            <span>Total na gaveta (dinheiro)</span>
+            <span className="tabular-nums font-semibold">{fmt(saldoCaixa)}</span>
+          </div>
+          <div className="flex justify-between text-sm text-emerald-800">
+            <span>Troco (fica pra amanhã)</span>
+            <span className="tabular-nums">− {fmt(valorAbertura)}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between border-t border-emerald-300 pt-2">
+            <span className="text-base font-bold text-emerald-900">Separar no envelope</span>
+            <span className="text-2xl font-extrabold tabular-nums text-emerald-800">{fmt(saldoCaixa - valorAbertura)}</span>
+          </div>
+        </div>
+
         <div className="divide-y divide-gray-100">
           <div className="px-6 py-4">
             <EmCaixaCard
