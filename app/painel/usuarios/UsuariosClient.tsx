@@ -8,6 +8,8 @@ import { createClient } from '@/lib/supabase/client'
 import { TODAS_PERMISSOES } from '@/lib/permissoes'
 import { criarUsuario, criarConvite, atualizarPerfil, alterarSenha, type ActionResult, type ConviteResult } from './actions'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
+import { formatBRL } from '@/lib/utils'
+import { custoMensalCLT } from '@/lib/folha'
 
 const supabaseBrowser = createClient()
 async function authToken() {
@@ -40,6 +42,11 @@ export interface Usuario {
   motoboyAdicionalLoja: number
   motoboyAdicionalExtra: number
   motoboyTipo: string | null
+  vinculo: string | null
+  meiValorServico: number
+  meiDiaPagamento: string | null
+  meiFuncoes: string | null
+  cltValeTransporte: number
   created_at: string
 }
 export type Cargo = { id: string; nome: string }
@@ -158,6 +165,7 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario }: { lojas: Loja[];
   const [permitidas, setPermitidas] = useState<Set<string>>(new Set(usuario.lojasPermitidas))
   const [tabsSel, setTabsSel] = useState<Set<string>>(new Set(usuario.tabelasPermitidas))
   const [lojaPadrao, setLojaPadrao] = useState(usuario.pdvLojaId ?? '')
+  const [vinculo, setVinculo] = useState(usuario.vinculo ?? '')
 
   const togglePermitida = (id: string) => setPermitidas((prev) => {
     const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n
@@ -247,6 +255,55 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario }: { lojas: Loja[];
             </select>
           </div>
         </div>
+      </div>
+
+      <div className="border-t border-gray-200 pt-3 mt-3">
+        <p className="text-sm font-semibold text-gray-700">Vínculo com a empresa</p>
+        <div className="mt-2 w-40">
+          <label className="mb-1 block text-xs font-medium text-gray-600">Tipo de vínculo</label>
+          <select name="vinculo" value={vinculo} onChange={(e) => setVinculo(e.target.value)} className="field w-full text-sm">
+            <option value="">Nenhum</option>
+            <option value="mei">MEI</option>
+            <option value="clt">CLT</option>
+          </select>
+        </div>
+
+        {vinculo === 'mei' && (
+          <div className="grid grid-cols-2 gap-3 mt-3">
+            <div className="w-44">
+              <label className="mb-1 block text-xs font-medium text-gray-600">Valor do serviço (R$)</label>
+              <CampoDinheiro name="mei_valor_servico" defaultValue={Number(usuario.meiValorServico || 0)} className="text-sm" />
+            </div>
+            <div className="w-44">
+              <label className="mb-1 block text-xs font-medium text-gray-600">Dia padrão de pagamento</label>
+              <select name="mei_dia_pagamento" defaultValue={usuario.meiDiaPagamento ?? 'segunda'} className="field w-full text-sm">
+                {['segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado', 'domingo'].map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <div className="col-span-2">
+              <label className="mb-1 block text-xs font-medium text-gray-600">Funções a desempenhar</label>
+              <input name="mei_funcoes" defaultValue={usuario.meiFuncoes ?? ''} className="field w-full text-sm" placeholder="Ex: balcão, estoque, caixa..." />
+            </div>
+          </div>
+        )}
+
+        {vinculo === 'clt' && (() => {
+          const custo = custoMensalCLT(Number(usuario.salario || 0), Number(usuario.cltValeTransporte || 0))
+          return (
+            <div className="space-y-3 mt-3">
+              <div className="w-44">
+                <label className="mb-1 block text-xs font-medium text-gray-600">Vale transporte (R$)</label>
+                <CampoDinheiro name="clt_vale_transporte" defaultValue={Number(usuario.cltValeTransporte || 0)} className="text-sm" />
+              </div>
+              <div className="rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
+                <p className="font-semibold text-gray-700">Custo mensal (salário {formatBRL(Number(usuario.salario || 0))}):</p>
+                <p className="mt-1">FGTS (8%): {formatBRL(custo.fgts)} · INSS: {formatBRL(custo.inss)}</p>
+                <p>Férias (1/12): {formatBRL(custo.ferias)} · 13º (1/12): {formatBRL(custo.decimoTerceiro)}</p>
+                <p className="font-semibold text-gray-800 mt-1">Total empresa/mês: {formatBRL(custo.total)}</p>
+              </div>
+            </div>
+          )
+        })()}
       </div>
 
       {tabelas.length > 0 && (

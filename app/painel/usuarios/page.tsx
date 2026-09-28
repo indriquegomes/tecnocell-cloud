@@ -13,12 +13,13 @@ type CfgPerfil = {
   salario: number
   chavePix: string | null
   motoboyValorFixo: number; motoboyAdicionalLoja: number; motoboyAdicionalExtra: number; motoboyTipo: string | null
+  vinculo: string | null; meiValorServico: number; meiDiaPagamento: string | null; meiFuncoes: string | null; cltValeTransporte: number
 }
 async function configPdvPorPerfil(
   supabase: Awaited<ReturnType<typeof createServiceClient>>
 ): Promise<Record<string, CfgPerfil>> {
   try {
-    const { data } = await supabase.from('perfis').select('id, lojas_permitidas, tabelas_permitidas, pdv_loja_id, pdv_deposito_id, acesso_hora_inicio, acesso_hora_fim, acesso_bloqueia_sabado, acesso_bloqueia_domingo, acesso_bloqueia_feriado, meta_venda_mensal, salario, chave_pix, motoboy_valor_fixo, motoboy_adicional_loja, motoboy_adicional_extra, motoboy_tipo')
+    const { data } = await supabase.from('perfis').select('id, lojas_permitidas, tabelas_permitidas, pdv_loja_id, pdv_deposito_id, acesso_hora_inicio, acesso_hora_fim, acesso_bloqueia_sabado, acesso_bloqueia_domingo, acesso_bloqueia_feriado, meta_venda_mensal, salario, chave_pix, motoboy_valor_fixo, motoboy_adicional_loja, motoboy_adicional_extra, motoboy_tipo, vinculo, mei_valor_servico, mei_dia_pagamento, mei_funcoes, clt_vale_transporte')
     return Object.fromEntries(
       (data ?? []).map((p) => [p.id, {
         lojasPermitidas: (p.lojas_permitidas ?? []) as string[],
@@ -37,6 +38,11 @@ async function configPdvPorPerfil(
         motoboyAdicionalLoja: Number(p.motoboy_adicional_loja ?? 0),
         motoboyAdicionalExtra: Number(p.motoboy_adicional_extra ?? 0),
         motoboyTipo: p.motoboy_tipo ?? null,
+        vinculo: p.vinculo ?? null,
+        meiValorServico: Number(p.mei_valor_servico ?? 0),
+        meiDiaPagamento: p.mei_dia_pagamento ?? null,
+        meiFuncoes: p.mei_funcoes ?? null,
+        cltValeTransporte: Number(p.clt_vale_transporte ?? 0),
       }])
     )
   } catch { return {} }
@@ -99,6 +105,11 @@ export default async function UsuariosPage() {
       motoboyAdicionalLoja: cfgPdv[u.id]?.motoboyAdicionalLoja ?? 0,
       motoboyAdicionalExtra: cfgPdv[u.id]?.motoboyAdicionalExtra ?? 0,
       motoboyTipo: cfgPdv[u.id]?.motoboyTipo ?? null,
+      vinculo: cfgPdv[u.id]?.vinculo ?? null,
+      meiValorServico: cfgPdv[u.id]?.meiValorServico ?? 0,
+      meiDiaPagamento: cfgPdv[u.id]?.meiDiaPagamento ?? null,
+      meiFuncoes: cfgPdv[u.id]?.meiFuncoes ?? null,
+      cltValeTransporte: cfgPdv[u.id]?.cltValeTransporte ?? 0,
       created_at: u.created_at,
     }))
 

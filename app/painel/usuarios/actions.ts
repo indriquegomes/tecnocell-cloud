@@ -134,6 +134,14 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
   const motoboyAdicionalLoja = isNaN(ml) ? 0 : Math.max(0, ml)
   const motoboyAdicionalExtra = isNaN(me) ? 0 : Math.max(0, me)
   const motoboyTipo = (fd.get('motoboy_tipo') as string) || 'diaria'
+  // Vínculo (MEI/CLT) + campos
+  const vinculo = ((fd.get('vinculo') as string) || '').trim() || null
+  const mvs = parseFloat((fd.get('mei_valor_servico') as string) || '0')
+  const cvt = parseFloat((fd.get('clt_vale_transporte') as string) || '0')
+  const meiValorServico = isNaN(mvs) ? 0 : Math.max(0, mvs)
+  const cltValeTransporte = isNaN(cvt) ? 0 : Math.max(0, cvt)
+  const meiDiaPagamento = (fd.get('mei_dia_pagamento') as string) || null
+  const meiFuncoes = ((fd.get('mei_funcoes') as string) || '').trim() || null
 
   const supabase = await createServiceClient()
   const { error } = await supabase.from('perfis').update({
@@ -159,6 +167,11 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
     motoboy_adicional_loja: motoboyAdicionalLoja,
     motoboy_adicional_extra: motoboyAdicionalExtra,
     motoboy_tipo: motoboyTipo,
+    vinculo,
+    mei_valor_servico: meiValorServico,
+    mei_dia_pagamento: meiDiaPagamento,
+    mei_funcoes: meiFuncoes,
+    clt_vale_transporte: cltValeTransporte,
   }).eq('id', userId)
 
   if (error) return { ok: false, message: error.message }
