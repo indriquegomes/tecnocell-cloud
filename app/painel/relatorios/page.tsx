@@ -1242,7 +1242,7 @@ export default async function RelatoriosPage({
             <Card label="Saiu (retiradas/devol.)" valor={fmt(caixasFech.reduce((s, c) => s + c.saidas, 0))} cor="text-red-500" />
           </div>
           <Tabela vazio={caixasFech.length === 0} vazioMsg="Nenhum caixa no período."
-            head={['Loja', 'Abriu', 'Fechou', 'Operador', 'Vendas', 'Esperado', 'Contado', 'Diferença', '']}
+            head={['Loja', 'Abriu', 'Fechou', 'Operador', 'Vendas', 'Dinheiro (vendas + troco)', 'Dinheiro contado', 'Diferença', '']}
             alinhas={['l', 'l', 'l', 'l', 'r', 'r', 'r', 'r', 'c']}>
             {caixasFech.map((c) => (
               <tr key={c.id} className="hover:bg-blue-50/60">
