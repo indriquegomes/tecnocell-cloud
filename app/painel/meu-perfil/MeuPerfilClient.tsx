@@ -104,7 +104,7 @@ export function MeuPerfilClient() {
   const acoesPonto: [string, string, string][] =
     !ultimo || ultimo === 'saida' ? [['entrada', '▶ Entrada', 'bg-emerald-600 hover:bg-emerald-700']]
     : ultimo === 'pausa' ? [['retorno', '▶ Retornar', 'bg-emerald-600 hover:bg-emerald-700']]
-    : [['pausa', '⏸ Pausa', 'bg-amber-500 hover:bg-amber-600'], ['saida', '⏹ Saída', 'bg-gray-700 hover:bg-gray-800']]
+    : [['pausa', '🍽 Almoço', 'bg-amber-500 hover:bg-amber-600'], ['saida', '⏹ Saída', 'bg-gray-700 hover:bg-gray-800']]
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
@@ -157,7 +157,7 @@ export function MeuPerfilClient() {
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-700">🕐 Ponto de hoje</h3>
           <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusPonto === 'trabalhando' ? 'bg-emerald-50 text-emerald-700' : statusPonto === 'pausa' ? 'bg-amber-50 text-amber-700' : statusPonto === 'encerrado' ? 'bg-gray-100 text-gray-500' : 'bg-gray-100 text-gray-400'}`}>
-            {statusPonto === 'trabalhando' ? '🟢 Trabalhando' : statusPonto === 'pausa' ? '⏸ Em pausa' : statusPonto === 'encerrado' ? '✓ Encerrado' : 'Fora'}
+            {statusPonto === 'trabalhando' ? '🟢 Trabalhando' : statusPonto === 'pausa' ? '🍽 Em almoço' : statusPonto === 'encerrado' ? '✓ Encerrado' : 'Fora'}
           </span>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -173,7 +173,7 @@ export function MeuPerfilClient() {
           <div className="mt-3 flex flex-wrap gap-2">
             {pontos.map((p) => (
               <span key={p.id} className="inline-flex items-center gap-1 rounded-lg bg-gray-50 px-2.5 py-1 text-xs text-gray-600">
-                {p.tipo === 'pausa' ? '⏸' : p.tipo === 'saida' ? '⏹' : '▶'} {p.tipo} <b className="tabular-nums text-gray-800">{fmtHora(p.criado_em)}</b>
+                {p.tipo === 'pausa' ? '⏸' : p.tipo === 'saida' ? '⏹' : '▶'} {p.tipo === 'pausa' ? 'almoço' : p.tipo} <b className="tabular-nums text-gray-800">{fmtHora(p.criado_em)}</b>
               </span>
             ))}
           </div>

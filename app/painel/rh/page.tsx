@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { IconUsers } from '@/components/icons'
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
@@ -75,6 +76,7 @@ export default async function RhPage() {
         <IconUsers className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
         <h2 className="text-2xl font-bold text-gray-900">RH / Equipe</h2>
         <Dica texto="Espelho de ponto do dia: quem está trabalhando, horas e batidas. As pessoas batem o ponto no Meu Perfil." />
+        <Link href="/painel/rh/feriados" className="ml-auto rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">🗓 Feriados</Link>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
