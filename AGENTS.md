@@ -60,6 +60,31 @@ devolução, vale-crédito) — o teste manual escrito passo a passo para o dono
 rodar antes de usar no balcão. Uma linha trivial não precisa de teste.
 <!-- END:ponytail -->
 
+<!-- BEGIN:regras-dono-ui -->
+# Regras do dono — sempre ativas (28/09/2026)
+
+## 1. UI simples e intuitiva (vale pra TUDO)
+Toda tela, menu, botão, coluna, relatório e mensagem precisa ser compreensível
+por QUALQUER pessoa — o dono não é técnico. Nome claro, linguagem do dia a dia,
+sem jargão, sem sigla interna, sem termo de contador/especialista.
+
+Antes de nomear ou desenhar, pergunte: "o dono entende isso de primeira?"
+Se não, simplifica ou renomeia. Isto vale pra qualquer implementação, pedido ou
+mudança no app.
+
+## 2. Análise de impacto ANTES de qualquer mudança
+Toda mudança pedida de agora em diante exige análise profunda de impacto:
+
+- Essa mudança interfere em algum menu, tela, relatório, fluxo ou RPC que já
+  existe? Pode quebrar, conflitar, mudar número/cálculo que o dono já usa,
+  ou confundir?
+- Se interferir (ou tiver dúvida): analisar e MOSTRAR ao dono o que muda,
+  onde aparece e qual o risco — ele autoriza ANTES de mexer.
+- Nunca renomear, remover ou mudar o cálculo de algo existente sem mostrar o
+  impacto e pedir autorização.
+- Mudança isolada e segura: pode tocar, mas avisar no final o que mudou e onde.
+<!-- END:regras-dono-ui -->
+
 ## Cérebro Obsidian — obrigatório
 
 Vault: `C:\Users\usuario\Documents\celebro tecnocell cloud`.
