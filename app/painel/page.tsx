@@ -300,6 +300,14 @@ export default async function DashboardPage({
           {pontoWidget}
         </div>
 
+        <div className="flex items-center gap-3 rounded-2xl border border-[#1B6CA8]/25 bg-[#1B6CA8]/5 px-5 py-3">
+          <span className="text-2xl">🏬</span>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#1B6CA8]">Loja logada</p>
+            <p className="text-lg font-bold leading-tight text-gray-900">{lojaAtiva?.nome ?? 'Todas as lojas'}</p>
+          </div>
+        </div>
+
         <div className="relative overflow-hidden rounded-2xl bg-[#1B6CA8] p-6 text-white shadow-sm">
           <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/5" />
           <p className="relative text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Minha meta · este mês</p>
@@ -359,6 +367,14 @@ export default async function DashboardPage({
           {pontoWidget}
         </div>
 
+        <div className="flex items-center gap-3 rounded-2xl border border-[#1B6CA8]/25 bg-[#1B6CA8]/5 px-5 py-3">
+          <span className="text-2xl">🏬</span>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#1B6CA8]">Loja logada</p>
+            <p className="text-lg font-bold leading-tight text-gray-900">{lojaAtiva?.nome ?? 'Todas as lojas'}</p>
+          </div>
+        </div>
+
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="relative overflow-hidden rounded-2xl bg-[#1B6CA8] p-6 text-white shadow-sm lg:col-span-2">
             <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/5" />
@@ -412,6 +428,14 @@ export default async function DashboardPage({
           <FiltroDashboard de={filtroDe} ate={filtroAte} loja={filtroLoja} lojas={lojasList ?? []} />
         </div>
       </div>
+
+        <div className="flex items-center gap-3 rounded-2xl border border-[#1B6CA8]/25 bg-[#1B6CA8]/5 px-5 py-3">
+          <span className="text-2xl">🏬</span>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#1B6CA8]">Loja logada</p>
+            <p className="text-lg font-bold leading-tight text-gray-900">{lojaAtiva?.nome ?? 'Todas as lojas'}</p>
+          </div>
+        </div>
 
       {/* ═══ BENTO GRID ═══
           Um grid unico de 12 colunas, cada card ocupando o espaço que o seu peso

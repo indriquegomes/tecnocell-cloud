@@ -71,6 +71,9 @@ async function diaFolgaFeriado(s: Awaited<ReturnType<typeof createServiceClient>
 
   const { data: exc } = await s.from('escala_excecoes').select('folga').eq('perfil_id', userId).eq('data', hoje).maybeSingle()
   if (exc) return { folga: !!exc.folga, feriado }
+  // só é folga se a pessoa está numa escala semanal (tem ao menos uma linha) e hoje não tem
+  const { data: temEscala } = await s.from('escalas').select('id').eq('perfil_id', userId).eq('ativo', true).limit(1)
+  if (!temEscala || temEscala.length === 0) return { folga: false, feriado }
   const dia = new Date(hoje + 'T12:00:00').getDay()
   const { data: esc } = await s.from('escalas').select('id').eq('perfil_id', userId).eq('dia', dia).eq('ativo', true).limit(1)
   return { folga: !(esc && esc.length > 0), feriado }
