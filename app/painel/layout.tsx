@@ -126,6 +126,24 @@ export default async function PainelLayout({ children }: { children: React.React
     } catch {}
   }
 
+  // ── Ponto obrigatório (1ª entrada do dia) + feriados municipais em 7 dias ──
+  let pontoPendente = false
+  let avisosFeriados: { cidade: string; nome: string }[] = []
+  if (userId && !isMaster) {
+    try {
+      const supabase = await createServiceClient()
+      const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+      if (hoje >= '2026-09-29') {
+        const { data: ent } = await supabase.from('pontos').select('id').eq('usuario_id', userId).eq('tipo', 'entrada').gte('criado_em', hoje + 'T00:00:00-03:00').limit(1)
+        pontoPendente = !(ent && ent.length > 0)
+      }
+      const d7 = new Date(); d7.setDate(d7.getDate() + 7)
+      const data7 = d7.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+      const { data: fers } = await supabase.from('feriados').select('cidade, nome').eq('data', data7).neq('cidade', 'todas')
+      avisosFeriados = (fers ?? []).map((f) => ({ cidade: f.cidade as string, nome: f.nome as string }))
+    } catch {}
+  }
+
   // Loja ativa da sessão + lojas operáveis (pro seletor do topo). Fail-open: se
   // falhar, fica sem seletor e sem filtro — não quebra o painel.
   let lojasOperaveis: { id: string; nome: string }[] = []
@@ -149,6 +167,8 @@ export default async function PainelLayout({ children }: { children: React.React
         avisosCaixa={avisosCaixa}
         rotinas={rotinas}
         badges={badges}
+        pontoPendente={pontoPendente}
+        avisosFeriados={avisosFeriados}
       >
         {children}
       </PainelShell>

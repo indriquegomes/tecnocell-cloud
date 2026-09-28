@@ -17,7 +17,7 @@ import { moduloAtual } from '@/lib/modulo'
 const PDV_PATHS = ['/painel/pdv', '/painel/pdv/operacao']
 
 export function PainelShell({
-  children, email, nome, permissoes, isMaster, lojas = [], lojaAtivaId = '', avisosCaixa = [], rotinas = [], badges = {},
+  children, email, nome, permissoes, isMaster, lojas = [], lojaAtivaId = '', avisosCaixa = [], rotinas = [], badges = {}, pontoPendente = false, avisosFeriados = [],
 }: {
   children: React.ReactNode
   email: string
@@ -29,6 +29,8 @@ export function PainelShell({
   avisosCaixa?: AvisoCaixa[]
   rotinas?: LembretePendente[]
   badges?: Record<string, number>
+  pontoPendente?: boolean
+  avisosFeriados?: { cidade: string; nome: string }[]
 }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -100,6 +102,18 @@ export function PainelShell({
       <script dangerouslySetInnerHTML={{ __html: scriptOcultarValores }} />
       <SessionGuard />
 
+      {/* Ponto obrigatório: sem entrada hoje, trava até bater */}
+      {pontoPendente && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl">
+            <div className="text-4xl">🕐</div>
+            <h3 className="mt-2 text-lg font-bold text-gray-900">Bata o ponto pra começar</h3>
+            <p className="mt-1 text-sm text-gray-500">Você ainda não registrou a entrada de hoje.</p>
+            <Link href="/painel/meu-perfil" className="mt-4 block rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 transition">Bater entrada agora</Link>
+          </div>
+        </div>
+      )}
+
       {/* Bloqueio: entra pela direita e TREME. Barrado tem que ser sentido, não lido. */}
       {acessoNegado && (
         <div className="tc-negado fixed top-5 right-5 z-[60] rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-xl">
@@ -170,6 +184,11 @@ export function PainelShell({
           </div>
         </header>
         <BarraAvisos caixas={avisosCaixa} rotinas={rotinas} />
+        {isMaster && avisosFeriados.length > 0 && (
+          <div className="border-b border-amber-200 bg-amber-50 px-6 py-2 text-sm text-amber-800">
+            🗓 Feriado municipal em 7 dias: <b>{avisosFeriados.map((f) => f.nome + ' (' + f.cidade + ')').join(', ')}</b> — decidir se a loja abre.
+          </div>
+        )}
                 <main
           className={cn('flex-1 overflow-y-auto p-6', modulo && 'tc-modulo')}
           style={modulo ? ({ '--cor-modulo': modulo.cor } as React.CSSProperties) : undefined}
