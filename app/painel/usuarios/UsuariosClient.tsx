@@ -418,7 +418,7 @@ function RestricaoAcesso({ usuario }: { usuario: Usuario }) {
   )
 }
 
-function NovoUsuarioModal({ cargos, onClose }: { cargos: Cargo[]; onClose: () => void }) {
+function NovoUsuarioModal({ cargos, lojas, onClose }: { cargos: Cargo[]; lojas: Loja[]; onClose: () => void }) {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(criarUsuario, null)
   const [tk, setTk] = useState('')
   useEffect(() => { authToken().then(setTk) }, [])
@@ -452,6 +452,20 @@ function NovoUsuarioModal({ cargos, onClose }: { cargos: Cargo[]; onClose: () =>
               <label className="mb-2 block text-sm font-medium text-gray-700">Cargo / Permissões</label>
               <CargoOuPermissoes cargos={cargos} cargoId={null} permissoes={[]} isMaster={false} />
             </div>
+            {lojas.length > 1 && (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">Lojas que pode atuar</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {lojas.map((l) => (
+                    <label key={l.id} className="flex cursor-pointer items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600">
+                      {l.nome}
+                      <input type="checkbox" name="lojas_permitidas" value={l.id} className="h-4 w-4 rounded accent-blue-600" />
+                    </label>
+                  ))}
+                </div>
+                <p className="mt-1 text-xs text-gray-400">Nenhuma marcada = pode atuar em todas.</p>
+              </div>
+            )}
           </form>
         </div>
         <div className="flex shrink-0 items-center justify-between gap-3 border-t border-gray-100 bg-gray-50 px-6 py-3">
@@ -737,7 +751,7 @@ export function UsuariosClient({ usuarios, cargos, lojas, depositos, tabelas }: 
         </table>
       </div>
 
-      {criando && <NovoUsuarioModal cargos={cargos} onClose={() => setCriando(false)} />}
+      {criando && <NovoUsuarioModal cargos={cargos} lojas={lojas} onClose={() => setCriando(false)} />}
       {convidando && <ConvidarModal cargos={cargos} onClose={() => setConvidando(false)} />}
       {editando && <EditarModal key={editando.id} usuario={editando} cargos={cargos} lojas={lojas} depositos={depositos} tabelas={tabelas} onClose={() => setEditandoId(null)} />}
     </div>

@@ -85,6 +85,7 @@ export async function criarUsuario(_: ActionResult | null, fd: FormData): Promis
     is_master: isMaster,
     ativo: true,
     cargo_id: (fd.get('cargo_id') as string) || null,
+    lojas_permitidas: (fd.getAll('lojas_permitidas') as string[]).filter(Boolean),
     salario: Math.max(0, parseFloat((fd.get('salario') as string) || '0') || 0),
   })
 
