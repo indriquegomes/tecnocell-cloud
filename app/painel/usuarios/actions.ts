@@ -142,6 +142,10 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
   const cltValeTransporte = isNaN(cvt) ? 0 : Math.max(0, cvt)
   const meiDiaPagamento = (fd.get('mei_dia_pagamento') as string) || null
   const meiFuncoes = ((fd.get('mei_funcoes') as string) || '').trim() || null
+  // Freelancer (também presta serviço por hora)
+  const freelancer = fd.getAll('freelancer').includes('1')
+  const fvh = parseFloat((fd.get('freelancer_valor_hora') as string) || '0')
+  const freelancerValorHora = isNaN(fvh) ? 0 : Math.max(0, fvh)
 
   const supabase = await createServiceClient()
   const { error } = await supabase.from('perfis').update({
@@ -172,6 +176,8 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
     mei_dia_pagamento: meiDiaPagamento,
     mei_funcoes: meiFuncoes,
     clt_vale_transporte: cltValeTransporte,
+    freelancer,
+    freelancer_valor_hora: freelancerValorHora,
   }).eq('id', userId)
 
   if (error) return { ok: false, message: error.message }

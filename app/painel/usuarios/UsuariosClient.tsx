@@ -47,6 +47,8 @@ export interface Usuario {
   meiDiaPagamento: string | null
   meiFuncoes: string | null
   cltValeTransporte: number
+  freelancer: boolean
+  freelancerValorHora: number
   horarios: Record<number, { entrada: string; saida: string }>
   created_at: string
 }
@@ -167,6 +169,7 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario }: { lojas: Loja[];
   const [tabsSel, setTabsSel] = useState<Set<string>>(new Set(usuario.tabelasPermitidas))
   const [lojaPadrao, setLojaPadrao] = useState(usuario.pdvLojaId ?? '')
   const [vinculo, setVinculo] = useState(usuario.vinculo ?? '')
+  const [freelancer, setFreelancer] = useState(usuario.freelancer)
 
   const togglePermitida = (id: string) => setPermitidas((prev) => {
     const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n
@@ -256,6 +259,21 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario }: { lojas: Loja[];
             </select>
           </div>
         </div>
+      </div>
+
+      <div className="border-t border-gray-200 pt-3 mt-3">
+        <p className="text-sm font-semibold text-gray-700">Freelancer (serviço por hora)</p>
+        <label className="flex items-center gap-2 mt-2 text-sm text-gray-700">
+          <input type="hidden" name="freelancer" value="0" />
+          <input type="checkbox" name="freelancer" value="1" checked={freelancer} onChange={(e) => setFreelancer(e.target.checked)} className="h-4 w-4 rounded" />
+          Também presta serviço por hora (ex: R$ 8/hora)
+        </label>
+        {freelancer && (
+          <div className="mt-2 w-44">
+            <label className="mb-1 block text-xs font-medium text-gray-600">Valor por hora (R$)</label>
+            <CampoDinheiro name="freelancer_valor_hora" defaultValue={Number(usuario.freelancerValorHora || 0)} className="text-sm" />
+          </div>
+        )}
       </div>
 
       <div className="border-t border-gray-200 pt-3 mt-3">
