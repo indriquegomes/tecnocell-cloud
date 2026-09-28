@@ -36,6 +36,7 @@ export const ROTAS_PERMISSAO: Record<string, string> = {
   '/painel/promocoes':        'produtos',
   '/painel/loja':             'produtos',
   '/painel/chat':             'chat_ia',
+  '/painel/motoboy':           'motoboy',
   '/painel/integracoes':                    'integracoes',
   '/painel/integracoes/lojas':               'integracoes',
   '/painel/integracoes/produtos':            'integracoes',
@@ -66,6 +67,7 @@ export const TODAS_PERMISSOES = [
   { grupo: 'Módulos',  key: 'lembretes',  label: 'Lembretes',            desc: 'Criar e editar as rotinas que o sistema cobra da equipe' },
   { grupo: 'Módulos',  key: 'usuarios',   label: 'Usuários',             desc: 'Gerenciar contas e permissões' },
   { grupo: 'Módulos',  key: 'chat_ia',    label: 'Chat com IA',          desc: 'Usar o assistente de IA (enxerga estoque, financeiro e clientes)' },
+  { grupo: 'Módulos',  key: 'motoboy',    label: 'Motoboy',              desc: 'Registro de rotas do motoboy (só o motoboy usa)' },
   { grupo: 'Módulos',  key: 'integracoes', label: 'Integrações',          desc: 'E-commerce, marketplace, pagamento, logística e drop shipping (inclui ver o catálogo com preço de venda e estoque)' },
   { grupo: 'Módulos',  key: 'sincronizacao', label: 'Sincronização',       desc: 'Ver o painel da sincronização sombra SIGE → TecnoCell' },
 
