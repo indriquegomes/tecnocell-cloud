@@ -1051,6 +1051,19 @@ export default async function RelatoriosPage({
     ] },
   ]
 
+  // Cor de cada categoria = mesma cor da seção no menu lateral (COR_GRUPO do Sidebar):
+  // Financeiro âmbar, Vendas esmeralda, Compras/Estoque violeta, Serviços laranja,
+  // Sistema rosa, Clientes ciano. Acha a aba de relance sem ler tudo.
+  const COR_CAT: Record<string, { label: string; pill: string; pillAtivo: string }> = {
+    Financeiro: { label: 'text-amber-600', pill: 'bg-amber-50 text-amber-700 hover:bg-amber-100', pillAtivo: 'bg-amber-600 text-white shadow-sm' },
+    Vendas: { label: 'text-emerald-600', pill: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100', pillAtivo: 'bg-emerald-600 text-white shadow-sm' },
+    Compras: { label: 'text-violet-600', pill: 'bg-violet-50 text-violet-700 hover:bg-violet-100', pillAtivo: 'bg-violet-600 text-white shadow-sm' },
+    Estoque: { label: 'text-violet-600', pill: 'bg-violet-50 text-violet-700 hover:bg-violet-100', pillAtivo: 'bg-violet-600 text-white shadow-sm' },
+    Serviços: { label: 'text-orange-600', pill: 'bg-orange-50 text-orange-700 hover:bg-orange-100', pillAtivo: 'bg-orange-600 text-white shadow-sm' },
+    Sistema: { label: 'text-rose-600', pill: 'bg-rose-50 text-rose-700 hover:bg-rose-100', pillAtivo: 'bg-rose-600 text-white shadow-sm' },
+    Clientes: { label: 'text-cyan-600', pill: 'bg-cyan-50 text-cyan-700 hover:bg-cyan-100', pillAtivo: 'bg-cyan-600 text-white shadow-sm' },
+  }
+
   const Card = ({ label, valor, cor }: { label: string; valor: string; cor: string }) => (
     <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
       <p className="text-xs text-gray-500">{label}</p>
@@ -1069,20 +1082,23 @@ export default async function RelatoriosPage({
 
       {/* Abas por categoria (estilo SIGE) */}
       <div className="space-y-2">
-        {categorias.map((c) => (
-          <div key={c.cat} className="flex flex-wrap items-center gap-1.5">
-            <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{c.cat}</span>
-            {c.abas.map((a) => (
-              // prefetch={false}: são ~25 abas do mesmo relatório; pré-carregar todas
-              // no load disparava ~25 requests RSC à toa. A troca de aba já tem skeleton
-              // + barra de progresso, então continua fluida sem o prefetch em massa.
-              <Link key={a.id} prefetch={false} href={`/painel/relatorios?aba=${a.id}&de=${dataInicio}&ate=${dataFim}`}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${aba === a.id ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}>
-                {a.label}
-              </Link>
-            ))}
-          </div>
-        ))}
+        {categorias.map((c) => {
+          const cor = COR_CAT[c.cat] ?? { label: 'text-gray-400', pill: 'bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-gray-700', pillAtivo: 'bg-blue-600 text-white shadow-sm' }
+          return (
+            <div key={c.cat} className="flex flex-wrap items-center gap-1.5">
+              <span className={`w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide ${cor.label}`}>{c.cat}</span>
+              {c.abas.map((a) => (
+                // prefetch={false}: são ~25 abas do mesmo relatório; pré-carregar todas
+                // no load disparava ~25 requests RSC à toa. A troca de aba já tem skeleton
+                // + barra de progresso, então continua fluida sem o prefetch em massa.
+                <Link key={a.id} prefetch={false} href={`/painel/relatorios?aba=${a.id}&de=${dataInicio}&ate=${dataFim}`}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${aba === a.id ? cor.pillAtivo : cor.pill}`}>
+                  {a.label}
+                </Link>
+              ))}
+            </div>
+          )
+        })}
       </div>
 
       {/* Filtros do relatório — painel Busca Avançada colapsável (Isa/SIGE) */}
