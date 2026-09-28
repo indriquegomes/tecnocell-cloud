@@ -8,7 +8,7 @@ export default async function SeparacaoPage({ params }: { params: Promise<{ id: 
 
   const { data: remessa } = await supabase
     .from('remessas_estoque')
-    .select('id, origem, destino, observacao, created_at, remessas_estoque_itens(id, nome, quantidade, series, produtos(prateleira, codigo))')
+    .select('id, codigo, origem, destino, observacao, created_at, remessas_estoque_itens(id, nome, quantidade, series, produtos(prateleira, codigo))')
     .eq('id', id)
     .single()
 
@@ -39,6 +39,7 @@ export default async function SeparacaoPage({ params }: { params: Promise<{ id: 
 
   return (
     <SeparacaoClient
+      codigo={String(r.codigo ?? '')}
       origem={nomeDep[String(r.origem)] ?? String(r.origem)}
       destino={nomeDep[String(r.destino)] ?? String(r.destino)}
       observacao={(r.observacao as string | null) ?? null}

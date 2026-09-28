@@ -15,12 +15,14 @@ export type ItemSeparacao = {
 // Cupom térmico (80mm) da separação — igual ao cupom do PDV. Abre e já manda
 // imprimir sozinho; o botão de cima só pra reimprimir se precisar.
 export function SeparacaoClient({
+  codigo,
   origem,
   destino,
   observacao,
   createdAt,
   itens,
 }: {
+  codigo: string
   origem: string
   destino: string
   observacao: string | null
@@ -62,6 +64,11 @@ export function SeparacaoClient({
       <div id="sep-print" style={{ fontFamily: 'monospace', fontSize: 12, color: '#111' }}>
         <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 14 }}>TECNOCELL</div>
         <div style={{ textAlign: 'center' }}>SEPARACAO DE ESTOQUE</div>
+        {codigo && (
+          <div style={{ textAlign: 'center', fontWeight: 900, fontSize: 28, color: '#000', letterSpacing: 2, margin: '6px 0' }}>
+            CÓD.: {codigo}
+          </div>
+        )}
         <div style={{ borderTop: '1px dashed #333', margin: '8px 0' }} />
         <div>DE:   {origem}</div>
         <div>PARA: {destino}</div>
