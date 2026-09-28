@@ -6,9 +6,12 @@ export function aplicarDescontoItem(precoBase: number, tipo: TipoDescontoItem, v
   const base = Math.max(0, Number(precoBase) || 0)
   if (valor == null) return { descontoUnitario: 0, precoFinal: centavos(base) }
   const informado = Math.max(0, Number(valor) || 0)
-  const desconto = tipo === 'percent'
-    ? base * informado / 100
-    : tipo === 'final' ? base - informado : informado
+  if (tipo === 'final') {
+    // Preço final pode ser MAIOR que o base (ajustar pra cima). Desconto vira negativo
+    // (= acréscimo) e o PDV manda preco_unitario=final + desconto_item=0 nesse caso.
+    return { descontoUnitario: centavos(base - informado), precoFinal: centavos(informado) }
+  }
+  const desconto = tipo === 'percent' ? base * informado / 100 : informado
   const descontoUnitario = centavos(Math.min(base, Math.max(0, desconto)))
   return { descontoUnitario, precoFinal: centavos(base - descontoUnitario) }
 }

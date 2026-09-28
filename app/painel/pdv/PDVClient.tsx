@@ -1333,13 +1333,17 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         })
       const result = await finalizarVenda(
         token,
-        carrinho.map((item) => ({
-          produto_id: item.produto_id,
-          nome: item.nome,
-          quantidade: item.quantidade,
-          preco_unitario: item.preco_unitario,
-          desconto_item: descontoManualItem(item).descontoUnitario,
-        })),
+        carrinho.map((item) => {
+          const dm = descontoManualItem(item)
+          const acrescimo = dm.descontoUnitario < 0 // ajustou pra cima: preço final > base
+          return {
+            produto_id: item.produto_id,
+            nome: item.nome,
+            quantidade: item.quantidade,
+            preco_unitario: acrescimo ? dm.precoFinal : item.preco_unitario,
+            desconto_item: acrescimo ? 0 : dm.descontoUnitario,
+          }
+        }),
         // ⚠️ AS LINHAS DE VALE NÃO VÃO AQUI. Elas viram o parâmetro de crédito (abaixo),
         // que é quem debita o saldo do cliente com lock e grava a linha FP_VALE em
         // pagamentos_venda. Mandar o vale nos dois lugares faria a trava do RPC

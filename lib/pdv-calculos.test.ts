@@ -13,9 +13,9 @@ test('desconto unitario calcula preco final sem duplicar promocao', () => {
   assert.deepEqual(aplicarDescontoItem(100, 'final', 72.5), { descontoUnitario: 27.5, precoFinal: 72.5 })
 })
 
-test('desconto unitario fica entre zero e preco base', () => {
+test('desconto unitario e preco final (ajuste pra cima permitido)', () => {
   assert.deepEqual(aplicarDescontoItem(100, 'percent', 150), { descontoUnitario: 100, precoFinal: 0 })
-  assert.deepEqual(aplicarDescontoItem(100, 'final', 120), { descontoUnitario: 0, precoFinal: 100 })
+  assert.deepEqual(aplicarDescontoItem(100, 'final', 120), { descontoUnitario: -20, precoFinal: 120 })
 })
 
 test('recebimento total distribui das dividas antigas para novas', () => {
