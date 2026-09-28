@@ -36,6 +36,7 @@ export function PainelShell({
   const [acessoNegado, setAcessoNegado] = useState(false)
 
   const isPDV = PDV_PATHS.some((p) => pathname === p)
+  const modulo = moduloAtual(pathname)
 
   // No celular a sidebar COMEÇA FECHADA: ela é fixa de 240px e, numa tela de 390px,
   // sobrava uma tira de 150px pro conteúdo — o painel ficava inutilizável no telefone.
@@ -83,7 +84,12 @@ export function PainelShell({
           </Link>
         </div>
         <BarraAvisos caixas={avisosCaixa} rotinas={rotinas} />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+                <main
+          className={cn('flex-1 overflow-y-auto p-6', modulo && 'tc-modulo')}
+          style={modulo ? ({ '--cor-modulo': modulo.cor } as React.CSSProperties) : undefined}
+        >
+          {children}
+        </main>
       </div>
     )
   }
@@ -132,15 +138,12 @@ export function PainelShell({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            {(() => {
-              const m = moduloAtual(pathname)
-              return m ? (
-                <span className="ml-3 hidden items-center gap-1.5 sm:flex">
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: m.cor }} />
-                  <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: m.cor }}>{m.nome}</span>
-                </span>
-              ) : null
-            })()}
+            {modulo ? (
+              <span className="ml-3 hidden items-center gap-1.5 sm:flex">
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: modulo.cor }} />
+                <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: modulo.cor }}>{modulo.nome}</span>
+              </span>
+            ) : null}
             {/* Logo = atalho pro Dashboard. Aparece SÓ com a sidebar recolhida (ou no
                 celular): aberta, o logo do topo dela já é o atalho — sem logo em dobro.
                 Pedido Isa: voltar fácil pro Dashboard de qualquer janela. */}
@@ -167,7 +170,12 @@ export function PainelShell({
           </div>
         </header>
         <BarraAvisos caixas={avisosCaixa} rotinas={rotinas} />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+                <main
+          className={cn('flex-1 overflow-y-auto p-6', modulo && 'tc-modulo')}
+          style={modulo ? ({ '--cor-modulo': modulo.cor } as React.CSSProperties) : undefined}
+        >
+          {children}
+        </main>
       </div>
     </div>
   )

@@ -248,3 +248,10 @@ button:disabled,
   50%  { transform: translateX(150%); }
   100% { transform: translateX(400%); }
 }
+
+/* Título da página na cor do módulo — PainelShell põe a classe tc-modulo e a
+   variável --cor-modulo no <main>. Sem a classe, o título segue cinza. */
+main.tc-modulo h1.text-2xl,
+main.tc-modulo h2.text-2xl {
+  color: var(--cor-modulo);
+}
