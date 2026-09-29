@@ -1119,164 +1119,65 @@ function ZReportPanel({ z }: {
   }
 }) {
   const divergencia = z.valorContado - z.valorEsperado
-  const divergenciaGrave = divergencia < -50 || (z.valorEsperado > 0 && Math.abs(divergencia) / z.valorEsperado > 0.05)
-  const divergenciaPositiva = divergencia > 0.01
   const zerado = Math.abs(divergencia) <= 0.01
+  const separar = z.valorEsperado - z.valor_abertura
 
   const fmtDt = (iso: string) =>
     new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
 
-  const formasEntries = listaPorForma(z.porForma, z.valor_abertura)
-  const reforcos = z.movimentos.filter((m) => m.tipo === 'reforco')
-  const retiradas = z.movimentos.filter((m) => m.tipo === 'retirada')
-
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: `@media print { body * { visibility: hidden !important; } #z-report, #z-report * { visibility: visible !important; } #z-report { position: absolute; top: 0; left: 0; width: 100%; } }` }} />
+      <style dangerouslySetInnerHTML={{ __html: `@media print { body * { visibility: hidden !important; } #z-report, #z-report * { visibility: visible !important; color: #000 !important; } #z-report { position: absolute; top: 0; left: 0; width: 100%; } }` }} />
 
-      <div id="z-report" className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+      {/* botão fora da área de impressão */}
+      <div className="mb-3 flex justify-end print:hidden">
+        <button onClick={() => window.print()} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">🖨️ Imprimir</button>
+      </div>
+
+      {/* Nota térmica 80mm — só preto, alto contraste */}
+      <div id="z-report" className="mx-auto w-full max-w-[72mm] bg-white p-3 text-black" style={{ fontFamily: 'monospace' }}>
         {/* Cabeçalho */}
-        <div className="px-6 py-5 bg-gray-900 text-white">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Relatório Z — Fechamento de Caixa</p>
-              <p className="text-lg font-bold mt-1">TecnoCell</p>
-              <p className="text-xs text-gray-400 mt-0.5">CNPJ 39.682.023/0001-69</p>
-            </div>
-            <button
-              onClick={() => window.print()}
-              className="rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 px-4 py-2 text-sm font-medium text-white transition print:hidden"
-            >
-              🖨️ Imprimir
-            </button>
+        <div className="border-b-2 border-black pb-2 mb-3 text-center">
+          <p className="text-base font-extrabold tracking-wide">TECNOCELL</p>
+          <p className="text-sm font-bold">FECHAMENTO DE CAIXA</p>
+          <p className="mt-1 text-xs">{fmtDt(z.fechado_em)}</p>
+          <p className="text-xs">Operador: {z.operador}</p>
+        </div>
+
+        {/* Resumo da gaveta */}
+        <div className="space-y-1.5 text-sm">
+          <div className="flex justify-between">
+            <span>Troco (fica)</span>
+            <span className="font-bold tabular-nums">{fmt(z.valor_abertura)}</span>
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <p className="text-gray-400 text-xs">Abertura</p>
-              <p className="font-medium">{fmtDt(z.aberto_em)}</p>
-            </div>
-            <div>
-              <p className="text-gray-400 text-xs">Fechamento</p>
-              <p className="font-medium">{fmtDt(z.fechado_em)}</p>
-            </div>
-            <div className="col-span-2">
-              <p className="text-gray-400 text-xs">Operador</p>
-              <p className="font-medium">{z.operador}</p>
-            </div>
+          <div className="flex justify-between">
+            <span>Separar no envelope</span>
+            <span className="font-bold tabular-nums">{fmt(separar)}</span>
+          </div>
+          <div className="flex justify-between border-t-2 border-black pt-1.5 text-base font-extrabold">
+            <span>Dinheiro na gaveta</span>
+            <span className="tabular-nums">{fmt(z.valorEsperado)}</span>
           </div>
         </div>
 
-        {/* Resumo financeiro */}
-        <div className="divide-y divide-gray-100">
-          <div className="px-6 py-4">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Movimento do Dia</p>
-            <div className="space-y-2 text-sm">
-              {[
-                { label: 'Abertura do Caixa', valor: z.valor_abertura, color: 'text-gray-700' },
-                { label: `Vendas (${z.qtdVendas} transações)`, valor: z.totalVendas, color: 'text-green-700' },
-                { label: 'Reforços recebidos', valor: z.totalReforcos, color: 'text-green-700' },
-                { label: 'Sangrias realizadas', valor: -z.totalRetiradas, color: 'text-red-600' },
-              ].map(({ label, valor, color }) => (
-                <div key={label} className="flex justify-between">
-                  <span className="text-gray-500">{label}</span>
-                  <span className={`font-semibold ${color}`}>{valor < 0 ? `−${fmt(Math.abs(valor))}` : fmt(valor)}</span>
-                </div>
-              ))}
-              {z.totalCrediario > 0 && (
-                <div className="flex justify-between text-gray-400">
-                  <span>Crediário (não entra no caixa)</span>
-                  <span>{fmt(z.totalCrediario)}</span>
-                </div>
-              )}
-            </div>
+        {/* Conferência */}
+        <div className="mt-3 space-y-1.5 border-t border-black pt-2 text-sm">
+          <div className="flex justify-between">
+            <span>Contado</span>
+            <span className="font-bold tabular-nums">{fmt(z.valorContado)}</span>
           </div>
-
-          {/* Breakdown por forma — onde conferir cada uma */}
-          {formasEntries.length > 0 && (
-            <div className="px-6 py-4">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Por Forma — o que deve ter em cada lugar</p>
-              <div className="space-y-2">
-                {formasEntries.map(([forma, valor]) => (
-                  <div key={forma} className="flex justify-between text-sm">
-                    <span className="text-gray-500">{forma}</span>
-                    <span className="font-semibold text-green-700">{fmt(valor)}</span>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-3 text-[11px] text-gray-400">
-                Conferência: dinheiro na gaveta · PIX nos comprovantes do WhatsApp · cartão na maquininha (valor líquido acima
-                {z.totalTaxaCartao > 0.005 && <> + <span className="font-semibold text-gray-500">{fmt(z.totalTaxaCartao)}</span> de taxa</>}) · Crédito Loja é dívida (não é dinheiro).
-              </p>
-            </div>
-          )}
-
-          {/* Movimentos (reforços e retiradas) */}
-          {(reforcos.length > 0 || retiradas.length > 0) && (
-            <div className="px-6 py-4">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Movimentos de Caixa</p>
-              <div className="space-y-1.5 text-sm">
-                {[...reforcos, ...retiradas]
-                  .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-                  .map((m, i) => (
-                    <div key={i} className="flex justify-between items-center">
-                      <div>
-                        <span className={`text-xs font-semibold uppercase ${m.tipo === 'reforco' ? 'text-green-600' : 'text-red-500'}`}>
-                          {m.tipo === 'reforco' ? '↑ Reforço' : '↓ Sangria'}
-                        </span>
-                        {m.motivo && <span className="text-gray-400 ml-2 text-xs">— {m.motivo}</span>}
-                      </div>
-                      <span className={`font-semibold ${m.tipo === 'reforco' ? 'text-green-700' : 'text-red-600'}`}>
-                        {m.tipo === 'retirada' ? '−' : '+'}{fmt(m.valor)}
-                      </span>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {/* Conferência */}
-          <div className={`px-6 py-4 ${divergenciaGrave ? 'bg-red-50' : divergenciaPositiva ? 'bg-blue-50' : 'bg-green-50'}`}>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Conferência da Gaveta (só dinheiro)</p>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Dinheiro esperado na gaveta</span>
-                <span className="font-semibold text-gray-700">{fmt(z.valorEsperado)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Dinheiro contado pelo operador</span>
-                <span className="font-semibold text-gray-700">{fmt(z.valorContado)}</span>
-              </div>
-              <div className={`flex justify-between pt-2 border-t font-bold text-base ${divergenciaGrave ? 'border-red-200 text-red-700' : divergenciaPositiva ? 'border-blue-200 text-blue-700' : 'border-green-200 text-green-700'}`}>
-                <span>Divergência</span>
-                <span>{divergencia > 0 ? '+' : ''}{fmt(divergencia)}</span>
-              </div>
-            </div>
-            <p className={`text-xs mt-3 font-medium ${divergenciaGrave ? 'text-red-600' : divergenciaPositiva ? 'text-blue-600' : 'text-green-600'}`}>
-              {divergenciaGrave ? '⚠ Divergência significativa — registre com o supervisor.' : divergenciaPositiva ? 'Sobra de caixa. Verifique se há troco pendente.' : zerado ? '✓ Caixa conferido sem divergências.' : ''}
-            </p>
+          <div className="flex justify-between font-bold">
+            <span>Diferença</span>
+            <span className="tabular-nums">{divergencia > 0 ? '+' : ''}{fmt(divergencia)}{zerado ? ' ✓' : ''}</span>
           </div>
+        </div>
 
-          {/* Observações */}
-          {z.obs_fechamento && (
-            <div className="px-6 py-3 bg-gray-50">
-              <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold mb-1">Observações</p>
-              <p className="text-sm text-gray-600">{z.obs_fechamento}</p>
-            </div>
-          )}
+        {z.obs_fechamento && <p className="mt-3 text-xs">Obs: {z.obs_fechamento}</p>}
 
-          {/* Assinatura */}
-          <div className="px-6 py-6 grid grid-cols-2 gap-8 print:block">
-            <div className="text-center">
-              <div className="border-t border-gray-400 pt-2 mt-8">
-                <p className="text-xs text-gray-400">Operador / Assinatura</p>
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="border-t border-gray-400 pt-2 mt-8">
-                <p className="text-xs text-gray-400">Supervisor / Visto</p>
-              </div>
-            </div>
-          </div>
+        {/* Assinaturas */}
+        <div className="mt-10 grid grid-cols-2 gap-8 text-center text-xs">
+          <div><div className="border-t border-black pt-1">Operador</div></div>
+          <div><div className="border-t border-black pt-1">Supervisor</div></div>
         </div>
       </div>
     </>
