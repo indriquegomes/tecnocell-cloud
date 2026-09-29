@@ -3915,9 +3915,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                               {desc ? '🏷️ ' : ''}{formaLabel[h.forma] ?? h.forma}
                             </span>
                             <span className="ml-2 text-xs text-gray-400">
-                              {isNaN(d.getTime()) ? h.data : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                              {isNaN(d.getTime()) ? h.data : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'America/Sao_Paulo' })}
                               {' '}
-                              {isNaN(d.getTime()) ? '' : d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                              {isNaN(d.getTime()) ? '' : d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })}
                             </span>
                           </div>
                           <span className={`shrink-0 text-sm font-semibold ${desc ? 'text-amber-700' : 'text-green-600'}`}>
@@ -4192,8 +4192,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                       <tr key={v.id} onClick={() => handleVerVenda(v.id)} className="cursor-pointer hover:bg-blue-50/60 transition">
                         <td className="py-2.5 pr-3 font-mono text-xs text-gray-500">#{v.numero ?? v.id.slice(0, 8).toUpperCase()}</td>
                         <td className="py-2.5 pr-3 text-gray-600">
-                          {new Date(v.created_at).toLocaleDateString('pt-BR')}{' '}
-                          <span className="text-gray-400">{new Date(v.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                          {new Date(v.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}{' '}
+                          <span className="text-gray-400">{new Date(v.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })}</span>
                         </td>
                         <td className="py-2.5 pr-3 text-gray-800">{nomeCliente(v.pessoa_id)}</td>
                         <td className="py-2.5 pr-3 text-gray-600">{nomeFormaPg(v.forma_pagamento_id)}</td>
@@ -4388,7 +4388,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                       </div>
                       <div className="flex items-center justify-between text-xs text-gray-500">
                         <span>👤 {o.pessoa_nome ?? 'Cliente Final'}</span>
-                        <span>{new Date(o.created_at).toLocaleDateString('pt-BR')}</span>
+                        <span>{new Date(o.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</span>
                       </div>
                       {o.itens.length > 0 && (
                         <p className="mt-1.5 text-xs text-gray-400 truncate">

@@ -45,7 +45,7 @@ export function LancarHoraForm({ pessoas }: { pessoas: Pessoa[] }) {
       </div>
       <div>
         <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Data</label>
-        <input name="data" type="date" className="field" defaultValue={new Date().toLocaleDateString('en-CA')} />
+        <input name="data" type="date" className="field" defaultValue={new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })} />
       </div>
       <div>
         <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Motivo</label>
