@@ -78,11 +78,15 @@ setInterval(() => {
 // isso é sinal de que a busca pescou modelos demais.
 const LIMITE_OPCOES = 7
 
-// 401 loggedOut, 403 forbidden (conta banida), 440 connectionReplaced (WhatsApp
-// Web aberto em outro lugar) e 500 badSession não se resolvem tentando de novo —
-// martelar reconexão numa conta já banida/deslogada só piora. Só reconecta em
-// código transitório (408, 428, 503, 515, sem código, erro de rede).
-const CODIGOS_DESCONEXAO_DEFINITIVA = new Set([401, 403, 440, 500])
+// Sessão morta/corrompida NÃO se resolve tentando de novo com a mesma credencial.
+// Além de 401 (logout), 440 (trocado) e 500 (bad session), o WhatsApp manda 405
+// (method not allowed = sessão velha/corrompida), 409 (conflito) e 412 (estado
+// dessincronizado) quando a sessão multi-device quebrou. O Baileys 6.7.24 trata
+// esses três como falha genérica e reconecta com a MESMA credencial corrompida —
+// é exatamente o que causa o loop "Bad MAC"/"MessageCounterError" e derruba o bot.
+// 403 (banida) fica de fora: não tem volta, apagar só esconde o log. Reconecta
+// só em código transitório (408, 428, 503, 515, sem código, erro de rede).
+const CODIGOS_DESCONEXAO_DEFINITIVA = new Set([401, 403, 405, 409, 412, 440, 500])
 
 // Backoff exponencial de reconexão. Antes o bot tentava a cada 5s pra sempre — numa
 // madrugada de rede ruim isso virava 300+ quedas e CORROMPIA a sessão (o mesmo vínculo
