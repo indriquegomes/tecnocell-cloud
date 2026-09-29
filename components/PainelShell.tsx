@@ -17,7 +17,7 @@ import { moduloAtual } from '@/lib/modulo'
 const PDV_PATHS = ['/painel/pdv', '/painel/pdv/operacao']
 
 export function PainelShell({
-  children, email, nome, permissoes, isMaster, lojas = [], lojaAtivaId = '', avisosCaixa = [], rotinas = [], badges = {}, pontoPendente = false, avisosFeriados = [],
+  children, email, nome, permissoes, isMaster, lojas = [], lojaAtivaId = '', avisosCaixa = [], rotinas = [], badges = {}, avisosFeriados = [],
 }: {
   children: React.ReactNode
   email: string
@@ -29,7 +29,6 @@ export function PainelShell({
   avisosCaixa?: AvisoCaixa[]
   rotinas?: LembretePendente[]
   badges?: Record<string, number>
-  pontoPendente?: boolean
   avisosFeriados?: { cidade: string; nome: string }[]
 }) {
   const pathname = usePathname()
@@ -101,18 +100,6 @@ export function PainelShell({
       {/* aplica o "esconder valores" salvo ANTES da tela pintar (sem piscar o valor) */}
       <script dangerouslySetInnerHTML={{ __html: scriptOcultarValores }} />
       <SessionGuard />
-
-      {/* Ponto obrigatório: sem entrada hoje, trava até bater */}
-      {pontoPendente && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl">
-            <div className="text-4xl">🕐</div>
-            <h3 className="mt-2 text-lg font-bold text-gray-900">Bata o ponto pra começar</h3>
-            <p className="mt-1 text-sm text-gray-500">Você ainda não registrou a entrada de hoje.</p>
-            <Link href="/painel/meu-perfil" className="mt-4 block rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 transition">Bater entrada agora</Link>
-          </div>
-        </div>
-      )}
 
       {/* Bloqueio: entra pela direita e TREME. Barrado tem que ser sentido, não lido. */}
       {acessoNegado && (
