@@ -187,8 +187,8 @@ export default async function DashboardPage({
   // ---- METAS ativas (já vieram no lote paralelo) ----
   const metaIds = (metasAtivas ?? []).map((m) => m.id)
   const nomeLoja: Record<string, string> = Object.fromEntries((lojasList ?? []).map((l) => [l.id, l.nome]))
-  // Cash-in REAL: soma de pagamentos_venda (dinheiro/PIX/cartão), EXCLUINDO fiado.
-  // Fiado é dívida a receber — não conta como "entrou no caixa" (pedido do Vitor).
+  // Meta de VENDA: total vendido (vendas.total, INCLUI fiado), só venda real
+  // (numero < 100000 — o lixo do SIGE com data errada fica de fora). Decisão do dono.
   const metaMin = (metasAtivas ?? []).reduce((a, m) => (m.data_inicio < a ? m.data_inicio : a), '9999-12-31')
   const metaMax = (metasAtivas ?? []).reduce((a, m) => (m.data_fim > a ? m.data_fim : a), '0000-01-01')
 
