@@ -1,11 +1,12 @@
 import Link from 'next/link'
 import { IconUsers } from '@/components/icons'
-import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll, permissoesUsuarioAtual } from '@/lib/supabase/server'
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { Dica } from '@/components/Dica'
 import { formatDate } from '@/lib/utils'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { LancarHoraForm } from './LancarHoraForm'
+import { BatidasPonto } from './BatidasPonto'
 import { excluirHora, confirmarDobra } from './actions'
 
 const LIMITE_EXTRA = 8
@@ -15,7 +16,7 @@ const MOTIVO_LABEL: Record<string, string> = {
 }
 const fmtH = (h: number) => `${h > 0 ? '+' : ''}${h.toFixed(2).replace('.', ',')}h`
 
-type Ponto = { usuario_id: string; tipo: string; criado_em: string }
+type Ponto = { id: string; usuario_id: string; tipo: string; criado_em: string }
 
 function statusEHoras(pontos: Ponto[]) {
   const ultimo = pontos[pontos.length - 1]?.tipo ?? null
@@ -35,11 +36,12 @@ const fmtHora = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString(
 
 export default async function RhPage() {
   const supabase = await createServiceClient()
+  const { isMaster } = await permissoesUsuarioAtual()
   const { ativa, todas } = await lojasDoUsuario().catch(() => ({ ativa: null, todas: true }))
   const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
   const [{ data: perfisRaw }, { data: pontos }, banco] = await Promise.all([
     supabase.from('perfis').select('id, nome, cargo, pdv_loja_id, lojas_permitidas').eq('ativo', true).order('nome'),
-    supabase.from('pontos').select('usuario_id, tipo, criado_em').gte('criado_em', `${hoje}T00:00:00-03:00`).order('criado_em'),
+    supabase.from('pontos').select('id, usuario_id, tipo, criado_em').gte('criado_em', `${hoje}T00:00:00-03:00`).order('criado_em'),
     fetchAll<{ id: string; usuario_id: string; horas: number; data: string; motivo: string | null; obs: string | null; confirmado: boolean | null }>(
       (from, to) => supabase.from('banco_horas').select('id, usuario_id, horas, data, motivo, obs, confirmado').order('data', { ascending: false }).range(from, to)),
   ])
@@ -117,13 +119,7 @@ export default async function RhPage() {
                 <td className="px-4 py-3 text-center text-sm tabular-nums text-gray-600">{fmtHora(l.entrada)}</td>
                 <td className="px-4 py-3 text-center text-sm font-semibold tabular-nums text-gray-800">{l.batidas.length ? l.horas : '—'}</td>
                 <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-1">
-                    {l.batidas.length === 0 ? <span className="text-xs text-gray-300">sem batidas</span> : l.batidas.map((p, i) => (
-                      <span key={i} className="inline-flex items-center gap-1 rounded bg-gray-50 px-1.5 py-0.5 text-[11px] text-gray-500">
-                        {p.tipo === 'pausa' ? '⏸' : p.tipo === 'saida' ? '⏹' : '▶'}{fmtHora(p.criado_em)}
-                      </span>
-                    ))}
-                  </div>
+                  <BatidasPonto batidas={l.batidas} usuarioId={l.id} isMaster={isMaster} />
                 </td>
               </tr>
             ))}
