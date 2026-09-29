@@ -61,6 +61,14 @@ TABELAS PRINCIPAIS (nome + colunas úteis):
 - pontos(usuario_id, tipo, criado_em)
 - lojas(id, nome) · depositos(id, nome, loja_id) · formas_pagamento(id, nome, tipo)
 
+FUNÇÕES PRONTAS (use via consultar_banco com SELECT — NÃO escreva SQL complexo pra esses casos):
+- SELECT resumo_vendas('AAAA-MM-DD','AAAA-MM-DD') → faturamento, quantidade, lucro, top produtos
+- SELECT resumo_fiados() → fiados em aberto (total + por cliente)
+- SELECT resumo_caixa('AAAA-MM-DD') → caixas do dia
+- SELECT resumo_estoque() → estoque por depósito
+- SELECT resumo_formas('AAAA-MM-DD','AAAA-MM-DD') → vendas por forma de pagamento
+- SELECT resumo_clientes('AAAA-MM-DD','AAAA-MM-DD') → top clientes
+
 REGRAS CRÍTICAS (siga SEMPRE, sem exceção):
 - NUNCA invente, arredonde ou "aproxime" um número. Responda o valor EXATO que a consulta retornou.
 - Valor vendido = quantidade × preco (sempre multiplique). Não some só a quantidade nem só o preco.
