@@ -37,6 +37,13 @@ export const TREINAMENTO = [
   { texto: 'tem tela do moto g9 play', eh_pergunta_produto: true, texto_busca: 'tela moto g9 play', eh_compra: false, grupo: 'produto' },
   { texto: 'quanto custa o display do redmi 9', eh_pergunta_produto: true, texto_busca: 'display redmi 9', eh_compra: false, grupo: 'produto' },
 
+  // ---------- erros reais de 28/09 (classificação certa) ----------
+  { texto: 'sub placa de carga do moto g8 power lite', eh_pergunta_produto: true, texto_busca: 'sub placa de carga moto g8 power lite', eh_compra: false, grupo: 'produto' },
+  { texto: 'biometria do note 12 4g', eh_pergunta_produto: true, texto_busca: 'biometria note 12 4g', eh_compra: false, grupo: 'produto' },
+  { texto: 'fonte tv box?', eh_pergunta_produto: true, texto_busca: 'fonte tv box', eh_compra: false, grupo: 'produto' },
+  { texto: 'fone redmi', eh_pergunta_produto: true, texto_busca: 'fone redmi', eh_compra: false, grupo: 'produto' },
+  { texto: 'tem tela g22', eh_pergunta_produto: true, texto_busca: 'tela g22', eh_compra: false, grupo: 'produto' },
+
   // ---------- 10 intenções de compra (já quer fechar) ----------
   { texto: 'quero 1', eh_pergunta_produto: false, texto_busca: null, eh_compra: true, grupo: 'compra' },
   { texto: 'me ve uma', eh_pergunta_produto: false, texto_busca: null, eh_compra: true, grupo: 'compra' },
@@ -65,6 +72,11 @@ export const TREINAMENTO = [
   { texto: 'qual o valor do frete?', eh_pergunta_produto: false, texto_busca: null, eh_compra: false, grupo: 'fora-de-produto' },
   { texto: 'o valor ta salgado, da pra fazer desconto?', eh_pergunta_produto: false, texto_busca: null, eh_compra: false, grupo: 'fora-de-produto' },
   { texto: 'chegou a encomenda que eu pedi?', eh_pergunta_produto: false, texto_busca: null, eh_compra: false, grupo: 'fora-de-produto' },
+  { texto: 'moto boy vai ai pra mim', eh_pergunta_produto: false, texto_busca: null, eh_compra: false, grupo: 'fora-de-produto' },
+  { texto: 'ai me avisa antes pra mim ja descer la', eh_pergunta_produto: false, texto_busca: null, eh_compra: false, grupo: 'fora-de-produto' },
+  { texto: 'essa tela esta paga', eh_pergunta_produto: false, texto_busca: null, eh_compra: false, grupo: 'fora-de-produto' },
+  { texto: 'essas telas sao compativeis?', eh_pergunta_produto: true, texto_busca: null, eh_compra: false, grupo: 'produto' },
+  { texto: 'essa chave nao esta indo', eh_pergunta_produto: false, texto_busca: null, eh_compra: false, grupo: 'fora-de-produto' },
 ]
 
 export const TOTAL = TREINAMENTO.length
