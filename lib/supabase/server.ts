@@ -75,15 +75,30 @@ export async function createServiceClient() {
 // fonte confiável é o accessToken que o cliente lê do navegador (cookie httpOnly:false)
 // e envia explicitamente. Validamos esse token via getUser(token).
 // Fallbacks (header do proxy / cookies) cobrem chamadas que ainda não passam token.
+// Cache curto (30s) do getUser(token): server actions chamam requireAuth(token) a
+// cada ação (ex.: cada venda no PDV), e getUser bate /auth/v1/user de novo — o proxy
+// já validou esse MESMO token segundos antes. 30s de atraso numa revogação é aceitável.
+const cacheAuth = new Map<string, { exp: number; val: { id: string; email: string | null } | null }>()
+
 export async function requireAuth(accessToken?: string): Promise<{ id: string; email: string | null }> {
   if (accessToken) {
+    const hit = cacheAuth.get(accessToken)
+    if (hit && hit.exp > Date.now()) {
+      if (hit.val) return hit.val
+      throw new Error('Sessão inválida ou expirada. Recarregue a página (F5).')
+    }
     const client = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       { cookies: { getAll() { return [] }, setAll() {} } }
     )
     const { data: { user }, error } = await client.auth.getUser(accessToken)
-    if (user) return { id: user.id, email: user.email ?? null }
+    if (user) {
+      const val = { id: user.id, email: user.email ?? null }
+      cacheAuth.set(accessToken, { exp: Date.now() + 30_000, val })
+      return val
+    }
+    cacheAuth.set(accessToken, { exp: Date.now() + 30_000, val: null })
     throw new Error(`Sessão inválida ou expirada. Recarregue a página (F5). [${error?.message ?? 'sem usuário'}]`)
   }
 
@@ -116,7 +131,22 @@ export async function requireAuth(accessToken?: string): Promise<{ id: string; e
 // Permissões EFETIVAS do usuário. Cargo dinâmico (modelo Discord): se o perfil
 // tem cargo_id, as permissões vêm do CARGO (mudou o cargo → todos mudam junto).
 // Sem cargo (ou cargo inativo), usa as permissões individuais do perfil.
+// Cache curto (30s) por usuário: a mesma tela chama isso várias vezes (página + cada
+// ação de servidor). 30s de atraso numa mudança de permissão é irrelevante e corta
+// leituras repetidas de perfis/cargos no Supabase (~8% dos logs).
+const cachePermissoes = new Map<string, { exp: number; val: { permissoes: string[]; isMaster: boolean; ativo: boolean; cargoId: string | null } }>()
+
 export async function permissoesEfetivas(
+  userId: string
+): Promise<{ permissoes: string[]; isMaster: boolean; ativo: boolean; cargoId: string | null }> {
+  const hit = cachePermissoes.get(userId)
+  if (hit && hit.exp > Date.now()) return hit.val
+  const val = await carregaPermissoesEfetivas(userId)
+  cachePermissoes.set(userId, { exp: Date.now() + 30_000, val })
+  return val
+}
+
+async function carregaPermissoesEfetivas(
   userId: string
 ): Promise<{ permissoes: string[]; isMaster: boolean; ativo: boolean; cargoId: string | null }> {
   const service = await createServiceClient()

@@ -31,7 +31,15 @@ function extrairToken(request: NextRequest): string | null {
   }
 }
 
+// Cache curto (30s) por token: evita re-validar a MESMA sessão a cada navegação /
+// pré-carregamento de link (era ~38% dos logs — /auth/v1/user). 30s de atraso numa
+// revogação é aceitável pro ERP interno; o token expira em ~1h mesmo assim.
+const cacheToken = new Map<string, { exp: number; val: Claims | null }>()
+
 async function validarToken(token: string): Promise<Claims | null> {
+  const hit = cacheToken.get(token)
+  if (hit && hit.exp > Date.now()) return hit.val
+  let val: Claims | null = null
   try {
     const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/user`, {
       headers: {
@@ -39,19 +47,23 @@ async function validarToken(token: string): Promise<Claims | null> {
         apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       },
     })
-    if (!res.ok) return null
-    const user = await res.json()
-    if (!user?.id) return null
-    return { sub: user.id, email: user.email }
-  } catch {
-    return null
-  }
+    if (res.ok) {
+      const user = await res.json()
+      if (user?.id) val = { sub: user.id, email: user.email }
+    }
+  } catch { /* rede fora → null (tratado como deslogado) */ }
+  cacheToken.set(token, { exp: Date.now() + 30_000, val })
+  return val
 }
 
 export async function proxy(request: NextRequest) {
-  const token = extrairToken(request)
+  const pathname = request.nextUrl.pathname
+  // Só valida login em /painel e /api — rota pública (login, etc.) não precisa
+  // saber quem está logado, então não gasta um /auth/v1/user à toa.
+  const precisaAuth = pathname.startsWith('/painel') || pathname.startsWith('/api')
+  const token = precisaAuth ? extrairToken(request) : null
   const sessao = token ? await validarToken(token) : null
-  const noPainel = request.nextUrl.pathname.startsWith('/painel')
+  const noPainel = pathname.startsWith('/painel')
 
   if (!sessao && noPainel) {
     const url = new URL('/login', request.url)
