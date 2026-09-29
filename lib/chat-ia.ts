@@ -45,7 +45,21 @@ Nunca invente informações. Para responder com dados reais, use as FERRAMENTAS 
     return `${base}
 
 ${tratamento}
-Pode responder sobre dados internos: estoque, financeiro, caixa, clientes, fiado, fornecedores, funcionários (equipe), vendas, ordens de serviço, compras (notas de entrada), devoluções e vale-crédito. Use as FERRAMENTAS pra cada área.
+Pode responder sobre QUALQUER dado interno do sistema. Pra isso você tem a ferramenta consultar_banco, que aceita SQL SELECT (somente leitura) no banco. Use-a pra perguntas de dados que não têm ferramenta específica (ex.: "quanto vendi esse mês?", "quais os 5 produtos mais vendidos?", "quem está devendo e quanto?"). SEMPRE inclua LIMIT nas consultas.
+
+TABELAS PRINCIPAIS (nome + colunas úteis):
+- vendas(id, numero, total, status, created_at, caixa_id, vendedor_nome, tipo_entrega, entregue_em)
+- produtos(id, nome, preco, codigo, marca, categoria, ativo)
+- estoque(produto_id, deposito_id, quantidade)
+- pessoas(id, nome, telefone, celular, tabela_preco_id, ativo) — clientes/fornecedores
+- fiados(id, pessoa_id, valor, status, vencimento)
+- caixas(id, loja_id, aberto_em, fechado_em, valor_abertura, valor_fechamento, status)
+- lancamentos(id, tipo, valor, categoria, vencimento, status) — financeiro
+- pagamentos_venda(venda_id, forma_pagamento_id, valor, status)
+- itens_venda(venda_id, produto_id, quantidade)
+- banco_horas(usuario_id, horas, data, motivo)
+- pontos(usuario_id, tipo, criado_em)
+- lojas(id, nome) · depositos(id, nome, loja_id) · formas_pagamento(id, nome, tipo)
 
 CONTEXTO ATUAL DO SISTEMA:
 ${JSON.stringify(contexto, null, 2)}

@@ -93,6 +93,7 @@ function montaFerramentas(tipo: 'funcionario' | 'cliente', service: any): Ferram
     fs.push(vendasPeriodo(service))
     fs.push(maisVendidos(service))
     fs.push(entregasPendentes(service))
+    fs.push(consultaBanco(service))
   }
   return fs
 }
@@ -422,6 +423,23 @@ function entregasPendentes(service: any): Ferramenta {
       }
       const totalPecas = lista.reduce((s, v) => s + (qtdPorVenda[v.id] ?? 0), 0)
       return JSON.stringify({ entregas_pendentes: lista.length, pecas: totalPecas, por_rota: porRota })
+    },
+  }
+}
+
+// Consulta QUALQUER dado do sistema com SQL SELECT (read-only) via RPC consulta_ia.
+// Só entra no modo FUNCIONÁRIO (chat_ia) — cliente final não tem essa porta.
+function consultaBanco(service: any): Ferramenta {
+  return {
+    nome: 'consultar_banco',
+    descricao: 'Consulta qualquer dado do sistema com SQL SELECT (somente leitura): vendas, produtos, estoque, pessoas, caixas, lançamentos, pagamentos, itens, banco_horas, pontos, lojas, depósitos. Use pra perguntas de dados sem ferramenta específica. SEMPRE inclua LIMIT.',
+    parametros: { type: 'object', properties: { query: { type: 'string', description: 'Consulta SQL SELECT (read-only). Ex: SELECT count(*) FROM vendas' } }, required: ['query'] },
+    executar: async (args) => {
+      const query = String(args.query ?? '').trim()
+      if (!query) return JSON.stringify({ erro: 'informe a consulta SELECT' })
+      const { data, error } = await service.rpc('consulta_ia', { p_query: query })
+      if (error) return JSON.stringify({ erro: error.message })
+      return JSON.stringify({ resultados: data ?? [] })
     },
   }
 }
