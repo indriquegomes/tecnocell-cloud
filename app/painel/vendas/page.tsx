@@ -30,6 +30,7 @@ export default async function PainelVendasPage({
       let q = supabase
         .from('vendas')
         .select('id, numero, total, desconto, created_at, status, vendedor_nome, pessoa_id, forma_pagamento_id, motivo_cancelamento, observacoes, caixa_id')
+        .eq('uso_interno', false)
         .gte('created_at', dataInicio + 'T00:00:00')
         .lte('created_at', dataFim + 'T23:59:59')
         .order('created_at', { ascending: false })

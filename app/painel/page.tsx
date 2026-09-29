@@ -83,7 +83,7 @@ export default async function DashboardPage({
     // Agora o Postgres soma tudo e devolve pronto em 1 chamada (~120ms).
     // Conferido campo a campo contra o calculo antigo antes de trocar: bate 100%.
     supabase.rpc('dashboard_resumo', { p_de: filtroDe, p_ate: filtroAte, p_loja: filtroLoja || null }),
-    supabase.from('vendas').select('total').eq('status', 'concluida').gte('created_at', hoje),
+    supabase.from('vendas').select('total').eq('status', 'concluida').eq('uso_interno', false).gte('created_at', hoje),
     // fetchAll: estes dois viram os cards "A Receber"/"A Pagar". Sem paginar, o
     // PostgREST corta em 1000 e o total passaria a mentir pra MENOS assim que a loja
     // acumulasse mais de mil fiados em aberto — silenciosamente, que e o pior modo.
@@ -99,7 +99,7 @@ export default async function DashboardPage({
       .eq('ativo', true).lte('data_inicio', hoje).gte('data_fim', hoje),
     supabase.from('lojas').select('id, nome'),
     role === 'vendedora' && userId
-      ? supabase.from('vendas').select('total, created_at, numero').eq('vendedor_id', userId).eq('status', 'concluida').gte('created_at', inicioMes).order('created_at', { ascending: false })
+      ? supabase.from('vendas').select('total, created_at, numero').eq('vendedor_id', userId).eq('status', 'concluida').eq('uso_interno', false).gte('created_at', inicioMes).order('created_at', { ascending: false })
       : Promise.resolve({ data: null }),
   ])
 

@@ -349,7 +349,7 @@ function vendasPeriodo(service: any): Ferramenta {
       // venda depois das 21h (que em UTC ja virou o dia seguinte)
       const inicio = new Date(de + 'T00:00:00-03:00').toISOString()
       const fim = new Date(ate + 'T23:59:59-03:00').toISOString()
-      let q = service.from('vendas').select('total').eq('status', 'concluida').gte('created_at', inicio).lte('created_at', fim)
+      let q = service.from('vendas').select('total').eq('status', 'concluida').eq('uso_interno', false).gte('created_at', inicio).lte('created_at', fim)
       const lojaNome = String(args.loja ?? '').trim()
       if (lojaNome) {
         const depIds = await depositosDaLoja(service, lojaNome)

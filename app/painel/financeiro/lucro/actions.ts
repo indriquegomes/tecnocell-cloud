@@ -67,7 +67,7 @@ export async function relatorioLucroMensal(): Promise<ResumoLucro> {
   // despejou ~34 mil vendas antigas com data "setembro 2026", inflando o faturamento
   // em R$ 3,16 milhões. O relatório de lucro é da operação TecnoCell, então SIGE fica fora.
   const vendas = await fetchAll<{ id: string; deposito_id: string | null; created_at: string; total: number }>((from, to) =>
-    supabase.from('vendas').select('id, deposito_id, created_at, total').eq('status', 'concluida').lt('numero', 100000).order('id').range(from, to))
+    supabase.from('vendas').select('id, deposito_id, created_at, total').eq('status', 'concluida').eq('uso_interno', false).lt('numero', 100000).order('id').range(from, to))
   const vendaPorId = new Map(vendas.map((v) => [v.id, v]))
 
   // Notas de entrada: id -> { data, status }
