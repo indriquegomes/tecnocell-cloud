@@ -391,7 +391,8 @@ async function processaMensagem(sock, loja, jid, texto) {
         classificacao = await classificaPergunta(texto, resumo)
       } catch (e) {
         console.error(`[${loja.slug}] [ERRO IA] falha ao classificar mensagem:`, e?.message || e)
-        return // erro de IA nunca deve fazer o bot responder algo errado — só ignora
+        // fallback: IA falhou/timeout — trata como busca direta (não deixa a mensagem em "aguardo")
+        classificacao = { ehPerguntaProduto: true, textoBusca: texto, ehCompra: false }
       }
     }
     if (classificacao.ehCompra) {

@@ -47,21 +47,28 @@ Mensagem do cliente: `
 
 async function chamaDeepSeek(prompt, maxTokens) {
   if (!DEEPSEEK_API_KEY) throw new Error('DEEPSEEK_API_KEY não configurada')
-  const resp = await fetch('https://api.deepseek.com/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: MODELO,
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: maxTokens,
-    }),
-  })
-  if (!resp.ok) throw new Error(`DeepSeek API ${resp.status}: ${await resp.text()}`)
-  const data = await resp.json()
-  return data.choices?.[0]?.message?.content || ''
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 12000) // teto 12s: IA travando não pode deixar a resposta em "aguardo"
+  try {
+    const resp = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: MODELO,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: maxTokens,
+      }),
+      signal: ctrl.signal,
+    })
+    if (!resp.ok) throw new Error(`DeepSeek API ${resp.status}: ${await resp.text()}`)
+    const data = await resp.json()
+    return data.choices?.[0]?.message?.content || ''
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 export async function classificaPergunta(texto, resumo = '') {
