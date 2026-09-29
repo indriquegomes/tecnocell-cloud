@@ -93,6 +93,10 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    // Só pula o que é interno do Next + favicon. Extensão de arquivo (.png etc.)
+    // NÃO é mais motivo pra pular: um POST de server action num caminho terminado
+    // em .png (ex.: /painel/pedidos/x.png) pularia o proxy e deixaria passar um
+    // x-user-id forjado — virar outro usuário.
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 }

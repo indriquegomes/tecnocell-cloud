@@ -32,7 +32,7 @@ export async function registrarNoCaixa(
     .select('id')
     .eq('status', 'aberto')
     .eq('loja_id', lojaId)
-    .maybeSingle()
+    .order('aberto_em', { ascending: false }).limit(1).maybeSingle()
   // Uma falha aqui não pode virar silenciosamente "sem caixa aberto" — é
   // exatamente o buraco que este arquivo existe pra fechar (ver comentário
   // acima). Não trava o recebimento (o dinheiro já entrou de verdade), mas
