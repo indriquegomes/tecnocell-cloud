@@ -195,11 +195,25 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
 
       const code = lastDisconnect?.error?.output?.statusCode
       const definitivo = CODIGOS_DESCONEXAO_DEFINITIVA.has(code)
-      // Reconecta SEMPRE. Em queda definitiva (sessão invalidada) o reconnect
-      // gera um QR novo sozinho (sem apagar pasta na mão) — mas a conta banida
-      // (403) não tem volta e só vai ficar tentando; loga pra não ficar mudo.
+      // Queda definitiva (401 logout / 440 trocado / 500 bad session): a credencial
+      // NÃO se recupera tentando de novo. Sem apagar, o useMultiFileAuthState
+      // reaproveita a credencial morta e o bot fica em loop de backoff SEM gerar QR
+      // novo — é o "bot mudo pra sempre". Apaga a pasta de auth e reconecta na hora
+      // (QR fresco). 403 (banido) fica fora: não tem volta, apagar só esconde o log.
       if (definitivo) {
         console.error(`[${slug}] conexão caiu (${code}). Sessão inválida — reconectando pra gerar QR novo.`)
+        if (code !== 403) {
+          try {
+            for (const f of fs.readdirSync(pastaAuth)) fs.unlinkSync(path.join(pastaAuth, f))
+          } catch (e) {
+            console.error(`[${slug}] falha ao limpar sessão morta:`, e?.message || e)
+          }
+          reconexoesSeguidas.set(slug, 0)
+          setTimeout(() => {
+            iniciaSessao({ slug, depositoId, pastaAuth }).catch((e) => console.error(`[${slug}] falha ao reconectar:`, e))
+          }, 2000)
+          return
+        }
       }
       // Ainda sem sessão (aguardando QR): o WS de pareamento do WhatsApp expira em
       // ~60s e fecha com 408. NÃO aplicar backoff aqui — senão o bot fica 10s→30min
