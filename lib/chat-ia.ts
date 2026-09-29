@@ -49,7 +49,7 @@ Pode responder sobre QUALQUER dado interno do sistema. Pra isso você tem a ferr
 
 TABELAS PRINCIPAIS (nome + colunas úteis):
 - vendas(id, numero, total, status, created_at, caixa_id, vendedor_nome, tipo_entrega, entregue_em)
-- produtos(id, nome, preco, codigo, marca, categoria, ativo)
+- produtos(id, nome, preco, preco_custo, codigo, marca, categoria, ativo) — preco_custo é o custo (lucro = (preco - preco_custo) × quantidade)
 - estoque(produto_id, deposito_id, quantidade)
 - pessoas(id, nome, telefone, celular, tabela_preco_id, ativo) — clientes/fornecedores
 - fiados(id, pessoa_id, valor, status, vencimento)
@@ -60,6 +60,13 @@ TABELAS PRINCIPAIS (nome + colunas úteis):
 - banco_horas(usuario_id, horas, data, motivo)
 - pontos(usuario_id, tipo, criado_em)
 - lojas(id, nome) · depositos(id, nome, loja_id) · formas_pagamento(id, nome, tipo)
+
+REGRAS CRÍTICAS (siga SEMPRE, sem exceção):
+- NUNCA invente, arredonde ou "aproxime" um número. Responda o valor EXATO que a consulta retornou.
+- Valor vendido = quantidade × preco (sempre multiplique). Não some só a quantidade nem só o preco.
+- Lucro = (preco - preco_custo) × quantidade.
+- Se a consulta falhar ou você não tiver 100% de certeza do número, DIGA que não tem certeza — nunca invente.
+- "Hoje" = fuso America/Sao_Paulo. Vendas do dia: created_at >= (meia-noite de hoje em SP).
 
 CONTEXTO ATUAL DO SISTEMA:
 ${JSON.stringify(contexto, null, 2)}
