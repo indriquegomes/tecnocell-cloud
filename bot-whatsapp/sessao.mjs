@@ -299,14 +299,16 @@ async function respondeAssuntoFixo(texto) {
   }
   // endereço / localização
   if (/(endereco|onde fica|localizacao|onde vcs|onde e a loja|onde fica a loja)/.test(t)) return ENDERECO
+  // entrega / logística (ANTES do horário — "que horas me entrega" é entrega, não horário da loja)
+  if (/(entrega|logistica|frete)/.test(t)) return await buscaEntregas()
   // horário
   if (/(horario|que horas|abre|funciona|hora de)/.test(t)) return HORARIO
   // cadastro
   if (/(cadastro|cadastrar|me cadastro|quero me cadastrar)/.test(t)) return CADASTRO
   // encomenda (antes de 'regras' — "regras de encomenda" cai aqui, não na política)
   if (/(encomend)/.test(t)) return ENCOMENDA
-  // política / entrega / garantia (entregas vêm do painel, não mais hardcoded)
-  if (/(politica|regras|garantia|entrega|logistica|frete)/.test(t)) return montaPolitica(await buscaEntregas())
+  // política / regras / garantia
+  if (/(politica|regras|garantia)/.test(t)) return montaPolitica(await buscaEntregas())
   return null
 }
 
