@@ -40,7 +40,9 @@ function semAcento(t) {
 // já é traseira; "traseira" não aparece no nome) — sem tirar, o AND nunca casa.
 const CONECTORES = new Set(REGRAS.ignorar ?? ['de', 'da', 'do', 'das', 'dos', 'para', 'pra', 'com', 'sem', 'uma', 'um', 'no', 'na', 'sub', 'tem', 'temos', 'quanto', 'custa', 'preco', 'valor', 'valores', 'vcs', 'voce', 'voces', 'traseira', 'traseiro', 'posterior'])
 function palavrasBusca(t) {
-  return semAcento(t).replace(/[,()%?!]/g, ' ').split(/\s+/).filter(Boolean)
+  // "flex de carga"/"flex carga" = conector de carga (porta), não o flex de volume/power
+  const norm = semAcento(t).replace(/\bflex\s+(de\s+)?carga\b|\bflexcarga\b/g, 'conector')
+  return norm.replace(/[,()%?!]/g, ' ').split(/\s+/).filter(Boolean)
     .filter((w) => !CONECTORES.has(w))
     .slice(0, 6)
 }
