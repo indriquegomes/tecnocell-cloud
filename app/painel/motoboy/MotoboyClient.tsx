@@ -87,7 +87,7 @@ export function MotoboyClient({ motoboys, rotas, lojas, userId, isMaster, erro }
           <label className="mb-1 block text-xs text-gray-500">Observação (opcional)</label>
           <input name="observacao" className="field w-full text-sm" placeholder="Ex: rota extra Itaipava" />
         </div>
-        <button type="submit" className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">Salvar rota</button>
+        <button type="submit" className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold tracking-wide text-white hover:bg-blue-700 transition">REGISTRAR ROTA</button>
         {erro && <p className="text-sm text-red-600">{erro}</p>}
       </form>
 

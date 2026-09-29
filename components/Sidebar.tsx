@@ -35,6 +35,7 @@ const ICONS: Record<string, IconComp> = {
   '/painel/fiados': IconCard,
   '/painel/vales-credito': IconCard,
   '/painel/contas': IconBank,
+  '/painel/motoboy': IconStore,
   '/painel/clientes': IconUsers,
   '/painel/lojas': IconStore,
   '/painel/formas-pagamento': IconCard,
@@ -71,6 +72,7 @@ const navCompleto: NavGroup[] = [
     items: [
       { href: '/painel', label: 'Dashboard' },
       { href: '/painel/meu-perfil', label: 'Meu Perfil' },
+      { href: '/painel/motoboy', label: 'Minhas Rotas', permissao: 'motoboy' },
       { href: '/painel/chat', label: 'Chat com IA', permissao: 'chat_ia' },
     ],
   },
@@ -190,8 +192,11 @@ export function Sidebar({
   const isActive = (href: string) =>
     exactOnly.includes(href) ? pathname === href : pathname.startsWith(href)
 
-  const podeVer = (item: NavItem) =>
-    !item.permissao || temPermissao(permissoes, item.permissao, isMaster)
+  const isMotoboy = !isMaster && permissoes.includes('motoboy')
+  const podeVer = (item: NavItem) => {
+    if (isMotoboy && item.href === '/painel') return false // motoboy não vê o dashboard normal
+    return !item.permissao || temPermissao(permissoes, item.permissao, isMaster)
+  }
 
   // Busca rápida de menu (lupa no topo)
   const [busca, setBusca] = useState('')

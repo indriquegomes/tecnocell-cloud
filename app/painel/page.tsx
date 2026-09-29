@@ -5,6 +5,7 @@ import { temPermissao } from '@/lib/permissoes'
 import { formatBRL, formatDate } from '@/lib/utils'
 import { Valor } from '@/components/Valor'
 import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 import { MetaWidget, type MetaInput } from '@/components/MetaWidget'
@@ -32,6 +33,8 @@ export default async function DashboardPage({
     : { data: null }
   const cargoDoVinculo = (meuPerfil as { cargos?: { nome: string } | null } | null)?.cargos?.nome
   const cargoNome = (cargoDoVinculo ?? meuPerfil?.cargo ?? '').toLowerCase()
+  // Motoboy não vê o dashboard normal — cai na tela dele (entregas + rotas).
+  if (!isMaster && cargoNome === 'motoboy') redirect('/painel/motoboy')
   const primeiroNome = (meuPerfil?.nome ?? '').trim().split(/\s+/)[0] || ''
   const meta = Number((meuPerfil as { meta_venda_mensal?: number } | null)?.meta_venda_mensal ?? 0)
   // classifica: cargo pelo nome; fallback por permissão
