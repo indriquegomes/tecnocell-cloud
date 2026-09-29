@@ -187,8 +187,8 @@ export default async function DashboardPage({
   // ---- METAS ativas (já vieram no lote paralelo) ----
   const metaIds = (metasAtivas ?? []).map((m) => m.id)
   const nomeLoja: Record<string, string> = Object.fromEntries((lojasList ?? []).map((l) => [l.id, l.nome]))
-  // Meta de VENDA: total vendido (vendas.total, INCLUI fiado), só venda real
-  // (numero < 100000 — o lixo do SIGE com data errada fica de fora). Decisão do dono.
+  // Meta de VENDA: total vendido (vendas.total, INCLUI fiado), pela data real da
+  // venda (v.data — as de 01–14/09 do SIGE entram; lixo antigo fica fora sozinho). Decisão do dono.
   const metaMin = (metasAtivas ?? []).reduce((a, m) => (m.data_inicio < a ? m.data_inicio : a), '9999-12-31')
   const metaMax = (metasAtivas ?? []).reduce((a, m) => (m.data_fim > a ? m.data_fim : a), '0000-01-01')
 

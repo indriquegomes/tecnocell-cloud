@@ -4,8 +4,8 @@ import { createServiceClient } from '@/lib/supabase/server'
 export type VendaCash = { lojaId: string | null; dia: string; cash: number }
 
 // Faturamento das metas por (loja, dia) — a parte PESADA do dashboard. O cálculo
-// (vendas + histórico SIGE, somando o TOTAL VENDIDO — inclui fiado — só venda real
-// numero < 100000) foi pro BANCO num RPC agregado (dashboard_faturamento_metas): 1 viagem, poucas linhas, em
+// (vendas + histórico SIGE, somando o TOTAL VENDIDO — inclui fiado — pela data real
+// da venda, v.data) foi pro BANCO num RPC agregado (dashboard_faturamento_metas): 1 viagem, poucas linhas, em
 // vez de puxar tudo pro Node. Era o que fazia o dashboard levar ~3s em produção.
 //
 // Por cima, fica em cache por 2 min (revalidate) — uma meta acumulada do mês não muda
