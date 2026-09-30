@@ -2346,11 +2346,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         {emConsultaCusto && <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800">🔒 Tabela CUSTO — somente consulta. Venda e orçamento bloqueados.</div>}
 
         {/* Cliente — compacto, no topo */}
-        <div className={`relative rounded-xl border px-3 py-2 shadow-sm ${clienteSelecionado ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-100' : 'border-gray-200 bg-white'}`}>
+        <div className={`relative rounded-xl border px-3 py-2 shadow-sm ${clienteSelecionado ? 'border-orange-400 bg-orange-50 ring-2 ring-orange-100' : 'border-orange-300 bg-orange-50'}`}>
           {clienteSelecionado ? (
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400 shrink-0">Cliente</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-orange-600 shrink-0">Cliente</span>
                 <span className="font-medium text-gray-800">👤 {clienteSelecionado.nome}</span>
                 {/* Badge da tabela: a menina precisa VER que preço está pegando.
                     Verde = ATACADO1 (mais barato) · Laranja = ATACADO2 (mais caro). */}
@@ -2399,7 +2399,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400 shrink-0">Cliente</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-orange-600 shrink-0">Cliente</span>
               <span className="text-sm text-gray-500 shrink-0">Cliente Final ·</span>
               <input
                 value={buscaCliente}
