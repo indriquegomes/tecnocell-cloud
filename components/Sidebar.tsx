@@ -174,19 +174,6 @@ const COR_GRUPO: Record<string, string> = {
   'Admin':       'text-rose-600',
 }
 
-// Cor do TEXTO do item: um tom MAIS CLARO que o ícone da mesma seção — o
-// texto fica leve, o ícone/título segura a cor forte. Cor com intenção.
-const COR_TEXTO_GRUPO: Record<string, string> = {
-  'Geral':       'text-blue-500',
-  'Vendas':      'text-emerald-500',
-  'Serviços':    'text-orange-500',
-  'Estoque':     'text-violet-500',
-  'Financeiro':  'text-amber-500',
-  'Cadastros':   'text-cyan-500',
-  'Integrações': 'text-indigo-500',
-  'Admin':       'text-rose-500',
-}
-
 const semAcento = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
 export function Sidebar({
@@ -276,7 +263,7 @@ export function Sidebar({
                   <Link key={item.href} href={item.href}
                     className={cn(
                       'flex items-center gap-2.5 px-4 py-2 text-sm font-medium transition-colors',
-                      isActive(item.href) ? 'tc-ativo bg-blue-50 text-blue-700' : cn(COR_TEXTO_GRUPO[item.group] ?? 'text-gray-500', 'hover:bg-gray-50'),
+                      isActive(item.href) ? 'tc-ativo bg-blue-50 text-blue-700' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900',
                     )}>
                     {Ic
                       ? <Ic className={cn('h-[18px] w-[18px] shrink-0', isActive(item.href) ? 'text-[#1B6CA8]' : COR_GRUPO[item.group] ?? 'text-gray-400')} />
@@ -316,7 +303,7 @@ export function Sidebar({
                       'group flex items-center gap-2.5 px-4 py-2 text-sm font-medium transition-colors',
                       isActive(item.href)
                         ? 'tc-ativo bg-blue-50 text-blue-700'
-                        : cn(COR_TEXTO_GRUPO[section.group] ?? 'text-gray-500', 'hover:bg-gray-50')
+                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
                     )}>
                     {Ic
                       ? <Ic className={cn(
