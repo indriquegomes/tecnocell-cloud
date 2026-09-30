@@ -19,8 +19,8 @@ export default async function FiadosPage() {
         .eq('tipo', 'receber').eq('status', 'pendente')
         .order('id').range(from, to),
     ),
-    fetchAll<{ nome: string; telefone: string | null }>(
-      (from, to) => supabase.from('pessoas').select('nome, telefone').order('id').range(from, to),
+    fetchAll<{ id: string; nome: string; telefone: string | null; obs_cobranca: string | null }>(
+      (from, to) => supabase.from('pessoas').select('id, nome, telefone, obs_cobranca').order('id').range(from, to),
     ),
   ])
 
@@ -28,6 +28,11 @@ export default async function FiadosPage() {
   const telPorNome = new Map<string, string>()
   for (const p of pessoas) {
     if (p.nome && p.telefone) telPorNome.set(semAcento(p.nome), p.telefone)
+  }
+  // nota de cobrança por pessoa (id) — some sozinha quando a dívida zera (trigger)
+  const obsPorPessoa = new Map<string, string>()
+  for (const p of pessoas) {
+    if (p.id && p.obs_cobranca) obsPorPessoa.set(p.id, p.obs_cobranca)
   }
 
   // PEÇAS de cada fiado: puxa os itens das vendas ligadas às notas, pra a cobrança
@@ -144,7 +149,9 @@ export default async function FiadosPage() {
   const clientes = [...mapa.entries()]
     .map(([chave, c]) => {
       const vale = [...c.pessoasLojas].reduce((s, k) => s + (valePorPessoaLoja[k] ?? 0), 0)
-      return { ...c, telefone: telPorNome.get(chave) ?? null, vale: Math.max(0, vale) }
+      const pessoaId = [...c.pessoasLojas].map((k) => k.split('|')[0]).filter(Boolean)[0] ?? null
+      const obsCobranca = pessoaId ? (obsPorPessoa.get(pessoaId) ?? null) : null
+      return { ...c, telefone: telPorNome.get(chave) ?? null, vale: Math.max(0, vale), pessoaId, obsCobranca }
     })
     .sort((a, b) => b.total - a.total)
 

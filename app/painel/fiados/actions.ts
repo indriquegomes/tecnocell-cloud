@@ -16,3 +16,16 @@ export async function atualizarChavePix(contaId: string, chave: string, titular:
   revalidatePath('/painel/contas')
   return { ok: true as const }
 }
+
+// Nota de cobrança rápida do cliente (ex.: "é devolução, não cobrar").
+// Some sozinha quando o cliente zera a dívida (trigger limpar_obs_cobranca).
+export async function salvarObsCobranca(pessoaId: string, nota: string) {
+  await requirePermissao('financeiro')
+  const supabase = await createServiceClient()
+  const { error } = await supabase.from('pessoas')
+    .update({ obs_cobranca: nota.trim() || null })
+    .eq('id', pessoaId)
+  if (error) return { erro: error.message }
+  revalidatePath('/painel/fiados')
+  return { ok: true as const }
+}

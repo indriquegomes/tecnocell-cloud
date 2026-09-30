@@ -6,14 +6,14 @@ import { montarMensagemCobranca } from '@/lib/cobranca-fiado'
 import { hojeSP } from '@/lib/utils'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { atualizarChavePix } from './actions'
+import { atualizarChavePix, salvarObsCobranca } from './actions'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const semAcento = (s: string) =>
   s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
 
 type Nota = { id: string; codigo: number | null; numeroVenda: number | null; descricao: string | null; pecas: string | null; itens: { nome: string; quantidade: number; valor: number }[] | null; vendedor: string; loja: string; valor: number; valorPago: number; vencimento: string | null; venda_id: string | null; vencida: boolean; categoria?: string | null; criadoEm?: string | null }
-type Cliente = { nome: string; total: number; vencido: number; qtd: number; telefone: string | null; vale?: number; notas: Nota[] }
+type Cliente = { nome: string; total: number; vencido: number; qtd: number; telefone: string | null; vale?: number; notas: Nota[]; pessoaId?: string | null; obsCobranca?: string | null }
 
 const fmtData = (d: string | null) => (d ? d.slice(0, 10).split('-').reverse().join('/') : '—')
 
@@ -85,6 +85,9 @@ export function FiadosClient({
   const [pixTitular, setPixTitular] = useState('')
   const [pixSalvando, setPixSalvando] = useState(false)
   const [pixErro, setPixErro] = useState<string | null>(null)
+  const [editandoNota, setEditandoNota] = useState<string | null>(null)
+  const [notaTexto, setNotaTexto] = useState('')
+  const [notaSalvando, setNotaSalvando] = useState(false)
 
   const abrirPix = (px: { id: string; chave: string; titular: string | null }) => {
     setPixEdit(px.id); setPixChave(px.chave); setPixTitular(px.titular ?? ''); setPixErro(null)
@@ -138,6 +141,15 @@ export function FiadosClient({
       setCopiado(c.nome)
       setTimeout(() => setCopiado((n) => (n === c.nome ? null : n)), 2500)
     } catch { /* clipboard bloqueado */ }
+  }
+
+  const salvarNota = async (c: Cliente) => {
+    if (!c.pessoaId) return
+    setNotaSalvando(true)
+    await salvarObsCobranca(c.pessoaId, notaTexto)
+    setNotaSalvando(false)
+    setEditandoNota(null)
+    router.refresh()
   }
 
   return (
@@ -285,6 +297,21 @@ export function FiadosClient({
                     {c.vencido > 0.01 && <span className="ml-2 rounded-full bg-rose-50 px-2 py-0.5 font-medium text-rose-600">venceu {fmt(c.vencido)}</span>}
                     {(c.vale ?? 0) > 0.01 && <span className="ml-2 rounded-full bg-purple-50 px-2 py-0.5 font-medium text-purple-600">🎟️ Vale {fmt(c.vale ?? 0)}</span>}
                   </p>
+                  {/* Nota de cobrança — some sozinha quando a dívida zera */}
+                  {editandoNota === c.nome ? (
+                    <div className="mt-1.5 flex items-center gap-1.5">
+                      <input value={notaTexto} onChange={(e) => setNotaTexto(e.target.value)} placeholder="Ex.: é devolução, não cobrar" className="field flex-1 text-xs" autoFocus />
+                      <button type="button" onClick={() => salvarNota(c)} disabled={notaSalvando} className="shrink-0 rounded-lg bg-amber-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60">{notaSalvando ? '…' : 'Salvar'}</button>
+                      <button type="button" onClick={() => setEditandoNota(null)} className="shrink-0 rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-500 hover:bg-gray-50">✕</button>
+                    </div>
+                  ) : c.obsCobranca ? (
+                    <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-amber-700">
+                      📝 <span className="truncate">{c.obsCobranca}</span>
+                      {c.pessoaId && <button type="button" onClick={() => { setEditandoNota(c.nome); setNotaTexto(c.obsCobranca ?? '') }} className="shrink-0 font-semibold text-[#1B6CA8] hover:underline">editar</button>}
+                    </p>
+                  ) : c.pessoaId ? (
+                    <button type="button" onClick={() => { setEditandoNota(c.nome); setNotaTexto('') }} className="mt-1 text-xs font-medium text-gray-400 hover:text-[#1B6CA8]">＋ nota de cobrança</button>
+                  ) : null}
                 </div>
               </button>
               <div className="flex items-center gap-3">
