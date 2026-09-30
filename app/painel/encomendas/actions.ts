@@ -95,3 +95,61 @@ export async function criarEncomenda(formData: FormData) {
   return { ok: true as const, id: encomendaId }
 }
 
+// Aprova quando a peça chega: cadastra o produto (se temporário), entra no estoque
+// e marca a encomenda como 'aprovada'. O custo é digitado pela estoquista.
+export async function aprovarEncomenda(encomendaId: string, custo: number) {
+  await requirePermissao('compras')
+  const supabase = await createServiceClient()
+  const { data: enc } = await supabase.from('encomendas').select('*').eq('id', encomendaId).maybeSingle()
+  if (!enc) return { erro: 'Encomenda não encontrada.' }
+
+  let produto_id = (enc as { produto_id: string | null }).produto_id
+  // temporário → cria o produto agora (a estoquista cadastra na hora)
+  if (!produto_id) {
+    produto_id = crypto.randomUUID()
+    const { error: eProd } = await supabase.from('produtos').insert({
+      id: produto_id, nome: (enc as { item_nome: string }).item_nome,
+      preco: (enc as { valor_venda: number | null }).valor_venda ?? 0,
+      preco_custo: custo, ativo: true,
+    })
+    if (eProd) return { erro: 'Não deu pra criar o produto: ' + eProd.message }
+  } else {
+    await supabase.from('produtos').update({ preco_custo: custo }).eq('id', produto_id)
+  }
+
+  // depósito padrão da loja (onde o item entra)
+  let deposito_id: string | null = null
+  const lojaId = (enc as { loja_id: string | null }).loja_id
+  if (lojaId) {
+    const { data: loja } = await supabase.from('lojas').select('deposito_padrao_id').eq('id', lojaId).maybeSingle()
+    deposito_id = (loja as { deposito_padrao_id?: string | null } | null)?.deposito_padrao_id ?? null
+  }
+
+  // entra no estoque (upsert de quantidade)
+  const qtd = Number((enc as { quantidade: number }).quantidade) || 0
+  if (deposito_id && qtd > 0) {
+    const { data: existente } = await supabase.from('estoque').select('id, quantidade').eq('produto_id', produto_id).eq('deposito_id', deposito_id).maybeSingle()
+    if (existente) {
+      await supabase.from('estoque').update({ quantidade: Number(existente.quantidade) + qtd }).eq('id', existente.id)
+    } else {
+      await supabase.from('estoque').insert({ produto_id, deposito_id, quantidade: qtd })
+    }
+  }
+
+  await supabase.from('encomendas').update({ status: 'aprovada', custo, produto_id, aprovado_em: new Date().toISOString() }).eq('id', encomendaId)
+
+  revalidatePath('/painel/compras')
+  revalidatePath('/painel/estoque/encomendas')
+  return { ok: true as const }
+}
+
+// Rejeita a encomenda (peça não chegou / cliente desistiu).
+export async function rejeitarEncomenda(encomendaId: string) {
+  await requirePermissao('compras')
+  const supabase = await createServiceClient()
+  await supabase.from('encomendas').update({ status: 'cancelada' }).eq('id', encomendaId)
+  revalidatePath('/painel/compras')
+  revalidatePath('/painel/estoque/encomendas')
+  return { ok: true as const }
+}
+

@@ -1,11 +1,12 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
-import { depositosDaLojaAtiva } from '@/lib/lojas-usuario'
+import { depositosDaLojaAtiva, lojasDoUsuario } from '@/lib/lojas-usuario'
 import { IconPlus, IconFile } from '@/components/icons'
 import { formatBRL } from '@/lib/utils'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { deletarNota } from './actions'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
+import { EncomendasEspeciais } from '../encomendas/EncomendasEspeciais'
 
 const STATUS_COLOR: Record<string, string> = {
   pendente: 'bg-yellow-100 text-yellow-700',
@@ -22,6 +23,13 @@ export default async function ComprasPage({
   const supabase = await createServiceClient()
   // Notas separadas por loja: filtra pelos depósitos da loja ATIVA.
   const depositosAtiva = await depositosDaLojaAtiva().catch(() => [] as string[])
+  // Encomendas pendentes (pra "nota" ENCOMENDAS ESPECIAIS) — filtra pela loja ativa
+  const { ativa: lojaAtiva, todas: todasLojas } = await lojasDoUsuario().catch(() => ({ ativa: null, todas: true }))
+  const { data: encomendasPendentes } = await (() => {
+    let q = supabase.from('encomendas').select('id, pessoa_nome, item_nome, temporario, quantidade, valor_venda, sinal').eq('status', 'aberta').order('created_at')
+    if (!todasLojas && lojaAtiva?.id) q = q.eq('loja_id', lojaAtiva.id)
+    return q
+  })()
 
   const ordemAtual = params.ordem ?? 'created_at'
   const ordemDir = params.dir === 'desc'
@@ -83,6 +91,8 @@ export default async function ComprasPage({
           </Link>
         </div>
       </div>
+
+      <EncomendasEspeciais encomendas={(encomendasPendentes ?? []) as { id: string; pessoa_nome: string; item_nome: string; temporario: boolean; quantidade: number; valor_venda: number | null; sinal: number }[]} />
 
       {params.erro && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{params.erro}</div>
