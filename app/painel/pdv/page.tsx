@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
 import { PDVClient } from './PDVClient'
+import { NovaEncomenda } from '../encomendas/NovaEncomenda'
 
 // Config de PDV do usuário logado (lojas permitidas + padrão). Tolerante:
 // se a migration 2026-07-28 não rodou, devolve tudo liberado.
@@ -172,6 +173,7 @@ export default async function PDVPage() {
           <h2 className="text-2xl font-bold text-gray-900">PDV — Frente de Caixa</h2>
           <p className="text-sm text-gray-400 mt-0.5">{totalProdutos ?? 0} produtos disponíveis</p>
         </div>
+        <NovaEncomenda lojaId={cfg?.pdvLojaId ?? null} />
       </div>
 
       <PDVClient
