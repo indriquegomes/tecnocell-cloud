@@ -80,3 +80,42 @@ export function pegaCategoria(loja, jid) {
   if (Date.now() > c.expiraEm) { CATEGORIAS.delete(chave); return null }
   return c.cat
 }
+
+// Histórico da conversa (últimas 5 mensagens: cliente, bot e dono) pra IA
+// entender contexto ("esse", "aquele", "bater os 3k" referindo ao PIX). Em memória.
+const HISTORICO = new Map()
+const MAX_HISTORICO = 5
+
+// entrada: { de: 'cliente'|'bot'|'dono', texto }
+export function guardaHistorico(loja, jid, entrada) {
+  const chave = `${loja}:${jid}`
+  const h = HISTORICO.get(chave) ?? []
+  h.push(entrada)
+  while (h.length > MAX_HISTORICO) h.shift()
+  HISTORICO.set(chave, h)
+}
+
+export function pegaHistorico(loja, jid) {
+  return HISTORICO.get(`${loja}:${jid}`) ?? []
+}
+
+export function limpaHistorico(loja, jid) {
+  HISTORICO.delete(`${loja}:${jid}`)
+}
+
+// O dono (humano) respondeu manualmente na conversa → o bot pausa e só volta
+// quando o contexto mudar (pergunta nova de verdade). Em memória, sem expiração:
+// fica pausado até a IA dizer que mudou de assunto.
+const HUMANO_ASSUMIU = new Map()
+
+export function marcaHumanoAssumiu(loja, jid) {
+  HUMANO_ASSUMIU.set(`${loja}:${jid}`, Date.now())
+}
+
+export function humanoAssumiu(loja, jid) {
+  return HUMANO_ASSUMIU.has(`${loja}:${jid}`)
+}
+
+export function limpaHumanoAssumiu(loja, jid) {
+  HUMANO_ASSUMIU.delete(`${loja}:${jid}`)
+}

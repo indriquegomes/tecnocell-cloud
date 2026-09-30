@@ -9,7 +9,7 @@ const MODELO = env('BOT_WHATSAPP_MODELO', 'deepseek-chat')
 // o prompt) na hora da chamada. NÃO usar template string com ${texto} aqui dentro:
 // isso é uma constante de módulo, calculada uma vez só, antes de qualquer mensagem existir.
 const PROMPT_BASE = `Mensagem de um cliente pra uma loja de celulares, recebida no WhatsApp.
-Classifique em DOIS pontos:
+Classifique em TRÊS pontos:
 
 1) PERGUNTA DE PRODUTO (preço ou disponibilidade): o cliente pergunta preço ou
 se tem em estoque de um produto/peça específico — ex: "quanto custa a tela do
@@ -24,7 +24,15 @@ sem verbo nenhum — ex: "frontal iphone 12", "tampa redmi 8 pro", "cabo tipo c"
 2) INTENÇÃO DE COMPRA (quer fechar agora): o cliente já decidiu levar — ex:
 "quero 1", "me vê uma", "vou levar", "quero comprar", "fecha pra mim", "pode
 separar", "me vende". NÃO é intenção de compra: perguntar preço, perguntar se
-tem, ou conversa geral. Só é compra quando ele já demonstra que VAI fechar.
+tem, ou conversa geral. Só é compra quando ele confirma um produto JÁ MOSTRADO.
+Se ele DESCREVE um produto pra comprar ("eu quero do g54", "quero a tampa do
+iphone"), é PERGUNTA DE PRODUTO (buscar primeiro), não compra ainda.
+
+3) MUDOU DE ASSUNTO (eh_novo_assunto): considerando o HISTÓRICO acima, a
+mensagem começa um assunto NOVO? TRUE se o cliente muda de assunto (ex: estava
+falando de chave PIX e agora pergunta preço de um produto). FALSE se é
+continuação do MESMO assunto do histórico (ex: o dono explicou a chave PIX e o
+cliente segue respondendo sobre essa chave). Sem histórico relevante = TRUE.
 
 EXEMPLOS (siga EXATAMENTE esta lógica):
 - "a bateria não veio" → eh_pergunta_produto FALSE (é RECLAMAÇÃO, não pergunta de preço)
@@ -38,10 +46,17 @@ EXEMPLOS (siga EXATAMENTE esta lógica):
 - "meu celular caiu na água, conserta?" → eh_pergunta_produto FALSE (conserto/reparo, não preço de peça)
 - "parcela no cartão?" / "vende fiado?" / "tem garantia?" → eh_pergunta_produto FALSE (forma de pagamento/política)
 - "me vende essa bateria" → eh_pergunta_produto FALSE e eh_compra TRUE
+- histórico "quanto custa a bateria" + cliente agora "iphone 12" → eh_pergunta_produto TRUE e texto_busca "bateria iphone 12" (completa o tipo do histórico, NÃO vira "tela"/"frontal")
+- histórico "TAMPA MOTOROLA G54 AZUL" + cliente "tem outras cores?" → eh_pergunta_produto TRUE e texto_busca "tampa g54" (SEGUIMENTO: mantém o produto do histórico, NÃO busca cor solta)
+- histórico "TAMPA MOTOROLA G54 AZUL" + cliente "eu quero do g54" → eh_pergunta_produto TRUE e texto_busca "tampa g54" (descreveu produto → busca, NÃO é eh_compra)
 
-Responda SÓ JSON: {"eh_pergunta_produto": <true|false>, "texto_busca": "<como o
-cliente descreveu o produto, nas palavras dele, sem traduzir pro nome oficial;
-null se eh_pergunta_produto for false>", "eh_compra": <true|false>}
+Responda SÓ JSON: {"eh_pergunta_produto": <true|false>, "texto_busca": "<busca
+COMPLETA: o que o cliente disse agora + o TIPO de peça que ele pediu ANTES no
+histórico, se ele não repetiu. Ex: histórico tem 'quanto custa a bateria' e o
+cliente agora diz só 'iphone 12' → texto_busca = 'bateria iphone 12'. Se ele
+repetiu o tipo ('tela do iphone 12'), usa só o que ele disse agora. null se
+eh_pergunta_produto for false>", "eh_compra": <true|false>,
+"eh_novo_assunto": <true|false>}
 
 Mensagem do cliente: `
 
@@ -71,14 +86,19 @@ async function chamaDeepSeek(prompt, maxTokens) {
   }
 }
 
-export async function classificaPergunta(texto, resumo = '') {
-  const prompt = (resumo ? resumo + '\n\n' : '') + PROMPT_BASE + JSON.stringify(texto)
+export async function classificaPergunta(texto, resumo = '', historico = []) {
+  const hist = historico.length
+    ? 'HISTÓRICO recente da conversa (mais antigo → mais novo):\n' +
+      historico.map((m) => `- ${m.de === 'cliente' ? 'Cliente' : m.de === 'dono' ? 'Dono (humano)' : 'Bot'}: ${JSON.stringify(m.texto)}`).join('\n') + '\n\n'
+    : ''
+  const prompt = (resumo ? resumo + '\n\n' : '') + hist + PROMPT_BASE + JSON.stringify(texto)
   const j = primeiroJson(await chamaDeepSeek(prompt, 300))
-  if (!j) return { ehPerguntaProduto: false, textoBusca: null, ehCompra: false }
+  if (!j) return { ehPerguntaProduto: false, textoBusca: null, ehCompra: false, ehNovoAssunto: true }
   return {
     ehPerguntaProduto: j.eh_pergunta_produto === true,
     textoBusca: j.eh_pergunta_produto === true ? (j.texto_busca || texto) : null,
     ehCompra: j.eh_compra === true,
+    ehNovoAssunto: j.eh_novo_assunto !== false,
   }
 }
 

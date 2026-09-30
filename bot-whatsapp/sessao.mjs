@@ -10,7 +10,7 @@ import { buscaProdutos, buscaProdutosAmplo, buscaPorPrioridade, buscaEstoque, bu
 import { montaResposta, AVISO } from './lib/resposta.mjs'
 import { ENDERECO, HORARIO, CADASTRO, montaPolitica, ENCOMENDA, VENDEDORA, PERGUNTA_APARELHO, FORA_HORARIO } from './lib/info.mjs'
 import { registraTroca, jaAvisouHoje, marcaAvisoHoje } from './lib/db.mjs'
-import { guardaPendente, pegaPendente, limpaPendente, guardaContexto, pegaContexto, limpaContexto, guardaCategoria, pegaCategoria, guardaModelos, pegaModelos, limpaModelos } from './lib/estado.mjs'
+import { guardaPendente, pegaPendente, limpaPendente, guardaContexto, pegaContexto, limpaContexto, guardaCategoria, pegaCategoria, guardaModelos, pegaModelos, limpaModelos, guardaHistorico, pegaHistorico, marcaHumanoAssumiu, humanoAssumiu, limpaHumanoAssumiu } from './lib/estado.mjs'
 import { respondePedido, ehConfirmacao, marcaAlertaVisto } from './lib/pedido.mjs'
 import { aprendeContato, resolveTelefone, constroiMapa, resolveNome, aprendeNome } from './lib/lid-telefone.mjs'
 import { dorme } from '../bot/lib/util.mjs'
@@ -145,6 +145,22 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
   // Identifica como Chrome normal (não o 'Baileys' default) — reduz queda de sessão.
   const sock = makeWASocket({ version, auth: state, logger, printQRInTerminal: false, browser: Browsers.ubuntu('Chrome') })
 
+  // Rastreia os ids das mensagens que o PRÓPRIO bot envia — pra distinguir a
+  // resposta manual do DONO (mesmo número, outro aparelho) do eco da mensagem
+  // do bot. Também grava no histórico o que o bot mandou (pro contexto da IA).
+  const idsEnviados = new Set()
+  const _send = sock.sendMessage.bind(sock)
+  sock.sendMessage = async (jid, content, ...rest) => {
+    const res = await _send(jid, content, ...rest)
+    const id = res?.key?.id
+    if (id) {
+      idsEnviados.add(id)
+      if (idsEnviados.size > 300) { let n = 0; for (const k of idsEnviados) { idsEnviados.delete(k); if (++n >= 150) break } }
+    }
+    if (content?.text) guardaHistorico(slug, jid, { de: 'bot', texto: content.text })
+    return res
+  }
+
   // Fecha socket anterior da MESMA pasta de auth antes de assumir o novo — dois
   // vínculos abertos ao mesmo tempo fazem o WhatsApp trocar o vínculo (440) e
   // invalidar a sessão = novo QR. Só a chamada mais recente fica de pé.
@@ -253,9 +269,23 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
     ultimoRecv = Date.now()
     bateCoracao()
     for (const msg of messages) {
+      // Mensagem do MESMO número (fromMe): ou é eco do próprio bot, ou é o DONO
+      // respondendo na mão pelo celular da loja. Se não foi o bot, marca "dono
+      // assumiu" (o bot pausa) e grava no histórico.
+      if (msg.key.fromMe) {
+        if (!idsEnviados.has(msg.key.id)) {
+          const textoDono = textoDaMensagem(msg)
+          if (textoDono) {
+            marcaHumanoAssumiu(slug, msg.key.remoteJid)
+            guardaHistorico(slug, msg.key.remoteJid, { de: 'dono', texto: textoDono })
+          }
+        }
+        continue
+      }
       if (!elegivel(msg)) continue
       const texto = textoDaMensagem(msg)
       if (!texto) continue
+      guardaHistorico(slug, msg.key.remoteJid, { de: 'cliente', texto })
       aprendeNome(msg.key.remoteJid, msg.pushName) // guarda o nome de exibição pra identificar no alerta
       try {
         await processaMensagem(sock, { slug, depositoId }, msg.key.remoteJid, texto)
@@ -352,6 +382,13 @@ function ehProdutoLexico(texto) {
 const brl = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v || 0))
 
 async function processaMensagem(sock, loja, jid, texto) {
+  // Dono (humano) respondeu manualmente na conversa: o bot pausa. Só reassume
+  // quando o cliente muda de assunto (a IA com histórico decide).
+  if (humanoAssumiu(loja.slug, jid)) {
+    const cls = await classificaPergunta(texto, '', pegaHistorico(loja.slug, jid)).catch(() => null)
+    if (!cls?.ehNovoAssunto) return // continua pausado — não responde
+    limpaHumanoAssumiu(loja.slug, jid)
+  }
   // jid pode vir como @lid (ID anônimo) — traduz pro número real antes de casar
   // com a tabela de preço do cliente.
   const telefone = resolveTelefone(jid) ?? jid.split('@')[0]
@@ -406,7 +443,7 @@ async function processaMensagem(sock, loja, jid, texto) {
     } else {
       try {
         const resumo = await resumoLoja().catch(() => '')
-        classificacao = await classificaPergunta(texto, resumo)
+        classificacao = await classificaPergunta(texto, resumo, pegaHistorico(loja.slug, jid))
       } catch (e) {
         console.error(`[${loja.slug}] [ERRO IA] falha ao classificar mensagem:`, e?.message || e)
         // fallback: IA falhou/timeout — trata como busca direta (não deixa a mensagem em "aguardo")
