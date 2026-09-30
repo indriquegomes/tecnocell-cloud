@@ -4,6 +4,7 @@ import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { registrarNoCaixa } from '@/lib/caixa'
 import { hojeSP } from '@/lib/utils'
+import { aplicaBusca, palavrasBusca } from '@/lib/busca-produtos'
 
 // Tabela de preço ATACADO1 — é o valor de venda inicial da encomenda (pedido do dono).
 const ATACADO1_ID = '74f5fea6-cbc9-4f12-8702-27c54eb9ff88'
@@ -12,14 +13,16 @@ const ATACADO1_ID = '74f5fea6-cbc9-4f12-8702-27c54eb9ff88'
 export async function buscarProdutosEncomenda(termo: string) {
   await requirePermissao('pdv')
   const supabase = await createServiceClient()
-  const q = termo.trim()
-  if (!q) return []
-  const { data } = await supabase.from('produtos')
-    .select('id, nome, preco')
-    .ilike('nome', `%${q}%`)
-    .eq('ativo', true)
-    .order('nome')
-    .limit(8)
+  const palavras = palavrasBusca(termo)
+  if (palavras.length === 0) return []
+  let q = supabase.from('produtos').select('id, nome, preco').eq('ativo', true)
+  q = aplicaBusca(q, 'busca_norm', palavras)
+  let { data, error } = await q.order('nome').limit(8)
+  if (error && (error.code === '42703' || error.message?.includes('busca_norm'))) {
+    let f = supabase.from('produtos').select('id, nome, preco').eq('ativo', true)
+    for (const w of palavras) f = f.ilike('nome', `%${w}%`)
+    ;({ data } = await f.order('nome').limit(8))
+  }
   const produtos = (data ?? []) as { id: string; nome: string; preco: number | null }[]
   const ids = produtos.map((p) => p.id)
   const { data: itens } = ids.length
