@@ -36,6 +36,7 @@ const ICONS: Record<string, IconComp> = {
   '/painel/fiados': IconCard,
   '/painel/vales-credito': IconCard,
   '/painel/contas': IconBank,
+  '/painel/fechamento-mes': IconChart,
   '/painel/motoboy': IconStore,
   '/painel/clientes': IconUsers,
   '/painel/lojas': IconStore,
@@ -118,6 +119,7 @@ const navCompleto: NavGroup[] = [
       { href: '/painel/fiados',        label: 'Fiados',               permissao: 'financeiro' },
       { href: '/painel/vales-credito', label: 'Créditos de Clientes', permissao: 'financeiro' },
       { href: '/painel/contas',        label: 'Contas',               permissao: 'financeiro' },
+      { href: '/painel/fechamento-mes', label: 'Fechamento do Mês',    permissao: 'financeiro' },
     ],
   },
   {
