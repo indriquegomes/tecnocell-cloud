@@ -76,7 +76,7 @@ export async function criarEncomenda(formData: FormData) {
 
   if (sinal > 0) {
     const hoje = hojeSP()
-    const desc = `Sinal encomenda ${item_nome}`
+    const desc = `Sinal encomenda ${item_nome} — ${pessoa_nome}`
     const { error: eLanc } = await supabase.from('lancamentos').insert({
       id: crypto.randomUUID(),
       descricao: desc, valor: sinal, tipo: 'receber', status: 'pago',
@@ -151,6 +151,16 @@ export async function rejeitarEncomenda(encomendaId: string) {
   await supabase.from('encomendas').update({ status: 'cancelada' }).eq('id', encomendaId)
   revalidatePath('/painel/compras')
   revalidatePath('/painel/estoque/encomendas')
+  return { ok: true as const }
+}
+
+// Cancela a encomenda direto da lista do Estoque (cliente desistiu).
+export async function cancelarEncomenda(encomendaId: string) {
+  await requirePermissao('estoque')
+  const supabase = await createServiceClient()
+  await supabase.from('encomendas').update({ status: 'cancelada' }).eq('id', encomendaId)
+  revalidatePath('/painel/estoque/encomendas')
+  revalidatePath('/painel/compras')
   return { ok: true as const }
 }
 
