@@ -418,8 +418,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     // São sempre as mesmas máquinas → o PDV reabre instantâneo. O estoque continua
     // sendo revalidado em background (e o finalizar_venda valida no servidor), então
     // não há risco de vender item errado — o cache é só pra vitrine/busca instantânea.
-    const CHAVE = 'pdv_catalogo_v1'
-    const VALIDADE = 7 * 24 * 3600 * 1000 // ignora cache com +7 dias (evita 1º paint super velho)
+    // v2 + validade curta: forçou todo mundo a baixar o catálogo fresco de novo
+    // (a v1 ficou velha e a busca local não achava peça nova / abreviada).
+    const CHAVE = 'pdv_catalogo_v2'
+    const VALIDADE = 24 * 3600 * 1000 // 1 dia — catálogo muda, cache velho esconde peça
     // 1) cache local → busca instantânea já na abertura (enquanto atualiza no fundo)
     try {
       const bruto = localStorage.getItem(CHAVE)
