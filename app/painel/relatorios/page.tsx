@@ -1022,26 +1022,28 @@ export default async function RelatoriosPage({
     registroPorUsuario = Object.entries(uMap).map(([usuario, n]) => ({ usuario, n })).sort((a, b) => b.n - a.n)
   }
 
-  const categorias: { cat: string; abas: { id: string; label: string }[] }[] = [
+  // dica: explicação em linguagem do dia a dia pras abas de nome técnico (aparece ao passar o mouse).
+  // Só rótulo/tooltip — não muda id, cálculo nem URL.
+  const categorias: { cat: string; abas: { id: string; label: string; dica?: string }[] }[] = [
     { cat: 'Financeiro', abas: [
       { id: 'financeiro', label: 'Lançamentos' }, { id: 'fluxo', label: 'Fluxo de Caixa' },
       { id: 'fechamentocaixa', label: 'Fechamento de Caixa' },
-      { id: 'dre', label: 'DRE' }, { id: 'inadimplencia', label: 'Inadimplência' },
+      { id: 'dre', label: 'DRE', dica: 'Resultado do período: quanto entrou de venda, quanto saiu de custo e o lucro que sobrou.' }, { id: 'inadimplencia', label: 'Inadimplência' },
       { id: 'comissoes', label: 'Comissões' }, { id: 'previsaocaixa', label: 'Previsão de Caixa' },
       { id: 'comparativo', label: 'Comparativo' },
     ] },
     { cat: 'Vendas', abas: [
-      { id: 'vendas', label: 'Vendas' }, { id: 'lucro', label: 'Condensado' }, { id: 'produtos', label: 'Mais vendidos' },
-      { id: 'abc', label: 'Curva ABC' }, { id: 'formas', label: 'Formas de pgto' }, { id: 'porloja', label: 'Por loja' },
+      { id: 'vendas', label: 'Vendas' }, { id: 'lucro', label: 'Condensado', dica: 'Resumo por produto: quanto vendeu, o lucro e o estoque de cada um.' }, { id: 'produtos', label: 'Mais vendidos' },
+      { id: 'abc', label: 'Curva ABC', dica: 'Quais produtos concentram a maior parte do faturamento (A = os que mais rendem, C = os que menos rendem).' }, { id: 'formas', label: 'Formas de pgto' }, { id: 'porloja', label: 'Por loja' },
       { id: 'porvendedor', label: 'Por vendedor' }, { id: 'itensvendedor', label: 'Itens por vendedor' },
-      { id: 'periodicidade', label: 'Periodicidade' }, { id: 'precificacao', label: 'Precificação' },
+      { id: 'periodicidade', label: 'Periodicidade', dica: 'Vendas por dia da semana — mostra quais dias vendem mais.' }, { id: 'precificacao', label: 'Precificação', dica: 'Lista de preços dos produtos.' },
       { id: 'pedidos', label: 'Pedidos' },
     ] },
     { cat: 'Compras', abas: [{ id: 'entradas', label: 'Entrada de Produtos' }] },
     { cat: 'Estoque', abas: [
       { id: 'estoque', label: 'Estoque e compra' }, { id: 'porfornecedor', label: 'Por fornecedor' },
       { id: 'inventario', label: 'Inventário' }, { id: 'movsaldo', label: 'Movimentações' },
-      { id: 'imobilizado', label: 'Imobilizado' },
+      { id: 'imobilizado', label: 'Imobilizado', dica: 'Quanto dinheiro está parado em estoque, somado por categoria.' },
     ] },
     { cat: 'Serviços', abas: [{ id: 'tecnicos', label: 'Performance Técnicos' }] },
     { cat: 'Sistema', abas: [{ id: 'registro', label: 'Registro de Atividades' }] },
@@ -1093,6 +1095,7 @@ export default async function RelatoriosPage({
                 // no load disparava ~25 requests RSC à toa. A troca de aba já tem skeleton
                 // + barra de progresso, então continua fluida sem o prefetch em massa.
                 <Link key={a.id} prefetch={false} href={`/painel/relatorios?aba=${a.id}&de=${dataInicio}&ate=${dataFim}`}
+                  title={a.dica}
                   className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${aba === a.id ? cor.pillAtivo : cor.pill}`}>
                   {a.label}
                 </Link>
