@@ -174,17 +174,17 @@ const COR_GRUPO: Record<string, string> = {
   'Admin':       'text-rose-600',
 }
 
-// Tom escuro de cada seção pro TEXTO do item — lê bem em fundo branco, sem
-// virar arco-íris (a cor viva fica só no ícone/título). Cor com intenção.
+// Cor do TEXTO do item: um tom MAIS CLARO que o ícone da mesma seção — o
+// texto fica leve, o ícone/título segura a cor forte. Cor com intenção.
 const COR_TEXTO_GRUPO: Record<string, string> = {
-  'Geral':       'text-blue-700',
-  'Vendas':      'text-emerald-700',
-  'Serviços':    'text-orange-700',
-  'Estoque':     'text-violet-700',
-  'Financeiro':  'text-amber-700',
-  'Cadastros':   'text-cyan-700',
-  'Integrações': 'text-indigo-700',
-  'Admin':       'text-rose-700',
+  'Geral':       'text-blue-500',
+  'Vendas':      'text-emerald-500',
+  'Serviços':    'text-orange-500',
+  'Estoque':     'text-violet-500',
+  'Financeiro':  'text-amber-500',
+  'Cadastros':   'text-cyan-500',
+  'Integrações': 'text-indigo-500',
+  'Admin':       'text-rose-500',
 }
 
 const semAcento = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
