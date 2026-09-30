@@ -718,7 +718,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const casaProduto = (p: Produto, palavras: string[]) => {
     const nm = semAcento(`${p.nome} ${p.marca ?? ''}`)
     const cod = semAcento(p.codigo ?? '')
-    return palavras.every((w) => nm.includes(w) || cod.startsWith(w))
+    return palavras.every((w) => nm.includes(w) || (/^\d+$/.test(w) ? cod.startsWith(w) : cod.includes(w)))
   }
 
   // Prioridade de estoque na busca (pedido da Isa): 1º tem na loja atual,
@@ -750,7 +750,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     const achados = produtos.filter((p) => {
       const idx = indiceNorm.get(p.id)
       if (!idx) return false
-      return palavras.every((w) => idx.nm.includes(w) || idx.cod.startsWith(w))
+      return palavras.every((w) => idx.nm.includes(w) || (/^\d+$/.test(w) ? idx.cod.startsWith(w) : idx.cod.includes(w)))
     })
     return ordenarPorEstoque(achados, palavras.join(' ')).slice(0, limite)
   }

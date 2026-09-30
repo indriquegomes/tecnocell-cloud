@@ -10,9 +10,9 @@ type Encomenda = {
   created_at: string
 }
 
-const STATUS_LABEL: Record<string, string> = { aberta: 'Aberta', aprovada: 'Chegou', cancelada: 'Cancelada' }
+const STATUS_LABEL: Record<string, string> = { aberta: 'Aberta', comprada: 'Comprada (aguardando)', aprovada: 'Chegou', cancelada: 'Cancelada' }
 const STATUS_CLS: Record<string, string> = {
-  aberta: 'bg-amber-50 text-amber-700', aprovada: 'bg-emerald-50 text-emerald-700', cancelada: 'bg-gray-100 text-gray-500',
+  aberta: 'bg-amber-50 text-amber-700', comprada: 'bg-blue-50 text-blue-700', aprovada: 'bg-emerald-50 text-emerald-700', cancelada: 'bg-gray-100 text-gray-500',
 }
 
 export default async function EncomendasPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
@@ -27,7 +27,7 @@ export default async function EncomendasPage({ searchParams }: { searchParams: P
   })
 
   const filtradas = status && status !== 'todas' ? encomendas.filter((e) => e.status === status) : encomendas
-  const contagem = { aberta: encomendas.filter((e) => e.status === 'aberta').length, aprovada: encomendas.filter((e) => e.status === 'aprovada').length, cancelada: encomendas.filter((e) => e.status === 'cancelada').length }
+  const contagem = { aberta: encomendas.filter((e) => e.status === 'aberta').length, comprada: encomendas.filter((e) => e.status === 'comprada').length, aprovada: encomendas.filter((e) => e.status === 'aprovada').length, cancelada: encomendas.filter((e) => e.status === 'cancelada').length }
 
   return (
     <div className="space-y-6">
@@ -38,7 +38,7 @@ export default async function EncomendasPage({ searchParams }: { searchParams: P
 
       {/* Filtro por status */}
       <div className="flex flex-wrap gap-2">
-        {([['todas', `Todas (${encomendas.length})`], ['aberta', `Abertas (${contagem.aberta})`], ['aprovada', `Chegaram (${contagem.aprovada})`], ['cancelada', `Canceladas (${contagem.cancelada})`]] as const).map(([k, label]) => (
+        {([['todas', `Todas (${encomendas.length})`], ['aberta', `Abertas (${contagem.aberta})`], ['comprada', `Aguardando (${contagem.comprada})`], ['aprovada', `Chegaram (${contagem.aprovada})`], ['cancelada', `Canceladas (${contagem.cancelada})`]] as const).map(([k, label]) => (
           <a key={k} href={k === 'todas' ? '/painel/estoque/encomendas' : `/painel/estoque/encomendas?status=${k}`}
             className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${(status ?? 'todas') === k ? 'bg-[#1B6CA8] text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}>
             {label}

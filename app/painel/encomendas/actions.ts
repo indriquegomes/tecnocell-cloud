@@ -96,6 +96,16 @@ export async function criarEncomenda(formData: FormData) {
   return { ok: true as const, id: encomendaId }
 }
 
+// Marca que a estoquista COMPROU a peça no fornecedor — vira "aguardando chegada".
+export async function marcarComprada(encomendaId: string) {
+  await requirePermissao('compras')
+  const supabase = await createServiceClient()
+  await supabase.from('encomendas').update({ status: 'comprada' }).eq('id', encomendaId)
+  revalidatePath('/painel/compras')
+  revalidatePath('/painel/estoque/encomendas')
+  return { ok: true as const }
+}
+
 // Aprova quando a peça chega: cadastra o produto (se temporário), entra no estoque
 // e marca a encomenda como 'aprovada'. O custo é digitado pela estoquista.
 export async function aprovarEncomenda(encomendaId: string, custo: number) {

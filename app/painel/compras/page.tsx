@@ -26,7 +26,7 @@ export default async function ComprasPage({
   // Encomendas pendentes (pra "nota" ENCOMENDAS ESPECIAIS) — filtra pela loja ativa
   const { ativa: lojaAtiva, todas: todasLojas } = await lojasDoUsuario().catch(() => ({ ativa: null, todas: true }))
   const { data: encomendasPendentes } = await (() => {
-    let q = supabase.from('encomendas').select('id, pessoa_nome, item_nome, temporario, quantidade, valor_venda, sinal').eq('status', 'aberta').order('created_at')
+    let q = supabase.from('encomendas').select('id, pessoa_nome, item_nome, temporario, quantidade, valor_venda, sinal, status').in('status', ['aberta', 'comprada']).order('created_at')
     if (!todasLojas && lojaAtiva?.id) q = q.eq('loja_id', lojaAtiva.id)
     return q
   })()
@@ -92,7 +92,7 @@ export default async function ComprasPage({
         </div>
       </div>
 
-      <EncomendasEspeciais encomendas={(encomendasPendentes ?? []) as { id: string; pessoa_nome: string; item_nome: string; temporario: boolean; quantidade: number; valor_venda: number | null; sinal: number }[]} />
+      <EncomendasEspeciais encomendas={(encomendasPendentes ?? []) as { id: string; pessoa_nome: string; item_nome: string; temporario: boolean; quantidade: number; valor_venda: number | null; sinal: number; status: string }[]} />
 
       {params.erro && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{params.erro}</div>
