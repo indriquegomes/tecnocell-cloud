@@ -2310,7 +2310,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         {/* Seletores de loja, depósito e tabela de preço — quebram fluido ao apertar */}
         <div className="flex flex-wrap gap-3">
           <div className="flex flex-1 basis-52 min-w-0 items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm transition focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500/40">
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide shrink-0">Loja</label>
+            <label className="text-xs font-semibold text-blue-600 uppercase tracking-wide shrink-0">Loja</label>
             <select
               value={lojaId}
               onChange={(e) => trocarLoja(e.target.value)}
@@ -2321,7 +2321,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             </select>
           </div>
           <div className="flex flex-1 basis-52 min-w-0 items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm transition focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500/40">
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide shrink-0">Estoque</label>
+            <label className="text-xs font-semibold text-emerald-600 uppercase tracking-wide shrink-0">Estoque</label>
             <select
               value={depositoId}
               onChange={(e) => trocarDeposito(e.target.value)}
@@ -2332,7 +2332,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             </select>
           </div>
           <div className="flex flex-1 basis-52 min-w-0 items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm transition focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500/40">
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide shrink-0">Tabela</label>
+            <label className="text-xs font-semibold text-violet-600 uppercase tracking-wide shrink-0">Tabela</label>
             <select
               value={tabelaId}
               onChange={(e) => trocarTabela(e.target.value)}
@@ -2617,7 +2617,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             </div>
           ) : (
             <table className="min-w-full divide-y divide-gray-100">
-              <thead className="bg-gray-50">
+              <thead className="bg-blue-50/70">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Produto</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Qtd</th>
