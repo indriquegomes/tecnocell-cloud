@@ -173,7 +173,7 @@ export default async function PDVPage() {
           <h2 className="text-2xl font-bold text-gray-900">PDV — Frente de Caixa</h2>
           <p className="text-sm text-gray-400 mt-0.5">{totalProdutos ?? 0} produtos disponíveis</p>
         </div>
-        <NovaEncomenda lojaId={cfg?.pdvLojaId ?? null} />
+        <NovaEncomenda lojaId={cfg?.pdvLojaId ?? null} lojas={lojasVisiveis.map((l) => ({ id: l.id, nome: l.nome }))} />
       </div>
 
       <PDVClient

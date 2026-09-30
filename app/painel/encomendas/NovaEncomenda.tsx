@@ -7,8 +7,9 @@ import { formatBRL } from '@/lib/utils'
 type Prod = { id: string; nome: string; atacado1: number }
 type Pessoa = { id: string; nome: string; telefone: string | null }
 
-export function NovaEncomenda({ lojaId }: { lojaId: string | null }) {
+export function NovaEncomenda({ lojaId, lojas = [] }: { lojaId: string | null; lojas?: { id: string; nome: string }[] }) {
   const [aberta, setAberta] = useState(false)
+  const [lojaSel, setLojaSel] = useState<string>(lojaId ?? (lojas.length === 1 ? lojas[0].id : ''))
   const [buscaCliente, setBuscaCliente] = useState('')
   const [clientes, setClientes] = useState<Pessoa[]>([])
   const [pessoaId, setPessoaId] = useState<string | null>(null)
@@ -49,6 +50,8 @@ export function NovaEncomenda({ lojaId }: { lojaId: string | null }) {
 
   const salvar = async () => {
     if (!pessoaNome.trim() || !itemNome.trim()) { setErro('Preencha cliente e item.'); return }
+    const lojaFinal = lojas.length === 1 ? lojas[0].id : lojaSel
+    if (!lojaFinal) { setErro('Escolha a loja.'); return }
     setSalvando(true); setErro(null)
     const fd = new FormData()
     fd.set('pessoa_id', pessoaId ?? '')
@@ -60,7 +63,7 @@ export function NovaEncomenda({ lojaId }: { lojaId: string | null }) {
     fd.set('valor_venda', valorVenda)
     fd.set('sinal', sinal)
     fd.set('sinal_forma', sinalForma)
-    fd.set('loja_id', lojaId ?? '')
+    fd.set('loja_id', lojaFinal)
     const r = await criarEncomenda(fd)
     setSalvando(false)
     if (r?.erro) { setErro(r.erro); return }
@@ -82,6 +85,15 @@ export function NovaEncomenda({ lojaId }: { lojaId: string | null }) {
             <p className="text-xs text-gray-500">Cliente quer peça que não está em estoque. Sinal (opcional) vira vale no nome dele.</p>
 
             <div className="mt-4 space-y-3">
+              {lojas.length > 1 && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-600">Loja</label>
+                  <select value={lojaSel} onChange={(e) => setLojaSel(e.target.value)} className="field">
+                    <option value="">Escolha a loja...</option>
+                    {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-600">Cliente</label>
                 <input value={buscaCliente} onChange={(e) => buscarClientes(e.target.value)} placeholder="Buscar cliente..." className="field" />

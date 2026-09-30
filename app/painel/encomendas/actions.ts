@@ -63,6 +63,7 @@ export async function criarEncomenda(formData: FormData) {
   const observacoes = ((formData.get('observacoes') as string) || '').trim() || null
 
   if (!pessoa_nome || !item_nome || quantidade <= 0) return { erro: 'Preencha cliente, item e quantidade.' }
+  if (!loja_id) return { erro: 'Escolha a loja da encomenda.' }
   if (sinal > 0 && !sinal_forma) return { erro: 'Escolha a forma do sinal.' }
 
   const { data: enc, error: eEnc } = await supabase.from('encomendas').insert({
