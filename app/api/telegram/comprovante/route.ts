@@ -827,9 +827,10 @@ async function processa(loja: Loja, update: any) {
   const m = update.message || update.channel_post
   if (!m || !m.chat || m.chat.id !== loja.grupo) return
   const txt = (m.text || '').trim().toLowerCase()
+  const semBarra = txt.replace(/^\//, '') // '/corrigir' e 'corrigir' viram 'corrigir' — comando não exige a barra
   const quem = m.from ? ((m.from.first_name || '') + (m.from.last_name ? ' ' + m.from.last_name : '')).trim() : null
-  if (txt.startsWith('/abrir')) { await abrir(loja, quem); await escreveSheet(loja); return }
-  if (txt.startsWith('/revisar')) {
+  if (semBarra.startsWith('abrir')) { await abrir(loja, quem); await escreveSheet(loja); return }
+  if (semBarra.startsWith('revisar')) {
     // ESPELHO REMOVIDO: o grupo tem mensagem que SOME (auto-delete/limpeza) e "sumiu do
     // Telegram" NÃO quer dizer "comprovante inválido" — o pagamento é real. Marcar apagado
     // por isso zerava o caixa. /revisar agora só RELÊ os comprovantes do período.
@@ -837,9 +838,9 @@ async function processa(loja: Loja, update: any) {
     await tgSend(loja.token, loja.grupo, '🔄 Relendo todos os comprovantes do período... aviso quando terminar.')
     return
   }
-  if (txt.startsWith('/fechar')) { const p = await periodoAberto(loja.grupo); if (p) await fechar(loja, p, quem); else await tgSend(loja.token, loja.grupo, 'ℹ️ Não há contagem aberta. Use /abrir primeiro.'); await escreveSheet(loja); return }
-  if (txt.startsWith('/cliente')) {
-    const nome = (m.text || '').trim().slice(8).trim() // tira o '/cliente' (8 chars)
+  if (semBarra.startsWith('fechar')) { const p = await periodoAberto(loja.grupo); if (p) await fechar(loja, p, quem); else await tgSend(loja.token, loja.grupo, 'ℹ️ Não há contagem aberta. Use /abrir primeiro.'); await escreveSheet(loja); return }
+  if (semBarra.startsWith('cliente')) {
+    const nome = (m.text || '').trim().replace(/^\//, '').slice('cliente'.length).trim() // tira o 'cliente' (com ou sem barra)
     const alvo = m.reply_to_message?.message_id
     if (!alvo) { await tgSend(loja.token, loja.grupo, 'ℹ️ Responda o comprovante (foto/PDF) com /cliente NOME'); return }
     if (!nome) { await tgSend(loja.token, loja.grupo, 'ℹ️ Uso: /cliente NOME (respondendo o comprovante)'); return }
@@ -852,7 +853,7 @@ async function processa(loja: Loja, update: any) {
     try { await escreveSheet(loja) } catch (e) { console.error('sheet cliente:', e) }
     return
   }
-  if (txt.startsWith('/corrigir')) {
+  if (semBarra.startsWith('corrigir')) {
     const alvo = m.reply_to_message?.message_id
     if (!alvo) { await tgSend(loja.token, loja.grupo, 'ℹ️ Responda o comprovante com /corrigir pra forçar a soma.'); return }
     const { data: comp } = await sb().from('comprovantes_pix').select('id, extraido_raw').eq('telegram_chat_id', loja.grupo).eq('telegram_message_id', alvo).maybeSingle()
@@ -862,7 +863,7 @@ async function processa(loja: Loja, update: any) {
     try { await escreveSheet(loja) } catch (e) { console.error('sheet corrigir:', e) }
     return
   }
-  if (txt.startsWith('/eliminar')) {
+  if (semBarra.startsWith('eliminar')) {
     const alvo = m.reply_to_message?.message_id
     if (!alvo) { await tgSend(loja.token, loja.grupo, 'ℹ️ Responda a imagem do comprovante com /eliminar pra tirar da soma.'); return }
     const { data: comp } = await sb().from('comprovantes_pix').select('id').eq('telegram_chat_id', loja.grupo).eq('telegram_message_id', alvo).maybeSingle()
@@ -872,9 +873,9 @@ async function processa(loja: Loja, update: any) {
     try { await escreveSheet(loja) } catch (e) { console.error('sheet eliminar:', e) }
     return
   }
-  if (txt.startsWith('/valor')) {
+  if (semBarra.startsWith('valor')) {
     const alvo = m.reply_to_message?.message_id
-    const bruto = (m.text || '').trim().slice(6).trim() // tira o '/valor'
+    const bruto = (m.text || '').trim().replace(/^\//, '').slice('valor'.length).trim() // tira o 'valor' (com ou sem barra)
     if (!alvo) { await tgSend(loja.token, loja.grupo, 'ℹ️ Responda o comprovante (foto/PDF) com /valor NUMERO'); return }
     const novo = parseValor(bruto)
     if (novo == null || novo <= 0) { await tgSend(loja.token, loja.grupo, 'ℹ️ Uso: /valor NUMERO (ex: /valor 67) — respondendo o comprovante'); return }
