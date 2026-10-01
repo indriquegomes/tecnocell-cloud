@@ -37,7 +37,7 @@ const fmtHora = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString(
 export default async function RhPage() {
   const supabase = await createServiceClient()
   const { isMaster } = await permissoesUsuarioAtual()
-  const { ativa, todas } = await lojasDoUsuario().catch(() => ({ ativa: null, todas: true }))
+  const { todasLojas, operaveis } = await lojasDoUsuario().catch(() => ({ todasLojas: [] as { id: string; nome: string }[], operaveis: [] as { id: string; nome: string }[] }))
   const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
   const [{ data: perfisRaw }, { data: pontos }, banco] = await Promise.all([
     supabase.from('perfis').select('id, nome, cargo, pdv_loja_id, lojas_permitidas').eq('ativo', true).order('nome'),
@@ -45,19 +45,21 @@ export default async function RhPage() {
     fetchAll<{ id: string; usuario_id: string; horas: number; data: string; motivo: string | null; obs: string | null; confirmado: boolean | null }>(
       (from, to) => supabase.from('banco_horas').select('id, usuario_id, horas, data, motivo, obs, confirmado').order('data', { ascending: false }).range(from, to)),
   ])
-  // Equipe separada por loja ativa. Funcionário pertence às lojas em
-  // lojas_permitidas (vazio = master/dono, vê tudo). Quem tem as DUAS (gerente geral)
-  // aparece nas duas — pdv_loja_id é só o padrão do PDV, não define a lista.
-  const lojasDe = (p: { lojas_permitidas: string[] | null }) => (p.lojas_permitidas ?? [])
-  const perfis = (perfisRaw ?? []).filter((p) => {
-    if (todas || !ativa?.id) return true
-    const ls = lojasDe(p as { lojas_permitidas: string[] | null })
-    return ls.length === 0 || ls.includes(ativa.id)
-  })
+  // Equipe separada por loja. Funcionário pertence às lojas em lojas_permitidas
+  // (vazio = sem loja definida). pdv_loja_id é só o padrão do PDV, não define a lista.
+  const lojasDe = (p: { lojas_permitidas?: string[] | null } | null) => ((p?.lojas_permitidas) ?? []).filter(Boolean) as string[]
+  const perfis = (perfisRaw ?? []) // todos os ativos — agrupados por loja abaixo
   const porUser: Record<string, Ponto[]> = {}
   for (const p of (pontos ?? []) as Ponto[]) (porUser[p.usuario_id] ??= []).push(p)
 
   const linhas = (perfis ?? []).map((u) => ({ ...u, ...statusEHoras(porUser[u.id] ?? []), batidas: porUser[u.id] ?? [] }))
+  const lojasSecao = operaveis.length > 0 ? operaveis : todasLojas
+  // Seções: uma por loja + "Ambas as lojas" + "Sem loja definida". Cada pessoa aparece UMA vez.
+  const secoes = [
+    ...lojasSecao.map((l) => ({ titulo: l.nome, linhas: linhas.filter((x) => lojasDe(x as { lojas_permitidas?: string[] | null }).length === 1 && lojasDe(x as { lojas_permitidas?: string[] | null })[0] === l.id) })),
+    { titulo: 'Ambas as lojas', linhas: linhas.filter((x) => lojasDe(x as { lojas_permitidas?: string[] | null }).length > 1) },
+    { titulo: 'Sem loja definida', linhas: linhas.filter((x) => lojasDe(x as { lojas_permitidas?: string[] | null }).length === 0) },
+  ].filter((s) => s.linhas.length > 0)
   const trabalhando = linhas.filter((l) => l.status === 'trabalhando' || l.status === 'pausa').length
 
   const badge = (s: string) =>
@@ -97,35 +99,40 @@ export default async function RhPage() {
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-gray-100">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Pessoa</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Entrada</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Trabalhado</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Batidas</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {linhas.map((l) => (
-              <tr key={l.id} className="hover:bg-blue-50/60 transition">
-                <td className="px-4 py-3">
-                  <p className="text-sm font-medium text-gray-800">{l.nome}</p>
-                  {l.cargo && <p className="text-xs text-gray-400">{l.cargo}</p>}
-                </td>
-                <td className="px-4 py-3 text-center"><span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${badge(l.status)}`}>{label(l.status)}</span></td>
-                <td className="px-4 py-3 text-center text-sm tabular-nums text-gray-600">{fmtHora(l.entrada)}</td>
-                <td className="px-4 py-3 text-center text-sm font-semibold tabular-nums text-gray-800">{l.batidas.length ? l.horas : '—'}</td>
-                <td className="px-4 py-3">
-                  <BatidasPonto batidas={l.batidas} usuarioId={l.id} isMaster={isMaster} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {secoes.map((s) => (
+        <div key={s.titulo} className="space-y-2">
+          <h3 className="pt-2 text-sm font-bold text-gray-700">{s.titulo} <span className="font-normal text-gray-400">({s.linhas.length})</span></h3>
+          <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <table className="min-w-full divide-y divide-gray-100">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Pessoa</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Entrada</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Trabalhado</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Batidas</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {s.linhas.map((l) => (
+                  <tr key={l.id} className="hover:bg-blue-50/60 transition">
+                    <td className="px-4 py-3">
+                      <p className="text-sm font-medium text-gray-800">{l.nome}</p>
+                      {l.cargo && <p className="text-xs text-gray-400">{l.cargo}</p>}
+                    </td>
+                    <td className="px-4 py-3 text-center"><span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${badge(l.status)}`}>{label(l.status)}</span></td>
+                    <td className="px-4 py-3 text-center text-sm tabular-nums text-gray-600">{fmtHora(l.entrada)}</td>
+                    <td className="px-4 py-3 text-center text-sm font-semibold tabular-nums text-gray-800">{l.batidas.length ? l.horas : '—'}</td>
+                    <td className="px-4 py-3">
+                      <BatidasPonto batidas={l.batidas} usuarioId={l.id} isMaster={isMaster} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
 
       {/* ---- BANCO DE HORAS ---- */}
       <div className="flex items-center gap-2 pt-2">
