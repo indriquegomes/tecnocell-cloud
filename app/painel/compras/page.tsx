@@ -49,19 +49,30 @@ export default async function ComprasPage({
   const NENHUMA_NOTA = '00000000-0000-0000-0000-000000000000'
   let notaIdsAtiva: string[] | null = null
   if (depositosAtiva.length > 0) {
-    const { data: idsItens } = await supabase.from('itens_nota_entrada').select('nota_id').in('deposito_id', depositosAtiva)
-    notaIdsAtiva = [...new Set((idsItens ?? []).map((i) => i.nota_id as string))]
+    const idsItens = await fetchAll<{ nota_id: string }>((from, to) =>
+      supabase.from('itens_nota_entrada').select('nota_id').in('deposito_id', depositosAtiva).range(from, to)
+    )
+    notaIdsAtiva = [...new Set((idsItens ?? []).map((i) => i.nota_id))]
   }
 
-  let notasQ = supabase
-    .from('notas_entrada')
-    .select('id, numero, status, valor_total, data_entrada, data_emissao, pessoas(nome)')
-    .order(camposDB[ordemAtual] ?? 'created_at', { ascending: !ordemDir })
-    .limit(200)
-  if (notaIdsAtiva !== null) notasQ = notaIdsAtiva.length > 0 ? notasQ.in('id', notaIdsAtiva) : notasQ.eq('id', NENHUMA_NOTA)
-  const { data: notas } = await notasQ
+  const notas = await fetchAll<{
+    id: string
+    numero: string | null
+    status: string
+    valor_total: number | null
+    data_entrada: string | null
+    data_emissao: string | null
+    pessoas: { nome: string }[]
+  }>((from, to) => {
+    let q = supabase
+      .from('notas_entrada')
+      .select('id, numero, status, valor_total, data_entrada, data_emissao, pessoas(nome)')
+      .order(camposDB[ordemAtual] ?? 'created_at', { ascending: !ordemDir })
+    if (notaIdsAtiva !== null) q = notaIdsAtiva.length > 0 ? q.in('id', notaIdsAtiva) : q.eq('id', NENHUMA_NOTA)
+    return q.range(from, to)
+  })
 
-  // Resumo do topo — via fetchAll pra contar/somar TODAS as notas (não só as 200 exibidas)
+  // Resumo do topo — via fetchAll pra contar/somar TODAS as notas
   const resumo = await fetchAll<{ status: string; valor_total: number | null }>((from, to) => {
     let q = supabase.from('notas_entrada').select('status, valor_total')
     if (notaIdsAtiva !== null) q = notaIdsAtiva.length > 0 ? q.in('id', notaIdsAtiva) : q.eq('id', NENHUMA_NOTA)
