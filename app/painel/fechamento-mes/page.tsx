@@ -25,14 +25,14 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
   // Vendas do mês (concluídas, sem uso interno)
   const vendas = await fetchAll<{ total: number | null }>((from, to) =>
     supabase.from('vendas').select('total').eq('status', 'concluida').eq('uso_interno', false)
-      .gte('created_at', inicio).lt('created_at', proxMes).range(from, to))
+      .gte('data', inicio).lt('data', proxMes).range(from, to))
   const vendasTotal = (vendas ?? []).reduce((s, v) => s + (v.total ?? 0), 0)
 
   // Custo das mercadorias (CMV): itens_venda × preco_custo dos produtos
   const itens = await fetchAll<any>((from, to) =>
     supabase.from('itens_venda')
-      .select('quantidade, produtos!inner(preco_custo), vendas!inner(created_at, status)')
-      .eq('vendas.status', 'concluida').gte('vendas.created_at', inicio).lt('vendas.created_at', proxMes).range(from, to))
+      .select('quantidade, produtos!inner(preco_custo), vendas!inner(data, status, uso_interno)')
+      .eq('vendas.status', 'concluida').eq('vendas.uso_interno', false).gte('vendas.data', inicio).lt('vendas.data', proxMes).range(from, to))
   const custoTotal = ((itens ?? []) as unknown as { quantidade: number; produtos: { preco_custo: number | null } | null }[]).reduce((s, it) => s + ((it.produtos?.preco_custo ?? 0) * (it.quantidade || 0)), 0)
 
   // Despesas do mês (contas a pagar)
@@ -51,19 +51,25 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     supabase.from('estoque').select('quantidade, produtos!inner(preco_custo)').range(from, to))
   const estoqueHoje = (estoqueAtual ?? []).reduce((s, e) => s + ((e.quantidade || 0) * (e.produtos?.preco_custo ?? 0)), 0)
 
+  // Custos dos produtos (mapa id → preco_custo). movimentacoes_estoque NÃO tem FK
+  // pra produtos, então o join !inner não funciona lá — junta na mão.
+  const produtos = await fetchAll<any>((from, to) =>
+    supabase.from('produtos').select('id, preco_custo').range(from, to))
+  const custoPorProduto = new Map<string, number>((produtos ?? []).map((p) => [p.id as string, p.preco_custo ?? 0]))
+
   // Movimentos no mês selecionado (mudança líquida) + perdas
   const movs = await fetchAll<any>((from, to) =>
-    supabase.from('movimentacoes_estoque').select('qtd_nova, qtd_anterior, operacao, produtos!inner(preco_custo)')
+    supabase.from('movimentacoes_estoque').select('produto_id, qtd_nova, qtd_anterior, operacao')
       .gte('created_at', inicio).lt('created_at', proxMes).range(from, to))
   const movimentos = movs ?? []
-  const netChange = movimentos.reduce((s, m) => s + (((m.qtd_nova ?? 0) - (m.qtd_anterior ?? 0)) * (m.produtos?.preco_custo ?? 0)), 0)
-  const perdasTotal = movimentos.filter((m) => m.operacao === 'perda').reduce((s, m) => s + (((m.qtd_anterior ?? 0) - (m.qtd_nova ?? 0)) * (m.produtos?.preco_custo ?? 0)), 0)
+  const netChange = movimentos.reduce((s, m) => s + (((m.qtd_nova ?? 0) - (m.qtd_anterior ?? 0)) * (custoPorProduto.get(m.produto_id) ?? 0)), 0)
+  const perdasTotal = movimentos.filter((m) => m.operacao === 'perda').reduce((s, m) => s + (((m.qtd_anterior ?? 0) - (m.qtd_nova ?? 0)) * (custoPorProduto.get(m.produto_id) ?? 0)), 0)
 
   // Movimentos DEPOIS do mês (pra reconstruir o estoque no fim do mês selecionado)
   const movsDepois = await fetchAll<any>((from, to) =>
-    supabase.from('movimentacoes_estoque').select('qtd_nova, qtd_anterior, produtos!inner(preco_custo)')
+    supabase.from('movimentacoes_estoque').select('produto_id, qtd_nova, qtd_anterior')
       .gte('created_at', proxMes).range(from, to))
-  const netDepois = (movsDepois ?? []).reduce((s, m) => s + (((m.qtd_nova ?? 0) - (m.qtd_anterior ?? 0)) * (m.produtos?.preco_custo ?? 0)), 0)
+  const netDepois = (movsDepois ?? []).reduce((s, m) => s + (((m.qtd_nova ?? 0) - (m.qtd_anterior ?? 0)) * (custoPorProduto.get(m.produto_id) ?? 0)), 0)
 
   const estoqueFinal = estoqueHoje - netDepois          // estoque no FIM do mês selecionado
   const estoqueInicial = estoqueFinal - netChange       // estoque no COMEÇO do mês
