@@ -25,14 +25,14 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
   // Vendas do mês (concluídas, sem uso interno)
   const vendas = await fetchAll<{ total: number | null }>((from, to) =>
     supabase.from('vendas').select('total').eq('status', 'concluida').eq('uso_interno', false)
-      .gte('data', inicio).lt('data', proxMes).range(from, to))
+      .not('caixa_id', 'is', null).gte('data', inicio).lt('data', proxMes).range(from, to))
   const vendasTotal = (vendas ?? []).reduce((s, v) => s + (v.total ?? 0), 0)
 
   // Custo das mercadorias (CMV): itens_venda × preco_custo dos produtos
   const itens = await fetchAll<any>((from, to) =>
     supabase.from('itens_venda')
-      .select('quantidade, produtos!inner(preco_custo), vendas!inner(data, status, uso_interno)')
-      .eq('vendas.status', 'concluida').eq('vendas.uso_interno', false).gte('vendas.data', inicio).lt('vendas.data', proxMes).range(from, to))
+      .select('quantidade, produtos!inner(preco_custo), vendas!inner(data, status, uso_interno, caixa_id)')
+      .eq('vendas.status', 'concluida').eq('vendas.uso_interno', false).not('vendas.caixa_id', 'is', null).gte('vendas.data', inicio).lt('vendas.data', proxMes).range(from, to))
   const custoTotal = ((itens ?? []) as unknown as { quantidade: number; produtos: { preco_custo: number | null } | null }[]).reduce((s, it) => s + ((it.produtos?.preco_custo ?? 0) * (it.quantidade || 0)), 0)
 
   // Despesas do mês (contas a pagar)
