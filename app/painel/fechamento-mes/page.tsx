@@ -37,7 +37,7 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
 
   // Despesas do mês (contas a pagar)
   const despesas = await fetchAll<{ valor: number }>((from, to) =>
-    supabase.from('lancamentos').select('valor').eq('tipo', 'pagar')
+    supabase.from('lancamentos').select('valor').eq('tipo', 'pagar').neq('status', 'cancelado')
       .gte('data_vencimento', inicio).lt('data_vencimento', proxMes).range(from, to))
   const despesasTotal = (despesas ?? []).reduce((s, l) => s + (l.valor ?? 0), 0)
 
