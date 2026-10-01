@@ -18,6 +18,7 @@ export const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 export interface Escala {
   id: string
   perfil_id: string
+  loja_id?: string | null   // loja a que a escala pertence
   dia: number         // 0=dom … 6=sáb
   entrada: string     // "08:00:00"
   saida: string

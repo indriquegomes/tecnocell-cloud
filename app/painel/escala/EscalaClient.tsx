@@ -32,7 +32,7 @@ const corDe = (id: string, perfis: Pessoa[], cores?: Record<string, string | nul
   cores?.[id] || CORES[perfis.findIndex((p) => p.id === id) % CORES.length]
 
 export function EscalaClient({
-  dias, perfis, cores, escalas, excecoes, lojas, horas, trabalhadoSemana, semanaAtual,
+  dias, perfis, cores, escalas, excecoes, lojas, lojaAtivaId, horas, trabalhadoSemana, semanaAtual,
 }: {
   dias: DiaGrade[]
   perfis: Pessoa[]
@@ -40,6 +40,7 @@ export function EscalaClient({
   escalas: Escala[]
   excecoes: Excecao[]
   lojas: { id: string; nome: string }[]
+  lojaAtivaId: string | null
   horas: { perfilId: string; nome: string; minutos: number; dias: number }[]
   trabalhadoSemana: Record<string, number>
   semanaAtual: string
@@ -56,7 +57,7 @@ export function EscalaClient({
     const d = new Date(`${semanaAtual}T12:00:00-03:00`)
     d.setDate(d.getDate() + delta * 7)
     const s = d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-    window.location.href = `/painel/escala?semana=${s}`
+    window.location.href = `/painel/escala?semana=${s}${lojaAtivaId ? `&loja=${lojaAtivaId}` : ''}`
   }
 
   const totalFuros = dias.reduce((s, d) => s + d.furos.length, 0)
@@ -65,6 +66,11 @@ export function EscalaClient({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-2xl font-bold text-gray-900">Escala</h2>
+        {lojas.length > 1 && (
+          <select value={lojaAtivaId ?? ''} onChange={(e) => { window.location.href = `/painel/escala?loja=${e.target.value}` }} className="field sm:w-44">
+            {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
+          </select>
+        )}
         <div className="ml-auto flex rounded-xl border border-gray-200 bg-white p-0.5 text-sm">
           <button onClick={() => setAba('semana')} className={`rounded-lg px-3 py-1.5 font-medium transition ${aba === 'semana' ? 'bg-[#1B6CA8] text-white' : 'text-gray-500'}`}>Semana</button>
           <button onClick={() => setAba('padrao')} className={`rounded-lg px-3 py-1.5 font-medium transition ${aba === 'padrao' ? 'bg-[#1B6CA8] text-white' : 'text-gray-500'}`}>Escala padrão</button>
@@ -127,7 +133,7 @@ export function EscalaClient({
           <AlteracaoForm perfis={perfis} excecoes={excecoes} nomes={Object.fromEntries(perfis.map((p) => [p.id, p.nome]))} />
         </>
       ) : (
-        <EscalaPadrao perfis={perfis} escalas={escalas} lojas={lojas} />
+        <EscalaPadrao perfis={perfis} escalas={escalas} lojas={lojas} lojaAtivaId={lojaAtivaId} />
       )}
     </div>
   )
@@ -269,7 +275,7 @@ function DiaLinha({ dia, perfis, cores, fmtDiaData }: { dia: DiaGrade; perfis: P
 }
 
 // ── Escala padrão: a rotina de cada pessoa por dia ──────────────────────────
-function EscalaPadrao({ perfis, escalas, lojas }: { perfis: Pessoa[]; escalas: Escala[]; lojas: { id: string; nome: string }[] }) {
+function EscalaPadrao({ perfis, escalas, lojas, lojaAtivaId }: { perfis: Pessoa[]; escalas: Escala[]; lojas: { id: string; nome: string }[]; lojaAtivaId: string | null }) {
   const [pessoa, setPessoa] = useState(perfis[0]?.id ?? '')
   const doDia = (dia: number) => escalas.find((e) => e.perfil_id === pessoa && e.dia === dia)
 
@@ -289,7 +295,7 @@ function EscalaPadrao({ perfis, escalas, lojas }: { perfis: Pessoa[]; escalas: E
       {pessoa && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3, 4, 5, 6].map((dia) => (
-            <DiaPadraoForm key={`${pessoa}-${dia}`} pessoa={pessoa} dia={dia} atual={doDia(dia)} lojas={lojas} />
+            <DiaPadraoForm key={`${pessoa}-${dia}`} pessoa={pessoa} dia={dia} atual={doDia(dia)} lojas={lojas} lojaAtivaId={lojaAtivaId} />
           ))}
         </div>
       )}
@@ -297,7 +303,7 @@ function EscalaPadrao({ perfis, escalas, lojas }: { perfis: Pessoa[]; escalas: E
   )
 }
 
-function DiaPadraoForm({ pessoa, dia, atual, lojas }: { pessoa: string; dia: number; atual?: Escala; lojas: { id: string; nome: string }[] }) {
+function DiaPadraoForm({ pessoa, dia, atual, lojas, lojaAtivaId }: { pessoa: string; dia: number; atual?: Escala; lojas: { id: string; nome: string }[]; lojaAtivaId: string | null }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(salvarEscalaDia, null)
   const [folga, setFolga] = useState(!atual)
 
@@ -305,7 +311,7 @@ function DiaPadraoForm({ pessoa, dia, atual, lojas }: { pessoa: string; dia: num
     <form action={withToken(action)} className={`rounded-xl border p-4 ${folga ? 'border-gray-200 bg-gray-50' : 'border-blue-200 bg-white'}`}>
       <input type="hidden" name="perfil_id" value={pessoa} />
       <input type="hidden" name="dia" value={dia} />
-      {lojas[0] && <input type="hidden" name="loja_id" value={lojas[0].id} />}
+      {lojaAtivaId && <input type="hidden" name="loja_id" value={lojaAtivaId} />}
 
       <div className="mb-2 flex items-center justify-between">
         <span className="text-sm font-bold text-gray-800">{DIAS[dia]}</span>

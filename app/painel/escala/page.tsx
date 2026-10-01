@@ -5,9 +5,9 @@ import { semanaDe, turnosDoDia, furosDoDia, horasPorPessoa, trabalhadoDoDia, typ
 export default async function EscalaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ semana?: string }>
+  searchParams: Promise<{ semana?: string; loja?: string }>
 }) {
-  const { semana } = await searchParams
+  const { semana, loja } = await searchParams
   const supabase = await createServiceClient()
 
   // segunda da semana pedida (ou a atual) — ?semana= inválido na URL (achado
@@ -19,7 +19,7 @@ export default async function EscalaPage({
   const ultimo = dias[dias.length - 1].data
 
   const [perfisRes, escalasRes, excecoesRes, lojasRes, pontosRes] = await Promise.all([
-    supabase.from('perfis').select('id, nome, cargo_id, cor_escala').eq('ativo', true).order('nome'),
+    supabase.from('perfis').select('id, nome, cargo_id, cor_escala, lojas_permitidas').eq('ativo', true).order('nome'),
     supabase.from('escalas').select('*').eq('ativo', true),
     supabase.from('escala_excecoes').select('*').gte('data', primeiro).lte('data', ultimo),
     supabase.from('lojas').select('id, nome').eq('ativa', true).order('nome'),
@@ -30,8 +30,15 @@ export default async function EscalaPage({
       .order('criado_em'),
   ])
 
-  const perfis = perfisRes.data ?? []
-  const escalas = (escalasRes.data ?? []) as Escala[]
+  // Loja selecionada (a escala agora é POR LOJA — cada loja tem a sua equipe).
+  const lojas = (lojasRes.data ?? []) as { id: string; nome: string }[]
+  const lojaAtivaId = (loja && lojas.some((l) => l.id === loja) ? loja : lojas[0]?.id) ?? null
+
+  // separa por loja: perfil pertence à loja (lojas_permitidas vazio = dono/master = vê todas)
+  const todosPerfis = (perfisRes.data ?? []) as { id: string; nome: string; cargo_id: string | null; cor_escala: string | null; lojas_permitidas: string[] | null }[]
+  const perfis = lojaAtivaId ? todosPerfis.filter((p) => { const ls = p.lojas_permitidas ?? []; return ls.length === 0 || ls.includes(lojaAtivaId) }) : todosPerfis
+  const todasEscalas = (escalasRes.data ?? []) as Escala[]
+  const escalas = lojaAtivaId ? todasEscalas.filter((e) => e.loja_id === lojaAtivaId) : todasEscalas
   const excecoes = (excecoesRes.data ?? []) as Excecao[]
   const nomes: Record<string, string> = Object.fromEntries(perfis.map((p) => [p.id, p.nome]))
 
@@ -67,7 +74,8 @@ export default async function EscalaPage({
       cores={cores}
       escalas={escalas}
       excecoes={excecoes}
-      lojas={lojasRes.data ?? []}
+      lojas={lojas}
+      lojaAtivaId={lojaAtivaId}
       horas={horas}
       trabalhadoSemana={trabalhadoSemana}
       semanaAtual={primeiro}
