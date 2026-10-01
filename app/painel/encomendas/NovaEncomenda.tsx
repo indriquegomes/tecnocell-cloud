@@ -118,10 +118,12 @@ export function NovaEncomenda({ lojaId, lojas = [] }: { lojaId: string | null; l
                         {p.nome} <span className="text-gray-400">· ATACADO1 {formatBRL(p.atacado1)}</span>
                       </button>
                     ))}
-                    <button type="button" onClick={usarTemporario} className="block w-full border-t border-gray-100 px-3 py-2 text-left text-sm font-medium text-[#F47920] hover:bg-orange-50">
-                      ➕ Usar "{buscaItem.trim()}" (sem cadastro ainda)
-                    </button>
                   </div>
+                )}
+                {buscaItem.trim().length >= 2 && (
+                  <button type="button" onClick={usarTemporario} className="mt-1 block w-full rounded-lg border border-dashed border-[#F47920] bg-orange-50/50 px-3 py-2 text-left text-sm font-semibold text-[#F47920] hover:bg-orange-100 transition">
+                    ➕ Usar "{buscaItem.trim()}" (sem cadastro ainda)
+                  </button>
                 )}
               </div>
 
