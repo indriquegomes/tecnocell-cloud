@@ -391,10 +391,14 @@ export function VendasClient({
                         {detalhe.itens.map((i, idx) => (
                           <tr key={idx}>
                             <td className="px-3 py-2">
-                              <Link href={`/painel/produtos/${i.produto_id}/editar`}
-                                className="text-gray-800 hover:text-blue-600 hover:underline transition">
-                                {i.nome}
-                              </Link>
+                              {i.produto_id ? (
+                                <Link href={`/painel/produtos/${i.produto_id}/editar`}
+                                  className="text-gray-800 hover:text-blue-600 hover:underline transition">
+                                  {i.nome}
+                                </Link>
+                              ) : (
+                                <span className="text-gray-800">{i.nome}</span>
+                              )}
                             </td>
                             <td className="px-3 py-2 text-right text-gray-600">{i.quantidade}</td>
                             <td className="px-3 py-2 text-right text-gray-600">{fmt(i.preco_unitario)}</td>

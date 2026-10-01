@@ -180,19 +180,21 @@ export async function validarSenhaDesconto(lojaId: string, senha: string): Promi
 }
 
 interface ItemCarrinho {
-  produto_id: string
+  produto_id: string | null
   nome: string
   quantidade: number
   preco_unitario: number
   desconto_item?: number
 }
 
-async function produtoNoCusto(itens: { produto_id: string; preco_unitario: number }[]): Promise<string | null> {
+async function produtoNoCusto(itens: { produto_id: string | null; preco_unitario: number }[]): Promise<string | null> {
   const supabase = await createServiceClient()
-  const { data, error } = await supabase.from('produtos').select('id, nome, preco_custo').in('id', itens.map((i) => i.produto_id))
+  const reais = itens.filter((i): i is { produto_id: string; preco_unitario: number } => i.produto_id != null)
+  if (reais.length === 0) return null
+  const { data, error } = await supabase.from('produtos').select('id, nome, preco_custo').in('id', reais.map((i) => i.produto_id))
   if (error) throw new Error('Não foi possível validar o preço de custo.')
   const produtos = new Map((data ?? []).map((p) => [p.id, p]))
-  const item = itens.find((i) => {
+  const item = reais.find((i) => {
     const produto = produtos.get(i.produto_id)
     return produto?.preco_custo != null && i.preco_unitario - Number((i as ItemCarrinho).desconto_item ?? 0) <= Number(produto.preco_custo)
   })
@@ -348,13 +350,13 @@ export async function finalizarVenda(
   // Piso de venda: item abaixo do preco_minimo exige 'venda_abaixo_minimo'.
   try {
     const svc = await createServiceClient()
-    const { data: pisos } = await svc.from('produtos')
-      .select('id, nome, preco_minimo')
-      .in('id', itens.map((i) => i.produto_id))
-      .gt('preco_minimo', 0)
-    const abaixo = (pisos ?? [])
+    const idsReais = itens.filter((i) => i.produto_id).map((i) => i.produto_id as string)
+    const { data: pisos } = idsReais.length > 0
+      ? await svc.from('produtos').select('id, nome, preco_minimo').in('id', idsReais).gt('preco_minimo', 0)
+      : { data: null }
+    const abaixo = ((pisos ?? []) as { id: string; nome: string; preco_minimo: number }[])
       .map((p) => ({ ...p, item: itens.find((i) => i.produto_id === p.id) }))
-      .filter((p) => p.item && p.item.preco_unitario - Number(p.item.desconto_item ?? 0) < Number(p.preco_minimo))
+      .filter((p): p is { id: string; nome: string; preco_minimo: number; item: ItemCarrinho } => !!p.item && p.item.preco_unitario - Number(p.item.desconto_item ?? 0) < Number(p.preco_minimo))
     if (abaixo.length > 0) {
       const { permissoes, isMaster } = await permissoesEfetivas(usuario.id)
       if (!temPermissao(permissoes, 'venda_abaixo_minimo', isMaster)) {
@@ -467,7 +469,7 @@ export async function finalizarVenda(
   // Estoque mudou pra cada item vendido — avisa o Mercado Livre se algum
   // deles tiver anúncio linkado (fire-and-forget, nunca falha a venda).
   for (const item of itens) {
-    void sincronizarEstoqueML(item.produto_id)
+    if (item.produto_id) void sincronizarEstoqueML(item.produto_id)
   }
 
   // Vendedor (rastreabilidade), fiado vinculado e baixa de IMEI já nascem
@@ -673,8 +675,8 @@ export async function buscarDetalheVenda(accessToken: string, vendaId: string): 
     deposito_nome: (depositoRes as { data: { nome: string } | null }).data?.nome ?? null,
     observacoes: v.observacoes,
     forma_pagamento_nome: formaNome,
-    itens: ((itensRes.data ?? []) as unknown as { quantidade: number; preco_unitario: number; total_item: number; produtos: { nome: string } | null }[]).map((i) => ({
-      nome: i.produtos?.nome ?? '—',
+    itens: ((itensRes.data ?? []) as unknown as { quantidade: number; preco_unitario: number; total_item: number; nome: string | null; produtos: { nome: string } | null }[]).map((i) => ({
+      nome: i.produtos?.nome ?? i.nome ?? '—',
       quantidade: i.quantidade,
       preco_unitario: i.preco_unitario,
       total_item: i.total_item,
@@ -705,7 +707,7 @@ export async function buscarCupomVenda(accessToken: string, vendaId: string): Pr
   if (!v) return null
 
   const [itensRes, pagsRes, depRes, cliRes] = await Promise.all([
-    supabase.from('itens_venda').select('quantidade, preco_unitario, total_item, produtos(nome, codigo, prateleira)').eq('venda_id', vendaId),
+    supabase.from('itens_venda').select('quantidade, preco_unitario, total_item, nome, produtos(nome, codigo, prateleira)').eq('venda_id', vendaId),
     supabase.from('pagamentos_venda').select('valor, taxa, parcelas, status, formas_pagamento(nome)').eq('venda_id', vendaId),
     v.deposito_id ? supabase.from('depositos').select('nome, loja_id').eq('id', v.deposito_id).maybeSingle() : Promise.resolve({ data: null }),
     v.pessoa_id ? supabase.from('pessoas').select('nome, telefone, endereco, bairro, cidade, estado, cep').eq('id', v.pessoa_id).maybeSingle() : Promise.resolve({ data: null }),
@@ -726,8 +728,8 @@ export async function buscarCupomVenda(accessToken: string, vendaId: string): Pr
 
   return {
     numero: v.numero,
-    itens: ((itensRes.data ?? []) as unknown as { quantidade: number; preco_unitario: number; total_item: number; produtos: { nome: string; codigo: string | null; prateleira: string | null } | null }[])
-      .map((i) => ({ codigo: i.produtos?.codigo ?? null, nome: i.produtos?.nome ?? '—', quantidade: i.quantidade, preco_unitario: i.quantidade ? i.total_item / i.quantidade : i.preco_unitario, prateleira: i.produtos?.prateleira ?? null })),
+    itens: ((itensRes.data ?? []) as unknown as { quantidade: number; preco_unitario: number; total_item: number; nome: string | null; produtos: { nome: string; codigo: string | null; prateleira: string | null } | null }[])
+      .map((i) => ({ codigo: i.produtos?.codigo ?? null, nome: i.produtos?.nome ?? i.nome ?? '—', quantidade: i.quantidade, preco_unitario: i.quantidade ? i.total_item / i.quantidade : i.preco_unitario, prateleira: i.produtos?.prateleira ?? null })),
     pagamentos: ((pagsRes.data ?? []) as unknown as { valor: number; taxa: number | null; parcelas: number | null; status: string | null; formas_pagamento: { nome: string } | null }[])
       .map((p) => ({ forma_nome: p.formas_pagamento?.nome ?? '—', valor: Number(p.valor) || 0, taxa: Number(p.taxa) || 0, parcelas: p.parcelas ?? 1, status: p.status ?? 'pago' })),
     cliente: cli?.nome ?? null,
@@ -1049,7 +1051,7 @@ export async function aplicarDescontoCrediario(
 }
 
 export interface ItemPedido {
-  produto_id: string
+  produto_id: string | null
   nome: string
   quantidade: number
   preco_unitario: number

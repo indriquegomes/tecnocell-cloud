@@ -32,7 +32,7 @@ export type DetalheVendaCompleto = {
    * separado. Se > 0, cancelar apagaria esse pagamento junto com a dívida.
    */
   fiado_ja_pago: number
-  itens: { produto_id: string; nome: string; quantidade: number; preco_unitario: number; desconto_item: number; total_item: number }[]
+  itens: { produto_id: string | null; nome: string; quantidade: number; preco_unitario: number; desconto_item: number; total_item: number }[]
 }
 
 export async function buscarDetalheVendaPublic(vendaId: string): Promise<DetalheVendaCompleto | null> {
@@ -47,7 +47,7 @@ export async function buscarDetalheVendaPublic(vendaId: string): Promise<Detalhe
       .maybeSingle(),
     supabase
       .from('itens_venda')
-      .select('produto_id, quantidade, preco_unitario, desconto_item, total_item')
+      .select('produto_id, quantidade, preco_unitario, desconto_item, total_item, nome')
       .eq('venda_id', vendaId),
     supabase
       .from('pagamentos_venda')
@@ -117,9 +117,9 @@ export async function buscarDetalheVendaPublic(vendaId: string): Promise<Detalhe
       tipo: tipoMap[p.forma_pagamento_id] ?? 'outros',
       status: p.status ?? 'pago',
     })),
-    itens: (itensRes.data ?? []).map((i: { produto_id: string; quantidade: number; preco_unitario: number; desconto_item: number; total_item: number }) => ({
+    itens: (itensRes.data ?? []).map((i: { produto_id: string | null; quantidade: number; preco_unitario: number; desconto_item: number; total_item: number; nome: string | null }) => ({
       produto_id: i.produto_id,
-      nome: produtoMap[i.produto_id] ?? '—',
+      nome: (i.produto_id ? produtoMap[i.produto_id] : null) ?? i.nome ?? '—',
       quantidade: i.quantidade,
       preco_unitario: i.preco_unitario,
       desconto_item: i.desconto_item ?? 0,

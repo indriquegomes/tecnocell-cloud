@@ -194,6 +194,7 @@ interface ItemCarrinho {
   series?: string[]        // IMEIs escolhidos (serializado: quantidade = series.length)
   prateleira?: string | null  // gaveta/prateleira onde a peça está guardada
   preco_custo?: number | null // pra avisar quando o item sai abaixo do custo
+  avulso?: boolean            // item digitado na hora (encomenda sem cadastro); produto_id é uid falso
 }
 
 interface PagamentoItem {
@@ -249,6 +250,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [observacoes, setObservacoes] = useState('')
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  // Item avulso (encomenda sem produto cadastrado) — form inline
+  const [avulsoAberto, setAvulsoAberto] = useState(false)
+  const [avulsoNome, setAvulsoNome] = useState('')
+  const [avulsoPreco, setAvulsoPreco] = useState('')
   const [copiadoId, setCopiadoId] = useState<string | null>(null)
   const [buscaCliente, setBuscaCliente] = useState('')
   const [descontoTipo, setDescontoTipo] = useState<'valor' | 'percent'>('valor')
@@ -827,6 +832,32 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     setBusca('')
   }, [depositoId, nomeDeposito, tabelaId, precos])
 
+  // Item avulso: encomenda que ainda não virou produto no cadastro. Não baixa estoque,
+  // não tem IMEI nem promoção — só nome + preço digitados na hora.
+  const adicionarItemAvulso = () => {
+    const nomeLimpo = avulsoNome.trim()
+    const preco = parseFloat(avulsoPreco.replace(/\./g, '').replace(',', '.'))
+    if (!nomeLimpo) { setErro('Digite o nome do item avulso.'); return }
+    if (!(preco > 0)) { setErro('Digite um preço válido.'); return }
+    setErro(null)
+    const uid = 'avulso_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
+    setCarrinho((prev) => [{
+      produto_id: uid,
+      nome: nomeLimpo,
+      codigo: null,
+      quantidade: 1,
+      preco_unitario: preco,
+      desconto_tipo: 'final',
+      desconto_valor: null,
+      estoque_disponivel: 999999,
+      promoSel: '',
+      avulso: true,
+    }, ...prev])
+    setAvulsoAberto(false)
+    setAvulsoNome('')
+    setAvulsoPreco('')
+  }
+
 
   // IMEIs disponíveis (em_estoque) do produto no depósito atual
   const seriesDisponiveis = useCallback(
@@ -1003,6 +1034,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       const ajustado: ItemCarrinho[] = []
       const removidos: string[] = []
       for (const item of prev) {
+        if (item.avulso) { ajustado.push(item); continue }  // avulso não tem estoque
         const prod = produtos.find((p) => p.id === item.produto_id)
         const disp = prod?.estoquePorDeposito[novoId] ?? 0
         if (disp <= 0) { removidos.push(item.nome); continue }
@@ -1273,7 +1305,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       const token = await authToken()
       if (!token) { setErro('Sessão não encontrada. Recarregue a página (F5).'); return }
       await salvarOrcamentoPDV(token, {
-        itens: carrinho.map((item) => ({ produto_id: item.produto_id, nome: item.nome, quantidade: item.quantidade, preco_unitario: descontoManualItem(item).precoFinal })),
+        itens: carrinho.map((item) => ({ produto_id: item.avulso ? null : item.produto_id, nome: item.nome, quantidade: item.quantidade, preco_unitario: descontoManualItem(item).precoFinal })),
         pessoa_id: pessoaId || null,
         desconto: descontoNum + descontoPromo,
         observacoes,
@@ -1339,7 +1371,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           const dm = descontoManualItem(item)
           const acrescimo = dm.descontoUnitario < 0 // ajustou pra cima: preço final > base
           return {
-            produto_id: item.produto_id,
+            produto_id: item.avulso ? null : item.produto_id,
             nome: item.nome,
             quantidade: item.quantidade,
             preco_unitario: acrescimo ? dm.precoFinal : item.preco_unitario,
@@ -1471,6 +1503,22 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     const novosItens: ItemCarrinho[] = []
     const avisos: string[] = []
     for (const item of pedido.itens) {
+      if (!item.produto_id) {
+        // item avulso (sem produto cadastrado): reconstrói sem checar estoque
+        novosItens.push({
+          produto_id: 'avulso_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+          nome: item.nome,
+          codigo: null,
+          quantidade: item.quantidade,
+          preco_unitario: item.preco_unitario,
+          desconto_tipo: 'final',
+          desconto_valor: null,
+          estoque_disponivel: 999999,
+          promoSel: '',
+          avulso: true,
+        })
+        continue
+      }
       const prod = produtos.find((p) => p.id === item.produto_id)
       const disp = prod?.estoquePorDeposito[depositoId] ?? 0
       if (disp <= 0) { avisos.push(item.nome); continue }
@@ -2481,6 +2529,37 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             </button>
           ) : null}
 
+          <div className="mt-1.5 flex items-center gap-1.5">
+            <button type="button" onClick={() => setAvulsoAberto((v) => !v)}
+              className="rounded-lg border border-dashed border-gray-300 px-2.5 py-1 text-xs font-semibold text-gray-500 hover:border-blue-400 hover:text-blue-600 transition">
+              + Item avulso (sem cadastro)
+            </button>
+          </div>
+          {avulsoAberto && (
+            <div className="mt-1.5 flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50/50 p-2">
+              <input
+                value={avulsoNome}
+                onChange={(e) => setAvulsoNome(e.target.value)}
+                placeholder="Nome do item (ex: capa, película...)"
+                className="min-w-0 flex-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); (document.getElementById('avulso-preco') as HTMLInputElement)?.focus() } }}
+              />
+              <input
+                id="avulso-preco"
+                value={avulsoPreco}
+                onChange={(e) => setAvulsoPreco(e.target.value)}
+                placeholder="Preço"
+                inputMode="decimal"
+                className="w-24 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); adicionarItemAvulso() } }}
+              />
+              <button type="button" onClick={adicionarItemAvulso}
+                className="shrink-0 rounded-lg bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-700 transition">
+                Adicionar
+              </button>
+            </div>
+          )}
+
 
           {produtosFiltrados.length > 0 && (
             <div className="animate-pop-in absolute top-full left-0 right-0 z-10 mt-1 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
@@ -2636,8 +2715,12 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                         {item.codigo && <span className="text-gray-400 font-normal">{item.codigo} · </span>}{item.nome}
                       </p>
                       <p className="text-xs text-gray-400">
-                        Disponível: {item.estoque_disponivel}
-                        {item.prateleira && <span className="text-blue-600 font-medium"> · 📦 {item.prateleira}</span>}
+                        {item.avulso ? (
+                          <span className="font-medium text-blue-600">Item avulso (sem cadastro)</span>
+                        ) : (
+                          <>Disponível: {item.estoque_disponivel}
+                          {item.prateleira && <span className="text-blue-600 font-medium"> · 📦 {item.prateleira}</span>}</>
+                        )}
                       </p>
                       {promosDoProduto(item.produto_id).length > 0 && (() => {
                         const promoAtual = promoEfetiva(item)
