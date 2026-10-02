@@ -121,8 +121,8 @@ export async function marcarPago(id: string, formData?: FormData) {
   // Mesmo princípio do lib/caixa.ts, que se recusa a chutar a loja.
   const formaInformada = ((formData?.get('forma_pagamento') as string) ?? '').trim()
   const forma = formaInformada || (antes?.forma_pagamento ?? '')
-  if (antes?.tipo === 'receber' && !forma) {
-    redirect(`/painel/financeiro?erro=${encodeURIComponent('Escolha a forma de pagamento antes de marcar como pago — ela entra na conferência do caixa.')}`)
+  if (!forma) {
+    redirect(`/painel/financeiro?erro=${encodeURIComponent('Escolha a forma de pagamento (dinheiro ou banco/pix) antes de marcar como pago.')}`)
   }
 
   // Comprovante do Pix (opcional) — vai pro bucket privado `pagamentos`, caminho

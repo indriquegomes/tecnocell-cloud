@@ -346,9 +346,17 @@ export default async function FinanceiroPage({
                               </select>
                             )}
                             {l.tipo === 'pagar' && (
-                              <input type="file" name="comprovante" accept="image/*"
-                                title="Anexar comprovante do Pix"
-                                className="max-w-[7rem] text-[10px] text-gray-500 file:mr-1 file:rounded file:border-0 file:bg-blue-50 file:px-1.5 file:py-1 file:text-[10px] file:font-semibold file:text-blue-700" />
+                              <>
+                                <select name="forma_pagamento" required defaultValue={l.forma_pagamento ?? ''}
+                                  title="Como você pagou? Dinheiro ou banco/pix?"
+                                  className="max-w-[7.5rem] rounded-lg border border-gray-200 px-1.5 py-1 text-xs text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                                  <option value="" disabled>Forma…</option>
+                                  {formasOpc.map((f) => <option key={f} value={f}>{f}</option>)}
+                                </select>
+                                <input type="file" name="comprovante" accept="image/*"
+                                  title="Anexar comprovante do Pix"
+                                  className="max-w-[7rem] text-[10px] text-gray-500 file:mr-1 file:rounded file:border-0 file:bg-blue-50 file:px-1.5 file:py-1 file:text-[10px] file:font-semibold file:text-blue-700" />
+                              </>
                             )}
                             <button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-medium text-green-600 hover:bg-green-50 transition">
                               Pago
