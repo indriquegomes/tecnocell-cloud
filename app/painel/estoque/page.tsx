@@ -88,10 +88,16 @@ export default async function EstoquePage({
           <h2 className="text-2xl font-bold text-gray-900">Estoque</h2>
           <Dica texto="Quantidade atual de cada produto por depósito. Atualizado automaticamente após vendas, compras e movimentações manuais." />
         </div>
-        <Link href={params.deposito ? `/painel/estoque/conferencia?deposito=${params.deposito}` : '/painel/estoque/conferencia'}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition">
-          Baixar planilha deste depósito
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/painel/estoque/movimentar?tipo=perda"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 transition">
+            🗑️ Registrar perda
+          </Link>
+          <Link href={params.deposito ? `/painel/estoque/conferencia?deposito=${params.deposito}` : '/painel/estoque/conferencia'}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition">
+            Baixar planilha deste depósito
+          </Link>
+        </div>
       </div>
 
       {/* Cards resumo */}

@@ -5,7 +5,7 @@ import Link from 'next/link'
 export default async function MovimentarEstoquePage({
   searchParams,
 }: {
-  searchParams: Promise<{ produto_id?: string; deposito_id?: string }>
+  searchParams: Promise<{ produto_id?: string; deposito_id?: string; tipo?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
@@ -55,6 +55,7 @@ export default async function MovimentarEstoquePage({
         horaAgora={horaAgora}
         depositoInicial={params.deposito_id ?? ''}
         produtoInicial={(produtoPreRes.data as { nome: string } | null)?.nome ?? ''}
+        operacaoInicial={['entrada','saida','ajuste','perda','uso_interno'].includes(params.tipo ?? '') ? (params.tipo ?? '') : ''}
       />
     </div>
   )

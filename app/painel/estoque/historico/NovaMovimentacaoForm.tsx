@@ -43,6 +43,7 @@ export function NovaMovimentacaoForm({
   abertoPadrao = false,
   depositoInicial = '',
   produtoInicial = '',
+  operacaoInicial = '',
 }: {
   depositos: Deposito[]
   produtos: Produto[]
@@ -55,6 +56,8 @@ export function NovaMovimentacaoForm({
   depositoInicial?: string
   /** produto pré-adicionado (?produto_id= do botão Ajustar) */
   produtoInicial?: string
+  /** tipo pré-selecionado (?tipo=perda do botão Registrar perda) */
+  operacaoInicial?: string
 }) {
   const [itens, setItens] = useState<ItemLista[]>(
     produtoInicial ? [{ produtoBusca: produtoInicial, quantidade: 1, operacao: 'ajuste' }] : [],
@@ -62,7 +65,7 @@ export function NovaMovimentacaoForm({
   const [depositoId, setDepositoId] = useState(depositoInicial)
   const [produtoBusca, setProdutoBusca] = useState('')
   const [quantidade, setQuantidade] = useState('1')
-  const [operacao, setOperacao] = useState('entrada')
+  const [operacao, setOperacao] = useState(operacaoInicial || 'entrada')
   const [imeis, setImeis] = useState<string[]>([])
   const [imeiInput, setImeiInput] = useState('')
   const prodInputRef = useRef<HTMLInputElement>(null)

@@ -92,6 +92,10 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     .select('valor, loja_id, categoria, pessoa_nome').eq('tipo', 'pagar').eq('status', 'pago')
     .gte('data_vencimento', inicio).lt('data_vencimento', proxMes).range(from, to))
 
+  const perdasApp = await fetchAll<any>((from, to) => supabase.from('movimentacoes_estoque')
+    .select('quantidade, observacao, deposito_id, produtos(nome, preco_custo)')
+    .eq('operacao', 'perda').gte('created_at', inicio).lt('created_at', proxMes).range(from, to))
+
   const bucket = (id: string) => ({ loja: id, nome: lojasList.find((l) => l.id === id)?.nome ?? id, entradas: 0, fiadoCobrado: 0, compras: 0, despesas: 0 })
   const porLoja: Record<string, ReturnType<typeof bucket>> = {}
   for (const l of lojasList) porLoja[l.id] = bucket(l.id)
@@ -103,6 +107,15 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
   for (const p of pags) add(lojaDeDeposito.get(p.vendas?.deposito_id) ?? null, 'entradas', p.valor ?? 0)
   for (const r of recs) add(lojaDeCaixa.get(r.caixa_id) ?? null, 'fiadoCobrado', r.valor ?? 0)
   for (const c of comprasItens) add(lojaDeDeposito.get(c.deposito_id) ?? null, 'compras', c.total_item ?? 0)
+
+  const perdasPorLoja: Record<string, { total: number; itens: { nome: string; custo: number; motivo: string }[] }> = {}
+  for (const pd of perdasApp) {
+    const loja = lojaDeDeposito.get(pd.deposito_id)
+    if (!loja) continue
+    const custo = (pd.produtos?.preco_custo ?? 0) * (pd.quantidade ?? 0)
+    ;(perdasPorLoja[loja] ??= { total: 0, itens: [] }).total += custo
+    perdasPorLoja[loja].itens.push({ nome: pd.produtos?.nome ?? '—', custo, motivo: pd.observacao || '—' })
+  }
 
   const CAT_COMPRAS = ['Fornecedor / Mercadoria', 'Fornecedor ZL', 'fonecedor']
   for (const d of despesas) {
@@ -121,10 +134,12 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     const estoqueCategorias = aberturaValor?.estoque_categorias?.[l.id] ?? {}
     const consignado = aberturaValor?.consignado?.[l.id] ?? 0
     const perdas = aberturaValor?.perdas?.[l.id] ?? 0
+    const perdasAppTotal = perdasPorLoja[l.id]?.total ?? 0
+    const perdasItens = perdasPorLoja[l.id]?.itens ?? []
     const trocasPend = aberturaValor?.trocas?.pendentes?.[l.id] ?? 0
     const trocasIndo = aberturaValor?.trocas?.indo?.[l.id] ?? 0
     return {
-      ...b, entradas, saidas, caixaInicial, caixaDet, estoqueCategorias, consignado, perdas, trocasPend, trocasIndo,
+      ...b, entradas, saidas, caixaInicial, caixaDet, estoqueCategorias, consignado, perdas, perdasApp: perdasAppTotal, perdasItens, trocasPend, trocasIndo,
       caixaFinal: caixaInicial + entradas - saidas, resultado: entradas - saidas,
     }
   })
@@ -218,8 +233,21 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
             </div>
             <div className="rounded-xl bg-rose-50 p-4">
               <p className="text-xs font-semibold uppercase text-rose-700">🗑️ Perdas</p>
-              <p className="mt-1 text-lg font-bold text-rose-700">{fmt(linha.perdas)}</p>
-              <p className="text-[11px] text-rose-600">quebra/sumiço do mês</p>
+              <p className="mt-1 text-lg font-bold text-rose-700">{fmt(linha.perdasApp)}</p>
+              <p className="text-[11px] text-rose-600">registradas no estoque · setembro oficial {fmt(linha.perdas)}</p>
+              {linha.perdasItens.length > 0 && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-[11px] font-semibold text-rose-600">ver motivos ({linha.perdasItens.length})</summary>
+                  <div className="mt-1 space-y-1">
+                    {linha.perdasItens.map((it, i) => (
+                      <div key={i} className="flex justify-between gap-2 text-[11px] text-rose-700">
+                        <span className="truncate">{it.nome}{it.motivo !== '—' ? ' · ' + it.motivo : ''}</span>
+                        <span className="shrink-0 tabular-nums">{fmt(it.custo)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
             </div>
             <div className="rounded-xl bg-amber-50 p-4">
               <p className="text-xs font-semibold uppercase text-amber-700">🔄 Trocas (SP)</p>
