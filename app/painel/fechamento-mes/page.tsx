@@ -1,5 +1,5 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
-import { formatBRL, formatDate, hojeSP } from '@/lib/utils'
+import { formatBRL } from '@/lib/utils'
 import { FecharMesButton } from './FecharMesButton'
 
 // Nome do mês em pt-BR ("2026-09" → "setembro/2026").
@@ -9,9 +9,12 @@ function nomeMes(mes: string) {
   return `${nomes[m - 1]}/${ano}`
 }
 
+// Normaliza nome pra casar "MARIA EDUADA" (Pix) com "Maria Eduarda" (cadastro).
+const norm = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim()
+
 export default async function FechamentoMesPage({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
   const params = await searchParams
-  const hoje = hojeSP()
+  const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
   const pedido = params.mes ?? hoje.slice(0, 7)
   const mes = /^\d{4}-\d{2}$/.test(pedido) ? pedido : hoje.slice(0, 7)
   const [ano, m] = mes.split('-').map(Number)
@@ -22,84 +25,102 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
 
   const supabase = await createServiceClient()
 
-  // Vendas do mês (concluídas, sem uso interno)
-  const vendas = await fetchAll<{ total: number | null }>((from, to) =>
-    supabase.from('vendas').select('total').eq('status', 'concluida').eq('uso_interno', false)
-      .not('caixa_id', 'is', null).lt('numero', 100000).gte('data', inicio).lt('data', proxMes).range(from, to))
-  const vendasTotal = (vendas ?? []).reduce((s, v) => s + (v.total ?? 0), 0)
+  // ---- Tabelas auxiliares (loja de cada depósito / caixa / pessoa) ----
+  const [{ data: lojas }, deps, cxs, perfis] = await Promise.all([
+    supabase.from('lojas').select('id, nome').order('nome'),
+    fetchAll<any>((from, to) => supabase.from('depositos').select('id, loja_id').range(from, to)),
+    fetchAll<any>((from, to) => supabase.from('caixas').select('id, loja_id').range(from, to)),
+    fetchAll<any>((from, to) => supabase.from('perfis').select('id, nome, lojas_permitidas').range(from, to)),
+  ])
+  const lojasList = (lojas ?? []) as { id: string; nome: string }[]
+  const petropolisId = lojasList.find((l) => l.nome === 'Petrópolis')?.id ?? null
+  const lojaDeDeposito = new Map((deps ?? []).map((d) => [d.id, d.loja_id as string | null]))
+  const lojaDeCaixa = new Map((cxs ?? []).map((c) => [c.id, c.loja_id as string | null]))
+  // pessoa → lojas (uma pessoa pode ser de 1 ou 2 lojas)
+  const perfisPorNome = new Map<string, string[]>()
+  for (const p of (perfis ?? [])) {
+    if (!p.nome) continue
+    const ls = (p.lojas_permitidas ?? []).filter(Boolean) as string[]
+    perfisPorNome.set(norm(p.nome), ls)
+  }
+  const lojaDePessoa = (nome: string): string | null => {
+    const n = norm(nome)
+    // match exato; senão, acha perfil cujo nome CONTÉM a primeira palavra do pix (mais folgado)
+    let ls = perfisPorNome.get(n)
+    if (!ls) {
+      const chave = n.split(' ').slice(0, 2).join(' ')
+      for (const [pnome, l] of perfisPorNome) {
+        if (pnome.includes(chave)) { ls = l; break }
+      }
+    }
+    if (!ls || ls.length === 0) return null
+    return ls.length === 1 ? ls[0] : null // "ambas" = null (não dá pra cravar uma loja só)
+  }
 
-  // Custo das mercadorias (CMV): itens_venda × preco_custo dos produtos
-  const itens = await fetchAll<any>((from, to) =>
-    supabase.from('itens_venda')
-      .select('quantidade, produtos!inner(preco_custo), vendas!inner(data, status, uso_interno, caixa_id, numero)')
-      .eq('vendas.status', 'concluida').eq('vendas.uso_interno', false).not('vendas.caixa_id', 'is', null).lt('vendas.numero', 100000).gte('vendas.data', inicio).lt('vendas.data', proxMes).range(from, to))
-  const custoTotal = ((itens ?? []) as unknown as { quantidade: number; produtos: { preco_custo: number | null } | null }[]).reduce((s, it) => s + ((it.produtos?.preco_custo ?? 0) * (it.quantidade || 0)), 0)
+  // ---- ENTRADAS: pagamentos na hora (pago) + fiado cobrado (recebimentos) ----
+  const pags = await fetchAll<any>((from, to) => supabase.from('pagamentos_venda')
+    .select('valor, vendas!inner(deposito_id, numero, status, uso_interno, data)')
+    .eq('status', 'pago').eq('vendas.status', 'concluida').eq('vendas.uso_interno', false)
+    .lt('vendas.numero', 100000).gte('vendas.data', inicio).lt('vendas.data', proxMes).range(from, to))
 
-  // Despesas do mês (contas a pagar)
-  const despesas = await fetchAll<{ valor: number }>((from, to) =>
-    supabase.from('lancamentos').select('valor').eq('tipo', 'pagar').neq('status', 'cancelado')
-      .gte('data_vencimento', inicio).lt('data_vencimento', proxMes).range(from, to))
-  const despesasTotal = (despesas ?? []).reduce((s, l) => s + (l.valor ?? 0), 0)
+  const recs = await fetchAll<any>((from, to) => supabase.from('movimentos_caixa')
+    .select('valor, caixa_id').eq('tipo', 'recebimento')
+    .gte('created_at', inicio).lt('created_at', proxMes).range(from, to))
 
-  // A receber pendente (fiados e contas em aberto)
-  const receber = await fetchAll<{ valor: number }>((from, to) =>
-    supabase.from('lancamentos').select('valor').eq('tipo', 'receber').eq('status', 'pendente').range(from, to))
-  const receberTotal = (receber ?? []).reduce((s, l) => s + (l.valor ?? 0), 0)
+  // ---- COMPRAS: itens de nota de entrada (o que cada loja RECEBEU) ----
+  const comprasItens = await fetchAll<any>((from, to) => supabase.from('itens_nota_entrada')
+    .select('total_item, deposito_id, notas_entrada!inner(data_entrada)')
+    .gte('notas_entrada.data_entrada', inicio).lt('notas_entrada.data_entrada', proxMes).range(from, to))
 
-  // ---- Estoque (valor em R$ a CUSTO) ----
-  const estoqueAtual = await fetchAll<any>((from, to) =>
-    supabase.from('estoque').select('quantidade, produtos!inner(preco_custo)').range(from, to))
-  const estoqueHoje = (estoqueAtual ?? []).reduce((s, e) => s + ((e.quantidade || 0) * (e.produtos?.preco_custo ?? 0)), 0)
+  // ---- DESPESAS: contas pagas, EXCETO compra de peça (que já entra via nota) ----
+  const despesas = await fetchAll<any>((from, to) => supabase.from('lancamentos')
+    .select('valor, loja_id, categoria, pessoa_nome').eq('tipo', 'pagar').eq('status', 'pago')
+    .gte('data_vencimento', inicio).lt('data_vencimento', proxMes).range(from, to))
 
-  // Custos dos produtos (mapa id → preco_custo). movimentacoes_estoque NÃO tem FK
-  // pra produtos, então o join !inner não funciona lá — junta na mão.
-  const produtos = await fetchAll<any>((from, to) =>
-    supabase.from('produtos').select('id, preco_custo').range(from, to))
-  const custoPorProduto = new Map<string, number>((produtos ?? []).map((p) => [p.id as string, p.preco_custo ?? 0]))
+  // ---- agrega por loja ----
+  const bucket = (id: string) => ({
+    loja: id,
+    nome: lojasList.find((l) => l.id === id)?.nome ?? id,
+    entradas: 0, fiadoCobrado: 0, compras: 0, despesas: 0,
+  })
+  const porLoja: Record<string, ReturnType<typeof bucket>> = {}
+  for (const l of lojasList) porLoja[l.id] = bucket(l.id)
 
-  // Movimentos no mês selecionado (mudança líquida) + perdas
-  const movs = await fetchAll<any>((from, to) =>
-    supabase.from('movimentacoes_estoque').select('produto_id, qtd_nova, qtd_anterior, operacao')
-      .gte('created_at', inicio).lt('created_at', proxMes).range(from, to))
-  const movimentos = movs ?? []
-  const netChange = movimentos.reduce((s, m) => s + (((m.qtd_nova ?? 0) - (m.qtd_anterior ?? 0)) * (custoPorProduto.get(m.produto_id) ?? 0)), 0)
-  const perdasTotal = movimentos.filter((m) => m.operacao === 'perda').reduce((s, m) => s + (((m.qtd_anterior ?? 0) - (m.qtd_nova ?? 0)) * (custoPorProduto.get(m.produto_id) ?? 0)), 0)
+  const add = (id: string | null, campo: 'entradas' | 'fiadoCobrado' | 'compras' | 'despesas', valor: number) => {
+    if (!id || !porLoja[id]) return
+    porLoja[id][campo] += valor
+  }
 
-  // Movimentos DEPOIS do mês (pra reconstruir o estoque no fim do mês selecionado)
-  const movsDepois = await fetchAll<any>((from, to) =>
-    supabase.from('movimentacoes_estoque').select('produto_id, qtd_nova, qtd_anterior')
-      .gte('created_at', proxMes).range(from, to))
-  const netDepois = (movsDepois ?? []).reduce((s, m) => s + (((m.qtd_nova ?? 0) - (m.qtd_anterior ?? 0)) * (custoPorProduto.get(m.produto_id) ?? 0)), 0)
+  for (const p of pags) add(lojaDeDeposito.get(p.vendas?.deposito_id) ?? null, 'entradas', p.valor ?? 0)
+  for (const r of recs) add(lojaDeCaixa.get(r.caixa_id) ?? null, 'fiadoCobrado', r.valor ?? 0)
+  for (const c of comprasItens) add(lojaDeDeposito.get(c.deposito_id) ?? null, 'compras', c.total_item ?? 0)
 
-  const estoqueFinal = estoqueHoje - netDepois          // estoque no FIM do mês selecionado
-  const estoqueInicial = estoqueFinal - netChange       // estoque no COMEÇO do mês
+  const CAT_COMPRAS = ['Fornecedor / Mercadoria', 'Fornecedor ZL', 'fonecedor']
+  for (const d of despesas) {
+    const cat = (d.categoria || '').trim()
+    if (CAT_COMPRAS.includes(cat)) continue // compra de peça — já conta via nota de entrada
+    // loja_id primeiro; senão cruza pela pessoa (salário/motoboy); senão cai em Petrópolis (setembro provisório)
+    const loja = d.loja_id || lojaDePessoa(d.pessoa_nome || '') || petropolisId
+    add(loja, 'despesas', d.valor ?? 0)
+  }
 
-  // Trocas/defeito/avaria (devolução que NÃO voltou pro estoque)
-  const trocas = await fetchAll<any>((from, to) =>
-    supabase.from('itens_devolucao').select('quantidade, produtos!inner(preco_custo), devolucoes!inner(created_at)')
-      .neq('status_produto', 'ok').gte('devolucoes.created_at', inicio).lt('devolucoes.created_at', proxMes).range(from, to))
-  const trocasTotal = (trocas ?? []).reduce((s, t) => s + ((t.quantidade || 0) * (t.produtos?.preco_custo ?? 0)), 0)
-
-  const lucro = vendasTotal - custoTotal - despesasTotal
+  const linhas = lojasList.map((l) => {
+    const b = porLoja[l.id]
+    const entradas = b.entradas + b.fiadoCobrado
+    const saidas = b.compras + b.despesas
+    return { ...b, entradas, saidas, resultado: entradas - saidas }
+  })
 
   // Já fechado?
   const { data: fechado } = await supabase.from('configuracoes').select('valor').eq('chave', `fechamento_mes:${mes}`).maybeSingle()
-  const fechamento = fechado ? (fechado.valor as { fechado_em: string; fechado_por?: string }) : null
-
-  const Card = ({ rotulo, valor, cor, sub }: { rotulo: string; valor: string; cor: string; sub?: string }) => (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{rotulo}</p>
-      <p className={`mt-1.5 text-[26px] font-extrabold tabular-nums ${cor}`}>{valor}</p>
-      {sub && <p className="mt-1 text-xs text-gray-400">{sub}</p>}
-    </div>
-  )
+  const fechamento = fechado ? (fechado.valor as { fechado_em: string }) : null
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">📅 Fechamento do Mês</h2>
-          <p className="mt-0.5 text-sm text-gray-500">Resumo simples do mês: quanto vendeu, quanto gastou e quanto sobrou.</p>
+          <p className="mt-0.5 text-sm text-gray-500">Entradas e saídas de cada loja — o que entrou, o que saiu e o resultado.</p>
         </div>
         <div className="flex items-center gap-2">
           <a href={`/painel/fechamento-mes?mes=${mesAnterior}`} className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-semibold text-gray-600 hover:bg-gray-50">← Anterior</a>
@@ -110,31 +131,32 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
 
       {fechamento && (
         <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
-          ✅ Mês fechado em {formatDate(fechamento.fechado_em)}{fechamento.fechado_por ? ` por ${fechamento.fechado_por}` : ''}
+          ✅ Mês fechado em {new Date(fechamento.fechado_em).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card rotulo="Vendas do mês" valor={formatBRL(vendasTotal)} cor="text-gray-900" sub="Vendas concluídas (sem devoluções)" />
-        <Card rotulo="Custo das mercadorias" valor={`− ${formatBRL(custoTotal)}`} cor="text-orange-600" sub="Quanto custou o que foi vendido" />
-        <Card rotulo="Despesas" valor={`− ${formatBRL(despesasTotal)}`} cor="text-red-600" sub="Contas a pagar do mês" />
-        <Card rotulo="Lucro" valor={formatBRL(lucro)} cor={lucro >= 0 ? 'text-emerald-600' : 'text-red-600'} sub="Vendas − custo − despesas" />
-        <Card rotulo="A receber (fiado/em aberto)" valor={formatBRL(receberTotal)} cor="text-amber-600" sub="Pendente pra receber" />
-      </div>
-
-      {/* Estoque do mês (a custo) */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h3 className="text-base font-bold text-gray-900">📦 Estoque do mês (a custo)</h3>
-        <p className="mt-0.5 text-xs text-gray-400">Quanto você tem parado em peça, pelo preço de custo (o investimento).</p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <Card rotulo="Estoque inicial (dia 01)" valor={formatBRL(estoqueInicial)} cor="text-gray-900" />
-          <Card rotulo="Estoque final (dia 30)" valor={formatBRL(estoqueFinal)} cor="text-gray-900" />
-          <Card rotulo="Variação do estoque" valor={formatBRL(estoqueFinal - estoqueInicial)} cor={(estoqueFinal - estoqueInicial) >= 0 ? 'text-emerald-600' : 'text-red-600'} sub="Final − inicial" />
-          <Card rotulo="Perdas" valor={`− ${formatBRL(perdasTotal)}`} cor="text-red-600" sub="Quebra/sumiço/avaria" />
-          <Card rotulo="Trocas que não voltaram" valor={`− ${formatBRL(trocasTotal)}`} cor="text-orange-600" sub="Defeito/avaria devolvida" />
+      {linhas.map((b) => (
+        <div key={b.loja} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h3 className="text-lg font-bold text-gray-900">{b.nome}</h3>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-xl bg-emerald-50 p-4">
+              <p className="text-xs font-semibold uppercase text-emerald-700">Entrou no mês</p>
+              <p className="mt-1 text-xl font-bold text-emerald-700">{formatBRL(b.entradas)}</p>
+              <p className="text-[11px] text-emerald-600">vendas pagas + fiado cobrado</p>
+            </div>
+            <div className="rounded-xl bg-red-50 p-4">
+              <p className="text-xs font-semibold uppercase text-red-700">Saiu no mês</p>
+              <p className="mt-1 text-xl font-bold text-red-700">{formatBRL(b.saidas)}</p>
+              <p className="text-[11px] text-red-600">compras {formatBRL(b.compras)} + despesas {formatBRL(b.despesas)}</p>
+            </div>
+            <div className={`rounded-xl p-4 ${b.resultado >= 0 ? 'bg-blue-50' : 'bg-amber-50'}`}>
+              <p className="text-xs font-semibold uppercase text-gray-500">Resultado</p>
+              <p className={`mt-1 text-xl font-bold ${b.resultado >= 0 ? 'text-blue-700' : 'text-amber-700'}`}>{formatBRL(b.resultado)}</p>
+              <p className="text-[11px] text-gray-500">entrou − saiu</p>
+            </div>
+          </div>
         </div>
-        <p className="mt-3 text-xs text-gray-400">Variação = o que o estoque cresceu (+) ou encolheu (−) no mês. Perdas e trocas que não voltam explicam parte do que sumiu (sem venda).</p>
-      </div>
+      ))}
 
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <FecharMesButton mes={mes} fechado={!!fechamento} />
