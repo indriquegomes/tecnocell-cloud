@@ -108,12 +108,18 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     const b = porLoja[l.id]
     const entradas = b.entradas + b.fiadoCobrado
     const saidas = b.compras + b.despesas
-    return { ...b, entradas, saidas, resultado: entradas - saidas }
+    const caixaInicial = aberturaValor?.caixa?.[l.id] ?? 0
+    const caixaFinal = caixaInicial + entradas - saidas
+    return { ...b, entradas, saidas, caixaInicial, caixaFinal, resultado: entradas - saidas }
   })
 
   // Já fechado?
   const { data: fechado } = await supabase.from('configuracoes').select('valor').eq('chave', `fechamento_mes:${mes}`).maybeSingle()
   const fechamento = fechado ? (fechado.valor as { fechado_em: string }) : null
+
+  // Abertura oficial (caixa + estoque) gravada pelo dono
+  const { data: abertura } = await supabase.from('configuracoes').select('valor').eq('chave', `abertura:${mes}`).maybeSingle()
+  const aberturaValor = abertura ? (abertura.valor as { caixa?: Record<string, number>; estoque?: Record<string, number> }) : null
 
   return (
     <div className="space-y-6">
@@ -138,7 +144,12 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
       {linhas.map((b) => (
         <div key={b.loja} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-bold text-gray-900">{b.nome}</h3>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="rounded-xl bg-gray-50 p-4">
+              <p className="text-xs font-semibold uppercase text-gray-500">Caixa inicial</p>
+              <p className="mt-1 text-xl font-bold text-gray-800">{formatBRL(b.caixaInicial)}</p>
+              <p className="text-[11px] text-gray-400">fim de agosto</p>
+            </div>
             <div className="rounded-xl bg-emerald-50 p-4">
               <p className="text-xs font-semibold uppercase text-emerald-700">Entrou no mês</p>
               <p className="mt-1 text-xl font-bold text-emerald-700">{formatBRL(b.entradas)}</p>
@@ -149,7 +160,12 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
               <p className="mt-1 text-xl font-bold text-red-700">{formatBRL(b.saidas)}</p>
               <p className="text-[11px] text-red-600">compras {formatBRL(b.compras)} + despesas {formatBRL(b.despesas)}</p>
             </div>
-            <div className={`rounded-xl p-4 ${b.resultado >= 0 ? 'bg-blue-50' : 'bg-amber-50'}`}>
+            <div className="rounded-xl bg-blue-50 p-4">
+              <p className="text-xs font-semibold uppercase text-blue-700">Caixa final</p>
+              <p className="mt-1 text-xl font-bold text-blue-700">{formatBRL(b.caixaFinal)}</p>
+              <p className="text-[11px] text-blue-600">inicial + entrou − saiu</p>
+            </div>
+            <div className={`rounded-xl p-4 ${b.resultado >= 0 ? 'bg-emerald-50' : 'bg-amber-50'}`}>
               <p className="text-xs font-semibold uppercase text-gray-500">Resultado</p>
               <p className={`mt-1 text-xl font-bold ${b.resultado >= 0 ? 'text-blue-700' : 'text-amber-700'}`}>{formatBRL(b.resultado)}</p>
               <p className="text-[11px] text-gray-500">entrou − saiu</p>
