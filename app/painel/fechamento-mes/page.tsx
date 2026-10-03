@@ -247,143 +247,129 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
 
       {linha && (
         <div className="space-y-4">
-          {/* fluxo de caixa */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <h3 className="text-lg font-bold text-gray-900">{linha.nome}</h3>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              <div className="rounded-xl bg-gray-50 p-4">
-                <p className="text-xs font-semibold uppercase text-gray-500">Caixa inicial</p>
-                <p className="mt-1 text-xl font-bold text-gray-800">{fmt(linha.caixaInicial)}</p>
-                <p className="text-[11px] text-gray-400">fim de agosto</p>
-              </div>
-              <div className="rounded-xl bg-emerald-50 p-4">
-                <p className="text-xs font-semibold uppercase text-emerald-700">Entrou no mês</p>
-                <p className="mt-1 text-xl font-bold text-emerald-700">{fmt(linha.entradas)}</p>
-                <p className="text-[11px] text-emerald-600">vendas pagas + fiado cobrado</p>
-              </div>
-              <div className="rounded-xl bg-red-50 p-4">
-                <p className="text-xs font-semibold uppercase text-red-700">Saiu no mês</p>
-                <p className="mt-1 text-xl font-bold text-red-700">{fmt(linha.saidas)}</p>
-                <p className="text-[11px] text-red-600">compras {fmt(linha.compras)} + despesas {fmt(linha.despesas)}</p>
-              </div>
-              <div className="rounded-xl bg-blue-50 p-4">
-                <p className="text-xs font-semibold uppercase text-blue-700">Caixa final</p>
-                <p className="mt-1 text-xl font-bold text-blue-700">{fmt(linha.caixaFinal)}</p>
-                <p className="text-[11px] text-blue-600">inicial + entrou − saiu</p>
-              </div>
-              <div className={`rounded-xl p-4 ${linha.resultado >= 0 ? 'bg-emerald-50' : 'bg-amber-50'}`}>
-                <p className="text-xs font-semibold uppercase text-gray-500">Resultado</p>
-                <p className={`mt-1 text-xl font-bold ${linha.resultado >= 0 ? 'text-emerald-700' : 'text-amber-700'}`}>{fmt(linha.resultado)}</p>
-                <p className="text-[11px] text-gray-500">entrou − saiu</p>
-              </div>
+          {/* resultado do mês — 5 cards iguais, cores diferentes */}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="rounded-2xl bg-gray-100 p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase text-gray-500">Caixa inicial</p>
+              <p className="mt-1 text-2xl font-bold text-gray-800">{fmt(linha.caixaInicial)}</p>
+              <p className="text-[11px] text-gray-400">fim de {nomeMes(mesAnterior)}</p>
+            </div>
+            <div className="rounded-2xl bg-emerald-50 p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase text-emerald-700">Entrou no mês</p>
+              <p className="mt-1 text-2xl font-bold text-emerald-700">{fmt(linha.entradas)}</p>
+              <p className="text-[11px] text-emerald-600">vendas pagas + fiado</p>
+            </div>
+            <div className="rounded-2xl bg-red-50 p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase text-red-700">Saiu no mês</p>
+              <p className="mt-1 text-2xl font-bold text-red-700">{fmt(linha.saidas)}</p>
+              <p className="text-[11px] text-red-600">compras + despesas</p>
+            </div>
+            <div className="rounded-2xl bg-blue-50 p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase text-blue-700">Caixa final</p>
+              <p className="mt-1 text-2xl font-bold text-blue-700">{fmt(linha.caixaFinal)}</p>
+              <p className="text-[11px] text-blue-600">inicial + entrou − saiu</p>
+            </div>
+            <div className={`rounded-2xl p-4 shadow-sm ${linha.resultado >= 0 ? 'bg-emerald-100' : 'bg-amber-100'}`}>
+              <p className="text-xs font-semibold uppercase text-gray-600">{linha.resultado >= 0 ? 'Lucro' : 'Prejuízo'}</p>
+              <p className={`mt-1 text-2xl font-bold ${linha.resultado >= 0 ? 'text-emerald-700' : 'text-amber-700'}`}>{fmt(Math.abs(linha.resultado))}</p>
+              <p className="text-[11px] text-gray-500">entrou − saiu</p>
             </div>
           </div>
 
-          {/* caixa detalhado */}
-          <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4">
-            <p className="text-xs font-semibold uppercase text-gray-500">💵 Caixa (onde está o dinheiro)</p>
-            <div className="mt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-4">
-              {CAIXA_DET.map(([k, label]) => (
-                <div key={k} className="flex justify-between text-sm">
-                  <span className="text-gray-600">{label}</span>
-                  <span className="font-semibold tabular-nums text-gray-800">{fmt(linha.caixaDet?.[k] ?? 0)}</span>
-                </div>
-              ))}
+          {/* indicadores — 5 cards iguais, cores diferentes */}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="rounded-2xl bg-purple-50 p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase text-purple-700">🏷️ Consignado</p>
+              <p className="mt-1 text-2xl font-bold text-purple-700">{fmt(linha.consignado)}</p>
+              <p className="text-[11px] text-purple-600">dívida a pagar</p>
             </div>
-          </div>
-
-          {/* dinheiro (gaveta) no mês */}
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
-            <p className="text-xs font-semibold uppercase text-emerald-700">💵 Dinheiro (gaveta) no mês</p>
-            <div className="mt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Entrou em dinheiro</span>
-                <span className="font-semibold tabular-nums text-emerald-700">{fmt(linha.dinheiroEntrou)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Saiu em dinheiro</span>
-                <span className="font-semibold tabular-nums text-red-600">{fmt(linha.dinheiroSaiu)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-700 font-medium">Em mãos</span>
-                <span className={`font-bold tabular-nums ${linha.dinheiroEmMaos >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{fmt(linha.dinheiroEmMaos)}</span>
-              </div>
-            </div>
-            <p className="mt-1.5 text-[11px] text-emerald-700">venda + fiado + reforço em dinheiro − despesa + retirada + devolução em dinheiro</p>
-          </div>
-
-          {/* consignado, perdas, trocas */}
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl bg-purple-50 p-4">
-              <p className="text-xs font-semibold uppercase text-purple-700">🏷️ Consignado (a pagar)</p>
-              <p className="mt-1 text-lg font-bold text-purple-700">{fmt(linha.consignado)}</p>
-              <p className="text-[11px] text-purple-600">não é seu ainda — é dívida</p>
-            </div>
-            <div className="rounded-xl bg-rose-50 p-4">
+            <div className="rounded-2xl bg-rose-50 p-4 shadow-sm">
               <p className="text-xs font-semibold uppercase text-rose-700">🗑️ Perdas</p>
-              <p className="mt-1 text-lg font-bold text-rose-700">{fmt(linha.perdasApp)}</p>
-              <p className="text-[11px] text-rose-600">registradas no estoque · setembro oficial {fmt(linha.perdas)}</p>
+              <p className="mt-1 text-2xl font-bold text-rose-700">{fmt(linha.perdasApp)}</p>
+              <p className="text-[11px] text-rose-600">oficial setembro {fmt(linha.perdas)}</p>
+            </div>
+            <div className="rounded-2xl bg-amber-50 p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase text-amber-700">🔄 Trocas na rua</p>
+              <p className="mt-1 text-2xl font-bold text-amber-700">{fmt(linha.trocasNaRua)}</p>
+              <p className="text-[11px] text-amber-600">enviadas, não resolvidas</p>
+            </div>
+            <div className="rounded-2xl bg-emerald-50 p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase text-emerald-700">💵 Dinheiro em mãos</p>
+              <p className="mt-1 text-2xl font-bold text-emerald-700">{fmt(linha.dinheiroEmMaos)}</p>
+              <p className="text-[11px] text-emerald-600">entrou − saiu em dinheiro</p>
+            </div>
+            <div className="rounded-2xl bg-sky-50 p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase text-sky-700">📦 Estoque consumido</p>
+              <p className="mt-1 text-2xl font-bold text-sky-700">{fmt(linha.consumido)}</p>
+              <p className="text-[11px] text-sky-600">início − final</p>
+            </div>
+          </div>
+
+          {/* detalhes (colapsado pra não poluir) */}
+          <details className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <summary className="cursor-pointer select-none text-sm font-semibold text-gray-600">Ver detalhes</summary>
+
+            <div className="mt-4 space-y-4">
+              <div>
+                <p className="text-xs font-semibold uppercase text-gray-400">💵 Caixa (onde está o dinheiro)</p>
+                <div className="mt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-4">
+                  {CAIXA_DET.map(([k, label]) => (
+                    <div key={k} className="flex justify-between text-sm">
+                      <span className="text-gray-600">{label}</span>
+                      <span className="font-semibold tabular-nums text-gray-800">{fmt(linha.caixaDet?.[k] ?? 0)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase text-gray-400">💵 Dinheiro (gaveta) no mês</p>
+                <div className="mt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-3">
+                  <div className="flex justify-between text-sm"><span className="text-gray-600">Entrou</span><span className="font-semibold tabular-nums text-emerald-700">{fmt(linha.dinheiroEntrou)}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-gray-600">Saiu</span><span className="font-semibold tabular-nums text-red-600">{fmt(linha.dinheiroSaiu)}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-gray-700 font-medium">Em mãos</span><span className="font-bold tabular-nums">{fmt(linha.dinheiroEmMaos)}</span></div>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase text-gray-400">📦 Estoque (custo)</p>
+                <div className="mt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-5">
+                  <div className="flex justify-between text-sm"><span className="text-gray-600">Vitrine</span><span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueFinalVitrine)}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-gray-600">Fundo</span><span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueFinalFundo)}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-gray-600">Início</span><span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueInicialTotal)}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-gray-600">Final</span><span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueFinalTotal)}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-gray-600">Consumido</span><span className="font-semibold tabular-nums text-gray-800">{fmt(linha.consumido)}</span></div>
+                </div>
+                <p className="mt-1 text-[11px] text-gray-400">preço de custo do cadastro (ainda inflado, ajustar depois)</p>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase text-gray-400">📦 Estoque por categoria</p>
+                <div className="mt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-4">
+                  {CAT_ESTOQUE.map(([k, label]) => (
+                    <div key={k} className="flex justify-between text-sm">
+                      <span className="text-gray-600">{label}</span>
+                      <span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueCategorias?.[k] ?? 0)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {linha.perdasItens.length > 0 && (
-                <details className="mt-2">
-                  <summary className="cursor-pointer text-[11px] font-semibold text-rose-600">ver motivos ({linha.perdasItens.length})</summary>
-                  <div className="mt-1 space-y-1">
+                <div>
+                  <p className="text-xs font-semibold uppercase text-gray-400">🗑️ Motivos das perdas</p>
+                  <div className="mt-2 space-y-1">
                     {linha.perdasItens.map((it, i) => (
-                      <div key={i} className="flex justify-between gap-2 text-[11px] text-rose-700">
-                        <span className="truncate">{it.nome}{it.motivo !== '—' ? ' · ' + it.motivo : ''}</span>
-                        <span className="shrink-0 tabular-nums">{fmt(it.custo)}</span>
+                      <div key={i} className="flex justify-between gap-2 text-sm">
+                        <span className="truncate text-gray-600">{it.nome}{it.motivo !== '—' ? ' · ' + it.motivo : ''}</span>
+                        <span className="shrink-0 tabular-nums text-gray-800">{fmt(it.custo)}</span>
                       </div>
                     ))}
                   </div>
-                </details>
+                </div>
               )}
             </div>
-            <div className="rounded-xl bg-amber-50 p-4">
-              <p className="text-xs font-semibold uppercase text-amber-700">🔄 Trocas (SP) na rua</p>
-              <p className="mt-1 text-lg font-bold text-amber-700">{fmt(linha.trocasNaRua)}</p>
-              <p className="text-[11px] text-amber-600">enviadas e não resolvidas · setembro oficial {fmt(linha.trocasPend + linha.trocasIndo)}</p>
-            </div>
-          </div>
-
-          {/* estoque (custo): vitrine × fundo, inicial → final → consumido */}
-          <div className="rounded-xl border border-sky-200 bg-sky-50/60 p-4">
-            <p className="text-xs font-semibold uppercase text-sky-700">📦 Estoque (custo)</p>
-            <div className="mt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-5">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Vitrine (loja)</span>
-                <span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueFinalVitrine)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Fundo (estoque)</span>
-                <span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueFinalFundo)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Início do mês</span>
-                <span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueInicialTotal)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Final (agora)</span>
-                <span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueFinalTotal)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-700 font-medium">Consumido</span>
-                <span className={`font-bold tabular-nums ${linha.consumido >= 0 ? 'text-sky-700' : 'text-amber-600'}`}>{fmt(linha.consumido)}</span>
-              </div>
-            </div>
-            <p className="mt-1.5 text-[11px] text-sky-700">consumido = início − final · preço de custo do cadastro (ainda inflado, ajustar depois)</p>
-          </div>
-
-          {/* estoque por categoria (embaixo) */}
-          <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4">
-            <p className="text-xs font-semibold uppercase text-gray-500">📦 Estoque (imobilizado) por categoria</p>
-            <div className="mt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-4">
-              {CAT_ESTOQUE.map(([k, label]) => (
-                <div key={k} className="flex justify-between text-sm">
-                  <span className="text-gray-600">{label}</span>
-                  <span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueCategorias?.[k] ?? 0)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          </details>
         </div>
       )}
 
