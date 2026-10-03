@@ -126,6 +126,7 @@ const navCompleto: NavGroup[] = [
     group: 'Cadastros',
     items: [
       { href: '/painel/clientes',         label: 'Pessoas',             permissao: 'clientes' },
+      { href: '/painel/clientes-app',     label: 'Cadastros do App',    permissao: 'clientes' },
       { href: '/painel/clientes/importar', label: 'Importar Clientes',  permissao: 'clientes' },
       { href: '/painel/lojas',            label: 'Lojas',               permissao: 'usuarios' },
       { href: '/painel/formas-pagamento', label: 'Formas de Pagamento', permissao: 'usuarios' },
