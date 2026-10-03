@@ -202,12 +202,16 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     const estoqueFinal = estoqueFinalPorLoja[l.id] ?? { vitrine: 0, fundo: 0 }
     const estoqueInicialTotal = estoqueInicial.vitrine + estoqueInicial.fundo
     const estoqueFinalTotal = estoqueFinal.vitrine + estoqueFinal.fundo
+    // consumido só faz sentido quando há mês anterior fechado (senão "início=0" vira um
+    // negativo gigante que parece erro). Primeiro mês não compara.
+    const temEstoqueBase = !!fechamentoAnterior?.estoque_final?.[l.id]
     return {
       ...b, entradas, saidas, caixaInicial, caixaDet, estoqueCategorias, consignado, perdas, perdasApp: perdasAppTotal, perdasItens, trocasPend, trocasIndo, trocasNaRua: trocasNaRuaValor,
       dinheiroEntrou: dinheiro.entrou, dinheiroSaiu: dinheiro.saiu, dinheiroEmMaos,
       estoqueInicialVitrine: estoqueInicial.vitrine, estoqueInicialFundo: estoqueInicial.fundo, estoqueInicialTotal,
       estoqueFinalVitrine: estoqueFinal.vitrine, estoqueFinalFundo: estoqueFinal.fundo, estoqueFinalTotal,
       consumido: estoqueInicialTotal - estoqueFinalTotal,
+      temEstoqueBase,
       caixaFinal: caixaInicial + entradas - saidas, resultado: entradas - saidas,
     }
   })
@@ -300,8 +304,8 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
             </div>
             <div className="rounded-2xl bg-sky-50 p-4 shadow-sm">
               <p className="text-xs font-semibold uppercase text-sky-700">📦 Estoque consumido</p>
-              <p className="mt-1 text-2xl font-bold text-sky-700">{fmt(linha.consumido)}</p>
-              <p className="text-[11px] text-sky-600">início − final</p>
+              <p className="mt-1 text-2xl font-bold text-sky-700">{linha.temEstoqueBase ? fmt(linha.consumido) : '—'}</p>
+              <p className="text-[11px] text-sky-600">{linha.temEstoqueBase ? 'início − final' : '1º mês, sem base'}</p>
             </div>
           </div>
 
@@ -310,54 +314,52 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
             <summary className="cursor-pointer select-none text-sm font-semibold text-gray-600">Ver detalhes</summary>
 
             <div className="mt-4 space-y-4">
-              <div>
-                <p className="text-xs font-semibold uppercase text-gray-400">💵 Caixa (onde está o dinheiro)</p>
-                <div className="mt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-4">
-                  {CAIXA_DET.map(([k, label]) => (
-                    <div key={k} className="flex justify-between text-sm">
-                      <span className="text-gray-600">{label}</span>
-                      <span className="font-semibold tabular-nums text-gray-800">{fmt(linha.caixaDet?.[k] ?? 0)}</span>
-                    </div>
-                  ))}
+              {/* 💵 DINHEIRO — onde está + o que passou na gaveta */}
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4">
+                <p className="text-xs font-semibold uppercase text-emerald-700">💵 Dinheiro</p>
+                <div className="mt-2 space-y-3">
+                  <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-4">
+                    {CAIXA_DET.map(([k, label]) => (
+                      <div key={k} className="flex justify-between text-sm">
+                        <span className="text-gray-600">{label}</span>
+                        <span className="font-semibold tabular-nums text-gray-800">{fmt(linha.caixaDet?.[k] ?? 0)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="border-t border-emerald-100 pt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-3">
+                    <div className="flex justify-between text-sm"><span className="text-gray-600">Entrou em dinheiro</span><span className="font-semibold tabular-nums text-emerald-700">{fmt(linha.dinheiroEntrou)}</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-gray-600">Saiu em dinheiro</span><span className="font-semibold tabular-nums text-red-600">{fmt(linha.dinheiroSaiu)}</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-gray-700 font-medium">Em mãos</span><span className="font-bold tabular-nums text-emerald-700">{fmt(linha.dinheiroEmMaos)}</span></div>
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <p className="text-xs font-semibold uppercase text-gray-400">💵 Dinheiro (gaveta) no mês</p>
-                <div className="mt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-3">
-                  <div className="flex justify-between text-sm"><span className="text-gray-600">Entrou</span><span className="font-semibold tabular-nums text-emerald-700">{fmt(linha.dinheiroEntrou)}</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-gray-600">Saiu</span><span className="font-semibold tabular-nums text-red-600">{fmt(linha.dinheiroSaiu)}</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-gray-700 font-medium">Em mãos</span><span className="font-bold tabular-nums">{fmt(linha.dinheiroEmMaos)}</span></div>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-xs font-semibold uppercase text-gray-400">📦 Estoque (custo)</p>
-                <div className="mt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-5">
-                  <div className="flex justify-between text-sm"><span className="text-gray-600">Vitrine</span><span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueFinalVitrine)}</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-gray-600">Fundo</span><span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueFinalFundo)}</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-gray-600">Início</span><span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueInicialTotal)}</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-gray-600">Final</span><span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueFinalTotal)}</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-gray-600">Consumido</span><span className="font-semibold tabular-nums text-gray-800">{fmt(linha.consumido)}</span></div>
-                </div>
-                <p className="mt-1 text-[11px] text-gray-400">preço de custo do cadastro (ainda inflado, ajustar depois)</p>
-              </div>
-
-              <div>
-                <p className="text-xs font-semibold uppercase text-gray-400">📦 Estoque por categoria</p>
-                <div className="mt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-4">
-                  {CAT_ESTOQUE.map(([k, label]) => (
-                    <div key={k} className="flex justify-between text-sm">
-                      <span className="text-gray-600">{label}</span>
-                      <span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueCategorias?.[k] ?? 0)}</span>
-                    </div>
-                  ))}
+              {/* 📦 ESTOQUE — custo agora + por categoria */}
+              <div className="rounded-xl border border-sky-100 bg-sky-50/40 p-4">
+                <p className="text-xs font-semibold uppercase text-sky-700">📦 Estoque</p>
+                <div className="mt-2 space-y-3">
+                  <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-5">
+                    <div className="flex justify-between text-sm"><span className="text-gray-600">Vitrine (loja)</span><span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueFinalVitrine)}</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-gray-600">Fundo (estoque)</span><span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueFinalFundo)}</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-gray-600">Início do mês</span><span className="font-semibold tabular-nums text-gray-800">{linha.temEstoqueBase ? fmt(linha.estoqueInicialTotal) : '—'}</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-gray-600">Final (agora)</span><span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueFinalTotal)}</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-gray-700 font-medium">Consumido</span><span className="font-semibold tabular-nums text-sky-700">{linha.temEstoqueBase ? fmt(linha.consumido) : '—'}</span></div>
+                  </div>
+                  <div className="border-t border-sky-100 pt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-4">
+                    {CAT_ESTOQUE.map(([k, label]) => (
+                      <div key={k} className="flex justify-between text-sm">
+                        <span className="text-gray-600">{label}</span>
+                        <span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueCategorias?.[k] ?? 0)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-sky-600">estoque por categoria = valor oficial de abertura · vitrine/fundo = custo do cadastro (ainda inflado)</p>
                 </div>
               </div>
 
               {linha.perdasItens.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold uppercase text-gray-400">🗑️ Motivos das perdas</p>
+                <div className="rounded-xl border border-rose-100 bg-rose-50/40 p-4">
+                  <p className="text-xs font-semibold uppercase text-rose-700">🗑️ Motivos das perdas</p>
                   <div className="mt-2 space-y-1">
                     {linha.perdasItens.map((it, i) => (
                       <div key={i} className="flex justify-between gap-2 text-sm">
