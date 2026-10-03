@@ -20,6 +20,7 @@ const ICONS: Record<string, IconComp> = {
   '/painel/pdv/operacao': IconCalculator,
   '/painel/vendas': IconChart,
   '/painel/pedidos': IconClipboard,
+  '/painel/pedidos-app': IconClipboard,
   '/painel/devolucoes': IconReturn,
   '/painel/painel-vendedor': IconChart,
   '/painel/metas': IconTarget,
@@ -81,6 +82,7 @@ const navCompleto: NavGroup[] = [
       { href: '/painel/pdv/operacao',   label: 'Operação do PDV',       permissao: 'pdv' },
       { href: '/painel/vendas',         label: 'Painel de Vendas',      permissao: 'vendas' },
       { href: '/painel/pedidos',        label: 'Pedidos e Orçamentos',  permissao: 'pedidos' },
+      { href: '/painel/pedidos-app',    label: 'Pedidos do App',        permissao: 'pdv' },
       { href: '/painel/entregas',       label: 'Entregas do motoboy',    permissao: 'pdv' },
       { href: '/painel/devolucoes',     label: 'Devoluções',            permissao: 'devolucoes' },
       { href: '/painel/painel-vendedor', label: 'Painel Vendedor',      permissao: 'relatorios' },
@@ -120,6 +122,7 @@ const navCompleto: NavGroup[] = [
     group: 'Cadastros',
     items: [
       { href: '/painel/clientes',         label: 'Pessoas',             permissao: 'clientes' },
+      { href: '/painel/clientes-app',     label: 'Cadastros do App',    permissao: 'clientes' },
       { href: '/painel/clientes/importar', label: 'Importar Clientes',  permissao: 'clientes' },
       { href: '/painel/lojas',            label: 'Lojas',               permissao: 'usuarios' },
       { href: '/painel/formas-pagamento', label: 'Formas de Pagamento', permissao: 'usuarios' },

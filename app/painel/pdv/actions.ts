@@ -308,6 +308,7 @@ export async function finalizarVenda(
   tabela_preco_id: string | null = null,
   rota_entrega: string | null = null,
   horario_entrega: string | null = null,
+  pedido_app: { id: string; unidade: string } | null = null,
 ): Promise<
   | { erro: string }
   | { vendaId: string; vendaNumero: number | null; total: number; estoqueAtualizado: Record<string, number>; vendedorNome: string }
@@ -321,6 +322,10 @@ export async function finalizarVenda(
     usuario = await requirePermissao('pdv', accessToken)
   } catch (e) {
     return { erro: 'Sessão expirada. Recarregue a página (F5) e entre novamente. ' + (e instanceof Error ? e.message : '') }
+  }
+
+  if (pedido_app && (desconto !== 0 || credito_valor !== 0 || tipo_entrega !== 'retirada' || series.length)) {
+    return { erro: 'Pedido do app deve manter itens, preços e retirada. Produtos com série precisam do atendimento específico.' }
   }
 
   if (await tabelaSomenteConsulta(tabela_preco_id)) return { erro: 'Tabela CUSTO é somente consulta. Selecione uma tabela de venda.' }
@@ -376,11 +381,27 @@ export async function finalizarVenda(
   // cai numa checagem global (qualquer caixa aberto).
   let caixaId: string | null = null
   try {
-    const { data: depo } = await supabase.from('depositos').select('loja_id').eq('id', deposito_id).maybeSingle()
+    // O depósito vem do navegador: conferir o escopo no servidor antes da RPC.
+    // Falha de consulta ou depósito sem loja não autoriza uma venda.
+    const { data: depo, error: erroDeposito } = await supabase.from('depositos')
+      .select('loja_id').eq('id', deposito_id).maybeSingle()
     const lojaVenda = (depo as { loja_id?: string | null } | null)?.loja_id ?? null
+    if (erroDeposito || !lojaVenda) return { erro: 'Não foi possível validar a loja do depósito. Confira o cadastro do depósito.' }
+    const { data: escopo, error: erroEscopo } = await supabase.from('perfis')
+      .select('lojas_permitidas').eq('id', usuario.id).maybeSingle()
+    if (erroEscopo || !escopo) return { erro: 'Não foi possível validar as lojas autorizadas. Tente novamente.' }
+    const permitidas = escopo.lojas_permitidas
+    if (permitidas != null && (!Array.isArray(permitidas) || permitidas.some((id: unknown) => typeof id !== 'string'))) {
+      return { erro: 'Configuração de lojas autorizadas inválida. Chame o administrador.' }
+    }
+    // Vazio/null significa todas as lojas, conforme a configuração atual do PDV.
+    if (permitidas?.length && !permitidas.includes(lojaVenda)) {
+      return { erro: 'Você não tem permissão para vender no depósito desta loja.' }
+    }
     let q = supabase.from('caixas').select('id').eq('status', 'aberto').limit(1)
     if (lojaVenda) q = q.eq('loja_id', lojaVenda)
     const { data: cx, error: cxErr } = await q.maybeSingle()
+    if (pedido_app && cxErr) return { erro: 'Não foi possível validar o caixa desta unidade.' }
     if (cxErr && cxErr.message?.includes('loja_id')) {
       const { data: cxG } = await supabase.from('caixas').select('id').eq('status', 'aberto').limit(1).maybeSingle()
       caixaId = cxG?.id ?? null
@@ -398,7 +419,13 @@ export async function finalizarVenda(
     .maybeSingle()
   const vendedorNome = perfil?.nome ?? usuario.email ?? ''
 
-  let { data, error } = await supabase.rpc('finalizar_venda_com_desconto_item', {
+  const rpcVenda = pedido_app ? 'finalizar_pedido_app_unidade' : 'finalizar_venda_com_desconto_item'
+  const parametrosPedido = pedido_app ? {
+    p_pedido: pedido_app.id, p_unidade: pedido_app.unidade, p_operador: usuario.id,
+    p_itens: itens, p_pagamentos: pagamentos, p_pessoa_id: pessoa_id,
+    p_deposito_id: deposito_id, p_caixa_id: caixaId, p_vendedor_nome: vendedorNome,
+  } : null
+  let { data, error } = await supabase.rpc(rpcVenda, parametrosPedido ?? {
     p_itens: itens,
     p_pagamentos: pagamentos,
     p_pessoa_id: pessoa_id,
@@ -417,7 +444,10 @@ export async function finalizarVenda(
   // pode ainda não ter sido colada no Supabase quando isto for pro ar — sem essa
   // rede de segurança, TODA venda pararia de funcionar até alguém colar o SQL.
   // Cai pra assinatura antiga (sem entrega) só nesse caso específico.
-  if (error?.code === 'PGRST202') {
+  if (pedido_app && error?.code === 'PGRST202') {
+    return { erro: 'Integração de pedidos do app ainda não instalada. Nenhuma venda avulsa foi criada.' }
+  }
+  if (!pedido_app && error?.code === 'PGRST202') {
     if (itens.some((i) => Number(i.desconto_item ?? 0) > 0)) {
       return { erro: 'Atualização de desconto por peça ainda não foi aplicada no banco.' }
     }
@@ -437,6 +467,11 @@ export async function finalizarVenda(
 
   if (error) return { erro: error.message }
   if (!data) return { erro: 'RPC retornou vazio. Verifique o banco.' }
+
+  if (pedido_app && data.reutilizada) {
+    return { vendaId: data.venda_id as string, vendaNumero: data.venda_numero as number | null,
+      total: data.total as number, estoqueAtualizado: data.estoque_atualizado as Record<string, number>, vendedorNome }
+  }
 
   // "Combinou pagar na entrega": marca o fiado da venda (categoria) pra aparecer
   // destacado na lista de cobrança. Fazemos aqui (pós-RPC) pra não mexer no
@@ -461,8 +496,10 @@ export async function finalizarVenda(
   // supabase-js NUNCA lança (retorna {error}), então um try/catch aqui nunca
   // pegava nada de verdade — uma falha real neste update ficava
   // completamente invisível, e a venda sumia do fechamento sem nenhum rastro.
-  const { error: eCaixaVenda } = await supabase.from('vendas').update({ caixa_id: caixaId }).eq('id', data.venda_id as string)
-  if (eCaixaVenda) console.error('finalizarVenda: falha ao amarrar venda ao caixa:', eCaixaVenda.message, 'venda_id:', data.venda_id)
+  if (!pedido_app) {
+    const { error: eCaixaVenda } = await supabase.from('vendas').update({ caixa_id: caixaId }).eq('id', data.venda_id as string)
+    if (eCaixaVenda) console.error('finalizarVenda: falha ao amarrar venda ao caixa:', eCaixaVenda.message, 'venda_id:', data.venda_id)
+  }
 
   // Estoque mudou pra cada item vendido — avisa o Mercado Livre se algum
   // deles tiver anúncio linkado (fire-and-forget, nunca falha a venda).

@@ -1,5 +1,6 @@
 export const ROTAS_PERMISSAO: Record<string, string> = {
   '/painel/pdv':           'pdv',
+  '/painel/pedidos-app':   'pdv',
   '/painel/vendas':        'vendas',
   '/painel/devolucoes':    'devolucoes',
   '/painel/financeiro':    'financeiro',
@@ -7,6 +8,7 @@ export const ROTAS_PERMISSAO: Record<string, string> = {
   '/painel/estoque/transferencias': 'estoque',
   '/painel/depositos':     'estoque',
   '/painel/clientes':      'clientes',
+  '/painel/clientes-app':  'clientes',
   '/painel/produtos':      'produtos',
   '/painel/produtos/importar': 'produtos',
   '/painel/categorias':    'produtos',
