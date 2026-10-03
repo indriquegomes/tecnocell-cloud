@@ -96,6 +96,11 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     .select('quantidade, observacao, deposito_id, produtos(nome, preco_custo)')
     .eq('operacao', 'perda').gte('created_at', inicio).lt('created_at', proxMes).range(from, to))
 
+  // Trocas SP ainda não resolvidas (status 'enviado'): dinheiro "na rua" com o
+  // fornecedor. Sem corte por data — uma troca antiga continua pendente até voltar/abater.
+  const trocasSp = await fetchAll<any>((from, to) => supabase.from('trocas_sp')
+    .select('valor, loja_id').eq('status', 'enviado').range(from, to))
+
   const bucket = (id: string) => ({ loja: id, nome: lojasList.find((l) => l.id === id)?.nome ?? id, entradas: 0, fiadoCobrado: 0, compras: 0, despesas: 0 })
   const porLoja: Record<string, ReturnType<typeof bucket>> = {}
   for (const l of lojasList) porLoja[l.id] = bucket(l.id)
@@ -115,6 +120,12 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     const custo = (pd.produtos?.preco_custo ?? 0) * (pd.quantidade ?? 0)
     ;(perdasPorLoja[loja] ??= { total: 0, itens: [] }).total += custo
     perdasPorLoja[loja].itens.push({ nome: pd.produtos?.nome ?? '—', custo, motivo: pd.observacao || '—' })
+  }
+
+  const trocasNaRua: Record<string, number> = {}
+  for (const t of trocasSp) {
+    if (!t.loja_id) continue
+    trocasNaRua[t.loja_id] = (trocasNaRua[t.loja_id] ?? 0) + Number(t.valor ?? 0)
   }
 
   const CAT_COMPRAS = ['Fornecedor / Mercadoria', 'Fornecedor ZL', 'fonecedor']
@@ -138,8 +149,9 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     const perdasItens = perdasPorLoja[l.id]?.itens ?? []
     const trocasPend = aberturaValor?.trocas?.pendentes?.[l.id] ?? 0
     const trocasIndo = aberturaValor?.trocas?.indo?.[l.id] ?? 0
+    const trocasNaRuaValor = trocasNaRua[l.id] ?? 0
     return {
-      ...b, entradas, saidas, caixaInicial, caixaDet, estoqueCategorias, consignado, perdas, perdasApp: perdasAppTotal, perdasItens, trocasPend, trocasIndo,
+      ...b, entradas, saidas, caixaInicial, caixaDet, estoqueCategorias, consignado, perdas, perdasApp: perdasAppTotal, perdasItens, trocasPend, trocasIndo, trocasNaRua: trocasNaRuaValor,
       caixaFinal: caixaInicial + entradas - saidas, resultado: entradas - saidas,
     }
   })
@@ -250,9 +262,9 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
               )}
             </div>
             <div className="rounded-xl bg-amber-50 p-4">
-              <p className="text-xs font-semibold uppercase text-amber-700">🔄 Trocas (SP)</p>
-              <p className="mt-1 text-lg font-bold text-amber-700">{fmt(linha.trocasPend + linha.trocasIndo)}</p>
-              <p className="text-[11px] text-amber-600">pendente {fmt(linha.trocasPend)} + indo {fmt(linha.trocasIndo)}</p>
+              <p className="text-xs font-semibold uppercase text-amber-700">🔄 Trocas (SP) na rua</p>
+              <p className="mt-1 text-lg font-bold text-amber-700">{fmt(linha.trocasNaRua)}</p>
+              <p className="text-[11px] text-amber-600">enviadas e não resolvidas · setembro oficial {fmt(linha.trocasPend + linha.trocasIndo)}</p>
             </div>
           </div>
 
