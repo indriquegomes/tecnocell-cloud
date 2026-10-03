@@ -1,6 +1,7 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { formatBRL } from '@/lib/utils'
 import { FecharMesButton } from './FecharMesButton'
+import { estoqueCustoPorLoja } from '@/lib/estoque-custo'
 
 function nomeMes(mes: string) {
   const [ano, m] = mes.split('-').map(Number)
@@ -43,13 +44,14 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
 
   const supabase = await createServiceClient()
 
-  const [{ data: lojas }, deps, cxs, perfis, aberturaRow, fechadoRow] = await Promise.all([
+  const [{ data: lojas }, deps, cxs, perfis, aberturaRow, fechadoRow, anteriorRow] = await Promise.all([
     supabase.from('lojas').select('id, nome').order('nome'),
     fetchAll<any>((from, to) => supabase.from('depositos').select('id, loja_id').range(from, to)),
     fetchAll<any>((from, to) => supabase.from('caixas').select('id, loja_id').range(from, to)),
     fetchAll<any>((from, to) => supabase.from('perfis').select('id, nome, lojas_permitidas').range(from, to)),
     supabase.from('configuracoes').select('valor').eq('chave', `abertura:${mes}`).maybeSingle(),
     supabase.from('configuracoes').select('valor').eq('chave', `fechamento_mes:${mes}`).maybeSingle(),
+    supabase.from('configuracoes').select('valor').eq('chave', `fechamento_mes:${mesAnterior}`).maybeSingle(),
   ])
 
   const lojasList = (lojas ?? []) as { id: string; nome: string }[]
@@ -74,6 +76,14 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
 
   const aberturaValor = aberturaRow?.data ? (aberturaRow.data.valor as Abertura) : null
   const fechamento = fechadoRow?.data ? (fechadoRow.data.valor as { fechado_em: string }) : null
+  const fechamentoAnterior = anteriorRow?.data
+    ? (anteriorRow.data.valor as { estoque_final?: Record<string, { vitrine: number; fundo: number }> })
+    : null
+
+  // Estoque a custo AGORA (vitrine/fundo por loja) — o "final" deste mês.
+  // Inicial = congelado no fechamento do mês anterior (mesma régua de preco_custo).
+  const estoqueFinalPorLoja = await estoqueCustoPorLoja(supabase).catch(() => ({} as Record<string, { vitrine: number; fundo: number }>))
+  const estoqueInicialPorLoja = fechamentoAnterior?.estoque_final ?? {}
 
   const pags = await fetchAll<any>((from, to) => supabase.from('pagamentos_venda')
     .select('valor, forma_pagamento_id, vendas!inner(deposito_id, numero, status, uso_interno, data)')
@@ -188,9 +198,16 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     const trocasNaRuaValor = trocasNaRua[l.id] ?? 0
     const dinheiro = dinheiroPorLoja[l.id] ?? { entrou: 0, saiu: 0 }
     const dinheiroEmMaos = dinheiro.entrou - dinheiro.saiu
+    const estoqueInicial = estoqueInicialPorLoja[l.id] ?? { vitrine: 0, fundo: 0 }
+    const estoqueFinal = estoqueFinalPorLoja[l.id] ?? { vitrine: 0, fundo: 0 }
+    const estoqueInicialTotal = estoqueInicial.vitrine + estoqueInicial.fundo
+    const estoqueFinalTotal = estoqueFinal.vitrine + estoqueFinal.fundo
     return {
       ...b, entradas, saidas, caixaInicial, caixaDet, estoqueCategorias, consignado, perdas, perdasApp: perdasAppTotal, perdasItens, trocasPend, trocasIndo, trocasNaRua: trocasNaRuaValor,
       dinheiroEntrou: dinheiro.entrou, dinheiroSaiu: dinheiro.saiu, dinheiroEmMaos,
+      estoqueInicialVitrine: estoqueInicial.vitrine, estoqueInicialFundo: estoqueInicial.fundo, estoqueInicialTotal,
+      estoqueFinalVitrine: estoqueFinal.vitrine, estoqueFinalFundo: estoqueFinal.fundo, estoqueFinalTotal,
+      consumido: estoqueInicialTotal - estoqueFinalTotal,
       caixaFinal: caixaInicial + entradas - saidas, resultado: entradas - saidas,
     }
   })
@@ -325,6 +342,34 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
               <p className="mt-1 text-lg font-bold text-amber-700">{fmt(linha.trocasNaRua)}</p>
               <p className="text-[11px] text-amber-600">enviadas e não resolvidas · setembro oficial {fmt(linha.trocasPend + linha.trocasIndo)}</p>
             </div>
+          </div>
+
+          {/* estoque (custo): vitrine × fundo, inicial → final → consumido */}
+          <div className="rounded-xl border border-sky-200 bg-sky-50/60 p-4">
+            <p className="text-xs font-semibold uppercase text-sky-700">📦 Estoque (custo)</p>
+            <div className="mt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Vitrine (loja)</span>
+                <span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueFinalVitrine)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Fundo (estoque)</span>
+                <span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueFinalFundo)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Início do mês</span>
+                <span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueInicialTotal)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Final (agora)</span>
+                <span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueFinalTotal)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-700 font-medium">Consumido</span>
+                <span className={`font-bold tabular-nums ${linha.consumido >= 0 ? 'text-sky-700' : 'text-amber-600'}`}>{fmt(linha.consumido)}</span>
+              </div>
+            </div>
+            <p className="mt-1.5 text-[11px] text-sky-700">consumido = início − final · preço de custo do cadastro (ainda inflado, ajustar depois)</p>
           </div>
 
           {/* estoque por categoria (embaixo) */}
