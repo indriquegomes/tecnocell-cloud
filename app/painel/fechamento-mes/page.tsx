@@ -76,12 +76,14 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
   const fechamento = fechadoRow?.data ? (fechadoRow.data.valor as { fechado_em: string }) : null
 
   const pags = await fetchAll<any>((from, to) => supabase.from('pagamentos_venda')
-    .select('valor, vendas!inner(deposito_id, numero, status, uso_interno, data)')
+    .select('valor, forma_pagamento_id, vendas!inner(deposito_id, numero, status, uso_interno, data)')
     .eq('status', 'pago').eq('vendas.status', 'concluida').eq('vendas.uso_interno', false)
     .lt('vendas.numero', 100000).gte('vendas.data', inicio).lt('vendas.data', proxMes).range(from, to))
 
-  const recs = await fetchAll<any>((from, to) => supabase.from('movimentos_caixa')
-    .select('valor, caixa_id').eq('tipo', 'recebimento')
+  // TODOS os movimentos do mês: recebimento (fiado), reforço (entra na gaveta),
+  // retirada/sangria e devolução em dinheiro (saem da gaveta).
+  const movsCaixa = await fetchAll<any>((from, to) => supabase.from('movimentos_caixa')
+    .select('tipo, forma_pagamento, valor, caixa_id')
     .gte('created_at', inicio).lt('created_at', proxMes).range(from, to))
 
   const comprasItens = await fetchAll<any>((from, to) => supabase.from('itens_nota_entrada')
@@ -89,8 +91,13 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     .gte('notas_entrada.data_entrada', inicio).lt('notas_entrada.data_entrada', proxMes).range(from, to))
 
   const despesas = await fetchAll<any>((from, to) => supabase.from('lancamentos')
-    .select('valor, loja_id, categoria, pessoa_nome').eq('tipo', 'pagar').eq('status', 'pago')
+    .select('valor, loja_id, categoria, pessoa_nome, forma_pagamento').eq('tipo', 'pagar').eq('status', 'pago')
     .gte('data_vencimento', inicio).lt('data_vencimento', proxMes).range(from, to))
+
+  // Forma de pagamento → tipo (pra saber o que é DINHEIRO de verdade, não PIX/cartão)
+  const { data: formasPg } = await supabase.from('formas_pagamento').select('id, tipo')
+  const tipoPorFormaId = new Map((formasPg ?? []).map((f) => [f.id, f.tipo as string]))
+  const ehDinheiro = (txt: string | null | undefined) => (txt ?? '').trim().toLowerCase().includes('dinheiro')
 
   const perdasApp = await fetchAll<any>((from, to) => supabase.from('movimentacoes_estoque')
     .select('quantidade, observacao, deposito_id, produtos(nome, preco_custo)')
@@ -110,7 +117,7 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
   }
 
   for (const p of pags) add(lojaDeDeposito.get(p.vendas?.deposito_id) ?? null, 'entradas', p.valor ?? 0)
-  for (const r of recs) add(lojaDeCaixa.get(r.caixa_id) ?? null, 'fiadoCobrado', r.valor ?? 0)
+  for (const r of movsCaixa) if (r.tipo === 'recebimento') add(lojaDeCaixa.get(r.caixa_id) ?? null, 'fiadoCobrado', r.valor ?? 0)
   for (const c of comprasItens) add(lojaDeDeposito.get(c.deposito_id) ?? null, 'compras', c.total_item ?? 0)
 
   const perdasPorLoja: Record<string, { total: number; itens: { nome: string; custo: number; motivo: string }[] }> = {}
@@ -136,6 +143,35 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     add(loja, 'despesas', d.valor ?? 0)
   }
 
+  // 💵 DINHEIRO (gaveta) por loja, no mês: cédula que entrou − cédula que saiu.
+  // O resto do fluxo (PIX/cartão) é banco/maquininha — aqui é só o que dá pra contar na mão.
+  const dinheiroPorLoja: Record<string, { entrou: number; saiu: number }> = {}
+  for (const l of lojasList) dinheiroPorLoja[l.id] = { entrou: 0, saiu: 0 }
+  const addDin = (id: string | null, campo: 'entrou' | 'saiu', valor: number) => {
+    if (!id || !dinheiroPorLoja[id]) return
+    dinheiroPorLoja[id][campo] += valor
+  }
+  // venda paga em dinheiro
+  for (const p of pags) {
+    if (tipoPorFormaId.get(p.forma_pagamento_id) === 'dinheiro')
+      addDin(lojaDeDeposito.get(p.vendas?.deposito_id) ?? null, 'entrou', p.valor ?? 0)
+  }
+  // movimentos da gaveta: recebimento de fiado e reforço entram; retirada/devolução saem
+  for (const m of movsCaixa) {
+    if (!ehDinheiro(m.forma_pagamento)) continue
+    const loja = lojaDeCaixa.get(m.caixa_id) ?? null
+    if (m.tipo === 'recebimento' || m.tipo === 'reforco') addDin(loja, 'entrou', m.valor ?? 0)
+    else if (m.tipo === 'retirada' || m.tipo === 'devolucao') addDin(loja, 'saiu', m.valor ?? 0)
+  }
+  // despesa paga em dinheiro
+  for (const d of despesas) {
+    if (!ehDinheiro(d.forma_pagamento)) continue
+    const cat = (d.categoria || '').trim()
+    if (CAT_COMPRAS.includes(cat)) continue   // mercadoria é estoque, não gaveta
+    const loja = d.loja_id || lojaDePessoa(d.pessoa_nome || '') || petropolisId
+    addDin(loja, 'saiu', d.valor ?? 0)
+  }
+
   const linhas = lojasList.map((l) => {
     const b = porLoja[l.id]
     const entradas = b.entradas + b.fiadoCobrado
@@ -150,8 +186,11 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     const trocasPend = aberturaValor?.trocas?.pendentes?.[l.id] ?? 0
     const trocasIndo = aberturaValor?.trocas?.indo?.[l.id] ?? 0
     const trocasNaRuaValor = trocasNaRua[l.id] ?? 0
+    const dinheiro = dinheiroPorLoja[l.id] ?? { entrou: 0, saiu: 0 }
+    const dinheiroEmMaos = dinheiro.entrou - dinheiro.saiu
     return {
       ...b, entradas, saidas, caixaInicial, caixaDet, estoqueCategorias, consignado, perdas, perdasApp: perdasAppTotal, perdasItens, trocasPend, trocasIndo, trocasNaRua: trocasNaRuaValor,
+      dinheiroEntrou: dinheiro.entrou, dinheiroSaiu: dinheiro.saiu, dinheiroEmMaos,
       caixaFinal: caixaInicial + entradas - saidas, resultado: entradas - saidas,
     }
   })
@@ -234,6 +273,26 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* dinheiro (gaveta) no mês */}
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
+            <p className="text-xs font-semibold uppercase text-emerald-700">💵 Dinheiro (gaveta) no mês</p>
+            <div className="mt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Entrou em dinheiro</span>
+                <span className="font-semibold tabular-nums text-emerald-700">{fmt(linha.dinheiroEntrou)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Saiu em dinheiro</span>
+                <span className="font-semibold tabular-nums text-red-600">{fmt(linha.dinheiroSaiu)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-700 font-medium">Em mãos</span>
+                <span className={`font-bold tabular-nums ${linha.dinheiroEmMaos >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{fmt(linha.dinheiroEmMaos)}</span>
+              </div>
+            </div>
+            <p className="mt-1.5 text-[11px] text-emerald-700">venda + fiado + reforço em dinheiro − despesa + retirada + devolução em dinheiro</p>
           </div>
 
           {/* consignado, perdas, trocas */}
