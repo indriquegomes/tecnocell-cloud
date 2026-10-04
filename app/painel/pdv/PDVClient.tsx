@@ -4172,7 +4172,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                   <div>
                     <p className="text-xs text-gray-500 uppercase tracking-wide">Data / Hora</p>
                     <p className="font-semibold text-gray-900">
-                      {new Date(detalheVenda.created_at).toLocaleString('pt-BR')}
+                      {new Date(detalheVenda.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })}
                     </p>
                   </div>
                   <div>
