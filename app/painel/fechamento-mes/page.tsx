@@ -352,16 +352,19 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
               </div>
 
               {/* 📦 ESTOQUE POR CATEGORIA — tabela largura total */}
-              <div className="overflow-hidden rounded-xl border border-gray-200 lg:col-span-2">
-                <div className="bg-gray-700 px-4 py-2 text-sm font-bold text-white">📦 Estoque por categoria (abertura oficial)</div>
-                <div className="grid grid-cols-2 divide-x divide-y divide-gray-100 sm:grid-cols-4">
-                  {CAT_ESTOQUE.map(([k, label]) => (
-                    <div key={k} className="px-3 py-2">
-                      <p className="text-[11px] text-gray-500">{label}</p>
-                      <p className="text-sm font-bold tabular-nums text-gray-900">{fmt(linha.estoqueCategorias?.[k] ?? 0)}</p>
-                    </div>
-                  ))}
-                </div>
+              <div className="overflow-hidden rounded-xl border border-slate-200 lg:col-span-2">
+                <div className="bg-slate-600 px-4 py-2 text-sm font-bold text-white">📦 Estoque por categoria (abertura oficial)</div>
+                <table className="w-full text-sm">
+                  <tbody>
+                    <tr className="border-b border-gray-100"><td className="px-4 py-2 text-gray-600">Categoria</td><td className="px-4 py-2 text-right text-gray-500">Valor</td></tr>
+                    {CAT_ESTOQUE.map(([k, label]) => (
+                      <tr key={k} className="border-t border-gray-100">
+                        <td className="px-4 py-2 text-gray-600">{label}</td>
+                        <td className="px-4 py-2 text-right font-semibold tabular-nums text-gray-900">{fmt(linha.estoqueCategorias?.[k] ?? 0)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
 
               {linha.perdasItens.length > 0 && (
