@@ -20,6 +20,31 @@ const CAIXA_DET: [string, string][] = [
   ['caderno', 'Dinheiro caderno'], ['pagbank', 'Pagbank'], ['caixa_dia', 'Caixa do dia'], ['envelopes', 'Envelopes'],
 ]
 
+// Mini-cartão de detalhe: rótulo em cima, valor embaixo. Tamanho e cor consistentes —
+// vira uma grade fácil de bater o olho (não aquela lista de "rótulo .... valor" solta).
+function MiniStat({ label, value, tone = 'gray' }: { label: string; value: string; tone?: 'gray' | 'emerald' | 'red' | 'sky' | 'rose' }) {
+  const tones: Record<string, string> = {
+    gray: 'bg-white border-gray-100',
+    emerald: 'bg-emerald-50 border-emerald-100',
+    red: 'bg-red-50 border-red-100',
+    sky: 'bg-sky-50 border-sky-100',
+    rose: 'bg-rose-50 border-rose-100',
+  }
+  const valueCls: Record<string, string> = {
+    gray: 'text-gray-800',
+    emerald: 'text-emerald-700',
+    red: 'text-red-600',
+    sky: 'text-sky-700',
+    rose: 'text-rose-700',
+  }
+  return (
+    <div className={`rounded-lg border px-3 py-2 ${tones[tone] ?? tones.gray}`}>
+      <p className="text-[11px] font-medium leading-tight text-gray-500">{label}</p>
+      <p className={`mt-0.5 text-sm font-bold tabular-nums ${valueCls[tone] ?? valueCls.gray}`}>{value}</p>
+    </div>
+  )
+}
+
 type Abertura = {
   caixa?: Record<string, number>
   caixa_detalhado?: Record<string, Record<string, number>>
@@ -313,53 +338,59 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
           <details className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <summary className="cursor-pointer select-none text-sm font-semibold text-gray-600">Ver detalhes</summary>
 
-            <div className="mt-4 space-y-4">
-              {/* 💵 DINHEIRO — onde está + o que passou na gaveta */}
-              <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4">
-                <p className="text-xs font-semibold uppercase text-emerald-700">💵 Dinheiro</p>
-                <div className="mt-2 space-y-3">
-                  <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-4">
-                    {CAIXA_DET.map(([k, label]) => (
-                      <div key={k} className="flex justify-between text-sm">
-                        <span className="text-gray-600">{label}</span>
-                        <span className="font-semibold tabular-nums text-gray-800">{fmt(linha.caixaDet?.[k] ?? 0)}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="border-t border-emerald-100 pt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-3">
-                    <div className="flex justify-between text-sm"><span className="text-gray-600">Entrou em dinheiro</span><span className="font-semibold tabular-nums text-emerald-700">{fmt(linha.dinheiroEntrou)}</span></div>
-                    <div className="flex justify-between text-sm"><span className="text-gray-600">Saiu em dinheiro</span><span className="font-semibold tabular-nums text-red-600">{fmt(linha.dinheiroSaiu)}</span></div>
-                    <div className="flex justify-between text-sm"><span className="text-gray-700 font-medium">Em mãos</span><span className="font-bold tabular-nums text-emerald-700">{fmt(linha.dinheiroEmMaos)}</span></div>
-                  </div>
+            <div className="mt-4 space-y-5">
+              {/* 💵 DINHEIRO */}
+              <div>
+                <h4 className="text-sm font-bold text-emerald-700">💵 Dinheiro</h4>
+
+                <p className="mt-2 text-[11px] font-semibold uppercase text-gray-400">Onde está agora</p>
+                <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {CAIXA_DET.map(([k, label]) => (
+                    <MiniStat key={k} label={label} value={fmt(linha.caixaDet?.[k] ?? 0)} />
+                  ))}
+                </div>
+
+                <p className="mt-3 text-[11px] font-semibold uppercase text-gray-400">Movimento do mês</p>
+                <div className="mt-1 grid grid-cols-3 gap-2">
+                  <MiniStat label="Entrou em dinheiro" value={fmt(linha.dinheiroEntrou)} tone="emerald" />
+                  <MiniStat label="Saiu em dinheiro" value={fmt(linha.dinheiroSaiu)} tone="red" />
+                  <MiniStat label="Em mãos" value={fmt(linha.dinheiroEmMaos)} tone="emerald" />
                 </div>
               </div>
 
-              {/* 📦 ESTOQUE — custo agora + por categoria */}
-              <div className="rounded-xl border border-sky-100 bg-sky-50/40 p-4">
-                <p className="text-xs font-semibold uppercase text-sky-700">📦 Estoque</p>
-                <div className="mt-2 space-y-3">
-                  <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-5">
-                    <div className="flex justify-between text-sm"><span className="text-gray-600">Vitrine (loja)</span><span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueFinalVitrine)}</span></div>
-                    <div className="flex justify-between text-sm"><span className="text-gray-600">Fundo (estoque)</span><span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueFinalFundo)}</span></div>
-                    <div className="flex justify-between text-sm"><span className="text-gray-600">Início do mês</span><span className="font-semibold tabular-nums text-gray-800">{linha.temEstoqueBase ? fmt(linha.estoqueInicialTotal) : '—'}</span></div>
-                    <div className="flex justify-between text-sm"><span className="text-gray-600">Final (agora)</span><span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueFinalTotal)}</span></div>
-                    <div className="flex justify-between text-sm"><span className="text-gray-700 font-medium">Consumido</span><span className="font-semibold tabular-nums text-sky-700">{linha.temEstoqueBase ? fmt(linha.consumido) : '—'}</span></div>
-                  </div>
-                  <div className="border-t border-sky-100 pt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-4">
-                    {CAT_ESTOQUE.map(([k, label]) => (
-                      <div key={k} className="flex justify-between text-sm">
-                        <span className="text-gray-600">{label}</span>
-                        <span className="font-semibold tabular-nums text-gray-800">{fmt(linha.estoqueCategorias?.[k] ?? 0)}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-sky-600">estoque por categoria = valor oficial de abertura · vitrine/fundo = custo do cadastro (ainda inflado)</p>
+              {/* 📦 ESTOQUE */}
+              <div>
+                <h4 className="text-sm font-bold text-sky-700">📦 Estoque</h4>
+
+                <p className="mt-2 text-[11px] font-semibold uppercase text-gray-400">Custo agora (cadastro)</p>
+                <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  <MiniStat label="Vitrine (loja)" value={fmt(linha.estoqueFinalVitrine)} tone="sky" />
+                  <MiniStat label="Fundo (estoque)" value={fmt(linha.estoqueFinalFundo)} tone="sky" />
+                  <MiniStat label="Total agora" value={fmt(linha.estoqueFinalTotal)} tone="sky" />
                 </div>
+
+                <p className="mt-3 text-[11px] font-semibold uppercase text-gray-400">Comparação com o mês anterior</p>
+                <div className="mt-1 grid grid-cols-3 gap-2">
+                  <MiniStat label="Início do mês" value={linha.temEstoqueBase ? fmt(linha.estoqueInicialTotal) : '—'} />
+                  <MiniStat label="Final do mês" value={fmt(linha.estoqueFinalTotal)} />
+                  <MiniStat label="Consumido" value={linha.temEstoqueBase ? fmt(linha.consumido) : '—'} tone="sky" />
+                </div>
+                {!linha.temEstoqueBase && (
+                  <p className="mt-1 text-[11px] text-gray-400">1º mês — sem mês anterior pra comparar.</p>
+                )}
+
+                <p className="mt-3 text-[11px] font-semibold uppercase text-gray-400">Por categoria (abertura oficial)</p>
+                <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {CAT_ESTOQUE.map(([k, label]) => (
+                    <MiniStat key={k} label={label} value={fmt(linha.estoqueCategorias?.[k] ?? 0)} />
+                  ))}
+                </div>
+                <p className="mt-1 text-[11px] text-sky-600">custo do cadastro ainda inflado — ajustar depois</p>
               </div>
 
               {linha.perdasItens.length > 0 && (
-                <div className="rounded-xl border border-rose-100 bg-rose-50/40 p-4">
-                  <p className="text-xs font-semibold uppercase text-rose-700">🗑️ Motivos das perdas</p>
+                <div>
+                  <h4 className="text-sm font-bold text-rose-700">🗑️ Motivos das perdas</h4>
                   <div className="mt-2 space-y-1">
                     {linha.perdasItens.map((it, i) => (
                       <div key={i} className="flex justify-between gap-2 text-sm">
