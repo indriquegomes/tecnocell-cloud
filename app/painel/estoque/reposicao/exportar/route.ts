@@ -18,7 +18,10 @@ export async function GET(req: NextRequest) {
 
   const hoje = hojeSP()
   const ate = sp.get('ate') || hoje
-  const de = sp.get('de') || (() => { const d = new Date(ate + 'T00:00:00'); d.setDate(d.getDate() - 29); return d.toISOString().slice(0, 10) })()
+  // Subtrai 29 dias de uma data YYYY-MM-DD em UTC puro (Date.UTC + toISOString) — o
+  // antigo new Date(ate+'T00:00:00') sem Z interpretava em hora local e, no servidor
+  // Vercel (UTC) com o fuso de SP (UTC-3), virava o dia anterior depois das 21h.
+  const de = sp.get('de') || (() => { const [y, m, d] = ate.split('-').map(Number); const dt = new Date(Date.UTC(y, m - 1, d)); dt.setUTCDate(dt.getUTCDate() - 29); return dt.toISOString().slice(0, 10) })()
   const cobrir = Math.max(1, parseInt(sp.get('cobrir') ?? '30', 10) || 30)
   const PRAZO_REPOSICAO = 12   // prazo real do pedido chegar (Vitor, 16/07) — igual à tela
   const categoria = sp.get('categoria') || ''

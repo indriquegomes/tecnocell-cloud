@@ -21,6 +21,7 @@ export async function criarTrocaSp(formData: FormData) {
 
   if (!item || !fornecedor) redirect(`/painel/estoque/trocas-sp?erro=${encodeURIComponent('Preencha a peça e o fornecedor.')}`)
   if (!(valor > 0)) redirect(`/painel/estoque/trocas-sp?erro=${encodeURIComponent('Informe o valor da peça.')}`)
+  if (!lojaId) redirect(`/painel/estoque/trocas-sp?erro=${encodeURIComponent('Escolha a loja da troca.')}`)
 
   const { error } = await supabase.from('trocas_sp').insert({
     item, fornecedor, quantidade, valor, loja_id: lojaId, status: 'enviado',
