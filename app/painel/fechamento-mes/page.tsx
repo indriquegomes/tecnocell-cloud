@@ -20,31 +20,6 @@ const CAIXA_DET: [string, string][] = [
   ['caderno', 'Dinheiro caderno'], ['pagbank', 'Pagbank'], ['caixa_dia', 'Caixa do dia'], ['envelopes', 'Envelopes'],
 ]
 
-// Mini-cartão de detalhe: rótulo em cima, valor embaixo. Tamanho e cor consistentes —
-// vira uma grade fácil de bater o olho (não aquela lista de "rótulo .... valor" solta).
-function MiniStat({ label, value, tone = 'gray' }: { label: string; value: string; tone?: 'gray' | 'emerald' | 'red' | 'sky' | 'rose' }) {
-  const tones: Record<string, string> = {
-    gray: 'bg-white border-gray-100',
-    emerald: 'bg-emerald-50 border-emerald-100',
-    red: 'bg-red-50 border-red-100',
-    sky: 'bg-sky-50 border-sky-100',
-    rose: 'bg-rose-50 border-rose-100',
-  }
-  const valueCls: Record<string, string> = {
-    gray: 'text-gray-800',
-    emerald: 'text-emerald-700',
-    red: 'text-red-600',
-    sky: 'text-sky-700',
-    rose: 'text-rose-700',
-  }
-  return (
-    <div className={`rounded-lg border px-3 py-2 ${tones[tone] ?? tones.gray}`}>
-      <p className="text-[11px] font-medium leading-tight text-gray-500">{label}</p>
-      <p className={`mt-0.5 text-sm font-bold tabular-nums ${valueCls[tone] ?? valueCls.gray}`}>{value}</p>
-    </div>
-  )
-}
-
 type Abertura = {
   caixa?: Record<string, number>
   caixa_detalhado?: Record<string, Record<string, number>>
@@ -338,64 +313,65 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
           <details className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <summary className="cursor-pointer select-none text-sm font-semibold text-gray-600">Ver detalhes</summary>
 
-            <div className="mt-4 space-y-5">
-              {/* 💵 DINHEIRO */}
-              <div>
-                <h4 className="text-sm font-bold text-emerald-700">💵 Dinheiro</h4>
-
-                <p className="mt-2 text-[11px] font-semibold uppercase text-gray-400">Onde está agora</p>
-                <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {CAIXA_DET.map(([k, label]) => (
-                    <MiniStat key={k} label={label} value={fmt(linha.caixaDet?.[k] ?? 0)} />
-                  ))}
-                </div>
-
-                <p className="mt-3 text-[11px] font-semibold uppercase text-gray-400">Movimento do mês</p>
-                <div className="mt-1 grid grid-cols-3 gap-2">
-                  <MiniStat label="Entrou em dinheiro" value={fmt(linha.dinheiroEntrou)} tone="emerald" />
-                  <MiniStat label="Saiu em dinheiro" value={fmt(linha.dinheiroSaiu)} tone="red" />
-                  <MiniStat label="Em mãos" value={fmt(linha.dinheiroEmMaos)} tone="emerald" />
-                </div>
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              {/* 💵 DINHEIRO — tabela */}
+              <div className="overflow-hidden rounded-xl border border-emerald-200">
+                <div className="bg-emerald-600 px-4 py-2 text-sm font-bold text-white">💵 Dinheiro</div>
+                <table className="w-full text-sm">
+                  <tbody>
+                    <tr><td colSpan={2} className="bg-emerald-50 px-4 py-1.5 text-[11px] font-semibold uppercase text-emerald-700">Onde está agora</td></tr>
+                    {CAIXA_DET.map(([k, label]) => (
+                      <tr key={k} className="border-t border-gray-100">
+                        <td className="px-4 py-2 text-gray-600">{label}</td>
+                        <td className="px-4 py-2 text-right font-semibold tabular-nums text-gray-900">{fmt(linha.caixaDet?.[k] ?? 0)}</td>
+                      </tr>
+                    ))}
+                    <tr><td colSpan={2} className="bg-emerald-50 px-4 py-1.5 text-[11px] font-semibold uppercase text-emerald-700">Movimento do mês</td></tr>
+                    <tr className="border-t border-gray-100"><td className="px-4 py-2 text-gray-600">Entrou em dinheiro</td><td className="px-4 py-2 text-right font-semibold tabular-nums text-emerald-700">{fmt(linha.dinheiroEntrou)}</td></tr>
+                    <tr className="border-t border-gray-100"><td className="px-4 py-2 text-gray-600">Saiu em dinheiro</td><td className="px-4 py-2 text-right font-semibold tabular-nums text-red-600">{fmt(linha.dinheiroSaiu)}</td></tr>
+                    <tr className="border-t border-gray-100 bg-emerald-50/50"><td className="px-4 py-2 font-semibold text-gray-800">Em mãos</td><td className="px-4 py-2 text-right font-bold tabular-nums text-emerald-700">{fmt(linha.dinheiroEmMaos)}</td></tr>
+                  </tbody>
+                </table>
               </div>
 
-              {/* 📦 ESTOQUE */}
-              <div>
-                <h4 className="text-sm font-bold text-sky-700">📦 Estoque</h4>
+              {/* 📦 ESTOQUE — tabela */}
+              <div className="overflow-hidden rounded-xl border border-sky-200">
+                <div className="bg-sky-600 px-4 py-2 text-sm font-bold text-white">📦 Estoque</div>
+                <table className="w-full text-sm">
+                  <tbody>
+                    <tr><td colSpan={2} className="bg-sky-50 px-4 py-1.5 text-[11px] font-semibold uppercase text-sky-700">Custo agora (cadastro)</td></tr>
+                    <tr className="border-t border-gray-100"><td className="px-4 py-2 text-gray-600">Vitrine (loja)</td><td className="px-4 py-2 text-right font-semibold tabular-nums text-gray-900">{fmt(linha.estoqueFinalVitrine)}</td></tr>
+                    <tr className="border-t border-gray-100"><td className="px-4 py-2 text-gray-600">Fundo (estoque)</td><td className="px-4 py-2 text-right font-semibold tabular-nums text-gray-900">{fmt(linha.estoqueFinalFundo)}</td></tr>
+                    <tr className="border-t border-gray-100"><td className="px-4 py-2 font-semibold text-gray-800">Total agora</td><td className="px-4 py-2 text-right font-bold tabular-nums text-sky-700">{fmt(linha.estoqueFinalTotal)}</td></tr>
+                    <tr><td colSpan={2} className="bg-sky-50 px-4 py-1.5 text-[11px] font-semibold uppercase text-sky-700">Comparação com o mês anterior</td></tr>
+                    <tr className="border-t border-gray-100"><td className="px-4 py-2 text-gray-600">Início do mês</td><td className="px-4 py-2 text-right font-semibold tabular-nums text-gray-900">{linha.temEstoqueBase ? fmt(linha.estoqueInicialTotal) : '—'}</td></tr>
+                    <tr className="border-t border-gray-100"><td className="px-4 py-2 text-gray-600">Final do mês</td><td className="px-4 py-2 text-right font-semibold tabular-nums text-gray-900">{fmt(linha.estoqueFinalTotal)}</td></tr>
+                    <tr className="border-t border-gray-100 bg-sky-50/50"><td className="px-4 py-2 font-semibold text-gray-800">Consumido</td><td className="px-4 py-2 text-right font-bold tabular-nums text-sky-700">{linha.temEstoqueBase ? fmt(linha.consumido) : '—'}</td></tr>
+                  </tbody>
+                </table>
+              </div>
 
-                <p className="mt-2 text-[11px] font-semibold uppercase text-gray-400">Custo agora (cadastro)</p>
-                <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  <MiniStat label="Vitrine (loja)" value={fmt(linha.estoqueFinalVitrine)} tone="sky" />
-                  <MiniStat label="Fundo (estoque)" value={fmt(linha.estoqueFinalFundo)} tone="sky" />
-                  <MiniStat label="Total agora" value={fmt(linha.estoqueFinalTotal)} tone="sky" />
-                </div>
-
-                <p className="mt-3 text-[11px] font-semibold uppercase text-gray-400">Comparação com o mês anterior</p>
-                <div className="mt-1 grid grid-cols-3 gap-2">
-                  <MiniStat label="Início do mês" value={linha.temEstoqueBase ? fmt(linha.estoqueInicialTotal) : '—'} />
-                  <MiniStat label="Final do mês" value={fmt(linha.estoqueFinalTotal)} />
-                  <MiniStat label="Consumido" value={linha.temEstoqueBase ? fmt(linha.consumido) : '—'} tone="sky" />
-                </div>
-                {!linha.temEstoqueBase && (
-                  <p className="mt-1 text-[11px] text-gray-400">1º mês — sem mês anterior pra comparar.</p>
-                )}
-
-                <p className="mt-3 text-[11px] font-semibold uppercase text-gray-400">Por categoria (abertura oficial)</p>
-                <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {/* 📦 ESTOQUE POR CATEGORIA — tabela largura total */}
+              <div className="overflow-hidden rounded-xl border border-gray-200 lg:col-span-2">
+                <div className="bg-gray-700 px-4 py-2 text-sm font-bold text-white">📦 Estoque por categoria (abertura oficial)</div>
+                <div className="grid grid-cols-2 divide-x divide-y divide-gray-100 sm:grid-cols-4">
                   {CAT_ESTOQUE.map(([k, label]) => (
-                    <MiniStat key={k} label={label} value={fmt(linha.estoqueCategorias?.[k] ?? 0)} />
+                    <div key={k} className="px-3 py-2">
+                      <p className="text-[11px] text-gray-500">{label}</p>
+                      <p className="text-sm font-bold tabular-nums text-gray-900">{fmt(linha.estoqueCategorias?.[k] ?? 0)}</p>
+                    </div>
                   ))}
                 </div>
-                <p className="mt-1 text-[11px] text-sky-600">custo do cadastro ainda inflado — ajustar depois</p>
               </div>
 
               {linha.perdasItens.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-bold text-rose-700">🗑️ Motivos das perdas</h4>
-                  <div className="mt-2 space-y-1">
+                <div className="overflow-hidden rounded-xl border border-rose-200 lg:col-span-2">
+                  <div className="bg-rose-600 px-4 py-2 text-sm font-bold text-white">🗑️ Motivos das perdas</div>
+                  <div className="divide-y divide-gray-100">
                     {linha.perdasItens.map((it, i) => (
-                      <div key={i} className="flex justify-between gap-2 text-sm">
+                      <div key={i} className="flex justify-between gap-2 px-4 py-2 text-sm">
                         <span className="truncate text-gray-600">{it.nome}{it.motivo !== '—' ? ' · ' + it.motivo : ''}</span>
-                        <span className="shrink-0 tabular-nums text-gray-800">{fmt(it.custo)}</span>
+                        <span className="shrink-0 tabular-nums font-semibold text-gray-900">{fmt(it.custo)}</span>
                       </div>
                     ))}
                   </div>
