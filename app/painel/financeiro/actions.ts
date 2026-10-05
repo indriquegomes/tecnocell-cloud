@@ -417,6 +417,29 @@ export async function gerarFolha(formData: FormData) {
   redirect(`/painel/financeiro?ok=${encodeURIComponent(msg)}`)
 }
 
+// Último lançamento de uma pessoa (por nome) — usado pra preencher o menu de busca
+// quando o usuário escolhe o nome: traz forma, conta, categoria, status, valor e data
+// do lançamento MAIS RECENTE (a última mudança/registro daquela pessoa).
+export async function ultimoLancamentoDaPessoa(accessToken: string, nome: string): Promise<{
+  forma_pagamento: string | null
+  conta_id: string | null
+  categoria: string | null
+  status: string | null
+  valor: number | null
+  data_vencimento: string | null
+} | null> {
+  await requirePermissao('financeiro', accessToken)
+  const supabase = await createServiceClient()
+  const { data } = await supabase
+    .from('lancamentos')
+    .select('forma_pagamento, conta_id, categoria, status, valor, data_vencimento')
+    .eq('pessoa_nome', nome)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return data ?? null
+}
+
 // Edição INLINE de um campo do lançamento (direto na lista, sem abrir tela).
 // Recebe o id + os campos que o form da linha manda. Não redirect pra não perder
 // a posição na lista — só revalida e devolve {ok}.

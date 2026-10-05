@@ -3,9 +3,9 @@ import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { FinanceiroTabs } from './FinanceiroTabs'
 import { IconWallet } from '@/components/icons'
 import { formatBRL, hojeSP } from '@/lib/utils'
-import { BuscaSugestao } from '@/components/BuscaSugestao'
+import { BuscaFinanceiro } from './BuscaFinanceiro'
 import { LinhaEditable } from './LinhaEditable'
-import { gerarFolha, buscarPessoasSugestao } from './actions'
+import { gerarFolha } from './actions'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 import { ExportCsv } from '../relatorios/ExportCsv'
@@ -111,7 +111,6 @@ export default async function FinanceiroPage({
   const fReceber = filtrados.filter((l) => l.tipo === 'receber').reduce((s, l) => s + (l.valor ?? 0), 0)
   const fPagar = filtrados.filter((l) => l.tipo === 'pagar').reduce((s, l) => s + (l.valor ?? 0), 0)
   const fCount = filtrados.length
-  const inp = 'w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400'
   const labelCampo: Record<string, string> = { data_vencimento: 'Vencimento', data_competencia: 'Competência', data_pagamento: 'Pagamento' }
   // Cards de resumo somam TODOS os pendentes (globais), sem o cap de 200 da lista
   // nem o filtro de busca/tipo — senão os totais subcontam quando houver >200 lançamentos.
@@ -183,45 +182,17 @@ export default async function FinanceiroPage({
 
       {/* 🔎 Busca Avançada (Isa 29/07 — espelha a do SIGE) */}
       <BuscaAvancada ativo={temFiltro}>
-        <form key={JSON.stringify(params)} method="GET" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {params.tipo && <input type="hidden" name="tipo" value={params.tipo} />}
-          {params.busca && <input type="hidden" name="busca" value={params.busca} />}
-          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Cliente / Fornecedor</label>
-            <BuscaSugestao name="pessoa" defaultValue={params.pessoa ?? ''} placeholder="Digite o nome…" buscar={buscarPessoasSugestao} className={inp} /></div>
-          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Loja</label>
-            <select name="loja" defaultValue={lojaEfetiva} className={inp}>
-              {operaveis.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
-              <option value="sem">Sem loja</option>
-              <option value="todas">Todas</option>
-            </select></div>
-          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Forma de pagamento</label>
-            <select name="forma" defaultValue={params.forma ?? ''} className={inp}>
-              <option value="">Todas</option>{formasOpc.map((f) => <option key={f} value={f}>{f}</option>)}</select></div>
-          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Conta</label>
-            <select name="conta" defaultValue={params.conta ?? ''} className={inp}>
-              <option value="">Todas</option>{contasOpc.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
-          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Categoria</label>
-            <select name="categoria" defaultValue={params.categoria ?? ''} className={inp}>
-              <option value="">Todas</option>{categoriasOpc.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
-          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Situação</label>
-            <select name="status" defaultValue={params.status ?? ''} className={inp}>
-              <option value="">Todos</option><option value="pendente">Pendente</option><option value="pago">Pago</option><option value="vencido">Vencido</option></select></div>
-          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Valor de</label>
-            <input name="valor_min" type="number" step="0.01" defaultValue={params.valor_min ?? ''} placeholder="0,00" className={inp} /></div>
-          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Valor até</label>
-            <input name="valor_max" type="number" step="0.01" defaultValue={params.valor_max ?? ''} placeholder="0,00" className={inp} /></div>
-          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Filtrar período por</label>
-            <select name="campo" defaultValue={campoData} className={inp}>
-              {camposData.map((c) => <option key={c} value={c}>{labelCampo[c]}</option>)}</select></div>
-          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">De</label>
-            <input name="de" type="date" defaultValue={params.de ?? ''} className={inp} /></div>
-          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Até</label>
-            <input name="ate" type="date" defaultValue={params.ate ?? ''} className={inp} /></div>
-          <div className="flex items-end gap-2 sm:col-span-2">
-            <button type="submit" className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">Filtrar</button>
-            {temFiltro && <Link href="/painel/financeiro" className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 transition">Limpar tudo</Link>}
-          </div>
-        </form>
+        <BuscaFinanceiro
+          params={params as Record<string, string | undefined>}
+          lojaEfetiva={lojaEfetiva}
+          operaveis={operaveis}
+          formasOpc={formasOpc}
+          contasOpc={contasOpc}
+          categoriasOpc={categoriasOpc}
+          camposData={camposData}
+          labelCampo={labelCampo}
+          temFiltro={temFiltro}
+        />
       </BuscaAvancada>
 
       {/* ✨ Totais do que está filtrado (não só o global) + exportar */}
