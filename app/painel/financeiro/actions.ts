@@ -306,6 +306,14 @@ export async function buscarPessoasFinanceiro(accessToken: string, termo: string
   return data ?? []
 }
 
+// Mesma busca, mas já no formato que o <BuscaSugestao> espera ({label, value}).
+// O BuscaSugestao é client component — server action passada DIRETO (não inline)
+// é o que serializa certo pra fronteira do navegador.
+export async function buscarPessoasSugestao(accessToken: string, termo: string): Promise<{ label: string; value: string }[]> {
+  const pessoas = await buscarPessoasFinanceiro(accessToken, termo)
+  return pessoas.map((p) => ({ label: p.nome, value: p.nome }))
+}
+
 // Cria uma pessoa rápida (só o nome) quando não existe — pro campo Cliente/Fornecedor.
 // pessoas é tabela do SIGE (PK TEXT) → precisa gerar o id. nome_norm é gerado no banco.
 export async function criarPessoaRapida(accessToken: string, nome: string): Promise<{ ok: true; id: string; nome: string } | { ok: false; erro: string }> {

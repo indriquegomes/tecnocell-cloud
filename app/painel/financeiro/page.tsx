@@ -6,7 +6,7 @@ import { formatBRL, formatDate, hojeSP } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { BuscaLista } from '@/components/BuscaLista'
 import { BuscaSugestao } from '@/components/BuscaSugestao'
-import { marcarPago, deletarLancamento, desfazerPagamento, gerarFolha, buscarPessoasFinanceiro } from './actions'
+import { marcarPago, deletarLancamento, desfazerPagamento, gerarFolha, buscarPessoasSugestao } from './actions'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
@@ -205,7 +205,7 @@ export default async function FinanceiroPage({
           {params.tipo && <input type="hidden" name="tipo" value={params.tipo} />}
           {params.busca && <input type="hidden" name="busca" value={params.busca} />}
           <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Cliente / Fornecedor</label>
-            <BuscaSugestao name="pessoa" defaultValue={params.pessoa ?? ''} placeholder="Digite o nome…" buscar={async (t, termo) => (await buscarPessoasFinanceiro(t, termo)).map((p) => ({ label: p.nome, value: p.nome }))} className={inp} /></div>
+            <BuscaSugestao name="pessoa" defaultValue={params.pessoa ?? ''} placeholder="Digite o nome…" buscar={buscarPessoasSugestao} className={inp} /></div>
           <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Loja</label>
             <select name="loja" defaultValue={lojaEfetiva} className={inp}>
               {operaveis.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
