@@ -28,6 +28,7 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
   const [conta, setConta] = useState(params.conta ?? '')
   const [categoria, setCategoria] = useState(params.categoria ?? '')
   const [status, setStatus] = useState(params.status ?? '')
+  const [loja, setLoja] = useState(params.loja ?? lojaEfetiva)
   const [valorMin, setValorMin] = useState(params.valor_min ?? '')
   const [valorMax, setValorMax] = useState(params.valor_max ?? '')
   const [de, setDe] = useState(params.de ?? '')
@@ -65,6 +66,7 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
         setConta(ult.conta_id ?? '')
         setCategoria(ult.categoria ?? '')
         setStatus(ult.status === 'pago' ? 'pago' : ult.status === 'pendente' ? 'pendente' : '')
+        setLoja(ult.loja_id ?? '')
         setValorMin(ult.valor != null ? String(ult.valor) : '')
         setValorMax('')
         setDe(ult.data_vencimento ? ult.data_vencimento.slice(0, 10) : '')
@@ -88,7 +90,7 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
           </ul>
         )}
       </div>
-      <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Loja</label><select name="loja" defaultValue={lojaEfetiva} className={inp}>{operaveis.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}<option value="sem">Sem loja</option><option value="todas">Todas</option></select></div>
+      <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Loja</label><select name="loja" value={loja} onChange={(e) => setLoja(e.target.value)} className={inp}>{operaveis.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}<option value="sem">Sem loja</option><option value="todas">Todas</option></select></div>
       <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Forma de pagamento</label><select name="forma" value={forma} onChange={(e) => setForma(e.target.value)} className={inp}><option value="">Todas</option>{formasOpc.map((f) => <option key={f} value={f}>{f}</option>)}</select></div>
       <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Conta</label><select name="conta" value={conta} onChange={(e) => setConta(e.target.value)} className={inp}><option value="">Todas</option>{contasOpc.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
       <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Categoria</label><select name="categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)} className={inp}><option value="">Todas</option>{categoriasOpc.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>

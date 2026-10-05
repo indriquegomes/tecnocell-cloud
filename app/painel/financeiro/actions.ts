@@ -427,12 +427,13 @@ export async function ultimoLancamentoDaPessoa(accessToken: string, nome: string
   status: string | null
   valor: number | null
   data_vencimento: string | null
+  loja_id: string | null
 } | null> {
   await requirePermissao('financeiro', accessToken)
   const supabase = await createServiceClient()
   const { data } = await supabase
     .from('lancamentos')
-    .select('forma_pagamento, conta_id, categoria, status, valor, data_vencimento')
+    .select('forma_pagamento, conta_id, categoria, status, valor, data_vencimento, loja_id')
     .eq('pessoa_nome', nome)
     .order('created_at', { ascending: false })
     .limit(1)
