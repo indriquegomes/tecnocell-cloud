@@ -176,22 +176,6 @@ export default async function FinanceiroPage({
 
       <FinanceiroTabs active={params.tipo === 'receber' ? 'receber' : params.tipo === 'pagar' ? 'pagar' : 'lancamentos'} />
 
-      {/* Abas: A Receber / A Pagar separadas */}
-      <div className="grid grid-cols-3 gap-2">
-        <Link href="/painel/financeiro"
-          className={`rounded-xl border px-4 py-3 text-center text-sm font-bold transition ${!params.tipo ? 'border-gray-700 bg-gray-700 text-white' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}>
-          📋 Todos
-        </Link>
-        <Link href="/painel/financeiro?tipo=receber"
-          className={`rounded-xl border px-4 py-3 text-center text-sm font-bold transition ${params.tipo === 'receber' ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}>
-          💰 A Receber
-        </Link>
-        <Link href="/painel/financeiro?tipo=pagar"
-          className={`rounded-xl border px-4 py-3 text-center text-sm font-bold transition ${params.tipo === 'pagar' ? 'border-red-600 bg-red-600 text-white' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}>
-          💸 A Pagar
-        </Link>
-      </div>
-
       {/* Resumo */}
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-green-200 bg-green-50 p-5 shadow-sm">
