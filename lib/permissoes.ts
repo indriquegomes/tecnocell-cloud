@@ -48,7 +48,6 @@ export const ROTAS_PERMISSAO: Record<string, string> = {
   '/painel/integracoes/financeiras':         'integracoes',
   '/painel/integracoes/expedicao':           'integracoes',
   '/painel/integracoes/drop-shipping':       'integracoes',
-  '/painel/sincronizacao':        'sincronizacao',
 }
 
 export const TODAS_PERMISSOES = [
@@ -71,7 +70,6 @@ export const TODAS_PERMISSOES = [
   { grupo: 'Módulos',  key: 'chat_ia',    label: 'Chat com IA',          desc: 'Usar o assistente de IA (enxerga estoque, financeiro e clientes)' },
   { grupo: 'Módulos',  key: 'motoboy',    label: 'Motoboy',              desc: 'Registro de rotas do motoboy (só o motoboy usa)' },
   { grupo: 'Módulos',  key: 'integracoes', label: 'Integrações',          desc: 'E-commerce, marketplace, pagamento, logística e drop shipping (inclui ver o catálogo com preço de venda e estoque)' },
-  { grupo: 'Módulos',  key: 'sincronizacao', label: 'Sincronização',       desc: 'Ver o painel da sincronização sombra SIGE → TecnoCell' },
 
   // Limites de operação — o que pode FAZER dentro do módulo (segurança de balcão)
   { grupo: 'Limites',  key: 'venda_desconto',   label: 'Dar desconto',            desc: 'Aplicar desconto na venda no PDV' },
