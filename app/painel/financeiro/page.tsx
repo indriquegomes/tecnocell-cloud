@@ -176,6 +176,22 @@ export default async function FinanceiroPage({
 
       <FinanceiroTabs active="lancamentos" />
 
+      {/* Abas: A Receber / A Pagar separadas */}
+      <div className="grid grid-cols-3 gap-2">
+        <Link href="/painel/financeiro"
+          className={`rounded-xl border px-4 py-3 text-center text-sm font-bold transition ${!params.tipo ? 'border-gray-700 bg-gray-700 text-white' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}>
+          📋 Todos
+        </Link>
+        <Link href="/painel/financeiro?tipo=receber"
+          className={`rounded-xl border px-4 py-3 text-center text-sm font-bold transition ${params.tipo === 'receber' ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}>
+          💰 A Receber
+        </Link>
+        <Link href="/painel/financeiro?tipo=pagar"
+          className={`rounded-xl border px-4 py-3 text-center text-sm font-bold transition ${params.tipo === 'pagar' ? 'border-red-600 bg-red-600 text-white' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}>
+          💸 A Pagar
+        </Link>
+      </div>
+
       {/* Resumo */}
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-green-200 bg-green-50 p-5 shadow-sm">
@@ -196,20 +212,6 @@ export default async function FinanceiroPage({
       <form method="GET" className="flex flex-wrap gap-3">
         {params.busca && <input type="hidden" name="busca" value={params.busca} />}
         <BuscaLista basePath="/painel/financeiro" placeholder="Buscar por descrição ou cliente..." />
-        <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
-          <Link href="/painel/financeiro"
-            className={`px-4 py-2 transition ${!params.tipo ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
-            Todos
-          </Link>
-          <Link href="/painel/financeiro?tipo=receber"
-            className={`px-4 py-2 border-l border-gray-200 transition ${params.tipo === 'receber' ? 'bg-green-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
-            A Receber
-          </Link>
-          <Link href="/painel/financeiro?tipo=pagar"
-            className={`px-4 py-2 border-l border-gray-200 transition ${params.tipo === 'pagar' ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
-            A Pagar
-          </Link>
-        </div>
       </form>
 
       {/* 🔎 Busca Avançada (Isa 29/07 — espelha a do SIGE) */}
@@ -268,6 +270,14 @@ export default async function FinanceiroPage({
             rows={todos as unknown as Record<string, unknown>[]} />
         </div>
       </div>
+
+      {/* Sugestões de forma de pagamento (o campo é texto livre, mas sugere as formas do cadastro) */}
+      <datalist id="formas-lista">
+        {formasOpc.map((f) => <option key={f} value={f} />)}
+        <option value="Pix chave" />
+        <option value="Conta nº" />
+        <option value="Transferência" />
+      </datalist>
 
       {/* Tabela */}
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -332,27 +342,27 @@ export default async function FinanceiroPage({
                                 confere isso. Perguntar a forma aqui é o que impede o
                                 sistema de assumir "Dinheiro" num fiado pago por PIX. */}
                             {l.tipo === 'receber' && (
-                              <select
+                              <input
                                 name="forma_pagamento"
                                 required
+                                list="formas-lista"
                                 defaultValue={l.forma_pagamento ?? ''}
-                                title="Como o cliente pagou? Entra na conferência do caixa."
-                                className="max-w-[7.5rem] rounded-lg border border-gray-200 px-1.5 py-1 text-xs text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                              >
-                                <option value="" disabled>Forma…</option>
-                                {formasOpc.map((f) => (
-                                  <option key={f} value={f}>{f}</option>
-                                ))}
-                              </select>
+                                placeholder="Pix, dinheiro…"
+                                title="Como o cliente pagou? Digite a forma (ex: Pix chave fulano, dinheiro). Entra na conferência do caixa."
+                                className="max-w-[9rem] rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                              />
                             )}
                             {l.tipo === 'pagar' && (
                               <>
-                                <select name="forma_pagamento" required defaultValue={l.forma_pagamento ?? ''}
-                                  title="Como você pagou? Dinheiro ou banco/pix?"
-                                  className="max-w-[7.5rem] rounded-lg border border-gray-200 px-1.5 py-1 text-xs text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400">
-                                  <option value="" disabled>Forma…</option>
-                                  {formasOpc.map((f) => <option key={f} value={f}>{f}</option>)}
-                                </select>
+                                <input
+                                  name="forma_pagamento"
+                                  required
+                                  list="formas-lista"
+                                  defaultValue={l.forma_pagamento ?? ''}
+                                  placeholder="Pix chave…, conta nº…"
+                                  title="Como você pagou? Digite livre — ex: Pix chave xxxxxx, Conta nº xxxx, Dinheiro."
+                                  className="max-w-[9rem] rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                />
                                 <input type="file" name="comprovante" accept="image/*"
                                   title="Anexar comprovante do Pix"
                                   className="max-w-[7rem] text-[10px] text-gray-500 file:mr-1 file:rounded file:border-0 file:bg-blue-50 file:px-1.5 file:py-1 file:text-[10px] file:font-semibold file:text-blue-700" />
