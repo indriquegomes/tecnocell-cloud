@@ -416,3 +416,28 @@ export async function gerarFolha(formData: FormData) {
   const msg = `${criados.length} salário(s) gerado(s)` + (pulados.length ? ` — sem loja definida: ${pulados.join(', ')}` : '')
   redirect(`/painel/financeiro?ok=${encodeURIComponent(msg)}`)
 }
+
+// Edição INLINE de um campo do lançamento (direto na lista, sem abrir tela).
+// Recebe o id + os campos que o form da linha manda. Não redirect pra não perder
+// a posição na lista — só revalida e devolve {ok}.
+export async function editarLancamentoInline(id: string, formData: FormData) {
+  const usuario = await requirePermissao('financeiro')
+  const supabase = await createServiceClient()
+  const valor = Math.max(0, parseFloat((formData.get('valor') as string) || '0'))
+  const vencimento = (formData.get('data_vencimento') as string) || null
+  const forma = ((formData.get('forma_pagamento') as string) || '').trim() || null
+  const categoria = ((formData.get('categoria') as string) || '').trim() || null
+
+  const { error } = await supabase.from('lancamentos').update({
+    valor,
+    data_vencimento: vencimento ? `${vencimento}T00:00:00` : null,
+    forma_pagamento: forma,
+    categoria,
+    updated_at: new Date().toISOString(),
+  }).eq('id', id)
+  if (error) return { ok: false, erro: error.message }
+
+  await logAtividade('lancamento.editar_inline', { lancamento_id: id }, usuario, '/painel/financeiro')
+  revalidatePath('/painel/financeiro')
+  return { ok: true }
+}

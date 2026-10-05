@@ -2,11 +2,10 @@ import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { FinanceiroTabs } from './FinanceiroTabs'
 import { IconWallet } from '@/components/icons'
-import { formatBRL, formatDate, hojeSP } from '@/lib/utils'
-import { Badge } from '@/components/ui/badge'
+import { formatBRL, hojeSP } from '@/lib/utils'
 import { BuscaSugestao } from '@/components/BuscaSugestao'
-import { marcarPago, deletarLancamento, desfazerPagamento, gerarFolha, buscarPessoasSugestao } from './actions'
-import { BotaoExcluir } from '@/components/ui/botao-excluir'
+import { LinhaEditable } from './LinhaEditable'
+import { gerarFolha, buscarPessoasSugestao } from './actions'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 import { ExportCsv } from '../relatorios/ExportCsv'
@@ -127,16 +126,6 @@ export default async function FinanceiroPage({
   const totalPagar = paraTotais.filter((l) => l.tipo === 'pagar' && l.status === 'pendente').reduce((s, l) => s + restanteDe(l), 0)
   const pendentes = paraTotais.filter((l) => l.status === 'pendente').length
 
-
-  function statusVariant(status: string | null): 'success' | 'warning' | 'danger' | 'outline' {
-    // null mostra "Pendente" na tabela → âmbar (padrão do dono: âmbar = pendente)
-    const s = (status ?? 'pendente').toLowerCase()
-    if (s.includes('pago') || s.includes('recebido') || s.includes('quitado')) return 'success'
-    if (s.includes('vencido') || s.includes('atrasado')) return 'danger'
-    if (s.includes('parcial') || s.includes('pendente') || s.includes('em aberto')) return 'warning'
-    return 'outline'
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -194,7 +183,7 @@ export default async function FinanceiroPage({
 
       {/* 🔎 Busca Avançada (Isa 29/07 — espelha a do SIGE) */}
       <BuscaAvancada ativo={temFiltro}>
-        <form method="GET" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <form key={JSON.stringify(params)} method="GET" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {params.tipo && <input type="hidden" name="tipo" value={params.tipo} />}
           {params.busca && <input type="hidden" name="busca" value={params.busca} />}
           <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Cliente / Fornecedor</label>
@@ -256,6 +245,10 @@ export default async function FinanceiroPage({
         <option value="Conta nº" />
         <option value="Transferência" />
       </datalist>
+      {/* Sugestões de categoria (campo editável na linha) */}
+      <datalist id="categorias-lista">
+        {categoriasOpc.map((c) => <option key={c} value={c} />)}
+      </datalist>
 
       {/* Tabela */}
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -276,100 +269,27 @@ export default async function FinanceiroPage({
                   <Link href={s.href} className={`inline-flex items-center gap-1 hover:text-gray-800 transition ${s.ativo ? 'text-blue-600' : ''}`}>{l} <span className="text-gray-400">{s.arrow}</span></Link>
                 </th>
               })}
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Categoria</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {todos.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center text-sm text-gray-400">
+                <td colSpan={9} className="px-4 py-12 text-center text-sm text-gray-400">
                   Nenhum lançamento encontrado.
                 </td>
               </tr>
             ) : (
-              todos.map((l) => {
-                const pago = (l.status ?? '').toLowerCase().includes('pago')
-                return (
-                  <tr key={l.id} className="hover:bg-blue-50/60 transition">
-                    <td className="px-4 py-3 text-sm text-gray-800">
-                      {l.descricao || '—'}
-                      {comprovanteUrl.get(l.id) && (
-                        <a href={comprovanteUrl.get(l.id)} target="_blank" rel="noreferrer"
-                          className="ml-1.5 text-blue-600 underline" title="Ver comprovante">📎</a>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{l.pessoa_nome || '—'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {l.data_vencimento ? formatDate(l.data_vencimento) : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{l.forma_pagamento || '—'}</td>
-                    <td className={`px-4 py-3 text-right text-sm font-bold ${l.tipo === 'receber' ? 'text-green-600' : 'text-red-600'}`}>
-                      {l.tipo === 'receber' ? '+' : '-'}{formatBRL(l.valor ?? 0)}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <Badge variant={l.tipo === 'receber' ? 'success' : 'danger'}>
-                        {l.tipo === 'receber' ? 'Receber' : 'Pagar'}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <Badge variant={statusVariant(l.status)}>{l.status || 'Pendente'}</Badge>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        {!pago && (
-                          <form action={marcarPago.bind(null, l.id)} encType="multipart/form-data" className="flex items-center gap-1">
-                            {/* Só "a receber" é dinheiro ENTRANDO, e o fechamento de caixa
-                                confere isso. Perguntar a forma aqui é o que impede o
-                                sistema de assumir "Dinheiro" num fiado pago por PIX. */}
-                            {l.tipo === 'receber' && (
-                              <input
-                                name="forma_pagamento"
-                                required
-                                list="formas-lista"
-                                defaultValue={l.forma_pagamento ?? ''}
-                                placeholder="Pix, dinheiro…"
-                                title="Como o cliente pagou? Digite a forma (ex: Pix chave fulano, dinheiro). Entra na conferência do caixa."
-                                className="max-w-[9rem] rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                              />
-                            )}
-                            {l.tipo === 'pagar' && (
-                              <>
-                                <input
-                                  name="forma_pagamento"
-                                  required
-                                  list="formas-lista"
-                                  defaultValue={l.forma_pagamento ?? ''}
-                                  placeholder="Pix chave…, conta nº…"
-                                  title="Como você pagou? Digite livre — ex: Pix chave xxxxxx, Conta nº xxxx, Dinheiro."
-                                  className="max-w-[9rem] rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                                />
-                                <input type="file" name="comprovante" accept="image/*"
-                                  title="Anexar comprovante do Pix"
-                                  className="max-w-[7rem] text-[10px] text-gray-500 file:mr-1 file:rounded file:border-0 file:bg-blue-50 file:px-1.5 file:py-1 file:text-[10px] file:font-semibold file:text-blue-700" />
-                              </>
-                            )}
-                            <button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-medium text-green-600 hover:bg-green-50 transition">
-                              Pago
-                            </button>
-                          </form>
-                        )}
-                        {pago && (l.tipo === 'pagar' || idsDesfazer.has(l.id)) && (
-                          <form action={desfazerPagamento.bind(null, l.id)}>
-                            <button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 transition">
-                              Desfazer
-                            </button>
-                          </form>
-                        )}
-                        <Link href={`/painel/financeiro/${l.id}/editar`}
-                          className="rounded-lg px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 transition">
-                          Editar
-                        </Link>
-                        <BotaoExcluir action={deletarLancamento.bind(null, l.id)} mensagem="Excluir este lançamento?" />
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })
+              todos.map((l) => (
+                <LinhaEditable
+                  key={l.id}
+                  lanc={l}
+                  comprovanteUrl={comprovanteUrl.get(l.id) ?? null}
+                  idsDesfazer={idsDesfazer.has(l.id)}
+                  formasOpc={formasOpc}
+                />
+              ))
             )}
           </tbody>
         </table>
