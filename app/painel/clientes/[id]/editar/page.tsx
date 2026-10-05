@@ -5,6 +5,7 @@ import { PessoaForm, type PessoaEdit } from '../../PessoaForm'
 import { formatBRL, formatDate } from '@/lib/utils'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { PessoaAplicativo } from '../../../clientes-app/PessoaAplicativo'
 
 export default async function EditarClientePage({
   params,
@@ -113,6 +114,8 @@ export default async function EditarClientePage({
 
       {/* Cadastro */}
       <PessoaForm tabelas={tabelas ?? []} vendedores={vendedores ?? []} editando={pessoa as PessoaEdit} podeCredito={podeCredito} fotoAtualUrl={fotoAtualUrl} />
+
+      <PessoaAplicativo pessoaId={id} />
 
       {/* Histórico de compras (app + importado do SIGE) */}
       <div>

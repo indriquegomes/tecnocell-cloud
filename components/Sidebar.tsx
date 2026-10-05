@@ -39,6 +39,7 @@ const ICONS: Record<string, IconComp> = {
   '/painel/fechamento-mes': IconChart,
   '/painel/motoboy': IconStore,
   '/painel/clientes': IconUsers,
+  '/painel/clientes-app': IconUsers,
   '/painel/lojas': IconStore,
   '/painel/formas-pagamento': IconCard,
   '/painel/maquinas-cartao': IconCard,
@@ -126,6 +127,7 @@ const navCompleto: NavGroup[] = [
     group: 'Cadastros',
     items: [
       { href: '/painel/clientes',         label: 'Pessoas',             permissao: 'clientes' },
+      { href: '/painel/clientes-app',     label: 'Aplicativo',           permissao: 'clientes' },
       { href: '/painel/clientes/importar', label: 'Importar Clientes',  permissao: 'clientes' },
       { href: '/painel/lojas',            label: 'Lojas',               permissao: 'usuarios' },
       { href: '/painel/formas-pagamento', label: 'Formas de Pagamento', permissao: 'usuarios' },
@@ -194,7 +196,9 @@ export function Sidebar({
   // destacada estando na própria tela da loja.
   const exactOnly = ['/painel', '/painel/estoque', '/painel/integracoes']
   const isActive = (href: string) =>
-    exactOnly.includes(href) ? pathname === href : pathname.startsWith(href)
+    href === '/painel/clientes'
+      ? pathname === href || pathname.startsWith(href + '/')
+      : exactOnly.includes(href) ? pathname === href : pathname.startsWith(href)
 
   const isMotoboy = !isMaster && permissoes.includes('motoboy')
   const podeVer = (item: NavItem) => {
