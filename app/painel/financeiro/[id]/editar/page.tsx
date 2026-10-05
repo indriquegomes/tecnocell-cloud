@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { editarLancamento } from '../../actions'
+import { ClienteFornecedorField } from '../../ClienteFornecedorField'
 import { SubmitButton } from '@/components/SubmitButton'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -62,16 +63,15 @@ export default async function EditarLancamentoPage({ params, searchParams }: { p
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Forma de Pagamento</label>
-            <select name="forma_pagamento" defaultValue={lancamento.forma_pagamento ?? ''} className="field">
-              <option value="">—</option>
-              {(formas ?? []).map((f) => (
-                <option key={f.id} value={f.nome}>{f.nome}</option>
-              ))}
-            </select>
+            <input name="forma_pagamento" list="formas-lista" defaultValue={lancamento.forma_pagamento ?? ''} className="field" placeholder="Pix chave…, conta nº…, dinheiro" />
+            <datalist id="formas-lista">
+              {(formas ?? []).map((f) => <option key={f.id} value={f.nome} />)}
+              <option value="Pix chave" /><option value="Conta nº" /><option value="Transferência" />
+            </datalist>
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Cliente / Fornecedor</label>
-            <input name="pessoa_nome" defaultValue={lancamento.pessoa_nome ?? ''} className="field" />
+            <ClienteFornecedorField defaultValue={lancamento.pessoa_nome ?? ''} />
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Categoria</label>
