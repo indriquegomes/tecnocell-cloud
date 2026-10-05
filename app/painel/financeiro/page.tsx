@@ -174,7 +174,7 @@ export default async function FinanceiroPage({
         <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{params.ok}</div>
       )}
 
-      <FinanceiroTabs active="lancamentos" />
+      <FinanceiroTabs active={params.tipo === 'receber' ? 'receber' : params.tipo === 'pagar' ? 'pagar' : 'lancamentos'} />
 
       {/* Abas: A Receber / A Pagar separadas */}
       <div className="grid grid-cols-3 gap-2">
