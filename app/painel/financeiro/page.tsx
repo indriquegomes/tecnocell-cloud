@@ -266,6 +266,7 @@ export default async function FinanceiroPage({
                 { o: 'descricao',      l: 'Descrição',  a: 'text-left' },
                 { o: 'pessoa_nome',    l: 'Pessoa',     a: 'text-left' },
                 { o: 'data_vencimento', l: 'Vencimento', a: 'text-left' },
+                { o: 'forma_pagamento', l: 'Forma',      a: 'text-left' },
                 { o: 'valor',          l: 'Valor',      a: 'text-right' },
                 { o: 'tipo',           l: 'Tipo',       a: 'text-center' },
                 { o: 'status',         l: 'Status',     a: 'text-center' },
@@ -281,7 +282,7 @@ export default async function FinanceiroPage({
           <tbody className="divide-y divide-gray-50">
             {todos.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-sm text-gray-400">
+                <td colSpan={8} className="px-4 py-12 text-center text-sm text-gray-400">
                   Nenhum lançamento encontrado.
                 </td>
               </tr>
@@ -301,6 +302,7 @@ export default async function FinanceiroPage({
                     <td className="px-4 py-3 text-sm text-gray-500">
                       {l.data_vencimento ? formatDate(l.data_vencimento) : '—'}
                     </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{l.forma_pagamento || '—'}</td>
                     <td className={`px-4 py-3 text-right text-sm font-bold ${l.tipo === 'receber' ? 'text-green-600' : 'text-red-600'}`}>
                       {l.tipo === 'receber' ? '+' : '-'}{formatBRL(l.valor ?? 0)}
                     </td>
