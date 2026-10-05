@@ -125,6 +125,16 @@ export default async function FinanceiroPage({
   const totalPagar = paraTotais.filter((l) => l.tipo === 'pagar' && l.status === 'pendente').reduce((s, l) => s + restanteDe(l), 0)
   const pendentes = paraTotais.filter((l) => l.status === 'pendente').length
 
+  // Histórico COMPLETO de pagamentos feitos PRA uma pessoa (quando o filtro tem nome).
+  // Separa do filtro principal: aqui mostra tudo dela, sem travar por valor/categoria/data.
+  const historicoPessoa = params.pessoa
+    ? await fetchAll<any>((from, to) => supabase.from('lancamentos')
+        .select('id, descricao, valor, categoria, status, forma_pagamento, data_vencimento, data_pagamento, tipo, loja_id')
+        .ilike('pessoa_nome', `%${params.pessoa}%`)
+        .order('data_vencimento', { ascending: false })
+        .range(from, to))
+    : []
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -194,6 +204,42 @@ export default async function FinanceiroPage({
           temFiltro={temFiltro}
         />
       </BuscaAvancada>
+
+      {/* 📂 Histórico de pagamentos da pessoa escolhida (sem os filtros apertados) */}
+      {params.pessoa && (
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h3 className="text-sm font-bold text-gray-800">💰 Pagamentos para {params.pessoa}</h3>
+          <p className="mt-0.5 text-[11px] text-gray-400">todos os lançamentos desta pessoa, do mais novo pro mais antigo</p>
+          <div className="mt-3 overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-100">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Data</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Descrição</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Categoria</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Forma</th>
+                  <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase">Valor</th>
+                  <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase">Situação</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {historicoPessoa.length === 0 ? (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">Nenhum lançamento pra esta pessoa.</td></tr>
+                ) : historicoPessoa.map((h) => (
+                  <tr key={h.id} className="hover:bg-blue-50/50 transition">
+                    <td className="px-4 py-2.5 text-sm text-gray-500 whitespace-nowrap">{(h.data_vencimento ?? h.data_pagamento ?? '').slice(0, 10).split('-').reverse().join('/')}</td>
+                    <td className="px-4 py-2.5 text-sm text-gray-800">{h.descricao || '—'}</td>
+                    <td className="px-4 py-2.5 text-sm text-gray-600">{h.categoria || '—'}</td>
+                    <td className="px-4 py-2.5 text-sm text-gray-600">{h.forma_pagamento || '—'}</td>
+                    <td className={`px-4 py-2.5 text-right text-sm font-bold tabular-nums ${h.tipo === 'receber' ? 'text-green-600' : 'text-red-600'}`}>{h.tipo === 'receber' ? '+' : '−'}{formatBRL(Number(h.valor ?? 0))}</td>
+                    <td className="px-4 py-2.5 text-center"><span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${(h.status ?? '').includes('pago') ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{h.status || 'Pendente'}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* ✨ Totais do que está filtrado (não só o global) + exportar */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-gray-100 bg-gray-50/60 px-5 py-3 text-sm">
