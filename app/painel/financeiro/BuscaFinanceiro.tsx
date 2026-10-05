@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { buscarPessoasSugestao, ultimoLancamentoDaPessoa } from './actions'
+import { buscarPessoasSugestao } from './actions'
 
 const sb = createClient()
 
@@ -57,22 +57,14 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
     return () => document.removeEventListener('mousedown', fechar)
   }, [])
 
-  async function escolher(nome: string) {
+  function escolher(nome: string) {
     setPessoa(nome); setAberto(false); setOpcoes([])
-    try {
-      const ult = await ultimoLancamentoDaPessoa(await token(), nome)
-      if (ult) {
-        setForma(ult.forma_pagamento ?? '')
-        setConta(ult.conta_id ?? '')
-        setCategoria(ult.categoria ?? '')
-        setStatus(ult.status === 'pago' ? 'pago' : ult.status === 'pendente' ? 'pendente' : '')
-        setLoja(ult.loja_id ?? '')
-        setValorMin(ult.valor != null ? String(ult.valor) : '')
-        setValorMax('')
-        setDe(ult.data_vencimento ? ult.data_vencimento.slice(0, 10) : '')
-        setAte('')
-      }
-    } catch { }
+    // Escolher a pessoa limpa os filtros anteriores (nada de sobra da pessoa anterior)
+    // e mostra TUDO dela. O "último pagamento" vira faixa informativa na página.
+    setLoja('todas')
+    setForma(''); setConta(''); setCategoria(''); setStatus('')
+    setValorMin(''); setValorMax(''); setDe(''); setAte('')
+    setCampo('data_vencimento')
   }
 
   const formRef = useRef<HTMLFormElement>(null)
