@@ -30,6 +30,13 @@ export function BuscaSugestao({
   const digitou = useRef(false)
   const ref = useRef<HTMLDivElement>(null)
 
+  // Quando a URL muda (ex.: filtrar e a página recarrega com ?pessoa=...), o campo
+  // precisa refletir o novo valor. Antes o state só iniciava UMA vez, então o campo
+  // ficava vazio depois de filtrar mesmo com o filtro aplicado.
+  useEffect(() => {
+    if (!digitou.current) setV(defaultValue ?? '')
+  }, [defaultValue])
+
   useEffect(() => {
     if (!digitou.current) return
     const termo = v.trim()
