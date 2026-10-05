@@ -21,6 +21,6 @@ export default async function ClientesAppPage({ searchParams }: { searchParams: 
   const cadastros = (data ?? []).map(c => ({ ...c, pessoa_nome: c.pessoa_id ? nomes.get(c.pessoa_id) ?? null : null })) as CadastroApp[]
   return <div className="space-y-6">
     <div><h2 className="text-2xl font-bold text-gray-900">Cadastros do aplicativo</h2><p className="text-sm text-gray-500">Confira as solicitações e vincule cada conta à pessoa cadastrada no Cloud.</p></div>
-    {falha || pessoas.error ? <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">Não foi possível carregar os cadastros. Recarregue a página para tentar novamente.</div> : <ClientesAppClient cadastros={cadastros} contaInicial={conta} />}
+    {falha || pessoas.error ? <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">Não foi possível carregar os cadastros. Recarregue a página para tentar novamente.</div> : <ClientesAppClient cadastros={cadastros} contaInicial={conta} gerenciamentoHabilitado={process.env.CADASTROS_APP_GERENCIAMENTO_ENABLED === 'true'} />}
   </div>
 }

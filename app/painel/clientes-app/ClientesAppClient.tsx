@@ -19,13 +19,13 @@ function Situacao({ status }: { status: CadastroApp['status'] }) {
   return <span className={`inline-block rounded-md px-2 py-1 text-xs font-semibold ${s === 'aprovado' ? 'bg-green-100 text-green-800' : s === 'bloqueado' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>{nomes[s]}</span>
 }
 
-export function ClientesAppClient({ cadastros, contaInicial }: { cadastros: CadastroApp[]; contaInicial?: string }) {
+export function ClientesAppClient({ cadastros, contaInicial, gerenciamentoHabilitado = false }: { cadastros: CadastroApp[]; contaInicial?: string; gerenciamentoHabilitado?: boolean }) {
   const [filtro, setFiltro] = useState('pendente')
   const [busca, setBusca] = useState('')
   const [id, setId] = useState(contaInicial ?? null)
   const cadastro = cadastros.find(c => c.user_id === id)
   const visiveis = cadastros.filter(c => (filtro === 'todos' || (c.status ?? 'pendente') === filtro) && `${c.nome_completo ?? ''} ${c.email ?? ''} ${c.usuario ?? ''}`.toLocaleLowerCase('pt-BR').includes(busca.trim().toLocaleLowerCase('pt-BR')))
-  if (cadastro) return <Analise key={cadastro.user_id} cadastro={cadastro} voltar={() => setId(null)} />
+  if (cadastro) return <Analise key={cadastro.user_id} cadastro={cadastro} voltar={() => setId(null)} gerenciamentoHabilitado={gerenciamentoHabilitado} />
   return <div className="space-y-4">
     {id && <p role="status" className="text-sm text-amber-800">A conta solicitada não foi encontrada. Escolha uma conta na lista.</p>}
     <div className="flex flex-wrap gap-2">{(['pendente', 'aprovado', 'bloqueado', 'todos'] as const).map(s => <button key={s} aria-pressed={filtro === s} onClick={() => setFiltro(s)} className={`${button} ${filtro === s ? 'border-blue-600 bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>{s === 'todos' ? 'Todas as contas' : s === 'pendente' ? `Solicitações (${cadastros.filter(c => !c.status || c.status === 'pendente').length})` : s === 'aprovado' ? 'Aprovados' : 'Bloqueados'}</button>)}</div>
@@ -41,7 +41,7 @@ export function ClientesAppClient({ cadastros, contaInicial }: { cadastros: Cada
   </div>
 }
 
-function Analise({ cadastro: c, voltar }: { cadastro: CadastroApp; voltar: () => void }) {
+function Analise({ cadastro: c, voltar, gerenciamentoHabilitado }: { cadastro: CadastroApp; voltar: () => void; gerenciamentoHabilitado: boolean }) {
   const router = useRouter()
   const [pending, start] = useTransition()
   const [busca, setBusca] = useState('')
@@ -66,7 +66,7 @@ function Analise({ cadastro: c, voltar }: { cadastro: CadastroApp; voltar: () =>
         {c.status !== 'aprovado' && <><div className="mt-4 flex gap-2"><input className="field min-w-0" aria-label="Buscar pessoa no Cloud" placeholder="Nome ou CPF/CNPJ" value={busca} onChange={e => setBusca(e.target.value)} /><button className={button} disabled={pending || busca.trim().length < 3} onClick={() => start(async () => { setMensagem(''); setOpcoes([]); try { const r = await buscarPessoasParaVinculo(busca, await token()); setOpcoes(r); if (!r.length) setMensagem('Nenhuma pessoa encontrada. Confira os dados ou cadastre a pessoa no Cloud.') } catch { setMensagem('Não foi possível buscar pessoas. Tente novamente.') } })}>Buscar</button></div>
         {opcoes.map(p => <button key={p.id} disabled={pending} className="mt-2 block min-h-11 w-full rounded-lg border border-gray-200 p-3 text-left hover:bg-gray-50" onClick={() => { setPessoa(p); setOpcoes([]) }}>{p.nome}<span className="block text-xs text-gray-600">{p.cpf_cnpj || 'Sem documento'}</span></button>)}</>}
         <p className="mt-5 rounded-lg bg-gray-50 p-3 text-sm text-gray-600">A aprovação permite solicitar compras pelo aplicativo. Não concede acesso de funcionário ao Cloud nem altera crédito, pagamentos ou estoque.</p>
-        <div className="mt-4 flex flex-wrap gap-2">{c.status !== 'aprovado' && <button className={`${button} border-blue-600 bg-blue-600 text-white`} disabled={pending || !pessoa} onClick={() => salvar('aprovado')}>Vincular e aprovar acesso</button>}{c.status !== 'pendente' && <button className={button} disabled={pending} onClick={() => salvar('pendente')}>Voltar para análise</button>}{c.status !== 'bloqueado' && <button className={`${button} text-red-700`} disabled={pending} onClick={() => salvar('bloqueado')}>Bloquear acesso</button>}</div>
+        <>{!gerenciamentoHabilitado && <p role="status" className="mt-4 text-sm text-amber-800">Consulta disponível. Aprovações e bloqueios serão liberados após a validação da integração.</p>}</><div className="mt-4 flex flex-wrap gap-2">{c.status !== 'aprovado' && <button className={`${button} border-blue-600 bg-blue-600 text-white`} disabled={pending || !pessoa || !gerenciamentoHabilitado} onClick={() => salvar('aprovado')}>Vincular e aprovar acesso</button>}{c.status !== 'pendente' && <button className={button} disabled={pending || !gerenciamentoHabilitado} onClick={() => salvar('pendente')}>Voltar para análise</button>}{c.status !== 'bloqueado' && <button className={`${button} text-red-700`} disabled={pending || !gerenciamentoHabilitado} onClick={() => salvar('bloqueado')}>Bloquear acesso</button>}</div>
         {pending && <p role="status" className="mt-3 text-sm text-gray-600">Processando…</p>}{mensagem && <p role="status" className="mt-3 text-sm text-gray-800">{mensagem}</p>}
       </section>
     </div>
