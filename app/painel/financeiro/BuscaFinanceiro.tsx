@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { buscarPessoasSugestao, ultimoLancamentoDaPessoa } from './actions'
 
@@ -75,8 +75,34 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
     } catch { }
   }
 
+  const formRef = useRef<HTMLFormElement>(null)
+  const NOMES_MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+  const meses = useMemo(() => {
+    const lista: { label: string; de: string; ate: string }[] = []
+    const agora = new Date()
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(agora.getFullYear(), agora.getMonth() - i, 1)
+      const ano = d.getFullYear()
+      const m = d.getMonth()
+      const ultimo = new Date(ano, m + 1, 0).getDate()
+      lista.push({
+        label: `${NOMES_MES[m]}/${ano}`,
+        de: `${ano}-${String(m + 1).padStart(2, '0')}-01`,
+        ate: `${ano}-${String(m + 1).padStart(2, '0')}-${String(ultimo).padStart(2, '0')}`,
+      })
+    }
+    return lista
+  }, [])
+
+  function aplicarMes(m: { label: string; de: string; ate: string }) {
+    setCampo('data_vencimento')
+    setDe(m.de)
+    setAte(m.ate)
+    setTimeout(() => formRef.current?.requestSubmit(), 0)
+  }
+
   return (
-    <form method="GET" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <form ref={formRef} method="GET" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {params.tipo && <input type="hidden" name="tipo" value={params.tipo} />}
       {params.busca && <input type="hidden" name="busca" value={params.busca} />}
       <div ref={box} className="relative">
@@ -98,6 +124,17 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
       <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Valor de</label><input name="valor_min" type="number" step="0.01" value={valorMin} onChange={(e) => setValorMin(e.target.value)} placeholder="0,00" className={inp} /></div>
       <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Valor até</label><input name="valor_max" type="number" step="0.01" value={valorMax} onChange={(e) => setValorMax(e.target.value)} placeholder="0,00" className={inp} /></div>
       <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Filtrar período por</label><select name="campo" value={campo} onChange={(e) => setCampo(e.target.value)} className={inp}>{camposData.map((c) => <option key={c} value={c}>{labelCampo[c]}</option>)}</select></div>
+      <div className="sm:col-span-2 lg:col-span-4">
+        <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Mês rápido</label>
+        <div className="flex flex-wrap gap-1.5">
+          {meses.map((m) => {
+            const ativo = de === m.de && ate === m.ate && campo === 'data_vencimento'
+            return (
+              <button key={m.label} type="button" onClick={() => aplicarMes(m)} className={`rounded-full border px-3 py-1 text-xs font-medium transition ${ativo ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}>{m.label}</button>
+            )
+          })}
+        </div>
+      </div>
       <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">De</label><input name="de" type="date" value={de} onChange={(e) => setDe(e.target.value)} className={inp} /></div>
       <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Até</label><input name="ate" type="date" value={ate} onChange={(e) => setAte(e.target.value)} className={inp} /></div>
       <div className="flex items-end gap-2 sm:col-span-2">
