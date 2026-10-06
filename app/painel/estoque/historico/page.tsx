@@ -1,4 +1,4 @@
-import { IconSwap } from '@/components/icons'
+import { IconDownload, IconSwap } from '@/components/icons'
 import { createServiceClient, fetchAllIn } from '@/lib/supabase/server'
 import { formatBRL } from '@/lib/utils'
 import Link from 'next/link'
@@ -358,6 +358,13 @@ export default async function MovimentacoesPage({
         </div>
         <Dica texto="Histórico completo de entradas, saídas e ajustes. Use 'Nova Movimentação' para registrar compras ou corrigir quantidades em lote." lado="baixo" />
         <span className="ml-auto text-sm text-gray-400">{rows.length} registros</span>
+        <a
+          href={`/painel/estoque/historico/exportar?${new URLSearchParams(baseParams).toString()}`}
+          className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 transition"
+        >
+          <IconDownload className="h-4 w-4" />
+          Baixar planilha
+        </a>
         <ColunasToggler />
       </div>
 
