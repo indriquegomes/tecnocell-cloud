@@ -285,6 +285,7 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario, isMotoboy }: { loj
             <option value="">Nenhum</option>
             <option value="mei">MEI</option>
             <option value="clt">CLT</option>
+            <option value="estagio">Estágio</option>
           </select>
         </div>
 
@@ -324,6 +325,15 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario, isMotoboy }: { loj
             </div>
           )
         })()}
+
+        {vinculo === 'estagio' && (
+          <div className="space-y-3 mt-3">
+            <div className="w-44">
+              <label className="mb-1 block text-xs font-medium text-gray-600">Auxílio transporte (R$)</label>
+              <CampoDinheiro name="clt_vale_transporte" defaultValue={Number(usuario.cltValeTransporte || 0)} className="text-sm" />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="border-t border-gray-200 pt-3 mt-3">
