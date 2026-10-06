@@ -141,15 +141,14 @@ function PermissoesGrid({
 }
 
 // Escolhe um cargo (permissões vêm dele) OU marca permissões individuais (sem cargo)
-function CargoOuPermissoes({ cargos, cargoId: defaultCargo, permissoes, isMaster }: {
-  cargos: Cargo[]; cargoId: string | null; permissoes: string[]; isMaster: boolean
+function CargoOuPermissoes({ cargos, cargoId, onCargoChange, permissoes, isMaster }: {
+  cargos: Cargo[]; cargoId: string; onCargoChange: (v: string) => void; permissoes: string[]; isMaster: boolean
 }) {
-  const [cargoId, setCargoId] = useState(defaultCargo ?? '')
   return (
     <div className="space-y-3">
       <div>
         <label className="mb-1 block text-sm font-medium text-gray-700">Cargo</label>
-        <select name="cargo_id" value={cargoId} onChange={(e) => setCargoId(e.target.value)} className="field w-full">
+        <select name="cargo_id" value={cargoId} onChange={(e) => onCargoChange(e.target.value)} className="field w-full">
           <option value="">Personalizado (sem cargo)</option>
           {cargos.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
         </select>
@@ -164,7 +163,7 @@ function CargoOuPermissoes({ cargos, cargoId: defaultCargo, permissoes, isMaster
 
 // Lojas que a pessoa pode operar + o que já vem selecionado no PDV.
 // lojas_permitidas vazio = todas. Só aparece se houver >1 loja (senão não faz sentido).
-function LojasPdvConfig({ lojas, depositos, tabelas, usuario }: { lojas: Loja[]; depositos: Deposito[]; tabelas: Tabela[]; usuario: Usuario }) {
+function LojasPdvConfig({ lojas, depositos, tabelas, usuario, isMotoboy }: { lojas: Loja[]; depositos: Deposito[]; tabelas: Tabela[]; usuario: Usuario; isMotoboy: boolean }) {
   const [permitidas, setPermitidas] = useState<Set<string>>(new Set(usuario.lojasPermitidas))
   const [tabsSel, setTabsSel] = useState<Set<string>>(new Set(usuario.tabelasPermitidas))
   const [lojaPadrao, setLojaPadrao] = useState(usuario.pdvLojaId ?? '')
@@ -236,6 +235,7 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario }: { lojas: Loja[];
         <input name="chave_pix" defaultValue={usuario.chavePix ?? ''} className="field w-full text-sm" placeholder="CPF/CNPJ, telefone, e-mail ou aleatória" />
       </div>
 
+      {isMotoboy && (
       <div className="border-t border-gray-200 pt-3 mt-3">
         <p className="text-sm font-semibold text-gray-700">Motoboy (só preencher se o cargo for MOTOBOY)</p>
         <div className="grid grid-cols-2 gap-3 mt-2">
@@ -260,6 +260,7 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario }: { lojas: Loja[];
           </div>
         </div>
       </div>
+      )}
 
       <div className="border-t border-gray-200 pt-3 mt-3">
         <p className="text-sm font-semibold text-gray-700">Freelancer (serviço por hora)</p>
@@ -420,6 +421,7 @@ function RestricaoAcesso({ usuario }: { usuario: Usuario }) {
 
 function NovoUsuarioModal({ cargos, lojas, onClose }: { cargos: Cargo[]; lojas: Loja[]; onClose: () => void }) {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(criarUsuario, null)
+  const [cargoId, setCargoId] = useState('')
   const [tk, setTk] = useState('')
   useEffect(() => { authToken().then(setTk) }, [])
 
@@ -450,7 +452,7 @@ function NovoUsuarioModal({ cargos, lojas, onClose }: { cargos: Cargo[]; lojas: 
             </div>
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">Cargo / Permissões</label>
-              <CargoOuPermissoes cargos={cargos} cargoId={null} permissoes={[]} isMaster={false} />
+              <CargoOuPermissoes cargos={cargos} cargoId={cargoId} onCargoChange={setCargoId} permissoes={[]} isMaster={false} />
             </div>
             {lojas.length > 1 && (
               <div>
@@ -486,6 +488,7 @@ function NovoUsuarioModal({ cargos, lojas, onClose }: { cargos: Cargo[]; lojas: 
 
 function ConvidarModal({ cargos, onClose }: { cargos: Cargo[]; onClose: () => void }) {
   const [state, action, pending] = useActionState<ConviteResult | null, FormData>(criarConvite, null)
+  const [cargoId, setCargoId] = useState('')
   const [copiado, setCopiado] = useState(false)
   const [tk, setTk] = useState('')
   useEffect(() => { authToken().then(setTk) }, [])
@@ -533,7 +536,7 @@ function ConvidarModal({ cargos, onClose }: { cargos: Cargo[]; onClose: () => vo
             </div>
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">Cargo / Permissões</label>
-              <CargoOuPermissoes cargos={cargos} cargoId={null} permissoes={[]} isMaster={false} />
+              <CargoOuPermissoes cargos={cargos} cargoId={cargoId} onCargoChange={setCargoId} permissoes={[]} isMaster={false} />
             </div>
             <div className="flex items-center justify-between border-t border-gray-100 pt-4">
               {state && !state.ok ? <Feedback state={state} /> : <span />}
@@ -555,6 +558,8 @@ function EditarModal({ usuario, cargos, lojas, depositos, tabelas, onClose }: { 
   const [senhaState, senhaAction, senhaPending] = useActionState<ActionResult | null, FormData>(alterarSenha, null)
   const router = useRouter()
   const [tk, setTk] = useState('')
+  const [cargoId, setCargoId] = useState(usuario.cargoId ?? '')
+  const isMotoboy = cargos.find((c) => c.id === cargoId)?.nome?.toUpperCase() === 'MOTOBOY'
   useEffect(() => { authToken().then(setTk) }, [])
   // Ao salvar: atualiza a lista E FECHA o modal. Manter aberto era o bug — o modal
   // seguia com o dado de antes do save, e um 2o "Salvar" gravava null nos campos que
@@ -606,9 +611,9 @@ function EditarModal({ usuario, cargos, lojas, depositos, tabelas, onClose }: { 
             </div>
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">Cargo / Permissões</label>
-              <CargoOuPermissoes cargos={cargos} cargoId={usuario.cargoId} permissoes={usuario.permissoes} isMaster={usuario.isMaster} />
+              <CargoOuPermissoes cargos={cargos} cargoId={cargoId} onCargoChange={setCargoId} permissoes={usuario.permissoes} isMaster={usuario.isMaster} />
             </div>
-            <LojasPdvConfig lojas={lojas} depositos={depositos} tabelas={tabelas} usuario={usuario} />
+            <LojasPdvConfig lojas={lojas} depositos={depositos} tabelas={tabelas} usuario={usuario} isMotoboy={isMotoboy} />
             <RestricaoAcesso usuario={usuario} />
           </form>
 
