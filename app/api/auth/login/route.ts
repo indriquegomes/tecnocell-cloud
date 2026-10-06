@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
-import { normalizarUsuario } from '@/lib/utils'
 
 const ERRO = 'Usuário ou senha incorretos.'
 
@@ -15,29 +14,8 @@ export async function POST(request: NextRequest) {
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-  // Resolve o e-mail por trás do "usuário". Se digitou algo com @, é e-mail
-  // (conta antiga); senão é o usuário (primeiro nome) gravado no perfis.
-  let email: string
-  if (usuario.includes('@')) {
-    email = usuario.toLowerCase()
-  } else {
-    const service = createServerClient(url, serviceKey, {
-      cookies: { getAll() { return [] }, setAll() {} },
-    })
-    const { data: perfil } = await service
-      .from('perfis')
-      .select('id')
-      .eq('username', normalizarUsuario(usuario))
-      .maybeSingle()
-    if (!perfil) {
-      return NextResponse.redirect(new URL(`/login?erro=${encodeURIComponent(ERRO)}`, request.url))
-    }
-    const { data: { user } } = await service.auth.admin.getUserById(perfil.id)
-    if (!user?.email) {
-      return NextResponse.redirect(new URL(`/login?erro=${encodeURIComponent(ERRO)}`, request.url))
-    }
-    email = user.email
-  }
+  // Login é só pelo e-mail (removida a variação de login por "usuário"/apelido).
+  const email = usuario.toLowerCase()
 
   // Pré-cria a response 303 para que setAll grave os cookies diretamente nela.
   // Não usamos cookies() de next/headers porque o Next.js não mescla cookies
