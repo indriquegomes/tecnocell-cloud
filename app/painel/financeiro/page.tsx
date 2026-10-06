@@ -11,6 +11,12 @@ import { Dica } from '@/components/Dica'
 import { ExportCsv } from '../relatorios/ExportCsv'
 import { BuscaAvancada } from '@/components/BuscaAvancada'
 
+const CATEGORIAS_FINANCEIRO: { grupo: string; categorias: string[] }[] = [
+  { grupo: 'Despesas da Loja', categorias: ['Alimentação', 'Combustível', 'Aluguel', 'Salários', 'Motoboy', 'Contabilidade', 'Energia/Luz', 'Impostos', 'Mercadoria', 'Serviços', 'Uso interno', 'Perda', 'Gastos em São Paulo'] },
+  { grupo: 'Sócio', categorias: ['Retirada do sócio'] },
+  { grupo: 'Outros', categorias: ['Estorno', 'Outras despesas', 'Combinado na entrega', 'Vale crédito usado'] },
+]
+
 export default async function FinanceiroPage({
   searchParams,
 }: {
@@ -29,14 +35,13 @@ export default async function FinanceiroPage({
   const campoData = camposData.includes(params.campo ?? '') ? params.campo! : 'data_vencimento'
 
   // Dropdowns da busca avançada
-  const [{ data: formasList }, { data: contasList }, { data: catsRaw }] = await Promise.all([
+  const [{ data: formasList }, { data: contasList }] = await Promise.all([
     supabase.from('formas_pagamento').select('nome').order('nome'),
     supabase.from('contas').select('id, nome').eq('ativa', true).order('nome'),
-    supabase.from('lancamentos').select('categoria').not('categoria', 'is', null).limit(2000),
   ])
   const formasOpc = [...new Set((formasList ?? []).map((f) => f.nome as string))]
   const contasOpc = (contasList ?? []) as { id: string; nome: string }[]
-  const categoriasOpc = [...new Set((catsRaw ?? []).map((c) => c.categoria as string).filter(Boolean))].sort()
+  const categoriasOpc = CATEGORIAS_FINANCEIRO.flatMap((g) => g.categorias)
 
   // Aplica TODOS os filtros da busca avançada a uma query (reusado na lista e nos totais)
   /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -200,7 +205,7 @@ export default async function FinanceiroPage({
           operaveis={operaveis}
           formasOpc={formasOpc}
           contasOpc={contasOpc}
-          categoriasOpc={categoriasOpc}
+          categoriasGrupos={CATEGORIAS_FINANCEIRO}
           camposData={camposData}
           labelCampo={labelCampo}
           temFiltro={temFiltro}

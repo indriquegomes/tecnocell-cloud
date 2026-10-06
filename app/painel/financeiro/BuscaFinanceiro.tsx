@@ -6,13 +6,13 @@ import { buscarPessoasSugestao } from './actions'
 
 const sb = createClient()
 
-export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, contasOpc, categoriasOpc, camposData, labelCampo, temFiltro }: {
+export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, contasOpc, categoriasGrupos, camposData, labelCampo, temFiltro }: {
   params: Record<string, string | undefined>
   lojaEfetiva: string
   operaveis: { id: string; nome: string }[]
   formasOpc: string[]
   contasOpc: { id: string; nome: string }[]
-  categoriasOpc: string[]
+  categoriasGrupos: { grupo: string; categorias: string[] }[]
   camposData: string[]
   labelCampo: Record<string, string>
   temFiltro: boolean
@@ -112,7 +112,7 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
       <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Loja</label><select name="loja" value={loja} onChange={(e) => setLoja(e.target.value)} className={inp}>{operaveis.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}<option value="sem">Sem loja</option><option value="todas">Todas</option></select></div>
       <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Forma de pagamento</label><select name="forma" value={forma} onChange={(e) => setForma(e.target.value)} className={inp}><option value="">Todas</option>{formasOpc.map((f) => <option key={f} value={f}>{f}</option>)}</select></div>
       <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Conta</label><select name="conta" value={conta} onChange={(e) => setConta(e.target.value)} className={inp}><option value="">Todas</option>{contasOpc.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
-      <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Categoria</label><select name="categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)} className={inp}><option value="">Todas</option>{categoriasOpc.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
+      <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Categoria</label><select name="categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)} className={inp}><option value="">Todas</option>{categoriasGrupos.map((g) => <optgroup key={g.grupo} label={g.grupo}>{g.categorias.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>)}</select></div>
       <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Situação</label><select name="status" value={status} onChange={(e) => setStatus(e.target.value)} className={inp}><option value="">Todos</option><option value="pendente">Pendente</option><option value="pago">Pago</option><option value="vencido">Vencido</option></select></div>
       <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Valor de</label><input name="valor_min" type="number" step="0.01" value={valorMin} onChange={(e) => setValorMin(e.target.value)} placeholder="0,00" className={inp} /></div>
       <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Valor até</label><input name="valor_max" type="number" step="0.01" value={valorMax} onChange={(e) => setValorMax(e.target.value)} placeholder="0,00" className={inp} /></div>
