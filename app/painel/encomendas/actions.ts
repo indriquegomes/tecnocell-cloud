@@ -144,13 +144,16 @@ export async function aprovarEncomenda(encomendaId: string, custo: number) {
   if (deposito_id && qtd > 0) {
     const { data: existente } = await supabase.from('estoque').select('id, quantidade').eq('produto_id', produto_id).eq('deposito_id', deposito_id).maybeSingle()
     if (existente) {
-      await supabase.from('estoque').update({ quantidade: Number(existente.quantidade) + qtd }).eq('id', existente.id)
+      const { error: eEstoque } = await supabase.from('estoque').update({ quantidade: Number(existente.quantidade) + qtd }).eq('id', existente.id)
+      if (eEstoque) return { erro: 'Não deu pra dar entrada no estoque: ' + eEstoque.message }
     } else {
-      await supabase.from('estoque').insert({ produto_id, deposito_id, quantidade: qtd })
+      const { error: eEstoque } = await supabase.from('estoque').insert({ produto_id, deposito_id, quantidade: qtd })
+      if (eEstoque) return { erro: 'Não deu pra criar estoque: ' + eEstoque.message }
     }
   }
 
-  await supabase.from('encomendas').update({ status: 'aprovada', custo, produto_id, aprovado_em: new Date().toISOString() }).eq('id', encomendaId)
+  const { error: eEnc } = await supabase.from('encomendas').update({ status: 'aprovada', custo, produto_id, aprovado_em: new Date().toISOString() }).eq('id', encomendaId)
+  if (eEnc) return { erro: 'Não deu pra marcar como aprovada: ' + eEnc.message }
 
   revalidatePath('/painel/compras')
   revalidatePath('/painel/estoque/encomendas')

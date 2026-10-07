@@ -109,7 +109,8 @@ export async function deletarNota(id: string) {
   if (nota?.status === 'recebida') {
     redirect(`/painel/compras?erro=${encodeURIComponent('Esta nota já foi recebida (mexeu no estoque). Estorne a nota antes de excluir.')}`)
   }
-  await supabase.from('itens_nota_entrada').delete().eq('nota_id', id)
+  const { error: eItens } = await supabase.from('itens_nota_entrada').delete().eq('nota_id', id)
+  if (eItens) redirect(`/painel/compras?erro=${encodeURIComponent(eItens.message)}`)
   const { error } = await supabase.from('notas_entrada').delete().eq('id', id)
   if (error) redirect(`/painel/compras?erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/compras')
@@ -122,13 +123,14 @@ export async function editarNota(id: string, formData: FormData) {
   if (nota?.status !== 'pendente') {
     redirect(`/painel/compras/${id}?erro=${encodeURIComponent('Só dá pra editar uma nota pendente.')}`)
   }
-  await supabase.from('notas_entrada').update({
+  const { error } = await supabase.from('notas_entrada').update({
     numero: (formData.get('numero') as string)?.trim() || null,
     fornecedor_id: (formData.get('fornecedor_id') as string) || null,
     data_emissao: (formData.get('data_emissao') as string) || null,
     data_entrada: (formData.get('data_entrada') as string) || hojeSP(),
     observacoes: (formData.get('observacoes') as string)?.trim() || null,
   }).eq('id', id)
+  if (error) redirect(`/painel/compras/${id}?erro=${encodeURIComponent(error.message)}`)
   revalidatePath(`/painel/compras/${id}`)
   redirect(`/painel/compras/${id}`)
 }
@@ -136,10 +138,12 @@ export async function editarNota(id: string, formData: FormData) {
 export async function removerItemNota(itemId: string, notaId: string) {
   await requirePermissao('compras')
   const supabase = await createServiceClient()
-  await supabase.from('itens_nota_entrada').delete().eq('id', itemId)
+  const { error: eDel } = await supabase.from('itens_nota_entrada').delete().eq('id', itemId)
+  if (eDel) redirect(`/painel/compras/${notaId}?erro=${encodeURIComponent(eDel.message)}`)
   const { data: itens } = await supabase.from('itens_nota_entrada').select('total_item').eq('nota_id', notaId)
   const total = itens?.reduce((s, i) => s + (i.total_item ?? 0), 0) ?? 0
-  await supabase.from('notas_entrada').update({ valor_total: total }).eq('id', notaId)
+  const { error: eTot } = await supabase.from('notas_entrada').update({ valor_total: total }).eq('id', notaId)
+  if (eTot) redirect(`/painel/compras/${notaId}?erro=${encodeURIComponent(eTot.message)}`)
   revalidatePath(`/painel/compras/${notaId}`)
 }
 
@@ -150,12 +154,14 @@ export async function editarItemNota(itemId: string, notaId: string, formData: F
   // pra forcar quantidade/preco negativo direto no campo escondido do form.
   const quantidade = Math.max(1, Math.round(parseFloat(formData.get('quantidade') as string)) || 1)
   const preco = Math.max(0, parseFloat(formData.get('preco_unitario') as string) || 0)
-  await supabase.from('itens_nota_entrada')
+  const { error: eUpd } = await supabase.from('itens_nota_entrada')
     .update({ quantidade, preco_unitario: preco, total_item: quantidade * preco })
     .eq('id', itemId)
+  if (eUpd) redirect(`/painel/compras/${notaId}?erro=${encodeURIComponent(eUpd.message)}`)
   const { data: itens } = await supabase.from('itens_nota_entrada').select('total_item').eq('nota_id', notaId)
   const total = itens?.reduce((s, i) => s + (i.total_item ?? 0), 0) ?? 0
-  await supabase.from('notas_entrada').update({ valor_total: total }).eq('id', notaId)
+  const { error: eTot } = await supabase.from('notas_entrada').update({ valor_total: total }).eq('id', notaId)
+  if (eTot) redirect(`/painel/compras/${notaId}?erro=${encodeURIComponent(eTot.message)}`)
   revalidatePath(`/painel/compras/${notaId}`)
 }
 
@@ -167,7 +173,7 @@ export async function adicionarItemNota(notaId: string, formData: FormData) {
   const quantidade = Math.max(1, Math.round(parseFloat(formData.get('quantidade') as string)) || 1)
   const preco = Math.max(0, parseFloat(formData.get('preco_unitario') as string) || 0)
 
-  await supabase.from('itens_nota_entrada').insert({
+  const { error: eIns } = await supabase.from('itens_nota_entrada').insert({
     nota_id: notaId,
     produto_id: formData.get('produto_id') as string,
     deposito_id: formData.get('deposito_id') as string,
@@ -175,10 +181,12 @@ export async function adicionarItemNota(notaId: string, formData: FormData) {
     preco_unitario: preco,
     total_item: quantidade * preco,
   })
+  if (eIns) throw new Error(eIns.message)
 
   const { data: itens } = await supabase.from('itens_nota_entrada').select('total_item').eq('nota_id', notaId)
   const total = itens?.reduce((s, i) => s + (i.total_item ?? 0), 0) ?? 0
-  await supabase.from('notas_entrada').update({ valor_total: total }).eq('id', notaId)
+  const { error: eTot } = await supabase.from('notas_entrada').update({ valor_total: total }).eq('id', notaId)
+  if (eTot) throw new Error(eTot.message)
 
   revalidatePath(`/painel/compras/${notaId}`)
 }

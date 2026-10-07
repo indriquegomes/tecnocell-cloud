@@ -174,7 +174,8 @@ export async function editarProduto(id: string, formData: FormData) {
 export async function deletarProduto(id: string) {
   await requirePermissao('produtos')
   const supabase = await createServiceClient()
-  await supabase.from('estoque').delete().eq('produto_id', id)
+  const { error: eEstoque } = await supabase.from('estoque').delete().eq('produto_id', id)
+  if (eEstoque) throw new Error(eEstoque.message)
   const { error } = await supabase.from('produtos').delete().eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/painel/produtos')

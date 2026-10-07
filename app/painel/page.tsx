@@ -49,7 +49,7 @@ export default async function DashboardPage({
     : 'gerente'
 
   const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-  const inicioMes = (() => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0] })()
+  const inicioMes = hoje.slice(0, 7) + '-01'   // 1º dia do mês corrente, no fuso SP
 
   // Filtro de período + loja (Isa: "mostrar por mês, ano e selecionar a loja").
   // Default = ESTE MÊS (mês corrente) — pedido do Vitor: 30 dias misturava mês passado,

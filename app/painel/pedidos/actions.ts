@@ -190,7 +190,8 @@ export async function adicionarItemPedido(pedidoId: string, formData: FormData) 
   const { data: itens } = await supabase.from('itens_pedido').select('total_item').eq('pedido_id', pedidoId)
   const subtotal = itens?.reduce((s, i) => s + (i.total_item ?? 0), 0) ?? 0
   const novoTotal = Math.max(0, subtotal - (ped?.desconto ?? 0) + (ped?.frete ?? 0))
-  await supabase.from('pedidos').update({ total: novoTotal }).eq('id', pedidoId)
+  const { error: eTotal } = await supabase.from('pedidos').update({ total: novoTotal }).eq('id', pedidoId)
+  if (eTotal) return { error: eTotal.message }
 
   revalidatePath(`/painel/pedidos/${pedidoId}`)
   return { ok: true }
@@ -253,12 +254,14 @@ export async function cancelarComMotivo(id: string, motivo: string) {
 export async function removerItemPedido(itemId: string, pedidoId: string) {
   await requirePermissao('pedidos')
   const supabase = await createServiceClient()
-  await supabase.from('itens_pedido').delete().eq('id', itemId)
+  const { error: eDel } = await supabase.from('itens_pedido').delete().eq('id', itemId)
+  if (eDel) return { error: eDel.message }
   const { data: ped } = await supabase.from('pedidos').select('desconto, frete').eq('id', pedidoId).single()
   const { data: itens } = await supabase.from('itens_pedido').select('total_item').eq('pedido_id', pedidoId)
   const subtotal = itens?.reduce((s, i) => s + (i.total_item ?? 0), 0) ?? 0
   const novoTotal = Math.max(0, subtotal - (ped?.desconto ?? 0) + (ped?.frete ?? 0))
-  await supabase.from('pedidos').update({ total: novoTotal }).eq('id', pedidoId)
+  const { error: eTotal } = await supabase.from('pedidos').update({ total: novoTotal }).eq('id', pedidoId)
+  if (eTotal) return { error: eTotal.message }
   revalidatePath(`/painel/pedidos/${pedidoId}`)
 }
 
