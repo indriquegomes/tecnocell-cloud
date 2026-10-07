@@ -657,6 +657,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     return () => { vivo = false }
   }, [lojaId])
   const lojaSel = lojas.find((l) => l.id === lojaId) ?? null
+  // Cor da loja ativa no banner do PDV — cada loja tem uma cor pra não confundir
+  // (Petrópolis azul, Teresópolis laranja). ponytail: fixo em 4 cores; se um dia
+  // tiver mais lojas, as cores se repetem — trocar por um mapa nome→cor.
+  const CORES_LOJA = ['#1B6CA8', '#F47920', '#7c3aed', '#059669']
+  const corLoja = CORES_LOJA[Math.max(0, lojas.findIndex((l) => l.id === lojaId)) % CORES_LOJA.length]
   const depositosDaLoja = depositos.filter((d) => d.loja_id === lojaId)
   // depósitos reais de todas as lojas (exclui órfãos tipo Estoque Geral) — pra mostrar
   // o estoque em TODAS as lojas no resultado da busca (Isa)
@@ -2359,15 +2364,15 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
         {/* Seletores de loja, depósito e tabela de preço — quebram fluido ao apertar */}
         <div className="flex flex-wrap gap-3">
-          <div className="flex flex-1 basis-52 min-w-0 items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm transition focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500/40">
-            <label className="text-xs font-semibold text-blue-600 uppercase tracking-wide shrink-0">Loja</label>
+          <div className="flex flex-1 basis-64 min-w-0 flex-col gap-0.5 rounded-xl border-2 px-4 py-2.5 shadow-sm" style={{ backgroundColor: corLoja, borderColor: corLoja }}>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-white/85">🏬 Loja ativa — confira antes de vender</span>
             <select
               value={lojaId}
               onChange={(e) => trocarLoja(e.target.value)}
-              className="flex-1 min-w-0 cursor-pointer bg-transparent text-sm font-medium text-gray-800 focus:outline-none"
+              className="w-full cursor-pointer bg-transparent text-xl font-extrabold text-white focus:outline-none"
             >
               {lojas.length === 0 && <option value="">Nenhuma loja</option>}
-              {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
+              {lojas.map((l) => <option key={l.id} value={l.id} className="text-gray-900">{l.nome}</option>)}
             </select>
           </div>
           <div className="flex flex-1 basis-52 min-w-0 items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm transition focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500/40">
