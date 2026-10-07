@@ -876,7 +876,7 @@ export async function registrarPagamentoParcial(
     if (error) throw new Error(error.message)
     const quitado = (data as { quitado?: boolean } | null)?.quitado ?? false
 
-    await registrarNoCaixa(supabase, lojaId, valorPago, formaPagamento, `Fiado recebido — ${lanc?.pessoa_nome ?? 'cliente'}`)
+    await registrarNoCaixa(supabase, lojaId, valorPago, formaPagamento, `Fiado recebido — ${lanc?.pessoa_nome ?? 'cliente'}`, id, 'pdv')
 
     return { ok: true, quitado }
   } catch (e) {
@@ -968,7 +968,7 @@ export async function registrarPagamentoMisto(
       if (error) throw new Error(error.message)
 
       for (const p of linhasReais) {
-        await registrarNoCaixa(supabase, lojaId, p.valor, p.forma, `Fiado recebido — ${lanc2?.pessoa_nome ?? 'cliente'}`)
+        await registrarNoCaixa(supabase, lojaId, p.valor, p.forma, `Fiado recebido — ${lanc2?.pessoa_nome ?? 'cliente'}`, id, 'pdv')
       }
     }
 

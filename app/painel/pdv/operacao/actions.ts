@@ -131,8 +131,13 @@ export async function registrarReforco(
 
     const supabase = await createServiceClient()
     // Trava: não registrar em caixa já fechado (corrida entre abas — fechou noutra tela)
-    const { data: cx } = await supabase.from('caixas').select('status').eq('id', caixaId).maybeSingle()
+    const { data: cx } = await supabase.from('caixas').select('status, loja_id').eq('id', caixaId).maybeSingle()
     if (!cx || cx.status !== 'aberto') return { ok: false, message: 'Este caixa não está mais aberto.' }
+    // Trava de loja: só mexe em caixa da loja que o usuário pode acessar (evita
+    // reforço/retirada na loja errada — mesma regra de abrir/fechar caixa).
+    if (!(await podeAcessarLoja(usuario.id, (cx as { loja_id?: string | null }).loja_id ?? null))) {
+      return { ok: false, message: 'Você não tem acesso ao caixa desta loja.' }
+    }
     const { error } = await supabase.from('movimentos_caixa').insert({
       caixa_id: caixaId,
       tipo: 'reforco',
@@ -168,8 +173,13 @@ export async function registrarRetirada(
 
     const supabase = await createServiceClient()
     // Trava: não registrar em caixa já fechado (corrida entre abas — fechou noutra tela)
-    const { data: cx } = await supabase.from('caixas').select('status').eq('id', caixaId).maybeSingle()
+    const { data: cx } = await supabase.from('caixas').select('status, loja_id').eq('id', caixaId).maybeSingle()
     if (!cx || cx.status !== 'aberto') return { ok: false, message: 'Este caixa não está mais aberto.' }
+    // Trava de loja: só mexe em caixa da loja que o usuário pode acessar (evita
+    // reforço/retirada na loja errada — mesma regra de abrir/fechar caixa).
+    if (!(await podeAcessarLoja(usuario.id, (cx as { loja_id?: string | null }).loja_id ?? null))) {
+      return { ok: false, message: 'Você não tem acesso ao caixa desta loja.' }
+    }
     const { error } = await supabase.from('movimentos_caixa').insert({
       caixa_id: caixaId,
       tipo: 'retirada',

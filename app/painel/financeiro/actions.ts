@@ -184,6 +184,7 @@ export async function marcarPago(id: string, formData?: FormData) {
       forma,   // nunca vazio aqui: 'receber' sem forma já foi recusado acima
       `Fiado recebido — ${antes?.pessoa_nome ?? 'cliente'}`,
       id,
+      'financeiro',
     )
   }
 
@@ -194,8 +195,10 @@ export async function marcarPago(id: string, formData?: FormData) {
 // DESFAZER PAGAMENTO — reverte uma quitação do botão "Pago" (marcarPago).
 // Antes não dava: pagamento com forma errada ficava preso, e excluir o lançamento
 // deixava o dinheiro órfão na gaveta. Agora o movimento do caixa guarda
-// lancamento_id (via registrarNoCaixa), então o desfazer é exato: apaga o movimento
-// e devolve o lançamento pra pendente.
+// lancamento_id (via registrarNoCaixa) e origem: o desfazer apaga SÓ o movimento
+// de origem 'financeiro' (botão "Pago") e devolve o lançamento pra pendente. O
+// fiado pago no PDV também liga lancamento_id agora (auditoria), mas com origem
+// 'pdv' — e fica FORA deste desfazer (não tira dinheiro real da gaveta).
 export async function desfazerPagamento(id: string) {
   const usuario = await requirePermissao('financeiro')
   const supabase = await createServiceClient()
@@ -217,6 +220,7 @@ export async function desfazerPagamento(id: string) {
     .select('id, valor, caixa_id')
     .eq('lancamento_id', id)
     .eq('tipo', 'recebimento')
+    .eq('origem', 'financeiro')
   if (erroMov) redirect(`/painel/financeiro?erro=${encodeURIComponent(erroMov.message)}`)
   const lista = (movs ?? []) as { id: string; valor: number | null; caixa_id: string | null }[]
   const valorMovido = Math.round(lista.reduce((s, m) => s + Number(m.valor ?? 0), 0) * 100) / 100
@@ -255,7 +259,7 @@ export async function desfazerPagamento(id: string) {
   }, usuario, '/painel/financeiro')
 
   if (lista.length > 0) {
-    const { error: erroDel } = await supabase.from('movimentos_caixa').delete().eq('lancamento_id', id).eq('tipo', 'recebimento')
+    const { error: erroDel } = await supabase.from('movimentos_caixa').delete().eq('lancamento_id', id).eq('tipo', 'recebimento').eq('origem', 'financeiro')
     if (erroDel) redirect(`/painel/financeiro?erro=${encodeURIComponent(erroDel.message)}`)
   }
 

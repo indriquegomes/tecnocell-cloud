@@ -106,6 +106,7 @@ export default async function FinanceiroPage({
     .select('lancamento_id')
     .not('lancamento_id', 'is', null)
     .eq('tipo', 'recebimento')
+    .eq('origem', 'financeiro')
   const idsDesfazer = new Set(((movsLigados ?? []) as { lancamento_id: string }[]).map((m) => m.lancamento_id))
 
   // ✨ Totais DO FILTRO (não só os globais): soma exatamente o que está filtrado,
