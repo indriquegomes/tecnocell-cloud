@@ -6,6 +6,7 @@ import { Dica } from '@/components/Dica'
 import { formatDate, hojeSP, diaSP } from '@/lib/utils'
 import { ExportCsv } from './ExportCsv'
 import { ExportCsvLazy } from './ExportCsvLazy'
+import { ImprimirVendas } from './ImprimirVendas'
 import { FluxoChart, ParetoChart, Donut, Barra } from './Charts'
 import { FechamentoDetalhe, type MovDetalhe } from './FechamentoDetalhe'
 import { BuscaAvancada } from '@/components/BuscaAvancada'
@@ -90,7 +91,7 @@ export default async function RelatoriosPage({
   const totalPagar = lancamentos.filter((l) => l.tipo === 'pagar' && l.status !== 'cancelado').reduce((s, l) => s + l.valor, 0)
 
   // ---------- Vendas (Condensado — venda-a-venda + resumo por forma) ----------
-  type VendaCond = { id: string; numero: number | null; total: number; desconto: number; created_at: string; status: string; vendedor_nome: string | null; cliente_nome: string | null; forma_nome: string | null }
+  type VendaCond = { id: string; numero: number | null; total: number; desconto: number; created_at: string; status: string; vendedor_nome: string | null; cliente_nome: string | null; forma_nome: string | null; devolvido: number }
   let vendasLista: VendaCond[] = []
   let totalDevolucoesPeriodo = 0
   let resumoFormas: { nome: string; total: number; qtd: number }[] = []
@@ -133,6 +134,7 @@ export default async function RelatoriosPage({
       created_at: v.created_at, status: v.status, vendedor_nome: v.vendedor_nome ?? null,
       cliente_nome: v.pessoa_id ? (nomeCliente[v.pessoa_id] ?? null) : null,
       forma_nome: pagsPorVenda[v.id] ? [...new Set(pagsPorVenda[v.id].map((p) => p.nome))].join(' + ') : (v.forma_pagamento_id ? (nomeForma[v.forma_pagamento_id] ?? null) : null),
+      devolvido: 0,
     })).filter((v) => {
       if (forma && !(idsPorVenda[v.id]?.has(forma))) return false
       if (cliente && !(v.cliente_nome ?? '').toLowerCase().includes(cliente.toLowerCase())) return false
@@ -156,9 +158,12 @@ export default async function RelatoriosPage({
     }
     resumoFormas = Object.entries(mapaResumo).map(([nome, r]) => ({ nome, ...r })).sort((a, b) => b.total - a.total)
     // Devoluções processadas no período → Vendas líquidas = brutas − devoluções.
-    const devs = await fetchAll<{ valor_total: number | null }>((from, to) => supabase.from('devolucoes')
-      .select('valor_total').gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to))
+    const devs = await fetchAll<{ venda_id: string | null; valor_total: number | null }>((from, to) => supabase.from('devolucoes')
+      .select('venda_id, valor_total').gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to))
     totalDevolucoesPeriodo = (devs ?? []).reduce((s, d) => s + (d.valor_total ?? 0), 0)
+    const devolucoesPorVenda: Record<string, number> = {}
+    for (const d of (devs ?? [])) if (d.venda_id) devolucoesPorVenda[d.venda_id] = (devolucoesPorVenda[d.venda_id] ?? 0) + (d.valor_total ?? 0)
+    for (const v of vendasLista) v.devolvido = devolucoesPorVenda[v.id] ?? 0
   }
   const totalVendasLista = vendasLista.reduce((s, v) => s + v.total, 0)
 
@@ -1488,13 +1493,14 @@ export default async function RelatoriosPage({
               </div>
             </div>
           )}
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <ImprimirVendas vendas={vendasLista.map((v) => ({ numero: v.numero, data: v.created_at, cliente: v.cliente_nome, vendedor: v.vendedor_nome, forma: v.forma_nome, desconto: v.desconto, total: v.total, devolvido: v.devolvido }))} de={dataInicio} ate={dataFim} />
             <ExportCsv filename={`vendas_${dataInicio}_${dataFim}.csv`}
-              cols={[{ key: 'numero', label: 'Nº' }, { key: 'created_at', label: 'Data' }, { key: 'cliente_nome', label: 'Cliente' }, { key: 'vendedor_nome', label: 'Vendedor' }, { key: 'forma_nome', label: 'Forma' }, { key: 'desconto', label: 'Desconto', money: true }, { key: 'total', label: 'Total', money: true }, { key: 'status', label: 'Status' }]}
+              cols={[{ key: 'numero', label: 'Nº' }, { key: 'created_at', label: 'Data' }, { key: 'cliente_nome', label: 'Cliente' }, { key: 'vendedor_nome', label: 'Vendedor' }, { key: 'forma_nome', label: 'Forma' }, { key: 'desconto', label: 'Desconto', money: true }, { key: 'total', label: 'Total', money: true }, { key: 'devolvido', label: 'Devolução', money: true }, { key: 'status', label: 'Status' }]}
               rows={asRows(vendasLista)} />
           </div>
           <Tabela vazio={vendasLista.length === 0} vazioMsg="Nenhuma venda no período."
-            head={['Nº', 'Data', 'Cliente', 'Vendedor', 'Forma', 'Desconto', 'Total', 'Status']} alinhas={['l', 'l', 'l', 'l', 'l', 'r', 'r', 'c']}>
+            head={['Nº', 'Data', 'Cliente', 'Vendedor', 'Forma', 'Desconto', 'Total', 'Devolução', 'Status']} alinhas={['l', 'l', 'l', 'l', 'l', 'r', 'r', 'r', 'c']}>
             {vendasLista.map((v) => (
               <tr key={v.id} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-sm text-gray-500">{v.numero ?? '—'}</td>
@@ -1504,6 +1510,7 @@ export default async function RelatoriosPage({
                 <td className="px-4 py-3 text-sm text-gray-500">{v.forma_nome ?? '—'}</td>
                 <td className="px-4 py-3 text-sm text-right text-red-500">{fmt(v.desconto ?? 0)}</td>
                 <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{fmt(v.total)}</td>
+                <td className="px-4 py-3 text-sm text-right font-semibold text-red-500">{v.devolvido > 0 ? '−' + fmt(v.devolvido) : '—'}</td>
                 <td className="px-4 py-3 text-center"><span className="inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700">{v.status}</span></td>
               </tr>
             ))}
