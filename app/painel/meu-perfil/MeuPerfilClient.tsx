@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Spinner } from '@/components/Spinner'
 import { createClient } from '@/lib/supabase/client'
-import { buscarMeuPerfil, atualizarMeuNome, alterarMinhaSenha, atualizarMinhaFoto, baterPonto, verificarDiaFolga, buscarMeuPontoHoje, buscarMeuBanco, type Res, type Ponto, type BancoHora } from './actions'
+import { buscarMeuPerfil, atualizarMeuNome, alterarMinhaSenha, atualizarMinhaFoto, baterPonto, verificarDiaFolga, buscarMeuPontoHoje, buscarMeuBanco, buscarMeuSaldo, type Res, type Ponto, type BancoHora } from './actions'
 
 export function MeuPerfilClient() {
   const supabase = createClient()
@@ -28,6 +28,7 @@ export function MeuPerfilClient() {
   const [pontos, setPontos] = useState<Ponto[]>([])
   const [batendo, setBatendo] = useState(false)
   const [banco, setBanco] = useState<{ saldo: number; itens: BancoHora[] }>({ saldo: 0, itens: [] })
+  const [saldoH, setSaldoH] = useState({ hoje: 0, semana: 0 })
   const [dobraPrompt, setDobraPrompt] = useState(false)
   const [dobraMotivo, setDobraMotivo] = useState<'folga' | 'feriado'>('folga')
   const [trocaAberta, setTrocaAberta] = useState(false)
@@ -42,6 +43,7 @@ export function MeuPerfilClient() {
         setNome(p.nome); setEmail(p.email); setCargo(p.cargo); setAvatarUrl(p.avatarUrl)
         setPontos(await buscarMeuPontoHoje(await token()).catch(() => []))
         setBanco(await buscarMeuBanco(await token()).catch(() => ({ saldo: 0, itens: [] })))
+        setSaldoH(await buscarMeuSaldo(await token()).catch(() => ({ hoje: 0, semana: 0 })))
       } catch { /* sessão — o proxy redireciona */ }
       finally { setCarregando(false) }
     })()
@@ -113,6 +115,7 @@ export function MeuPerfilClient() {
   }
   if (aberto != null) trabMin += (Date.now() - aberto) / 60000
   const horasTxt = `${Math.floor(trabMin / 60)}h ${String(Math.round(trabMin % 60)).padStart(2, '0')}m`
+  const fmtSaldo = (min: number) => (min > 0 ? '+' : min < 0 ? '−' : '') + Math.floor(Math.abs(min) / 60) + 'h' + String(Math.abs(min) % 60).padStart(2, '0') + 'm'
   const acoesPonto: [string, string, string][] =
     !ultimo || ultimo === 'saida' ? [['entrada', '▶ Entrada', 'bg-emerald-600 hover:bg-emerald-700']]
     : ultimo === 'pausa' ? [['retorno', '▶ Retornar', 'bg-emerald-600 hover:bg-emerald-700']]
@@ -181,6 +184,10 @@ export function MeuPerfilClient() {
           ))}
           <span className="ml-auto text-sm text-gray-500">Trabalhado hoje: <b className="tabular-nums text-gray-800">{horasTxt}</b></span>
         </div>
+        <p className="mt-2 text-sm text-gray-500">
+          Saldo de horas: <b className={`tabular-nums ${saldoH.hoje > 0 ? 'text-green-600' : saldoH.hoje < 0 ? 'text-red-500' : 'text-gray-600'}`}>{fmtSaldo(saldoH.hoje)}</b> hoje
+          {' · '}<b className={`tabular-nums ${saldoH.semana > 0 ? 'text-green-600' : saldoH.semana < 0 ? 'text-red-500' : 'text-gray-600'}`}>{fmtSaldo(saldoH.semana)}</b> na semana
+        </p>
         {pontos.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2">
             {pontos.map((p) => (

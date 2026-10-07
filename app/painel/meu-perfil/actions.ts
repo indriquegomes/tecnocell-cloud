@@ -1,6 +1,7 @@
 'use server'
 
 import { createServiceClient, requireAuth } from '@/lib/supabase/server'
+import { semanaDe, turnosDoDia, trabalhadoDoDia, type Escala, type Excecao, type Ponto as PontoEscala } from '@/lib/escala'
 import { createServerClient } from '@supabase/ssr'
 import sharp from 'sharp'
 
@@ -159,6 +160,39 @@ export async function buscarMeuBanco(token: string): Promise<{ saldo: number; it
   const itens = (data ?? []) as BancoHora[]
   const saldo = itens.reduce((acc, i) => acc + Number(i.horas), 0)
   return { saldo, itens }
+}
+
+// Saldo de horas (trabalhado − escalado) do usuário logado: hoje e na semana.
+export async function buscarMeuSaldo(token: string): Promise<{ hoje: number; semana: number }> {
+  const user = await requireAuth(token)
+  const s = await createServiceClient()
+  const dias = semanaDe()
+  const primeiro = dias[0].data
+  const ultimo = dias[dias.length - 1].data
+
+  const [{ data: esc }, { data: pts }, { data: exc }] = await Promise.all([
+    s.from('escalas').select('*').eq('perfil_id', user.id).eq('ativo', true),
+    s.from('pontos').select('usuario_id, tipo, criado_em').eq('usuario_id', user.id).gte('criado_em', primeiro + 'T00:00:00-03:00').lte('criado_em', ultimo + 'T23:59:59-03:00').order('criado_em'),
+    s.from('escala_excecoes').select('*').eq('perfil_id', user.id).gte('data', primeiro).lte('data', ultimo),
+  ])
+  const escalas = (esc ?? []) as Escala[]
+  const pontos = (pts ?? []) as PontoEscala[]
+  const excecoes = (exc ?? []) as Excecao[]
+
+  const hojeBR = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  const nomes: Record<string, string> = { [user.id]: user.email ?? '' }
+
+  let semana = 0
+  let hoje = 0
+  for (const d of dias) {
+    const turno = turnosDoDia(d.data, d.diaSemana, escalas, excecoes, nomes).find((t) => t.perfilId === user.id)
+    const planejado = turno && !turno.folga ? (turno.saida - turno.entrada - (turno.pausaIni !== null && turno.pausaFim !== null ? Math.max(0, turno.pausaFim - turno.pausaIni) : 0)) : 0
+    const meu = trabalhadoDoDia(pontos, d.data).find((t) => t.perfilId === user.id)
+    const saldoDia = (meu?.minutos ?? 0) - planejado
+    semana += saldoDia
+    if (d.data === hojeBR) hoje = saldoDia
+  }
+  return { hoje, semana }
 }
 
 export async function alterarMinhaSenha(token: string, senhaAtual: string, senhaNova: string): Promise<Res> {

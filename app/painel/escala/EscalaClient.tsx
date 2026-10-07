@@ -107,6 +107,7 @@ export function EscalaClient({
                   const h = horas.find((x) => x.perfilId === id)
                   const nome = h?.nome ?? perfis.find((p) => p.id === id)?.nome ?? '—'
                   const real = trabalhadoSemana[id] ?? 0
+                  const saldo = real - (h?.minutos ?? 0)
                   return (
                     <div key={id} className="flex items-center gap-3 text-sm">
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: corDe(id, perfis, cores) }} />
@@ -117,6 +118,9 @@ export function EscalaClient({
                       </span>
                       <span className="w-28 text-right text-xs text-gray-400">
                         trabalhado <b className="tabular-nums text-gray-900">{real > 0 ? horasTexto(real) : '—'}</b>
+                      </span>
+                      <span className="w-24 text-right text-xs text-gray-400">
+                        saldo <b className={`tabular-nums ${saldo > 0 ? 'text-green-600' : saldo < 0 ? 'text-red-500' : 'text-gray-500'}`}>{saldo > 0 ? '+' : saldo < 0 ? '−' : ''}{horasTexto(Math.abs(saldo))}</b>
                       </span>
                     </div>
                   )
