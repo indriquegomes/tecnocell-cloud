@@ -955,7 +955,7 @@ export default async function RelatoriosPage({
         cx.loja_id ? supabase.from('lojas').select('nome').eq('id', cx.loja_id as string).maybeSingle() : Promise.resolve({ data: null }),
         cx.usuario_id ? supabase.from('perfis').select('nome').eq('id', cx.usuario_id as string).maybeSingle() : Promise.resolve({ data: null }),
         supabase.from('vendas').select('id, numero, created_at, vendedor_nome, pessoas(nome)').eq('status', 'concluida').eq('caixa_id', caixa),
-        supabase.from('movimentos_caixa').select('tipo, forma_pagamento, valor, created_at').eq('caixa_id', caixa),
+        supabase.from('movimentos_caixa').select('tipo, forma_pagamento, valor, created_at, motivo').eq('caixa_id', caixa),
         supabase.from('formas_pagamento').select('id, nome, tipo'),
       ])
       fcHeader = {
@@ -985,14 +985,16 @@ export default async function RelatoriosPage({
       for (const p of (pagsRes.data ?? []) as any[]) {
         const v = vendaById[p.venda_id]; if (!v) continue
         const f = formaById[p.forma_pagamento_id ?? ''] ?? { nome: 'Outra', tipo: 'outros' }
-        fcMovs.push({ data: v.created_at, vendedor: v.vendedor_nome ?? null, movimentacao: 'Venda', rotulo: 'Venda — ' + (nomeCliente(v) ?? 'Consumidor'), forma: f.nome, tipoForma: tipoLabel(f.tipo), valor: p.valor ?? 0 })
+        fcMovs.push({ data: v.created_at, vendedor: v.vendedor_nome ?? null, movimentacao: 'Venda', rotulo: 'Venda #' + (v.numero ?? '?') + ' — ' + (nomeCliente(v) ?? 'Consumidor'), forma: f.nome, tipoForma: tipoLabel(f.tipo), valor: p.valor ?? 0 })
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const m of (movR.data ?? []) as any[]) {
         if (m.tipo === 'devolucao') continue   // devolução vem da tabela devolucoes (completa)
         const rot = m.tipo === 'reforco' ? 'Reforço' : m.tipo === 'retirada' ? 'Retirada' : 'Recebimento'
         const sinal = m.tipo === 'retirada' ? -1 : 1
-        fcMovs.push({ data: m.created_at, vendedor: null, movimentacao: rot, rotulo: rot === 'Retirada' ? 'Retirada (sangria)' : rot, forma: m.forma_pagamento ?? '—', tipoForma: tipoLabel(tipoByNome[String(m.forma_pagamento ?? '').toLowerCase()] ?? null), valor: sinal * (m.valor ?? 0) })
+        const nomeFiado = m.motivo ? String(m.motivo).split(' — ').pop()?.trim() || '' : ''
+        const rotuloMov = rot === 'Recebimento' ? (nomeFiado ? 'Recebimento — ' + nomeFiado : 'Recebimento') : rot === 'Retirada' ? 'Retirada (sangria)' : rot
+        fcMovs.push({ data: m.created_at, vendedor: null, movimentacao: rot, rotulo: rotuloMov, forma: m.forma_pagamento ?? '—', tipoForma: tipoLabel(tipoByNome[String(m.forma_pagamento ?? '').toLowerCase()] ?? null), valor: sinal * (m.valor ?? 0) })
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const d of (devsRes.data ?? []) as any[]) {
