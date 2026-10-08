@@ -21,7 +21,7 @@ export async function pagarFreelancer(formData: FormData) {
     tipo: 'pagar', status: 'pago',
     pessoa_nome: nome, valor,
     data_vencimento: hoje, data_pagamento: hoje,
-    categoria: 'Freelancer', descricao: 'Freelancer — ' + horas + 'h',
+    categoria: 'Freelancer', descricao: 'Freelancer — ' + horas,
   })
   if (e1) redirect('/painel/freelancers?erro=' + encodeURIComponent(e1.message))
 

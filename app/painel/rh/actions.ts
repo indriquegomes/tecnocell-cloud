@@ -9,7 +9,9 @@ export async function lancarHora(formData: FormData) {
   const user = await requireAuth()
   await requirePermissao('rh')
   const s = await createServiceClient()
-  const horasNum = parseFloat(((formData.get('horas') as string) || '0').replace(',', '.'))
+  const hh = Number(formData.get('horas') || 0) || 0
+  const mm = Number(formData.get('minutos') || 0) || 0
+  const horasNum = hh + mm / 60
   const retirar = formData.get('operacao') === 'retirar'
   const horas = retirar ? -Math.abs(horasNum) : Math.abs(horasNum)
   const usuario_id = formData.get('usuario_id') as string

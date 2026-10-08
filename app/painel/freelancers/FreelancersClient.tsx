@@ -2,6 +2,7 @@
 
 import { pagarFreelancer } from './actions'
 import { formatBRL } from '@/lib/utils'
+import { horasTexto } from '@/lib/escala'
 
 type Resumo = { id: string; nome: string; horas: number; valorHora: number; total: number }
 
@@ -30,7 +31,7 @@ export function FreelancersClient({ resumo, erro }: { resumo: Resumo[]; erro?: s
             {resumo.map((r) => (
               <tr key={r.id} className="hover:bg-gray-50">
                 <td className="px-4 py-2 text-sm font-medium text-gray-800">{r.nome}</td>
-                <td className="px-4 py-2 text-right text-sm text-gray-600">{r.horas.toFixed(1)}h</td>
+                <td className="px-4 py-2 text-right text-sm text-gray-600">{horasTexto(Math.round(r.horas * 60))}</td>
                 <td className="px-4 py-2 text-right text-sm text-gray-600">{formatBRL(r.valorHora)}</td>
                 <td className="px-4 py-2 text-right text-sm font-semibold text-gray-900">{formatBRL(r.total)}</td>
                 <td className="px-4 py-2 text-right">
@@ -38,7 +39,7 @@ export function FreelancersClient({ resumo, erro }: { resumo: Resumo[]; erro?: s
                     <form action={pagarFreelancer} className="inline">
                       <input type="hidden" name="perfil_id" value={r.id} />
                       <input type="hidden" name="nome" value={r.nome} />
-                      <input type="hidden" name="horas" value={r.horas.toFixed(1)} />
+                      <input type="hidden" name="horas" value={horasTexto(Math.round(r.horas * 60))} />
                       <input type="hidden" name="valor" value={r.total.toFixed(2)} />
                       <button type="submit" className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition">Pagar + zerar</button>
                     </form>

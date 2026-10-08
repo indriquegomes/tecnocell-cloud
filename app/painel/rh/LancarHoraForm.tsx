@@ -41,7 +41,16 @@ export function LancarHoraForm({ pessoas }: { pessoas: Pessoa[] }) {
       </div>
       <div>
         <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Horas</label>
-        <input name="horas" type="number" step="0.01" min="0" placeholder="1,5" className="field" required />
+        <div className="flex gap-1.5">
+          <div className="flex-1">
+            <input name="horas" type="number" min="0" placeholder="0" className="field" required />
+            <span className="mt-0.5 block text-center text-[10px] text-gray-400">horas</span>
+          </div>
+          <div className="flex-1">
+            <input name="minutos" type="number" min="0" placeholder="00" className="field" />
+            <span className="mt-0.5 block text-center text-[10px] text-gray-400">minutos</span>
+          </div>
+        </div>
       </div>
       <div>
         <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Data</label>
