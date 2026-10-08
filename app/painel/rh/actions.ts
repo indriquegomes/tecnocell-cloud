@@ -4,18 +4,28 @@ import { createServiceClient, requireAuth, requirePermissao, permissoesEfetivas 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
+// '1:35' | '1h35' | '1,35' | '2' -> horas decimais (1.5833). NaN se inválido.
+function parseHoras(s: string): number {
+  const t = (s || '').trim().toLowerCase().replace(/[.,]/g, ':').replace('h', ':')
+  const [hhStr, mmStr] = t.split(':')
+  const hh = Number(hhStr)
+  if (!Number.isFinite(hh) || hh < 0) return NaN
+  if (mmStr === undefined || mmStr === '') return hh
+  const mm = Number(mmStr)
+  if (!Number.isFinite(mm) || mm < 0 || mm > 59) return NaN
+  return hh + mm / 60
+}
+
 // RH lança uma entrada no banco de horas (+ adiciona / - retira)
 export async function lancarHora(formData: FormData) {
   const user = await requireAuth()
   await requirePermissao('rh')
   const s = await createServiceClient()
-  const hh = Number(formData.get('horas') || 0) || 0
-  const mm = Number(formData.get('minutos') || 0) || 0
-  const horasNum = hh + mm / 60
+  const horasNum = parseHoras((formData.get('horas') as string) || '')
   const retirar = formData.get('operacao') === 'retirar'
   const horas = retirar ? -Math.abs(horasNum) : Math.abs(horasNum)
   const usuario_id = formData.get('usuario_id') as string
-  if (!usuario_id || !horasNum) redirect('/painel/rh?erro=Preencha pessoa e horas')
+  if (!usuario_id || !horasNum) redirect('/painel/rh?erro=' + encodeURIComponent('Preencha pessoa e horas no formato hora:minuto (ex: 1:35)'))
   await s.from('banco_horas').insert({
     usuario_id,
     horas,
