@@ -227,7 +227,7 @@ export function MeuPerfilClient() {
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-700">⏱️ Meu banco de horas</h3>
           <span className={`text-lg font-bold tabular-nums ${banco.saldo < 0 ? 'text-rose-600' : banco.saldo >= 8 ? 'text-amber-600' : 'text-emerald-600'}`}>
-            {banco.saldo > 0 ? '+' : ''}{banco.saldo.toFixed(2).replace('.', ',')}h
+            {fmtSaldo(Math.round(banco.saldo * 60))}
           </span>
         </div>
         {banco.itens.length === 0 ? (
@@ -243,7 +243,7 @@ export function MeuPerfilClient() {
                     <span className="text-xs text-gray-400"> · {new Date(b.data + 'T12:00:00').toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</span>
                   </div>
                   <span className={`shrink-0 font-bold tabular-nums ${Number(b.horas) < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                    {Number(b.horas) > 0 ? '+' : ''}{Number(b.horas).toFixed(2).replace('.', ',')}h
+                    {fmtSaldo(Math.round(Number(b.horas) * 60))}
                   </span>
                 </div>
               )

@@ -14,7 +14,10 @@ const MOTIVO_LABEL: Record<string, string> = {
   solicitacao_loja: 'Solicitação da loja', cobrir_colega: 'Cobrir colega',
   atraso: 'Atraso', pagamento: 'Pagamento', folga: 'Folga', dobra: 'Dobra (folga/feriado)', outro: 'Outro',
 }
-const fmtH = (h: number) => `${h > 0 ? '+' : ''}${h.toFixed(2).replace('.', ',')}h`
+const fmtH = (h: number) => {
+  const m = Math.round(Math.abs(h) * 60)
+  return `${h > 0 ? '+' : h < 0 ? '−' : ''}${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}m`
+}
 
 type Ponto = { id: string; usuario_id: string; tipo: string; criado_em: string }
 
