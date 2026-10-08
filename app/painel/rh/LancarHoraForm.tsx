@@ -19,7 +19,7 @@ const MOTIVOS_TIRAR = [
 ]
 
 // Passo das setas (em minutos) pra subir/descer o tempo.
-const PASSO_MIN = 15
+const PASSO_MIN = 1
 
 function parseMin(s: string): number {
   const t = (s || '').trim().toLowerCase().replace(/[.,]/g, ':').replace('h', ':')
@@ -46,8 +46,8 @@ function CampoHora() {
     <div className="relative">
       <input name="horas" type="text" inputMode="numeric" value={v} onChange={(e) => setV(e.target.value)} placeholder="1:35" title="Formato hora:minuto (ex: 1:35)" className="field pr-7" required />
       <div className="absolute inset-y-0 right-0 flex w-7 flex-col overflow-hidden rounded-r-lg">
-        <button type="button" onClick={() => ajustar(PASSO_MIN)} className="flex flex-1 items-center justify-center text-[10px] leading-none text-gray-400 hover:bg-blue-50 hover:text-blue-700" aria-label="Aumentar 15 min">▲</button>
-        <button type="button" onClick={() => ajustar(-PASSO_MIN)} className="flex flex-1 items-center justify-center text-[10px] leading-none text-gray-400 hover:bg-blue-50 hover:text-blue-700" aria-label="Diminuir 15 min">▼</button>
+        <button type="button" onClick={() => ajustar(PASSO_MIN)} className="flex flex-1 items-center justify-center text-[10px] leading-none text-gray-400 hover:bg-blue-50 hover:text-blue-700" aria-label="Aumentar 1 min">▲</button>
+        <button type="button" onClick={() => ajustar(-PASSO_MIN)} className="flex flex-1 items-center justify-center text-[10px] leading-none text-gray-400 hover:bg-blue-50 hover:text-blue-700" aria-label="Diminuir 1 min">▼</button>
       </div>
     </div>
   )
