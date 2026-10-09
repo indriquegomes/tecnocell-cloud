@@ -101,6 +101,26 @@ async function aplicarDobra(s: Awaited<ReturnType<typeof createServiceClient>>, 
   await s.from('banco_horas').insert({ usuario_id: userId, horas: horas * 2, data: hoje, motivo: 'dobra', obs: 'Dobra (folga/feriado)', confirmado: false })
 }
 
+// Na saída: calcula a hora extra do dia (trabalhado − escalado) e, se POSITIVA,
+// lança direto no banco de horas. Folga/feriado pula (a dobra já cobre).
+async function aplicarHoraExtra(s: Awaited<ReturnType<typeof createServiceClient>>, userId: string, hoje: string) {
+  const { data: ja } = await s.from('banco_horas').select('id').eq('usuario_id', userId).eq('data', hoje).eq('motivo', 'hora_extra').limit(1)
+  if (ja && ja.length > 0) return
+  const diaSemana = new Date(hoje + 'T12:00:00-03:00').getDay()
+  const [{ data: esc }, { data: exc }, { data: pts }] = await Promise.all([
+    s.from('escalas').select('*').eq('perfil_id', userId).eq('ativo', true),
+    s.from('escala_excecoes').select('*').eq('perfil_id', userId).eq('data', hoje),
+    s.from('pontos').select('tipo, criado_em, usuario_id').eq('usuario_id', userId).gte('criado_em', hoje + 'T00:00:00-03:00').lte('criado_em', hoje + 'T23:59:59-03:00').order('criado_em'),
+  ])
+  const turno = turnosDoDia(hoje, diaSemana, (esc ?? []) as Escala[], (exc ?? []) as Excecao[], { [userId]: '' }).find((t) => t.perfilId === userId)
+  if (!turno || turno.folga) return
+  const planejado = turno.saida - turno.entrada - (turno.pausaIni !== null && turno.pausaFim !== null ? Math.max(0, turno.pausaFim - turno.pausaIni) : 0)
+  const trabalhado = trabalhadoDoDia((pts ?? []) as PontoEscala[], hoje).find((t) => t.perfilId === userId)?.minutos ?? 0
+  const extra = trabalhado - planejado
+  if (extra <= 0) return
+  await s.from('banco_horas').insert({ usuario_id: userId, horas: Math.round((extra / 60) * 100) / 100, data: hoje, motivo: 'hora_extra', obs: 'Hora extra automática', confirmado: true })
+}
+
 // Hoje é folga/feriado? (pro Meu Perfil avisar na hora de bater a entrada)
 export async function verificarDiaFolga(token: string): Promise<{ folga: boolean; feriado: boolean }> {
   const user = await requireAuth(token)
@@ -129,6 +149,7 @@ export async function baterPonto(token: string, tipo: string, dobraTipo?: string
   if (tipo === 'saida') {
     const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
     await aplicarDobra(s, user.id, hoje)
+    await aplicarHoraExtra(s, user.id, hoje)
   }
   return { ok: true, ponto: data as Ponto }
 }
