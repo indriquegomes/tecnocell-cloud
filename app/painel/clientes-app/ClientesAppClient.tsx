@@ -53,7 +53,7 @@ function Analise({ cadastro: c, voltar, gerenciamentoHabilitado }: { cadastro: C
   function salvar(status: 'pendente' | 'aprovado' | 'bloqueado') {
     start(async () => { setMensagem(''); try { const r = await alterarStatusCadastro(c.user_id, status, pessoa?.id ?? null, await token()); setMensagem(r.message); if (r.ok) router.refresh() } catch { setMensagem('Não foi possível salvar. Sua seleção foi mantida; tente novamente.') } })
   }
-  const fields = [['CPF', c.cpf], ['RG', c.rg], ['Nascimento', c.data_nascimento], ['CEP', c.cep], ['Endereço', c.endereco], ['Solicitado em', c.created_at ? new Date(c.created_at).toLocaleString('pt-BR') : null]]
+  const fields = [['CPF', c.cpf], ['RG', c.rg], ['Nascimento', c.data_nascimento], ['CEP', c.cep], ['Endereço', c.endereco], ['Solicitado em', c.created_at ? new Date(c.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : null]]
   return <div className="space-y-5">
     <button onClick={voltar} className="min-h-11 text-sm font-semibold text-blue-700">Voltar às solicitações</button>
     <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-xl font-bold text-gray-900">{c.nome_completo || 'Nome não informado'}</h3><p className="break-all text-sm text-gray-600">{c.email || 'Sem e-mail'}</p></div><Situacao status={c.status} /></div>
