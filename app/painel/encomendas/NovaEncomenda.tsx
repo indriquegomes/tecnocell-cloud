@@ -22,7 +22,7 @@ export function NovaEncomenda({ lojaId, lojas = [] }: { lojaId: string | null; l
   const [quantidade, setQuantidade] = useState('1')
   const [valorVenda, setValorVenda] = useState('')
   const [sinal, setSinal] = useState('')
-  const [sinalForma, setSinalForma] = useState('pix')
+  const [sinalForma, setSinalForma] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [ok, setOk] = useState(false)
@@ -146,6 +146,7 @@ export function NovaEncomenda({ lojaId, lojas = [] }: { lojaId: string | null; l
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-600">Forma do sinal</label>
                   <select value={sinalForma} onChange={(e) => setSinalForma(e.target.value)} className="field">
+                    <option value="">Sem sinal</option>
                     <option value="pix">PIX</option>
                     <option value="dinheiro">Dinheiro</option>
                     <option value="cartao_credito">Crédito</option>
