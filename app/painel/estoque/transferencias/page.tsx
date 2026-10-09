@@ -3,13 +3,14 @@ import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 import { TransferenciaForm } from './TransferenciaForm'
 import { confirmarRecebimento } from '../actions'
+import { CancelarRemessaButton } from './CancelarRemessaButton'
 import { formatBRL } from '@/lib/utils'
 
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
 
 type ItemRem = { nome: string; quantidade: number; custo_unitario: number | null; series: string[] | null }
-type Remessa = { id: string; codigo: string; origem: string; destino: string; status: string; observacao: string | null; created_at: string; recebida_em: string | null; remessas_estoque_itens: ItemRem[] | null }
+type Remessa = { id: string; codigo: string; origem: string; destino: string; status: string; observacao: string | null; motivo_cancelamento: string | null; created_at: string; recebida_em: string | null; remessas_estoque_itens: ItemRem[] | null }
 
 export default async function TransferenciasPage({
   searchParams,
@@ -24,7 +25,7 @@ export default async function TransferenciasPage({
     supabase.from('produtos').select('id, nome, codigo, controla_serie').eq('ativo', true).order('nome').limit(500),
     supabase.from('numeros_serie').select('produto_id, deposito_id, serie').eq('status', 'em_estoque').order('serie'),
     supabase.from('remessas_estoque')
-      .select('id, codigo, origem, destino, status, observacao, created_at, recebida_em, remessas_estoque_itens(nome, quantidade, custo_unitario, series)')
+      .select('id, codigo, origem, destino, status, observacao, motivo_cancelamento, created_at, recebida_em, remessas_estoque_itens(nome, quantidade, custo_unitario, series)')
       .order('created_at', { ascending: false }).limit(50),
   ])
 
@@ -126,6 +127,7 @@ export default async function TransferenciasPage({
                         Confirmar recebimento
                       </button>
                     </form>
+                    <CancelarRemessaButton id={r.id} />
                   </div>
                 </div>
               </div>
@@ -136,7 +138,7 @@ export default async function TransferenciasPage({
 
       {/* Recebidas */}
       <div>
-        <h3 className="mb-2 text-sm font-semibold text-gray-500 uppercase tracking-wide">Últimas recebidas</h3>
+        <h3 className="mb-2 text-sm font-semibold text-gray-500 uppercase tracking-wide">Recebidas / canceladas</h3>
         {recebidas.length === 0 ? (
           <p className="text-sm text-gray-400">Nenhuma remessa recebida ainda.</p>
         ) : (
@@ -155,7 +157,13 @@ export default async function TransferenciasPage({
                 {recebidas.map((r) => (
                   <tr key={r.id} className="hover:bg-blue-50/40 transition">
                     <td className="px-4 py-3 font-mono text-xs text-gray-500 whitespace-nowrap">{r.codigo}</td>
-                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{r.recebida_em ? fmtDate(r.recebida_em) : '—'}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {r.status === 'cancelada' ? (
+                        <span className="font-medium text-red-600">Cancelada{r.motivo_cancelamento ? ' · ' + r.motivo_cancelamento : ''}</span>
+                      ) : (
+                        <span className="text-gray-500">{r.recebida_em ? fmtDate(r.recebida_em) : '—'}</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 font-medium text-gray-800">{nomeDep[r.origem] ?? r.origem} → {nomeDep[r.destino] ?? r.destino}</td>
                     <td className="px-4 py-3 text-gray-600">{(r.remessas_estoque_itens ?? []).map((i) => i.nome + ' × ' + i.quantidade).join(' · ')}</td>
                     <td className="px-4 py-3 text-right font-semibold text-gray-800">{formatBRL(custoRemessa(r))}</td>

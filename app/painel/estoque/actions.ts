@@ -173,6 +173,18 @@ export async function confirmarRecebimento(id: string) {
   redirect('/painel/estoque/transferencias?ok=2')
 }
 
+// Cancela uma remessa em trânsito: devolve o estoque pra origem + motivo.
+export async function cancelarRemessa(id: string, motivo: string): Promise<{ ok: true } | { erro: string }> {
+  const user = await requirePermissao('estoque')
+  const supabase = await createServiceClient()
+  const { error } = await supabase.rpc('cancelar_remessa_estoque', { p_remessa_id: id, p_motivo: motivo, p_user: user.id })
+  if (error) return { erro: error.message }
+  revalidatePath('/painel/estoque')
+  revalidatePath('/painel/estoque/transferencias')
+  revalidatePath('/painel/estoque/historico')
+  return { ok: true }
+}
+
 export async function registrarMovimentos(formData: FormData) {
   const user = await requirePermissao('estoque')
   const supabase = await createServiceClient()
