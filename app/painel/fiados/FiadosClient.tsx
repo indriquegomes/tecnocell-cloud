@@ -281,9 +281,12 @@ export function FiadosClient({
           return (
           <div key={c.nome} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-              <button
+              <div
+                role="button"
+                tabIndex={0}
                 onClick={() => setAberto(estaAberto ? null : c.nome)}
-                className="flex flex-1 items-center gap-3 min-w-0 text-left">
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setAberto(estaAberto ? null : c.nome) } }}
+                className="flex flex-1 cursor-pointer items-center gap-3 min-w-0 text-left">
                 <svg className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${estaAberto ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
@@ -313,7 +316,7 @@ export function FiadosClient({
                     <button type="button" onClick={() => { setEditandoNota(c.nome); setNotaTexto('') }} className="mt-1 text-xs font-medium text-gray-400 hover:text-[#1B6CA8]">＋ nota de cobrança</button>
                   ) : null}
                 </div>
-              </button>
+              </div>
               <div className="flex items-center gap-3">
                 <span className="text-lg font-bold text-gray-900 tabular-nums">{fmt(c.total)}</span>
                 <button
