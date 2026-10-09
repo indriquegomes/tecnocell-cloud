@@ -54,6 +54,24 @@ export async function confirmarDobra(id: string) {
   revalidatePath('/painel/rh')
 }
 
+// Abona uma falta (justificada): remove o lançamento, sem descontar.
+export async function abonarFalta(id: string) {
+  await requirePermissao('rh')
+  const s = await createServiceClient()
+  await s.from('banco_horas').delete().eq('id', id)
+  revalidatePath('/painel/rh')
+  revalidatePath('/painel/meu-perfil')
+}
+
+// Confirma a falta: o desconto passa a valer (confirmado=true).
+export async function confirmarFalta(id: string) {
+  await requirePermissao('rh')
+  const s = await createServiceClient()
+  await s.from('banco_horas').update({ confirmado: true }).eq('id', id)
+  revalidatePath('/painel/rh')
+  revalidatePath('/painel/meu-perfil')
+}
+
 // ── Ajuste de ponto (só master) ────────────────────────────────────────────
 // Alguém marcou o ponto errado (hora ou tipo) — o master corrige sem mexer no banco na mão.
 const TIPOS_PONTO = ['entrada', 'pausa', 'retorno', 'saida']
