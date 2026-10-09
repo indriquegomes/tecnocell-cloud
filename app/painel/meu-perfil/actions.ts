@@ -104,7 +104,7 @@ async function aplicarDobra(s: Awaited<ReturnType<typeof createServiceClient>>, 
 // Na saída: calcula a hora extra do dia (trabalhado − escalado) e, se POSITIVA,
 // lança direto no banco de horas. Folga/feriado pula (a dobra já cobre).
 async function aplicarHoraExtra(s: Awaited<ReturnType<typeof createServiceClient>>, userId: string, hoje: string) {
-  const { data: ja } = await s.from('banco_horas').select('id').eq('usuario_id', userId).eq('data', hoje).eq('motivo', 'hora_extra').limit(1)
+  const { data: ja } = await s.from('banco_horas').select('id').eq('usuario_id', userId).eq('data', hoje).in('motivo', ['hora_extra', 'atraso']).limit(1)
   if (ja && ja.length > 0) return
   const diaSemana = new Date(hoje + 'T12:00:00-03:00').getDay()
   const [{ data: esc }, { data: exc }, { data: pts }] = await Promise.all([
@@ -117,8 +117,8 @@ async function aplicarHoraExtra(s: Awaited<ReturnType<typeof createServiceClient
   const planejado = turno.saida - turno.entrada - (turno.pausaIni !== null && turno.pausaFim !== null ? Math.max(0, turno.pausaFim - turno.pausaIni) : 0)
   const trabalhado = trabalhadoDoDia((pts ?? []) as PontoEscala[], hoje).find((t) => t.perfilId === userId)?.minutos ?? 0
   const extra = trabalhado - planejado
-  if (extra <= 0) return
-  await s.from('banco_horas').insert({ usuario_id: userId, horas: Math.round((extra / 60) * 100) / 100, data: hoje, motivo: 'hora_extra', obs: 'Hora extra automática', confirmado: true })
+  if (extra === 0) return
+  await s.from('banco_horas').insert({ usuario_id: userId, horas: Math.round((extra / 60) * 100) / 100, data: hoje, motivo: extra > 0 ? 'hora_extra' : 'atraso', obs: extra > 0 ? 'Trabalhou além da escala' : 'Trabalhou menos que a escala', confirmado: true })
 }
 
 // Hoje é folga/feriado? (pro Meu Perfil avisar na hora de bater a entrada)

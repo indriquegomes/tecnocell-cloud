@@ -12,7 +12,7 @@ import { excluirHora, confirmarDobra } from './actions'
 const LIMITE_EXTRA = 8
 const MOTIVO_LABEL: Record<string, string> = {
   solicitacao_loja: 'Solicitação da loja', cobrir_colega: 'Cobrir colega',
-  atraso: 'Atraso', pagamento: 'Pagamento', folga: 'Folga', dobra: 'Dobra (folga/feriado)', outro: 'Outro',
+  atraso: 'Atraso', pagamento: 'Pagamento', folga: 'Folga', hora_extra: 'Hora extra', dobra: 'Dobra (folga/feriado)', outro: 'Outro',
 }
 const fmtH = (h: number) => {
   const m = Math.round(Math.abs(h) * 60)

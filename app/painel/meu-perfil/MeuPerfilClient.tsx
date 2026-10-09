@@ -235,7 +235,7 @@ export function MeuPerfilClient() {
         ) : (
           <div className="mt-3 divide-y divide-gray-50">
             {banco.itens.slice(0, 10).map((b) => {
-              const rot: Record<string, string> = { solicitacao_loja: 'Solicitação da loja', cobrir_colega: 'Cobrir colega', atraso: 'Atraso', pagamento: 'Pagamento', folga: 'Folga', outro: 'Outro' }
+              const rot: Record<string, string> = { solicitacao_loja: 'Solicitação da loja', cobrir_colega: 'Cobrir colega', atraso: 'Atraso', pagamento: 'Pagamento', folga: 'Folga', hora_extra: 'Hora extra', outro: 'Outro' }
               return (
                 <div key={b.id} className="flex items-center justify-between py-2 text-sm">
                   <div className="min-w-0">
