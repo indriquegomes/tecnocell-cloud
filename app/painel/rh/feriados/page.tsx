@@ -11,6 +11,9 @@ type Feriado = { id: string; cidade: string; data: string; nome: string; tipo: s
 export default async function FeriadosPage({ searchParams }: { searchParams: Promise<{ ok?: string; erro?: string }> }) {
   const { ok, erro } = await searchParams
   const s = await createServiceClient()
+  const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  // Apaga sozinho os feriados que já passaram (mantém só os futuros).
+  await s.from('feriados').delete().lt('data', hoje)
   const { data: feriados } = await s.from('feriados').select('id, cidade, data, nome, tipo').order('data')
 
   return (
