@@ -80,18 +80,16 @@ async function diaFolgaFeriado(s: Awaited<ReturnType<typeof createServiceClient>
   return { folga: !(esc && esc.length > 0), feriado }
 }
 
-// Na saída: se a entrada foi marcada como 'extra' (dobra), calcula o trabalhado × 2 e
-// lança no banco de horas (confirmado=false, o master confirma no RH).
+// No feriado (por lei): o trabalhado do dia entra em DOBRO (×2) no banco, automático.
+// Folga NÃO dobra — conta 1× e se resolve no cálculo semanal (trabalhado − escalado).
 async function aplicarDobra(s: Awaited<ReturnType<typeof createServiceClient>>, userId: string, hoje: string) {
-  const { data: pts } = await s.from('pontos')
-    .select('tipo, criado_em, dobra_tipo')
-    .eq('usuario_id', userId).gte('criado_em', hoje + 'T00:00:00-03:00').order('criado_em')
-  const entradaExtra = (pts ?? []).find((p) => p.tipo === 'entrada' && p.dobra_tipo === 'extra')
   const { feriado } = await diaFolgaFeriado(s, userId, hoje)
-  // Feriado: dobra automática (trabalhou = ×2). Folga: só se escolheu 'extra'.
-  if (!feriado && !entradaExtra) return
+  if (!feriado) return
   const { data: ja } = await s.from('banco_horas').select('id').eq('usuario_id', userId).eq('data', hoje).eq('motivo', 'dobra').limit(1)
   if (ja && ja.length > 0) return
+  const { data: pts } = await s.from('pontos')
+    .select('tipo, criado_em')
+    .eq('usuario_id', userId).gte('criado_em', hoje + 'T00:00:00-03:00').order('criado_em')
   let min = 0, aberto: number | null = null
   for (const p of (pts ?? [])) {
     const t = new Date(p.criado_em).getTime()
@@ -100,7 +98,7 @@ async function aplicarDobra(s: Awaited<ReturnType<typeof createServiceClient>>, 
   }
   const horas = min / 60
   if (horas <= 0) return
-  await s.from('banco_horas').insert({ usuario_id: userId, horas: horas * 2, data: hoje, motivo: 'dobra', obs: 'Dobra (folga/feriado)', confirmado: true })
+  await s.from('banco_horas').insert({ usuario_id: userId, horas: horas * 2, data: hoje, motivo: 'dobra', obs: 'Dobra (feriado)', confirmado: true })
 }
 
 // Na saída: calcula a hora extra do dia (trabalhado − escalado) e, se POSITIVA,
