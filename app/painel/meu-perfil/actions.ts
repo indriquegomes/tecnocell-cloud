@@ -98,7 +98,7 @@ async function aplicarDobra(s: Awaited<ReturnType<typeof createServiceClient>>, 
   }
   const horas = min / 60
   if (horas <= 0) return
-  await s.from('banco_horas').insert({ usuario_id: userId, horas: horas * 2, data: hoje, motivo: 'dobra', obs: 'Dobra (folga/feriado)', confirmado: false })
+  await s.from('banco_horas').insert({ usuario_id: userId, horas: horas * 2, data: hoje, motivo: 'dobra', obs: 'Dobra (folga/feriado)', confirmado: true })
 }
 
 // Na saída: calcula a hora extra do dia (trabalhado − escalado) e, se POSITIVA,
