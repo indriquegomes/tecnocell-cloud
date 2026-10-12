@@ -1,6 +1,7 @@
 'use server'
 
 import { createServiceClient, fetchAll, requirePermissao } from '@/lib/supabase/server'
+import { lojasDoUsuario } from '@/lib/lojas-usuario'
 
 // Export CSV das abas PESADAS de relatório sob demanda: em vez de embutir milhares
 // de linhas no HTML, a lista completa só é buscada quando o usuário clica em Exportar.
@@ -15,7 +16,9 @@ export async function exportarRelatorio(
 
   if (aba === 'financeiro') {
     const de = periodo?.de, ate = periodo?.ate
+    const { ativa } = await lojasDoUsuario().catch(() => ({ ativa: null }))
     let q = supabase.from('lancamentos').select('descricao, pessoa_nome, data_vencimento, valor, tipo, status')
+    if (ativa?.id) q = q.eq('loja_id', ativa.id)
     if (de) q = q.gte('data_vencimento', de)
     if (ate) q = q.lte('data_vencimento', ate + 'T23:59:59')
     const data = await fetchAll((from, to) => q.order('data_vencimento').range(from, to))

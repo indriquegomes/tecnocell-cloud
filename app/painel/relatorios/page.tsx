@@ -76,15 +76,20 @@ export default async function RelatoriosPage({
     caixasDaLoja = (cxs ?? []).map((c) => c.id as string)
     if (caixasDaLoja.length === 0) caixasDaLoja = ['00000000-0000-0000-0000-000000000000']
   }
-  const abasComLoja = ['vendas', 'rankclientes', 'produtos', 'abc', 'inativos', 'lucro', 'dre', 'porvendedor', 'comissoes', 'itensvendedor', 'comparativo']
+  // Filtros de loja pras abas de dinheiro: lancamentos → loja_id; caixa/vendas →
+  // caixa da loja ATIVA. Master troca no seletor; restrita só vê a própria.
+  const flanc = (q: any): any => (lojaSel ? q.eq('loja_id', lojaSel) : q)
+  const fcaixa = (q: any): any => (caixasDaLoja ? q.in('caixa_id', caixasDaLoja) : q)
+
+  const abasComLoja = ['vendas', 'rankclientes', 'produtos', 'abc', 'inativos', 'lucro', 'dre', 'porvendedor', 'comissoes', 'itensvendedor', 'comparativo', 'financeiro', 'inadimplencia', 'previsaocaixa', 'fluxo', 'formas', 'periodicidade', 'porloja']
 
   // ---------- Financeiro (lançamentos por vencimento) ----------
   let lancamentos: { tipo: string; status: string; valor: number; data_vencimento: string; descricao: string; pessoa_nome: string }[] = []
   if (aba === 'financeiro') {
-    lancamentos = await fetchAll<{ tipo: string; status: string; valor: number; data_vencimento: string; descricao: string; pessoa_nome: string }>((from, to) => supabase.from('lancamentos')
+    lancamentos = await fetchAll<{ tipo: string; status: string; valor: number; data_vencimento: string; descricao: string; pessoa_nome: string }>((from, to) => flanc(supabase.from('lancamentos')
       .select('tipo, status, valor, data_vencimento, descricao, pessoa_nome')
       .gte('data_vencimento', dataInicio).lte('data_vencimento', dataFim + 'T23:59:59')
-      .order('data_vencimento').range(from, to))
+      .order('data_vencimento')).range(from, to))
   }
   // status 'cancelado' (ex.: fiado devolvido) NÃO é mais dívida — não soma em a receber/a pagar
   const totalReceber = lancamentos.filter((l) => l.tipo === 'receber' && l.status !== 'cancelado').reduce((s, l) => s + l.valor, 0)
@@ -324,10 +329,10 @@ export default async function RelatoriosPage({
   let totalInad = 0
   if (aba === 'inadimplencia') {
     const [{ data }, pessoasData] = await Promise.all([
-      supabase.from('lancamentos')
+      flanc(supabase.from('lancamentos')
         .select('valor, valor_pago, data_vencimento, pessoa_nome')
         .eq('tipo', 'receber').eq('status', 'pendente')
-        .lt('data_vencimento', hoje),
+        .lt('data_vencimento', hoje)),
       fetchAll((from, to) => supabase.from('pessoas').select('nome, telefone, celular').range(from, to)),
     ])
     // mapa nome → telefone (pra cobrar direto pelo relatório)
@@ -356,11 +361,11 @@ export default async function RelatoriosPage({
   let dreReceita = 0, dreDespesas = 0
   let despesasPorCategoria: { categoria: string; valor: number }[] = []
   if (aba === 'dre') {
-    const vs = await fetchAll<{ total: number | null }>((from, to) => supabase.from('vendas').select('total').eq('status', 'concluida').eq('uso_interno', false)
-      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to))
+    const vs = await fetchAll<{ total: number | null }>((from, to) => fcaixa(supabase.from('vendas').select('total').eq('status', 'concluida').eq('uso_interno', false)
+      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)).range(from, to))
     dreReceita = (vs ?? []).reduce((s, v) => s + (v.total ?? 0), 0)
-    const ds = await fetchAll<{ valor: number; categoria: string | null }>((from, to) => supabase.from('lancamentos').select('valor, categoria')
-      .eq('tipo', 'pagar').gte('data_vencimento', dataInicio).lte('data_vencimento', dataFim + 'T23:59:59').range(from, to))
+    const ds = await fetchAll<{ valor: number; categoria: string | null }>((from, to) => flanc(supabase.from('lancamentos').select('valor, categoria')
+      .eq('tipo', 'pagar').gte('data_vencimento', dataInicio).lte('data_vencimento', dataFim + 'T23:59:59')).range(from, to))
     const catMap: Record<string, number> = {}
     for (const l of (ds ?? []) as { valor: number; categoria: string | null }[]) {
       dreDespesas += l.valor ?? 0
@@ -390,20 +395,24 @@ export default async function RelatoriosPage({
       // filtra venda CANCELADA fora — cancelar_venda não apaga pagamentos_venda
       // (só marca vendas.status='cancelada'), então sem esse filtro o dinheiro de
       // uma venda cancelada continuava contando como entrada pra sempre.
-      fetchAll<{ valor: number; created_at: string }>((from, to) => supabase
-        .from('pagamentos_venda').select('valor, created_at, vendas!inner(status)').eq('status', 'pago')
-        .eq('vendas.status', 'concluida')
-        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to)),
+      fetchAll<{ valor: number; created_at: string }>((from, to) => {
+        let q = supabase
+          .from('pagamentos_venda').select('valor, created_at, vendas!inner(status, caixa_id)').eq('status', 'pago')
+          .eq('vendas.status', 'concluida')
+          .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+        if (caixasDaLoja) q = q.in('vendas.caixa_id', caixasDaLoja)
+        return q.range(from, to)
+      }),
       // dívida antiga paga hoje = entrada de hoje
-      fetchAll<{ valor: number; created_at: string }>((from, to) => supabase
+      fetchAll<{ valor: number; created_at: string }>((from, to) => fcaixa(supabase
         .from('movimentos_caixa').select('valor, created_at').eq('tipo', 'recebimento')
-        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to)),
+        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)).range(from, to)),
       // dinheiro devolvido ao cliente sai do caixa (não vira lançamento a pagar)
-      fetchAll<{ valor: number; created_at: string }>((from, to) => supabase
+      fetchAll<{ valor: number; created_at: string }>((from, to) => fcaixa(supabase
         .from('movimentos_caixa').select('valor, created_at').eq('tipo', 'devolucao')
-        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to)),
-      fetchAll<{ valor: number; data_pagamento: string | null }>((from, to) => supabase.from('lancamentos').select('valor, data_pagamento').eq('tipo', 'pagar').eq('status', 'pago')
-        .gte('data_pagamento', dataInicio).lte('data_pagamento', dataFim + 'T23:59:59').range(from, to)),
+        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)).range(from, to)),
+      fetchAll<{ valor: number; data_pagamento: string | null }>((from, to) => flanc(supabase.from('lancamentos').select('valor, data_pagamento').eq('tipo', 'pagar').eq('status', 'pago')
+        .gte('data_pagamento', dataInicio).lte('data_pagamento', dataFim + 'T23:59:59')).range(from, to)),
     ])
     const dias: Record<string, { entrada: number; saida: number }> = {}
     // `valor` JÁ É o líquido que a loja recebe: a taxa é cobrada a mais do
@@ -518,8 +527,8 @@ export default async function RelatoriosPage({
   let rankFormas: { nome: string; total: number; qtd: number }[] = []
   let totalFormas = 0
   if (aba === 'formas') {
-    const vs = await fetchAll<{ id: string }>((from, to) => supabase.from('vendas').select('id').eq('status', 'concluida').eq('uso_interno', false)
-      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to))
+    const vs = await fetchAll<{ id: string }>((from, to) => fcaixa(supabase.from('vendas').select('id').eq('status', 'concluida').eq('uso_interno', false)
+      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)).range(from, to))
     const ids = (vs ?? []).map((v) => v.id)
     if (ids.length) {
       const [pgs, { data: formas }] = await Promise.all([
@@ -542,8 +551,8 @@ export default async function RelatoriosPage({
   let rankLojas: { nome: string; total: number; qtd: number }[] = []
   if (aba === 'porloja') {
     const [vs, { data: lojasData }] = await Promise.all([
-      fetchAll((from, to) => supabase.from('vendas').select('total, deposito_id, depositos(nome, loja_id)').eq('status', 'concluida').eq('uso_interno', false)
-        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to)),
+      fetchAll((from, to) => fcaixa(supabase.from('vendas').select('total, deposito_id, depositos(nome, loja_id)').eq('status', 'concluida').eq('uso_interno', false)
+        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)).range(from, to)),
       supabase.from('lojas').select('id, nome'),
     ])
     const nomeLoja = Object.fromEntries((lojasData ?? []).map((l) => [l.id, l.nome]))
@@ -578,8 +587,8 @@ export default async function RelatoriosPage({
   const DIAS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
   let periodicidade: { dia: string; total: number; qtd: number }[] = []
   if (aba === 'periodicidade') {
-    const data = await fetchAll<{ total: number; created_at: string }>((from, to) => supabase.from('vendas').select('total, created_at').eq('status', 'concluida').eq('uso_interno', false)
-      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to))
+    const data = await fetchAll<{ total: number; created_at: string }>((from, to) => fcaixa(supabase.from('vendas').select('total, created_at').eq('status', 'concluida').eq('uso_interno', false)
+      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)).range(from, to))
     const buckets = DIAS.map((dia) => ({ dia, total: 0, qtd: 0 }))
     for (const v of (data ?? []) as { total: number; created_at: string }[]) {
       const wd = new Date(new Date(v.created_at).toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })).getDay()
@@ -658,9 +667,9 @@ export default async function RelatoriosPage({
   let prevCaixa: { data: string; descricao: string; tipo: string; valor: number; saldo: number }[] = []
   let prevReceber = 0, prevPagar = 0
   if (aba === 'previsaocaixa') {
-    const data = await fetchAll<{ descricao: string | null; valor: number | null; valor_pago: number | null; tipo: string; data_vencimento: string }>((from, to) => supabase.from('lancamentos')
+    const data = await fetchAll<{ descricao: string | null; valor: number | null; valor_pago: number | null; tipo: string; data_vencimento: string }>((from, to) => flanc(supabase.from('lancamentos')
       .select('descricao, valor, valor_pago, tipo, data_vencimento')
-      .eq('status', 'pendente').gte('data_vencimento', hoje).order('data_vencimento').range(from, to))
+      .eq('status', 'pendente').gte('data_vencimento', hoje).order('data_vencimento')).range(from, to))
     let saldo = 0
     prevCaixa = (data ?? []).map((l) => {
       const rest = (l.valor ?? 0) - (l.valor_pago ?? 0)
@@ -686,7 +695,7 @@ export default async function RelatoriosPage({
           if (caixasDaLoja) q = q.in('caixa_id', caixasDaLoja)
           return q.range(from, to)
         }),
-        fetchAll<{ valor: number | null }>((from, to) => supabase.from('lancamentos').select('valor').eq('tipo', 'pagar').gte('data_vencimento', ini.slice(0, 10)).lte('data_vencimento', fim.slice(0, 10) + 'T23:59:59').range(from, to)),
+        fetchAll<{ valor: number | null }>((from, to) => flanc(supabase.from('lancamentos').select('valor').eq('tipo', 'pagar').gte('data_vencimento', ini.slice(0, 10)).lte('data_vencimento', fim.slice(0, 10) + 'T23:59:59')).range(from, to)),
       ])
       return { receita: (vs ?? []).reduce((s, v) => s + (v.total ?? 0), 0), despesas: (ds ?? []).reduce((s, l) => s + (l.valor ?? 0), 0), nvendas: (vs ?? []).length }
     }

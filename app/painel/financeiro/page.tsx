@@ -45,9 +45,15 @@ export default async function FinanceiroPage({
 
   // Aplica TODOS os filtros da busca avançada a uma query (reusado na lista e nos totais)
   /* eslint-disable @typescript-eslint/no-explicit-any */
+  // Filtro SÓ de loja (sem busca/tipo) — pros cards de resumo e "último pagamento",
+  // que somam por loja sem esconder pelo texto digitado.
+  const aplicaLoja = (q: any): any => {
+    if (lojaEfetiva === 'sem') return q.is('loja_id', null)
+    if (lojaEfetiva !== 'todas') return q.eq('loja_id', lojaEfetiva)
+    return q
+  }
   const aplica = (q: any): any => {
-    if (lojaEfetiva === 'sem') q = q.is('loja_id', null)
-    else if (lojaEfetiva !== 'todas') q = q.eq('loja_id', lojaEfetiva)
+    q = aplicaLoja(q)
     if (params.tipo === 'pagar' || params.tipo === 'receber') q = q.eq('tipo', params.tipo)
     if (params.busca) { for (const w of params.busca.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)) q = q.or(`descricao.ilike.%${w}%,pessoa_nome.ilike.%${w}%`) }
     if (params.pessoa) q = q.ilike('pessoa_nome', `%${params.pessoa}%`)
@@ -121,7 +127,7 @@ export default async function FinanceiroPage({
   // Cards de resumo somam TODOS os pendentes (globais), sem o cap de 200 da lista
   // nem o filtro de busca/tipo — senão os totais subcontam quando houver >200 lançamentos.
   const paraTotais = await fetchAll<{ valor: number | null; valor_pago: number | null; tipo: string; status: string | null }>(
-    (from, to) => supabase.from('lancamentos').select('valor, valor_pago, tipo, status').range(from, to)
+    (from, to) => aplicaLoja(supabase.from('lancamentos').select('valor, valor_pago, tipo, status')).range(from, to)
   )
   // Só conta status 'pendente' (não 'cancelado') e soma o RESTANTE (valor - valor_pago),
   // não o valor cheio. Antes somava o cheio e incluía cancelado — o card "A Receber"
@@ -134,13 +140,12 @@ export default async function FinanceiroPage({
   // Último pagamento da pessoa escolhida — faixa informativa no topo da lista.
   // Não filtra nada: a lista principal já mostra tudo dela.
   const ultimoPessoa = params.pessoa
-    ? (await supabase.from('lancamentos')
+    ? (await aplicaLoja(supabase.from('lancamentos')
         .select('descricao, valor, categoria, status, forma_pagamento, data_vencimento, tipo')
         .ilike('pessoa_nome', `%${params.pessoa}%`)
         .order('data_vencimento', { ascending: false })
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()).data ?? null
+        .limit(1)).maybeSingle()).data ?? null
     : null
 
   return (
