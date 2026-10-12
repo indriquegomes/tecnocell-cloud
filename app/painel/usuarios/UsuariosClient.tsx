@@ -700,8 +700,8 @@ export function UsuariosClient({ usuarios, cargos, lojas, depositos, tabelas }: 
   const cargoNome = new Map(cargos.map((c) => [c.id, c.nome]))
   const usuariosOrdenados = [...usuarios].sort((a, b) => {
     if (ordem === 'cargo') {
-      const ca = cargoNome.get(a.cargoId) ?? ''
-      const cb = cargoNome.get(b.cargoId) ?? ''
+      const ca = cargoNome.get(a.cargoId ?? '') ?? ''
+      const cb = cargoNome.get(b.cargoId ?? '') ?? ''
       return ca.localeCompare(cb, 'pt-BR') || a.nome.localeCompare(b.nome, 'pt-BR')
     }
     if (ordem === 'status') {
