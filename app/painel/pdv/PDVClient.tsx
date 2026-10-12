@@ -784,13 +784,14 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     return n
   })
 
-  // Copiar preços pra mandar orçamento no WhatsApp: as marcadas, ou todas se nenhuma marcada
+  // Copiar preços pra mandar orçamento no WhatsApp: SÓ as marcadas. Nada marcado = não copia (antes copiava TODAS por engano).
   const copiarPrecos = async () => {
-    const palavras = semAcento(busca).split(/\s+/).filter(Boolean)
-    const base = produtos.filter((p) => casaProduto(p, palavras)).slice(0, 50)
-    const marcadas = base.filter((p) => selCopia.has(p.id))
-    const alvo = marcadas.length ? marcadas : base
-    const txt = alvo.map((p) => `${p.codigo ? p.codigo + ' - ' : ''}${p.nome} — ${formatBRL(precoDoProduto(p))}`).join('\n')
+    const marcadas = produtos.filter((p) => selCopia.has(p.id))
+    if (marcadas.length === 0) {
+      setErro('Nenhuma peça marcada. Marque as peças (no quadradinho) que quer copiar.')
+      return
+    }
+    const txt = marcadas.map((p) => `${p.codigo ? p.codigo + ' - ' : ''}${p.nome} — ${formatBRL(precoDoProduto(p))}`).join('\n')
     try {
       await navigator.clipboard.writeText(txt)
       setCopiado(true)
@@ -2689,7 +2690,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 onClick={copiarPrecos}
                 className="flex w-full items-center justify-center gap-2 border-t border-gray-100 bg-gray-50 px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100 transition"
               >
-                {copiado ? '✓ Copiado!' : selCopia.size > 0 ? `📋 Copiar ${selCopia.size} marcada${selCopia.size > 1 ? 's' : ''}` : '📋 Copiar todas (ou marque algumas acima)'}
+                {copiado ? '✓ Copiado!' : selCopia.size > 0 ? `📋 Copiar ${selCopia.size} marcada${selCopia.size > 1 ? 's' : ''}` : '📋 Marque as peças e copie'}
               </button>
             </div>
           )}
