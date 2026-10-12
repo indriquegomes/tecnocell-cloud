@@ -21,7 +21,7 @@ export async function detectarFaltas() {
     s.from('escalas').select('*').eq('ativo', true),
     s.from('escala_excecoes').select('*').gte('data', primeiro).lte('data', ultimo),
     s.from('pontos').select('usuario_id, criado_em').gte('criado_em', primeiro + 'T00:00:00-03:00').lte('criado_em', ultimo + 'T23:59:59-03:00'),
-    s.from('perfis').select('id, nome, pdv_loja_id').eq('ativo', true),
+    s.from('perfis').select('id, nome, pdv_loja_id, lojas_permitidas').eq('ativo', true),
     s.from('banco_horas').select('usuario_id, data').eq('motivo', 'falta').gte('data', primeiro).lte('data', ultimo),
     s.from('lojas').select('id, nome'),
     s.from('feriados').select('cidade, data').gte('data', primeiro).lte('data', ultimo),
@@ -34,7 +34,9 @@ export async function detectarFaltas() {
   const lojaNome = Object.fromEntries((lojas ?? []).map((l) => [l.id, l.nome as string]))
   const cidadePorPerfil: Record<string, string> = {}
   for (const p of (perfis ?? [])) {
-    const lojaId = (p as { pdv_loja_id?: string | null }).pdv_loja_id
+    const pp = p as { pdv_loja_id?: string | null; lojas_permitidas?: string[] | null }
+    // pdv_loja_id primeiro; se não tem, cai na única loja permitida (motoboy/avulso).
+    const lojaId = pp.pdv_loja_id ?? (pp.lojas_permitidas && pp.lojas_permitidas.length === 1 ? pp.lojas_permitidas[0] : null)
     if (lojaId) cidadePorPerfil[p.id] = slug(lojaNome[lojaId] ?? '')
   }
 

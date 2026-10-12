@@ -69,9 +69,11 @@ function Feedback({ state }: { state: ActionResult | null }) {
 function PermissoesGrid({
   permissoes,
   isMaster: defaultMaster,
+  mostrarMaster = true,
 }: {
   permissoes: string[]
   isMaster: boolean
+  mostrarMaster?: boolean
 }) {
   const [master, setMaster] = useState(defaultMaster)
   const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set(permissoes))
@@ -85,6 +87,7 @@ function PermissoesGrid({
 
   return (
     <div className="space-y-3">
+      {mostrarMaster && (
       <label className="flex cursor-pointer items-center justify-between rounded-xl border border-purple-200 bg-purple-50 px-4 py-3">
         <div>
           <p className="text-sm font-semibold text-purple-800">Acesso total (Master)</p>
@@ -105,8 +108,9 @@ function PermissoesGrid({
           </span>
         </div>
       </label>
+      )}
 
-      {!master && (
+      {(!mostrarMaster || !master) && (
         <div className="grid grid-cols-2 gap-2">
           {TODAS_PERMISSOES.map((p) => {
             const ativo = selecionadas.has(p.key)
@@ -153,10 +157,12 @@ function CargoOuPermissoes({ cargos, cargoId, onCargoChange, permissoes, isMaste
           {cargos.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
         </select>
         <p className="mt-1 text-[11px] text-gray-400">
-          {cargoId ? 'As permissões vêm do cargo. Mudou o cargo, muda pra todo mundo que tem ele.' : 'Sem cargo: marque as permissões abaixo pra esta pessoa.'}
+          {cargoId ? 'O cargo dá o pacote base + as extras que você marcar abaixo valem só pra esta pessoa.' : 'Sem cargo: marque as permissões abaixo pra esta pessoa.'}
         </p>
       </div>
-      {!cargoId && <PermissoesGrid permissoes={permissoes} isMaster={isMaster} />}
+      {cargoId
+        ? <PermissoesGrid permissoes={permissoes} isMaster={false} mostrarMaster={false} />
+        : <PermissoesGrid permissoes={permissoes} isMaster={isMaster} />}
     </div>
   )
 }

@@ -169,7 +169,9 @@ async function carregaPermissoesEfetivas(
     if (cargoId) {
       const { data: cargo } = await service.from('cargos').select('permissoes, is_master, ativo').eq('id', cargoId).maybeSingle()
       if (cargo && cargo.ativo !== false) {
-        return { permissoes: cargo.permissoes ?? [], isMaster: cargo.is_master ?? false, ativo: base.ativo, cargoId }
+        // Permissões do cargo + as extras marcadas NA PESSOA (somam, não substituem).
+        // Sem isso, "dar função extra" a um vendedor sumia na hora que ele tinha cargo.
+        return { permissoes: [...new Set([...(cargo.permissoes ?? []), ...base.permissoes])], isMaster: cargo.is_master ?? false, ativo: base.ativo, cargoId }
       }
     }
   } catch { /* tabela cargos ainda não existe — usa as permissões individuais */ }
