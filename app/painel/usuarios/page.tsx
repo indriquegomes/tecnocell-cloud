@@ -65,7 +65,7 @@ export default async function UsuariosPage() {
   const [authResult, perfisResult, cargosResult, lojasResult, depositosResult, cfgPdv, tabelasResult] = await Promise.all([
     supabase.auth.admin.listUsers(),
     supabase.from('perfis').select('id, nome, username, permissoes, is_master, ativo, created_at, cargo_id'),
-    supabase.from('cargos').select('id, nome').eq('ativo', true).order('nome'),
+    supabase.from('cargos').select('id, nome, ordem').eq('ativo', true).order('ordem', { ascending: true, nullsFirst: false }).order('nome'),
     supabase.from('lojas').select('id, nome').eq('ativa', true).order('nome'),
     supabase.from('depositos').select('id, nome, loja_id').order('nome'),
     configPdvPorPerfil(supabase),
@@ -76,7 +76,7 @@ export default async function UsuariosPage() {
   const perfisMap = Object.fromEntries(
     (perfisResult.data ?? []).map((p) => [p.id, p])
   )
-  const cargos = (cargosResult.data ?? []) as { id: string; nome: string }[]
+  const cargos = (cargosResult.data ?? []) as { id: string; nome: string; ordem: number | null }[]
   const lojas = (lojasResult.data ?? []) as { id: string; nome: string }[]
   const depositos = (depositosResult.data ?? []) as { id: string; nome: string; loja_id: string | null }[]
   const tabelas = (tabelasResult.data ?? []) as { id: string; nome: string }[]

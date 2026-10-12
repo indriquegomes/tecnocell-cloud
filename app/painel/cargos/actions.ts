@@ -10,10 +10,12 @@ const KEYS: string[] = TODAS_PERMISSOES.map((p) => p.key)
 function campos(fd: FormData) {
   const isMaster = fd.getAll('is_master').includes('1')
   const perms = (fd.getAll('permissoes') as string[]).filter((k) => KEYS.includes(k))
+  const ordemRaw = parseInt((fd.get('ordem') as string) || '', 10)
   return {
     nome: (fd.get('nome') as string)?.trim(),
     is_master: isMaster,
     permissoes: isMaster ? KEYS : perms,
+    ordem: isNaN(ordemRaw) ? null : ordemRaw,
   }
 }
 

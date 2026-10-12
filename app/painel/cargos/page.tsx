@@ -16,7 +16,7 @@ export default async function CargosPage({
   const supabase = await createServiceClient()
 
   const [{ data: cargosData }, { data: perfis }] = await Promise.all([
-    supabase.from('cargos').select('id, nome, permissoes, is_master, ativo').order('nome'),
+    supabase.from('cargos').select('id, nome, permissoes, is_master, ativo, ordem').order('ordem', { ascending: true, nullsFirst: false }).order('nome'),
     supabase.from('perfis').select('cargo_id'),
   ])
   const cargos = (cargosData ?? []) as CargoEdit[]

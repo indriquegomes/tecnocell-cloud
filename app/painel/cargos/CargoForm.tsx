@@ -6,7 +6,7 @@ import { TODAS_PERMISSOES } from '@/lib/permissoes'
 import { criarCargo, editarCargo } from './actions'
 import { SubmitButton } from '@/components/SubmitButton'
 
-export type CargoEdit = { id: string; nome: string; permissoes: string[]; is_master: boolean; ativo: boolean }
+export type CargoEdit = { id: string; nome: string; permissoes: string[]; is_master: boolean; ativo: boolean; ordem: number | null }
 
 export function CargoForm({ editando }: { editando?: CargoEdit }) {
   const action = editando ? editarCargo.bind(null, editando.id) : criarCargo
@@ -32,6 +32,10 @@ export function CargoForm({ editando }: { editando?: CargoEdit }) {
         <div className="flex-1 min-w-56">
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Nome do cargo *</label>
           <input name="nome" required defaultValue={editando?.nome ?? ''} className="field" placeholder="Ex: Vendedora, Gerente, Estoquista" />
+        </div>
+        <div className="w-28">
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Posição</label>
+          <input name="ordem" type="number" defaultValue={editando?.ordem ?? ''} className="field" placeholder="1" title="Número menor = aparece primeiro na lista de cargos" />
         </div>
         {editando && (
           <label className="flex items-center gap-2 text-sm font-medium text-gray-700 pb-2">

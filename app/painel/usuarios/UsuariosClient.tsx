@@ -52,7 +52,7 @@ export interface Usuario {
   horarios: Record<number, { entrada: string; saida: string }>
   created_at: string
 }
-export type Cargo = { id: string; nome: string }
+export type Cargo = { id: string; nome: string; ordem: number | null }
 export type Loja = { id: string; nome: string }
 export type Deposito = { id: string; nome: string; loja_id: string | null }
 export type Tabela = { id: string; nome: string }
@@ -703,8 +703,12 @@ export function UsuariosClient({ usuarios, cargos, lojas, depositos, tabelas }: 
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const editando = editandoId ? (usuarios.find((u) => u.id === editandoId) ?? null) : null
   const cargoNome = new Map(cargos.map((c) => [c.id, c.nome]))
+  const cargoOrdem = new Map(cargos.map((c) => [c.id, c.ordem ?? 999]))
   const usuariosOrdenados = [...usuarios].sort((a, b) => {
     if (ordem === 'cargo') {
+      const oa = cargoOrdem.get(a.cargoId ?? '') ?? 999
+      const ob = cargoOrdem.get(b.cargoId ?? '') ?? 999
+      if (oa !== ob) return oa - ob
       const ca = cargoNome.get(a.cargoId ?? '') ?? ''
       const cb = cargoNome.get(b.cargoId ?? '') ?? ''
       return ca.localeCompare(cb, 'pt-BR') || a.nome.localeCompare(b.nome, 'pt-BR')
