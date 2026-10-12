@@ -2,6 +2,7 @@
 
 import { createServiceClient, requireAuth } from '@/lib/supabase/server'
 import { semanaDe, turnosDoDia, trabalhadoDoDia, type Escala, type Excecao, type Ponto as PontoEscala } from '@/lib/escala'
+import { ehFeriado } from '@/lib/feriados'
 import { createServerClient } from '@supabase/ssr'
 import sharp from 'sharp'
 
@@ -106,6 +107,8 @@ async function aplicarDobra(s: Awaited<ReturnType<typeof createServiceClient>>, 
 async function aplicarHoraExtra(s: Awaited<ReturnType<typeof createServiceClient>>, userId: string, hoje: string) {
   const { data: ja } = await s.from('banco_horas').select('id').eq('usuario_id', userId).eq('data', hoje).in('motivo', ['hora_extra', 'atraso']).limit(1)
   if (ja && ja.length > 0) return
+  // Feriado: a dobra cobre, não gera atraso/hora-extra.
+  if (await ehFeriado(userId, hoje)) return
   const diaSemana = new Date(hoje + 'T12:00:00-03:00').getDay()
   const [{ data: esc }, { data: exc }, { data: pts }] = await Promise.all([
     s.from('escalas').select('*').eq('perfil_id', userId).eq('ativo', true),
