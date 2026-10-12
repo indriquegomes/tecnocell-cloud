@@ -42,6 +42,7 @@ test.describe('Financeiro', () => {
     // jeito detectável). Mais robusto: clicar e conferir DIRETO no banco até
     // o status mudar, com um tempo limite — é o dado real que importa, não
     // a URL do navegador.
+    await page.fill('input[name="forma_pagamento"]', 'Dinheiro')
     await page.click('button:has-text("Pago")')
     await expect.poll(async () => {
       const { data } = await supabase.from('lancamentos').select('status').eq('id', lanc!.id).single()
@@ -82,7 +83,7 @@ test.describe('Financeiro', () => {
     // do caixa, e o sistema parou de assumir "Dinheiro" por conta própria. Sem
     // escolher, a validação nativa do <select required> bloqueia o submit e o
     // lançamento nunca vira 'pago'. index 1 porque o 0 é o placeholder "Forma…".
-    await page.selectOption('select[name="forma_pagamento"]', { index: 1 })
+    await page.fill('input[name="forma_pagamento"]', 'Dinheiro')
     await page.click('button:has-text("Pago")')
     await expect.poll(async () => {
       const { data } = await supabase.from('lancamentos').select('status').eq('id', lanc!.id).single()

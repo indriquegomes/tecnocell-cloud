@@ -100,9 +100,7 @@ export function LinhaEditable({
           {msg && <span className="text-xs text-gray-500" title={msg}>{msg}</span>}
           {!pago && (
             <form action={marcarPago.bind(null, lanc.id)} encType="multipart/form-data" className="flex items-center gap-1">
-              {lanc.tipo === 'pagar' && (
-                <input name="forma_pagamento" required list="formas-lista" defaultValue={lanc.forma_pagamento ?? ''} placeholder="Forma…" className="max-w-[7rem] rounded-lg border border-gray-200 px-1.5 py-1 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400" />
-              )}
+              <input name="forma_pagamento" required list="formas-lista" defaultValue={lanc.forma_pagamento ?? ''} placeholder="Forma…" className="max-w-[7rem] rounded-lg border border-gray-200 px-1.5 py-1 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400" />
               <button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-medium text-green-600 hover:bg-green-50 transition">Pago</button>
             </form>
           )}

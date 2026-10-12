@@ -34,7 +34,7 @@ test.describe('Estoque', () => {
 
     await page.goto('/painel/estoque/movimentar')
     await page.waitForLoadState('networkidle')
-    await page.fill('input[name="produto_busca"]', PRODUTO_CODIGO)
+    await page.fill('input[placeholder*="Pesquise por nome ou código"]', PRODUTO_CODIGO)
     await page.waitForTimeout(500)
     await page.locator('button', { hasText: PRODUTO_CODIGO }).first().click()
     // trava de segurança: confere que o produto certo foi escolhido ANTES de
