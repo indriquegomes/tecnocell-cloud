@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Spinner } from '@/components/Spinner'
 import { createClient } from '@/lib/supabase/client'
 import { TODAS_PERMISSOES } from '@/lib/permissoes'
-import { criarUsuario, criarConvite, atualizarPerfil, alterarSenha, type ActionResult, type ConviteResult } from './actions'
+import { criarUsuario, criarConvite, atualizarPerfil, alterarSenha, excluirUsuario, type ActionResult, type ConviteResult } from './actions'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
 import { formatBRL } from '@/lib/utils'
 import { custoMensalCLT } from '@/lib/folha'
@@ -566,6 +566,7 @@ function ConvidarModal({ cargos, onClose }: { cargos: Cargo[]; onClose: () => vo
 function EditarModal({ usuario, cargos, lojas, depositos, tabelas, onClose }: { usuario: Usuario; cargos: Cargo[]; lojas: Loja[]; depositos: Deposito[]; tabelas: Tabela[]; onClose: () => void }) {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(atualizarPerfil, null)
   const [senhaState, senhaAction, senhaPending] = useActionState<ActionResult | null, FormData>(alterarSenha, null)
+  const [delState, delAction, delPending] = useActionState<ActionResult | null, FormData>(excluirUsuario, null)
   const router = useRouter()
   const [tk, setTk] = useState('')
   const [cargoId, setCargoId] = useState(usuario.cargoId ?? '')
@@ -580,6 +581,13 @@ function EditarModal({ usuario, cargos, lojas, depositos, tabelas, onClose }: { 
     const t = setTimeout(onClose, 700)   // deixa ler o "✓ Perfil atualizado"
     return () => clearTimeout(t)
   }, [state?.ok, router, onClose])
+
+  useEffect(() => {
+    if (!delState?.ok) return
+    router.refresh()
+    const t = setTimeout(onClose, 700)
+    return () => clearTimeout(t)
+  }, [delState?.ok, router, onClose])
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -647,14 +655,29 @@ function EditarModal({ usuario, cargos, lojas, depositos, tabelas, onClose }: { 
 
         {/* Rodapé fixo — Salvar/Cancelar sempre visíveis (sem rolar) */}
         <div className="flex shrink-0 items-center justify-between gap-3 border-t border-gray-100 bg-gray-50 px-6 py-3">
-          <Feedback state={state} />
-          <div className="ml-auto flex gap-2">
-            <button type="button" onClick={onClose} className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 transition">Cancelar</button>
-            <button type="button" disabled={pending}
-              onClick={() => (document.getElementById('form-edit-user') as HTMLFormElement | null)?.requestSubmit()}
-              className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50">
-              {pending ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Salvando...</span> : 'Salvar alterações'}
-            </button>
+          <div className="flex items-center gap-3">
+            {!usuario.isMaster && (
+              <form action={delAction} onSubmit={(e) => { if (!window.confirm('Apagar ' + usuario.nome + '? O login e o cadastro somem de vez. O histórico de vendas fica guardado. Essa ação não dá pra desfazer.')) e.preventDefault() }}>
+                <input type="hidden" name="access_token" value={tk} />
+                <input type="hidden" name="user_id" value={usuario.id} />
+                <button type="submit" disabled={delPending}
+                  className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 transition disabled:opacity-50">
+                  {delPending ? 'Apagando…' : 'Apagar usuário'}
+                </button>
+              </form>
+            )}
+            <Feedback state={delState} />
+          </div>
+          <div className="ml-auto flex items-center gap-3">
+            <Feedback state={state} />
+            <div className="flex gap-2">
+              <button type="button" onClick={onClose} className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 transition">Cancelar</button>
+              <button type="button" disabled={pending}
+                onClick={() => (document.getElementById('form-edit-user') as HTMLFormElement | null)?.requestSubmit()}
+                className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50">
+                {pending ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Salvando...</span> : 'Salvar alterações'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -665,6 +688,7 @@ function EditarModal({ usuario, cargos, lojas, depositos, tabelas, onClose }: { 
 export function UsuariosClient({ usuarios, cargos, lojas, depositos, tabelas }: { usuarios: Usuario[]; cargos: Cargo[]; lojas: Loja[]; depositos: Deposito[]; tabelas: Tabela[] }) {
   const [criando, setCriando] = useState(false)
   const [convidando, setConvidando] = useState(false)
+  const [ordem, setOrdem] = useState<'nome' | 'cargo' | 'status'>('nome')
   // Guarda o ID, NAO um retrato do usuario. Antes o modal segurava um snapshot
   // tirado no clique: depois de salvar, o router.refresh() atualizava a LISTA mas o
   // modal seguia com o dado velho — e salvar de novo dali APAGAVA campos (o input de
@@ -674,6 +698,17 @@ export function UsuariosClient({ usuarios, cargos, lojas, depositos, tabelas }: 
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const editando = editandoId ? (usuarios.find((u) => u.id === editandoId) ?? null) : null
   const cargoNome = new Map(cargos.map((c) => [c.id, c.nome]))
+  const usuariosOrdenados = [...usuarios].sort((a, b) => {
+    if (ordem === 'cargo') {
+      const ca = cargoNome.get(a.cargoId) ?? ''
+      const cb = cargoNome.get(b.cargoId) ?? ''
+      return ca.localeCompare(cb, 'pt-BR') || a.nome.localeCompare(b.nome, 'pt-BR')
+    }
+    if (ordem === 'status') {
+      return Number(b.ativo) - Number(a.ativo) || a.nome.localeCompare(b.nome, 'pt-BR')
+    }
+    return a.nome.localeCompare(b.nome, 'pt-BR')
+  })
 
   const resumoPermissoes = (u: Usuario) => {
     if (u.cargoId) return `Cargo: ${cargoNome.get(u.cargoId) ?? '—'}`
@@ -711,6 +746,15 @@ export function UsuariosClient({ usuarios, cargos, lojas, depositos, tabelas }: 
         </div>
       </div>
 
+      <div className="flex items-center gap-2">
+        <label className="text-xs font-medium text-gray-500">Ordenar:</label>
+        <select value={ordem} onChange={(e) => setOrdem(e.target.value as 'nome' | 'cargo' | 'status')} className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400">
+          <option value="nome">Nome (A–Z)</option>
+          <option value="cargo">Cargo</option>
+          <option value="status">Status</option>
+        </select>
+      </div>
+
       <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
@@ -730,7 +774,7 @@ export function UsuariosClient({ usuarios, cargos, lojas, depositos, tabelas }: 
                 </td>
               </tr>
             )}
-            {usuarios.map((u) => (
+            {usuariosOrdenados.map((u) => (
               <tr key={u.id} className="hover:bg-blue-50/60 transition">
                 <td className="px-6 py-3">
                   <div className="flex items-center gap-2">

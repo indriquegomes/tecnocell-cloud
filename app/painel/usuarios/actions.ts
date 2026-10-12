@@ -219,3 +219,47 @@ export async function alterarSenha(_: ActionResult | null, fd: FormData): Promis
   if (error) return { ok: false, message: error.message }
   return { ok: true, message: 'Senha alterada com sucesso' }
 }
+
+// Apaga um usuário (ex-funcionário) POR INTEIRO: login (auth) + cadastro (perfis)
+// + registros de RH dele (ponto/banco de horas). O histórico de VENDAS fica
+// guardado — vendas grava o nome do vendedor como texto, sem ligação com o cadastro.
+export async function excluirUsuario(_: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const token = fd.get('access_token') as string
+  const userId = fd.get('user_id') as string
+
+  let atual: { id: string }
+  try { atual = await requirePermissao('usuarios', token) } catch { return { ok: false, message: 'Não autorizado' } }
+  if (!userId) return { ok: false, message: 'Usuário inválido' }
+  if (atual.id === userId) return { ok: false, message: 'Você não pode apagar a própria conta.' }
+
+  const supabase = await createServiceClient()
+  // Não deixa apagar Master — nem por flag própria, nem por cargo master (dev tester/Gerente).
+  const { data: alvo } = await supabase.from('perfis').select('is_master, cargo_id').eq('id', userId).maybeSingle()
+  if (!alvo) return { ok: false, message: 'Cadastro não encontrado.' }
+  if (alvo.is_master) return { ok: false, message: 'Não dá pra apagar conta Master.' }
+  if (alvo.cargo_id) {
+    const { data: cargo } = await supabase.from('cargos').select('is_master').eq('id', alvo.cargo_id as string).maybeSingle()
+    if (cargo?.is_master) return { ok: false, message: 'Não dá pra apagar conta de cargo Master.' }
+  }
+
+  // 1) Limpa referências que travariam o delete (FK NO ACTION).
+  await supabase.from('rotas_motoboy').delete().eq('perfil_id', userId)
+  await supabase.from('lembretes_feitos').delete().eq('perfil_id', userId)
+  await supabase.from('escala_excecoes').update({ criado_por: null }).eq('criado_por', userId)
+  await supabase.from('lembretes').update({ criado_por: null }).eq('criado_por', userId)
+
+  // 2) Registros de RH do próprio ex-funcionário (sem FK — apaga na mão).
+  await supabase.from('pontos').delete().eq('usuario_id', userId)
+  await supabase.from('banco_horas').delete().eq('usuario_id', userId)
+
+  // 3) Apaga o cadastro (escalas/escala_excecoes/lembretes dele vão por CASCADE).
+  const { error: errPerfil } = await supabase.from('perfis').delete().eq('id', userId)
+  if (errPerfil) return { ok: false, message: 'Falha ao apagar cadastro: ' + errPerfil.message }
+
+  // 4) Apaga o login.
+  const { error: errAuth } = await supabase.auth.admin.deleteUser(userId)
+  if (errAuth) return { ok: false, message: 'Cadastro apagado, mas login falhou: ' + errAuth.message }
+
+  revalidatePath('/painel/usuarios')
+  return { ok: true, message: 'Usuário apagado. O histórico de vendas dele ficou guardado.' }
+}
