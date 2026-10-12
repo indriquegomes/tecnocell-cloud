@@ -7,6 +7,7 @@ import { BuscaEstoque } from './BuscaEstoque'
 import { getDepositosCache, getCategoriasCache } from '@/lib/cache-catalogo'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
+import { BotaoCopiarProduto } from '@/components/ui/BotaoCopiarProduto'
 
 export default async function EstoquePage({
   searchParams,
@@ -44,7 +45,7 @@ export default async function EstoquePage({
   const palavras = params.busca ? semAcento(params.busca.trim()).replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6) : []
 
   let query = supabase.from('estoque')
-    .select('id, quantidade, produto:produtos!inner ( id, nome, marca, categoria, preco, busca_norm ), deposito:depositos ( id, nome )', { count: 'exact' })
+    .select('id, quantidade, produto:produtos!inner ( id, nome, codigo, marca, categoria, preco, busca_norm ), deposito:depositos ( id, nome )', { count: 'exact' })
     .order('quantidade', { ascending: !ordemDir })
   if (params.deposito && depositosAtiva.includes(params.deposito)) query = query.eq('deposito_id', params.deposito)
   else if (depositosAtiva.length > 0) query = query.in('deposito_id', depositosAtiva)
@@ -76,7 +77,7 @@ export default async function EstoquePage({
 
   const linhas = (estoque ?? []) as unknown as {
     id: string; quantidade: number
-    produto: { id: string; nome: string; marca: string | null } | null
+    produto: { id: string; nome: string; codigo: string | null; marca: string | null; preco: number | null } | null
     deposito: { id: string; nome: string } | null
   }[]
 
@@ -209,12 +210,15 @@ export default async function EstoquePage({
                     </td>
                     <td className="px-4 py-3 text-center">
                       {prodId && (
-                        <Link
-                          href={`/painel/estoque/movimentar?produto_id=${prodId}${depId ? `&deposito_id=${depId}` : ''}`}
-                          className="rounded-lg px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 transition"
-                        >
-                          Ajustar
-                        </Link>
+                        <div className="flex items-center justify-center gap-2">
+                          <BotaoCopiarProduto codigo={e.produto?.codigo ?? null} nome={e.produto?.nome ?? ''} preco={e.produto?.preco ?? 0} />
+                          <Link
+                            href={`/painel/estoque/movimentar?produto_id=${prodId}${depId ? `&deposito_id=${depId}` : ''}`}
+                            className="rounded-lg px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 transition"
+                          >
+                            Ajustar
+                          </Link>
+                        </div>
                       )}
                     </td>
                   </tr>

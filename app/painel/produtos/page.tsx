@@ -9,6 +9,7 @@ import { getCategoriasCache, getMarcasCache, getDepositosCache } from '@/lib/cac
 import { Badge } from '@/components/ui/badge'
 import { deletarProduto } from './actions'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
+import { BotaoCopiarProduto } from '@/components/ui/BotaoCopiarProduto'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 
@@ -361,6 +362,7 @@ export default async function ProdutosPage({
                     )})}
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-2">
+                        <BotaoCopiarProduto codigo={p.codigo as string | null} nome={p.nome as string} preco={p.preco as number} />
                         <Link
                           href={`/painel/produtos/${p.id as string}/editar`}
                           className="rounded-lg px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 transition"

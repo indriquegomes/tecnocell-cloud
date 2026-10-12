@@ -339,6 +339,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [fichaAberta, setFichaAberta] = useState(false)
   const [fichaSel, setFichaSel] = useState<Produto | null>(null)
   const [buscaFicha, setBuscaFicha] = useState('')
+  const [copiadoFicha, setCopiadoFicha] = useState(false)
 
   // Novo cliente pelo PDV (cadastro rápido com política + RG + foto opcional)
   const [mostrarNovoCliente, setMostrarNovoCliente] = useState(false)
@@ -798,6 +799,17 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   }
 
   const fecharFicha = () => { setFichaAberta(false); setFichaSel(null); setBuscaFicha('') }
+
+  // Copia a ficha no formato "código - nome — R$ preço" (pra mandar no WhatsApp)
+  const copiarFicha = async () => {
+    if (!fichaSel) return
+    const txt = `${fichaSel.codigo ? fichaSel.codigo + ' - ' : ''}${fichaSel.nome} — ${formatBRL(precoDoProduto(fichaSel))}`
+    try {
+      await navigator.clipboard.writeText(txt)
+      setCopiadoFicha(true)
+      setTimeout(() => setCopiadoFicha(false), 1500)
+    } catch { setErro('Não foi possível copiar.') }
+  }
 
   const adicionarAoCarrinho = useCallback((p: Produto) => {
     const disp = p.estoquePorDeposito[depositoId] ?? 0
@@ -4406,6 +4418,12 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             </div>
 
             <div className="flex gap-3 border-t border-gray-100 px-5 py-3">
+              <button type="button"
+                onClick={copiarFicha}
+                disabled={!fichaSel}
+                className="rounded-xl border border-blue-200 bg-blue-50 px-5 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition disabled:opacity-40">
+                {copiadoFicha ? 'Copiado ✓' : 'Copiar'}
+              </button>
               <button type="button"
                 onClick={() => { setFichaSel(null); setBuscaFicha(''); buscaFichaRef.current?.focus() }}
                 className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
