@@ -87,7 +87,9 @@ async function aplicarDobra(s: Awaited<ReturnType<typeof createServiceClient>>, 
     .select('tipo, criado_em, dobra_tipo')
     .eq('usuario_id', userId).gte('criado_em', hoje + 'T00:00:00-03:00').order('criado_em')
   const entradaExtra = (pts ?? []).find((p) => p.tipo === 'entrada' && p.dobra_tipo === 'extra')
-  if (!entradaExtra) return
+  const { feriado } = await diaFolgaFeriado(s, userId, hoje)
+  // Feriado: dobra automática (trabalhou = ×2). Folga: só se escolheu 'extra'.
+  if (!feriado && !entradaExtra) return
   const { data: ja } = await s.from('banco_horas').select('id').eq('usuario_id', userId).eq('data', hoje).eq('motivo', 'dobra').limit(1)
   if (ja && ja.length > 0) return
   let min = 0, aberto: number | null = null

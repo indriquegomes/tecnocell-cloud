@@ -53,7 +53,8 @@ export function MeuPerfilClient() {
   async function registrarPonto(tipo: string) {
     if (tipo === 'entrada') {
       const d = await verificarDiaFolga(await token()).catch(() => ({ folga: false, feriado: false }))
-      if (d.folga || d.feriado) { setDobraMotivo(d.feriado ? 'feriado' : 'folga'); setDobraPrompt(true); return }
+      if (d.folga) { setDobraMotivo('folga'); setDobraPrompt(true); return }
+      // feriado: bate normal — a dobra (×2) entra automática na saída.
     }
     await baterPontoDireto(tipo)
   }
