@@ -28,6 +28,7 @@ export async function detectarFaltas() {
   ])
 
   const nomes = Object.fromEntries((perfis ?? []).map((p) => [p.id, p.nome]))
+  const ativosIds = new Set((perfis ?? []).map((p) => p.id))
   const ja = new Set((jaFaltas ?? []).map((f) => f.usuario_id + '|' + f.data))
 
   // cidade (slug) de cada perfil, via loja do PDV
@@ -52,6 +53,7 @@ export async function detectarFaltas() {
     const bateram = new Set((pts ?? []).filter((p) => dataSP(p.criado_em) === data).map((p) => p.usuario_id))
     const fersHoje = feriadosPorData[data] ?? new Set<string>()
     for (const t of turnos) {
+      if (!ativosIds.has(t.perfilId)) continue  // inativo não gera falta
       if (t.folga) continue
       if (bateram.has(t.perfilId)) continue
       if (ja.has(t.perfilId + '|' + data)) continue

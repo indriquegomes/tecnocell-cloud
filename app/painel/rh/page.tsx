@@ -73,7 +73,7 @@ export default async function RhPage() {
 
   // ---- Banco de horas ----
   const bancoItens = (banco ?? []) as { id: string; usuario_id: string; horas: number; data: string; motivo: string | null; obs: string | null; confirmado: boolean | null }[]
-  const dobrasPendentes = bancoItens.filter((b) => b.confirmado === false)
+  const dobrasPendentes = bancoItens.filter((b) => b.motivo === 'dobra' && b.confirmado === false)
   const faltasPendentes = bancoItens.filter((b) => b.motivo === 'falta' && b.confirmado === false)
   const saldoPorUser: Record<string, number> = {}
   for (const b of bancoItens) if (b.confirmado !== false) saldoPorUser[b.usuario_id] = (saldoPorUser[b.usuario_id] ?? 0) + Number(b.horas)
