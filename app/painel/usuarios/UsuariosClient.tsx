@@ -689,6 +689,11 @@ export function UsuariosClient({ usuarios, cargos, lojas, depositos, tabelas }: 
   const [criando, setCriando] = useState(false)
   const [convidando, setConvidando] = useState(false)
   const [ordem, setOrdem] = useState<'nome' | 'cargo' | 'status'>('nome')
+  // Lembra a ordenação escolhida (fica salva no navegador entre as visitas).
+  useEffect(() => {
+    const salva = localStorage.getItem('tc_usuarios_ordem')
+    if (salva === 'nome' || salva === 'cargo' || salva === 'status') setOrdem(salva)
+  }, [])
   // Guarda o ID, NAO um retrato do usuario. Antes o modal segurava um snapshot
   // tirado no clique: depois de salvar, o router.refresh() atualizava a LISTA mas o
   // modal seguia com o dado velho — e salvar de novo dali APAGAVA campos (o input de
@@ -748,7 +753,7 @@ export function UsuariosClient({ usuarios, cargos, lojas, depositos, tabelas }: 
 
       <div className="flex items-center gap-2">
         <label className="text-xs font-medium text-gray-500">Ordenar:</label>
-        <select value={ordem} onChange={(e) => setOrdem(e.target.value as 'nome' | 'cargo' | 'status')} className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400">
+        <select value={ordem} onChange={(e) => { const v = e.target.value as 'nome' | 'cargo' | 'status'; setOrdem(v); localStorage.setItem('tc_usuarios_ordem', v) }} className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400">
           <option value="nome">Nome (A–Z)</option>
           <option value="cargo">Cargo</option>
           <option value="status">Status</option>
