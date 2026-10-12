@@ -110,8 +110,10 @@ async function aplicarHoraExtra(s: Awaited<ReturnType<typeof createServiceClient
   const [{ data: esc }, { data: exc }, { data: pts }] = await Promise.all([
     s.from('escalas').select('*').eq('perfil_id', userId).eq('ativo', true),
     s.from('escala_excecoes').select('*').eq('perfil_id', userId).eq('data', hoje),
-    s.from('pontos').select('tipo, criado_em, usuario_id').eq('usuario_id', userId).gte('criado_em', hoje + 'T00:00:00-03:00').lte('criado_em', hoje + 'T23:59:59-03:00').order('criado_em'),
+    s.from('pontos').select('tipo, criado_em, usuario_id, dobra_tipo').eq('usuario_id', userId).gte('criado_em', hoje + 'T00:00:00-03:00').lte('criado_em', hoje + 'T23:59:59-03:00').order('criado_em'),
   ])
+  // Dobra (folga/feriado) já é tratada em aplicarDobra — aqui NÃO gera atraso.
+  if ((pts ?? []).some((p) => (p as { dobra_tipo?: string | null }).dobra_tipo === 'extra')) return
   const turno = turnosDoDia(hoje, diaSemana, (esc ?? []) as Escala[], (exc ?? []) as Excecao[], { [userId]: '' }).find((t) => t.perfilId === userId)
   if (!turno || turno.folga) return
   const planejado = turno.saida - turno.entrada - (turno.pausaIni !== null && turno.pausaFim !== null ? Math.max(0, turno.pausaFim - turno.pausaIni) : 0)
