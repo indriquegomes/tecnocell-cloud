@@ -12,8 +12,11 @@ export default async function FeriadosPage({ searchParams }: { searchParams: Pro
   const { ok, erro } = await searchParams
   const s = await createServiceClient()
   const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-  // Apaga sozinho os feriados que já passaram (mantém só os futuros).
-  await s.from('feriados').delete().lt('data', hoje)
+  // Apaga só os feriados de MAIS de 7 dias atrás. O detector de faltas (lib/faltas.ts)
+  // olha 7 dias pra trás e precisa dos feriados recentes — apagar o de ontem aqui
+  // fazia ele marcar FALTA falsa em quem folgou no feriado.
+  const limite = new Date(Date.now() - 7 * 86400000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  await s.from('feriados').delete().lt('data', limite)
   const { data: feriados } = await s.from('feriados').select('id, cidade, data, nome, tipo').order('data')
 
   return (

@@ -38,7 +38,10 @@ if (!EMAIL || !SENHA) {
 
 export async function login(page: Page) {
   await page.goto('/login')
-  await page.fill('input[type="email"]', EMAIL)
+  // O login aceita e-mail OU nome de usuário — o campo é name="usuario" (type=text),
+  // não mais input[type="email"]. O seletor antigo não achava o campo e TODA a
+  // suíte travava no beforeEach.
+  await page.fill('input[name="usuario"]', EMAIL)
   await page.fill('input[type="password"]', SENHA)
   await page.click('button[type="submit"]')
   await page.waitForURL('**/painel**', { timeout: 20000 })
