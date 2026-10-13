@@ -91,6 +91,17 @@ export default async function MovimentacoesPage({
   }
   const porProduto = !!produtoIds
 
+  // Cliente → IDs de pessoa (filtra NA ORIGEM, igual produto). Sem isso, o corte de
+  // 500 (visão padrão) esconde movimentações antigas do cliente — "DN CELL" não listava tudo.
+  const clienteTxt = (params.cliente ?? '').trim()
+  let clienteIds: string[] | null = null
+  if (clienteTxt) {
+    const { data: ps } = await supabase.from('pessoas').select('id').ilike('nome', `%${clienteTxt}%`).limit(200)
+    clienteIds = ((ps ?? []) as { id: string }[]).map((p) => p.id)
+    if (clienteIds.length === 0) clienteIds = ['__nenhum__']
+  }
+  const porCliente = !!clienteIds
+
   const dataHoje = hoje
   const horaAgora = agoraBr.slice(11, 16)
 
@@ -126,7 +137,7 @@ export default async function MovimentacoesPage({
       supabase.from('itens_venda').select('id, venda_id, produto_id, quantidade, preco_unitario, total_item, produtos(nome)').in('produto_id', chunk).range(from, to))
     const idQ = fetchAllIn<Record<string, unknown>>(produtoIds!, (chunk, from, to) =>
       supabase.from('itens_devolucao').select('id, devolucao_id, produto_id, nome, quantidade, preco_unitario, total_item, status_produto').in('produto_id', chunk).range(from, to))
-    const [mv, iv, idv] = await Promise.all([manuaisQ, ivQ, idQ])
+    const [mv, iv, idv] = await Promise.all([porCliente ? Promise.resolve([] as Record<string, unknown>[]) : manuaisQ, ivQ, idQ])
     manuais = mv
     itensVenda = iv
     itensDev = idv
@@ -137,6 +148,7 @@ export default async function MovimentacoesPage({
         ? fetchAllIn<Record<string, unknown>>(vIds, (chunk, from, to) => {
             let q = supabase.from('vendas').select('id, numero, created_at, vendedor_nome, pessoa_id, deposito_id, status').in('id', chunk).gte('created_at', ini).lte('created_at', fim)
             if (params.deposito) q = q.eq('deposito_id', params.deposito)
+            if (porCliente) q = q.in('pessoa_id', clienteIds!)
             return q.range(from, to)
           })
         : Promise.resolve([] as Record<string, unknown>[]),
@@ -144,6 +156,7 @@ export default async function MovimentacoesPage({
         ? fetchAllIn<Record<string, unknown>>(dIds, (chunk, from, to) => {
             let q = supabase.from('devolucoes').select('id, created_at, pessoa_nome, vendedor_nome, deposito_id, motivo').in('id', chunk).gte('created_at', ini).lte('created_at', fim)
             if (params.deposito) q = q.eq('deposito_id', params.deposito)
+            if (porCliente) q = q.ilike('pessoa_nome', `%${clienteTxt}%`)
             return q.range(from, to)
           })
         : Promise.resolve([] as Record<string, unknown>[]),
@@ -174,6 +187,12 @@ export default async function MovimentacoesPage({
       qManuais = qManuais.eq('deposito_id', params.deposito)
       qVendas = qVendas.eq('deposito_id', params.deposito)
       qDevs = qDevs.eq('deposito_id', params.deposito)
+    }
+    if (porCliente) {
+      // filtro na ORIGEM — manual não tem cliente (fica vazio)
+      qManuais = qManuais.eq('produto_id', '__nenhum__')
+      qVendas = qVendas.in('pessoa_id', clienteIds!)
+      qDevs = qDevs.ilike('pessoa_nome', `%${clienteTxt}%`)
     }
     const [{ data: m }, { data: v }, { data: dv }] = await Promise.all([qManuais, qVendas, qDevs])
     manuais = m ?? []
