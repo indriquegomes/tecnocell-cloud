@@ -57,19 +57,9 @@ export async function atualizarMeuNome(token: string, nome: string): Promise<Res
 
 export type Ponto = { id: string; tipo: string; criado_em: string }
 
-// Cidade (slug) da loja da pessoa, pra bater com feriados.cidade.
-async function cidadeDaLoja(s: Awaited<ReturnType<typeof createServiceClient>>, lojaId: string | null | undefined): Promise<string> {
-  if (!lojaId) return ''
-  const { data } = await s.from('lojas').select('nome').eq('id', lojaId).maybeSingle()
-  return String((data as { nome?: string } | null)?.nome ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-}
-
 // Hoje é folga ou feriado pra pessoa? (escala semanal + exceção + feriados)
 async function diaFolgaFeriado(s: Awaited<ReturnType<typeof createServiceClient>>, userId: string, hoje: string): Promise<{ folga: boolean; feriado: boolean }> {
-  const { data: perfil } = await s.from('perfis').select('pdv_loja_id').eq('id', userId).maybeSingle()
-  const cidade = await cidadeDaLoja(s, (perfil as { pdv_loja_id?: string | null } | null)?.pdv_loja_id)
-  const { data: fers } = await s.from('feriados').select('cidade').eq('data', hoje)
-  const feriado = (fers ?? []).some((f) => f.cidade === 'todas' || f.cidade === cidade)
+  const feriado = await ehFeriado(userId, hoje)
 
   const { data: exc } = await s.from('escala_excecoes').select('folga').eq('perfil_id', userId).eq('data', hoje).maybeSingle()
   if (exc) return { folga: !!exc.folga, feriado }
@@ -113,10 +103,8 @@ async function aplicarHoraExtra(s: Awaited<ReturnType<typeof createServiceClient
   const [{ data: esc }, { data: exc }, { data: pts }] = await Promise.all([
     s.from('escalas').select('*').eq('perfil_id', userId).eq('ativo', true),
     s.from('escala_excecoes').select('*').eq('perfil_id', userId).eq('data', hoje),
-    s.from('pontos').select('tipo, criado_em, usuario_id, dobra_tipo').eq('usuario_id', userId).gte('criado_em', hoje + 'T00:00:00-03:00').lte('criado_em', hoje + 'T23:59:59-03:00').order('criado_em'),
+    s.from('pontos').select('tipo, criado_em, usuario_id').eq('usuario_id', userId).gte('criado_em', hoje + 'T00:00:00-03:00').lte('criado_em', hoje + 'T23:59:59-03:00').order('criado_em'),
   ])
-  // Dobra (folga/feriado) já é tratada em aplicarDobra — aqui NÃO gera atraso.
-  if ((pts ?? []).some((p) => (p as { dobra_tipo?: string | null }).dobra_tipo === 'extra')) return
   const turno = turnosDoDia(hoje, diaSemana, (esc ?? []) as Escala[], (exc ?? []) as Excecao[], { [userId]: '' }).find((t) => t.perfilId === userId)
   if (!turno || turno.folga) return
   const planejado = turno.saida - turno.entrada - (turno.pausaIni !== null && turno.pausaFim !== null ? Math.max(0, turno.pausaFim - turno.pausaIni) : 0)

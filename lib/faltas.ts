@@ -1,8 +1,8 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { turnosDoDia, type Escala, type Excecao } from '@/lib/escala'
+import { slug } from '@/lib/feriados'
 
 const dataSP = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-const slug = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
 // Detecta faltas: quem estava na escala e não bateu ponto num dia já encerrado
 // (e NÃO era folga nem feriado). Cria 'falta' (negativo, confirmado=false).

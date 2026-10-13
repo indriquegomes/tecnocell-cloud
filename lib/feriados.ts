@@ -1,6 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 
-const slug = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+export const slug = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
 // É feriado na data, na cidade do funcionário? (nacional 'todas' ou municipal da cidade dele)
 // Fonte ÚNICA dessa regra — usar aqui em vez de cada função ter a sua (já divergiram uma vez).
