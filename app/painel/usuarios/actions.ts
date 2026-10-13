@@ -220,6 +220,15 @@ export async function alterarSenha(_: ActionResult | null, fd: FormData): Promis
   return { ok: true, message: 'Senha alterada com sucesso' }
 }
 
+// Libera o login de um usuário que foi bloqueado ao deslogar (segurança).
+export async function liberarLogin(id: string) {
+  await requirePermissao('usuarios')
+  const supabase = await createServiceClient()
+  const { error } = await supabase.from('perfis').update({ login_bloqueado: false }).eq('id', id)
+  if (error) return
+  revalidatePath('/painel/usuarios')
+}
+
 // Apaga um usuário (ex-funcionário) POR INTEIRO: login (auth) + cadastro (perfis)
 // + registros de RH dele (ponto/banco de horas). O histórico de VENDAS fica
 // guardado — vendas grava o nome do vendedor como texto, sem ligação com o cadastro.

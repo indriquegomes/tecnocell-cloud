@@ -69,12 +69,17 @@ export async function POST(request: NextRequest) {
   }
 
   // Motoboy (cargo MOTOBOY) cai direto na tela de registro de rotas.
+  // Segurança: acesso bloqueado (deslogou) só o master libera.
   if (data?.user?.id) {
     const service = createServerClient(url, serviceKey, {
       cookies: { getAll() { return [] }, setAll() {} },
     })
-    const { data: perf } = await service.from('perfis').select('cargo_id').eq('id', data.user.id).maybeSingle()
-    const cargoId = (perf as { cargo_id?: string | null } | null)?.cargo_id ?? null
+    const { data: perf } = await service.from('perfis').select('cargo_id, is_master, login_bloqueado').eq('id', data.user.id).maybeSingle()
+    const p = perf as { cargo_id?: string | null; is_master?: boolean | null; login_bloqueado?: boolean | null } | null
+    if (p?.login_bloqueado && !p.is_master) {
+      return NextResponse.redirect(new URL(`/login?erro=${encodeURIComponent('Acesso bloqueado. Peça ao master para liberar.')}`, request.url))
+    }
+    const cargoId = p?.cargo_id ?? null
     if (cargoId) {
       const { data: cargo } = await service.from('cargos').select('nome').eq('id', cargoId).maybeSingle()
       if ((cargo as { nome?: string } | null)?.nome === 'MOTOBOY') {

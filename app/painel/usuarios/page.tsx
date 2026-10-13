@@ -64,7 +64,7 @@ export default async function UsuariosPage() {
   // Lista usuários do Auth + perfis
   const [authResult, perfisResult, cargosResult, lojasResult, depositosResult, cfgPdv, tabelasResult] = await Promise.all([
     supabase.auth.admin.listUsers(),
-    supabase.from('perfis').select('id, nome, username, permissoes, is_master, ativo, created_at, cargo_id'),
+    supabase.from('perfis').select('id, nome, username, permissoes, is_master, ativo, login_bloqueado, created_at, cargo_id'),
     supabase.from('cargos').select('id, nome, ordem').eq('ativo', true).order('ordem', { ascending: true, nullsFirst: false }).order('nome'),
     supabase.from('lojas').select('id, nome').eq('ativa', true).order('nome'),
     supabase.from('depositos').select('id, nome, loja_id').order('nome'),
@@ -98,6 +98,7 @@ export default async function UsuariosPage() {
       permissoes: (perfisMap[u.id]?.permissoes ?? []) as string[],
       isMaster: perfisMap[u.id]?.is_master ?? false,
       ativo: perfisMap[u.id]?.ativo ?? true,
+      loginBloqueado: (perfisMap[u.id] as { login_bloqueado?: boolean | null })?.login_bloqueado ?? false,
       cargoId: (perfisMap[u.id] as { cargo_id?: string | null })?.cargo_id ?? null,
       lojasPermitidas: cfgPdv[u.id]?.lojasPermitidas ?? [],
       tabelasPermitidas: cfgPdv[u.id]?.tabelasPermitidas ?? [],

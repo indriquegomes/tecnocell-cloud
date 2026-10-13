@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Spinner } from '@/components/Spinner'
 import { createClient } from '@/lib/supabase/client'
 import { TODAS_PERMISSOES } from '@/lib/permissoes'
-import { criarUsuario, criarConvite, atualizarPerfil, alterarSenha, excluirUsuario, type ActionResult, type ConviteResult } from './actions'
+import { criarUsuario, criarConvite, atualizarPerfil, alterarSenha, excluirUsuario, liberarLogin, type ActionResult, type ConviteResult } from './actions'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
 import { formatBRL } from '@/lib/utils'
 import { custoMensalCLT } from '@/lib/folha'
@@ -25,6 +25,7 @@ export interface Usuario {
   permissoes: string[]
   isMaster: boolean
   ativo: boolean
+  loginBloqueado: boolean
   cargoId: string | null
   lojasPermitidas: string[]
   tabelasPermitidas: string[]
@@ -813,11 +814,25 @@ export function UsuariosClient({ usuarios, cargos, lojas, depositos, tabelas }: 
                   <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${u.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
                     {u.ativo ? 'Ativo' : 'Inativo'}
                   </span>
+                  {u.loginBloqueado && (
+                    <span className="ml-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                      🔒 Bloqueado
+                    </span>
+                  )}
                 </td>
                 <td className="px-6 py-3 text-right">
-                  <button onClick={() => setEditandoId(u.id)} className="text-sm text-blue-600 hover:underline">
-                    Editar
-                  </button>
+                  <div className="flex items-center justify-end gap-3">
+                    {u.loginBloqueado && (
+                      <form action={liberarLogin.bind(null, u.id)}>
+                        <button type="submit" className="text-sm font-medium text-amber-600 hover:underline">
+                          Liberar
+                        </button>
+                      </form>
+                    )}
+                    <button onClick={() => setEditandoId(u.id)} className="text-sm text-blue-600 hover:underline">
+                      Editar
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

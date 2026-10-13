@@ -21,6 +21,20 @@ async function fazerLogout(request: NextRequest) {
       },
     }
   )
+  // Segurança: ao deslogar, trava o acesso (não-master). O master precisa liberar
+  // pra entrar de novo — evita que alguém pegue a senha e entre sem autorização.
+  const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }))
+  if (user?.id) {
+    const service = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { cookies: { getAll() { return [] }, setAll() {} } }
+    )
+    const { data: perf } = await service.from('perfis').select('is_master').eq('id', user.id).maybeSingle()
+    if (!(perf as { is_master?: boolean | null } | null)?.is_master) {
+      await service.from('perfis').update({ login_bloqueado: true }).eq('id', user.id)
+    }
+  }
   await supabase.auth.signOut()
   return response
 }
