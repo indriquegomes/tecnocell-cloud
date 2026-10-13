@@ -3,7 +3,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { Spinner } from '@/components/Spinner'
 import { createClient } from '@/lib/supabase/client'
-import { buscarMeuPerfil, atualizarMeuNome, alterarMinhaSenha, atualizarMinhaFoto, baterPonto, buscarMeuPontoHoje, buscarMeuBanco, buscarMeuSaldo, type Res, type Ponto, type BancoHora } from './actions'
+import { buscarMeuPerfil, atualizarMeuNome, alterarMinhaSenha, atualizarMinhaFoto, baterPonto, buscarMeuPontoHoje, buscarMeuBanco, buscarMeuSaldo, buscarMinhaEscala, type Res, type Ponto, type BancoHora, type MinhaEscala } from './actions'
+
+const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
 export function MeuPerfilClient() {
   const supabase = createClient()
@@ -29,6 +31,7 @@ export function MeuPerfilClient() {
   const [batendo, setBatendo] = useState(false)
   const [banco, setBanco] = useState<{ saldo: number; itens: BancoHora[] }>({ saldo: 0, itens: [] })
   const [saldoH, setSaldoH] = useState({ hoje: 0, semana: 0 })
+  const [escala, setEscala] = useState<MinhaEscala[]>([])
 
   const token = async () => (await supabase.auth.getSession()).data.session?.access_token ?? ''
 
@@ -40,6 +43,7 @@ export function MeuPerfilClient() {
         setPontos(await buscarMeuPontoHoje(await token()).catch(() => []))
         setBanco(await buscarMeuBanco(await token()).catch(() => ({ saldo: 0, itens: [] })))
         setSaldoH(await buscarMeuSaldo(await token()).catch(() => ({ hoje: 0, semana: 0 })))
+        setEscala(await buscarMinhaEscala(await token()).catch(() => []))
       } catch { /* sessão — o proxy redireciona */ }
       finally { setCarregando(false) }
     })()
@@ -191,6 +195,21 @@ export function MeuPerfilClient() {
         )}
       </div>
 
+      {/* Meu horário (grade da escala) */}
+      {escala.length > 0 && (
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h3 className="text-sm font-semibold text-gray-700">🗓 Meu horário</h3>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
+            {escala.map((e) => (
+              <div key={e.dia} className="rounded-lg bg-gray-50 px-3 py-2 text-center">
+                <p className="text-xs font-semibold uppercase text-gray-500">{DIAS[e.dia]}</p>
+                <p className="mt-0.5 text-sm font-medium tabular-nums text-gray-800">{e.entrada.slice(0, 5)}–{e.saida.slice(0, 5)}</p>
+                {e.pausa_inicio && e.pausa_fim && <p className="text-[11px] text-gray-400">almoço {e.pausa_inicio.slice(0, 5)}–{e.pausa_fim.slice(0, 5)}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Banco de horas (só leitura — o RH lança) */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">

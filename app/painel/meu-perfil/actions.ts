@@ -221,6 +221,18 @@ export async function buscarMeuSaldo(token: string): Promise<{ hoje: number; sem
   return { hoje, semana }
 }
 
+export type MinhaEscala = { dia: number; entrada: string; saida: string; pausa_inicio: string | null; pausa_fim: string | null }
+
+// Grade de horário (escala) do usuário logado — pra mostrar no Meu Perfil.
+export async function buscarMinhaEscala(token: string): Promise<MinhaEscala[]> {
+  const user = await requireAuth(token)
+  const s = await createServiceClient()
+  const { data } = await s.from('escalas')
+    .select('dia, entrada, saida, pausa_inicio, pausa_fim')
+    .eq('perfil_id', user.id).eq('ativo', true).order('dia')
+  return (data ?? []) as MinhaEscala[]
+}
+
 export async function alterarMinhaSenha(token: string, senhaAtual: string, senhaNova: string): Promise<Res> {
   const user = await requireAuth(token)
   if (senhaNova.trim().length < 4) return { ok: false, message: 'A nova senha deve ter ao menos 4 caracteres' }
