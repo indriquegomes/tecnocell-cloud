@@ -254,11 +254,19 @@ export default async function RelatoriosPage({
   }
   const lucroTotal = totalVendidoItens - totalCustoItens
   const margemTotal = totalVendidoItens > 0 ? (lucroTotal / totalVendidoItens) * 100 : 0
+  // Ordenação dos produtos conforme o seletor "Ordenar" (vale em lucro/produtos/abc).
+  const ordenaProd = (arr: { nome: string; qtd: number; vendido: number; custo: number }[]) =>
+    [...arr].sort((a, b) => {
+      if (ordem === 'nome') return a.nome.localeCompare(b.nome, 'pt-BR')
+      if (ordem === 'lucro') return (b.vendido - b.custo) - (a.vendido - a.custo)
+      if (ordem === 'qtd') return b.qtd - a.qtd
+      return b.vendido - a.vendido   // padrão: mais vendido
+    })
   const rankLucro = Object.values(porProduto)
     .map((p) => ({ ...p, lucro: p.vendido - p.custo, margem: p.vendido > 0 ? ((p.vendido - p.custo) / p.vendido) * 100 : 0 }))
     .sort((a, b) => b.lucro - a.lucro)
-  const rankQtd = Object.values(porProduto).slice().sort((a, b) => b.qtd - a.qtd)
-  const rankValorProd = Object.values(porProduto).slice().sort((a, b) => b.vendido - a.vendido)
+  const rankQtd = ordenaProd(Object.values(porProduto))
+  const rankValorProd = ordenaProd(Object.values(porProduto))
 
   // ---------- Condensado (Isa): por produto + marca/fornecedor/categoria + estoque por depósito ----------
   type CondRow = { nome: string; codigo: string | null; marca: string | null; fornecedor: string | null; qtd: number; precoCusto: number; custo: number; faturado: number; lucro: number; margem: number; estoquePorDep: Record<string, number>; estoqueTotal: number; valorEstoque: number }
@@ -320,7 +328,7 @@ export default async function RelatoriosPage({
     }
   }
   const rankClientes = Object.values(porCliente).sort((a, b) => b.total - a.total)
-  const maxQtd = rankQtd[0]?.qtd || 1
+  const maxQtd = Math.max(...Object.values(porProduto).map((p) => p.qtd), 1)
   const maxCli = rankClientes[0]?.total || 1
   const maxLuc = Math.max(...rankLucro.map((p) => p.lucro), 1)
 
@@ -1171,7 +1179,7 @@ export default async function RelatoriosPage({
             </select>
           </div>
         )}
-        {aba === 'lucro' && (
+        {['lucro', 'produtos', 'abc'].includes(aba) && (
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-600">Ordenar</label>
             <select name="ordem" defaultValue={ordem ?? 'faturado'} className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
