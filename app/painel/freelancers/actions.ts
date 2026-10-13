@@ -7,7 +7,7 @@ import { hojeSP } from '@/lib/utils'
 
 // Paga o freelancer (horas x valor) e zera o banco dele (marca os pontos como pagos).
 export async function pagarFreelancer(formData: FormData) {
-  await requirePermissao('rh')
+  await requirePermissao('master')
   const supabase = await createServiceClient()
   const perfilId = formData.get('perfil_id') as string
   const nome = (formData.get('nome') as string) || 'Freelancer'
