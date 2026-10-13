@@ -8,6 +8,7 @@ import { getDepositosCache, getCategoriasCache } from '@/lib/cache-catalogo'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 import { BotaoCopiarProduto } from '@/components/ui/BotaoCopiarProduto'
+import { CopiarMultiplos, CheckboxCopiar } from '@/components/ui/CopiarMultiplos'
 
 export default async function EstoquePage({
   searchParams,
@@ -80,6 +81,10 @@ export default async function EstoquePage({
     produto: { id: string; nome: string; codigo: string | null; marca: string | null; preco: number | null } | null
     deposito: { id: string; nome: string } | null
   }[]
+
+  const itensUnicos = [...new Map(
+    linhas.filter((l) => l.produto).map((l) => [l.produto!.id, { id: l.produto!.id, codigo: l.produto!.codigo ?? null, nome: l.produto!.nome ?? '', preco: l.produto!.preco ?? 0 }])
+  ).values()]
 
   return (
     <div className="space-y-6">
@@ -166,10 +171,12 @@ export default async function EstoquePage({
       </div>
 
       {/* Tabela */}
+      <CopiarMultiplos itens={itensUnicos}>
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
             <tr>
+              <th className="px-3 py-3" />
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Produto</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Marca</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Depósito</th>
@@ -183,7 +190,7 @@ export default async function EstoquePage({
           <tbody className="divide-y divide-gray-50">
             {linhas.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-sm text-gray-400">
+                <td colSpan={7} className="px-4 py-12 text-center text-sm text-gray-400">
                   Nenhum registro de estoque.{' '}
                   <Link href="/painel/estoque/movimentar" className="text-blue-500 hover:underline">Registrar entrada</Link>.
                 </td>
@@ -195,6 +202,9 @@ export default async function EstoquePage({
                 const depId = e.deposito?.id
                 return (
                   <tr key={e.id} className="hover:bg-blue-50/60 transition">
+                    <td className="px-3 py-3 text-center">
+                      {prodId && <CheckboxCopiar id={prodId} />}
+                    </td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">{e.produto?.nome ?? '—'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">{e.produto?.marca ?? '—'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">{e.deposito?.nome ?? '—'}</td>
@@ -229,6 +239,7 @@ export default async function EstoquePage({
         </table>
         <Paginacao pagina={pagina} totalPaginas={totalPaginas} total={total} params={baseParams} basePath="/painel/estoque" />
       </div>
+      </CopiarMultiplos>
     </div>
   )
 }

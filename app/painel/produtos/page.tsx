@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { deletarProduto } from './actions'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import { BotaoCopiarProduto } from '@/components/ui/BotaoCopiarProduto'
+import { CopiarMultiplos, CheckboxCopiar } from '@/components/ui/CopiarMultiplos'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 
@@ -241,10 +242,12 @@ export default async function ProdutosPage({
       </form>
 
       {/* Tabela */}
+      <CopiarMultiplos itens={produtos.map((p: Record<string, unknown>) => ({ id: p.id as string, codigo: (p.codigo as string | null) ?? null, nome: p.nome as string, preco: p.preco as number }))}>
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
             <tr>
+              <th className="px-3 py-3" />
               {[
                 { label: 'Produto',    ordem: 'nome',       align: 'text-left' },
                 { label: 'Prateleira', ordem: 'prateleira', align: 'text-left' },
@@ -284,7 +287,7 @@ export default async function ProdutosPage({
           <tbody className="divide-y divide-gray-50">
             {produtos.length === 0 ? (
               <tr>
-                <td colSpan={9 + depositosReais.length} className="px-4 py-12 text-center text-sm text-gray-400">
+                <td colSpan={10 + depositosReais.length} className="px-4 py-12 text-center text-sm text-gray-400">
                   Nenhum produto encontrado. <Link href="/painel/produtos/novo" className="text-blue-500 hover:underline">Cadastrar produto</Link>.
                 </td>
               </tr>
@@ -295,6 +298,9 @@ export default async function ProdutosPage({
                 const abaixoMinimo = minimo > 0 && getEstoqueGeral(p) < minimo
                 return (
                   <tr key={p.id as string} className="hover:bg-blue-50/60 transition">
+                    <td className="px-3 py-3 text-center">
+                      <CheckboxCopiar id={p.id as string} />
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {p.imagem_url ? (
@@ -380,6 +386,7 @@ export default async function ProdutosPage({
         </table>
         <Paginacao pagina={pagina} totalPaginas={totalPaginas} total={total} params={baseParams} basePath="/painel/produtos" />
       </div>
+      </CopiarMultiplos>
     </div>
   )
 }
