@@ -76,6 +76,13 @@ export default async function RelatoriosPage({
     caixasDaLoja = (cxs ?? []).map((c) => c.id as string)
     if (caixasDaLoja.length === 0) caixasDaLoja = ['00000000-0000-0000-0000-000000000000']
   }
+  // Depósitos da loja ativa — pra filtrar devoluções (devolução não tem caixa, tem depósito).
+  let depositosDaLoja: string[] | null = null
+  if (lojaSel) {
+    const { data: dps } = await supabase.from('depositos').select('id').eq('loja_id', lojaSel)
+    depositosDaLoja = (dps ?? []).map((d) => d.id as string)
+    if (depositosDaLoja.length === 0) depositosDaLoja = ['00000000-0000-0000-0000-000000000000']
+  }
   // Filtros de loja pras abas de dinheiro: lancamentos → loja_id; caixa/vendas →
   // caixa da loja ATIVA. Master troca no seletor; restrita só vê a própria.
   const flanc = (q: any): any => (lojaSel ? q.eq('loja_id', lojaSel) : q)
@@ -163,8 +170,12 @@ export default async function RelatoriosPage({
     }
     resumoFormas = Object.entries(mapaResumo).map(([nome, r]) => ({ nome, ...r })).sort((a, b) => b.total - a.total)
     // Devoluções processadas no período → Vendas líquidas = brutas − devoluções.
-    const devs = await fetchAll<{ venda_id: string | null; valor_total: number | null }>((from, to) => supabase.from('devolucoes')
-      .select('venda_id, valor_total').gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to))
+    const devs = await fetchAll<{ venda_id: string | null; valor_total: number | null }>((from, to) => {
+      let q = supabase.from('devolucoes')
+        .select('venda_id, valor_total').gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+      if (depositosDaLoja) q = q.in('deposito_id', depositosDaLoja)
+      return q.range(from, to)
+    })
     totalDevolucoesPeriodo = (devs ?? []).reduce((s, d) => s + (d.valor_total ?? 0), 0)
     const devolucoesPorVenda: Record<string, number> = {}
     for (const d of (devs ?? [])) if (d.venda_id) devolucoesPorVenda[d.venda_id] = (devolucoesPorVenda[d.venda_id] ?? 0) + (d.valor_total ?? 0)
@@ -200,8 +211,12 @@ export default async function RelatoriosPage({
 
     // Subtrai devoluções do período — senão o relatório conta como vendido o que
     // o cliente devolveu ("20 vendidos, 5 devolvidos" virava 20 em vez de 15).
-    const devs = await fetchAll<{ id: string }>((from, to) => supabase.from('devolucoes')
-      .select('id').gte('created_at', periodo.inicio).lte('created_at', periodo.fim).range(from, to))
+    const devs = await fetchAll<{ id: string }>((from, to) => {
+      let q = supabase.from('devolucoes')
+        .select('id').gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+      if (depositosDaLoja) q = q.in('deposito_id', depositosDaLoja)   // só devoluções da loja filtrada
+      return q.range(from, to)
+    })
     const devIds = (devs ?? []).map((d) => d.id)
     if (devIds.length) {
       const devItens = await fetchAllIn<{ produto_id: string; nome: string; quantidade: number; total_item: number }>(devIds, (chunk, from, to) => supabase.from('itens_devolucao')
