@@ -1,14 +1,13 @@
-import { createServiceClient, fetchAll, requirePermissao } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
+import { buscarLinhasConferencia } from '@/lib/conferencia'
 import ExcelJS from 'exceljs'
 import type { NextRequest } from 'next/server'
 
 // Baixa a planilha de CONFERÊNCIA de um depósito: cada produto com seu saldo
 // atual no sistema + uma coluna "Correção" em branco pra estoquista lançar a
 // diferença do físico. Sempre por depósito (obrigatório) + categoria opcional.
-//
-// Produtos serializados (IMEI) são marcados na planilha mas com a Correção
-// travada — a movimentar_estoque não aceita ajuste por quantidade neles.
+// A listagem vem de lib/conferencia.ts (mesma fonte da tela on-screen).
 export async function GET(req: NextRequest) {
   try {
     await requirePermissao('estoque')
@@ -31,52 +30,10 @@ export async function GET(req: NextRequest) {
   const { data: dep } = await supabase.from('depositos').select('nome').eq('id', deposito).maybeSingle()
   const nomeDeposito = dep?.nome ?? 'deposito'
 
-  // 1) todos os produtos (com filtro de categoria opcional)
-  const produtos = await fetchAll<{ id: string; nome: string; codigo: string | null; prateleira: string | null; controla_serie: boolean | null; categoria: string | null; cat: { nome: string } | null }>(
-    (from, to) => {
-      let q = supabase.from('produtos')
-        .select('id, nome, codigo, prateleira, controla_serie, categoria, cat:categorias!categoria ( nome )')
-        .eq('ativo', true)
-      if (categoria) q = q.eq('categoria', categoria)
-      return q.range(from, to) as unknown as PromiseLike<{ data: { id: string; nome: string; codigo: string | null; prateleira: string | null; controla_serie: boolean | null; categoria: string | null; cat: { nome: string } | null }[] | null }>
-    },
-  )
+  // produtos + saldo atual desse depósito, já ordenados pela gaveta
+  const linhas = await buscarLinhasConferencia(deposito, categoria)
 
-  // 2) saldo atual DESSE depósito
-  const estoqueRows = await fetchAll<{ produto_id: string; quantidade: number }>(
-    (from, to) => supabase.from('estoque').select('produto_id, quantidade').eq('deposito_id', deposito).range(from, to) as unknown as PromiseLike<{ data: { produto_id: string; quantidade: number }[] | null }>,
-  )
-  const saldoPorProd: Record<string, number> = {}
-  for (const e of estoqueRows) saldoPorProd[e.produto_id] = (saldoPorProd[e.produto_id] ?? 0) + Number(e.quantidade)
-
-  // Ordena pela GAVETA (prateleira) em ordem numérica: "C - 0036" < "C - 0052" <
-  // "G - 0598" < "G - 1136" (o número da gaveta manda; letra da seção desempata).
-  // Baterias/componentes têm gaveta. Item SEM gaveta (outros itens) cai pro fim,
-  // em ordem ALFABÉTICA — como era antes.
-  const linhas = produtos
-    .map((p) => ({
-      codigo: p.codigo ?? '',
-      nome: p.nome,
-      gaveta: p.prateleira ?? '',
-      categoria: p.cat?.nome ?? '',
-      serial: !!p.controla_serie,
-      saldo: saldoPorProd[p.id] ?? 0,
-      id: p.id,
-    }))
-    .sort((a, b) => {
-      const ga = a.gaveta.trim()
-      const gb = b.gaveta.trim()
-      if (ga && gb) {
-        const c = ga.localeCompare(gb, 'pt-BR', { numeric: true })
-        if (c !== 0) return c
-      } else if (ga || gb) {
-        return ga ? -1 : 1
-      }
-      // mesma gaveta (ou ambos sem gaveta): ordem alfabética
-      return a.nome.localeCompare(b.nome, 'pt-BR')
-    })
-
-  // 3) monta o Excel
+  // monta o Excel
   const wb = new ExcelJS.Workbook()
   const ws = wb.addWorksheet('Conferência')
   ws.columns = [
