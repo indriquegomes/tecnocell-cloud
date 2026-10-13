@@ -47,9 +47,9 @@ type ItemVenda = {
 export default async function RelatoriosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ aba?: string; de?: string; ate?: string; loja?: string; caixa?: string; usuario?: string; vendedor?: string; forma?: string; cliente?: string; vstatus?: string; vnum?: string; vmin?: string; vmax?: string; catprod?: string; tec?: string; osstatus?: string; tipoacao?: string; deps?: string }>
+  searchParams: Promise<{ aba?: string; de?: string; ate?: string; loja?: string; caixa?: string; usuario?: string; vendedor?: string; forma?: string; cliente?: string; vstatus?: string; vnum?: string; vmin?: string; vmax?: string; catprod?: string; ordem?: string; tec?: string; osstatus?: string; tipoacao?: string; deps?: string }>
 }) {
-  const { aba = 'financeiro', de, ate, loja, caixa, usuario, vendedor, forma, cliente, vstatus, vnum, vmin, vmax, catprod, tec, osstatus, tipoacao, deps } = await searchParams
+  const { aba = 'financeiro', de, ate, loja, caixa, usuario, vendedor, forma, cliente, vstatus, vnum, vmin, vmax, catprod, ordem, tec, osstatus, tipoacao, deps } = await searchParams
   const supabase = await createServiceClient()
 
   const hoje = hojeSP()
@@ -291,7 +291,12 @@ export default async function RelatoriosPage({
         const precoCusto = (meta.preco_custo ?? 0) || (agg.qtd ? agg.custo / agg.qtd : 0)
         const lucro = agg.vendido - agg.custo
         return { nome: agg.nome, codigo: meta.codigo ?? null, marca: meta.marca ?? null, fornecedor: meta.fornecedor_id ? (fornById[meta.fornecedor_id] ?? null) : null, qtd: agg.qtd, precoCusto, custo: agg.custo, faturado: agg.vendido, lucro, margem: agg.vendido > 0 ? (lucro / agg.vendido) * 100 : 0, estoquePorDep: estDep, estoqueTotal, valorEstoque: estoqueTotal * precoCusto }
-      }).sort((a, b) => b.faturado - a.faturado)
+      }).sort((a, b) => {
+        if (ordem === 'nome') return a.nome.localeCompare(b.nome, 'pt-BR')
+        if (ordem === 'lucro') return b.lucro - a.lucro
+        if (ordem === 'qtd') return b.qtd - a.qtd
+        return b.faturado - a.faturado   // padrão: mais vendido
+      })
       for (const r of condensado) { condTotais.qtd += r.qtd; condTotais.custo += r.custo; condTotais.faturado += r.faturado; condTotais.lucro += r.lucro; condTotais.estoqueTotal += r.estoqueTotal; condTotais.valorEstoque += r.valorEstoque }
     }
   }
@@ -1163,6 +1168,17 @@ export default async function RelatoriosPage({
             <select name="loja" defaultValue={lojaEfetiva} className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="todas">Todas</option>
               {(lojasAll ?? []).map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
+            </select>
+          </div>
+        )}
+        {aba === 'lucro' && (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-600">Ordenar</label>
+            <select name="ordem" defaultValue={ordem ?? 'faturado'} className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="faturado">Mais vendido</option>
+              <option value="nome">Nome (A–Z)</option>
+              <option value="lucro">Maior lucro</option>
+              <option value="qtd">Mais peças</option>
             </select>
           </div>
         )}
