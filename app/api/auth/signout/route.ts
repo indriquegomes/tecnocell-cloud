@@ -30,8 +30,10 @@ async function fazerLogout(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { cookies: { getAll() { return [] }, setAll() {} } }
     )
-    const { data: perf } = await service.from('perfis').select('is_master').eq('id', user.id).maybeSingle()
-    if (!(perf as { is_master?: boolean | null } | null)?.is_master) {
+    const { data: perf } = await service.from('perfis').select('is_master, username').eq('id', user.id).maybeSingle()
+    const p = perf as { is_master?: boolean | null; username?: string | null } | null
+    // Só trava o login de "visitante" (conta compartilhada). Funcionários normais entram/saem livres.
+    if (!p?.is_master && p?.username === 'visitante') {
       await service.from('perfis').update({ login_bloqueado: true }).eq('id', user.id)
     }
   }
