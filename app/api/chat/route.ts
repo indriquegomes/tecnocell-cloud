@@ -38,9 +38,11 @@ export async function POST(req: NextRequest) {
   if (!reservado) return new Response('Limite do chat atingido. Aguarde um minuto.', { status: 429 })
 
   let podeFuncionario = false
+  let isMaster = false
   if (user) {
-    const { permissoes, isMaster, ativo } = await permissoesEfetivas(user.id)
-    podeFuncionario = ativo && temPermissao(permissoes, 'chat_ia', isMaster)
+    const { permissoes, isMaster: master, ativo } = await permissoesEfetivas(user.id)
+    isMaster = master
+    podeFuncionario = ativo && temPermissao(permissoes, 'chat_ia', master)
   }
   const tipo: 'funcionario' | 'cliente' = (tipoRequisitado === 'funcionario' && podeFuncionario) ? 'funcionario' : 'cliente'
 
@@ -50,7 +52,7 @@ export async function POST(req: NextRequest) {
     nomeUsuario = perfil?.nome ?? undefined
   }
 
-  const ferramentas = montaFerramentas(tipo, service)
+  const ferramentas = montaFerramentas(tipo, service, isMaster)
   // passa a data de hoje no fuso da loja, pra IA usar em 'quanto vendeu hoje' sem perguntar
   const systemPrompt = buildSystemPrompt(tipo, { hoje: hojeSP() }, nomeUsuario)
 
@@ -74,15 +76,17 @@ export async function POST(req: NextRequest) {
   })
 }
 
-function montaFerramentas(tipo: 'funcionario' | 'cliente', service: any): Ferramenta[] {
+function montaFerramentas(tipo: 'funcionario' | 'cliente', service: any, isMaster: boolean): Ferramenta[] {
   const publico = tipo === 'cliente'
   const fs: Ferramenta[] = [buscarProdutos(service, publico)]
   if (!publico) {
     fs.push(estoqueProduto(service))
     fs.push(buscarCliente(service))
     fs.push(fiadoCliente(service))
-    fs.push(funcionarios(service))
-    fs.push(pontoHoje(service))
+    if (isMaster) {
+      fs.push(funcionarios(service))
+      fs.push(pontoHoje(service))
+    }
     fs.push(fornecedores(service))
     fs.push(caixaResumo(service))
     fs.push(osResumo(service))

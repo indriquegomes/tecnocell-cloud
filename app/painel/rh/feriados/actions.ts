@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 export async function criarFeriado(formData: FormData) {
-  await requirePermissao('rh')
+  await requirePermissao('master')
   const s = await createServiceClient()
   const cidade = formData.get('cidade') as string
   const data = formData.get('data') as string
@@ -18,7 +18,7 @@ export async function criarFeriado(formData: FormData) {
 }
 
 export async function excluirFeriado(id: string) {
-  await requirePermissao('rh')
+  await requirePermissao('master')
   const s = await createServiceClient()
   await s.from('feriados').delete().eq('id', id)
   revalidatePath('/painel/rh/feriados')

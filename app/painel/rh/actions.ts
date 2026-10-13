@@ -19,7 +19,7 @@ function parseHoras(s: string): number {
 // RH lança uma entrada no banco de horas (+ adiciona / - retira)
 export async function lancarHora(formData: FormData) {
   const user = await requireAuth()
-  await requirePermissao('rh')
+  await requirePermissao('master')
   const s = await createServiceClient()
   const horasNum = parseHoras((formData.get('horas') as string) || '')
   const retirar = formData.get('operacao') === 'retirar'
@@ -40,7 +40,7 @@ export async function lancarHora(formData: FormData) {
 }
 
 export async function excluirHora(id: string) {
-  await requirePermissao('rh')
+  await requirePermissao('master')
   const s = await createServiceClient()
   await s.from('banco_horas').delete().eq('id', id)
   revalidatePath('/painel/rh')
@@ -48,7 +48,7 @@ export async function excluirHora(id: string) {
 
 // Confirma uma dobra (folga/feriado) lançada automaticamente pelo ponto.
 export async function confirmarDobra(id: string) {
-  await requirePermissao('rh')
+  await requirePermissao('master')
   const s = await createServiceClient()
   await s.from('banco_horas').update({ confirmado: true }).eq('id', id)
   revalidatePath('/painel/rh')
@@ -56,7 +56,7 @@ export async function confirmarDobra(id: string) {
 
 // Abona uma falta (justificada): remove o lançamento, sem descontar.
 export async function abonarFalta(id: string) {
-  await requirePermissao('rh')
+  await requirePermissao('master')
   const s = await createServiceClient()
   await s.from('banco_horas').delete().eq('id', id)
   revalidatePath('/painel/rh')
@@ -65,7 +65,7 @@ export async function abonarFalta(id: string) {
 
 // Confirma a falta: o desconto passa a valer (confirmado=true).
 export async function confirmarFalta(id: string) {
-  await requirePermissao('rh')
+  await requirePermissao('master')
   const s = await createServiceClient()
   await s.from('banco_horas').update({ confirmado: true }).eq('id', id)
   revalidatePath('/painel/rh')

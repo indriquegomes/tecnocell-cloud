@@ -10,7 +10,7 @@ export type ActionState = { ok: boolean; message: string } | null
 export async function salvarEscalaDia(_prev: ActionState, fd: FormData): Promise<ActionState> {
   try {
     const token = fd.get('access_token') as string
-    await requirePermissao('rh', token)
+    await requirePermissao('master', token)
     const supabase = await createServiceClient()
 
     const perfilId = fd.get('perfil_id') as string
@@ -49,7 +49,7 @@ export async function salvarEscalaDia(_prev: ActionState, fd: FormData): Promise
 export async function salvarExcecao(_prev: ActionState, fd: FormData): Promise<ActionState> {
   try {
     const token = fd.get('access_token') as string
-    const usuario = await requirePermissao('rh', token)
+    const usuario = await requirePermissao('master', token)
     const supabase = await createServiceClient()
 
     const perfilId = fd.get('perfil_id') as string
@@ -89,7 +89,7 @@ export async function salvarExcecao(_prev: ActionState, fd: FormData): Promise<A
 export async function salvarRegua(_prev: ActionState, fd: FormData): Promise<ActionState> {
   try {
     const token = fd.get('access_token') as string
-    const usuario = await requirePermissao('rh', token)
+    const usuario = await requirePermissao('master', token)
     const supabase = await createServiceClient()
 
     const perfilId = fd.get('perfil_id') as string
@@ -166,7 +166,7 @@ export async function salvarRegua(_prev: ActionState, fd: FormData): Promise<Act
 
 export async function removerExcecao(_prev: ActionState, fd: FormData): Promise<ActionState> {
   try {
-    await requirePermissao('rh', fd.get('access_token') as string)
+    await requirePermissao('master', fd.get('access_token') as string)
     const supabase = await createServiceClient()
     await supabase.from('escala_excecoes').delete().eq('id', fd.get('id') as string)
     revalidatePath('/painel/escala')

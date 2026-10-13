@@ -20,8 +20,8 @@ export const ROTAS_PERMISSAO: Record<string, string> = {
   '/painel/relatorios':        'relatorios',
   '/painel/painel-vendedor':  'relatorios',
   '/painel/metas':            'metas',
-  '/painel/rh':               'rh',
-  '/painel/escala':           'rh',
+  '/painel/rh':               'master',
+  '/painel/escala':           'master',
   '/painel/lembretes':        'lembretes',
   '/painel/compras':       'compras',
   '/painel/pedidos':       'pedidos',
@@ -83,6 +83,7 @@ export const TODAS_PERMISSOES = [
 export type PermissaoKey = typeof TODAS_PERMISSOES[number]['key']
 
 export function temPermissao(permissoes: string[], key: string, isMaster: boolean): boolean {
+  if (key === 'master') return isMaster // chave sentinela: só o master (não é permissão de cargo)
   if (isMaster) return true
   return permissoes.includes(key)
 }
