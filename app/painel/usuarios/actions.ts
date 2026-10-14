@@ -108,6 +108,7 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
   const isMaster = fd.getAll('is_master').includes('1')
   const ativo    = fd.getAll('ativo').includes('1')
   const perms    = fd.getAll('permissoes') as string[]
+  const cargoId  = (fd.get('cargo_id') as string) || null
 
   if (!userId || !nome) return { ok: false, message: 'Dados inválidos' }
 
@@ -152,10 +153,10 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
   const { error } = await supabase.from('perfis').update({
     nome,
     username,
-    permissoes: isMaster ? TODAS_KEYS : perms,
+    permissoes: isMaster ? TODAS_KEYS : (cargoId ? [] : perms),
     is_master: isMaster,
     ativo,
-    cargo_id: (fd.get('cargo_id') as string) || null,
+    cargo_id: cargoId,
     lojas_permitidas: lojasPermitidas,
     tabelas_permitidas: tabelasPermitidas,
     pdv_loja_id: pdvLojaId,

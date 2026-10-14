@@ -158,12 +158,10 @@ function CargoOuPermissoes({ cargos, cargoId, onCargoChange, permissoes, isMaste
           {cargos.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
         </select>
         <p className="mt-1 text-[11px] text-gray-400">
-          {cargoId ? 'O cargo dá o pacote base + as extras que você marcar abaixo valem só pra esta pessoa.' : 'Sem cargo: marque as permissões abaixo pra esta pessoa.'}
+          {cargoId ? 'O cargo define todas as permissões desta pessoa.' : 'Sem cargo: marque as permissões abaixo pra esta pessoa.'}
         </p>
       </div>
-      {cargoId
-        ? <PermissoesGrid permissoes={permissoes} isMaster={false} mostrarMaster={false} />
-        : <PermissoesGrid permissoes={permissoes} isMaster={isMaster} />}
+      {!cargoId && <PermissoesGrid permissoes={permissoes} isMaster={isMaster} />}
     </div>
   )
 }
