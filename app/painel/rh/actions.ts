@@ -1,6 +1,7 @@
 'use server'
 
 import { createServiceClient, requireAuth, requirePermissao, permissoesEfetivas } from '@/lib/supabase/server'
+import { recalcularBancoDia } from '@/lib/banco-horas'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -93,6 +94,11 @@ function pontoDeHoje(hora: string): string | null {
   return `${hoje}T${m[1]}:${m[2]}:00-03:00`
 }
 
+// data (YYYY-MM-DD) no fuso de São Paulo de um criado_em (timestamptz)
+function dataDeCriadoEm(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+}
+
 export async function ajustarPonto(formData: FormData) {
   await requireMaster()
   const s = await createServiceClient()
@@ -100,15 +106,31 @@ export async function ajustarPonto(formData: FormData) {
   const tipo = formData.get('tipo') as string
   const criado_em = pontoDeHoje((formData.get('hora') as string) || '')
   if (!ponto_id || !TIPOS_PONTO.includes(tipo) || !criado_em) throw new Error('Dados inválidos.')
+  const { data: antes } = await s.from('pontos').select('usuario_id, criado_em').eq('id', ponto_id).maybeSingle()
   await s.from('pontos').update({ tipo, criado_em }).eq('id', ponto_id)
+  // regra fundamental: ajuste de ponto RECALCULA o banco (mesma lógica da saída)
+  const uid = (antes as { usuario_id?: string | null } | null)?.usuario_id
+  if (uid) {
+    const dataOriginal = (antes as { criado_em?: string | null } | null)?.criado_em ? dataDeCriadoEm((antes as { criado_em: string }).criado_em) : null
+    if (dataOriginal) await recalcularBancoDia(s, uid, dataOriginal)
+    await recalcularBancoDia(s, uid, new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }))
+  }
   revalidatePath('/painel/rh')
+  revalidatePath('/painel/meu-perfil')
 }
 
 export async function excluirPonto(ponto_id: string) {
   await requireMaster()
   const s = await createServiceClient()
+  const { data: antes } = await s.from('pontos').select('usuario_id, criado_em').eq('id', ponto_id).maybeSingle()
   await s.from('pontos').delete().eq('id', ponto_id)
+  const uid = (antes as { usuario_id?: string | null } | null)?.usuario_id
+  if (uid) {
+    const data = (antes as { criado_em?: string | null } | null)?.criado_em ? dataDeCriadoEm((antes as { criado_em: string }).criado_em) : null
+    if (data) await recalcularBancoDia(s, uid, data)
+  }
   revalidatePath('/painel/rh')
+  revalidatePath('/painel/meu-perfil')
 }
 
 export async function incluirPonto(formData: FormData) {
@@ -119,5 +141,7 @@ export async function incluirPonto(formData: FormData) {
   const criado_em = pontoDeHoje((formData.get('hora') as string) || '')
   if (!usuario_id || !TIPOS_PONTO.includes(tipo) || !criado_em) throw new Error('Dados inválidos.')
   await s.from('pontos').insert({ usuario_id, tipo, criado_em })
+  await recalcularBancoDia(s, usuario_id, new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }))
   revalidatePath('/painel/rh')
+  revalidatePath('/painel/meu-perfil')
 }
