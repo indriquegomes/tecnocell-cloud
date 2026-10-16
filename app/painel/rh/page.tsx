@@ -164,7 +164,7 @@ export default async function RhPage() {
 
       {/* Faltas pra revisar (abonar ou confirmar) */}
       {faltasPendentes.length > 0 && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
+        <div id="faltas" className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
           <p className="text-sm font-semibold text-rose-800">⚠️ Faltas pra revisar — abone a justificada ou confirme o desconto</p>
           <div className="mt-2 space-y-2">
             {faltasPendentes.map((b) => (
