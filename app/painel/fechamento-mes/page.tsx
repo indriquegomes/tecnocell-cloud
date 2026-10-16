@@ -77,7 +77,7 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
   const aberturaValor = aberturaRow?.data ? (aberturaRow.data.valor as Abertura) : null
   const fechamento = fechadoRow?.data ? (fechadoRow.data.valor as { fechado_em: string }) : null
   const fechamentoAnterior = anteriorRow?.data
-    ? (anteriorRow.data.valor as { estoque_final?: Record<string, { vitrine: number; fundo: number }> })
+    ? (anteriorRow.data.valor as { estoque_final?: Record<string, { vitrine: number; fundo: number }>; caixa_final?: Record<string, number> })
     : null
 
   // Estoque a custo AGORA (vitrine/fundo por loja) — o "final" deste mês.
@@ -186,7 +186,8 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     const b = porLoja[l.id]
     const entradas = b.entradas + b.fiadoCobrado
     const saidas = b.compras + b.despesas
-    const caixaInicial = aberturaValor?.caixa?.[l.id] ?? 0
+    // caixa final do mês anterior vira a abertura deste mês; sem mês fechado, cai na abertura manual (legado)
+    const caixaInicial = fechamentoAnterior?.caixa_final?.[l.id] ?? aberturaValor?.caixa?.[l.id] ?? 0
     const caixaDet = aberturaValor?.caixa_detalhado?.[l.id] ?? {}
     const estoqueCategorias = aberturaValor?.estoque_categorias?.[l.id] ?? {}
     const consignado = aberturaValor?.consignado?.[l.id] ?? 0
@@ -385,9 +386,13 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-        <FecharMesButton mes={mes} fechado={!!fechamento} />
-        <p className="text-xs text-gray-400">O botão só marca o mês como conferido — não trava nem apaga nada.</p>
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <FecharMesButton
+          mes={mes}
+          fechado={!!fechamento}
+          lojas={lojasList.map((l) => ({ id: l.id, nome: l.nome, caixaFinal: linhas.find((x) => x.loja === l.id)?.caixaFinal ?? 0 }))}
+        />
+        <p className="mt-3 text-xs text-gray-400">Fechar o mês grava o caixa final que você conferiu e congela o estoque. Esse caixa final vira a abertura do mês seguinte. Reabrir desfaz.</p>
       </div>
     </div>
   )
