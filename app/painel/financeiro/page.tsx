@@ -12,7 +12,7 @@ import { ExportCsv } from '../relatorios/ExportCsv'
 import { BuscaAvancada } from '@/components/BuscaAvancada'
 
 const CATEGORIAS_FINANCEIRO: { grupo: string; categorias: string[] }[] = [
-  { grupo: 'Despesas da Loja', categorias: ['Alimentação', 'Combustível', 'Aluguel', 'Salários', 'Motoboy', 'Contabilidade', 'Energia/Luz', 'Impostos', 'Mercadoria', 'Serviços', 'Uso interno', 'Perda', 'Gastos em São Paulo'] },
+  { grupo: 'Despesas da Loja', categorias: ['Alimentação', 'Combustível', 'Aluguel', 'Salários', 'Motoboy', 'Contabilidade', 'Energia/Luz', 'Impostos', 'Mercadoria', 'Serviços', 'Uso interno', 'Perda', 'Manutenção', 'Transporte', 'Limpeza', 'Saúde', 'Confraternização', 'Gastos em São Paulo'] },
   { grupo: 'Sócio', categorias: ['Retirada do sócio'] },
   { grupo: 'Outros', categorias: ['Estorno', 'Outras despesas', 'Combinado na entrega', 'Vale crédito usado', 'Dívida parcelada'] },
 ]
