@@ -38,6 +38,7 @@ export interface Usuario {
   acessoBloqFeriado: boolean
   metaVendaMensal: number
   salario: number
+  dataAdmissao: string | null
   chavePix: string | null
   motoboyValorFixo: number
   motoboyAdicionalLoja: number
@@ -233,6 +234,11 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario, isMotoboy }: { loj
       <div className="w-48">
         <label className="mb-1 block text-xs font-medium text-gray-600">Salário (R$)</label>
         <CampoDinheiro name="salario" defaultValue={Number(usuario.salario || 0)} className="text-sm" />
+      </div>
+
+      <div className="w-48">
+        <label className="mb-1 block text-xs font-medium text-gray-600">Data de admissão</label>
+        <input type="date" name="data_admissao" defaultValue={usuario.dataAdmissao ?? ''} className="field w-full text-sm" />
       </div>
 
       <div className="w-full">

@@ -86,6 +86,7 @@ export async function criarUsuario(_: ActionResult | null, fd: FormData): Promis
     ativo: true,
     cargo_id: (fd.get('cargo_id') as string) || null,
     lojas_permitidas: (fd.getAll('lojas_permitidas') as string[]).filter(Boolean),
+    data_admissao: (fd.get('data_admissao') as string) || null,
     salario: Math.max(0, parseFloat((fd.get('salario') as string) || '0') || 0),
   })
 
@@ -158,6 +159,7 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
     ativo,
     cargo_id: cargoId,
     lojas_permitidas: lojasPermitidas,
+    data_admissao: (fd.get('data_admissao') as string) || null,
     tabelas_permitidas: tabelasPermitidas,
     pdv_loja_id: pdvLojaId,
     pdv_deposito_id: pdvDepositoId,
