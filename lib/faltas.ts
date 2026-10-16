@@ -8,10 +8,14 @@ const dataSP = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { time
 // (e NÃO era folga nem feriado). Cria 'falta' (negativo, confirmado=false).
 export async function detectarFaltas() {
   const s = await createServiceClient()
-  const hoje = new Date()
+  const agora = new Date()
+  const hojeSP = agora.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  const horaSP = agora.toLocaleTimeString('en-GB', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false })
   const datas: string[] = []
+  // regra do dono: depois das 18:59, quem não deu entrada HOJE já é falta
+  if (horaSP >= '18:59') datas.push(hojeSP)
   for (let i = 1; i <= 7; i++) {
-    const d = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - i)
+    const d = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() - i)
     datas.push(d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }))
   }
   const primeiro = datas[datas.length - 1]
@@ -65,7 +69,7 @@ export async function detectarFaltas() {
       if (fersHoje.has('todas') || (cidade && fersHoje.has(cidade))) continue
       const planejado = t.saida - t.entrada - (t.pausaIni !== null && t.pausaFim !== null ? Math.max(0, t.pausaFim - t.pausaIni) : 0)
       if (planejado <= 0) continue
-      await s.from('banco_horas').insert({ usuario_id: t.perfilId, horas: -Math.round((planejado / 60) * 100) / 100, data, motivo: 'falta', obs: 'Falta (não bateu ponto)', confirmado: false })
+      await s.from('banco_horas').insert({ usuario_id: t.perfilId, horas: -Math.round((planejado / 60) * 100) / 100, data, motivo: 'falta', obs: 'Falta (não bateu ponto)', confirmado: true })
     }
   }
 }

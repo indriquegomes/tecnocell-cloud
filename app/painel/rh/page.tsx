@@ -6,7 +6,7 @@ import { Dica } from '@/components/Dica'
 import { formatDate } from '@/lib/utils'
 import { LancarHoraForm } from './LancarHoraForm'
 import { BatidasPonto } from './BatidasPonto'
-import { confirmarDobra, abonarFalta, confirmarFalta } from './actions'
+import { confirmarDobra, abonarFalta } from './actions'
 import { ExtratoBancoHoras } from './ExtratoBancoHoras'
 import { detectarFaltas } from '@/lib/faltas'
 
@@ -70,7 +70,7 @@ export default async function RhPage() {
   // ---- Banco de horas ----
   const bancoItens = (banco ?? []) as { id: string; usuario_id: string; horas: number; data: string; motivo: string | null; obs: string | null; confirmado: boolean | null }[]
   const dobrasPendentes = bancoItens.filter((b) => b.motivo === 'dobra' && b.confirmado === false)
-  const faltasPendentes = bancoItens.filter((b) => b.motivo === 'falta' && b.confirmado === false)
+  const faltasPendentes = bancoItens.filter((b) => b.motivo === 'falta')
   const saldoPorUser: Record<string, number> = {}
   for (const b of bancoItens) if (b.confirmado !== false) saldoPorUser[b.usuario_id] = (saldoPorUser[b.usuario_id] ?? 0) + Number(b.horas)
   const nomePorUser: Record<string, string> = Object.fromEntries((perfis ?? []).map((u) => [u.id, u.nome]))
@@ -172,10 +172,7 @@ export default async function RhPage() {
                 <span className="text-sm text-gray-700">{nomePorUser[b.usuario_id] ?? '—'} <span className="text-gray-400">· {formatDate(b.data)} ·</span> <b className="text-rose-600">{fmtH(Number(b.horas))}</b></span>
                 <div className="flex gap-2">
                   <form action={abonarFalta.bind(null, b.id)}>
-                    <button type="submit" className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition">Abonar</button>
-                  </form>
-                  <form action={confirmarFalta.bind(null, b.id)}>
-                    <button type="submit" className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 transition">Confirmar falta</button>
+                    <button type="submit" className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition">Abonar (justificar)</button>
                   </form>
                 </div>
               </div>
