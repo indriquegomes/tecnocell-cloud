@@ -126,6 +126,29 @@ export default async function PainelLayout({ children }: { children: React.React
     } catch {}
   }
 
+  // ── Faltas pendentes (aviso no topo, some quando justificada) ──
+  let faltasPendentes: { id: string; nome: string; data: string; horas: number }[] = []
+  let minhasFaltasPendentes: { data: string; horas: number }[] = []
+  if (userId) {
+    try {
+      const supabase = await createServiceClient()
+      const { data: faltas } = await supabase.from('banco_horas')
+        .select('id, usuario_id, horas, data')
+        .eq('motivo', 'falta')
+        .eq('confirmado', false)
+        .order('data', { ascending: false })
+      const lista = (faltas ?? []) as { id: string; usuario_id: string; horas: number; data: string }[]
+      if (isMaster) {
+        const ids = [...new Set(lista.map((f) => f.usuario_id))]
+        const { data: ps } = ids.length ? await supabase.from('perfis').select('id, nome').in('id', ids) : { data: [] }
+        const nomes = Object.fromEntries(((ps ?? []) as { id: string; nome: string }[]).map((p) => [p.id, p.nome]))
+        faltasPendentes = lista.map((f) => ({ id: f.id, nome: nomes[f.usuario_id] ?? '—', data: f.data, horas: f.horas }))
+      } else {
+        minhasFaltasPendentes = lista.filter((f) => f.usuario_id === userId).map((f) => ({ data: f.data, horas: f.horas }))
+      }
+    } catch {}
+  }
+
   // ── Feriados municipais em 7 dias (aviso pro master) ──
   let avisosFeriados: { cidade: string; nome: string }[] = []
   if (userId && !isMaster) {
@@ -162,6 +185,8 @@ export default async function PainelLayout({ children }: { children: React.React
         rotinas={rotinas}
         badges={badges}
         avisosFeriados={avisosFeriados}
+        faltasPendentes={faltasPendentes}
+        minhasFaltasPendentes={minhasFaltasPendentes}
       >
         {children}
       </PainelShell>

@@ -17,7 +17,7 @@ import { moduloAtual } from '@/lib/modulo'
 const PDV_PATHS = ['/painel/pdv', '/painel/pdv/operacao']
 
 export function PainelShell({
-  children, email, nome, permissoes, isMaster, lojas = [], lojaAtivaId = '', avisosCaixa = [], rotinas = [], badges = {}, avisosFeriados = [],
+  children, email, nome, permissoes, isMaster, lojas = [], lojaAtivaId = '', avisosCaixa = [], rotinas = [], badges = {}, avisosFeriados = [], faltasPendentes = [], minhasFaltasPendentes = [],
 }: {
   children: React.ReactNode
   email: string
@@ -30,6 +30,8 @@ export function PainelShell({
   rotinas?: LembretePendente[]
   badges?: Record<string, number>
   avisosFeriados?: { cidade: string; nome: string }[]
+  faltasPendentes?: { id: string; nome: string; data: string; horas: number }[]
+  minhasFaltasPendentes?: { data: string; horas: number }[]
 }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -171,6 +173,17 @@ export function PainelShell({
           </div>
         </header>
         <BarraAvisos caixas={avisosCaixa} rotinas={rotinas} />
+        {(faltasPendentes.length > 0 || minhasFaltasPendentes.length > 0) && (
+          <div className="border-b border-rose-200 bg-rose-50 px-6 py-2 text-sm text-rose-800">
+            {isMaster ? (
+              <span>
+                ⚠️ <b>{faltasPendentes.length}</b> falta(s) sem justificativa: {faltasPendentes.map((f) => f.nome + ' (' + f.data.slice(8, 10) + '/' + f.data.slice(5, 7) + ')').join(', ')} — <Link href="/painel/rh" className="font-semibold underline">justificar</Link>
+              </span>
+            ) : (
+              <span>⚠️ Você tem <b>{minhasFaltasPendentes.length}</b> falta(s) sem justificativa ({minhasFaltasPendentes.map((f) => f.data.slice(8, 10) + '/' + f.data.slice(5, 7)).join(', ')}). Fale com o gestor.</span>
+            )}
+          </div>
+        )}
         {isMaster && avisosFeriados.length > 0 && (
           <div className="border-b border-amber-200 bg-amber-50 px-6 py-2 text-sm text-amber-800">
             🗓 Feriado municipal em 7 dias: <b>{avisosFeriados.map((f) => f.nome + ' (' + f.cidade + ')').join(', ')}</b> — decidir se a loja abre.
