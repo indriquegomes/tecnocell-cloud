@@ -1,6 +1,7 @@
 'use server'
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { travarSeMesFechado } from '@/lib/fechamento'
 import { revalidatePath } from 'next/cache'
 
 export type PagamentoDetalhe = {
@@ -150,6 +151,23 @@ export async function cancelarVenda(
 ): Promise<ResultadoCancelamento> {
   await requirePermissao('vendas')
   const supabase = await createServiceClient()
+
+  // Trava de mês fechado: cancelar uma venda de mês fechado mudaria o resultado
+  // do passado auditado (estoque, caixa e lucro do mês). O dono reabre o mês se
+  // for intencional.
+  const { data: vendaAlvo, error: erroVendaAlvo } = await supabase
+    .from('vendas')
+    .select('data')
+    .eq('id', vendaId)
+    .maybeSingle()
+  // fail-closed: se não deu pra ler a data da venda, não libera o cancelamento
+  // (cancelar reverte estoque/IMEI/crédito — mutação irreversível do passado).
+  if (erroVendaAlvo) return { ok: false, erro: 'Não deu pra conferir a data desta venda: ' + erroVendaAlvo.message }
+  // data é timestamptz (now() UTC): converter pro fuso de SP antes de tirar o mês,
+  // senão venda depois das 21h cai no dia seguinte e escapa da trava (ou trava o mês errado).
+  const dataVendaSp = vendaAlvo ? new Date((vendaAlvo as { data?: string | null }).data as string).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) : null
+  const erroTrava = await travarSeMesFechado(supabase, dataVendaSp, 'cancelar esta venda')
+  if (erroTrava) return { ok: false, erro: erroTrava }
 
   // TRAVA: cancelar NÃO devolve dinheiro — só desfaz estoque, dívida e crédito.
   // Se a venda já recebeu dinheiro de verdade, cancelar deixaria o valor solto

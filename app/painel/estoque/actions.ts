@@ -3,6 +3,7 @@
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { sincronizarEstoqueML } from '@/lib/mercado-livre'
 import { palavrasBusca, aplicaBusca } from '@/lib/busca-produtos'
+import { travarSeMesFechado } from '@/lib/fechamento'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -99,6 +100,11 @@ export async function registrarMovimento(formData: FormData) {
   // Data e hora da movimentação (permite backfill)
   const dataMov = formData.get('data_mov') as string | null
   const horarioMov = formData.get('horario_mov') as string | null
+  // Trava de mês fechado: não deixa backfill de movimento num mês já fechado.
+  if (dataMov) {
+    const erroTrava = await travarSeMesFechado(supabase, dataMov, 'lançar movimento de estoque')
+    if (erroTrava) redirect(`/painel/estoque/historico?erro=${encodeURIComponent(erroTrava)}`)
+  }
   // Trata o horário como hora de Brasília (UTC-3)
   const createdAt = dataMov && horarioMov
     ? new Date(`${dataMov}T${horarioMov}:00-03:00`).toISOString()
@@ -194,6 +200,12 @@ export async function registrarMovimentos(formData: FormData) {
   const horarioMov = formData.get('horario_mov') as string | null
   const notaFiscal = (formData.get('nota_fiscal') as string | null)?.trim() || null
   const obsRaw = (formData.get('observacao') as string | null)?.trim() || null
+
+  // Trava de mês fechado: não deixa backfill de movimento em lote num mês fechado.
+  if (dataMov) {
+    const erroTrava = await travarSeMesFechado(supabase, dataMov, 'lançar movimento de estoque')
+    if (erroTrava) redirect(`/painel/estoque/historico?erro=${encodeURIComponent(erroTrava)}`)
+  }
 
   const createdAt = dataMov && horarioMov
     ? new Date(`${dataMov}T${horarioMov}:00-03:00`).toISOString()

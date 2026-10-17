@@ -41,10 +41,12 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
   const proxMes = m === 12 ? `${ano + 1}-01-01` : `${ano}-${String(m + 1).padStart(2, '0')}-01`
   const mesAnterior = m === 1 ? `${ano - 1}-12` : `${ano}-${String(m - 1).padStart(2, '0')}`
   const mesSeguinte = proxMes.slice(0, 7)
+  const [anoAnt, mAnt] = mesAnterior.split('-').map(Number)
+  const mesAntAnt = mAnt === 1 ? `${anoAnt - 1}-12` : `${anoAnt}-${String(mAnt - 1).padStart(2, '0')}`
 
   const supabase = await createServiceClient()
 
-  const [{ data: lojas }, deps, cxs, perfis, aberturaRow, fechadoRow, anteriorRow] = await Promise.all([
+  const [{ data: lojas }, deps, cxs, perfis, aberturaRow, fechadoRow, anteriorRow, antAntRow] = await Promise.all([
     supabase.from('lojas').select('id, nome').order('nome'),
     fetchAll<any>((from, to) => supabase.from('depositos').select('id, loja_id').range(from, to)),
     fetchAll<any>((from, to) => supabase.from('caixas').select('id, loja_id').range(from, to)),
@@ -52,6 +54,7 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     supabase.from('configuracoes').select('valor').eq('chave', `abertura:${mes}`).maybeSingle(),
     supabase.from('configuracoes').select('valor').eq('chave', `fechamento_mes:${mes}`).maybeSingle(),
     supabase.from('configuracoes').select('valor').eq('chave', `fechamento_mes:${mesAnterior}`).maybeSingle(),
+    supabase.from('configuracoes').select('valor').eq('chave', `fechamento_mes:${mesAntAnt}`).maybeSingle(),
   ])
 
   const lojasList = (lojas ?? []) as { id: string; nome: string }[]
@@ -79,35 +82,99 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
   const fechamentoAnterior = anteriorRow?.data
     ? (anteriorRow.data.valor as { estoque_final?: Record<string, { vitrine: number; fundo: number }>; caixa_final?: Record<string, number> })
     : null
+  const fechamentoAntAnt = antAntRow?.data
+    ? (antAntRow.data.valor as { estoque_final?: Record<string, { vitrine: number; fundo: number }> })
+    : null
 
   // Estoque a custo AGORA (vitrine/fundo por loja) — o "final" deste mês.
   // Inicial = congelado no fechamento do mês anterior (mesma régua de preco_custo).
   const estoqueFinalPorLoja = await estoqueCustoPorLoja(supabase).catch(() => ({} as Record<string, { vitrine: number; fundo: number }>))
   const estoqueInicialPorLoja = fechamentoAnterior?.estoque_final ?? {}
 
-  const pags = await fetchAll<any>((from, to) => supabase.from('pagamentos_venda')
-    .select('valor, forma_pagamento_id, vendas!inner(deposito_id, numero, status, uso_interno, data)')
-    .eq('status', 'pago').eq('vendas.status', 'concluida').eq('vendas.uso_interno', false)
-    .lt('vendas.numero', 100000).gte('vendas.data', inicio).lt('vendas.data', proxMes).range(from, to))
-
-  // TODOS os movimentos do mês: recebimento (fiado), reforço (entra na gaveta),
-  // retirada/sangria e devolução em dinheiro (saem da gaveta).
-  const movsCaixa = await fetchAll<any>((from, to) => supabase.from('movimentos_caixa')
-    .select('tipo, forma_pagamento, valor, caixa_id')
-    .gte('created_at', inicio).lt('created_at', proxMes).range(from, to))
-
-  const comprasItens = await fetchAll<any>((from, to) => supabase.from('itens_nota_entrada')
-    .select('total_item, deposito_id, notas_entrada!inner(data_entrada)')
-    .gte('notas_entrada.data_entrada', inicio).lt('notas_entrada.data_entrada', proxMes).range(from, to))
-
-  const despesas = await fetchAll<any>((from, to) => supabase.from('lancamentos')
-    .select('valor, loja_id, categoria, pessoa_nome, forma_pagamento').eq('tipo', 'pagar').eq('status', 'pago')
-    .gte('data_vencimento', inicio).lt('data_vencimento', proxMes).range(from, to))
-
   // Forma de pagamento → tipo (pra saber o que é DINHEIRO de verdade, não PIX/cartão)
   const { data: formasPg } = await supabase.from('formas_pagamento').select('id, tipo')
   const tipoPorFormaId = new Map((formasPg ?? []).map((f) => [f.id, f.tipo as string]))
   const ehDinheiro = (txt: string | null | undefined) => (txt ?? '').trim().toLowerCase().includes('dinheiro')
+
+  const CAT_COMPRAS = ['Fornecedor / Mercadoria', 'Fornecedor ZL', 'fonecedor']
+
+  // Movimento de um mês (entradas, saídas, despesas e dinheiro) por loja.
+  // Reusado pro mês atual E pro anterior — é o que sustenta a comparação mês a mês.
+  const movimentoDoMes = async (de: string, ate: string) => {
+    const [pags, movsCaixa, comprasItens, despesas] = await Promise.all([
+      fetchAll<any>((from, to) => supabase.from('pagamentos_venda')
+        .select('valor, forma_pagamento_id, vendas!inner(deposito_id, numero, status, uso_interno, data)')
+        .eq('status', 'pago').eq('vendas.status', 'concluida').eq('vendas.uso_interno', false)
+        .lt('vendas.numero', 100000).gte('vendas.data', de).lt('vendas.data', ate).range(from, to)),
+      // TODOS os movimentos do mês: recebimento (fiado), reforço (entra na gaveta),
+      // retirada/sangria e devolução em dinheiro (saem da gaveta).
+      fetchAll<any>((from, to) => supabase.from('movimentos_caixa')
+        .select('tipo, forma_pagamento, valor, caixa_id')
+        .gte('created_at', de).lt('created_at', ate).range(from, to)),
+      fetchAll<any>((from, to) => supabase.from('itens_nota_entrada')
+        .select('total_item, deposito_id, notas_entrada!inner(data_entrada)')
+        .gte('notas_entrada.data_entrada', de).lt('notas_entrada.data_entrada', ate).range(from, to)),
+      fetchAll<any>((from, to) => supabase.from('lancamentos')
+        .select('valor, loja_id, categoria, pessoa_nome, forma_pagamento').eq('tipo', 'pagar').eq('status', 'pago')
+        .gte('data_vencimento', de).lt('data_vencimento', ate).range(from, to)),
+    ])
+
+    const porLoja: Record<string, { loja: string; nome: string; entradas: number; fiadoCobrado: number; compras: number; despesas: number }> = {}
+    for (const l of lojasList) porLoja[l.id] = { loja: l.id, nome: l.nome, entradas: 0, fiadoCobrado: 0, compras: 0, despesas: 0 }
+    const add = (id: string | null, campo: 'entradas' | 'fiadoCobrado' | 'compras' | 'despesas', valor: number) => {
+      if (!id || !porLoja[id]) return
+      porLoja[id][campo] += valor
+    }
+
+    for (const p of pags) add(lojaDeDeposito.get(p.vendas?.deposito_id) ?? null, 'entradas', p.valor ?? 0)
+    for (const r of movsCaixa) if (r.tipo === 'recebimento') add(lojaDeCaixa.get(r.caixa_id) ?? null, 'fiadoCobrado', r.valor ?? 0)
+    for (const c of comprasItens) add(lojaDeDeposito.get(c.deposito_id) ?? null, 'compras', c.total_item ?? 0)
+    for (const d of despesas) {
+      const cat = (d.categoria || '').trim()
+      if (CAT_COMPRAS.includes(cat)) continue
+      const loja = d.loja_id || lojaDePessoa(d.pessoa_nome || '') || petropolisId
+      add(loja, 'despesas', d.valor ?? 0)
+    }
+
+    // 💵 DINHEIRO (gaveta) por loja, no mês: cédula que entrou − cédula que saiu.
+    // O resto do fluxo (PIX/cartão) é banco/maquininha — aqui é só o que dá pra contar na mão.
+    const dinheiroPorLoja: Record<string, { entrou: number; saiu: number }> = {}
+    for (const l of lojasList) dinheiroPorLoja[l.id] = { entrou: 0, saiu: 0 }
+    const addDin = (id: string | null, campo: 'entrou' | 'saiu', valor: number) => {
+      if (!id || !dinheiroPorLoja[id]) return
+      dinheiroPorLoja[id][campo] += valor
+    }
+    // venda paga em dinheiro
+    for (const p of pags) {
+      if (tipoPorFormaId.get(p.forma_pagamento_id) === 'dinheiro')
+        addDin(lojaDeDeposito.get(p.vendas?.deposito_id) ?? null, 'entrou', p.valor ?? 0)
+    }
+    // movimentos da gaveta: recebimento de fiado e reforço entram; retirada/devolução saem
+    for (const m of movsCaixa) {
+      if (!ehDinheiro(m.forma_pagamento)) continue
+      const loja = lojaDeCaixa.get(m.caixa_id) ?? null
+      if (m.tipo === 'recebimento' || m.tipo === 'reforco') addDin(loja, 'entrou', m.valor ?? 0)
+      else if (m.tipo === 'retirada' || m.tipo === 'devolucao') addDin(loja, 'saiu', m.valor ?? 0)
+    }
+    // despesa paga em dinheiro
+    for (const d of despesas) {
+      if (!ehDinheiro(d.forma_pagamento)) continue
+      const cat = (d.categoria || '').trim()
+      if (CAT_COMPRAS.includes(cat)) continue   // mercadoria é estoque, não gaveta
+      const loja = d.loja_id || lojaDePessoa(d.pessoa_nome || '') || petropolisId
+      addDin(loja, 'saiu', d.valor ?? 0)
+    }
+
+    return { porLoja, dinheiroPorLoja }
+  }
+
+  const inicioAnterior = mesAnterior + '-01'
+  const [movAtual, movAnterior] = await Promise.all([
+    movimentoDoMes(inicio, proxMes),
+    movimentoDoMes(inicioAnterior, inicio),
+  ])
+  const porLoja = movAtual.porLoja
+  const dinheiroPorLoja = movAtual.dinheiroPorLoja
 
   const perdasApp = await fetchAll<any>((from, to) => supabase.from('movimentacoes_estoque')
     .select('quantidade, observacao, deposito_id, produtos(nome, preco_custo)')
@@ -117,18 +184,6 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
   // fornecedor. Sem corte por data — uma troca antiga continua pendente até voltar/abater.
   const trocasSp = await fetchAll<any>((from, to) => supabase.from('trocas_sp')
     .select('valor, loja_id').eq('status', 'enviado').range(from, to))
-
-  const bucket = (id: string) => ({ loja: id, nome: lojasList.find((l) => l.id === id)?.nome ?? id, entradas: 0, fiadoCobrado: 0, compras: 0, despesas: 0 })
-  const porLoja: Record<string, ReturnType<typeof bucket>> = {}
-  for (const l of lojasList) porLoja[l.id] = bucket(l.id)
-  const add = (id: string | null, campo: 'entradas' | 'fiadoCobrado' | 'compras' | 'despesas', valor: number) => {
-    if (!id || !porLoja[id]) return
-    porLoja[id][campo] += valor
-  }
-
-  for (const p of pags) add(lojaDeDeposito.get(p.vendas?.deposito_id) ?? null, 'entradas', p.valor ?? 0)
-  for (const r of movsCaixa) if (r.tipo === 'recebimento') add(lojaDeCaixa.get(r.caixa_id) ?? null, 'fiadoCobrado', r.valor ?? 0)
-  for (const c of comprasItens) add(lojaDeDeposito.get(c.deposito_id) ?? null, 'compras', c.total_item ?? 0)
 
   const perdasPorLoja: Record<string, { total: number; itens: { nome: string; custo: number; motivo: string }[] }> = {}
   for (const pd of perdasApp) {
@@ -143,43 +198,6 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
   for (const t of trocasSp) {
     if (!t.loja_id) continue
     trocasNaRua[t.loja_id] = (trocasNaRua[t.loja_id] ?? 0) + Number(t.valor ?? 0)
-  }
-
-  const CAT_COMPRAS = ['Fornecedor / Mercadoria', 'Fornecedor ZL', 'fonecedor']
-  for (const d of despesas) {
-    const cat = (d.categoria || '').trim()
-    if (CAT_COMPRAS.includes(cat)) continue
-    const loja = d.loja_id || lojaDePessoa(d.pessoa_nome || '') || petropolisId
-    add(loja, 'despesas', d.valor ?? 0)
-  }
-
-  // 💵 DINHEIRO (gaveta) por loja, no mês: cédula que entrou − cédula que saiu.
-  // O resto do fluxo (PIX/cartão) é banco/maquininha — aqui é só o que dá pra contar na mão.
-  const dinheiroPorLoja: Record<string, { entrou: number; saiu: number }> = {}
-  for (const l of lojasList) dinheiroPorLoja[l.id] = { entrou: 0, saiu: 0 }
-  const addDin = (id: string | null, campo: 'entrou' | 'saiu', valor: number) => {
-    if (!id || !dinheiroPorLoja[id]) return
-    dinheiroPorLoja[id][campo] += valor
-  }
-  // venda paga em dinheiro
-  for (const p of pags) {
-    if (tipoPorFormaId.get(p.forma_pagamento_id) === 'dinheiro')
-      addDin(lojaDeDeposito.get(p.vendas?.deposito_id) ?? null, 'entrou', p.valor ?? 0)
-  }
-  // movimentos da gaveta: recebimento de fiado e reforço entram; retirada/devolução saem
-  for (const m of movsCaixa) {
-    if (!ehDinheiro(m.forma_pagamento)) continue
-    const loja = lojaDeCaixa.get(m.caixa_id) ?? null
-    if (m.tipo === 'recebimento' || m.tipo === 'reforco') addDin(loja, 'entrou', m.valor ?? 0)
-    else if (m.tipo === 'retirada' || m.tipo === 'devolucao') addDin(loja, 'saiu', m.valor ?? 0)
-  }
-  // despesa paga em dinheiro
-  for (const d of despesas) {
-    if (!ehDinheiro(d.forma_pagamento)) continue
-    const cat = (d.categoria || '').trim()
-    if (CAT_COMPRAS.includes(cat)) continue   // mercadoria é estoque, não gaveta
-    const loja = d.loja_id || lojaDePessoa(d.pessoa_nome || '') || petropolisId
-    addDin(loja, 'saiu', d.valor ?? 0)
   }
 
   const linhas = lojasList.map((l) => {
@@ -220,7 +238,28 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
   const lojaSel = lojasList.some((l) => l.id === lojaPedida) ? lojaPedida : (lojasList[0]?.id ?? '')
   const linha = linhas.find((l) => l.loja === lojaSel)
 
+  // Comparação com o mês anterior (mesma loja selecionada).
+  const prev = movAnterior.porLoja[lojaSel] ?? { entradas: 0, fiadoCobrado: 0, compras: 0, despesas: 0 }
+  const prevEntradas = prev.entradas + prev.fiadoCobrado
+  const prevSaidas = prev.compras + prev.despesas
+  const prevResultado = prevEntradas - prevSaidas
+  const prevDespesa = prev.despesas
+  // estoque consumido do mês anterior: precisa do congelado dele (fechamentoAnterior)
+  // E do congelado do mês antes dele (fechamentoAntAnt). Sem os dois, fica "—".
+  const prevEstInicial = fechamentoAntAnt?.estoque_final?.[lojaSel]
+  const prevEstFinal = fechamentoAnterior?.estoque_final?.[lojaSel]
+  const temPrevEstoque = !!(prevEstInicial && prevEstFinal)
+  const prevConsumido = temPrevEstoque
+    ? (prevEstInicial.vitrine + prevEstInicial.fundo) - (prevEstFinal.vitrine + prevEstFinal.fundo)
+    : null
+
   const fmt = (v: number) => formatBRL(v)
+  const fmtDelta = (atual: number | null, anterior: number | null) => {
+    if (atual === null || anterior === null) return null
+    const diff = atual - anterior
+    const pct = anterior === 0 ? null : (diff / Math.abs(anterior)) * 100
+    return { diff, pct }
+  }
 
   return (
     <div className="space-y-6">
@@ -307,6 +346,59 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
               <p className="text-xs font-semibold uppercase text-sky-700">📦 Estoque consumido</p>
               <p className="mt-1 text-2xl font-bold text-sky-700">{linha.temEstoqueBase ? fmt(linha.consumido) : '—'}</p>
               <p className="text-[11px] text-sky-600">{linha.temEstoqueBase ? 'início − final' : '1º mês, sem base'}</p>
+            </div>
+          </div>
+
+          {/* comparação com o mês anterior */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <p className="text-sm font-bold text-gray-800">↔️ Comparação com {nomeMes(mesAnterior)}</p>
+            <p className="mt-0.5 text-[11px] text-gray-400">mesma loja · verde = subiu, vermelho = caiu</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              {(() => {
+                const d = fmtDelta(linha.resultado, prevResultado)
+                const cor = d ? (d.diff >= 0 ? 'text-emerald-600' : 'text-red-600') : 'text-gray-400'
+                return (
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                    <p className="text-xs font-semibold text-gray-500">{linha.resultado >= 0 ? 'Lucro' : 'Prejuízo'}</p>
+                    <p className="mt-1 text-lg font-bold text-gray-800">{fmt(linha.resultado)}</p>
+                    {d ? (
+                      <p className={'text-[11px] font-semibold ' + cor}>
+                        {d.diff >= 0 ? '▲' : '▼'} {fmt(Math.abs(d.diff))} {d.pct !== null ? '(' + (d.diff >= 0 ? '+' : '') + d.pct.toFixed(0) + '%)' : ''}
+                      </p>
+                    ) : <p className="text-[11px] text-gray-400">sem base</p>}
+                  </div>
+                )
+              })()}
+              {(() => {
+                const d = fmtDelta(linha.despesas, prevDespesa)
+                const cor = d ? (d.diff >= 0 ? 'text-red-600' : 'text-emerald-600') : 'text-gray-400'
+                return (
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                    <p className="text-xs font-semibold text-gray-500">Despesa</p>
+                    <p className="mt-1 text-lg font-bold text-gray-800">{fmt(linha.despesas)}</p>
+                    {d ? (
+                      <p className={'text-[11px] font-semibold ' + cor}>
+                        {d.diff >= 0 ? '▲' : '▼'} {fmt(Math.abs(d.diff))} {d.pct !== null ? '(' + (d.diff >= 0 ? '+' : '') + d.pct.toFixed(0) + '%)' : ''}
+                      </p>
+                    ) : <p className="text-[11px] text-gray-400">sem base</p>}
+                  </div>
+                )
+              })()}
+              {(() => {
+                const d = fmtDelta(linha.temEstoqueBase ? linha.consumido : null, prevConsumido)
+                const cor = d ? (d.diff >= 0 ? 'text-emerald-600' : 'text-red-600') : 'text-gray-400'
+                return (
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                    <p className="text-xs font-semibold text-gray-500">Estoque consumido</p>
+                    <p className="mt-1 text-lg font-bold text-gray-800">{linha.temEstoqueBase ? fmt(linha.consumido) : '—'}</p>
+                    {d ? (
+                      <p className={'text-[11px] font-semibold ' + cor}>
+                        {d.diff >= 0 ? '▲' : '▼'} {fmt(Math.abs(d.diff))} {d.pct !== null ? '(' + (d.diff >= 0 ? '+' : '') + d.pct.toFixed(0) + '%)' : ''}
+                      </p>
+                    ) : <p className="text-[11px] text-gray-400">sem base</p>}
+                  </div>
+                )
+              })()}
             </div>
           </div>
 

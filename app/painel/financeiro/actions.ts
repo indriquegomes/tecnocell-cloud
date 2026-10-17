@@ -5,6 +5,7 @@ import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { logAtividade } from '@/lib/log-atividade'
 import { registrarNoCaixa, lojaDoLancamento } from '@/lib/caixa'
+import { travarSeMesFechado } from '@/lib/fechamento'
 import { hojeSP } from '@/lib/utils'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
@@ -46,6 +47,11 @@ export async function criarLancamento(formData: FormData) {
   // parcelar divide o valor; mensal repete o mesmo
   const valorParcela = repeticao === 'parcelar' ? Math.round((valorTotal / vezes) * 100) / 100 : valorTotal
 
+  // Trava de mês fechado: não deixa criar lançamento com vencimento num mês já
+  // fechado (backdate mudaria o resultado do passado auditado).
+  const erroTravaCriar = await travarSeMesFechado(supabase, vencimento, 'criar lançamento')
+  if (erroTravaCriar) redirect(`/painel/financeiro/novo?erro=${encodeURIComponent(erroTravaCriar)}`)
+
   const linhas = Array.from({ length: vezes }, (_, i) => ({
     id: crypto.randomUUID(),
     descricao: vezes > 1 ? `${descricao} (${i + 1}/${vezes})` : descricao,
@@ -75,6 +81,15 @@ export async function criarLancamento(formData: FormData) {
 export async function editarLancamento(id: string, formData: FormData) {
   await requirePermissao('financeiro')
   const supabase = await createServiceClient()
+  // Trava de mês fechado: não deixa editar um lançamento que mora (ou que vai
+  // morar) num mês já fechado — mudaria o resultado do passado auditado.
+  const vencimentoNovo = (formData.get('data_vencimento') as string) || null
+  const { data: atual } = await supabase.from('lancamentos').select('data_vencimento').eq('id', id).maybeSingle()
+  const vencimentoAtual = (atual as { data_vencimento?: string | null } | null)?.data_vencimento?.slice(0, 10) ?? null
+  const erroTrava = (await travarSeMesFechado(supabase, vencimentoNovo, 'editar este lançamento'))
+    ?? (await travarSeMesFechado(supabase, vencimentoAtual, 'editar este lançamento'))
+  if (erroTrava) redirect(`/painel/financeiro/${id}/editar?erro=${encodeURIComponent(erroTrava)}`)
+
   const { error } = await supabase.from('lancamentos').update({
     descricao: formData.get('descricao') as string,
     valor: Math.max(0, parseFloat((formData.get('valor') as string) || '0')),
@@ -280,6 +295,11 @@ export async function desfazerPagamento(id: string) {
 export async function deletarLancamento(id: string) {
   await requirePermissao('financeiro')
   const supabase = await createServiceClient()
+  // Trava de mês fechado: não apaga lançamento de mês já fechado.
+  const { data: alvo } = await supabase.from('lancamentos').select('data_vencimento').eq('id', id).maybeSingle()
+  const erroTrava = await travarSeMesFechado(supabase, (alvo as { data_vencimento?: string | null } | null)?.data_vencimento?.slice(0, 10) ?? null, 'apagar este lançamento')
+  if (erroTrava) redirect(`/painel/financeiro?erro=${encodeURIComponent(erroTrava)}`)
+
   const { error } = await supabase.from('lancamentos').delete().eq('id', id)
   // redirect (não throw): chamado pelo BotaoExcluir, que é um <form
   // action={...}> por baixo — sem isso, uma falha (ex: FK bloqueando o
@@ -364,6 +384,11 @@ export async function gerarFolha(formData: FormData) {
   const supabase = await createServiceClient()
   const vencimento = (formData.get('vencimento') as string) || hojeSP()
 
+  // Trava de mês fechado: não gera folha de salário com vencimento em mês fechado
+  // (mesmo buraco de backdate que criarLancamento, mas por um caminho diferente).
+  const erroTravaFolha = await travarSeMesFechado(supabase, vencimento, 'gerar folha de salários')
+  if (erroTravaFolha) redirect(`/painel/financeiro?erro=${encodeURIComponent(erroTravaFolha)}`)
+
   // Respeita a separação por loja: só gera salário de funcionário cuja loja de
   // origem o usuário pode operar (master = todas).
   const { operaveis } = await lojasDoUsuario().catch(() => ({ operaveis: null as { id: string }[] | null }))
@@ -431,6 +456,12 @@ export async function editarLancamentoInline(id: string, formData: FormData) {
   const vencimento = (formData.get('data_vencimento') as string) || null
   const forma = ((formData.get('forma_pagamento') as string) || '').trim() || null
   const categoria = ((formData.get('categoria') as string) || '').trim() || null
+
+  // Trava de mês fechado (inline não redirect: devolve {ok:false} pra linha não sumir).
+  const { data: atualInline } = await supabase.from('lancamentos').select('data_vencimento').eq('id', id).maybeSingle()
+  const erroTrava = (await travarSeMesFechado(supabase, vencimento, 'editar este lançamento'))
+    ?? (await travarSeMesFechado(supabase, (atualInline as { data_vencimento?: string | null } | null)?.data_vencimento?.slice(0, 10) ?? null, 'editar este lançamento'))
+  if (erroTrava) return { ok: false, erro: erroTrava }
 
   const { error } = await supabase.from('lancamentos').update({
     valor,
