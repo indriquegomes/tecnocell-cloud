@@ -55,7 +55,8 @@ function fixture(options = {}) {
           assert.ok(parts, 'cursor usa somente timestamp validado e UUID');
           return Date.parse(row.created_at) < Date.parse(parts[1]) || (Date.parse(row.created_at) === Date.parse(parts[2]) && row.id < parts[3]);
         }
-        return value.every(part => row[key]?.some(candidate => Object.entries(part).every(([k, v]) => candidate[k] === v)));
+        const partes = typeof value === 'string' ? JSON.parse(value) : value;
+        return partes.every(part => row[key]?.some(candidate => Object.entries(part).every(([k, v]) => candidate[k] === v)));
       })).slice(0, limit);
       return { data: single ? data[0] ?? null : data, error: null };
     };
@@ -74,6 +75,43 @@ function fixture(options = {}) {
   }, { PEDIDOS_APP_GERENCIAMENTO_ENABLED: cfg.enabled ? 'true' : 'false' });
   return { actions, model, reads, rpc, permissions, refreshed };
 }
+
+test('SDK real envia filtro de unidade como array JSON em leitura, paginação e ações', async () => {
+  const { createClient } = require('@supabase/supabase-js');
+  const filtros = [];
+  const rows = {
+    perfis: [{ ativo: true, lojas_permitidas: [lojaA] }],
+    lojas: [{ id: lojaA, nome: 'Loja A' }],
+    pedidos_app_unidades: [{ unidade: 'Unidade A', loja_id: lojaA }],
+    pedidos_app: [{ id: pedidoId, pessoa_id: 'p1', status: 'pendente', status_pagamento: 'pendente', itens: [item], created_at: '2026-10-17T12:00:00.123456+00:00' }],
+    pedidos_app_atendimentos: [], pessoas: [{ id: 'p1', nome: 'Cliente fictício' }],
+  };
+  const service = createClient('https://example.invalid', 'chave-ficticia', {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    global: { fetch: async input => {
+      const url = new URL(String(input));
+      const tabela = url.pathname.split('/').pop();
+      const filtro = url.searchParams.get('itens');
+      if (filtro) {
+        filtros.push(filtro);
+        if (filtro !== 'cs.' + JSON.stringify([{ loja: 'Unidade A' }])) {
+          return new Response(JSON.stringify({ code: '22P02', message: 'invalid input syntax for type json' }), { status: 400 });
+        }
+      }
+      return new Response(JSON.stringify(rows[tabela] ?? null), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    } },
+  });
+  const actions = carregar('app/painel/pedidos-app/actions.ts', {
+    'next/cache': { revalidatePath() {} },
+    '@/lib/supabase/server': { requirePermissao: async () => ({ id: operador }), createServiceClient: async () => service },
+    '@/lib/pedidos-app': carregar('lib/pedidos-app.ts'),
+  }, { PEDIDOS_APP_GERENCIAMENTO_ENABLED: 'true' });
+  assert.equal((await actions.carregarPedidosApp('Unidade A', 'token')).pedidos.length, 1);
+  assert.equal((await actions.carregarPedidosApp('Unidade A', 'token', pedidoId)).pedidos.length, 1);
+  assert.ok((await actions.confirmarPedidoApp(pedidoId, 'Unidade A', 'token')).ok);
+  assert.ok((await actions.cancelarPedidoApp(pedidoId, 'Unidade A', 'token')).ok);
+  assert.equal(filtros.length, 5);
+});
 
 test('sem permissão não lê pedidos, não confirma e não cancela', async () => {
   const f = fixture({ permission: false });

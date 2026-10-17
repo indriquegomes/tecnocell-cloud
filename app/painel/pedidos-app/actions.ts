@@ -49,12 +49,12 @@ export async function carregarPedidosApp(unidade?: string, accessToken?: string,
   if (!selecionada) return { unidades, unidade: null, pedidos: [], gerenciamentoHabilitado, maisPedidos: false, proximoCursor: null }
   let consulta = service.from('pedidos_app')
     .select('id,pessoa_id,status,status_pagamento,itens,created_at')
-    .contains('itens', [{ loja: selecionada.unidade }]).order('created_at', { ascending: false })
+    .contains('itens', JSON.stringify([{ loja: selecionada.unidade }])).order('created_at', { ascending: false })
     .order('id', { ascending: false }).limit(101)
   if (cursor) {
     if (!UUID.test(cursor)) throw new ErroPedido('Página inválida. Atualize a lista.')
     const { data: ancora, error: erroAncora } = await service.from('pedidos_app').select('id,created_at')
-      .eq('id', cursor).contains('itens', [{ loja: selecionada.unidade }]).maybeSingle()
+      .eq('id', cursor).contains('itens', JSON.stringify([{ loja: selecionada.unidade }])).maybeSingle()
     const instante: unknown = ancora?.created_at
     // Não arredondar microssegundos do PostgreSQL com Date.toISOString().
     if (erroAncora || typeof instante !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(instante) || !Number.isFinite(Date.parse(instante))) throw new ErroPedido('Página não disponível. Atualize a lista.')
@@ -86,7 +86,7 @@ export async function confirmarPedidoApp(id: string, unidade: string, accessToke
     const { service, usuario, selecionada } = await contexto(unidade, accessToken, true)
     if (!UUID.test(id) || !selecionada) throw new ErroPedido('Pedido ou unidade inválidos.')
     const { data: pedido, error: erroPedido } = await service.from('pedidos_app').select('id').eq('id', id)
-      .contains('itens', [{ loja: selecionada.unidade }]).maybeSingle()
+      .contains('itens', JSON.stringify([{ loja: selecionada.unidade }])).maybeSingle()
     if (erroPedido || !pedido) throw new ErroPedido('Pedido não disponível nesta unidade.')
     const { error } = await service.rpc('confirmar_pedido_app_unidade', { p_pedido: id, p_unidade: selecionada.unidade, p_operador: usuario.id })
     if (error) return { erro: error.code === 'PGRST202' ? 'Atendimento ainda não instalado no servidor.' : 'Não foi possível confirmar o pedido. Atualize e tente novamente.' }
@@ -100,7 +100,7 @@ export async function cancelarPedidoApp(id: string, unidade: string, accessToken
     const { service, usuario, selecionada } = await contexto(unidade, accessToken, true)
     if (!UUID.test(id) || !selecionada) throw new ErroPedido('Pedido ou unidade inválidos.')
     const { data: pedido, error: erroPedido } = await service.from('pedidos_app').select('id').eq('id', id)
-      .contains('itens', [{ loja: selecionada.unidade }]).maybeSingle()
+      .contains('itens', JSON.stringify([{ loja: selecionada.unidade }])).maybeSingle()
     if (erroPedido || !pedido) throw new ErroPedido('Pedido não disponível nesta unidade.')
     // O RPC valida acesso a TODAS as unidades; esta ação cancela o pedido inteiro.
     const { error } = await service.rpc('cancelar_pedido_app', { p_pedido: id, p_operador: usuario.id })
