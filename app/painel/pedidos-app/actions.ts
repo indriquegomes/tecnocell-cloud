@@ -7,8 +7,14 @@ import { itensDaUnidade, type DadosPedidosApp, type UnidadePedidoApp } from '@/l
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 class ErroPedido extends Error {}
 
+// Apenas etapas e códigos públicos; nunca registrar sessão, chaves ou dados de clientes.
+function diagnosticarLeitura(etapa: string, erro?: { code?: string } | null) {
+  const codigo = erro?.code && /^[A-Z0-9]{5,10}$/.test(erro.code) ? erro.code : 'SEM_CODIGO'
+  console.error('[pedidos-app]', etapa, codigo)
+}
+
 async function contexto(unidade?: string, accessToken?: string, gerenciar = false) {
-  const usuario = await requirePermissao('pdv', accessToken).catch(() => { throw new ErroPedido('Não autorizado. Confira sua sessão e permissão.') })
+  const usuario = await requirePermissao('pdv', accessToken).catch(() => { diagnosticarLeitura('autorizacao'); throw new ErroPedido('Não autorizado. Confira sua sessão e permissão.') })
   if (gerenciar && process.env.PEDIDOS_APP_GERENCIAMENTO_ENABLED !== 'true') {
     throw new ErroPedido('O atendimento de pedidos ainda não foi liberado.')
   }
@@ -18,9 +24,13 @@ async function contexto(unidade?: string, accessToken?: string, gerenciar = fals
     service.from('pedidos_app_unidades').select('unidade,loja_id').order('unidade'),
     service.from('lojas').select('id,nome').eq('ativa', true),
   ])
-  if (erroPerfil || !perfil || perfil.ativo !== true || erroMapas || erroLojas) throw new ErroPedido('Não foi possível conferir as unidades autorizadas. Verifique a configuração da integração.')
+  if (erroPerfil || !perfil || perfil.ativo !== true || erroMapas || erroLojas) {
+    diagnosticarLeitura(erroPerfil ? 'perfil' : !perfil || perfil.ativo !== true ? 'perfil_inativo' : erroMapas ? 'mapas' : 'lojas', erroPerfil ?? erroMapas ?? erroLojas)
+    throw new ErroPedido('Não foi possível conferir as unidades autorizadas. Verifique a configuração da integração.')
+  }
   const permitidas: unknown = perfil.lojas_permitidas
   if (permitidas != null && (!Array.isArray(permitidas) || permitidas.some(id => typeof id !== 'string' || !UUID.test(id)))) {
+    diagnosticarLeitura('lojas_permitidas')
     throw new ErroPedido('Configuração de lojas autorizadas inválida.')
   }
   const unidades: UnidadePedidoApp[] = (mapas ?? []).flatMap(m => {
@@ -51,7 +61,7 @@ export async function carregarPedidosApp(unidade?: string, accessToken?: string,
     consulta = consulta.or(`created_at.lt.${instante},and(created_at.eq.${instante},id.lt.${cursor})`)
   }
   const { data, error } = await consulta
-  if (error) throw new ErroPedido('Não foi possível carregar os pedidos desta unidade. Tente novamente.')
+  if (error) { diagnosticarLeitura('pedidos', error); throw new ErroPedido('Não foi possível carregar os pedidos desta unidade. Tente novamente.') }
   const pedidos = (data ?? []).slice(0, 100)
   const ids = pedidos.map(p => p.id as string)
   const pessoasIds = [...new Set(pedidos.map(p => p.pessoa_id as string).filter(Boolean))]
