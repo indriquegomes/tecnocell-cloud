@@ -41,7 +41,7 @@ export function diaSP(iso: string): string {
 }
 
 export function slugify(text: string): string {
-  return text
+  return (text || '')
     .toLowerCase()
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
@@ -52,7 +52,7 @@ export function slugify(text: string): string {
 // Normaliza o "usuário" de login: minúsculas, sem acento, separadores viram ponto.
 // "Isabela Ponciano" → "isabela.ponciano"; "João" → "joao"; "Letícia" → "leticia".
 export function normalizarUsuario(text: string): string {
-  return text
+  return (text || '')
     .trim()
     .toLowerCase()
     .normalize('NFD')

@@ -20,6 +20,7 @@ export function ultimoDiaUtil(ano: number, mes: number, extras: Set<string> = ne
 
 // Uma data 'YYYY-MM-DD' é o último dia útil do próprio mês?
 export function ehUltimoDiaUtil(dataIso: string, extras: Set<string> = new Set()): boolean {
+  if (typeof dataIso !== 'string') return false
   const [a, m] = dataIso.split('-').map(Number)
   if (!a || !m) return false
   return ultimoDiaUtil(a, m, extras) === dataIso
