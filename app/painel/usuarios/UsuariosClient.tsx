@@ -39,6 +39,9 @@ export interface Usuario {
   metaVendaMensal: number
   salario: number
   dataAdmissao: string | null
+  dataDemissao: string | null
+  dataContratoInicio: string | null
+  dataContratoFim: string | null
   chavePix: string | null
   motoboyValorFixo: number
   motoboyAdicionalLoja: number
@@ -236,11 +239,6 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario, isMotoboy }: { loj
         <CampoDinheiro name="salario" defaultValue={Number(usuario.salario || 0)} className="text-sm" />
       </div>
 
-      <div className="w-48">
-        <label className="mb-1 block text-xs font-medium text-gray-600">Data de admissão</label>
-        <input type="date" name="data_admissao" defaultValue={usuario.dataAdmissao ?? ''} className="field w-full text-sm" />
-      </div>
-
       <div className="w-full">
         <label className="mb-1 block text-xs font-medium text-gray-600">Chave Pix</label>
         <input name="chave_pix" defaultValue={usuario.chavePix ?? ''} className="field w-full text-sm" placeholder="CPF/CNPJ, telefone, e-mail ou aleatória" />
@@ -303,6 +301,14 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario, isMotoboy }: { loj
         {vinculo === 'mei' && (
           <div className="grid grid-cols-2 gap-3 mt-3">
             <div className="w-44">
+              <label className="mb-1 block text-xs font-medium text-gray-600">Início do contrato</label>
+              <input type="date" name="data_contrato_inicio" defaultValue={usuario.dataContratoInicio ?? ''} className="field w-full text-sm" />
+            </div>
+            <div className="w-44">
+              <label className="mb-1 block text-xs font-medium text-gray-600">Fim do contrato</label>
+              <input type="date" name="data_contrato_fim" defaultValue={usuario.dataContratoFim ?? ''} className="field w-full text-sm" />
+            </div>
+            <div className="w-44">
               <label className="mb-1 block text-xs font-medium text-gray-600">Valor do serviço (R$)</label>
               <CampoDinheiro name="mei_valor_servico" defaultValue={Number(usuario.meiValorServico || 0)} className="text-sm" />
             </div>
@@ -323,6 +329,16 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario, isMotoboy }: { loj
           const custo = custoMensalCLT(Number(usuario.salario || 0), Number(usuario.cltValeTransporte || 0))
           return (
             <div className="space-y-3 mt-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="w-44">
+                  <label className="mb-1 block text-xs font-medium text-gray-600">Data de admissão</label>
+                  <input type="date" name="data_admissao" defaultValue={usuario.dataAdmissao ?? ''} className="field w-full text-sm" />
+                </div>
+                <div className="w-44">
+                  <label className="mb-1 block text-xs font-medium text-gray-600">Data de demissão</label>
+                  <input type="date" name="data_demissao" defaultValue={usuario.dataDemissao ?? ''} className="field w-full text-sm" />
+                </div>
+              </div>
               <div className="w-44">
                 <label className="mb-1 block text-xs font-medium text-gray-600">Vale transporte (R$)</label>
                 <CampoDinheiro name="clt_vale_transporte" defaultValue={Number(usuario.cltValeTransporte || 0)} className="text-sm" />
@@ -339,10 +355,21 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario, isMotoboy }: { loj
 
         {vinculo === 'estagio' && (
           <div className="space-y-3 mt-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="w-44">
+                <label className="mb-1 block text-xs font-medium text-gray-600">Início do estágio</label>
+                <input type="date" name="data_admissao" defaultValue={usuario.dataAdmissao ?? ''} className="field w-full text-sm" />
+              </div>
+              <div className="w-44">
+                <label className="mb-1 block text-xs font-medium text-gray-600">Fim do estágio</label>
+                <input type="date" name="data_demissao" defaultValue={usuario.dataDemissao ?? ''} className="field w-full text-sm" />
+              </div>
+            </div>
             <div className="w-44">
               <label className="mb-1 block text-xs font-medium text-gray-600">Vale transporte (R$)</label>
               <CampoDinheiro name="clt_vale_transporte" defaultValue={Number(usuario.cltValeTransporte || 0)} className="text-sm" />
             </div>
+            <p className="text-[11px] text-gray-400">Estágio: prazo máximo 2 anos · pagamento é bolsa (campo salário) · carga 6h/dia.</p>
           </div>
         )}
       </div>

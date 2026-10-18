@@ -12,6 +12,9 @@ type CfgPerfil = {
   metaVendaMensal: number
   salario: number
   dataAdmissao: string | null
+  dataDemissao: string | null
+  dataContratoInicio: string | null
+  dataContratoFim: string | null
   chavePix: string | null
   motoboyValorFixo: number; motoboyAdicionalLoja: number; motoboyAdicionalExtra: number; motoboyTipo: string | null
   vinculo: string | null; meiValorServico: number; meiDiaPagamento: string | null; meiFuncoes: string | null; cltValeTransporte: number
@@ -21,7 +24,7 @@ async function configPdvPorPerfil(
   supabase: Awaited<ReturnType<typeof createServiceClient>>
 ): Promise<Record<string, CfgPerfil>> {
   try {
-    const { data } = await supabase.from('perfis').select('id, lojas_permitidas, tabelas_permitidas, pdv_loja_id, pdv_deposito_id, acesso_hora_inicio, acesso_hora_fim, acesso_bloqueia_sabado, acesso_bloqueia_domingo, acesso_bloqueia_feriado, meta_venda_mensal, salario, data_admissao, chave_pix, motoboy_valor_fixo, motoboy_adicional_loja, motoboy_adicional_extra, motoboy_tipo, vinculo, mei_valor_servico, mei_dia_pagamento, mei_funcoes, clt_vale_transporte, freelancer, freelancer_valor_hora')
+    const { data } = await supabase.from('perfis').select('id, lojas_permitidas, tabelas_permitidas, pdv_loja_id, pdv_deposito_id, acesso_hora_inicio, acesso_hora_fim, acesso_bloqueia_sabado, acesso_bloqueia_domingo, acesso_bloqueia_feriado, meta_venda_mensal, salario, data_admissao, data_demissao, data_contrato_inicio, data_contrato_fim, chave_pix, motoboy_valor_fixo, motoboy_adicional_loja, motoboy_adicional_extra, motoboy_tipo, vinculo, mei_valor_servico, mei_dia_pagamento, mei_funcoes, clt_vale_transporte, freelancer, freelancer_valor_hora')
     return Object.fromEntries(
       (data ?? []).map((p) => [p.id, {
         lojasPermitidas: (p.lojas_permitidas ?? []) as string[],
@@ -36,6 +39,9 @@ async function configPdvPorPerfil(
         metaVendaMensal: Number(p.meta_venda_mensal ?? 0),
         salario: Number(p.salario ?? 0),
         dataAdmissao: p.data_admissao ?? null,
+        dataDemissao: p.data_demissao ?? null,
+        dataContratoInicio: p.data_contrato_inicio ?? null,
+        dataContratoFim: p.data_contrato_fim ?? null,
         chavePix: p.chave_pix ?? null,
         motoboyValorFixo: Number(p.motoboy_valor_fixo ?? 0),
         motoboyAdicionalLoja: Number(p.motoboy_adicional_loja ?? 0),
@@ -114,6 +120,9 @@ export default async function UsuariosPage() {
       metaVendaMensal: cfgPdv[u.id]?.metaVendaMensal ?? 0,
       salario: cfgPdv[u.id]?.salario ?? 0,
       dataAdmissao: cfgPdv[u.id]?.dataAdmissao ?? null,
+      dataDemissao: cfgPdv[u.id]?.dataDemissao ?? null,
+      dataContratoInicio: cfgPdv[u.id]?.dataContratoInicio ?? null,
+      dataContratoFim: cfgPdv[u.id]?.dataContratoFim ?? null,
       chavePix: cfgPdv[u.id]?.chavePix ?? null,
       motoboyValorFixo: cfgPdv[u.id]?.motoboyValorFixo ?? 0,
       motoboyAdicionalLoja: cfgPdv[u.id]?.motoboyAdicionalLoja ?? 0,

@@ -145,13 +145,20 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
   const cltValeTransporte = isNaN(cvt) ? 0 : Math.max(0, cvt)
   const meiDiaPagamento = (fd.get('mei_dia_pagamento') as string) || null
   const meiFuncoes = ((fd.get('mei_funcoes') as string) || '').trim() || null
+  const dataDemissao = (fd.get('data_demissao') as string) || null
+  const dataContratoInicio = (fd.get('data_contrato_inicio') as string) || null
+  const dataContratoFim = (fd.get('data_contrato_fim') as string) || null
   // Freelancer (também presta serviço por hora)
   const freelancer = fd.getAll('freelancer').includes('1')
   const fvh = parseFloat((fd.get('freelancer_valor_hora') as string) || '0')
   const freelancerValorHora = isNaN(fvh) ? 0 : Math.max(0, fvh)
 
   const supabase = await createServiceClient()
-  const { error } = await supabase.from('perfis').update({
+  // Datas de contrato são CONDICIONAIS por vínculo: só escreve o campo que aquele
+  // vínculo renderiza. Escrever sempre apagaria data_admissao de MEI/freelancer
+  // (o input nem vai no form) — e o detector de falta usa data_admissao pra todo mundo.
+  const dataAdmissao = (fd.get('data_admissao') as string) || null
+  const update: Record<string, unknown> = {
     nome,
     username,
     permissoes: isMaster ? TODAS_KEYS : (cargoId ? [] : perms),
@@ -159,7 +166,6 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
     ativo,
     cargo_id: cargoId,
     lojas_permitidas: lojasPermitidas,
-    data_admissao: (fd.get('data_admissao') as string) || null,
     tabelas_permitidas: tabelasPermitidas,
     pdv_loja_id: pdvLojaId,
     pdv_deposito_id: pdvDepositoId,
@@ -182,7 +188,17 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
     clt_vale_transporte: cltValeTransporte,
     freelancer,
     freelancer_valor_hora: freelancerValorHora,
-  }).eq('id', userId)
+  }
+  if (vinculo === 'clt' || vinculo === 'estagio') {
+    update.data_admissao = dataAdmissao
+    update.data_demissao = dataDemissao
+  }
+  if (vinculo === 'mei') {
+    update.data_contrato_inicio = dataContratoInicio
+    update.data_contrato_fim = dataContratoFim
+  }
+
+  const { error } = await supabase.from('perfis').update(update).eq('id', userId)
 
   if (error) return { ok: false, message: error.message }
 
