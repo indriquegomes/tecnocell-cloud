@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { MotoboyClient } from './MotoboyClient'
 
 export type Motoboy = { id: string; nome: string; motoboy_valor_fixo: number | null; motoboy_adicional_loja: number | null; motoboy_adicional_extra: number | null; motoboy_tipo: string | null }
-export type Rota = { id: string; perfil_id: string; data: string; loja_id: string | null; entregas: number; extras: number; observacao: string | null; lojas: { nome: string }[] | null }
+export type Rota = { id: string; perfil_id: string; data: string; loja_id: string | null; entregas: number; extras: number; observacao: string | null; lancamento_id: string | null; lojas: { nome: string }[] | null }
 export type Loja = { id: string; nome: string }
 
 export default async function MotoboyPage({ searchParams }: { searchParams: Promise<{ erro?: string }> }) {
@@ -28,7 +28,7 @@ export default async function MotoboyPage({ searchParams }: { searchParams: Prom
 
   let rotas: Rota[] = []
   if (isMaster || motoboys.some((m) => m.id === userId)) {
-    let q = supabase.from('rotas_motoboy').select('id, perfil_id, data, loja_id, entregas, extras, observacao, lojas(nome)')
+    let q = supabase.from('rotas_motoboy').select('id, perfil_id, data, loja_id, entregas, extras, observacao, lancamento_id, lojas(nome)')
     if (!isMaster) q = q.eq('perfil_id', userId)
     const { data } = await q.order('data', { ascending: false }).limit(500)
     rotas = (data ?? []) as Rota[]

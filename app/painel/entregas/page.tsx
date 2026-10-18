@@ -28,9 +28,9 @@ export default async function EntregasPage({ searchParams }: { searchParams: Pro
   // Motoboys EMPREGADOS (perfis com cargo MOTOBOY) pra gerar o pagamento.
   const { data: cargoMotoboy } = await supabase.from('cargos').select('id').eq('nome', 'MOTOBOY').maybeSingle()
   const { data: motoboyPerfis } = cargoMotoboy
-    ? await supabase.from('perfis').select('id, nome, motoboy_valor_fixo, motoboy_adicional_loja, motoboy_adicional_extra').eq('ativo', true).eq('cargo_id', (cargoMotoboy as { id: string }).id).order('nome')
+    ? await supabase.from('perfis').select('id, nome, motoboy_tipo, motoboy_valor_fixo, motoboy_adicional_loja, motoboy_adicional_extra').eq('ativo', true).eq('cargo_id', (cargoMotoboy as { id: string }).id).order('nome')
     : { data: [] }
-  const motoboysPerfil = (motoboyPerfis ?? []) as { id: string; nome: string; motoboy_valor_fixo: number | null; motoboy_adicional_loja: number | null; motoboy_adicional_extra: number | null }[]
+  const motoboysPerfil = (motoboyPerfis ?? []) as { id: string; nome: string; motoboy_tipo: string | null; motoboy_valor_fixo: number | null; motoboy_adicional_loja: number | null; motoboy_adicional_extra: number | null }[]
   const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
 
   // Itens de cada venda (peças) — join produtos(nome)
@@ -72,11 +72,16 @@ export default async function EntregasPage({ searchParams }: { searchParams: Pro
             <label className="mb-1 block text-xs font-medium text-gray-600">Motoboy</label>
             <select name="perfil_id" className="field w-72 text-sm">
               <option value="">Escolha…</option>
-              {motoboysPerfil.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.nome} — diária R$ {Number(m.motoboy_valor_fixo ?? 0).toFixed(2)} · R$ {Number(m.motoboy_adicional_loja ?? 0).toFixed(2)}/ent · R$ {Number(m.motoboy_adicional_extra ?? 0).toFixed(2)}/extra
-                </option>
-              ))}
+              {motoboysPerfil.map((m) => {
+                const fixo = m.motoboy_tipo === 'fixo'
+                return (
+                  <option key={m.id} value={m.id}>
+                    {m.nome} — {fixo
+                      ? 'fixo semanal R$ ' + Number(m.motoboy_valor_fixo ?? 0).toFixed(2) + ' (débito automático)'
+                      : 'variável · R$ ' + Number(m.motoboy_adicional_loja ?? 0).toFixed(2) + '/ent · R$ ' + Number(m.motoboy_adicional_extra ?? 0).toFixed(2) + '/extra'}
+                  </option>
+                )
+              })}
             </select>
           </div>
           <div>

@@ -251,23 +251,23 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario, isMotoboy }: { loj
         <p className="text-sm font-semibold text-gray-700">Motoboy (só preencher se o cargo for MOTOBOY)</p>
         <div className="grid grid-cols-2 gap-3 mt-2">
           <div className="w-40">
-            <label className="mb-1 block text-xs font-medium text-gray-600">Diária/semanal fixa (R$)</label>
+            <label className="mb-1 block text-xs font-medium text-gray-600">Tipo</label>
+            <select name="motoboy_tipo" defaultValue={usuario.motoboyTipo ?? 'variavel'} className="field w-full text-sm">
+              <option value="variavel">Variável (comissão)</option>
+              <option value="fixo">Fixo semanal (débito automático)</option>
+            </select>
+          </div>
+          <div className="w-40">
+            <label className="mb-1 block text-xs font-medium text-gray-600">Fixo semanal (R$)</label>
             <CampoDinheiro name="motoboy_valor_fixo" defaultValue={Number(usuario.motoboyValorFixo || 0)} className="text-sm" />
           </div>
           <div className="w-40">
-            <label className="mb-1 block text-xs font-medium text-gray-600">Adicional por loja (R$)</label>
+            <label className="mb-1 block text-xs font-medium text-gray-600">Adicional por entrega (R$)</label>
             <CampoDinheiro name="motoboy_adicional_loja" defaultValue={Number(usuario.motoboyAdicionalLoja || 0)} className="text-sm" />
           </div>
           <div className="w-40">
             <label className="mb-1 block text-xs font-medium text-gray-600">Adicional extra (R$)</label>
             <CampoDinheiro name="motoboy_adicional_extra" defaultValue={Number(usuario.motoboyAdicionalExtra || 0)} className="text-sm" />
-          </div>
-          <div className="w-40">
-            <label className="mb-1 block text-xs font-medium text-gray-600">Tipo</label>
-            <select name="motoboy_tipo" defaultValue={usuario.motoboyTipo ?? 'diaria'} className="field w-full text-sm">
-              <option value="diaria">Diária</option>
-              <option value="semanal">Semanal</option>
-            </select>
           </div>
         </div>
       </div>

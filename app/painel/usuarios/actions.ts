@@ -136,7 +136,7 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
   const motoboyValorFixo = isNaN(mf) ? 0 : Math.max(0, mf)
   const motoboyAdicionalLoja = isNaN(ml) ? 0 : Math.max(0, ml)
   const motoboyAdicionalExtra = isNaN(me) ? 0 : Math.max(0, me)
-  const motoboyTipo = (fd.get('motoboy_tipo') as string) || 'diaria'
+  const motoboyTipo = (fd.get('motoboy_tipo') as string) || 'variavel'
   // Vínculo (MEI/CLT) + campos
   const vinculo = ((fd.get('vinculo') as string) || '').trim() || null
   const mvs = parseFloat((fd.get('mei_valor_servico') as string) || '0')

@@ -6,7 +6,7 @@ import { useRef, useState } from 'react'
 
 type Loja = { id: string; nome: string }
 type Motoboy = { id: string; nome: string; motoboy_valor_fixo: number | null; motoboy_adicional_loja: number | null; motoboy_adicional_extra: number | null; motoboy_tipo: string | null }
-type Rota = { id: string; perfil_id: string; data: string; loja_id: string | null; entregas: number; extras: number; observacao: string | null; lojas: { nome: string }[] | null }
+type Rota = { id: string; perfil_id: string; data: string; loja_id: string | null; entregas: number; extras: number; observacao: string | null; lancamento_id: string | null; lojas: { nome: string }[] | null }
 
 const fmtData = (d: string) => d.split('-').reverse().join('/')
 
@@ -18,24 +18,31 @@ export function MotoboyClient({ motoboys, rotas, lojas, userId, isMaster, erro }
   const [resumoAberto, setResumoAberto] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
   const motoboySel = motoboys.find((m) => m.id === perfilSel) ?? motoboys[0]
+  const ehFixoSel = motoboySel?.motoboy_tipo === 'fixo'
   const fixo = Number(motoboySel?.motoboy_valor_fixo) || 0
   const valLoja = Number(motoboySel?.motoboy_adicional_loja) || 0
   const valExtra = Number(motoboySel?.motoboy_adicional_extra) || 0
-  const totalRota = fixo + entregas * valLoja + extras * valExtra
+  // mesma regra da geração (lib/motoboy): fixo não soma entregas/extras.
+  const totalRota = ehFixoSel ? fixo : entregas * valLoja + extras * valExtra
 
   const porMotoboy: Record<string, Rota[]> = {}
   for (const r of rotas) (porMotoboy[r.perfil_id] = porMotoboy[r.perfil_id] || []).push(r)
 
   const resumo = motoboys.map((m) => {
-    const rs = porMotoboy[m.id] || []
+    // Só as rotas NÃO pagas entram no total — bate com o que o "Gerar conta" cria.
+    // Rota paga (lancamento_id preenchido) sai do resumo senão o número acumula.
+    const rs = (porMotoboy[m.id] || []).filter((r) => !r.lancamento_id)
     const dias = new Set(rs.map((r) => r.data)).size
     const entregas = rs.reduce((s, r) => s + (r.entregas || 0), 0)
     const extras = rs.reduce((s, r) => s + (r.extras || 0), 0)
+    const ehFixo = m.motoboy_tipo === 'fixo'
     const fixo = Number(m.motoboy_valor_fixo) || 0
     const loja = Number(m.motoboy_adicional_loja) || 0
     const extra = Number(m.motoboy_adicional_extra) || 0
-    const total = dias * fixo + dias * loja + extras * extra
-    return { m, dias, entregas, extras, total }
+    // mesma regra da geração do pagamento (lib/motoboy): fixo = salário fechado,
+    // variável = entregas×porEntrega + extras×porExtra. NUNCA soma fixo em variável.
+    const total = ehFixo ? fixo : entregas * loja + extras * extra
+    return { m, dias, entregas, extras, total, ehFixo }
   })
 
   return (
@@ -43,12 +50,20 @@ export function MotoboyClient({ motoboys, rotas, lojas, userId, isMaster, erro }
       <form ref={formRef} action={registrarRota} onSubmit={(e) => { if (!confirmado) { e.preventDefault(); setResumoAberto(true) } }} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm space-y-3">
         <p className="text-sm font-semibold text-gray-700">Registrar rota</p>
 
-        {/* Diária fixa — congelada, não muda */}
-        <div className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm">
-          <span className="text-gray-500">Diária fixa</span>
-          <span className="font-bold text-gray-900">{formatBRL(fixo)}</span>
-          <span className="text-[11px] text-gray-400">(fixo — não altera)</span>
-        </div>
+        {/* Fixo semanal — congelado, não muda (variável não tem este campo) */}
+        {motoboySel?.motoboy_tipo === 'fixo' ? (
+          <div className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm">
+            <span className="text-gray-500">Fixo semanal</span>
+            <span className="font-bold text-gray-900">{formatBRL(fixo)}</span>
+            <span className="text-[11px] text-gray-400">(débito automático PagBank — não altera)</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm">
+            <span className="text-gray-500">Variável</span>
+            <span className="font-semibold text-gray-700">{formatBRL(valLoja)}/entrega · {formatBRL(valExtra)}/extra</span>
+            <span className="text-[11px] text-gray-400">(comissão — fecha sábado, pago por PIX)</span>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {isMaster && motoboys.length > 1 && (
@@ -98,9 +113,14 @@ export function MotoboyClient({ motoboys, rotas, lojas, userId, isMaster, erro }
             <h3 className="text-base font-semibold text-gray-900">Resumo da rota</h3>
             <p className="text-xs text-gray-500">Confira antes de enviar.</p>
             <div className="mt-3 space-y-1.5 text-sm">
-              <div className="flex justify-between text-gray-600"><span>Diária fixa</span><span className="tabular-nums">{formatBRL(fixo)}</span></div>
-              <div className="flex justify-between text-gray-600"><span>{entregas} entrega{entregas !== 1 ? 's' : ''} × {formatBRL(valLoja)}</span><span className="tabular-nums">{formatBRL(entregas * valLoja)}</span></div>
-              <div className="flex justify-between text-gray-600"><span>{extras} extra{extras !== 1 ? 's' : ''} × {formatBRL(valExtra)}</span><span className="tabular-nums">{formatBRL(extras * valExtra)}</span></div>
+              {ehFixoSel ? (
+                <div className="flex justify-between text-gray-600"><span>Fixo semanal (débito automático)</span><span className="tabular-nums">{formatBRL(fixo)}</span></div>
+              ) : (
+                <>
+                  <div className="flex justify-between text-gray-600"><span>{entregas} entrega{entregas !== 1 ? 's' : ''} × {formatBRL(valLoja)}</span><span className="tabular-nums">{formatBRL(entregas * valLoja)}</span></div>
+                  <div className="flex justify-between text-gray-600"><span>{extras} extra{extras !== 1 ? 's' : ''} × {formatBRL(valExtra)}</span><span className="tabular-nums">{formatBRL(extras * valExtra)}</span></div>
+                </>
+              )}
               <div className="flex justify-between border-t border-gray-200 pt-2 font-bold text-gray-900"><span>Total</span><span className="tabular-nums">{formatBRL(totalRota)}</span></div>
             </div>
             <div className="mt-4 flex gap-2">
@@ -118,6 +138,7 @@ export function MotoboyClient({ motoboys, rotas, lojas, userId, isMaster, erro }
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-semibold uppercase text-gray-500">Motoboy</th>
+                <th className="px-4 py-2 text-left text-xs font-semibold uppercase text-gray-500">Tipo</th>
                 <th className="px-4 py-2 text-right text-xs font-semibold uppercase text-gray-500">Dias</th>
                 <th className="px-4 py-2 text-right text-xs font-semibold uppercase text-gray-500">Entregas</th>
                 <th className="px-4 py-2 text-right text-xs font-semibold uppercase text-gray-500">Extras</th>
@@ -128,6 +149,7 @@ export function MotoboyClient({ motoboys, rotas, lojas, userId, isMaster, erro }
               {resumo.map((r) => (
                 <tr key={r.m.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2 text-sm font-medium text-gray-800">{r.m.nome}</td>
+                  <td className="px-4 py-2 text-sm text-gray-600">{r.ehFixo ? 'fixo' : 'variável'}</td>
                   <td className="px-4 py-2 text-right text-sm text-gray-600">{r.dias}</td>
                   <td className="px-4 py-2 text-right text-sm text-gray-600">{r.entregas}</td>
                   <td className="px-4 py-2 text-right text-sm text-gray-600">{r.extras}</td>
