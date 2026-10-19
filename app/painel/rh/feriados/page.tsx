@@ -17,7 +17,10 @@ export default async function FeriadosPage({ searchParams }: { searchParams: Pro
   // fazia ele marcar FALTA falsa em quem folgou no feriado.
   const limite = new Date(Date.now() - 7 * 86400000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
   await s.from('feriados').delete().lt('data', limite)
-  const { data: feriados } = await s.from('feriados').select('id, cidade, data, nome, tipo').order('data')
+  // Lista só de HOJE pra frente. Os passados ficam guardados no banco por 7 dias
+  // (o detector de faltas precisa deles), mas não aparecem — ver feriado velho não
+  // serve pra nada nesta tela.
+  const { data: feriados } = await s.from('feriados').select('id, cidade, data, nome, tipo').gte('data', hoje).order('data')
 
   return (
     <div className="space-y-6">
