@@ -21,6 +21,7 @@ export const ROTAS_PERMISSAO: Record<string, string | string[]> = {
   '/painel/os/checklists': 'os',
   '/painel/relatorios':        'master',
   '/painel/painel-vendedor':  'master',
+  '/painel/contabilidade':    'master',
   '/painel/metas':            'metas',
   '/painel/rh':               'master',
   '/painel/escala':           'master',
