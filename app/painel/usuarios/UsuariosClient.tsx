@@ -57,7 +57,7 @@ export interface Usuario {
   horarios: Record<number, { entrada: string; saida: string }>
   created_at: string
 }
-export type Cargo = { id: string; nome: string; ordem: number | null }
+export type Cargo = { id: string; nome: string; ordem: number | null; permissoes: string[] | null }
 export type Loja = { id: string; nome: string }
 export type Deposito = { id: string; nome: string; loja_id: string | null }
 export type Tabela = { id: string; nome: string }
@@ -153,6 +153,7 @@ function PermissoesGrid({
 function CargoOuPermissoes({ cargos, cargoId, onCargoChange, permissoes, isMaster }: {
   cargos: Cargo[]; cargoId: string; onCargoChange: (v: string) => void; permissoes: string[]; isMaster: boolean
 }) {
+  const cargoSelecionado = cargos.find((c) => c.id === cargoId)
   return (
     <div className="space-y-3">
       <div>
@@ -162,11 +163,24 @@ function CargoOuPermissoes({ cargos, cargoId, onCargoChange, permissoes, isMaste
           {cargos.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
         </select>
         <p className="mt-1 text-[11px] text-gray-400">
-          {cargoId ? 'O cargo dá as permissões base. Marque abaixo só as EXTRA desta pessoa — elas somam com o cargo.' : 'Sem cargo: marque as permissões abaixo pra esta pessoa.'}
+          {cargoSelecionado ? 'O cargo já libera tudo abaixo (automático). Marque a mais só o que for EXTRA desta pessoa.' : 'Sem cargo: marque as permissões abaixo pra esta pessoa.'}
         </p>
       </div>
-      {cargoId && (
-        <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700">Permissões extras desta pessoa (somam com o cargo)</p>
+
+      {cargoSelecionado && (
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+          <p className="mb-1.5 text-xs font-semibold text-gray-600">✅ O cargo {cargoSelecionado.nome} já libera:</p>
+          <div className="flex flex-wrap gap-1">
+            {(cargoSelecionado.permissoes ?? []).map((k) => {
+              const label = TODAS_PERMISSOES.find((p) => p.key === k)?.label ?? k
+              return <span key={k} className="rounded-full border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-medium text-gray-600">{label}</span>
+            })}
+          </div>
+        </div>
+      )}
+
+      {cargoSelecionado && (
+        <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700">➕ Extras desta pessoa (somam com o cargo)</p>
       )}
       <PermissoesGrid permissoes={permissoes} isMaster={isMaster} mostrarMaster={!cargoId} />
     </div>
