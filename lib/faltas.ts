@@ -69,7 +69,7 @@ export async function detectarFaltas() {
       if (fersHoje.has('todas') || (cidade && fersHoje.has(cidade))) continue
       const planejado = t.saida - t.entrada - (t.pausaIni !== null && t.pausaFim !== null ? Math.max(0, t.pausaFim - t.pausaIni) : 0)
       if (planejado <= 0) continue
-      await s.from('banco_horas').insert({ usuario_id: t.perfilId, horas: -Math.round((planejado / 60) * 100) / 100, data, motivo: 'falta', obs: 'Falta (não bateu ponto)', confirmado: true })
+      await s.from('banco_horas').insert({ usuario_id: t.perfilId, horas: -Math.round((planejado / 60) * 100) / 100, data, motivo: 'falta', obs: 'Falta (não bateu ponto)', confirmado: false })
     }
   }
 }

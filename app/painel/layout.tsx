@@ -135,6 +135,7 @@ export default async function PainelLayout({ children }: { children: React.React
       const { data: faltas } = await supabase.from('banco_horas')
         .select('id, usuario_id, horas, data')
         .eq('motivo', 'falta')
+        .eq('confirmado', false)
         .order('data', { ascending: false })
       const lista = (faltas ?? []) as { id: string; usuario_id: string; horas: number; data: string }[]
       if (isMaster) {

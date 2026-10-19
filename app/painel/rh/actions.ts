@@ -76,7 +76,8 @@ export async function abonarFalta(id: string) {
 export async function confirmarFalta(id: string) {
   await requirePermissao('master')
   const s = await createServiceClient()
-  await s.from('banco_horas').update({ confirmado: true }).eq('id', id)
+  const { error } = await s.from('banco_horas').update({ confirmado: true }).eq('id', id).eq('motivo', 'falta')
+  if (error) redirect('/painel/rh?erro=' + encodeURIComponent('Não deu pra confirmar o desconto: ' + error.message))
   revalidatePath('/painel/rh')
   revalidatePath('/painel/meu-perfil')
 }

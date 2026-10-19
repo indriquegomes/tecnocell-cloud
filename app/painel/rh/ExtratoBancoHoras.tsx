@@ -14,7 +14,7 @@ const fmtH = (h: number) => {
   return `${h > 0 ? '+' : h < 0 ? '−' : ''}${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}m`
 }
 
-type Item = { id: string; usuario_id: string; horas: number; data: string; motivo: string | null; obs: string | null }
+type Item = { id: string; usuario_id: string; horas: number; data: string; motivo: string | null; obs: string | null; confirmado: boolean | null }
 
 // Extrato do banco de horas — escondido por padrão, com filtro por pessoa.
 export function ExtratoBancoHoras({ itens, nomes }: { itens: Item[]; nomes: Record<string, string> }) {
@@ -57,11 +57,11 @@ export function ExtratoBancoHoras({ itens, nomes }: { itens: Item[]; nomes: Reco
             {filtrados.slice(0, 50).map((b) => (
               <div key={b.id} className="flex items-center justify-between gap-3 px-5 py-2.5">
                 <div className="min-w-0">
-                  <p className="truncate text-sm text-gray-800">{nomes[b.usuario_id] ?? '—'} <span className="text-gray-400">· {MOTIVO_LABEL[b.motivo ?? ''] ?? b.motivo ?? '—'}</span></p>
+                  <p className="truncate text-sm text-gray-800">{nomes[b.usuario_id] ?? '—'} <span className="text-gray-400">· {MOTIVO_LABEL[b.motivo ?? ''] ?? b.motivo ?? '—'}</span>{b.confirmado === false && <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">pendente</span>}</p>
                   <p className="text-xs text-gray-400">{formatDate(b.data)}{b.obs ? ` · ${b.obs}` : ''}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <span className={`text-sm font-bold tabular-nums ${Number(b.horas) < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{fmtH(Number(b.horas))}</span>
+                  <span className={`text-sm font-bold tabular-nums ${b.confirmado === false ? 'text-gray-400' : Number(b.horas) < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{fmtH(Number(b.horas))}</span>
                   <BotaoExcluir action={excluirHora.bind(null, b.id)} mensagem="Excluir este lançamento de hora?" />
                 </div>
               </div>

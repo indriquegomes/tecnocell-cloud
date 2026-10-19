@@ -177,10 +177,10 @@ export function PainelShell({
           <div className="border-b border-rose-200 bg-rose-50 px-6 py-2 text-sm text-rose-800">
             {isMaster ? (
               <span>
-                ⚠️ <b>{faltasPendentes.length}</b> falta(s) sem justificativa: {faltasPendentes.map((f) => f.nome + ' (' + f.data.slice(8, 10) + '/' + f.data.slice(5, 7) + ')').join(', ')} — <Link href="/painel/rh#faltas" className="font-semibold underline">justificar</Link>
+                ⚠️ <b>{faltasPendentes.length}</b> falta(s) pra revisar: {faltasPendentes.map((f) => f.nome + ' (' + f.data.slice(8, 10) + '/' + f.data.slice(5, 7) + ')').join(', ')} — <Link href="/painel/rh#faltas" className="font-semibold underline">revisar</Link>
               </span>
             ) : (
-              <span>⚠️ Você tem <b>{minhasFaltasPendentes.length}</b> falta(s) sem justificativa ({minhasFaltasPendentes.map((f) => f.data.slice(8, 10) + '/' + f.data.slice(5, 7)).join(', ')}). Fale com o gestor.</span>
+              <span>⚠️ Você tem <b>{minhasFaltasPendentes.length}</b> falta(s) aguardando revisão ({minhasFaltasPendentes.map((f) => f.data.slice(8, 10) + '/' + f.data.slice(5, 7)).join(', ')}). Fale com o gestor.</span>
             )}
           </div>
         )}
