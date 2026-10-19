@@ -30,7 +30,7 @@ as $$
   ),
   fat as (
     select
-      to_char(v.created_at at time zone 'UTC', 'YYYY-MM') as mes,
+      to_char(v.created_at at time zone 'America/Sao_Paulo', 'YYYY-MM') as mes,
       coalesce(d.loja_id::text, v.deposito_id) as loja_id,
       coalesce(l.nome, d.nome, 'Sem loja') as loja_nome,
       sum(coalesce(v.total, 0)) as faturamento
@@ -41,15 +41,15 @@ as $$
   ),
   custo as (
     select
-      to_char(v.created_at at time zone 'UTC', 'YYYY-MM') as mes,
+      to_char(v.created_at at time zone 'America/Sao_Paulo', 'YYYY-MM') as mes,
       coalesce(d.loja_id::text, v.deposito_id) as loja_id,
       coalesce(l.nome, d.nome, 'Sem loja') as loja_nome,
       sum(coalesce(i.quantidade, 0) * coalesce(p.preco_custo, 0)) as custo_vendido,
-      sum(case when extract(day from v.created_at at time zone 'UTC') <= 10
+      sum(case when extract(day from v.created_at at time zone 'America/Sao_Paulo') <= 10
             then coalesce(i.quantidade, 0) * coalesce(p.preco_custo, 0) else 0 end) as ciclo1,
-      sum(case when extract(day from v.created_at at time zone 'UTC') between 11 and 20
+      sum(case when extract(day from v.created_at at time zone 'America/Sao_Paulo') between 11 and 20
             then coalesce(i.quantidade, 0) * coalesce(p.preco_custo, 0) else 0 end) as ciclo2,
-      sum(case when extract(day from v.created_at at time zone 'UTC') >= 21
+      sum(case when extract(day from v.created_at at time zone 'America/Sao_Paulo') >= 21
             then coalesce(i.quantidade, 0) * coalesce(p.preco_custo, 0) else 0 end) as ciclo3
     from vendas_ok v
     join itens_venda i on i.venda_id = v.id

@@ -90,7 +90,9 @@ async function aplicarDobra(s: Awaited<ReturnType<typeof createServiceClient>>, 
   }
   const horas = min / 60
   if (horas <= 0) return
-  await s.from('banco_horas').insert({ usuario_id: userId, horas: horas * 2, data: hoje, motivo: 'dobra', obs: 'Dobra (feriado)', confirmado: true })
+  const { error: errDobra } = await s.from('banco_horas').insert({ usuario_id: userId, horas: horas * 2, data: hoje, motivo: 'dobra', obs: 'Dobra (feriado)', confirmado: true })
+  // 23505 = dobra já existe (2 saídas simultâneas em feriado) — não duplica.
+  if (errDobra && (errDobra as { code?: string }).code !== '23505') console.error('aplicarDobra:', errDobra.message)
 }
 
 // Na saída: calcula a hora extra do dia (trabalhado − escalado) e, se POSITIVA,

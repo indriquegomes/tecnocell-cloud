@@ -177,7 +177,7 @@ function CargoOuPermissoes({ cargos, cargoId, onCargoChange, permissoes, isMaste
           {cargoSelecionado ? 'Escolher o cargo preenche os quadradinhos. Você pode marcar/desmarcar qualquer um — o que estiver marcado é o que vale.' : 'Sem cargo: marque as permissões abaixo pra esta pessoa.'}
         </p>
       </div>
-      <PermissoesGrid key={cargoId || 'sem'} permissoes={mostradas} isMaster={isMaster} mostrarMaster={!cargoId} />
+      <PermissoesGrid key={cargoId || 'sem'} permissoes={mostradas} isMaster={isMaster} mostrarMaster />
     </div>
   )
 }

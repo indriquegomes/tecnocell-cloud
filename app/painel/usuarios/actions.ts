@@ -13,7 +13,7 @@ const TODAS_KEYS = TODAS_PERMISSOES.map((p) => p.key)
 export async function criarConvite(_: ConviteResult | null, fd: FormData): Promise<ConviteResult> {
   const token = fd.get('access_token') as string
   let admin: { id: string }
-  try { admin = await requirePermissao('usuarios', token) } catch { return { ok: false, message: 'Não autorizado' } }
+  try { admin = await requirePermissao('master', token) } catch { return { ok: false, message: 'Não autorizado' } }
 
   const usuario  = (fd.get('usuario') as string ?? '').trim()
   const nome     = (fd.get('nome') as string ?? '').trim()
@@ -51,7 +51,7 @@ export async function criarConvite(_: ConviteResult | null, fd: FormData): Promi
 
 export async function criarUsuario(_: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const token = fd.get('access_token') as string
-  try { await requirePermissao('usuarios', token) } catch { return { ok: false, message: 'Não autorizado' } }
+  try { await requirePermissao('master', token) } catch { return { ok: false, message: 'Não autorizado' } }
 
   const usuario  = (fd.get('usuario') as string ?? '').trim()
   const senha    = (fd.get('senha') as string ?? '').trim()
@@ -101,7 +101,7 @@ export async function criarUsuario(_: ActionResult | null, fd: FormData): Promis
 
 export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const token = fd.get('access_token') as string
-  try { await requirePermissao('usuarios', token) } catch { return { ok: false, message: 'Não autorizado' } }
+  try { await requirePermissao('master', token) } catch { return { ok: false, message: 'Não autorizado' } }
 
   const userId   = fd.get('user_id') as string
   const nome     = (fd.get('nome') as string ?? '').trim()
@@ -227,7 +227,7 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
 
 export async function alterarSenha(_: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const token = fd.get('access_token') as string
-  try { await requirePermissao('usuarios', token) } catch { return { ok: false, message: 'Não autorizado' } }
+  try { await requirePermissao('master', token) } catch { return { ok: false, message: 'Não autorizado' } }
 
   const userId = fd.get('user_id') as string
   const senha  = (fd.get('senha') as string ?? '').trim()
@@ -244,7 +244,7 @@ export async function alterarSenha(_: ActionResult | null, fd: FormData): Promis
 
 // Libera o login de um usuário que foi bloqueado ao deslogar (segurança).
 export async function liberarLogin(id: string) {
-  await requirePermissao('usuarios')
+  await requirePermissao('master')
   const supabase = await createServiceClient()
   const { error } = await supabase.from('perfis').update({ login_bloqueado: false }).eq('id', id)
   if (error) return
@@ -259,7 +259,7 @@ export async function excluirUsuario(_: ActionResult | null, fd: FormData): Prom
   const userId = fd.get('user_id') as string
 
   let atual: { id: string }
-  try { atual = await requirePermissao('usuarios', token) } catch { return { ok: false, message: 'Não autorizado' } }
+  try { atual = await requirePermissao('master', token) } catch { return { ok: false, message: 'Não autorizado' } }
   if (!userId) return { ok: false, message: 'Usuário inválido' }
   if (atual.id === userId) return { ok: false, message: 'Você não pode apagar a própria conta.' }
 

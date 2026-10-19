@@ -78,7 +78,7 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
   }
 
   const aberturaValor = aberturaRow?.data ? (aberturaRow.data.valor as Abertura) : null
-  const fechamento = fechadoRow?.data ? (fechadoRow.data.valor as { fechado_em: string }) : null
+  const fechamento = fechadoRow?.data ? (fechadoRow.data.valor as { fechado_em: string; estoque_final?: Record<string, { vitrine: number; fundo: number }> }) : null
   const fechamentoAnterior = anteriorRow?.data
     ? (anteriorRow.data.valor as { estoque_final?: Record<string, { vitrine: number; fundo: number }>; caixa_final?: Record<string, number> })
     : null
@@ -88,7 +88,10 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
 
   // Estoque a custo AGORA (vitrine/fundo por loja) — o "final" deste mês.
   // Inicial = congelado no fechamento do mês anterior (mesma régua de preco_custo).
-  const estoqueFinalPorLoja = await estoqueCustoPorLoja(supabase).catch(() => ({} as Record<string, { vitrine: number; fundo: number }>))
+  // Mês FECHADO: usa o estoque congelado no fechamento (não o atual) — senão
+  // movimentação depois do fechamento mudava o "Final do mês"/"Consumido".
+  const estoqueFinalPorLoja = fechamento?.estoque_final
+    ?? (await estoqueCustoPorLoja(supabase).catch(() => ({} as Record<string, { vitrine: number; fundo: number }>)))
   const estoqueInicialPorLoja = fechamentoAnterior?.estoque_final ?? {}
 
   // Forma de pagamento → tipo (pra saber o que é DINHEIRO de verdade, não PIX/cartão)
@@ -101,16 +104,20 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
   // Movimento de um mês (entradas, saídas, despesas e dinheiro) por loja.
   // Reusado pro mês atual E pro anterior — é o que sustenta a comparação mês a mês.
   const movimentoDoMes = async (de: string, ate: string) => {
+    // timestamptz (vendas.data, movimentos_caixa.created_at) corta o mês em São Paulo:
+    // sem o -03:00, venda às 22h30 do dia 30 cai no mês seguinte (UTC).
+    const deTs = de + 'T00:00:00-03:00'
+    const ateTs = ate + 'T00:00:00-03:00'
     const [pags, movsCaixa, comprasItens, despesas] = await Promise.all([
       fetchAll<any>((from, to) => supabase.from('pagamentos_venda')
         .select('valor, forma_pagamento_id, vendas!inner(deposito_id, numero, status, uso_interno, data)')
         .eq('status', 'pago').eq('vendas.status', 'concluida').eq('vendas.uso_interno', false)
-        .lt('vendas.numero', 100000).gte('vendas.data', de).lt('vendas.data', ate).range(from, to)),
+        .lt('vendas.numero', 100000).gte('vendas.data', deTs).lt('vendas.data', ateTs).range(from, to)),
       // TODOS os movimentos do mês: recebimento (fiado), reforço (entra na gaveta),
       // retirada/sangria e devolução em dinheiro (saem da gaveta).
       fetchAll<any>((from, to) => supabase.from('movimentos_caixa')
         .select('tipo, forma_pagamento, valor, caixa_id')
-        .gte('created_at', de).lt('created_at', ate).range(from, to)),
+        .gte('created_at', deTs).lt('created_at', ateTs).range(from, to)),
       fetchAll<any>((from, to) => supabase.from('itens_nota_entrada')
         .select('total_item, deposito_id, notas_entrada!inner(data_entrada)')
         .gte('notas_entrada.data_entrada', de).lt('notas_entrada.data_entrada', ate).range(from, to)),
@@ -178,7 +185,7 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
 
   const perdasApp = await fetchAll<any>((from, to) => supabase.from('movimentacoes_estoque')
     .select('quantidade, observacao, deposito_id, produtos(nome, preco_custo)')
-    .eq('operacao', 'perda').gte('created_at', inicio).lt('created_at', proxMes).range(from, to))
+    .eq('operacao', 'perda').gte('created_at', inicio + 'T00:00:00-03:00').lt('created_at', proxMes + 'T00:00:00-03:00').range(from, to))
 
   // Trocas SP ainda não resolvidas (status 'enviado'): dinheiro "na rua" com o
   // fornecedor. Sem corte por data — uma troca antiga continua pendente até voltar/abater.

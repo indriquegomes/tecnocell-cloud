@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies, headers } from 'next/headers'
-import { temPermissao } from '@/lib/permissoes'
+import { temPermissao, temAlgumaPermissao } from '@/lib/permissoes'
 
 export type Efetivas = { permissoes: string[]; isMaster: boolean; ativo: boolean }
 
@@ -236,6 +236,22 @@ export async function requirePermissao(
   const { permissoes, isMaster, ativo } = await permissoesEfetivas(usuario.id)
   if (!ativo) throw new Error('Conta sem acesso.')
   if (!temPermissao(permissoes, key, isMaster)) {
+    throw new Error('Sem permissão para esta ação.')
+  }
+  return usuario
+}
+
+// Como requirePermissao, mas aceita VÁRIAS chaves — qualquer uma libera. Usado
+// quando um acesso específico (ex.: 'fiados') é alternativa ao módulo cheio
+// (ex.: 'financeiro'), sem abrir o módulo inteiro.
+export async function requirePermissaoAny(
+  keys: string[],
+  accessToken?: string
+): Promise<{ id: string; email: string | null }> {
+  const usuario = await requireAuth(accessToken)
+  const { permissoes, isMaster, ativo } = await permissoesEfetivas(usuario.id)
+  if (!ativo) throw new Error('Conta sem acesso.')
+  if (!temAlgumaPermissao(permissoes, keys, isMaster)) {
     throw new Error('Sem permissão para esta ação.')
   }
   return usuario
