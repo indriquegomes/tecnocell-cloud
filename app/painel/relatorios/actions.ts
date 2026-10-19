@@ -11,7 +11,7 @@ export async function exportarRelatorio(
   aba: 'precificacao' | 'inventario' | 'contatos' | 'estoque' | 'financeiro',
   periodo?: { de: string; ate: string },
 ): Promise<Record<string, unknown>[]> {
-  await requirePermissao('relatorios', accessToken)
+  await requirePermissao('master', accessToken)
   const supabase = await createServiceClient()
 
   if (aba === 'financeiro') {

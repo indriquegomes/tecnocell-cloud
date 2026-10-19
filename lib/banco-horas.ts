@@ -28,7 +28,13 @@ export async function recalcularBancoDia(
   const turno = turnosDoDia(data, diaSemana, (esc ?? []) as Escala[], (exc ?? []) as Excecao[], { [userId]: '' }).find((t) => t.perfilId === userId)
   if (!turno || turno.folga) return null
   const planejado = turno.saida - turno.entrada - (turno.pausaIni !== null && turno.pausaFim !== null ? Math.max(0, turno.pausaFim - turno.pausaIni) : 0)
-  const trabalhado = trabalhadoDoDia((pts ?? []) as PontoEscala[], data).find((t) => t.perfilId === userId)?.minutos ?? 0
+  const trab = trabalhadoDoDia((pts ?? []) as PontoEscala[], data).find((t) => t.perfilId === userId)
+  // Só fecha o dia quando bateu a SAÍDA e não está mais no turno. Sem isso, um ajuste de
+  // ponto no meio do turno (ex.: retorno do almoço esquecido) geraria "atraso" falso.
+  const bateuSaida = (pts ?? []).some((p) => p.tipo === 'saida')
+  const aindaNoTurno = trab?.aberto === true
+  if (!bateuSaida || aindaNoTurno) return null
+  const trabalhado = trab?.minutos ?? 0
   const extra = trabalhado - planejado
   if (extra === 0) return null
 

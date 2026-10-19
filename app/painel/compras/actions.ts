@@ -1,12 +1,12 @@
 'use server'
 
-import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissaoAny } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 export async function criarNotaEntrada(formData: FormData) {
-  await requirePermissao('compras')
+  await requirePermissaoAny(['compras', 'notas_entrada'])
   const supabase = await createServiceClient()
   // NF é opcional: se vier vazio, gera um número aleatório de 6 dígitos
   // (pra não precisar digitar quando a mercadoria chega sem nota).
@@ -33,7 +33,7 @@ export async function criarNotaEntrada(formData: FormData) {
 }
 
 export async function receberNota(id: string) {
-  await requirePermissao('compras')
+  await requirePermissaoAny(['compras', 'notas_entrada'])
   const supabase = await createServiceClient()
 
   // Checagem antecipada: produto com controla_serie precisa ter um IMEI
@@ -81,7 +81,7 @@ export async function receberNota(id: string) {
 // Salva a lista de IMEIs digitados/lidos pra um item da nota (produto
 // controla_serie). Substitui a lista inteira — mais simples que diff.
 export async function salvarSeriesItem(itemId: string, notaId: string, series: string[]) {
-  await requirePermissao('compras')
+  await requirePermissaoAny(['compras', 'notas_entrada'])
   const supabase = await createServiceClient()
   const limpas = [...new Set(series.map((s) => s.trim()).filter(Boolean))]
   const { error } = await supabase.from('itens_nota_entrada').update({ series: limpas }).eq('id', itemId)
@@ -91,7 +91,7 @@ export async function salvarSeriesItem(itemId: string, notaId: string, series: s
 }
 
 export async function estornarNota(id: string) {
-  await requirePermissao('compras')
+  await requirePermissaoAny(['compras', 'notas_entrada'])
   const supabase = await createServiceClient()
   // devolve o estoque e marca cancelada (atômico)
   const { error } = await supabase.rpc('estornar_nota_entrada', { p_nota_id: id })
@@ -102,7 +102,7 @@ export async function estornarNota(id: string) {
 }
 
 export async function deletarNota(id: string) {
-  await requirePermissao('compras')
+  await requirePermissaoAny(['compras', 'notas_entrada'])
   const supabase = await createServiceClient()
   // nota recebida mexeu no estoque — não pode sumir sem estornar antes
   const { data: nota } = await supabase.from('notas_entrada').select('status').eq('id', id).maybeSingle()
@@ -117,7 +117,7 @@ export async function deletarNota(id: string) {
 }
 
 export async function editarNota(id: string, formData: FormData) {
-  await requirePermissao('compras')
+  await requirePermissaoAny(['compras', 'notas_entrada'])
   const supabase = await createServiceClient()
   const { data: nota } = await supabase.from('notas_entrada').select('status').eq('id', id).maybeSingle()
   if (nota?.status !== 'pendente') {
@@ -136,7 +136,7 @@ export async function editarNota(id: string, formData: FormData) {
 }
 
 export async function removerItemNota(itemId: string, notaId: string) {
-  await requirePermissao('compras')
+  await requirePermissaoAny(['compras', 'notas_entrada'])
   const supabase = await createServiceClient()
   const { error: eDel } = await supabase.from('itens_nota_entrada').delete().eq('id', itemId)
   if (eDel) redirect(`/painel/compras/${notaId}?erro=${encodeURIComponent(eDel.message)}`)
@@ -148,7 +148,7 @@ export async function removerItemNota(itemId: string, notaId: string) {
 }
 
 export async function editarItemNota(itemId: string, notaId: string, formData: FormData) {
-  await requirePermissao('compras')
+  await requirePermissaoAny(['compras', 'notas_entrada'])
   const supabase = await createServiceClient()
   // Math.max: mesmo buraco achado em produtos/financeiro (25/08) -- sem isso dava
   // pra forcar quantidade/preco negativo direto no campo escondido do form.
@@ -166,7 +166,7 @@ export async function editarItemNota(itemId: string, notaId: string, formData: F
 }
 
 export async function adicionarItemNota(notaId: string, formData: FormData) {
-  await requirePermissao('compras')
+  await requirePermissaoAny(['compras', 'notas_entrada'])
   const supabase = await createServiceClient()
   // Math.max: mesmo buraco achado em produtos/financeiro (25/08) -- sem isso dava
   // pra forcar quantidade/preco negativo direto no campo escondido do form.

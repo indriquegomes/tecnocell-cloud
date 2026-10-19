@@ -116,7 +116,7 @@ export async function marcarPago(id: string, formData?: FormData) {
   const supabase = await createServiceClient()
   const { data: antes, error: erroAntes } = await supabase
     .from('lancamentos')
-    .select('valor, valor_pago, forma_pagamento, pessoa_nome, tipo')
+    .select('valor, valor_pago, forma_pagamento, pessoa_nome, tipo, data_vencimento')
     .eq('id', id)
     .maybeSingle()
   // Sem essa checagem, uma falha na consulta virava "antes = undefined" e o
@@ -125,6 +125,11 @@ export async function marcarPago(id: string, formData?: FormData) {
   // redirect (não throw): marcarPago é chamado por um <form action={...}> sem
   // error boundary (financeiro/page.tsx) — throw derruba a tela inteira.
   if (erroAntes) redirect(`/painel/financeiro?erro=${encodeURIComponent(erroAntes.message)}`)
+
+  // Trava de mês fechado: não marca pago (nem desfaz) lançamento de mês já fechado —
+  // baixar uma despesa antiga mudaria o resultado do passado auditado.
+  const erroTrava = await travarSeMesFechado(supabase, (antes as { data_vencimento?: string | null } | null)?.data_vencimento?.slice(0, 10) ?? null, 'marcar este lançamento como pago')
+  if (erroTrava) redirect(`/painel/financeiro?erro=${encodeURIComponent(erroTrava)}`)
 
   // COMO foi pago — vem do select ao lado do botão "Pago".
   // Antes isto assumia 'Dinheiro' quando o lançamento não tinha forma, e fiado
@@ -220,10 +225,13 @@ export async function desfazerPagamento(id: string) {
 
   const { data: lanc, error: erroLanc } = await supabase
     .from('lancamentos')
-    .select('valor, valor_pago, tipo, status, pessoa_nome')
+    .select('valor, valor_pago, tipo, status, pessoa_nome, data_vencimento')
     .eq('id', id)
     .maybeSingle()
   if (erroLanc) redirect(`/painel/financeiro?erro=${encodeURIComponent(erroLanc.message)}`)
+
+  const erroTrava = await travarSeMesFechado(supabase, (lanc as { data_vencimento?: string | null } | null)?.data_vencimento?.slice(0, 10) ?? null, 'desfazer este pagamento')
+  if (erroTrava) redirect(`/painel/financeiro?erro=${encodeURIComponent(erroTrava)}`)
   if (!lanc || lanc.status !== 'pago') {
     redirect(`/painel/financeiro?erro=${encodeURIComponent('Só é possível desfazer um lançamento já pago.')}`)
   }
