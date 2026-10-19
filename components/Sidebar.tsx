@@ -89,7 +89,7 @@ const navCompleto: NavGroup[] = [
       { href: '/painel/pedidos',        label: 'Pedidos e Orçamentos',  permissao: 'pedidos' },
       { href: '/painel/entregas',       label: 'Entregas do motoboy',    permissao: 'pdv' },
       { href: '/painel/devolucoes',     label: 'Devoluções',            permissao: 'devolucoes' },
-      { href: '/painel/painel-vendedor', label: 'Painel Vendedor',      permissao: 'relatorios' },
+      { href: '/painel/painel-vendedor', label: 'Painel Vendedor',      permissao: 'master' },
       { href: '/painel/metas',          label: 'Metas',                 permissao: 'metas' },
       { href: '/painel/promocoes',      label: 'Promoções',             permissao: 'produtos' },
       { href: '/painel/tabelas-preco',  label: 'Tabelas de Preço',      permissao: 'produtos' },
@@ -162,7 +162,7 @@ const navCompleto: NavGroup[] = [
   {
     group: 'Admin',
     items: [
-      { href: '/painel/relatorios',    label: 'Relatórios',    permissao: 'relatorios' },
+      { href: '/painel/relatorios',    label: 'Relatórios',    permissao: 'master' },
       { href: '/painel/rh',            label: 'RH / Equipe',   permissao: 'master' },
       { href: '/painel/escala',        label: 'Escala',        permissao: 'master' },
       { href: '/painel/lembretes',     label: 'Lembretes',     permissao: 'lembretes' },

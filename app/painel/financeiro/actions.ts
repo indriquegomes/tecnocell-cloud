@@ -380,7 +380,7 @@ export async function registrarSangria(formData: FormData) {
 // > 0, na loja de origem dele (pdv_loja_id ou a única loja permitida). Comissões/
 // porcentagens ainda entram à mão (não há regra definida no sistema ainda).
 export async function gerarFolha(formData: FormData) {
-  await requirePermissao('financeiro')
+  await requirePermissao('master')
   const supabase = await createServiceClient()
   const vencimento = (formData.get('vencimento') as string) || hojeSP()
 
