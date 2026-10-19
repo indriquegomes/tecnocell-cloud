@@ -22,12 +22,22 @@ Crédito disponível para próxima compra.
 #TecnocellBrasil`)
 })
 
-test('monta mensagem de cancelamento de fiado', () => {
+test('monta mensagem de cancelamento de fiado com saldo devedor', () => {
+  assert.equal(mensagemDevolucao({ ...base, tipo: 'cancelamento_fiado', saldo: 53 }), `Olá, ISABELA! 😊
+
+Registramos devolução dos produtos FRONTAL A (2x) e FLEX B da venda nº 935.
+
+Dívida de R$ 147,00 foi cancelada. Saldo atualizado R$ 53,00.
+
+#TecnocellBrasil`)
+})
+
+test('mensagem de cancelamento sem saldo devedor conhecido', () => {
   assert.equal(mensagemDevolucao({ ...base, tipo: 'cancelamento_fiado' }), `Olá, ISABELA! 😊
 
 Registramos devolução dos produtos FRONTAL A (2x) e FLEX B da venda nº 935.
 
-Dívida de R$ 147,00 foi cancelada. Saldo atualizado.
+Dívida de R$ 147,00 foi cancelada.
 
 #TecnocellBrasil`)
 })
