@@ -162,7 +162,7 @@ export default async function ContabilidadePage({ searchParams }: { searchParams
             </tbody>
           </table>
         </div>
-        <p className="border-t border-gray-100 bg-gray-50 px-4 py-2 text-[11px] text-gray-400">Encargos = FGTS + INSS + 13º + férias + vale transporte (estimado, só pra CLT). MEI/freelancer não tem encargo. Quem trabalha nas duas lojas aparece nas duas.</p>
+        <p className="border-t border-gray-100 bg-gray-50 px-4 py-2 text-[11px] text-gray-400">Encargos = FGTS + INSS + 13º + férias + vale transporte (estimado, só pra CLT). MEI/freelancer não tem encargo. Quem trabalha nas duas lojas entra na loja principal (PDV).</p>
       </div>
 
       {/* Faturamento por dia */}

@@ -62,7 +62,7 @@ export async function buscarDadosContabilidade(mes: string, lojaId?: string): Pr
     fetchAll<any>((from, to) => vendasQ.order('data').range(from, to)),
     fetchAll<any>((from, to) => comprasQ.order('notas_entrada.data_entrada').range(from, to)),
     fetchAll<any>((from, to) => despesasQ.order('data_pagamento').range(from, to)),
-    fetchAll<any>((from, to) => supabase.from('perfis').select('id, nome, salario, cargo_id, vinculo, clt_vale_transporte, lojas_permitidas').eq('ativo', true).order('nome').range(from, to)),
+    fetchAll<any>((from, to) => supabase.from('perfis').select('id, nome, salario, cargo_id, vinculo, clt_vale_transporte, lojas_permitidas, pdv_loja_id').eq('ativo', true).order('nome').range(from, to)),
     fetchAll<any>((from, to) => supabase.from('cargos').select('id, nome').eq('ativo', true).range(from, to)),
   ])
 
@@ -95,8 +95,12 @@ export async function buscarDadosContabilidade(mes: string, lojaId?: string): Pr
   // folha: filtra por loja (quem pode trabalhar nela); encargos só pra CLT
   const perfisFiltrados = lojaId
     ? (perfis ?? []).filter((p) => {
+        // Loja PRINCIPAL = pdv_loja_id (se definida); senão, a única loja permitida.
+        // Assim quem trabalha nas duas lojas NÃO aparece em dobro — entra só na principal.
+        const pdv = p.pdv_loja_id as string | null
+        if (pdv) return pdv === lojaId
         const ls = (p.lojas_permitidas ?? []) as string[]
-        return ls.length === 0 || ls.includes(lojaId)
+        return ls.length === 1 && ls[0] === lojaId
       })
     : (perfis ?? [])
   const folhaLista = perfisFiltrados.map((p) => {
