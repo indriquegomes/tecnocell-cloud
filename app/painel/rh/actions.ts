@@ -55,11 +55,19 @@ export async function confirmarDobra(id: string) {
   revalidatePath('/painel/rh')
 }
 
-// Abona uma falta (justificada): remove o lançamento, sem descontar.
+// Abona uma falta (justificada): zera as horas e marca 'abono'. NÃO apaga — senão o
+// detector de faltas recriava no próximo load (era o "justificar travado"). O 'abono'
+// some do desconto (horas 0) e o detector pula quem já tem abono no dia (lib/faltas.ts).
 export async function abonarFalta(id: string) {
   await requirePermissao('master')
   const s = await createServiceClient()
-  await s.from('banco_horas').delete().eq('id', id)
+  // .eq('motivo','falta') protege de abonar algo que já não é falta. Se o update falhar,
+  // mostra o erro (não some em silêncio — senão a falta "voltava" sem pista nenhuma).
+  const { error } = await s.from('banco_horas')
+    .update({ horas: 0, motivo: 'abono', obs: 'Abonada (justificada)', confirmado: true })
+    .eq('id', id)
+    .eq('motivo', 'falta')
+  if (error) redirect('/painel/rh?erro=' + encodeURIComponent('Não deu pra abonar: ' + error.message))
   revalidatePath('/painel/rh')
   revalidatePath('/painel/meu-perfil')
 }

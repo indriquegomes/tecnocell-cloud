@@ -7,7 +7,7 @@ import { formatDate } from '@/lib/utils'
 
 const MOTIVO_LABEL: Record<string, string> = {
   solicitacao_loja: 'Solicitação da loja', cobrir_colega: 'Cobrir colega',
-  atraso: 'Atraso', pagamento: 'Pagamento', folga: 'Folga', hora_extra: 'Hora extra', falta: 'Falta', dobra: 'Dobra (folga/feriado)', outro: 'Outro',
+  atraso: 'Atraso', pagamento: 'Pagamento', folga: 'Folga', hora_extra: 'Hora extra', falta: 'Falta', dobra: 'Dobra (folga/feriado)', abono: 'Abonada (justificada)', outro: 'Outro',
 }
 const fmtH = (h: number) => {
   const m = Math.round(Math.abs(h) * 60)

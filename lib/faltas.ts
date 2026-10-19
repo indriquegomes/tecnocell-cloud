@@ -26,7 +26,7 @@ export async function detectarFaltas() {
     s.from('escala_excecoes').select('*').gte('data', primeiro).lte('data', ultimo),
     s.from('pontos').select('usuario_id, criado_em').gte('criado_em', primeiro + 'T00:00:00-03:00').lte('criado_em', ultimo + 'T23:59:59-03:00'),
     s.from('perfis').select('id, nome, pdv_loja_id, lojas_permitidas, data_admissao').eq('ativo', true),
-    s.from('banco_horas').select('usuario_id, data').eq('motivo', 'falta').gte('data', primeiro).lte('data', ultimo),
+    s.from('banco_horas').select('usuario_id, data').in('motivo', ['falta', 'abono']).gte('data', primeiro).lte('data', ultimo),
     s.from('lojas').select('id, nome'),
     s.from('feriados').select('cidade, data').gte('data', primeiro).lte('data', ultimo),
   ])
