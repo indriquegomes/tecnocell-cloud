@@ -119,11 +119,12 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
         .select('tipo, forma_pagamento, valor, caixa_id')
         .gte('created_at', deTs).lt('created_at', ateTs).range(from, to)),
       fetchAll<any>((from, to) => supabase.from('itens_nota_entrada')
-        .select('total_item, deposito_id, notas_entrada!inner(data_entrada)')
+        .select('total_item, deposito_id, notas_entrada!inner(data_entrada, status)')
+        .neq('notas_entrada.status', 'cancelada')
         .gte('notas_entrada.data_entrada', de).lt('notas_entrada.data_entrada', ate).range(from, to)),
       fetchAll<any>((from, to) => supabase.from('lancamentos')
         .select('valor, loja_id, categoria, pessoa_nome, forma_pagamento').eq('tipo', 'pagar').eq('status', 'pago')
-        .gte('data_vencimento', de).lt('data_vencimento', ate).range(from, to)),
+        .gte('data_pagamento', deTs).lt('data_pagamento', ateTs).range(from, to)),
     ])
 
     const porLoja: Record<string, { loja: string; nome: string; entradas: number; fiadoCobrado: number; compras: number; despesas: number }> = {}
