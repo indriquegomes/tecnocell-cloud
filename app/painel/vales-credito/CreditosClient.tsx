@@ -262,7 +262,7 @@ export function CreditosClient({
                               m.tipo === 'uso' ? 'bg-blue-100 text-blue-600' :
                               'bg-red-100 text-red-600'
                             }`}>
-                              {m.tipo === 'credito' ? '+ Crédito' : m.tipo === 'uso' ? '✓ Usado' : '− Estorno'}
+                              {m.tipo === 'credito' ? '+ Crédito' : m.tipo === 'uso' ? '✓ Usado' : '− Cancelado'}
                             </span>
                           </td>
                           <td className={`px-5 py-2.5 text-right font-semibold ${
@@ -275,8 +275,8 @@ export function CreditosClient({
                           <td className="px-5 py-2.5 text-right">
                             {m.tipo === 'credito' && (
                               <form action={estornarCredito.bind(null, m.id)}>
-                                <ConfirmButton message="Estornar este crédito?" className="text-xs text-red-400 hover:text-red-600 font-medium">
-                                  Estornar
+                                <ConfirmButton message="Cancelar este vale (crédito)? O saldo dele sai do cliente." className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-100 transition">
+                                  Cancelar
                                 </ConfirmButton>
                               </form>
                             )}
