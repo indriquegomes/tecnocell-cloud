@@ -10,6 +10,12 @@ export async function POST(request: NextRequest) {
   const password = formData.get('password') as string
   const next = (formData.get('next') as string | null) ?? ''
   const destino = next.startsWith('/painel') ? next : '/painel'
+  function voltarAoLogin(mensagem: string) {
+    const login = new URL('/login', request.url)
+    login.searchParams.set('erro', mensagem)
+    login.searchParams.set('next', destino)
+    return NextResponse.redirect(login, 303)
+  }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -30,11 +36,11 @@ export async function POST(request: NextRequest) {
       .eq('username', normalizarUsuario(usuario))
       .maybeSingle()
     if (!perfil) {
-      return NextResponse.redirect(new URL(`/login?erro=${encodeURIComponent(ERRO)}`, request.url))
+      return voltarAoLogin(ERRO)
     }
     const { data: { user } } = await service.auth.admin.getUserById(perfil.id)
     if (!user?.email) {
-      return NextResponse.redirect(new URL(`/login?erro=${encodeURIComponent(ERRO)}`, request.url))
+      return voltarAoLogin(ERRO)
     }
     email = user.email
   }
@@ -63,9 +69,7 @@ export async function POST(request: NextRequest) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
-    return NextResponse.redirect(
-      new URL(`/login?erro=${encodeURIComponent(ERRO)}`, request.url)
-    )
+    return voltarAoLogin(ERRO)
   }
 
   // Motoboy (cargo MOTOBOY) cai direto na tela de registro de rotas.
@@ -77,7 +81,7 @@ export async function POST(request: NextRequest) {
     const { data: perf } = await service.from('perfis').select('cargo_id, is_master, login_bloqueado').eq('id', data.user.id).maybeSingle()
     const p = perf as { cargo_id?: string | null; is_master?: boolean | null; login_bloqueado?: boolean | null } | null
     if (p?.login_bloqueado && !p.is_master) {
-      return NextResponse.redirect(new URL(`/login?erro=${encodeURIComponent('Acesso bloqueado. Peça ao master para liberar.')}`, request.url))
+      return voltarAoLogin('Acesso bloqueado. Peça ao master para liberar.')
     }
     const cargoId = p?.cargo_id ?? null
     if (cargoId) {

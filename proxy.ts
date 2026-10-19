@@ -67,7 +67,7 @@ export async function proxy(request: NextRequest) {
 
   if (!sessao && noPainel) {
     const url = new URL('/login', request.url)
-    url.searchParams.set('next', request.nextUrl.pathname)
+    url.searchParams.set('next', request.nextUrl.pathname + request.nextUrl.search)
     return NextResponse.redirect(url)
   }
 

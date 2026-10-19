@@ -43,7 +43,8 @@ async function contexto(unidade?: string, accessToken?: string, gerenciar = fals
   return { usuario, service, unidades, selecionada: selecionada ?? null }
 }
 
-export async function carregarPedidosApp(unidade?: string, accessToken?: string, cursor?: string): Promise<DadosPedidosApp> {
+export async function carregarPedidosApp(unidade?: string, accessToken?: string, cursor?: string, pedidoId?: string): Promise<DadosPedidosApp> {
+  if (pedidoId !== undefined && (!UUID.test(pedidoId) || !unidade || cursor)) throw new ErroPedido('Link do pedido inválido.')
   const { service, unidades, selecionada } = await contexto(unidade, accessToken)
   const gerenciamentoHabilitado = process.env.PEDIDOS_APP_GERENCIAMENTO_ENABLED === 'true'
   if (!selecionada) return { unidades, unidade: null, pedidos: [], gerenciamentoHabilitado, maisPedidos: false, proximoCursor: null }
@@ -51,6 +52,7 @@ export async function carregarPedidosApp(unidade?: string, accessToken?: string,
     .select('id,pessoa_id,status,status_pagamento,itens,created_at')
     .contains('itens', JSON.stringify([{ loja: selecionada.unidade }])).order('created_at', { ascending: false })
     .order('id', { ascending: false }).limit(101)
+  if (pedidoId) consulta = consulta.eq('id', pedidoId)
   if (cursor) {
     if (!UUID.test(cursor)) throw new ErroPedido('Página inválida. Atualize a lista.')
     const { data: ancora, error: erroAncora } = await service.from('pedidos_app').select('id,created_at')
@@ -62,6 +64,7 @@ export async function carregarPedidosApp(unidade?: string, accessToken?: string,
   }
   const { data, error } = await consulta
   if (error) { diagnosticarLeitura('pedidos', error); throw new ErroPedido('Não foi possível carregar os pedidos desta unidade. Tente novamente.') }
+  if (pedidoId && !data?.length) throw new ErroPedido('Pedido não encontrado nesta unidade.')
   const pedidos = (data ?? []).slice(0, 100)
   const ids = pedidos.map(p => p.id as string)
   const pessoasIds = [...new Set(pedidos.map(p => p.pessoa_id as string).filter(Boolean))]

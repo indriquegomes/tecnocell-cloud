@@ -1,10 +1,10 @@
 import { carregarPedidosApp } from './actions'
 import { PedidosAppClient } from './PedidosAppClient'
 
-export default async function PedidosAppPage({ searchParams }: { searchParams: Promise<{ unidade?: string }> }) {
-  const { unidade } = await searchParams
+export default async function PedidosAppPage({ searchParams }: { searchParams: Promise<{ unidade?: string; pedido?: string }> }) {
+  const { unidade, pedido } = await searchParams
   try {
-    return <PedidosAppClient dados={await carregarPedidosApp(unidade)} />
+    return <PedidosAppClient key={`${unidade ?? ''}:${pedido ?? ''}`} pedidoId={pedido} dados={await carregarPedidosApp(unidade, undefined, undefined, pedido)} />
   } catch (erro) {
     console.error('[pedidos-app] falha-pagina', erro instanceof Error && ['Error', 'TypeError', 'ReferenceError'].includes(erro.name) ? erro.name : 'ERRO_INTERNO')
     return <div className="space-y-4"><h2 className="text-2xl font-bold text-gray-900">Pedidos do App</h2>

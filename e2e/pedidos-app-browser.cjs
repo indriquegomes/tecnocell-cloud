@@ -41,17 +41,17 @@ async function main(){
     const origin='http://127.0.0.1:'+server.address().port;
     await page.goto(origin);await page.getByRole('heading',{name:'Pedidos do App'}).waitFor();
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'sem overflow horizontal em 390px');
-    await page.getByRole('button',{name:'Ver peças',exact:true}).click();await page.getByRole('list',{name:'Peças do pedido'}).waitFor();
+    await page.getByRole('button',{name:'Ver pedido',exact:true}).click();await page.getByRole('list',{name:'Peças do pedido'}).waitFor();
     await page.evaluate(()=>window.failRefresh=true);
     await page.getByRole('button',{name:'Atualizar pedidos',exact:true}).click();await page.getByRole('alert').waitFor();
     assert.equal(await page.getByRole('list',{name:'Peças do pedido'}).count(),1,'falha preserva detalhe');
-    const confirmar=page.getByRole('button',{name:'Confirmar disponibilidade',exact:true});
+    const confirmar=page.getByRole('button',{name:'Aceitar pedido',exact:true});
     await confirmar.click();await page.getByRole('status').waitFor();
     assert.equal(await page.evaluate(()=>window.confirmations),1);
     await page.getByLabel('Mostrar pedidos').selectOption('todos');
     assert.equal(await confirmar.isDisabled(),true,'confirmação registrada não habilita repetir ao falhar atualização');
     await page.goto(origin+'/readonly');await page.getByRole('heading',{name:'Pedidos do App'}).waitFor();
-    assert.equal(await page.getByRole('button',{name:'Confirmar disponibilidade'}).isDisabled(),true);
+    assert.equal(await page.getByRole('button',{name:'Aceitar pedido'}).isDisabled(),true);
     await page.goto(origin+'/empty');await page.getByText('Nenhum pedido neste filtro.',{exact:true}).waitFor();
     assert.deepEqual(errors,[]);console.log('PASS Chromium390: detalhe, erro/nova tentativa, confirmação, somente consulta, vazio e largura. Backend fictício.');
   } finally {if(browser)await browser.close();await new Promise(r=>server.close(r));}

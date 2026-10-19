@@ -171,6 +171,25 @@ test('sem unidades configuradas retorna estado vazio explícito', async () => {
   const data = await f.actions.carregarPedidosApp(undefined, 'token');
   assert.equal(data.unidade, null); assert.equal(data.pedidos.length, 0);
 });
+
+test('link direto encontra pedido antigo e não retorna outros pedidos', async () => {
+  const antigos = Array.from({ length: 110 }, (_, n) => ({ id: `00000000-0000-4000-8000-${String(n + 100).padStart(12, '0')}`, pessoa_id: 'p1', status: 'confirmado', status_pagamento: 'pendente', itens: [item], created_at: '2026-10-17' }));
+  const f = fixture({ rows: { pedidos_app: [...antigos, { ...antigos[0], id: pedidoId }] } });
+  const data = await f.actions.carregarPedidosApp('Unidade A', 'token', undefined, pedidoId);
+  assert.equal(data.pedidos.length, 1);
+  assert.equal(data.pedidos[0].id, pedidoId);
+  assert.equal(data.proximoCursor, null);
+});
+
+test('link direto inválido, ausente ou fora da unidade falha sem ampliar a consulta', async () => {
+  for (const id of ['invalido', '00000000-0000-4000-8000-000000000099']) {
+    await assert.rejects(fixture().actions.carregarPedidosApp('Unidade A', 'token', undefined, id));
+  }
+  await assert.rejects(fixture().actions.carregarPedidosApp('Unidade B', 'token', undefined, pedidoId));
+  const f = fixture({ permission: false });
+  await assert.rejects(f.actions.carregarPedidosApp('Unidade A', 'token', undefined, pedidoId));
+  assert.equal(f.reads.length, 0);
+});
 test('ID inválido e pedido de outra unidade não chamam RPC', async () => {
   const f = fixture();
   for (const action of ['confirmarPedidoApp', 'cancelarPedidoApp']) {
