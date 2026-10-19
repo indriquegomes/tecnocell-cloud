@@ -1,4 +1,4 @@
-export const ROTAS_PERMISSAO: Record<string, string> = {
+export const ROTAS_PERMISSAO: Record<string, string | string[]> = {
   '/painel/pdv':           'pdv',
   '/painel/pedidos-app':   'pdv',
   '/painel/vendas':        'vendas',
@@ -24,7 +24,7 @@ export const ROTAS_PERMISSAO: Record<string, string> = {
   '/painel/rh':               'master',
   '/painel/escala':           'master',
   '/painel/lembretes':        'lembretes',
-  '/painel/compras':       'compras',
+  '/painel/compras':       ['compras', 'notas_entrada'],
   '/painel/pedidos':       'pedidos',
   '/painel/usuarios':      'usuarios',
   '/painel/cargos':        'usuarios',
@@ -35,7 +35,7 @@ export const ROTAS_PERMISSAO: Record<string, string> = {
   '/painel/componentes':      'usuarios',
   '/painel/vales-credito':    'financeiro',
   '/painel/contas':           'financeiro',
-  '/painel/fiados':           'financeiro',
+  '/painel/fiados':           ['financeiro', 'fiados'],
   '/painel/promocoes':        'produtos',
   '/painel/loja':             'produtos',
   '/painel/chat':             'chat_ia',
@@ -63,7 +63,9 @@ export const TODAS_PERMISSOES = [
   { grupo: 'Módulos',  key: 'produtos',   label: 'Produtos',             desc: 'Catálogo, categorias e tabelas de preço' },
   { grupo: 'Módulos',  key: 'estoque',    label: 'Estoque',              desc: 'Movimentações e depósitos' },
   { grupo: 'Módulos',  key: 'compras',    label: 'Compras',              desc: 'Notas de entrada' },
+  { grupo: 'Módulos',  key: 'notas_entrada', label: 'Notas de Entrada', desc: 'Dar entrada de mercadoria (compras)' },
   { grupo: 'Módulos',  key: 'financeiro', label: 'Financeiro',           desc: 'A receber, a pagar e lançamentos' },
+  { grupo: 'Módulos',  key: 'fiados',     label: 'Fiados & Cobranças',   desc: 'Ver quem deve e mandar cobrança no WhatsApp' },
   { grupo: 'Módulos',  key: 'relatorios', label: 'Relatórios',           desc: 'Relatórios gerenciais e indicadores' },
   { grupo: 'Módulos',  key: 'metas',      label: 'Metas',                desc: 'Configurar metas e faixas de premiação por loja' },
   { grupo: 'Módulos',  key: 'rh',         label: 'RH / Equipe',          desc: 'Espelho de ponto, horários e tarefas da equipe' },
@@ -89,8 +91,15 @@ export function temPermissao(permissoes: string[], key: string, isMaster: boolea
   return permissoes.includes(key)
 }
 
-export function permissaoPorRota(pathname: string): string | null {
+export function permissaoPorRota(pathname: string): string | string[] | null {
   const match = Object.entries(ROTAS_PERMISSAO)
     .find(([rota]) => pathname === rota || pathname.startsWith(rota + '/'))
   return match?.[1] ?? null
+}
+
+// Aceita uma chave OU uma lista (qualquer uma libera). Usado quando um acesso
+// específico (ex.: 'fiados') é alternativa ao módulo cheio (ex.: 'financeiro').
+export function temAlgumaPermissao(permissoes: string[], keys: string | string[], isMaster: boolean): boolean {
+  const arr = Array.isArray(keys) ? keys : [keys]
+  return arr.some((k) => temPermissao(permissoes, k, isMaster))
 }

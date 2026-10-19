@@ -4,7 +4,7 @@ import { PainelShell } from '@/components/PainelShell'
 import { ChatWidget } from '@/components/ChatWidget'
 import { NavProgress } from '@/components/NavProgress'
 import { createServiceClient, permissoesEfetivas, configAcesso } from '@/lib/supabase/server'
-import { permissaoPorRota, temPermissao } from '@/lib/permissoes'
+import { permissaoPorRota, temPermissao, temAlgumaPermissao } from '@/lib/permissoes'
 import { acessoBloqueado } from '@/lib/acesso'
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { lembretesDeCaixa, HORARIOS_PADRAO, type HorariosCaixa, type Lembrete as AvisoCaixa } from '@/lib/lembrete-caixa'
@@ -62,7 +62,7 @@ export default async function PainelLayout({ children }: { children: React.React
 
   // Checa permissão para a rota atual
   const permNecessaria = permissaoPorRota(pathname)
-  if (permNecessaria && !temPermissao(permissoes, permNecessaria, isMaster)) {
+  if (permNecessaria && !temAlgumaPermissao(permissoes, permNecessaria, isMaster)) {
     redirect('/painel?acesso=negado')
   }
 

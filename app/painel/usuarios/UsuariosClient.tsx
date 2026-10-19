@@ -162,10 +162,13 @@ function CargoOuPermissoes({ cargos, cargoId, onCargoChange, permissoes, isMaste
           {cargos.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
         </select>
         <p className="mt-1 text-[11px] text-gray-400">
-          {cargoId ? 'O cargo define todas as permissões desta pessoa.' : 'Sem cargo: marque as permissões abaixo pra esta pessoa.'}
+          {cargoId ? 'O cargo dá as permissões base. Marque abaixo só as EXTRA desta pessoa — elas somam com o cargo.' : 'Sem cargo: marque as permissões abaixo pra esta pessoa.'}
         </p>
       </div>
-      {!cargoId && <PermissoesGrid permissoes={permissoes} isMaster={isMaster} />}
+      {cargoId && (
+        <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700">Permissões extras desta pessoa (somam com o cargo)</p>
+      )}
+      <PermissoesGrid permissoes={permissoes} isMaster={isMaster} mostrarMaster={!cargoId} />
     </div>
   )
 }
@@ -758,7 +761,12 @@ export function UsuariosClient({ usuarios, cargos, lojas, depositos, tabelas }: 
   })
 
   const resumoPermissoes = (u: Usuario) => {
-    if (u.cargoId) return `Cargo: ${cargoNome.get(u.cargoId) ?? '—'}`
+    if (u.cargoId) {
+      const base = `Cargo: ${cargoNome.get(u.cargoId) ?? '—'}`
+      if (!u.permissoes.length) return base
+      const extras = u.permissoes.slice(0, 2).map((k) => TODAS_PERMISSOES.find((p) => p.key === k)?.label ?? k).join(', ')
+      return `${base} + ${extras}${u.permissoes.length > 2 ? ` +${u.permissoes.length - 2}` : ''}`
+    }
     if (u.isMaster) return 'Acesso total'
     if (!u.permissoes.length) return 'Sem permissões'
     const labels = u.permissoes

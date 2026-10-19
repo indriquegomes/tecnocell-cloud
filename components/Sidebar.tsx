@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import type { SVGProps, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
-import { temPermissao } from '@/lib/permissoes'
+import { temAlgumaPermissao } from '@/lib/permissoes'
 import {
   IconDashboard, IconUser, IconCart, IconCalculator, IconChart, IconClipboard,
   IconReturn, IconTarget, IconTag, IconWrench, IconPackage, IconSwap, IconBank,
@@ -67,7 +67,7 @@ const ICONS: Record<string, IconComp> = {
   '/painel/integracoes/mercado-livre/mensagens': IconFile,
 }
 
-type NavItem = { href: string; label: string; permissao?: string }
+type NavItem = { href: string; label: string; permissao?: string | string[] }
 type NavGroup = { group: string; items: NavItem[] }
 
 const navCompleto: NavGroup[] = [
@@ -111,14 +111,14 @@ const navCompleto: NavGroup[] = [
       { href: '/painel/estoque/historico', label: 'Movimentações',  permissao: 'estoque' },
       { href: '/painel/estoque/encomendas', label: 'Encomendas', permissao: 'estoque' },
       { href: '/painel/depositos',         label: 'Depósitos',      permissao: 'estoque' },
-      { href: '/painel/compras',           label: 'Notas de Entrada', permissao: 'compras' },
+      { href: '/painel/compras',           label: 'Notas de Entrada', permissao: ['compras', 'notas_entrada'] },
     ],
   },
   {
     group: 'Financeiro',
     items: [
       { href: '/painel/financeiro',    label: 'Financeiro',           permissao: 'financeiro' },
-      { href: '/painel/fiados',        label: 'Fiados',               permissao: 'financeiro' },
+      { href: '/painel/fiados',        label: 'Fiados',               permissao: ['financeiro', 'fiados'] },
       { href: '/painel/vales-credito', label: 'Créditos de Clientes', permissao: 'financeiro' },
       { href: '/painel/contas',        label: 'Contas',               permissao: 'financeiro' },
       { href: '/painel/fechamento-mes', label: 'Fechamento do Mês',    permissao: 'financeiro' },
@@ -211,7 +211,7 @@ export function Sidebar({
   const isMotoboy = !isMaster && permissoes.includes('motoboy')
   const podeVer = (item: NavItem) => {
     if (isMotoboy && item.href === '/painel') return false // motoboy não vê o dashboard normal
-    return !item.permissao || temPermissao(permissoes, item.permissao, isMaster)
+    return !item.permissao || temAlgumaPermissao(permissoes, item.permissao, isMaster)
   }
 
   // Busca rápida de menu (lupa no topo)

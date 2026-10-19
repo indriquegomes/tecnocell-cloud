@@ -161,7 +161,10 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
   const update: Record<string, unknown> = {
     nome,
     username,
-    permissoes: isMaster ? TODAS_KEYS : (cargoId ? [] : perms),
+    // Guarda as permissões individuais SEMPRE. Com cargo, elas viram "extras"
+    // que SOMAM com as do cargo (permissoesEfetivas já faz a união) — antes apagava
+    // tudo, então "dar financeiro só pra ela" sumia na hora de salvar.
+    permissoes: isMaster ? TODAS_KEYS : perms,
     is_master: isMaster,
     ativo,
     cargo_id: cargoId,
