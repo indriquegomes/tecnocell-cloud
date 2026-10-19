@@ -75,24 +75,20 @@ function PermissoesGrid({
   permissoes,
   isMaster: defaultMaster,
   mostrarMaster = true,
-  bloqueadas = [],
 }: {
   permissoes: string[]
   isMaster: boolean
   mostrarMaster?: boolean
-  bloqueadas?: string[]
 }) {
   const [master, setMaster] = useState(defaultMaster)
   const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set(permissoes))
 
-  const toggle = (key: string) => {
-    if (bloqueadas.includes(key)) return
+  const toggle = (key: string) =>
     setSelecionadas((prev) => {
       const next = new Set(prev)
       next.has(key) ? next.delete(key) : next.add(key)
       return next
     })
-  }
 
   return (
     <div className="space-y-3">
@@ -123,7 +119,6 @@ function PermissoesGrid({
         <div className="grid grid-cols-2 gap-2">
           {TODAS_PERMISSOES.map((p) => {
             const ativo = selecionadas.has(p.key)
-            const doCargo = bloqueadas.includes(p.key)
             return (
               <label
                 key={p.key}
@@ -134,7 +129,6 @@ function PermissoesGrid({
                 <div className="min-w-0 pr-2">
                   <p className={`truncate text-xs font-semibold ${ativo ? 'text-blue-700' : 'text-gray-600'}`}>
                     {p.label}
-                    {doCargo && <span className="ml-1 text-[9px] font-normal text-blue-400">· cargo</span>}
                   </p>
                   <p className="truncate text-[10px] text-gray-400">{p.desc}</p>
                 </div>
@@ -143,9 +137,8 @@ function PermissoesGrid({
                   name="permissoes"
                   value={p.key}
                   checked={ativo}
-                  disabled={doCargo}
                   onChange={() => toggle(p.key)}
-                  className="h-4 w-4 shrink-0 rounded accent-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="h-4 w-4 shrink-0 rounded accent-blue-600"
                 />
               </label>
             )
@@ -162,22 +155,29 @@ function CargoOuPermissoes({ cargos, cargoId, onCargoChange, permissoes, isMaste
 }) {
   const cargoSelecionado = cargos.find((c) => c.id === cargoId)
   const cargoPermissoes = (cargoSelecionado?.permissoes ?? []).filter(Boolean) as string[]
-  // Mostra as permissões EFETIVAS (cargo + extras) já marcadas no grid. As que vêm
-  // do cargo ficam travadas ("· cargo"); as demais ficam livres pra marcar/desmarcar.
-  const efetivas = [...new Set([...cargoPermissoes, ...permissoes])]
+  // Inicial: o que a pessoa TEM de verdade (individual se o master customizou; senão, cargo).
+  const [mostradas, setMostradas] = useState<string[]>(permissoes.length > 0 ? permissoes : cargoPermissoes)
+
+  function trocarCargo(novoId: string) {
+    onCargoChange(novoId)
+    // Trocou o cargo → re-preenche os quadradinhos com o template do cargo novo.
+    const novo = cargos.find((c) => c.id === novoId)
+    setMostradas((novo?.permissoes ?? []).filter(Boolean) as string[])
+  }
+
   return (
     <div className="space-y-3">
       <div>
         <label className="mb-1 block text-sm font-medium text-gray-700">Cargo</label>
-        <select name="cargo_id" value={cargoId} onChange={(e) => onCargoChange(e.target.value)} className="field w-full">
+        <select name="cargo_id" value={cargoId} onChange={(e) => trocarCargo(e.target.value)} className="field w-full">
           <option value="">Personalizado (sem cargo)</option>
           {cargos.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
         </select>
         <p className="mt-1 text-[11px] text-gray-400">
-          {cargoSelecionado ? 'Marcado com "· cargo" vem do cargo (travado). O resto você marca ou desmarca à vontade.' : 'Sem cargo: marque as permissões abaixo pra esta pessoa.'}
+          {cargoSelecionado ? 'Escolher o cargo preenche os quadradinhos. Você pode marcar/desmarcar qualquer um — o que estiver marcado é o que vale.' : 'Sem cargo: marque as permissões abaixo pra esta pessoa.'}
         </p>
       </div>
-      <PermissoesGrid key={cargoId || 'sem'} permissoes={efetivas} isMaster={isMaster} mostrarMaster={!cargoId} bloqueadas={cargoPermissoes} />
+      <PermissoesGrid key={cargoId || 'sem'} permissoes={mostradas} isMaster={isMaster} mostrarMaster={!cargoId} />
     </div>
   )
 }
@@ -770,12 +770,7 @@ export function UsuariosClient({ usuarios, cargos, lojas, depositos, tabelas }: 
   })
 
   const resumoPermissoes = (u: Usuario) => {
-    if (u.cargoId) {
-      const base = `Cargo: ${cargoNome.get(u.cargoId) ?? '—'}`
-      if (!u.permissoes.length) return base
-      const extras = u.permissoes.slice(0, 2).map((k) => TODAS_PERMISSOES.find((p) => p.key === k)?.label ?? k).join(', ')
-      return `${base} + ${extras}${u.permissoes.length > 2 ? ` +${u.permissoes.length - 2}` : ''}`
-    }
+    if (u.cargoId) return `Cargo: ${cargoNome.get(u.cargoId) ?? '—'}`
     if (u.isMaster) return 'Acesso total'
     if (!u.permissoes.length) return 'Sem permissões'
     const labels = u.permissoes

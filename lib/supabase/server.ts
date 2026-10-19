@@ -169,9 +169,15 @@ async function carregaPermissoesEfetivas(
     if (cargoId) {
       const { data: cargo } = await service.from('cargos').select('permissoes, is_master, ativo').eq('id', cargoId).maybeSingle()
       if (cargo && cargo.ativo !== false) {
-        // Permissões do cargo + as extras marcadas NA PESSOA (somam, não substituem).
-        // Sem isso, "dar função extra" a um vendedor sumia na hora que ele tinha cargo.
-        return { permissoes: [...new Set([...(cargo.permissoes ?? []), ...base.permissoes])], isMaster: cargo.is_master ?? false, ativo: base.ativo, cargoId }
+        // Permissões individuais PREENCHIDAS = o master customizou essa pessoa
+        // (a escolha dele PREDOMINA sobre o cargo). VAZIAS = segue o cargo.
+        const customizada = base.permissoes.length > 0
+        return {
+          permissoes: customizada ? base.permissoes : (cargo.permissoes ?? []),
+          isMaster: (cargo.is_master ?? false) || base.isMaster,
+          ativo: base.ativo,
+          cargoId,
+        }
       }
     }
   } catch { /* tabela cargos ainda não existe — usa as permissões individuais */ }
