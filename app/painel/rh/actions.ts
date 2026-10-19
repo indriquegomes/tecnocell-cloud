@@ -1,7 +1,7 @@
 'use server'
 
 import { createServiceClient, requireAuth, requirePermissao, permissoesEfetivas } from '@/lib/supabase/server'
-import { recalcularBancoDia } from '@/lib/banco-horas'
+import { recalcularBancoDia, horasEscaladasDia } from '@/lib/banco-horas'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -78,6 +78,24 @@ export async function confirmarFalta(id: string) {
   const s = await createServiceClient()
   const { error } = await s.from('banco_horas').update({ confirmado: true }).eq('id', id).eq('motivo', 'falta')
   if (error) redirect('/painel/rh?erro=' + encodeURIComponent('Não deu pra confirmar o desconto: ' + error.message))
+  revalidatePath('/painel/rh')
+  revalidatePath('/painel/meu-perfil')
+}
+
+// Desfaz um abono: volta a falta pra pendente (confirmado=false) com as horas da escala.
+// Recompõe as horas pela escala (não depende da janela de 7 dias do detector). Se não
+// há escala no dia (nunca foi falta devida), só apaga o abono.
+export async function desfazerAbono(id: string) {
+  await requirePermissao('master')
+  const s = await createServiceClient()
+  const { data: abono } = await s.from('banco_horas').select('usuario_id, data').eq('id', id).eq('motivo', 'abono').maybeSingle()
+  if (!abono) redirect('/painel/rh?erro=' + encodeURIComponent('Abono não encontrado.'))
+  const h = await horasEscaladasDia(s, abono.usuario_id, abono.data)
+  if (h == null) {
+    await s.from('banco_horas').delete().eq('id', id)
+  } else {
+    await s.from('banco_horas').update({ motivo: 'falta', horas: -h, obs: 'Falta (não bateu ponto)', confirmado: false }).eq('id', id)
+  }
   revalidatePath('/painel/rh')
   revalidatePath('/painel/meu-perfil')
 }

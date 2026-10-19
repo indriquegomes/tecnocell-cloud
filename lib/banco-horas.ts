@@ -44,3 +44,20 @@ export async function recalcularBancoDia(
   })
   return { horas, motivo }
 }
+
+// Horas planejadas (escala) de um dia pra um usuário, em horas decimais.
+// null se não tem escala naquele dia, é folga, ou o planejado é <= 0. Usado pelo
+// "desfazer abono" pra recompor a falta com as horas certas (sem depender da
+// janela de 7 dias do detector).
+export async function horasEscaladasDia(s: SB, userId: string, data: string): Promise<number | null> {
+  const diaSemana = new Date(data + 'T12:00:00-03:00').getDay()
+  const [{ data: esc }, { data: exc }] = await Promise.all([
+    s.from('escalas').select('*').eq('perfil_id', userId).eq('ativo', true),
+    s.from('escala_excecoes').select('*').eq('perfil_id', userId).eq('data', data),
+  ])
+  const turno = turnosDoDia(data, diaSemana, (esc ?? []) as Escala[], (exc ?? []) as Excecao[], { [userId]: '' }).find((t) => t.perfilId === userId)
+  if (!turno || turno.folga) return null
+  const planejado = turno.saida - turno.entrada - (turno.pausaIni !== null && turno.pausaFim !== null ? Math.max(0, turno.pausaFim - turno.pausaIni) : 0)
+  if (planejado <= 0) return null
+  return Math.round((planejado / 60) * 100) / 100
+}

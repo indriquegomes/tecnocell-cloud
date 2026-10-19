@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { BotaoExcluir } from '@/components/ui/botao-excluir'
-import { excluirHora } from './actions'
+import { excluirHora, desfazerAbono } from './actions'
 import { formatDate } from '@/lib/utils'
 
 const MOTIVO_LABEL: Record<string, string> = {
@@ -62,7 +62,13 @@ export function ExtratoBancoHoras({ itens, nomes }: { itens: Item[]; nomes: Reco
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <span className={`text-sm font-bold tabular-nums ${b.confirmado === false ? 'text-gray-400' : Number(b.horas) < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{fmtH(Number(b.horas))}</span>
-                  <BotaoExcluir action={excluirHora.bind(null, b.id)} mensagem="Excluir este lançamento de hora?" />
+                  {b.motivo === 'abono' ? (
+                    <form action={desfazerAbono.bind(null, b.id)}>
+                      <button type="submit" className="rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-200 transition">Desfazer abono</button>
+                    </form>
+                  ) : (
+                    <BotaoExcluir action={excluirHora.bind(null, b.id)} mensagem="Excluir este lançamento de hora?" />
+                  )}
                 </div>
               </div>
             ))}
