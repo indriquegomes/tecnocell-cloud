@@ -9,6 +9,7 @@ import { BotaoExcluir } from '@/components/ui/botao-excluir'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 import { badgeTabela } from '@/lib/badge-tabela'
+import { getCidadesCache } from '@/lib/cache-catalogo'
 
 export default async function ClientesPage({
   searchParams,
@@ -64,9 +65,9 @@ export default async function ClientesPage({
 
   // nomes das tabelas de preço — pra pintar o badge (🟢 Atacado 1 / 🟠 Atacado 2)
   const { data: tabelas } = await supabase.from('tabelas_preco').select('id, nome')
-  // Cidades cadastradas (dropdown do filtro "mais detalhes" da Isa)
-  const { data: cidadesRaw } = await supabase.from('pessoas').select('cidade').not('cidade', 'is', null).limit(3000)
-  const cidadesOpc = [...new Set((cidadesRaw ?? []).map((c) => (c.cidade as string)?.trim()).filter(Boolean))].sort()
+  // Cidades cadastradas (dropdown do filtro "mais detalhes" da Isa) — cache
+  // de 5 min (getCidadesCache): antes varria a tabela inteira de pessoas a cada load.
+  const cidadesOpc = await getCidadesCache()
 
   let query = supabase
     .from('pessoas')
