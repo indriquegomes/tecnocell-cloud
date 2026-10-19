@@ -138,7 +138,7 @@ export default async function DashboardPage({
         else if ((e.tipo === 'saida' || e.tipo === 'pausa') && inSince) { worked += new Date(e.criado_em).getTime() - new Date(inSince).getTime(); inSince = null }
       }
       if (uid === userId) { horasFechadasHojeMs = worked; meuInicioOperacao = inSince }
-      else if (inSince) colegasPonto.push({ nome: nomes[uid] ?? '—', entrada: inSince })
+      else if (isMaster && inSince) colegasPonto.push({ nome: nomes[uid] ?? '—', entrada: inSince })
     }
   }
   const nomeCompleto = (meuPerfil?.nome ?? primeiroNome ?? '').trim()
