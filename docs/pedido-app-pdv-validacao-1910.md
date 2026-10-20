@@ -2,28 +2,34 @@
 
 Ambiente de código: checkout temporário em `D:\projetos\tecnocell-pdv-safe-1910`, baseado no `main` remoto `21fa150` e nas alterações locais preservadas do checkout em E:. O E: indicou `Full Repair Needed` e erro CRC; não foi usado para novo build.
 
-## Conferência de produção, somente leitura
+## Conferência inicial de produção
 
 - Projeto Supabase: TECNOCELL.CLAUD (`rbjwbfekkhebaschiqda`), Chrome Tecnocell Corp.
-- `pedidos_app_atendimentos` tem apenas `pedido_id`, `unidade` e `confirmado_em` obrigatório. A migration desta entrega ainda não foi aplicada.
+- Antes da aplicação, `pedidos_app_atendimentos` tinha apenas `pedido_id`, `unidade` e `confirmado_em` obrigatório.
 - Assinaturas instaladas de `finalizar_venda`, `finalizar_venda_com_desconto_item`, `cancelar_pedido_app` e `validar_operador_pedido_app` conferidas contra a chamada preparada.
 - Formas ativas: cartão crédito/débito, dinheiro, fiado, outros, Pix e vale-crédito. Vale-crédito ficou excluído deste atendimento até haver suporte transacional explícito.
 - `maquinas_cartao` tem `nome`, taxas de débito/crédito e máximo de parcelas; `perfis` tem permissões e cargo.
-- Nenhuma venda, cobrança, baixa, pedido ou alteração SQL foi executada nesta conferência.
+- Nenhuma venda, cobrança, baixa ou pedido foi executado nesta conferência.
+
+## Migração em produção — 20/10/2026
+
+- O titular autorizou a aplicação em TECNOCELL.CLAUD. O SQL de `supabase/migrations/20261019_pedido_app_pdv_atomico.sql` foi executado no SQL Editor do Chrome Tecnocell Corp, envolto em `begin`/`commit`; o painel retornou `Success. No rows returned`.
+- Pré-verificação: 0 colunas novas e 0 funções novas. Pós-verificação: 2 colunas (`encaminhado_em`, `venda_id`), 4 funções e 2 gatilhos. `authenticated` não tem `EXECUTE` em `finalizar_pedido_app_pdv`.
+- O arquivo executado tinha SHA-256 `C2793FA04C20132B84FE633303D9A84916B592ABC14B633EB4DF7F1DA6568AD6`. Foi aplicado manualmente no SQL Editor; reconciliar o histórico de migrations antes de qualquer `db push` futuro.
+- A aplicação não envolveu venda real, pagamento, caixa ou baixa de estoque. O fluxo novo continua inativo na interface até publicação do Cloud e ativação de `PEDIDOS_APP_PDV_ENABLED`.
 
 ## Provas locais
 
 - `node --test e2e/pedido-app-pdv-pglite.cjs e2e/pedidos-app-guards.cjs`: 26/26 passaram. O teste de SQL usa PGlite e finalizador fictício; cobre venda única, repetição, rollback depois da criação da venda, isolamento de loja/cliente, estoque, vínculo, caixa, fiado pendente, taxa de cartão e autorização de preço. O histórico de venda cancelada também foi testado. Não substitui ensaio com o RPC real.
 - `node --test e2e/pedido-impressao.cjs e2e/pedido-retorno-login.cjs`: 6/6 passaram para a ficha antiga e o retorno ao pedido após login.
 - `tsc --noEmit` e `npm run build`: concluídos com saída 0 no D: após as últimas alterações.
-- O novo fluxo está atrás de `PEDIDOS_APP_PDV_ENABLED`; sem migration e sem essa variável, a versão publicada segue no fluxo antigo.
+- O novo fluxo está atrás de `PEDIDOS_APP_PDV_ENABLED`; sem publicação e sem essa variável, a versão publicada segue no fluxo antigo.
 
 ## Ativação e ensaio pendentes
 
-1. Revisar e autorizar especificamente a migration `20261019_pedido_app_pdv_atomico.sql` no projeto correto. Ela adiciona vínculo único com a venda, funções de encaminhamento/conclusão, guarda de cancelamento e sincronização de pagamento F9.
-2. Publicar Cloud com a variável de ativação somente após a migration e o build final. Conferir o alias público.
-3. Ensaiar com pedido, valor, unidade e forma de pagamento concretos autorizados pelo titular; comparar venda, caixa, estoque e situação do App antes/depois.
-4. Conferir cupom de 80 mm na prévia. Impressão física foi adiada pelo titular.
-5. Sincronizar este registro ao Obsidian após reparo seguro do E:.
+1. Publicar Cloud com a variável de ativação após revisão da versão candidata. Conferir o alias público.
+2. Ensaiar com pedido, valor, unidade e forma de pagamento concretos autorizados pelo titular; comparar venda, caixa, estoque e situação do App antes/depois.
+3. Conferir cupom de 80 mm na prévia. Impressão física foi adiada pelo titular.
+4. Sincronizar este registro ao Obsidian após reparo seguro do E:.
 
-Não marcar como homologação financeira em produção até concluir os passos 1–4.
+Não marcar como homologação financeira em produção até concluir os passos 1–3.
