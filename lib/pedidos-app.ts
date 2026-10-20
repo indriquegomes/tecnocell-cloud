@@ -2,11 +2,12 @@ export type ItemPedidoApp = { id: string; nome: string; loja: string; quantidade
 export type PedidoAppAtendimento = {
   id: string; cliente: string; status: string; pagamento: string; criadoEm: string;
   itens: ItemPedidoApp[]; total: number; confirmado: boolean;
+  encaminhado?: boolean; vendaId?: string | null; vendaCancelada?: boolean;
 }
 export type UnidadePedidoApp = { unidade: string; lojaId: string; nome: string }
 export type DadosPedidosApp = {
   unidades: UnidadePedidoApp[]; unidade: UnidadePedidoApp | null; pedidos: PedidoAppAtendimento[];
-  gerenciamentoHabilitado: boolean; maisPedidos: boolean; proximoCursor: string | null;
+  gerenciamentoHabilitado: boolean; pdvHabilitado: boolean; maisPedidos: boolean; proximoCursor: string | null;
 }
 
 export function itensDaUnidade(valor: unknown, unidade: string): ItemPedidoApp[] {

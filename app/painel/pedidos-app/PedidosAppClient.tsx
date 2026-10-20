@@ -4,14 +4,14 @@ import { useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { formatBRL, formatDate } from '@/lib/utils'
 import type { DadosPedidosApp, PedidoAppAtendimento } from '@/lib/pedidos-app'
-import { carregarPedidosApp, confirmarPedidoApp, cancelarPedidoApp } from './actions'
+import { carregarPedidosApp, confirmarPedidoApp, cancelarPedidoApp, encaminharPedidoAppPDV } from './actions'
 
 export function PedidosAppClient({ dados: iniciais, pedidoId }: { dados: DadosPedidosApp; pedidoId?: string }) {
   const [dados, setDados] = useState(iniciais)
   const [erro, setErro] = useState('')
   const [mensagem, setMensagem] = useState('')
   const [ocupado, setOcupado] = useState(false)
-  const [filtro, setFiltro] = useState(pedidoId ? 'todos' : 'abertos')
+  const [filtro, setFiltro] = useState('todos')
   const [aberto, setAberto] = useState<string | null>(pedidoId ?? null)
   const emCurso = useRef(false)
   const unidade = dados.unidade?.unidade
@@ -40,6 +40,18 @@ export function PedidosAppClient({ dados: iniciais, pedidoId }: { dados: DadosPe
       try { await atualizar(token) } catch { setErro('Confirmação registrada. Não foi possível atualizar a lista; tente Atualizar pedidos.') }
     })
   }
+  function abrirNoPDV(pedido: PedidoAppAtendimento) {
+    if (!unidade) return
+    if (pedido.vendaId) {
+      window.location.assign(`/painel/pdv?${new URLSearchParams({ pedidoApp: pedido.id, unidade })}`)
+      return
+    }
+    void executar(async token => {
+      const result = await encaminharPedidoAppPDV(pedido.id, unidade, token)
+      if ('erro' in result) throw new Error(result.erro)
+      window.location.assign(result.url)
+    })
+  }
   function cancelar(pedido: PedidoAppAtendimento) {
     if (!unidade || !window.confirm('Cancelar este pedido inteiro, incluindo as outras unidades? Não haverá venda, cobrança ou estorno.')) return
     void executar(async token => {
@@ -55,7 +67,7 @@ export function PedidosAppClient({ dados: iniciais, pedidoId }: { dados: DadosPe
   return <div className="space-y-5">
     <div><h2 className="text-2xl font-bold text-gray-900">Pedidos do App</h2>
       {pedidoId && <a href="/painel/pedidos-app" className="text-sm text-blue-700 underline">Ver lista de pedidos</a>}
-      <p className="mt-1 text-sm text-gray-500">Confira as peças e confirme a disponibilidade na sua unidade.</p></div>
+      <p className="mt-1 text-sm text-gray-500">Confira as peças e atenda o pedido no PDV para escolher o pagamento.</p></div>
     {!dados.gerenciamentoHabilitado && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Somente consulta. O atendimento será liberado após a validação da integração.</p>}
     <div className="flex flex-wrap items-end gap-3">
       <label className="min-w-48 flex-1 text-sm text-gray-700">Unidade
@@ -81,16 +93,18 @@ export function PedidosAppClient({ dados: iniciais, pedidoId }: { dados: DadosPe
         <div className="min-w-0"><p className="break-words font-semibold text-gray-900">{p.cliente}</p>
           <p className="break-all text-xs text-gray-500">Pedido {p.id} · {formatDate(p.criadoEm)}</p>
           <div className="mt-2 flex flex-wrap gap-2 text-xs">
-            <span className={`rounded-full px-2 py-1 ${p.status === 'cancelado' ? 'bg-gray-100 text-gray-700' : p.confirmado ? 'bg-green-50 text-green-800' : 'bg-amber-50 text-amber-900'}`}>{p.status === 'cancelado' ? 'Cancelado' : p.confirmado ? 'Confirmado nesta unidade' : 'Aguardando confirmação'}</span>
+            <span className={`rounded-full px-2 py-1 ${p.status === 'cancelado' || p.vendaCancelada ? 'bg-gray-100 text-gray-700' : p.vendaId ? 'bg-green-50 text-green-800' : 'bg-amber-50 text-amber-900'}`}>{p.vendaCancelada ? 'Venda cancelada no PDV' : p.status === 'cancelado' ? 'Cancelado' : p.vendaId ? 'Lançado no PDV' : p.encaminhado ? 'Em atendimento' : p.confirmado ? 'Disponibilidade confirmada' : 'Aguardando atendimento'}</span>
             <span className="rounded-full bg-blue-50 px-2 py-1 text-blue-800">{p.pagamento === 'pago' ? 'Pagamento confirmado' : p.pagamento === 'cancelado' ? 'Pagamento cancelado' : 'Pagamento pendente'}</span>
           </div></div>
         <p className="font-semibold text-gray-900">{formatBRL(p.total)}</p>
       </div>
       <div className="flex flex-wrap gap-2 border-t border-gray-100 px-4 py-3">
-        <button aria-expanded={aberto === p.id} className="min-h-11 rounded-lg border border-gray-300 px-3 text-sm" onClick={() => setAberto(aberto === p.id ? null : p.id)}>{aberto === p.id ? 'Fechar pedido' : 'Ver pedido'}</button>
-        <button disabled={ocupado || !dados.gerenciamentoHabilitado || p.confirmado || p.status === 'cancelado'} onClick={() => confirmar(p)} className="min-h-11 rounded-lg bg-blue-600 px-3 text-sm font-medium text-white disabled:opacity-50">Aceitar pedido</button>
-        {p.confirmado && p.status !== 'cancelado' && <a target="_blank" rel="noopener noreferrer" href={`/painel/pedidos-app/imprimir?${new URLSearchParams({ pedido: p.id, unidade: unidade! })}`} className="flex min-h-11 items-center rounded-lg border border-gray-300 px-3 text-sm">Imprimir pedido</a>}
-        <button disabled={ocupado || !dados.gerenciamentoHabilitado || p.status === 'cancelado' || p.pagamento !== 'pendente'} onClick={() => cancelar(p)} className="min-h-11 rounded-lg px-3 text-sm text-red-700 disabled:opacity-50">Cancelar pedido</button>
+        <button aria-expanded={aberto === p.id} className="min-h-11 rounded-lg border border-gray-300 px-3 text-sm" onClick={() => setAberto(aberto === p.id ? null : p.id)}>{aberto === p.id ? 'Ocultar detalhes' : 'Ver pedido'}</button>
+        {dados.pdvHabilitado ? <button disabled={ocupado || (p.status === 'cancelado' && !p.vendaId)} onClick={() => abrirNoPDV(p)} className="min-h-11 rounded-lg bg-blue-600 px-3 text-sm font-medium text-white disabled:opacity-50">{p.vendaCancelada ? 'Ver venda cancelada' : p.vendaId ? 'Ver venda e reimprimir' : 'Atender no PDV'}</button> : <>
+          <button disabled={ocupado || !dados.gerenciamentoHabilitado || p.confirmado || p.status === 'cancelado'} onClick={() => confirmar(p)} className="min-h-11 rounded-lg bg-blue-600 px-3 text-sm font-medium text-white disabled:opacity-50">Confirmar disponibilidade</button>
+          {p.confirmado && p.status !== 'cancelado' && <a target="_blank" rel="noopener noreferrer" href={`/painel/pedidos-app/imprimir?${new URLSearchParams({ pedido: p.id, unidade: unidade! })}`} className="flex min-h-11 items-center rounded-lg border border-gray-300 px-3 text-sm">Imprimir ficha sem pagamento</a>}
+        </>}
+        <button disabled={ocupado || !dados.gerenciamentoHabilitado || p.status === 'cancelado' || p.pagamento !== 'pendente' || !!p.vendaId} onClick={() => cancelar(p)} className="min-h-11 rounded-lg px-3 text-sm text-red-700 disabled:opacity-50">Cancelar pedido</button>
       </div>
       {aberto === p.id && <ul aria-label="Peças do pedido" className="space-y-3 border-t border-gray-100 bg-gray-50 p-4 text-sm">{p.itens.map(i => <li key={i.id} className="flex justify-between gap-4"><span className="min-w-0 break-words">{i.quantidade}× {i.nome}</span><span className="shrink-0">{formatBRL(i.preco * i.quantidade)}</span></li>)}</ul>}
     </section>)}</div>

@@ -1110,6 +1110,7 @@ export interface VendaResumo {
   created_at: string
   forma_pagamento_id: string | null
   pessoa_id: string | null
+  observacoes: string | null
 }
 
 // Buscar as últimas vendas concluídas para consulta no PDV (#9 Buscar Vendas)
@@ -1118,7 +1119,7 @@ export async function buscarVendas(accessToken: string, limite: number = 30): Pr
   const supabase = await createServiceClient()
   const { data, error } = await supabase
     .from('vendas')
-    .select('id, numero, total, desconto, created_at, forma_pagamento_id, pessoa_id')
+    .select('id, numero, total, desconto, created_at, forma_pagamento_id, pessoa_id, observacoes')
     .eq('status', 'concluida')
     .order('created_at', { ascending: false })
     .limit(limite)
