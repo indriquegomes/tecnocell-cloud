@@ -4293,7 +4293,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                   <tbody className="divide-y divide-gray-50">
                     {vendasFiltradas.map((v) => (
                       <tr key={v.id} onClick={() => handleVerVenda(v.id)} className="cursor-pointer hover:bg-blue-50/60 transition">
-                        <td className="py-2.5 pr-3 font-mono text-xs text-gray-500">#{v.numero ?? v.id.slice(0, 8).toUpperCase()}</td>
+                        <td className="py-2.5 pr-3 font-mono text-xs text-gray-500">#{v.numero ?? v.id.slice(0, 8).toUpperCase()}{v.observacoes?.startsWith('Origem: Aplicativo · Pedido ') && <span className="ml-2 rounded bg-orange-100 px-1.5 py-0.5 font-sans text-orange-800">App</span>}</td>
                         <td className="py-2.5 pr-3 text-gray-600">
                           {new Date(v.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}{' '}
                           <span className="text-gray-400">{new Date(v.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })}</span>

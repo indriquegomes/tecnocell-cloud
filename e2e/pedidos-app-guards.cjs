@@ -15,7 +15,7 @@ function carregar(relativo, imports = {}, env = {}) {
   const source = fs.readFileSync(path.join(root, relativo), 'utf8');
   const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2017 } }).outputText;
   const module = { exports: {} };
-  vm.runInNewContext(output, { module, exports: module.exports, process: { env }, require(name) {
+  vm.runInNewContext(output, { module, exports: module.exports, URLSearchParams, process: { env }, require(name) {
     if (!(name in imports)) throw Error('Dependência não autorizada: ' + name);
     return imports[name];
   }});
@@ -63,7 +63,7 @@ function fixture(options = {}) {
     query.maybeSingle = async () => result(true);
     query.then = (yes, no) => Promise.resolve(result(false)).then(yes, no);
     return query;
-  }, async rpc(name, args) { rpc.push({ name, args }); return { data: null, error: cfg.rpcError ?? null }; } };
+  }, async rpc(name, args) { rpc.push({ name, args }); return { data: cfg.rpcData ?? null, error: cfg.rpcError ?? null }; } };
   const model = carregar('lib/pedidos-app.ts');
   const actions = carregar('app/painel/pedidos-app/actions.ts', {
     'next/cache': { revalidatePath: p => refreshed.push(p) },
@@ -72,7 +72,7 @@ function fixture(options = {}) {
       createServiceClient: async () => service,
     },
     '@/lib/pedidos-app': model,
-  }, { PEDIDOS_APP_GERENCIAMENTO_ENABLED: cfg.enabled ? 'true' : 'false' });
+  }, { PEDIDOS_APP_GERENCIAMENTO_ENABLED: cfg.enabled ? 'true' : 'false', PEDIDOS_APP_PDV_ENABLED: cfg.pdv ? 'true' : 'false' });
   return { actions, model, reads, rpc, permissions, refreshed };
 }
 
@@ -226,4 +226,111 @@ test('peças inválidas, preços e quantidades adulterados são recusados', () =
   for (const value of [null, [], [{ ...item, quantidade: 0 }], [{ ...item, quantidade: 1.5 }], [{ ...item, quantidade: 101 }], [{ ...item, preco: NaN }], [{ ...item, preco: 0 }], [item, item]]) {
     assert.throws(() => model.itensDaUnidade(value, 'Unidade A'));
   }
+});
+
+function fixturePDV(options = {}, config = {}) {
+  return fixture({ pdv: true, ...config, rows: {
+    cadastros_clientes: [{ user_id: 'cliente-a', pessoa_id: 'p1', status: 'aprovado' }],
+    pessoas: [{ id: 'p1', nome: 'Cliente de teste', ativo: true, nao_vender: false }],
+    produtos: [{ id: item.id, ativo: true, codigo: '123', controla_serie: false }],
+    ...options,
+  } });
+}
+test('preparação para PDV relê vínculo e itens sem aceitar, vender ou movimentar', async () => {
+  const f = fixturePDV();
+  const result = await f.actions.carregarPedidoAppPDV(pedidoId, 'Unidade A', 'token');
+  assert.equal(result.pessoaId, 'p1'); assert.equal(result.lojaId, lojaA);
+  assert.equal(result.total, 25); assert.equal(result.itens[0].preco, 12.5);
+  assert.equal(result.itens[0].quantidade, 2);
+  assert.equal(f.rpc.length, 0); assert.equal(f.refreshed.length, 0);
+});
+test('preparação para PDV recusa vínculo conflitante, bloqueio, pessoa e produto inativos', async () => {
+  for (const rows of [
+    { cadastros_clientes: [{ user_id: 'cliente-a', pessoa_id: 'outra', status: 'aprovado' }] },
+    { cadastros_clientes: [{ user_id: 'cliente-a', pessoa_id: 'p1', status: 'bloqueado' }] },
+    { pessoas: [{ id: 'p1', nome: 'Cliente', ativo: false }] },
+    { pessoas: [{ id: 'p1', nome: 'Cliente', ativo: true, nao_vender: true }] },
+    { produtos: [{ id: item.id, ativo: false }] },
+    { produtos: [] },
+  ]) {
+    const f = fixturePDV(rows);
+    await assert.rejects(f.actions.carregarPedidoAppPDV(pedidoId, 'Unidade A', 'token'));
+    assert.equal(f.rpc.length, 0);
+  }
+});
+test('preparação para PDV recusa unidade alheia, link inválido e cancelamento', async () => {
+  const f = fixturePDV({ pedidos_app: [{ id: pedidoId, user_id: 'cliente-a', pessoa_id: 'p1', status: 'cancelado', itens: [item] }] });
+  for (const [id, unit] of [[pedidoId, 'Unidade A'], [pedidoId, 'Unidade B'], ['inválido', 'Unidade A']]) {
+    await assert.rejects(f.actions.carregarPedidoAppPDV(id, unit, 'token'));
+  }
+  assert.equal(f.rpc.length, 0);
+});
+test('venda já cancelada continua visível para histórico, sem novo lançamento', async () => {
+  const f = fixturePDV({
+    pedidos_app: [{ id: pedidoId, user_id: 'cliente-a', pessoa_id: 'p1', status: 'cancelado', itens: [item] }],
+    pedidos_app_atendimentos: [{ pedido_id: pedidoId, unidade: 'Unidade A', venda_id: 'venda-1' }],
+    vendas: [{ id: 'venda-1', status: 'cancelada' }],
+    pessoas: [{ id: 'p1', nome: 'Cliente de teste', ativo: false }],
+    produtos: [{ id: item.id, ativo: false, codigo: '123' }],
+  });
+  const result = await f.actions.carregarPedidoAppPDV(pedidoId, 'Unidade A', 'token');
+  assert.equal(result.vendaId, 'venda-1'); assert.equal(result.vendaCancelada, true);
+  assert.equal(f.rpc.length, 0);
+});
+
+test('preparação para PDV mantém preço contratado e exclui peças de outra unidade', async () => {
+  const f = fixturePDV({
+    pedidos_app: [{ id: pedidoId, user_id: 'cliente-a', pessoa_id: 'p1', status: 'confirmado',
+      itens: [item, { ...item, id: 'outra-peca', loja: 'Unidade B', preco: 999 }] }],
+    produtos: [{ id: item.id, ativo: true, preco: 500, codigo: '123' }],
+  });
+  const result = await f.actions.carregarPedidoAppPDV(pedidoId, 'Unidade A', 'token');
+  assert.equal(result.itens.length, 1); assert.equal(result.itens[0].preco, 12.5);
+  assert.equal(result.total, 25); assert.equal(f.rpc.length, 0);
+});
+test('preparação para PDV falha fechada quando a consulta de vínculo ou produto falha', async () => {
+  for (const table of ['cadastros_clientes', 'pessoas', 'produtos']) {
+    const f = fixturePDV({}, { errors: { [table]: true } });
+    await assert.rejects(f.actions.carregarPedidoAppPDV(pedidoId, 'Unidade A', 'token'), e => !e.message.includes('segredo'));
+    assert.equal(f.rpc.length, 0);
+  }
+  for (const cfg of [{ permission: false }, { enabled: false }, { allowed: [lojaB] }]) {
+    const f = fixture(cfg);
+    await assert.rejects(f.actions.carregarPedidoAppPDV(pedidoId, 'Unidade A', 'token'));
+    assert.ok(!f.reads.some(r => r.table === 'pedidos_app')); assert.equal(f.rpc.length, 0);
+  }
+});
+
+test('encaminhamento ao PDV exige liberação própria e nunca confirma disponibilidade como alternativa', async () => {
+  const f = fixture();
+  const result = await f.actions.encaminharPedidoAppPDV(pedidoId, 'Unidade A', 'token');
+  assert.ok(result.erro); assert.equal(f.rpc.length, 0);
+  const enabled = fixture({ pdv: true, rpcError: { code: 'PGRST202' } });
+  assert.ok((await enabled.actions.encaminharPedidoAppPDV(pedidoId, 'Unidade A', 'token')).erro);
+  assert.deepEqual(enabled.rpc.map(r => r.name), ['encaminhar_pedido_app_pdv']);
+});
+test('encaminhamento usa operador autenticado e devolve link ao PDV sem pagamento', async () => {
+  const f = fixture({ pdv: true });
+  const result = await f.actions.encaminharPedidoAppPDV(pedidoId, 'Unidade A', 'token');
+  assert.match(result.url, /pedidoApp=/); assert.match(result.url, /unidade=Unidade\+A/);
+  assert.equal(f.rpc[0].args.p_operador, operador);
+  assert.equal(f.rpc[0].name, 'encaminhar_pedido_app_pdv');
+});
+test('conclusão do App chama somente transação atômica, sem PDV genérico', async () => {
+  const pagamento = [{ forma_pagamento_id: 'pix', valor: 25, taxa: 0, maquina: '', parcelas: 1, status: 'pago' }];
+  const disabled = fixture();
+  assert.ok((await disabled.actions.finalizarPedidoAppPDV(pedidoId,'Unidade A','d1',pagamento,[],'token')).erro);
+  assert.equal(disabled.rpc.length,0);
+  const f = fixture({ pdv: true, rpcData: { venda_id: 'venda-1', venda_numero: 101, ja_existia: false } });
+  const result = await f.actions.finalizarPedidoAppPDV(pedidoId,'Unidade A','d1',pagamento,[],'token');
+  assert.equal(result.vendaId,'venda-1'); assert.equal(result.jaExistia,false);
+  assert.deepEqual(f.rpc.map(r => r.name),['finalizar_pedido_app_pdv']);
+  assert.equal(f.rpc[0].args.p_operador,operador);
+  assert.equal(f.rpc[0].args.p_pedido,pedidoId);
+  const failed = fixture({ pdv: true, rpcError: { code: 'PGRST202' } });
+  assert.ok((await failed.actions.finalizarPedidoAppPDV(pedidoId,'Unidade A','d1',pagamento,[],'token')).erro);
+  assert.deepEqual(failed.rpc.map(r => r.name),['finalizar_pedido_app_pdv']);
+  const invalid = fixture({ pdv: true });
+  assert.ok((await invalid.actions.finalizarPedidoAppPDV(pedidoId,'Unidade A','d1',[{ ...pagamento[0], valor: -1 }],[],'token')).erro);
+  assert.equal(invalid.rpc.length,0);
 });
