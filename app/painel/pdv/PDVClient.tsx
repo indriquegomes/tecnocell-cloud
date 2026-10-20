@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { formatBRL, hojeSP } from '@/lib/utils'
 import { formaFoiEscolhida, labelPrazo, labelTipoPagamento } from '@/lib/formas-pagamento'
 import { createClient } from '@/lib/supabase/client'
+import { carregarPedidoAppPDV } from '../pedidos-app/actions'
 import { Spinner } from '@/components/Spinner'
 import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, carregarClientesPDV, buscarFiadoCliente, buscarVendas, buscarCrediario, pagarLancamentos, pagarLancamentosVale, registrarPagamentoParcial, registrarPagamentoMisto, registrarPagamentoValeCredito, aplicarDescontoCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda, type ResultadoReceb } from './actions'
 import { criarClientePDV } from '../clientes/actions'
@@ -205,7 +206,12 @@ interface PagamentoItem {
   parcelas: number
 }
 
+type VinculoPedidoApp = { pedidoId: string; unidade: string }
+type PedidoParaPDV = Awaited<ReturnType<typeof carregarPedidoAppPDV>>
+
 interface Props {
+  pedidoEntrada?: VinculoPedidoApp | null
+  erroPedidoEntrada?: string | null
   produtos: Produto[]   // dados iniciais do servidor
   formas: FormaPagamento[]
   pessoas: Pessoa[]
@@ -223,10 +229,23 @@ interface Props {
   horariosEntregas?: Record<string, { semana?: string; sabado?: string }>   // rota → horários (Configurações)
 }
 
-export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoasIniciais, depositos, lojas, maquinas, tabelas, precosPorTabela, tabelasUsadas = [], promosPorProduto, seriesPorProduto: seriesIniciais, depositoInicial, bairrosPorLoja = {}, horariosEntregas = {} }: Props) {
+export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoasIniciais, depositos, lojas, maquinas, tabelas, precosPorTabela, tabelasUsadas = [], promosPorProduto, seriesPorProduto: seriesIniciais, depositoInicial, bairrosPorLoja = {}, horariosEntregas = {}, pedidoEntrada = null, erroPedidoEntrada = null }: Props) {
   // produtos/pessoas/IMEIs viram CACHE acumulável: começam vazios (não vêm mais no HTML)
   // e vão sendo preenchidos pela busca sob demanda. Os `.find()` do carrinho leem daqui,
   // e como só entra no carrinho o que veio da busca, o item sempre está no cache.
+  const [pedidoApp, setPedidoApp] = useState<VinculoPedidoApp | null>(null)
+  const [pedidoParaAbrir, setPedidoParaAbrir] = useState(pedidoEntrada)
+  const [pedidoPendente, setPedidoPendente] = useState<PedidoParaPDV | null>(null)
+  const [conferindoPedido, setConferindoPedido] = useState(false)
+  const [pedidoConferido, setPedidoConferido] = useState(false)
+  const [erroImportacao, setErroImportacao] = useState<string | null>(erroPedidoEntrada)
+  const [rascunhoPronto, setRascunhoPronto] = useState(false)
+  const chaveRascunho = useRef('')
+  const clienteRestaurado = useRef<string | null>(null)
+  const envioVenda = useRef(false)
+  const pedidoAtualRef = useRef(pedidoApp)
+  pedidoAtualRef.current = pedidoApp
+  const comercialTravado = !!pedidoApp
   const [produtos, setProdutos] = useState(produtosIniciais)
   const [pessoas, setPessoas] = useState(pessoasIniciais)
   const [seriesPorProduto, setSeriesPorProduto] = useState(seriesIniciais)
@@ -375,18 +394,21 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
   // Busca saldo de crédito ao selecionar cliente
   useEffect(() => {
+    let vigente = true
     // Trocar de cliente (ou limpar) tira as linhas de vale do anterior — senão o
     // crédito do cliente A ficava "aplicado" na venda do cliente B.
-    setPagamentos((prev) => {
+    if (clienteRestaurado.current !== pessoaId) setPagamentos((prev) => {
       const semVale = prev.filter((p) => formas.find((f) => f.id === p.forma_id)?.tipo !== 'vale_credito')
       return semVale.length > 0 ? semVale : [{ uid: '1', forma_id: '', valor: '', maquina: '', parcelas: 1 }]
     })
+    clienteRestaurado.current = null
     if (!pessoaId) { setSaldoCredito(0); setFiadoCliente(null); return }
     authToken().then((t) => {
-      if (!t) return
-      buscarSaldoCredito(t, pessoaId, lojaId).then(({ saldo }) => setSaldoCredito(saldo)).catch(() => {})
-      buscarFiadoCliente(t, pessoaId).then(setFiadoCliente).catch(() => {})
-    })
+      if (!t || !vigente) return
+      buscarSaldoCredito(t, pessoaId, lojaId).then(({ saldo }) => { if (vigente) setSaldoCredito(saldo) }).catch(() => {})
+      buscarFiadoCliente(t, pessoaId).then(info => { if (vigente) setFiadoCliente(info) }).catch(() => {})
+    }).catch(() => {})
+    return () => { vigente = false }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pessoaId])
 
@@ -557,6 +579,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [vendaConcluidaId, setVendaConcluidaId] = useState<string | null>(null)
   const [vendaTotal, setVendaTotal] = useState(0)
   const [vendaSnapshot, setVendaSnapshot] = useState<{
+    pedidoApp?: VinculoPedidoApp | null
     numero: number | null
     itens: { codigo: string | null; nome: string; quantidade: number; preco_unitario: number }[]
     pagamentos: { forma_nome: string; valor: number; taxa: number; parcelas: number; status: string }[]
@@ -629,7 +652,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   // Livre" sem receber nada de verdade — a venda fecha como paga, conta como faturamento e
   // não aparece na gaveta pra ninguém notar a falta.
   const formasVisiveis = formas.filter((f) =>
-    (!f.loja_id || f.loja_id === lojaId) && (f.tipo !== 'vale_credito' || saldoCredito > 0.01) && f.tipo !== 'marketplace')
+    (!f.loja_id || f.loja_id === lojaId) && (f.tipo !== 'vale_credito' || (!pedidoApp && saldoCredito > 0.01)) && f.tipo !== 'marketplace')
   // Formas que servem pra RECEBER (fiado, OS). Fora: fiado (receber fiado com fiado não
   // faz sentido) e vale (abate saldo do cliente numa venda, não é dinheiro entrando num
   // recebimento — e escolhê-lo lá não debitaria saldo nenhum).
@@ -674,6 +697,141 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [tabelaId, setTabelaId] = useState(tabelaVisivel(lojas[0]?.tabela_padrao_id))   // '' = Preço Padrão
   const tabelaSelecionada = tabelas.find((t) => t.id === tabelaId)
   const emConsultaCusto = !!tabelaSelecionada?.usa_preco_custo
+
+  function retirarPedidoDaURL() {
+    const url = new URL(window.location.href)
+    url.searchParams.delete('pedidoApp'); url.searchParams.delete('unidade')
+    window.history.replaceState(null, '', url)
+  }
+
+  function limparAtendimentoApp() {
+    setPedidoApp(null); setPedidoParaAbrir(null); setPedidoConferido(false); setPedidoPendente(null)
+    setCarrinho([]); setPessoaId(''); setBuscaCliente(''); setBusca(''); setTabelaId('')
+    setDesconto(''); setDescontoTipo('valor'); setSenhaDesconto(''); setObservacoes('')
+    setPagamentos([{ uid: '1', forma_id: '', valor: '', maquina: '', parcelas: 1 }]); setValorAuto(true)
+    setSaldoCredito(0); setFiadoCliente(null); setCombinadoEntrega(false)
+    setTipoEntrega(''); setBairroEntrega(''); setEnderecoCustom(''); setRotaEntrega(''); setHorarioEntrega('')
+    setMostrarConfirmacao(false); setEtapa('venda'); setErroImportacao(null); retirarPedidoDaURL()
+  }
+
+  function importarPedido(pedido: PedidoParaPDV) {
+    const deps = pedido.depositos.filter(d => depositos.some(p => p.id === d.id && p.loja_id === pedido.lojaId))
+    const padrao = lojas.find(l => l.id === pedido.lojaId)?.deposito_padrao_id
+    const mesmo = pedidoAtualRef.current?.pedidoId === pedido.id && pedidoAtualRef.current?.unidade === pedido.unidade
+    const deposito = (mesmo && deps.some(d => d.id === depositoId) ? depositoId : null)
+      ?? deps.find(d => d.id === padrao)?.id ?? (deps.length === 1 ? deps[0].id : '')
+    if (!lojas.some(l => l.id === pedido.lojaId) || !deps.length) { setErroImportacao('Unidade sem depósito autorizado.'); return }
+    // Cancela qualquer busca anterior de tabela antes de hidratar preços contratados.
+    controleTrocaTabela.current.iniciar()
+    setPedidoApp({ pedidoId: pedido.id, unidade: pedido.unidade }); setPedidoConferido(true)
+    setLojaId(pedido.lojaId); setDepositoId(deposito); setTabelaId('')
+    setPessoas(prev => [...prev.filter(p => p.id !== pedido.pessoaId), pedido.pessoa])
+    setPessoaId(pedido.pessoaId); setBuscaCliente(''); setBusca('')
+    setSeriesPorProduto(prev => ({ ...prev, ...pedido.seriesPorProduto }))
+    setProdutos(prev => [...prev.filter(p => !pedido.itens.some(i => i.id === p.id)), ...pedido.itens.map(i => ({
+      id: i.id, nome: i.nome, preco: i.preco, codigo: i.codigo, marca: null, categoria: null,
+      descricao: null, imagem_url: null, controla_serie: i.serializado, prateleira: i.prateleira,
+      preco_custo: i.preco_custo, estoquePorDeposito: i.estoquePorDeposito,
+    }))])
+    setCarrinho(prev => pedido.itens.map(i => ({ produto_id: i.id, nome: i.nome, codigo: i.codigo,
+      quantidade: i.quantidade, preco_unitario: i.preco, desconto_tipo: 'final', desconto_valor: null,
+      estoque_disponivel: i.estoquePorDeposito[deposito] ?? 0, promoSel: '', serializado: i.serializado,
+      series: mesmo ? prev.find(p => p.produto_id === i.id)?.series?.filter(s => pedido.seriesPorProduto[i.id]?.[deposito]?.includes(s)) ?? [] : [],
+      prateleira: i.prateleira, preco_custo: i.preco_custo })))
+    setDesconto(''); setSenhaDesconto(''); setDescontoTipo('valor'); setCombinadoEntrega(false)
+    if (!mesmo) {
+      setPagamentos([{ uid: '1', forma_id: '', valor: '', maquina: '', parcelas: 1 }]); setValorAuto(true)
+      setObservacoes(''); setEtapa('venda')
+    }
+    setMostrarConfirmacao(false); setAvulsoAberto(false); setMostrarNovoCliente(false); setMostrarOrcamentos(false)
+    // O contrato instalado conclui pedidos como retirada; não prometer entrega não gravada.
+    setTipoEntrega('retirada'); setPedidoPendente(null); setErroImportacao(null)
+  }
+
+  // Rascunho por operador e aba: nunca guardar token e nunca restaurar para outro usuário.
+  useEffect(() => {
+    let vivo = true
+    void supabaseBrowser.auth.getSession().then(({ data }) => {
+      if (!vivo) return
+      const userId = data.session?.user.id
+      if (!userId) { setErroImportacao('Entre novamente para recuperar o atendimento.'); return }
+      chaveRascunho.current = `pdv_rascunho_v1:${userId}`
+      try {
+        const texto = sessionStorage.getItem(chaveRascunho.current)
+        if (texto) {
+          const r = JSON.parse(texto)
+          if (r.v !== 1 || !Array.isArray(r.carrinho) || !Array.isArray(r.pagamentos) || !Array.isArray(r.pessoas)
+            || !Array.isArray(r.produtos) || !lojas.some(l => l.id === r.lojaId)) throw new Error('Rascunho inválido')
+          clienteRestaurado.current = r.pessoaId
+          setCarrinho(r.carrinho); setPagamentos(r.pagamentos); setPessoaId(r.pessoaId)
+          setPessoas(r.pessoas); setProdutos(r.produtos); setLojaId(r.lojaId); setDepositoId(r.depositoId)
+          setTabelaId(r.tabelaId); setDesconto(r.desconto); setDescontoTipo(r.descontoTipo)
+          setObservacoes(r.observacoes); setValorAuto(r.valorAuto); setTipoEntrega(r.tipoEntrega)
+          setBairroEntrega(r.bairroEntrega); setEnderecoCustom(r.enderecoCustom); setRotaEntrega(r.rotaEntrega); setHorarioEntrega(r.horarioEntrega)
+          setCombinadoEntrega(r.combinadoEntrega); setEtapa(r.etapa)
+          if (r.pedidoApp) {
+            setPedidoApp(r.pedidoApp)
+            if (!pedidoEntrada) setPedidoParaAbrir(r.pedidoApp)
+          }
+        }
+        setRascunhoPronto(true)
+      } catch { setErroImportacao('Não foi possível recuperar o rascunho. Preserve esta aba e confira o atendimento antes de continuar.') }
+    }).catch(() => { if (vivo) setErroImportacao('Não foi possível conferir a sessão do atendimento.') })
+    return () => { vivo = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => { setPedidoParaAbrir(pedidoEntrada) }, [pedidoEntrada?.pedidoId, pedidoEntrada?.unidade])
+
+  useEffect(() => {
+    const { data: { subscription } } = supabaseBrowser.auth.onAuthStateChange((_event, session) => {
+      if (chaveRascunho.current && chaveRascunho.current !== `pdv_rascunho_v1:${session?.user.id}`) {
+        // Mantém o rascunho anterior na chave anterior; o novo operador recomeça em outra sessão.
+        chaveRascunho.current = ''
+        setRascunhoPronto(false)
+        window.location.reload()
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    if (!rascunhoPronto || !chaveRascunho.current || conferindoPedido || pedidoPendente) return
+    try {
+      sessionStorage.setItem(chaveRascunho.current, JSON.stringify({ v: 1, carrinho, pagamentos, pessoaId,
+        pessoas: pessoas.filter(p => p.id === pessoaId), produtos: produtos.filter(p => carrinho.some(i => i.produto_id === p.id)),
+        lojaId, depositoId, tabelaId, desconto, descontoTipo, observacoes, valorAuto, tipoEntrega,
+        bairroEntrega, enderecoCustom, rotaEntrega, horarioEntrega, combinadoEntrega, etapa, pedidoApp }))
+    } catch { setErroImportacao('Não foi possível proteger o rascunho nesta aba. Confira o armazenamento do navegador.') }
+  }, [rascunhoPronto, carrinho, pagamentos, pessoaId, pessoas, produtos, lojaId, depositoId, tabelaId, desconto,
+    descontoTipo, observacoes, valorAuto, tipoEntrega, bairroEntrega, enderecoCustom, rotaEntrega, horarioEntrega,
+    combinadoEntrega, etapa, pedidoApp, conferindoPedido, pedidoPendente])
+
+  useEffect(() => {
+    if (!rascunhoPronto || !pedidoParaAbrir) return
+    let vivo = true
+    setConferindoPedido(true)
+    void authToken().then(t => carregarPedidoAppPDV(pedidoParaAbrir.pedidoId, pedidoParaAbrir.unidade, t)).then(async pedido => {
+      if (!vivo) return
+      if (pedido.vendaId) {
+        // Consulta/reimpressão não substitui o atendimento de balcão nem vira novo carrinho.
+        setPedidoPendente(null)
+        if (pedidoAtualRef.current?.pedidoId === pedido.id && pedidoAtualRef.current?.unidade === pedido.unidade) limparAtendimentoApp()
+        setErroImportacao(pedido.vendaCancelada ? 'Venda do pedido cancelada. Consulte o histórico.' : 'Pedido já possui venda. Use Reimprimir pedido.')
+        setVendaPedidoConsulta(pedido.vendaId)
+        return
+      }
+      const mesmo = pedidoAtualRef.current?.pedidoId === pedido.id && pedidoAtualRef.current?.unidade === pedido.unidade
+      if (carrinho.length && !mesmo) setPedidoPendente(pedido)
+      else importarPedido(pedido)
+    }).catch(() => { if (vivo) setErroImportacao('Não foi possível abrir o pedido. Confira a sessão, unidade e situação do atendimento.') })
+      .finally(() => { if (vivo) setConferindoPedido(false) })
+    return () => { vivo = false }
+    // A importação ocorre somente na entrada; nunca repetir quando o operador digitar pagamento.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rascunhoPronto, pedidoParaAbrir?.pedidoId, pedidoParaAbrir?.unidade])
+
+  const [vendaPedidoConsulta, setVendaPedidoConsulta] = useState<string | null>(null)
 
   const clienteSelecionado = pessoas.find((p) => p.id === pessoaId)
   const soDigitos = (s: string) => s.replace(/\D/g, '')
@@ -813,6 +971,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   }
 
   const adicionarAoCarrinho = useCallback((p: Produto) => {
+    if (pedidoAtualRef.current) return
     const disp = p.estoquePorDeposito[depositoId] ?? 0
     if (disp <= 0) {
       setErro(`"${p.nome}" sem estoque em ${nomeDeposito || 'depósito selecionado'}.`)
@@ -853,6 +1012,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   // Item avulso: encomenda que ainda não virou produto no cadastro. Não baixa estoque,
   // não tem IMEI nem promoção — só nome + preço digitados na hora.
   const adicionarItemAvulso = () => {
+    if (pedidoAtualRef.current) return
     const nomeLimpo = avulsoNome.trim()
     const preco = parseFloat(avulsoPreco.replace(/\./g, '').replace(',', '.'))
     if (!nomeLimpo) { setErro('Digite o nome do item avulso.'); return }
@@ -889,8 +1049,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     setCarrinho((prev) => prev.map((i) => {
       if (i.produto_id !== produto_id) return i
       const atuais = i.series ?? []
+      if (pedidoAtualRef.current && !atuais.includes(serie) && atuais.length >= i.quantidade) return i
       const novas = atuais.includes(serie) ? atuais.filter((s) => s !== serie) : [...atuais, serie]
-      return { ...i, series: novas, quantidade: novas.length }
+      return { ...i, series: novas, quantidade: pedidoAtualRef.current ? i.quantidade : novas.length }
     }))
   }
 
@@ -908,13 +1069,15 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       if (i.produto_id !== produto_id) return i
       const atuais = i.series ?? []
       if (atuais.includes(valor)) return i
+      if (pedidoAtualRef.current && atuais.length >= i.quantidade) { setErro('Todos os IMEIs deste item já foram escolhidos.'); return i }
       const novas = [...atuais, valor]
-      return { ...i, series: novas, quantidade: novas.length }
+      return { ...i, series: novas, quantidade: pedidoAtualRef.current ? i.quantidade : novas.length }
     }))
   }
 
   // Troca a promoção aplicada a uma linha do carrinho
   const trocarPromo = (produto_id: string, valor: string) => {
+    if (pedidoAtualRef.current) return
     setCarrinho((prev) => prev.map((i) => i.produto_id === produto_id ? { ...i, promoSel: valor } : i))
   }
 
@@ -932,7 +1095,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const promoEfetiva = (item: ItemCarrinho): PromoInfo | null => {
     if (item.desconto_valor != null) return null
     const lista = promosDoProduto(item.produto_id)
-    if (lista.length === 0 || item.promoSel === '') return null
+    if (pedidoAtualRef.current || lista.length === 0 || item.promoSel === '') return null
     if (item.promoSel !== 'auto') return lista.find((p) => p.id === item.promoSel) ?? null
     let melhor: PromoInfo | null = null
     let maior = 0
@@ -947,6 +1110,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     aplicarDescontoItem(item.preco_unitario, item.desconto_tipo, item.desconto_valor)
 
   const alterarDescontoItem = (produto_id: string, tipo: TipoDescontoItem, valor: number | null) => {
+    if (pedidoAtualRef.current) return
     setCarrinho((prev) => prev.map((item) => item.produto_id === produto_id
       ? { ...item, desconto_tipo: tipo, desconto_valor: valor == null ? null : Math.max(0, valor) }
       : item))
@@ -954,6 +1118,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
   // Definir a quantidade digitando direto (respeita o estoque disponível)
   const definirQtd = (produto_id: string, valor: string) => {
+    if (pedidoAtualRef.current) return
     setErro(null)
     const n = parseInt(valor, 10)
     setCarrinho((prev) => prev.map((i) => {
@@ -973,6 +1138,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   // recalcula o preço dos itens do carrinho com o mapa já atualizado.
   const controleTrocaTabela = useRef(criarControleUltimaTroca())
   const trocarTabela = async (novaTabela: string) => {
+    if (pedidoAtualRef.current) return false
     const troca = controleTrocaTabela.current.iniciar()
     let mapa = precos
     if (!novaTabela || precos[novaTabela]) setCarregandoTabela(false)
@@ -985,18 +1151,18 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           ;(m[it.produto_id] ??= []).push({ qtd_min: it.quantidade_minima ?? 1, preco: it.preco })
         }
         for (const pid in m) m[pid].sort((a, b) => b.qtd_min - a.qtd_min)
-        if (!controleTrocaTabela.current.vigente(troca)) return false
+        if (pedidoAtualRef.current || !controleTrocaTabela.current.vigente(troca)) return false
         mapa = { ...precos, [novaTabela]: m }
         setPrecos(mapa)
       } catch {
-        if (!controleTrocaTabela.current.vigente(troca)) return false
+        if (pedidoAtualRef.current || !controleTrocaTabela.current.vigente(troca)) return false
         setCarregandoTabela(false)
         setErro('Não consegui carregar a tabela de preço. Tenta de novo.')
         return false
       }
       if (controleTrocaTabela.current.vigente(troca)) setCarregandoTabela(false)
     }
-    if (!controleTrocaTabela.current.vigente(troca)) return false
+    if (pedidoAtualRef.current || !controleTrocaTabela.current.vigente(troca)) return false
     setTabelaId(novaTabela)
     setCarrinho((prev) => prev.map((item) => {
       const prod = produtos.find((p) => p.id === item.produto_id)
@@ -1046,6 +1212,12 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
   // Trocar de depósito: revalida o carrinho contra o saldo do novo local
   const trocarDeposito = (novoId: string) => {
+    if (pedidoAtualRef.current) {
+      if (!depositos.some(d => d.id === novoId && d.loja_id === lojaId)) return
+      setDepositoId(novoId)
+      setCarrinho(prev => prev.map(i => ({ ...i, series: [], estoque_disponivel: produtos.find(p => p.id === i.produto_id)?.estoquePorDeposito[novoId] ?? 0 })))
+      return
+    }
     setDepositoId(novoId)
     setErro(null)
     setCarrinho((prev) => {
@@ -1073,12 +1245,14 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
   // Trocar de loja: aplica o depósito e a tabela padrão dela
   const trocarLoja = (novoLojaId: string) => {
+    if (pedidoAtualRef.current) return
     setLojaId(novoLojaId)
     trocarDeposito(depoDefaultDaLoja(novoLojaId))
     trocarTabela(tabelaVisivel(lojas.find((l) => l.id === novoLojaId)?.tabela_padrao_id))
   }
 
   const alterarQtd = (produto_id: string, delta: number) => {
+    if (pedidoAtualRef.current) return
     setErro(null)
     setCarrinho((prev) =>
       prev.map((i) => {
@@ -1097,6 +1271,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   }
 
   const remover = (produto_id: string) => {
+    if (pedidoAtualRef.current) return
     setErro(null)
     setCarrinho((prev) => prev.filter((i) => i.produto_id !== produto_id))
   }
@@ -1291,6 +1466,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
   // Valida e abre o resumo de conferência antes de gravar
   const abrirConfirmacao = async () => {
+    if (!rascunhoPronto || conferindoPedido || pedidoPendente || erroImportacao || (pedidoApp && !pedidoConferido)) { setErro('Confira o pedido antes de concluir.'); return }
     if (emConsultaCusto) { setErro(AVISO_CUSTO); return }
     if (carrinho.length === 0) { setErro('Adicione produtos ao carrinho.'); return }
     if (!depositoId) { setErro('Selecione a loja/depósito.'); return }
@@ -1303,7 +1479,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     if (pagamentos.some((p) => isCartaoForma(p.forma_id) && !p.maquina)) {
       setErro('Selecione a máquina (TON ou Pagbank) para o(s) pagamento(s) em cartão.'); return
     }
-    const semSerie = carrinho.find((i) => i.serializado && (i.series?.length ?? 0) === 0)
+    const semSerie = carrinho.find((i) => i.serializado && (i.series?.length ?? 0) !== i.quantidade)
     if (semSerie) { setErro(`Escolha o(s) IMEI(s) do aparelho "${semSerie.nome}".`); return }
     if (exigeSenhaDesconto) {
       if (!senhaDesconto) { setErro('Este desconto exige a senha do gerente.'); return }
@@ -1316,6 +1492,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
   // Salvar o carrinho como orçamento (pré-venda) sem finalizar
   const handleSalvarOrcamento = async () => {
+    if (pedidoAtualRef.current) return
     if (emConsultaCusto) { setErro(AVISO_CUSTO); return }
     if (carrinho.length === 0) { setErro('Adicione produtos ao carrinho.'); return }
     setSalvandoOrc(true); setErro(null); setMsgOrc('')
@@ -1345,9 +1522,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   }
 
   const handleFinalizar = async () => {
+    if (!rascunhoPronto || envioVenda.current || conferindoPedido || pedidoPendente || erroImportacao || (pedidoApp && !pedidoConferido)) return
     if (emConsultaCusto) { setErro(AVISO_CUSTO); return }
     if (faltamPg > 0.01 || sobraPg > 0.01) { setErro('Ajuste os pagamentos ao novo total antes de confirmar.'); return }
     if (!tipoEntrega) { setErro('Selecione Retirada ou Entrega antes de finalizar.'); return }
+    envioVenda.current = true
     setErro(null)
     setLoading(true)
     try {
@@ -1418,10 +1597,12 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         tabelaId || null,
         rotaEntrega || null,
         horarioEntrega || null,
+        pedidoApp,
       )
       if ('erro' in result) { setErro(result.erro); return }
 
       const snap = {
+        pedidoApp,
         numero: result.vendaNumero ?? null,
         // prateleira vai junto: quem separa a peça lê no cupom onde ela está guardada
         itens: carrinho.map((item) => ({ codigo: item.codigo, nome: item.nome, quantidade: item.quantidade, preco_unitario: descontoManualItem(item).precoFinal, prateleira: item.prateleira ?? null })),
@@ -1467,13 +1648,17 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         desconto: descontoNum + descontoPromo,
         horario: new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' }),
       }
-      imprimirCupomAuto(snap, result.vendaId)   // sai sozinho (iframe, não é bloqueado como popup)
+      const cupomPersistido = pedidoApp ? await buscarCupomVenda(token, result.vendaId) : null
+      if (pedidoApp && !cupomPersistido) { setErroImportacao('Venda registrada. Reabra o pedido para consultar e imprimir; não crie outra venda.'); return }
+      const cupomFinal = cupomPersistido ? { ...cupomPersistido, deposito: cupomPersistido.deposito ?? '' } : snap
+      try { imprimirCupomAuto(cupomFinal, result.vendaId) } catch { setErro('Venda concluída. Use Imprimir para tentar novamente.') }   // sai sozinho (iframe, não é bloqueado como popup)
       setVendaConcluidaId(result.vendaId)
       setVendaTotal(result.total)
-      setVendaSnapshot(snap)
+      setVendaSnapshot(cupomFinal)
       setMostrarConfirmacao(false)
       setEtapa('venda')
       setCarrinho([])
+      setPedidoApp(null); setPedidoParaAbrir(null); setPedidoConferido(false); retirarPedidoDaURL()
       setPagamentos([{ uid: '1', forma_id: '', valor: '', maquina: '', parcelas: 1 }])
       setValorAuto(true)
       setPessoaId('')
@@ -1497,6 +1682,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     } catch (e) {
       setErro('Erro ao finalizar venda: ' + String(e))
     } finally {
+      envioVenda.current = false
       setLoading(false)
     }
   }
@@ -1517,6 +1703,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   }
 
   const carregarOrcamento = (pedido: PedidoResumo) => {
+    if (!rascunhoPronto || conferindoPedido || pedidoAtualRef.current) return
     if (carrinho.length > 0 && !window.confirm('Substituir o carrinho atual pelos itens deste orçamento?')) return
     const novosItens: ItemCarrinho[] = []
     const avisos: string[] = []
@@ -2177,6 +2364,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
     <hr class="sep">
     ${snap.lojaTermos ? `<p style="font-size:9px;text-align:left;white-space:pre-wrap">${snap.lojaTermos.replace(/</g, '&lt;')}</p><hr class="sep">` : ''}
+    ${snap.pedidoApp ? `<p>Origem: Aplicativo · Pedido ${snap.pedidoApp.pedidoId}</p><p><a href="${window.location.origin}/painel/pedidos-app?${new URLSearchParams({ pedido: snap.pedidoApp.pedidoId, unidade: snap.pedidoApp.unidade })}">Consultar pedido no Cloud (acesso autorizado)</a></p>` : ''}
     <p>Obrigado pela preferência!</p>
     <p style="margin-top:4px">www.tecnocell.com.br</p>
 
@@ -2348,7 +2536,27 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+    <div aria-busy={!rascunhoPronto || conferindoPedido} inert={!rascunhoPronto || conferindoPedido} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      {conferindoPedido && <p role="status" className="lg:col-span-2">Conferindo pedido do App…</p>}
+      {erroImportacao && <div role="alert" className="lg:col-span-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+        <p>{erroImportacao}</p>
+        {vendaPedidoConsulta && <button type="button" onClick={() => void reimprimirCupom(vendaPedidoConsulta)} className="mr-4 underline">Reimprimir pedido</button>}
+        <button type="button" onClick={() => { setErroImportacao(null); setVendaPedidoConsulta(null); setPedidoParaAbrir(pedidoApp); retirarPedidoDaURL() }} className="underline">Voltar ao atendimento atual</button>
+      </div>}
+      {pedidoApp && <div data-testid="pedido-app-vinculo" className="lg:col-span-2 flex items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm">
+        <span>Pedido do App {pedidoApp.pedidoId} · {pedidoApp.unidade} · Cliente, peças e preços preservados</span>
+        <button type="button" disabled={loading || conferindoPedido} onClick={() => {
+          if (window.confirm('Desvincular e limpar todo este atendimento? O pedido continuará no histórico do App.')) limparAtendimentoApp()
+        }} className="shrink-0 underline">Desvincular e limpar</button>
+      </div>}
+      {pedidoPendente && <div role="dialog" aria-modal="true" aria-label="Substituir atendimento atual" className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+        <div className="max-w-lg rounded-xl bg-white p-6 space-y-4">
+          <h3 className="font-bold">Há uma venda em andamento</h3>
+          <p>Abrir este pedido do App substituirá cliente, itens e pagamentos do atendimento atual.</p>
+          <button type="button" onClick={() => { setPedidoPendente(null); setPedidoParaAbrir(pedidoApp); retirarPedidoDaURL() }} className="mr-4 rounded border px-4 py-2">Manter atendimento atual</button>
+          <button type="button" onClick={() => importarPedido(pedidoPendente)} className="rounded bg-blue-700 px-4 py-2 text-white">Substituir pelo pedido</button>
+        </div>
+      </div>}
       {/* Coluna esquerda — busca + carrinho */}
       <div className="space-y-4 min-w-0">
         {/* Aviso: caixa da loja fechado — bloqueia a venda (Isa) */}
@@ -2380,6 +2588,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           <div className="flex flex-1 basis-64 min-w-0 flex-col gap-0.5 rounded-xl border-2 px-4 py-2.5 shadow-sm" style={{ backgroundColor: corLoja, borderColor: corLoja }}>
             <span className="text-[10px] font-bold uppercase tracking-widest text-white/85">🏬 Loja ativa — confira antes de vender</span>
             <select
+              aria-label="Loja do PDV" disabled={comercialTravado}
               value={lojaId}
               onChange={(e) => trocarLoja(e.target.value)}
               className="w-full cursor-pointer bg-transparent text-xl font-extrabold text-white focus:outline-none"
@@ -2402,6 +2611,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           <div className="flex flex-1 basis-52 min-w-0 items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm transition focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500/40">
             <label className="text-xs font-semibold text-violet-600 uppercase tracking-wide shrink-0">Tabela</label>
             <select
+              aria-label="Tabela do PDV" disabled={comercialTravado}
               value={tabelaId}
               onChange={(e) => trocarTabela(e.target.value)}
               className="flex-1 min-w-0 cursor-pointer bg-transparent text-sm font-medium text-gray-800 focus:outline-none"
@@ -2427,7 +2637,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                   return b ? <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${b.cls}`}>{b.txt}</span> : null
                 })()}
                 {clienteSelecionado.cpf_cnpj && <span className="text-xs text-gray-400">{clienteSelecionado.cpf_cnpj}</span>}
-                <button type="button" onClick={() => { setPessoaId(''); setBuscaCliente(''); trocarTabela('') }}
+                <button type="button" disabled={comercialTravado} onClick={() => { setPessoaId(''); setBuscaCliente(''); trocarTabela('') }}
                   className="ml-auto text-xs font-medium text-red-400 hover:text-red-600">✕</button>
               </div>
               {/* Cliente problemático — AVISA, não bloqueia (decisão do Vitor) */}
@@ -2460,7 +2670,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               )}
               {temFiado && (
                 <label className="flex items-center gap-2 rounded-lg bg-blue-50 border border-blue-200 px-2.5 py-1.5 text-xs font-medium text-blue-700">
-                  <input type="checkbox" checked={combinadoEntrega} onChange={(e) => setCombinadoEntrega(e.target.checked)} className="h-3.5 w-3.5 rounded border-gray-300" />
+                  <input disabled={comercialTravado} type="checkbox" checked={combinadoEntrega} onChange={(e) => setCombinadoEntrega(e.target.checked)} className="h-3.5 w-3.5 rounded border-gray-300" />
                   💵 Pagar em dinheiro na entrega (cobrar na entrega)
                 </label>
               )}
@@ -2513,6 +2723,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         <div className="relative">
           <input
             ref={buscaRef}
+            disabled={comercialTravado}
             value={busca}
             onChange={(e) => { setBusca(e.target.value); setErro(null) }}
             onKeyDown={(e) => {
@@ -2744,7 +2955,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                         const promoAtual = promoEfetiva(item)
                         return (
                           <select
-                            value={item.promoSel}
+                            disabled={comercialTravado} value={item.promoSel}
                             onChange={(e) => trocarPromo(item.produto_id, e.target.value)}
                             className={`mt-1.5 rounded-md border px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-orange-400 ${
                               promoAtual ? 'border-orange-200 bg-orange-50 text-orange-700' : 'border-gray-200 bg-white text-gray-500'
@@ -2799,9 +3010,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                         <div className="text-center text-sm font-semibold text-gray-900">{item.quantidade}</div>
                       ) : (
                       <div className="flex items-center justify-center gap-1.5">
-                        <button type="button" onClick={() => alterarQtd(item.produto_id, -1)}
+                        <button disabled={comercialTravado} type="button" onClick={() => alterarQtd(item.produto_id, -1)}
                           className="flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100 text-xs font-bold">−</button>
                         <input
+                          aria-label={`Quantidade: ${item.nome}`} disabled={comercialTravado}
                           ref={(el) => { if (el) qtdRefs.current.set(item.produto_id, el); else qtdRefs.current.delete(item.produto_id) }}
                           type="number"
                           min="1"
@@ -2810,7 +3022,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                           onChange={(e) => definirQtd(item.produto_id, e.target.value)}
                           className="w-12 rounded-lg border border-gray-200 px-1 py-0.5 text-center text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
-                        <button type="button" onClick={() => alterarQtd(item.produto_id, 1)}
+                        <button disabled={comercialTravado} type="button" onClick={() => alterarQtd(item.produto_id, 1)}
                           className="flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100 text-xs font-bold">+</button>
                       </div>
                       )}
@@ -2828,14 +3040,14 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                           <span className={descontoUnitario > 0 ? 'text-xs text-gray-400 line-through' : ''}>{formatBRL(item.preco_unitario)}</span>
                           {descontoUnitario > 0 && <span className="ml-2 font-bold text-green-700">{formatBRL(precoFinal)}</span>}
                           <div className="mt-1 flex justify-end gap-1">
-                            <select aria-label={`Tipo de desconto: ${item.nome}`} value={item.desconto_tipo}
+                            <select disabled={comercialTravado} aria-label={`Tipo de desconto: ${item.nome}`} value={item.desconto_tipo}
                               onChange={(e) => alterarDescontoItem(item.produto_id, e.target.value as TipoDescontoItem, item.desconto_valor)}
                               className="rounded border border-gray-200 bg-white px-1 py-0.5 text-[11px] text-gray-600">
                               <option value="final">Preço final</option>
                               <option value="valor">Desconto R$</option>
                               <option value="percent">Desconto %</option>
                             </select>
-                            <input aria-label={`Preço ou desconto: ${item.nome}`} type="number" min="0" step="0.01" value={item.desconto_valor ?? ''}
+                            <input disabled={comercialTravado} aria-label={`Preço ou desconto: ${item.nome}`} type="number" min="0" step="0.01" value={item.desconto_valor ?? ''}
                               onChange={(e) => alterarDescontoItem(item.produto_id, item.desconto_tipo, e.target.value === '' ? null : Number(e.target.value))}
                               placeholder="0,00"
                               className="w-20 rounded border border-gray-200 px-1 py-0.5 text-right text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500" />
@@ -2859,7 +3071,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                           className={`transition text-sm ${copiadoId === item.produto_id ? 'text-green-600' : 'text-gray-400 hover:text-blue-600'}`}>
                           {copiadoId === item.produto_id ? '✓' : '📋'}
                         </button>
-                        <button type="button" onClick={() => remover(item.produto_id)}
+                        <button disabled={comercialTravado} type="button" onClick={() => remover(item.produto_id)}
                           className="text-red-400 hover:text-red-600 transition text-xs">✕</button>
                       </div>
                     </td>
@@ -2899,6 +3111,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 type="number"
                 min="0"
                 step="0.01"
+                disabled={comercialTravado}
                 value={desconto}
                 onChange={(e) => setDesconto(e.target.value)}
                 placeholder={descontoTipo === 'percent' ? '0%' : '0,00'}
@@ -2951,7 +3164,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             <button
               type="button"
               onClick={() => { if (carrinho.length > 0 && caixaAberto) { setErro(null); setEtapa('pagamento') } }}
-              disabled={carrinho.length === 0 || !caixaAberto}
+              disabled={!rascunhoPronto || conferindoPedido || !!pedidoPendente || !!erroImportacao || carrinho.length === 0 || !caixaAberto}
               title={!caixaAberto ? 'Abra o caixa da loja pra vender' : undefined}
               className="w-full rounded-xl bg-gradient-to-r from-green-600 to-green-500 py-3.5 text-sm font-bold text-white shadow-sm shadow-green-600/25 hover:from-green-700 hover:to-green-600 disabled:from-gray-300 disabled:to-gray-300 disabled:cursor-not-allowed transition"
             >
@@ -2982,7 +3195,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                     className={`flex-1 rounded-xl border-2 py-2 text-sm font-semibold transition ${tipoEntrega === 'retirada' ? 'border-[#1B6CA8] bg-[#1B6CA8]/10 text-[#1B6CA8]' : 'border-gray-200 text-gray-500'}`}>
                     🏪 Retirada
                   </button>
-                  <button type="button" onClick={() => setTipoEntrega('entrega')}
+                  <button type="button" disabled={comercialTravado} onClick={() => setTipoEntrega('entrega')}
                     className={`flex-1 rounded-xl border-2 py-2 text-sm font-semibold transition ${tipoEntrega === 'entrega' ? 'border-[#1B6CA8] bg-[#1B6CA8]/10 text-[#1B6CA8]' : 'border-gray-200 text-gray-500'}`}>
                     🛵 Entrega
                   </button>
@@ -3040,7 +3253,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
             {temFiado && (
               <label className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm">
-                <input type="checkbox" checked={combinadoEntrega} onChange={(e) => setCombinadoEntrega(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
+                <input disabled={comercialTravado} type="checkbox" checked={combinadoEntrega} onChange={(e) => setCombinadoEntrega(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
                 <span className="font-medium text-blue-700">💵 Pagar em dinheiro na entrega (cobrar na entrega)</span>
               </label>
             )}
@@ -3227,7 +3440,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-600">Observações</label>
               <textarea
-                value={observacoes}
+                disabled={comercialTravado} value={observacoes}
                 onChange={(e) => setObservacoes(e.target.value)}
                 rows={2}
                 className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -3240,7 +3453,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                   <button
                     type="button"
                     onClick={abrirConfirmacao}
-                      disabled={carrinho.length === 0 || loading || !caixaAberto || emConsultaCusto}
+                      disabled={!rascunhoPronto || conferindoPedido || !!pedidoPendente || !!erroImportacao || carrinho.length === 0 || loading || !caixaAberto || emConsultaCusto}
                     title={!caixaAberto ? 'Abra o caixa da loja pra vender' : undefined}
                     className="w-full rounded-xl bg-gradient-to-r from-green-600 to-green-500 py-3.5 text-sm font-bold text-white shadow-sm shadow-green-600/25 hover:from-green-700 hover:to-green-600 disabled:from-gray-300 disabled:to-gray-300 disabled:text-white disabled:shadow-none disabled:cursor-not-allowed transition"
                   >
@@ -3257,7 +3470,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             <button
               type="button"
               onClick={handleSalvarOrcamento}
-                disabled={salvandoOrc || emConsultaCusto}
+                disabled={comercialTravado || salvandoOrc || emConsultaCusto}
               className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-blue-200 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50 transition"
             >
               {salvandoOrc && <Spinner />}{salvandoOrc ? 'Salvando...' : '📋 Salvar como orçamento (finalizar depois)'}
@@ -3271,7 +3484,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           {carrinho.length > 0 && (
             <button
               type="button"
-              onClick={() => { if (confirm(`Limpar o carrinho? ${totalItens} ${totalItens === 1 ? 'item será removido' : 'itens serão removidos'}.`)) { setCarrinho([]); setEtapa('venda'); setErro(null) } }}
+              disabled={comercialTravado} onClick={() => { if (confirm(`Limpar o carrinho? ${totalItens} ${totalItens === 1 ? 'item será removido' : 'itens serão removidos'}.`)) { setCarrinho([]); setEtapa('venda'); setErro(null) } }}
               className="w-full rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-red-500 hover:border-red-200 transition"
             >
               Limpar Carrinho
@@ -3367,7 +3580,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                     <option value="valor">R$</option>
                     <option value="percent">%</option>
                   </select>
-                  <input type="number" min="0" step="0.01" value={desconto}
+                  <input type="number" min="0" step="0.01" disabled={comercialTravado}
+                value={desconto}
                     onChange={(e) => setDesconto(e.target.value)} placeholder="0,00"
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-right focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
@@ -3427,7 +3641,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
             {temFiado && (
               <label className="mx-6 mt-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm">
-                <input type="checkbox" checked={combinadoEntrega} onChange={(e) => setCombinadoEntrega(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
+                <input disabled={comercialTravado} type="checkbox" checked={combinadoEntrega} onChange={(e) => setCombinadoEntrega(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
                 <span className="font-medium text-blue-700">💵 Pagar em dinheiro na entrega (cobrar na entrega)</span>
               </label>
             )}

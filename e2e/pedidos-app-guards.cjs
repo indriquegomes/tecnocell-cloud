@@ -288,6 +288,20 @@ test('preparação para PDV mantém preço contratado e exclui peças de outra u
   assert.equal(result.itens.length, 1); assert.equal(result.itens[0].preco, 12.5);
   assert.equal(result.total, 25); assert.equal(f.rpc.length, 0);
 });
+
+test('carregamento devolve cliente nativo, estoque e séries somente dos depósitos autorizados', async () => {
+  const f = fixturePDV({
+    pessoas: [{ id: 'p1', nome: 'Cliente', ativo: true, telefone: '123', permite_fiado: true }],
+    depositos: [{ id: 'd1', loja_id: lojaA, ativo: true }],
+    estoque: [{ produto_id: item.id, deposito_id: 'd1', quantidade: 4 }],
+    numeros_serie: [{ produto_id: item.id, deposito_id: 'd1', serie: 'IMEI-TESTE', status: 'em_estoque' }],
+  });
+  const r = await f.actions.carregarPedidoAppPDV(pedidoId, 'Unidade A', 'token');
+  assert.equal(r.pessoa.telefone, '123');
+  assert.equal(r.depositos[0].id, 'd1');
+  assert.equal(r.itens[0].estoquePorDeposito.d1, 4);
+  assert.deepEqual(Array.from(r.seriesPorProduto[item.id].d1), ['IMEI-TESTE']);
+});
 test('preparação para PDV falha fechada quando a consulta de vínculo ou produto falha', async () => {
   for (const table of ['cadastros_clientes', 'pessoas', 'produtos']) {
     const f = fixturePDV({}, { errors: { [table]: true } });

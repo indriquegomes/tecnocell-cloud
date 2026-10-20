@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { itensDaUnidade, type DadosPedidosApp, type UnidadePedidoApp } from '@/lib/pedidos-app'
+import type { PagamentoInput } from '../pdv/actions'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 class ErroPedido extends Error {}
@@ -59,8 +60,8 @@ export async function carregarPedidoAppPDV(id: string, unidade: string, accessTo
   const [{ data: cadastro, error: erroCadastro }, { data: pessoa, error: erroPessoa }, { data: produtos, error: erroProdutos }, { data: atendimento, error: erroAtendimento }] = await Promise.all([
     service.from('cadastros_clientes').select('user_id,pessoa_id,status')
       .eq('user_id', pedido.user_id).eq('pessoa_id', pedido.pessoa_id).eq('status', 'aprovado').maybeSingle(),
-    service.from('pessoas').select('id,nome,ativo,nao_vender,permite_fiado').eq('id', pedido.pessoa_id).maybeSingle(),
-    service.from('produtos').select('id,ativo,codigo,controla_serie').in('id', itens.map(i => i.id)),
+    service.from('pessoas').select('id,nome,ativo,nao_vender,permite_fiado,cpf_cnpj,telefone,endereco,bairro,cidade,estado,cep').eq('id', pedido.pessoa_id).maybeSingle(),
+    service.from('produtos').select('id,ativo,codigo,controla_serie,prateleira,preco_custo').in('id', itens.map(i => i.id)),
     service.from('pedidos_app_atendimentos').select('venda_id').eq('pedido_id', id).eq('unidade', unidade).maybeSingle(),
   ])
   if (erroAtendimento) throw new ErroPedido('Não foi possível conferir se o pedido já virou venda.')
@@ -75,16 +76,36 @@ export async function carregarPedidoAppPDV(id: string, unidade: string, accessTo
     ? await service.from('vendas').select('status').eq('id', atendimento.venda_id).maybeSingle()
     : { data: null, error: null }
   if (erroVenda || (atendimento?.venda_id && !venda)) throw new ErroPedido('Não foi possível conferir a venda do pedido.')
+  const { data: depositos, error: erroDepositos } = await service.from('depositos')
+    .select('id,nome,loja_id').eq('loja_id', selecionada.lojaId).eq('ativo', true)
+  if (erroDepositos) throw new ErroPedido('Não foi possível conferir os depósitos da unidade.')
+  const idsDepositos = (depositos ?? []).map(d => d.id)
+  const [{ data: estoque, error: erroEstoque }, { data: series, error: erroSeries }] = idsDepositos.length && !atendimento?.venda_id
+    ? await Promise.all([
+      service.from('estoque').select('produto_id,deposito_id,quantidade').in('deposito_id', idsDepositos).in('produto_id', itens.map(i => i.id)),
+      service.from('numeros_serie').select('produto_id,deposito_id,serie').eq('status', 'em_estoque').in('deposito_id', idsDepositos).in('produto_id', itens.map(i => i.id)),
+    ]) : [{ data: [], error: null }, { data: [], error: null }]
+  if (erroEstoque || erroSeries) throw new ErroPedido('Não foi possível conferir estoque e IMEIs.')
+  const seriesPorProduto: Record<string, Record<string, string[]>> = {}
+  for (const s of series ?? []) {
+    const porDeposito = seriesPorProduto[s.produto_id] ??= {}
+    ;(porDeposito[s.deposito_id] ??= []).push(s.serie)
+  }
   return {
     id: pedido.id as string, unidade: selecionada.unidade, lojaId: selecionada.lojaId,
     pessoaId: pessoa.id as string, cliente: pessoa.nome as string,
     permiteFiado: pessoa.permite_fiado === true,
+    pessoa, depositos: depositos ?? [], seriesPorProduto,
     formaEntrega: pedido.forma_entrega as string | null,
     vendaId: atendimento?.venda_id as string | null ?? null,
     vendaCancelada: venda?.status === 'cancelada',
     itens: itens.map(i => {
       const produto = produtos?.find(p => p.id === i.id)
-      return { ...i, codigo: produto?.codigo as string | null ?? null, serializado: produto?.controla_serie === true }
+      const estoquePorDeposito: Record<string, number> = {}
+      for (const e of estoque ?? []) if (e.produto_id === i.id) estoquePorDeposito[e.deposito_id] = Number(e.quantidade)
+      return { ...i, codigo: produto?.codigo as string | null ?? null, serializado: produto?.controla_serie === true,
+        prateleira: produto?.prateleira as string | null ?? null, preco_custo: produto?.preco_custo as number | null ?? null,
+        estoquePorDeposito }
     }),
     total: Math.round(itens.reduce((s, i) => s + i.quantidade * i.preco, 0) * 100) / 100,
   }
@@ -107,15 +128,10 @@ export async function encaminharPedidoAppPDV(id: string, unidade: string, access
   } catch (e) { return { erro: e instanceof ErroPedido ? e.message : 'Não foi possível abrir o pedido no PDV.' } }
 }
 
-export type PagamentoPedidoApp = {
-  forma_pagamento_id: string; valor: number; taxa: number;
-  maquina: string; parcelas: number; status: 'pago' | 'pendente'
-}
-
 export async function finalizarPedidoAppPDV(
-  id: string, unidade: string, deposito: string, pagamentos: PagamentoPedidoApp[],
+  id: string, unidade: string, deposito: string, pagamentos: PagamentoInput[],
   series: { produto_id: string; serie: string }[], accessToken: string,
-) {
+): Promise<{ erro: string } | { vendaId: string; vendaNumero: number | null; jaExistia: boolean }> {
   try {
     if (process.env.PEDIDOS_APP_PDV_ENABLED !== 'true') throw new ErroPedido('A integração com o PDV ainda está em validação.')
     if (!UUID.test(id) || !unidade || !deposito || !Array.isArray(pagamentos) || !pagamentos.length

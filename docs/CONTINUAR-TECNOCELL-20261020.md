@@ -1,6 +1,35 @@
 # Prompt de continuidade — Tecnocell — 20/10/2026
 
+**Estado vigente, nova rodada de testes:** consulte [STATUS-PDV-20261020.md](STATUS-PDV-20261020.md). Suíte repetida: 252/252; TypeScript e build saída 0. Banco atualizado; produção autenticada ainda mostra tela paralela antiga. Cliente do pedido está com permite_fiado=false; não executar fiado/F9 nessa condição. Preflight real feito, sem movimentação financeira. Registro abaixo preserva histórico.
+
+## Atualização remota confirmada — 20/10/2026 (nova tentativa)
+
+O controle do Chrome TECNOCELL voltou após reinicialização da ferramenta. Esta atualização substitui o bloqueio de navegador registrado anteriormente.
+
+- Projeto conferido no SQL Editor: TECNOCELL.CLAUD (`rbjwbfekkhebaschiqda`), produção.
+- As cinco funções originais conferiram com o arquivo local por hash normalizado; colunas, restrições e dois gatilhos originais também conferiram.
+- Somente a versão `20261019`, ausente do histórico, foi registrada em `supabase_migrations.schema_migrations` pelo SQL Editor. Foi reconciliação de metadados, equivalente ao repair; não houve execução do comando CLI nem reaplicação do SQL original.
+- `20261020040612_pedido_app_devolucao_integral.sql` aplicada e registrada no histórico na mesma transação. SHA-256: `86322DFA5B149404535D5FA2CAAA915EAD3BE8987702D16BE4F3C72AE3425E29`. Não reaplicar. Não houve db push geral.
+- Pós-verificação: **2 versões registradas; 4 funções com hashes conferidos; 4 funções sem EXECUTE para anon/authenticated; 3 gatilhos habilitados e inicialmente diferidos; 0 vendas vinculadas ao pedido de teste** `183f3200-819d-46f4-ae02-a5eaa64bd2d5`.
+- Prova: [captura do SQL Editor](pdv-banco-verificado-20261020.png).
+- Código local permanece sem commit/push/deploy. Homologação financeira real ainda pendente; nenhum caixa, recebimento, estoque ou reembolso foi movimentado nesta tentativa. Publicar a correção antes do teste real e seguir o roteiro, usando os dados operacionais fornecidos pelo operador.
+
 Continue o projeto Tecnocell App + Tecnocell Cloud. Leia este arquivo inteiro e os documentos vinculados antes de editar. Não recomece o projeto nem repita como ausentes os fluxos já concluídos.
+
+
+## Atualização prioritária desta execução — 20/10/2026
+
+Esta seção substitui afirmações históricas abaixo de que a correção ainda não começou.
+
+- Correção LOCAL implementada no checkout D: indicado abaixo; arquivos ainda sem commit/push. Preservar alterações e documentos.
+- Tela paralela removida; importação, rascunho/confirmar substituição, travas comerciais, pagamento nativo, finalização exclusiva pela RPC e cupom normal implementados.
+- Migration local nova: `supabase/migrations/20261020040612_pedido_app_devolucao_integral.sql`. Não aplicada remotamente nesta execução. Não reaplicar `20261019`.
+- 252/252 testes passaram, TypeScript passou; build final aprovado (saída 0). Registro detalhado em `docs/execucao-pdv-oficial-20261020.md` e seção 12 do relatório.
+- Homologação escolhida pelo titular: fiado e quitação F9, SOMENTE se o cliente já estiver autorizado para fiado. Depois, Devolução integral e reembolso; cancelamento simples após quitação deve continuar bloqueado. O operador informa saldo real de abertura, forma de recebimento e reembolso. Não inventar esses valores.
+- Etapas locais 2–5 precedem qualquer reconciliação/aplicação remota. Antes de finanças reais, seguir o roteiro atualizado em `docs/pedido-app-pdv-validacao-1910.md`.
+- Supabase/Vercel/GitHub: usar navegador perfil Tecnocell Corp, identificar perfil/abas novamente. NÃO usar o conector Supabase que recusou acesso ao projeto correto.
+- Nesta execução, nenhum efeito financeiro real, deploy, push ou alteração remota. Impressão física continua adiada. Não afirmar que produção já usa a correção local.
+- O pedido autorizado e o projeto permanecem os mesmos. Revalidar estado/saldos/caixa antes de agir; fotografias antigas não são saldos atuais.
 
 ## Instrução principal do titular
 
@@ -126,3 +155,6 @@ Google Play: preparar novo cadastro, CNPJ/tipo ainda a conferir; sem pagamento/s
 ## Como retomar
 
 Comece confirmando a rejeição e a exigência de usar o PDV existente. Inspecione os chamadores e o fluxo normal, faça a menor correção que preserva regras e evita vendas duplicadas. A autorização de corrigir existe; não perguntar novamente se deve usar o PDV normal. Não continuar o teste financeiro na tela rejeitada. Diferenciar código local, testes isolados, produção e Android em todos os resultados.
+
+
+Bloqueio da etapa remota nesta execução: as duas ferramentas de controle do navegador falharam antes de selecionar o perfil Tecnocell Corp, com `failed to write kernel assets ... caminho não encontrado (os error 3)`. Não é evidência de logout. Banco, histórico remoto, produção e pedido real continuam sem alterações nesta execução. Preflight somente leitura atualizado em `docs/pdv-app-preflight.sql`; retomada deve primeiro restabelecer a ferramenta do navegador correto.

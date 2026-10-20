@@ -2,7 +2,6 @@ import { headers } from 'next/headers'
 import { createServiceClient, fetchAll, requirePermissao } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
 import { PDVClient } from './PDVClient'
-import { PedidoAppPDVClient } from './PedidoAppPDVClient'
 import { NovaEncomenda } from '../encomendas/NovaEncomenda'
 
 // Config de PDV do usuário logado (lojas permitidas + padrão). Tolerante:
@@ -39,22 +38,13 @@ export type PromoInfo = {
 
 export default async function PDVPage({ searchParams }: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const params = await searchParams
-  if (params?.pedidoApp) {
-    if (process.env.PEDIDOS_APP_PDV_ENABLED !== 'true' || typeof params.pedidoApp !== 'string' || typeof params.unidade !== 'string') return <main className="mx-auto max-w-xl rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-950">
-      <h1 className="text-xl font-semibold">Atendimento do App em preparação</h1>
-      <p className="mt-2">Este pedido ainda não pode ser lançado como venda. Nenhum pagamento ou estoque foi alterado.</p>
-      <a className="mt-4 inline-block text-blue-700 underline" href="/painel/pedidos-app">Voltar aos pedidos</a>
-    </main>
-    await requirePermissao('pdv')
-    const service = await createServiceClient()
-    const [{ data: formasApp }, { data: depositosApp }, { data: maquinasApp }] = await Promise.all([
-      service.from('formas_pagamento').select('id,nome,tipo,loja_id,maquina_id').eq('ativo', true),
-      service.from('depositos').select('id,nome,loja_id').eq('ativo', true),
-      service.from('maquinas_cartao').select('id,nome,taxa_debito,taxas_credito,max_parcelas').eq('ativo', true),
-    ])
-    return <PedidoAppPDVClient id={params.pedidoApp} unidade={params.unidade}
-      formas={formasApp ?? []} depositos={depositosApp ?? []} maquinas={maquinasApp ?? []} />
-  }
+  await requirePermissao('pdv')
+  const pedidoEntrada = typeof params?.pedidoApp === 'string' && typeof params.unidade === 'string'
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.pedidoApp)
+    && process.env.PEDIDOS_APP_PDV_ENABLED === 'true'
+    ? { pedidoId: params.pedidoApp, unidade: params.unidade } : null
+  const erroPedidoEntrada = params?.pedidoApp !== undefined && !pedidoEntrada
+    ? 'Link de pedido inválido ou atendimento do App indisponível.' : null
   const supabase = await createServiceClient()
 
   const hoje = hojeSP()
@@ -195,6 +185,8 @@ export default async function PDVPage({ searchParams }: { searchParams?: Promise
       </div>
 
       <PDVClient
+        pedidoEntrada={pedidoEntrada}
+        erroPedidoEntrada={erroPedidoEntrada}
         produtos={[]}
         formas={formasOrdenadas}
         pessoas={[]}

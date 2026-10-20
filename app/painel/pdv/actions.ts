@@ -8,6 +8,7 @@ import { hojeSP } from '@/lib/utils'
 import { sincronizarEstoqueML } from '@/lib/mercado-livre'
 import { aplicaBusca } from '@/lib/busca-produtos'
 import { formaFoiEscolhida } from '@/lib/formas-pagamento'
+import { carregarPedidoAppPDV, finalizarPedidoAppPDV } from '../pedidos-app/actions'
 
 // Itens de UMA tabela de preço, sob demanda (o PDV não embute mais os 45k itens
 // de todas as tabelas — carrega só a escolhida). Ordena por id p/ paginação estável.
@@ -310,9 +311,10 @@ export async function finalizarVenda(
   tabela_preco_id: string | null = null,
   rota_entrega: string | null = null,
   horario_entrega: string | null = null,
+  pedidoApp: { pedidoId: string; unidade: string } | null = null,
 ): Promise<
   | { erro: string }
-  | { vendaId: string; vendaNumero: number | null; total: number; estoqueAtualizado: Record<string, number>; vendedorNome: string }
+  | { vendaId: string; vendaNumero: number | null; total: number; estoqueAtualizado: Record<string, number>; vendedorNome: string; jaExistia?: boolean }
 > {
   if (itens.length === 0) return { erro: 'Carrinho vazio' }
   if (!deposito_id) return { erro: 'Depósito não selecionado' }
@@ -323,6 +325,35 @@ export async function finalizarVenda(
     usuario = await requirePermissao('pdv', accessToken)
   } catch (e) {
     return { erro: 'Sessão expirada. Recarregue a página (F5) e entre novamente. ' + (e instanceof Error ? e.message : '') }
+  }
+
+  if (pedidoApp) {
+    try {
+      const pedido = await carregarPedidoAppPDV(pedidoApp.pedidoId, pedidoApp.unidade, accessToken)
+      if (!pedido.vendaId && (pessoa_id !== pedido.pessoaId || desconto !== 0 || desconto_manual !== 0 || credito_valor !== 0
+        || !pedido.depositos.some(d => d.id === deposito_id) || itens.length !== pedido.itens.length
+        || new Set(itens.map(i => i.produto_id)).size !== itens.length
+        || itens.some(i => !pedido.itens.some(p => p.id === i.produto_id && p.quantidade === i.quantidade
+          && p.preco === i.preco_unitario && Number(i.desconto_item ?? 0) === 0)))) {
+        return { erro: 'O pedido vinculado deve manter cliente, peças, quantidades e preços originais.' }
+      }
+      // Nunca criar uma venda genérica para depois tentar vinculá-la.
+      const resultado = await finalizarPedidoAppPDV(pedidoApp.pedidoId, pedidoApp.unidade, deposito_id, pagamentos, series, accessToken)
+      if ('erro' in resultado) return { erro: resultado.erro }
+      const svc = await createServiceClient()
+      const [{ data: venda, error: erroVenda }, { data: estoque, error: erroEstoque }] = await Promise.all([
+        svc.from('vendas').select('numero,total,vendedor_nome,status').eq('id', resultado.vendaId).maybeSingle(),
+        svc.from('estoque').select('produto_id,quantidade').eq('deposito_id', deposito_id).in('produto_id', pedido.itens.map(i => i.id)),
+      ])
+      if (erroVenda || !venda || erroEstoque) return { erro: 'Venda registrada; consulte o pedido antes de repetir. Não foi possível carregar o comprovante.' }
+      if (venda.status !== 'concluida') return { erro: 'Esta venda já foi cancelada. Consulte o histórico do pedido.' }
+      if (!resultado.jaExistia) for (const i of pedido.itens) void sincronizarEstoqueML(i.id)
+      return { vendaId: resultado.vendaId, vendaNumero: venda.numero ?? resultado.vendaNumero,
+        total: Number(venda.total), vendedorNome: venda.vendedor_nome ?? '', jaExistia: resultado.jaExistia,
+        estoqueAtualizado: Object.fromEntries((estoque ?? []).map(e => [e.produto_id, Number(e.quantidade)])) }
+    } catch {
+      return { erro: 'Não foi possível conferir a conclusão. Atualize o pedido antes de tentar novamente.' }
+    }
   }
 
   if (await tabelaSomenteConsulta(tabela_preco_id)) return { erro: 'Tabela CUSTO é somente consulta. Selecione uma tabela de venda.' }
@@ -687,6 +718,7 @@ export async function buscarDetalheVenda(accessToken: string, vendaId: string): 
 // 2ª via: remonta o snapshot do cupom a partir de uma venda salva (mesma forma
 // que o snap gerado na finalização), pra reimprimir do modal de vendas.
 export interface CupomSnap {
+  pedidoApp?: { pedidoId: string; unidade: string } | null
   numero: number | null
   itens: { codigo: string | null; nome: string; quantidade: number; preco_unitario: number; prateleira: string | null }[]
   pagamentos: { forma_nome: string; valor: number; taxa: number; parcelas: number; status: string }[]
@@ -700,6 +732,9 @@ export interface CupomSnap {
 export async function buscarCupomVenda(accessToken: string, vendaId: string): Promise<CupomSnap | null> {
   await requirePermissao('pdv', accessToken)
   const supabase = await createServiceClient()
+  const { data: origem, error: erroOrigem } = await supabase.from('pedidos_app_atendimentos')
+    .select('pedido_id,unidade').eq('venda_id', vendaId).maybeSingle()
+  if (erroOrigem) throw new Error('Não foi possível conferir a origem do cupom.')
   const { data: v } = await supabase
     .from('vendas')
     .select('numero, total, desconto, observacoes, created_at, vendedor_nome, pessoa_id, deposito_id')
@@ -746,6 +781,7 @@ export async function buscarCupomVenda(accessToken: string, vendaId: string): Pr
     lojaLogo: loja?.logo_url ?? null,
     lojaTermos: loja?.termos_venda ?? null,
     desconto: Number(v.desconto) || 0,
+    pedidoApp: origem ? { pedidoId: origem.pedido_id, unidade: origem.unidade } : null,
     horario: new Date(v.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' }),
   }
 }

@@ -1,6 +1,22 @@
 # Tecnocell — situação do App, Cloud e pagamento
 
+**Estado vigente, nova rodada de testes:** consulte [STATUS-PDV-20261020.md](STATUS-PDV-20261020.md). Suíte repetida: 252/252; TypeScript e build saída 0. Banco atualizado; produção autenticada ainda mostra tela paralela antiga. Cliente do pedido está com permite_fiado=false; não executar fiado/F9 nessa condição. Preflight real feito, sem movimentação financeira. Registro abaixo preserva histórico.
+
+## Atualização remota confirmada — 20/10/2026 (nova tentativa)
+
+O controle do Chrome TECNOCELL voltou após reinicialização da ferramenta. Esta atualização substitui o bloqueio de navegador registrado anteriormente.
+
+- Projeto conferido no SQL Editor: TECNOCELL.CLAUD (`rbjwbfekkhebaschiqda`), produção.
+- As cinco funções originais conferiram com o arquivo local por hash normalizado; colunas, restrições e dois gatilhos originais também conferiram.
+- Somente a versão `20261019`, ausente do histórico, foi registrada em `supabase_migrations.schema_migrations` pelo SQL Editor. Foi reconciliação de metadados, equivalente ao repair; não houve execução do comando CLI nem reaplicação do SQL original.
+- `20261020040612_pedido_app_devolucao_integral.sql` aplicada e registrada no histórico na mesma transação. SHA-256: `86322DFA5B149404535D5FA2CAAA915EAD3BE8987702D16BE4F3C72AE3425E29`. Não reaplicar. Não houve db push geral.
+- Pós-verificação: **2 versões registradas; 4 funções com hashes conferidos; 4 funções sem EXECUTE para anon/authenticated; 3 gatilhos habilitados e inicialmente diferidos; 0 vendas vinculadas ao pedido de teste** `183f3200-819d-46f4-ae02-a5eaa64bd2d5`.
+- Prova: [captura do SQL Editor](pdv-banco-verificado-20261020.png).
+- Código local permanece sem commit/push/deploy. Homologação financeira real ainda pendente; nenhum caixa, recebimento, estoque ou reembolso foi movimentado nesta tentativa. Publicar a correção antes do teste real e seguir o roteiro, usando os dados operacionais fornecidos pelo operador.
+
 Data: 20/10/2026. Relatório técnico para pesquisa e continuidade.
+
+**Estado mais recente:** correção local implementada no D:, 252/252 testes e TypeScript aprovados. Build final aprovado (saída 0); histórico remoto reconciliado e incremental aplicada conforme atualização acima. Deploy da aplicação e homologação financeira ainda pendentes. A seção 12 atualiza o diagnóstico histórico abaixo.
 
 ## 1. Resumo executivo
 
@@ -123,3 +139,26 @@ Saldos medidos em PETRÓPOLIS LOJA, por produto: `63e11c5359a9c815ccd58a69`: 3; 
 Preservar design aprovado do App e dados/alterações locais. Não alterar preços nem fundir identidades automaticamente. Não tratar uma aprovação comercial como autorização de funcionário. Segredos administrativos permanecem no servidor. Há exposição de chave administrativa registrada anteriormente e rotação adiada pelo titular; nenhuma credencial deve ser incluída neste relatório ou enviada ao sistema de pesquisa. Google Play, domínio/SMTP, rastreamento de entrega e melhorias futuras de Perfil permanecem fora desta correção imediata.
 
 Este relatório não declara homologação financeira nem liberação pública. O código publicado contém uma interface que o titular rejeitou e aguarda correção.
+
+
+## 12. Correção local no PDV oficial — 20/10/2026
+
+Base de trabalho: `D:\projetos\tecnocell-pdv-safe-1910`, HEAD inicial `3312d7f`, árvore inicialmente limpa. O main remoto foi consultado em leitura e apontava para `ea25049`; a diferença de conteúdo para HEAD era somente documentação. Nenhum arquivo do E: foi acessado nesta implementação.
+
+- A rota sempre renderiza `PDVClient`. `PedidoAppPDVClient.tsx` foi excluído.
+- O carregador entrega cliente comercial vinculado, depósitos autorizados, estoque e séries. Venda existente fica em consulta/reimpressão, sem novo carrinho vendável.
+- Rascunho em sessionStorage por operador e aba, sem tokens; restauração antes da importação, confirmação para substituir atendimento ocupado e preservação ao recusar. Desvincular limpa cliente, peças, pagamentos e dados transitórios do atendimento.
+- Cliente, unidade, itens, quantidade e preço contratados ficam travados. Promoção e tabela não recalculam o pedido; escolha de IMEI conserva a quantidade contratada. Depósito pode ser escolhido somente dentro da unidade autorizada, sem reduzir silenciosamente a quantidade.
+- `finalizarVenda` recebe vínculo opcional, revalida cliente/itens/preços/depósito e despacha exclusivamente para `finalizar_pedido_app_pdv`. Erro jamais aciona finalizador genérico. A RPC instalada continua sendo a transação única de venda/estoque/caixa/vínculo.
+- Cupom usa `montarCupomHTML` normal e consulta os dados persistidos da venda, incluindo referência de pedido/unidade na primeira e segunda vias. Mantém identificação normal da venda e acrescenta link autenticado de consulta no Cloud. Não foi criado rastreamento público de entrega.
+- Limites já existentes da RPC específica preservados: retirada, sem vale-crédito e sem pagar-na-entrega. Esses controles ficam indisponíveis quando vinculados, para não aceitar dados que a RPC não grava. Dinheiro/troco, Pix manual, cartão/taxas/parcelas e fiado usam o motor de pagamento nativo. Vendas comuns mantêm seus recursos.
+- Migration incremental local `20261020040612_pedido_app_devolucao_integral.sql`: gatilhos diferidos observam itens devolvidos e reconferem F9/cancelamento, encerrando o pedido apenas quando todas as unidades foram atendidas e revertidas. Devolução parcial não encerra; não há estorno próprio de estoque ou financeiro.
+
+Verificação local: 252/252 testes passaram em uma execução conjunta, incluindo navegador com componente real e rede fictícia, guardas das actions, cálculos e SQL real dos finalizadores lido das migrations. O PGlite usa tabelas reduzidas de teste e serializa operações: não comprova concorrência em conexões PostgreSQL reais nem o corpo atualmente instalado em produção. Há cobertura de F9 parcial/integral, repetição, rollback, cartão, cancelamento pendente e devolução parcial/integral/múltiplas unidades. A action real de cancelamento recusa fiado já recebido, exigindo Devolução.
+
+A primeira tentativa da regressão TypeScript via Node direto falhou por alias `@/`; repetida com `--import ./test/loader.mjs`, passou. Warnings existentes de `MODULE_TYPELESS_PACKAGE_JSON` foram mantidos; nenhuma alteração em package.json para escondê-los.
+
+Não foram executados nesta etapa: suíte Playwright autenticada com dados reais, runners legados exclusivos de Linux (`/app`, `/scratch`, PostgreSQL binário), impressão física, venda/cobrança/reembolso reais, publicação ou alteração remota. TypeScript passou; build final aprovado (saída 0). O hash da migration 20261019 permanece igual ao aplicado manualmente; a consulta pelo conector recusado não revalidou o histórico remoto.
+
+
+Bloqueio da etapa remota nesta execução: as duas ferramentas de controle do navegador falharam antes de selecionar o perfil Tecnocell Corp, com `failed to write kernel assets ... caminho não encontrado (os error 3)`. Não é evidência de logout. Banco, histórico remoto, produção e pedido real continuam sem alterações nesta execução. Preflight somente leitura atualizado em `docs/pdv-app-preflight.sql`; retomada deve primeiro restabelecer a ferramenta do navegador correto.
