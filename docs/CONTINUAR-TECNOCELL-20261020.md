@@ -1,5 +1,7 @@
 # Prompt de continuidade — Tecnocell — 20/10/2026
 
+**Rodada atual — somente local:** diagnóstico e correção de conciliação Pix preparados; 267/267 testes, TypeScript e build aprovados. Ver [CONCILIACAO-PIX-20261020.md](CONCILIACAO-PIX-20261020.md). Migration nova não aplicada e código não publicado. Produção continua na versão homologada anteriormente. Nenhuma nova venda ou automação nesta rodada.
+
 ## Publicação e teste real — estado vigente em 20/10/2026
 
 Main `26b789c` publicado; Vercel produção Ready (`BNPyjK68cGSMUjiwGQJw5Gjwn5CV`). Alias público usa PDV oficial com banner. Venda #8414 Pix R$ 135,00 e devolução integral realizadas pelo fluxo normal. Estoque PETRÓPOLIS LOJA restaurado a 3/1/2; pedido cancelado/pagamento pendente; uma venda vinculada; receber/pagar pagos de R$ 135,00, líquido zero. Caixa existente com abertura R$ 200,00 preservado. Fiado permaneceu desabilitado.

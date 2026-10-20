@@ -1,6 +1,7 @@
 import { createServiceClient, requireAuth } from '@/lib/supabase/server'
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { pixSemComprovante } from '@/lib/pix-pendentes'
+import { carregarDevolucoesCaixa, aplicarEstornosPix } from '@/lib/devolucoes-caixa'
 import { OperacaoClient } from './OperacaoClient'
 
 export default async function OperacaoPDVPage({
@@ -67,6 +68,8 @@ export default async function OperacaoPDVPage({
 
 
 
+  let estornosPix = 0
+  let estornosSemSplit = 0
   let totalVendas = 0
   let totalCrediario = 0
   let totalReforcos = 0
@@ -113,6 +116,9 @@ export default async function OperacaoPDVPage({
     ])
 
     const vendasRaw = vendasResult.data ?? []
+    const devolucoesCaixa = await carregarDevolucoesCaixa(supabase, caixaAberto, lojaAtual, vendasRaw.map(v => v.id))
+    estornosPix = devolucoesCaixa.estornosPix
+    estornosSemSplit = devolucoesCaixa.legadosSemSplit
     vendasDia = vendasRaw.map((v) => {
       const raw = formasPorId[v.forma_pagamento_id ?? ''] ?? 'Outras'
       const forma = raw.toLowerCase().includes('cart') ? 'Cartão' : raw
@@ -197,7 +203,7 @@ export default async function OperacaoPDVPage({
         // marcar aqui, a linha ficava só com um "—" mudo e o valor cheio do
         // lado — parecia venda sem forma de pagamento, e as contas da tela
         // não fechavam com o total do cabeçalho.
-        devolvida: fiadoCancelado.has(v.id),
+        devolvida: fiadoCancelado.has(v.id) || devolucoesCaixa.integrais.has(v.id),
         // quanto do fiado já foi pago depois da venda (F9/Fiados) — 0 = ainda em aberto
         fiadoAbatido: fiadoAbatido[v.id] ?? 0,
         // fatia da venda que foi fiado (não o total) — numa venda MISTA (parte
@@ -280,6 +286,10 @@ export default async function OperacaoPDVPage({
     }
     // Fiado DESTE caixa (antes vinha de lancamentos por created_at — pegava fiado
     // de qualquer loja e até lançamento manual sem venda)
+    const liquido = aplicarEstornosPix(totalVendas, porForma, porTipo, estornosPix)
+    totalVendas = liquido.totalVendas
+    porForma = liquido.porForma
+    porTipo = liquido.porTipo
     totalCrediario = porTipo['fiado'] ?? 0
 
     // PIX sem comprovante: bate os PIX do caixa contra os comprovantes que caíram
@@ -298,7 +308,7 @@ export default async function OperacaoPDVPage({
         .gte('recebido_em', caixaAberto.aberto_em)
       const comps = (compsRes.data ?? []) as { valor: number | null }[]
       pixPendentes = pixSemComprovante(
-        pixDoCaixa.map((p) => ({ id: p.id, cliente: p.cliente, valor: p.valorForma, hora: p.hora })),
+        pixDoCaixa.map((p) => ({ id: p.id, cliente: p.cliente, valor: p.valorForma, hora: p.hora, devolvidaIntegral: devolucoesCaixa.integrais.has(p.id) })),
         pixFiado,
         comps.map((c) => ({ valor: Number(c.valor) || 0 })),
       )
@@ -366,6 +376,7 @@ export default async function OperacaoPDVPage({
     porForma: Record<string, number>
     porTipo: Record<string, number>
     totalTaxaCartao: number
+    estornosPix: number
     movimentos: { tipo: string; motivo: string | null; forma_pagamento: string; valor: number; created_at: string }[]
     valorEsperado: number
     valorContado: number
@@ -401,6 +412,7 @@ export default async function OperacaoPDVPage({
       ])
 
       const zVendas = zVendasResult.data ?? []
+      const zDevolucoes = await carregarDevolucoesCaixa(supabase, ultimoCaixa, lojaAtual, zVendas.map(v => v.id))
       const zMov = zMovResult.data ?? []
       // Mesma verdade do caixa aberto: pagamentos_venda classificado por tipo
       const zPorForma: Record<string, number> = {}
@@ -462,6 +474,9 @@ export default async function OperacaoPDVPage({
         zPorForma[m.forma_pagamento] = (zPorForma[m.forma_pagamento] ?? 0) + sinal * v
       }
 
+      const zLiquido = aplicarEstornosPix(0, zPorForma, zPorTipo, zDevolucoes.estornosPix)
+      Object.assign(zPorForma, zLiquido.porForma)
+      Object.assign(zPorTipo, zLiquido.porTipo)
       zReport = {
         aberto_em: ultimoCaixa.aberto_em,
         fechado_em: ultimoCaixa.fechado_em ?? new Date().toISOString(),
@@ -469,7 +484,7 @@ export default async function OperacaoPDVPage({
         obs_fechamento: ultimoCaixa.obs_fechamento ?? null,
         // líquido, igual ao caixa aberto: a taxa é repasse do custo do cartão,
         // não receita — tirar aqui faz o total fechar com a soma das formas.
-        totalVendas: zVendas.reduce((s, v) => s + (v.total ?? 0), 0) - zFiadoCancValor - zTotalTaxaCartao,
+        totalVendas: zVendas.reduce((s, v) => s + (v.total ?? 0), 0) - zFiadoCancValor - zTotalTaxaCartao - zDevolucoes.estornosPix,
         qtdVendas: zVendas.length,
         totalReforcos: zMov.filter((m) => m.tipo === 'reforco').reduce((s, m) => s + m.valor, 0),
         totalRetiradas: zMov.filter((m) => m.tipo === 'retirada').reduce((s, m) => s + m.valor, 0),
@@ -477,6 +492,7 @@ export default async function OperacaoPDVPage({
         porForma: zPorForma,
         porTipo: zPorTipo,
         totalTaxaCartao: zTotalTaxaCartao,
+        estornosPix: zDevolucoes.estornosPix,
         movimentos: zMov,
         valorEsperado: parseFloat(esperado),
         valorContado: parseFloat(contado),
@@ -521,6 +537,8 @@ export default async function OperacaoPDVPage({
       vendasPorTipo={vendasPorTipo}
       vendasDetalhe={vendasDetalhe}
       pixPendentes={pixPendentes}
+      estornosPix={estornosPix}
+      estornosSemSplit={estornosSemSplit}
       erro={erro}
       fechado={fechado === '1'}
       aberto={aberto === '1'}

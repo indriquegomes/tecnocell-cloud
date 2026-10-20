@@ -131,6 +131,8 @@ interface Props {
   totalTaxaCartao: number
   vendasPorTipo: Record<string, VendaConferencia[]>
   vendasDetalhe: VendaDetalhe[]
+  estornosPix?: number
+  estornosSemSplit?: number
   pixPendentes: { id: string; cliente: string | null; valor: number; hora: string }[]
   erro?: string
   fechado?: boolean
@@ -148,6 +150,7 @@ interface Props {
     porForma: Record<string, number>
     porTipo: Record<string, number>
     totalTaxaCartao: number
+    estornosPix?: number
     movimentos: { tipo: string; motivo: string | null; forma_pagamento: string; valor: number; created_at: string }[]
     valorEsperado: number
     valorContado: number
@@ -220,7 +223,7 @@ function EmCaixaCard({
       bg: 'bg-orange-50', cor: 'text-orange-800', valorCor: 'text-orange-600', nota: 'text-orange-500', barra: 'border-orange-400' },
     { tipo: 'outros', icone: '💰', nome: 'Outros', valor: outros, conferir: null,
       bg: 'bg-slate-50/70', cor: 'text-slate-700', valorCor: 'text-slate-700', nota: 'text-slate-500', barra: 'border-slate-300' },
-  ].filter((l) => l.valor > 0)
+  ].filter((l) => Math.abs(l.valor) > 0.005)
 
   return (
     <div className="rounded-xl border border-gray-200 overflow-hidden">
@@ -424,7 +427,7 @@ function Linha({
           )}
 
           <div className="flex justify-between border-t-2 border-gray-200 pt-1.5 text-xs">
-            <span className="font-semibold text-gray-500">Soma</span>
+            <span className="font-semibold text-gray-500">{tipo === 'pix' ? 'Entradas Pix antes de devoluções' : 'Soma'}</span>
             <span className="font-extrabold tabular-nums text-gray-900">{fmt(soma)}</span>
           </div>
         </div>
@@ -1112,6 +1115,7 @@ function ZReportPanel({ z }: {
     porForma: Record<string, number>
     porTipo: Record<string, number>
     totalTaxaCartao: number
+    estornosPix?: number
     movimentos: { tipo: string; motivo: string | null; forma_pagamento: string; valor: number; created_at: string }[]
     valorEsperado: number
     valorContado: number
@@ -1144,6 +1148,7 @@ function ZReportPanel({ z }: {
           <p className="text-xs">Operador: {z.operador}</p>
         </div>
 
+        {(z.estornosPix ?? 0) > 0 && <p className="mb-3 text-sm">Estorno PIX: −{fmt(z.estornosPix ?? 0)} (já descontado; fora da gaveta)</p>}
         {/* Resumo da gaveta */}
         <div className="space-y-1.5 text-sm">
           <div className="flex justify-between">
@@ -1208,6 +1213,8 @@ export function OperacaoClient({
   vendasPorTipo,
   vendasDetalhe,
   pixPendentes,
+  estornosPix = 0,
+  estornosSemSplit = 0,
   erro,
   fechado,
   aberto,
@@ -1306,6 +1313,17 @@ export function OperacaoClient({
         </div>
       )}
 
+      {caixaAberto && estornosPix > 0 && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 px-6 py-4 text-blue-900">
+          <p className="font-bold">Pix devolvido neste caixa: −{fmt(estornosPix)}</p>
+          <p className="text-sm">Já descontado do total e do Pix a conferir. Não sai dinheiro da gaveta.</p>
+        </div>
+      )}
+      {caixaAberto && estornosSemSplit > 0 && (
+        <p role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900">
+          Há {estornosSemSplit} devolução(ões) antiga(s) sem divisão do reembolso. Confira o financeiro antes de fechar.
+        </p>
+      )}
       {caixaAberto && pixPendentes.length > 0 && (
         <div className="rounded-2xl border border-amber-300 bg-amber-50 px-6 py-4">
           <p className="font-bold text-amber-800">⚠️ {pixPendentes.length} PIX sem comprovante</p>

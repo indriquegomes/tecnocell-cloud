@@ -1,5 +1,7 @@
 # Relatório atual — integração App no PDV oficial
 
+**Rodada atual — somente local:** diagnóstico e correção de conciliação Pix preparados; 267/267 testes, TypeScript e build aprovados. Ver [CONCILIACAO-PIX-20261020.md](CONCILIACAO-PIX-20261020.md). Migration nova não aplicada e código não publicado. Produção continua na versão homologada anteriormente. Nenhuma nova venda ou automação nesta rodada.
+
 ## Publicação e homologação real em Pix — 20/10/2026
 
 Esta seção substitui os estados anteriores de código não publicado e teste financeiro pendente.

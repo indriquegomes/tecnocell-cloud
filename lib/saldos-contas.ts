@@ -119,25 +119,22 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
       }
     }
 
-    // PIX/DÉBITO/CRÉDITO: a devolução só grava o texto do meio (p_tipo_credito:
-    // 'pix'|'debito'|'credito'), não qual conta/maquininha específica recebeu o
-    // reembolso de volta — informação que o RPC nunca teve. Aproximação: acha a
-    // primeira forma_pagamento do tipo correspondente e usa a conta dela. Com 2+
-    // maquininhas de cartão isso pode cair na conta errada entre elas (mas
-    // sempre numa conta de cartão, nunca fica de fora como hoje).
-    const lancDev = await fetchAll<{ valor: number; forma_pagamento: string | null }>((from, to) =>
-      supabase.from('lancamentos').select('valor, forma_pagamento')
+    // Reembolsos legados sem conta: aplicar a mesma rota forma/loja da entrada.
+    // Só resolver destino único; não escolher a primeira conta de outra unidade.
+    const lancDev = await fetchAll<{ valor: number; forma_pagamento: string | null; loja_id: string | null }>((from, to) =>
+      supabase.from('lancamentos').select('valor, forma_pagamento, loja_id')
         .eq('tipo', 'pagar').eq('status', 'pago').is('conta_id', null)
         .ilike('descricao', 'Devolução —%').range(from, to))
     if (lancDev.length) {
       const tipoPorTextoCredito: Record<string, string> = { pix: 'pix', debito: 'cartao_debito', credito: 'cartao_credito' }
-      const contaPorTipo: Record<string, string> = {}
-      for (const f of (formas ?? []) as { tipo: string | null; conta_destino_id: string | null }[]) {
-        if (f.tipo && f.conta_destino_id && !(f.tipo in contaPorTipo)) contaPorTipo[f.tipo] = f.conta_destino_id
-      }
       for (const l of lancDev) {
         const tipo = tipoPorTextoCredito[(l.forma_pagamento ?? '').toLowerCase()]
-        const conta = tipo ? contaPorTipo[tipo] : null
+        const candidatas = (formas ?? []).filter(f => f.tipo === tipo).map(f =>
+          (l.loja_id ? rota[f.id]?.[l.loja_id] : null) ?? f.conta_destino_id)
+        // Sem loja em legado com roteamento, ou destinos diferentes: não escolher uma conta ao acaso.
+        if (!l.loja_id && temRota) continue
+        const unicas = [...new Set(candidatas)]
+        const conta = unicas.length === 1 ? unicas[0] : null
         if (conta && conta in saldo) saldo[conta] -= l.valor ?? 0
       }
     }

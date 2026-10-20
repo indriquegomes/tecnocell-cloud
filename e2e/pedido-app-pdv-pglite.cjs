@@ -27,6 +27,8 @@ async function fixture(){
  create table cadastros_clientes(user_id uuid,pessoa_id text,status text);
  create table pedidos_app(id uuid primary key,user_id uuid,pessoa_id text,status text,status_pagamento text,itens jsonb);
  create table lojas(id uuid primary key,ativa boolean);
+ create table contas(id uuid primary key,ativa boolean default true);
+ create table forma_conta_loja(forma_id text,loja_id uuid,conta_id uuid);
  create table pedidos_app_unidades(unidade text primary key,loja_id uuid);
  create table vendas(id uuid primary key default gen_random_uuid(),numero integer,total numeric,caixa_id uuid,status text,
    desconto numeric,forma_pagamento_id text,pessoa_id text,observacoes text,deposito_id text,vendedor_id uuid,vendedor_nome text,tipo_entrega text,endereco_entrega text);
@@ -36,14 +38,14 @@ async function fixture(){
  create table caixas(id uuid primary key,loja_id uuid,status text,aberto_em timestamptz default now());
  create table produtos(id text primary key,ativo boolean,preco_custo numeric,preco_minimo numeric,controla_serie boolean,permite_estoque_negativo boolean default false);
  create table estoque(id uuid default gen_random_uuid(),produto_id text,deposito_id text,quantidade numeric,updated_at timestamptz,primary key(produto_id,deposito_id));
- create table formas_pagamento(id text primary key,ativo boolean,loja_id uuid,tipo text,maquina_id text);
+ create table formas_pagamento(id text primary key,ativo boolean,loja_id uuid,tipo text,maquina_id text,conta_destino_id uuid);
  create table maquinas_cartao(id text primary key,nome text,ativo boolean,taxa_debito numeric,taxas_credito jsonb,max_parcelas integer);
  create table pagamentos_venda(venda_id uuid,forma_pagamento_id text,status text,valor numeric,taxa numeric,maquina text,parcelas int);
  create table lancamentos(id text primary key default gen_random_uuid()::text,venda_id uuid,tipo text,status text,descricao text,valor numeric,valor_pago numeric default 0,
    data_competencia date,data_vencimento date,data_pagamento date,updated_at timestamptz,created_at timestamptz default now(),pessoa_nome text,loja_id uuid,conta_id uuid,forma_pagamento text,historico_pagamentos jsonb);
  create table numeros_serie(produto_id text,deposito_id text,serie text,status text,venda_id text,updated_at timestamptz);
  create table creditos_clientes(pessoa_id text,pessoa_nome text,valor numeric,tipo text,descricao text,venda_id text,loja_id uuid,devolucao_id uuid);
- create table devolucoes(id uuid primary key,venda_id uuid,deposito_id text,pessoa_nome text,vendedor_nome text,motivo text,valor_total numeric,tipo_credito text,status text);
+ create table devolucoes(id uuid primary key,venda_id uuid,deposito_id text,pessoa_nome text,vendedor_nome text,motivo text,valor_total numeric,tipo_credito text,status text,created_at timestamptz default now());
  create table itens_devolucao(devolucao_id uuid,produto_id text,nome text,quantidade numeric,preco_unitario numeric,total_item numeric,status_produto text);
  create table recebimentos_lote_operacoes(id uuid primary key,pedido jsonb,resultado jsonb);
  create table movimentos_caixa(caixa_id uuid,tipo text,motivo text,forma_pagamento text,valor numeric);
@@ -56,7 +58,7 @@ async function fixture(){
  insert into caixas(id,loja_id,status) values('${uuid(31)}','${uuid(21)}','aberto');
  insert into produtos(id,ativo,preco_custo,preco_minimo,controla_serie) values('peca',true,4,5,false);
  insert into estoque(produto_id,deposito_id,quantidade) values('peca','d1',10),('peca','d-outra',10);
- insert into formas_pagamento values('pix',true,null,'pix',null),('fiado',true,null,'fiado',null),('credito',true,null,'cartao_credito','maq1');
+ insert into formas_pagamento(id,ativo,loja_id,tipo,maquina_id) values('pix',true,null,'pix',null),('fiado',true,null,'fiado',null),('credito',true,null,'cartao_credito','maq1');
  insert into maquinas_cartao values('maq1','Máquina QA',true,1,'[2,3]',2);
  `)
  // Todas as funções de negócio abaixo são extraídas sem alterar seus corpos.
@@ -70,6 +72,7 @@ async function fixture(){
  await db.exec(funcao('2026-09-19_lancamento-devolucao-perda-loja.sql','registrar_devolucao'))
  await db.exec(ler('20261019_pedido_app_pdv_atomico.sql'))
  await db.exec(ler(fs.readdirSync(migrations).find(f=>f.endsWith('_pedido_app_devolucao_integral.sql'))))
+ await db.exec(ler('20261020123000_conciliacao_pix_devolucoes.sql'))
  async function novo(n,qtd=1,preco=12.5){
   await db.query('insert into pedidos_app values($1,$2,$3,$4,$5,$6::jsonb)',[uuid(n),uuid(1),'p1','pendente','pendente',JSON.stringify([{id:'peca',nome:'Peça QA',loja:'Petrópolis',quantidade:qtd,preco}])])
  }
@@ -177,5 +180,67 @@ test('SQL real: várias unidades preservam atendimento ativo e só encerram apó
   await f.db.query('select registrar_devolucao($1,$2,$3,$4,$5,$6,$7,$8::jsonb,false)',[outra.venda_id,'d-outra','p1','QA','QA','Teste','pix',JSON.stringify([{produto_id:'peca',nome:'Peça QA',quantidade:1,status_produto:'ok'}])])
   assert.deepEqual(await f.estado(41),{status:'cancelado',status_pagamento:'pendente'})
   assert.equal(await f.saldo(),10)
+ }finally{await f.db.close()}
+})
+
+
+test('Pix real: rota por loja herdada no reembolso, sem duplicar entrada automática', async()=>{
+ const f=await fixture()
+ try {
+  await f.db.exec(`insert into contas(id) values('${uuid(81)}'),('${uuid(82)}');
+   update formas_pagamento set conta_destino_id='${uuid(82)}' where id='pix';
+   insert into forma_conta_loja values('pix','${uuid(21)}','${uuid(81)}');`)
+  await f.novo(81);const v=await f.vender(81)
+  const entrada=(await f.db.query('select conta_id from lancamentos where venda_id=$1',[v.venda_id])).rows[0]
+  assert.equal(entrada.conta_id,null,'entrada já é contabilizada por pagamentos_venda')
+  await f.devolver(v.venda_id,1)
+  const saida=(await f.db.query("select conta_id,devolucao_id,valor from lancamentos where tipo='pagar'")).rows[0]
+  assert.equal(saida.conta_id,uuid(81));assert.equal(Number(saida.valor),12.5)
+  const d=(await f.db.query('select caixa_id,abate_fiado,reembolsos from devolucoes where id=$1',[saida.devolucao_id])).rows[0]
+  assert.equal(d.caixa_id,uuid(31));assert.equal(Number(d.abate_fiado),0)
+  assert.equal(d.reembolsos[0].tipo,'pix');assert.equal(d.reembolsos[0].conta_id,uuid(81))
+ }finally{await f.db.close()}
+})
+
+test('Pix real: ausência de rota não inventa conta; falha do reembolso reverte todos os efeitos',async()=>{
+ const f=await fixture()
+ try {
+  await f.novo(82);const v=await f.vender(82)
+  await f.db.exec(`insert into contas(id,ativa) values('${uuid(83)}',false);update formas_pagamento set conta_destino_id='${uuid(83)}' where id='pix'`)
+  await assert.rejects(f.devolver(v.venda_id,1),/inativa/)
+  assert.equal(await f.saldo(),9)
+  assert.equal((await f.db.query('select count(*) n from devolucoes')).rows[0].n,0)
+  await f.db.exec('update formas_pagamento set conta_destino_id=null')
+  await f.devolver(v.venda_id,1)
+  assert.equal((await f.db.query("select conta_id from lancamentos where tipo='pagar'")).rows[0].conta_id,null)
+  assert.equal(await f.saldo(),10)
+ }finally{await f.db.close()}
+})
+
+
+test('Pix real: sem rota local usa destino da forma; múltiplas contas não são escolhidas ao acaso',async()=>{
+ const f=await fixture()
+ try {
+  await f.db.exec(`insert into contas(id) values('${uuid(84)}'),('${uuid(85)}');
+   update formas_pagamento set conta_destino_id='${uuid(84)}' where id='pix';
+   insert into formas_pagamento(id,ativo,tipo,conta_destino_id) values('pix2',true,'pix','${uuid(85)}')`)
+  await f.novo(84);const v=await f.vender(84)
+  assert.equal((await f.db.query('select conta_pix_da_venda($1) c',[v.venda_id])).rows[0].c,uuid(84))
+  await f.db.query("insert into pagamentos_venda(venda_id,forma_pagamento_id,status,valor) values($1,'pix2','pago',1)",[v.venda_id])
+  await assert.rejects(f.db.query('select conta_pix_da_venda($1)',[v.venda_id]),/contas diferentes/)
+ }finally{await f.db.close()}
+})
+
+test('Pix real: devolução após F9 herda conta explícita e registra só o reembolso',async()=>{
+ const f=await fixture()
+ try {
+  await f.db.exec(`insert into contas(id) values('${uuid(86)}')`)
+  await f.novo(86);const v=await f.vender(86,f.pagar('fiado'))
+  const id=(await f.db.query('select id from lancamentos where venda_id=$1',[v.venda_id])).rows[0].id
+  await f.db.query('select receber_lancamentos_lote($1::jsonb,$2,$3,$4,$5)',[JSON.stringify([{id,valor:12.5}]),'Pix',uuid(86),uuid(21),uuid(87)])
+  await f.devolver(v.venda_id,1)
+  const r=(await f.db.query("select conta_id,valor from lancamentos where tipo='pagar'")).rows[0]
+  assert.equal(r.conta_id,uuid(86));assert.equal(Number(r.valor),12.5)
+  assert.equal((await f.db.query("select jsonb_array_length(reembolsos) n from devolucoes")).rows[0].n,1)
  }finally{await f.db.close()}
 })

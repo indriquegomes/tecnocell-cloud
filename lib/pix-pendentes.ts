@@ -1,4 +1,4 @@
-export type PixVenda = { id: string; cliente: string | null; valor: number; hora: string }
+export type PixVenda = { id: string; cliente: string | null; valor: number; hora: string; status?: string; devolvidaIntegral?: boolean }
 
 // Casa PIX do sistema com comprovantes. Em camadas:
 // 1) valor EXATO (1 a 1); 2) SOMA de 2 (ex: 1 Pix de R$65 = R$45 venda + R$20 fiado);
@@ -6,6 +6,7 @@ export type PixVenda = { id: string; cliente: string | null; valor: number; hora
 // `extras` = outros pagamentos PIX do caixa que entram na MESMA soma (ex: fiado recebido).
 // Ainda é só um AVISO de conferência (o operador bate na mão) — não trava nada.
 export function pixSemComprovante(pix: PixVenda[], extras: PixVenda[], comprovantes: { valor: number }[]): PixVenda[] {
+  pix = pix.filter(p => p.status !== 'cancelada' && p.status !== 'cancelado' && !p.devolvidaIntegral)
   const todos = [...pix, ...extras]
   const compVals = comprovantes.map((c) => Number(c.valor) || 0).filter((v) => v > 0)
   const usadoComp = new Array(compVals.length).fill(false)
