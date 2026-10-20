@@ -1,5 +1,13 @@
 # Pedido do App no PDV — validação de 19/10/2026
 
+## Publicação e teste real — estado vigente em 20/10/2026
+
+Main `26b789c` publicado; Vercel produção Ready (`BNPyjK68cGSMUjiwGQJw5Gjwn5CV`). Alias público usa PDV oficial com banner. Venda #8414 Pix R$ 135,00 e devolução integral realizadas pelo fluxo normal. Estoque PETRÓPOLIS LOJA restaurado a 3/1/2; pedido cancelado/pagamento pendente; uma venda vinculada; receber/pagar pagos de R$ 135,00, líquido zero. Caixa existente com abertura R$ 200,00 preservado. Fiado permaneceu desabilitado.
+
+**Limites encontrados:** conta_id nulo nos lançamentos; Operação ainda mantém #8414 no total bruto e aviso de Pix sem comprovante após devolução. Compensação nominal provada; conciliação bancária e tratamento do fechamento ainda precisam revisão. Não houve transferência bancária externa, impressão física, F9 real ou validação visual Android. Não declarar homologação irrestrita.
+
+IDs, horários, saldos e provas detalhadas em [STATUS-PDV-20261020.md](STATUS-PDV-20261020.md). Esta atualização substitui os estados históricos abaixo de versão não publicada e teste financeiro não executado.
+
 **Estado vigente, nova rodada de testes:** consulte [STATUS-PDV-20261020.md](STATUS-PDV-20261020.md). Suíte repetida: 252/252; TypeScript e build saída 0. Banco atualizado; produção autenticada ainda mostra tela paralela antiga. Cliente do pedido está com permite_fiado=false; não executar fiado/F9 nessa condição. Preflight real feito, sem movimentação financeira. Registro abaixo preserva histórico.
 
 ## Atualização remota confirmada — 20/10/2026 (nova tentativa)
