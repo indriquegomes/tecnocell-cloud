@@ -172,6 +172,10 @@ export default async function ComprasPage({
                       className="rounded-lg px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 transition">
                       Abrir
                     </Link>
+                    <a href={`/painel/compras/exportar?nota_id=${n.id}`}
+                      className="rounded-lg px-2.5 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50 transition">
+                      Excel
+                    </a>
                     <BotaoExcluir action={deletarNota.bind(null, n.id)} mensagem="Excluir esta nota de entrada?" />
                   </div>
                 </td>
