@@ -3,11 +3,13 @@ export type PedidoAppAtendimento = {
   id: string; cliente: string; status: string; pagamento: string; criadoEm: string;
   itens: ItemPedidoApp[]; total: number; confirmado: boolean;
   encaminhado?: boolean; vendaId?: string | null; vendaCancelada?: boolean;
+  operacao?: { versao: number; responsavelId: string | null; responsavel: string | null; responsavelEm: string | null; solicitacoesImpressao: number; separadoEm: string | null; entregueEm: string | null; papelConfirmadoEm: string | null };
 }
 export type UnidadePedidoApp = { unidade: string; lojaId: string; nome: string }
 export type DadosPedidosApp = {
   unidades: UnidadePedidoApp[]; unidade: UnidadePedidoApp | null; pedidos: PedidoAppAtendimento[];
   gerenciamentoHabilitado: boolean; pdvHabilitado: boolean; maisPedidos: boolean; proximoCursor: string | null;
+  operacaoHabilitada?: boolean;
 }
 
 export function itensDaUnidade(valor: unknown, unidade: string): ItemPedidoApp[] {

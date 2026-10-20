@@ -72,9 +72,26 @@ function fixture(options = {}) {
       createServiceClient: async () => service,
     },
     '@/lib/pedidos-app': model,
-  }, { PEDIDOS_APP_GERENCIAMENTO_ENABLED: cfg.enabled ? 'true' : 'false', PEDIDOS_APP_PDV_ENABLED: cfg.pdv ? 'true' : 'false' });
+  }, { PEDIDOS_APP_GERENCIAMENTO_ENABLED: cfg.enabled ? 'true' : 'false', PEDIDOS_APP_PDV_ENABLED: cfg.pdv ? 'true' : 'false', PEDIDOS_APP_OPERACAO_ENABLED: cfg.operacao ? 'true' : 'false' });
   return { actions, model, reads, rpc, permissions, refreshed };
 }
+
+test('operação privada exige flag, permissão, unidade e envia somente operador autenticado', async () => {
+  for (const cfg of [{}, {operacao:true,permission:false}, {operacao:true,allowed:[lojaB]}]) {
+    const f=fixture(cfg);
+    assert.ok((await f.actions.registrarOperacaoPedidoApp(pedidoId,'Unidade A',0,'assumir','token')).erro);
+    assert.equal(f.rpc.length,0);
+  }
+  const f=fixture({operacao:true});
+  for (const [versao,tipo] of [[-1,'assumir'],[0,'pagar'],[1.5,'separado']]) {
+    assert.ok((await f.actions.registrarOperacaoPedidoApp(pedidoId,'Unidade A',versao,tipo,'token')).erro);
+  }
+  assert.equal(f.rpc.length,0);
+  assert.equal((await f.actions.registrarOperacaoPedidoApp(pedidoId,'Unidade A',0,'assumir','token')).ok,true);
+  assert.equal(f.rpc[0].name,'registrar_operacao_pedido_app');
+  assert.equal(f.rpc[0].args.p_operador,operador);
+  assert.equal(f.rpc[0].args.p_versao,0);
+});
 
 test('SDK real envia filtro de unidade como array JSON em leitura, paginação e ações', async () => {
   const { createClient } = require('@supabase/supabase-js');

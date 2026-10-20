@@ -193,18 +193,43 @@ export async function carregarPedidosApp(unidade?: string, accessToken?: string,
     : { data: [], error: null }
   if (erroVendas) throw new ErroPedido('Não foi possível conferir as vendas dos pedidos.')
   const maisPedidos = (data?.length ?? 0) > 100
-  return { unidades, unidade: selecionada, gerenciamentoHabilitado, pdvHabilitado, maisPedidos, proximoCursor: maisPedidos ? pedidos[pedidos.length - 1].id : null,
+  const operacaoHabilitada = gerenciamentoHabilitado && process.env.PEDIDOS_APP_OPERACAO_ENABLED === 'true'
+  const { data: operacoes, error: erroOperacao } = operacaoHabilitada && ids.length
+    ? await service.from('pedidos_app_operacao').select('pedido_id,responsavel_id,responsavel_em,solicitacoes_impressao,versao,separado_em,entregue_em,papel_confirmado_em').eq('unidade', selecionada.unidade).in('pedido_id', ids)
+    : { data: [], error: null }
+  if (erroOperacao) throw new ErroPedido('Não foi possível conferir o andamento operacional. Atualize a lista.')
+  const responsaveis = [...new Set((operacoes ?? []).map(o => o.responsavel_id).filter(Boolean))]
+  const { data: nomesOperadores, error: erroNomes } = responsaveis.length
+    ? await service.from('perfis').select('id,nome').in('id', responsaveis)
+    : { data: [], error: null }
+  if (erroNomes) throw new ErroPedido('Não foi possível conferir os responsáveis.')
+  return { unidades, unidade: selecionada, gerenciamentoHabilitado, pdvHabilitado, operacaoHabilitada, maisPedidos, proximoCursor: maisPedidos ? pedidos[pedidos.length - 1].id : null,
     pedidos: pedidos.map(p => {
       const itens = itensDaUnidade(p.itens, selecionada.unidade)
       const atendimento = (atendimentos as unknown as { pedido_id: string; confirmado_em?: string | null; encaminhado_em?: string | null; venda_id?: string | null }[] | null)
         ?.find(a => a.pedido_id === p.id)
+      const op = operacoes?.find(o => o.pedido_id === p.id)
       return { id: p.id, cliente: pessoas?.find(c => c.id === p.pessoa_id)?.nome ?? 'Cliente',
+        operacao: op ? { versao: op.versao, responsavelId: op.responsavel_id, responsavel: nomesOperadores?.find(n => n.id === op.responsavel_id)?.nome ?? null, responsavelEm: op.responsavel_em, solicitacoesImpressao: op.solicitacoes_impressao, separadoEm: op.separado_em, entregueEm: op.entregue_em, papelConfirmadoEm: op.papel_confirmado_em } : undefined,
         status: p.status, pagamento: p.status_pagamento, criadoEm: p.created_at, itens,
         total: Math.round(itens.reduce((s, i) => s + i.preco * i.quantidade, 0) * 100) / 100,
         confirmado: !!atendimento?.confirmado_em, encaminhado: !!atendimento?.encaminhado_em,
         vendaId: atendimento?.venda_id ?? null,
         vendaCancelada: !!atendimento?.venda_id && vendas?.find(v => v.id === atendimento.venda_id)?.status === 'cancelada' }
     }) }
+}
+
+export async function registrarOperacaoPedidoApp(id: string, unidade: string, versao: number, tipo: string, accessToken: string) {
+  try {
+    if (process.env.PEDIDOS_APP_OPERACAO_ENABLED !== 'true') throw new ErroPedido('Controle operacional ainda não liberado.')
+    if (!UUID.test(id) || !Number.isInteger(versao) || versao < 0 || !['assumir','transferir','impressao_solicitada','papel_confirmado','separado','entregue'].includes(tipo)) throw new ErroPedido('Etapa inválida.')
+    const { service, usuario, selecionada } = await contexto(unidade, accessToken, true)
+    if (!selecionada) throw new ErroPedido('Unidade não autorizada.')
+    const { error } = await service.rpc('registrar_operacao_pedido_app', { p_pedido: id, p_unidade: unidade, p_operador: usuario.id, p_versao: versao, p_tipo: tipo })
+    if (error) throw new ErroPedido('Etapa não registrada. Atualize e confira responsável, situação da venda e etapas anteriores.')
+    revalidatePath('/painel/pedidos-app')
+    return { ok: true as const }
+  } catch (e) { return { erro: e instanceof ErroPedido ? e.message : 'Não foi possível registrar a etapa.' } }
 }
 
 export async function confirmarPedidoApp(id: string, unidade: string, accessToken: string) {
