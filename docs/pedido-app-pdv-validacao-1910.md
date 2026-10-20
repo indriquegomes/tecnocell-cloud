@@ -33,3 +33,15 @@ Ambiente de código: checkout temporário em `D:\projetos\tecnocell-pdv-safe-191
 4. Sincronizar este registro ao Obsidian após reparo seguro do E:.
 
 Não marcar como homologação financeira em produção até concluir os passos 1–3.
+
+## Atualização posterior — 20/10/2026: publicado, interface rejeitada
+
+Esta atualização substitui os pontos acima que ainda indicavam publicação/ativação pendente.
+
+- PR #6 integrado ao main em `ea25049f6acfd7c2a554ae66b2e58a4eeac3277d`; deploy `A8CzC1Bdg43jjxEisUxnz14rkh7E` Ready e associado a `tecnocell-cloud.vercel.app`.
+- `PEDIDOS_APP_PDV_ENABLED=true` configurada para Production e Preview. O domínio público mostra Atender no PDV.
+- 32 testes locais, TypeScript local/GitHub e build local/Preview passaram. A revisão automatizada do Claude falhou na execução do serviço e não concluiu a revisão.
+- O titular rejeitou o componente separado `PedidoAppPDVClient`: deve usar o `PDVClient` e o cupom existentes. A correção não foi implementada até este registro.
+- Pedido de teste `183f3200-819d-46f4-ae02-a5eaa64bd2d5`, Petrópolis, R$ 135,00: apenas encaminhado. Banco consultado: pendente/pendente, confirmado_em NULL, venda_id NULL. Não foi concluída venda nesta execução; não havia caixa aberto e nenhuma forma de pagamento foi selecionada.
+- A migração aplicada manualmente ainda não está registrada como versão 20261019 no histórico remoto; reconciliar antes de db push.
+- Relatório completo: `docs/relatorio-situacao-app-cloud-pagamento-20261020.md`. Não usar E: nesta continuidade.
