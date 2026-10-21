@@ -17,7 +17,7 @@ const STATUS_COLOR: Record<string, string> = {
 export default async function ComprasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ordem?: string; dir?: string; erro?: string }>
+  searchParams: Promise<{ ordem?: string; dir?: string; erro?: string; status?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
@@ -38,7 +38,7 @@ export default async function ComprasPage({
     const ativo = ordemAtual === o
     const nextDir = ativo ? (ordemDir ? 'asc' : 'desc') : 'desc'
     const arrow = ativo ? (ordemDir ? '↓' : '↑') : '↕'
-    const qs = new URLSearchParams({ ordem: o, ...(nextDir === 'asc' ? { dir: 'asc' } : {}) }).toString()
+    const qs = new URLSearchParams({ ordem: o, ...(nextDir === 'asc' ? { dir: 'asc' } : {}), ...(params.status ? { status: params.status } : {}) }).toString()
     return { href: `/painel/compras?${qs}`, arrow, ativo }
   }
 
@@ -68,6 +68,7 @@ export default async function ComprasPage({
       .from('notas_entrada')
       .select('id, numero, status, valor_total, data_entrada, data_emissao, pessoas(nome)')
       .order(camposDB[ordemAtual] ?? 'created_at', { ascending: !ordemDir })
+    if (params.status) q = q.eq('status', params.status)
     if (notaIdsAtiva !== null) q = notaIdsAtiva.length > 0 ? q.in('id', notaIdsAtiva) : q.eq('id', NENHUMA_NOTA)
     return q.range(from, to)
   })
@@ -123,6 +124,13 @@ export default async function ComprasPage({
           <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Pendentes</p>
           <p className="mt-1 text-2xl font-bold tabular-nums text-amber-600">{totalPendentes}</p>
         </div>
+      </div>
+
+      {/* Filtro: Todas / Recebidas / Pendentes */}
+      <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm w-fit">
+        <Link href="/painel/compras" className={`px-4 py-2 transition ${!params.status ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>Todas</Link>
+        <Link href="/painel/compras?status=recebida" className={`px-4 py-2 border-l border-gray-200 transition ${params.status === 'recebida' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>Recebidas</Link>
+        <Link href="/painel/compras?status=pendente" className={`px-4 py-2 border-l border-gray-200 transition ${params.status === 'pendente' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>Pendentes</Link>
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">

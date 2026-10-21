@@ -1066,6 +1066,36 @@ export default async function RelatoriosPage({
     registroPorUsuario = Object.entries(uMap).map(([usuario, n]) => ({ usuario, n })).sort((a, b) => b.n - a.n)
   }
 
+  // Remanejo: peças no ESTOQUE (qtd > 0) que NÃO têm nada na LOJA da mesma loja.
+  // É o que precisa ser mandado do depósito pro balcão (Petrópolis e Teresópolis).
+  let remanejo: { loja: string; nome: string; codigo: string | null; quantidade: number }[] = []
+  if (aba === 'remanejo') {
+    const [depos, est, prods, lojas] = await Promise.all([
+      fetchAll<{ id: string; nome: string; loja_id: string | null }>((f, t) => supabase.from('depositos').select('id, nome, loja_id').range(f, t)),
+      fetchAll<{ produto_id: string; deposito_id: string; quantidade: number }>((f, t) => supabase.from('estoque').select('produto_id, deposito_id, quantidade').gt('quantidade', 0).range(f, t)),
+      fetchAll<{ id: string; nome: string; codigo: string | null }>((f, t) => supabase.from('produtos').select('id, nome, codigo').range(f, t)),
+      fetchAll<{ id: string; nome: string }>((f, t) => supabase.from('lojas').select('id, nome').range(f, t)),
+    ])
+    const depMap = new Map(depos.map((d) => [d.id, d]))
+    const prodMap = new Map(prods.map((p) => [p.id, p]))
+    const lojaMap = new Map(lojas.map((l) => [l.id, l.nome]))
+    // produtos com qtd>0 na LOJA (depósito de nome com "loja") por loja
+    const naLoja = new Set<string>()
+    for (const e of est) {
+      const dep = depMap.get(e.deposito_id)
+      if (dep?.loja_id && (dep.nome ?? '').toLowerCase().includes('loja')) naLoja.add(e.produto_id + '|' + dep.loja_id)
+    }
+    for (const e of est) {
+      const dep = depMap.get(e.deposito_id)
+      if (!dep?.loja_id) continue
+      if (!(dep.nome ?? '').toLowerCase().includes('estoque')) continue
+      if (naLoja.has(e.produto_id + '|' + dep.loja_id)) continue
+      const p = prodMap.get(e.produto_id)
+      remanejo.push({ loja: lojaMap.get(dep.loja_id) ?? dep.loja_id, nome: p?.nome ?? e.produto_id, codigo: p?.codigo ?? null, quantidade: e.quantidade })
+    }
+    remanejo.sort((a, b) => a.loja.localeCompare(b.loja, 'pt-BR') || a.nome.localeCompare(b.nome, 'pt-BR'))
+  }
+
   // dica: explicação em linguagem do dia a dia pras abas de nome técnico (aparece ao passar o mouse).
   // Só rótulo/tooltip — não muda id, cálculo nem URL.
   const categorias: { cat: string; abas: { id: string; label: string; dica?: string }[] }[] = [
@@ -1087,6 +1117,7 @@ export default async function RelatoriosPage({
     { cat: 'Estoque', abas: [
       { id: 'estoque', label: 'Estoque e compra' }, { id: 'porfornecedor', label: 'Por fornecedor' },
       { id: 'inventario', label: 'Inventário' }, { id: 'movsaldo', label: 'Movimentações' },
+      { id: 'remanejo', label: 'Remanejo', dica: 'Peças que estão no depósito (ESTOQUE) e ainda não foram mandadas pra LOJA.' },
       { id: 'imobilizado', label: 'Imobilizado', dica: 'Quanto dinheiro está parado em estoque, somado por categoria.' },
     ] },
     { cat: 'Serviços', abas: [{ id: 'tecnicos', label: 'Performance Técnicos' }] },
@@ -2168,6 +2199,27 @@ export default async function RelatoriosPage({
                 <td className="px-4 py-3 text-sm text-right text-green-600">+{m.entradas}</td>
                 <td className="px-4 py-3 text-sm text-right text-red-500">−{m.saidas}</td>
                 <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{m.saldo}</td>
+              </tr>
+            ))}
+          </Tabela>
+        </div>
+      )}
+
+      {/* ---------------- Remanejo ---------------- */}
+      {aba === 'remanejo' && (
+        <div className="space-y-4">
+          <p className="text-[11px] text-gray-400">Peças que estão no depósito (ESTOQUE) e ainda não foram mandadas pra LOJA — é o que precisa ser remanejado pro balcão. Agrupado por loja.</p>
+          <div className="flex justify-end">
+            <ExportCsv filename={"remanejo.csv"}
+              cols={[{ key: 'loja', label: 'Loja' }, { key: 'nome', label: 'Produto' }, { key: 'codigo', label: 'Código' }, { key: 'quantidade', label: 'Qtd no estoque' }]} rows={asRows(remanejo)} />
+          </div>
+          <Tabela vazio={remanejo.length === 0} vazioMsg="Tudo ok — não há peça no estoque sem a loja." head={['Loja', 'Produto', 'Código', 'Qtd no estoque']} alinhas={['l', 'l', 'c', 'r']}>
+            {remanejo.map((r, i) => (
+              <tr key={i} className="hover:bg-blue-50/60">
+                <td className="px-4 py-3 text-sm font-medium text-gray-800">{r.loja}</td>
+                <td className="px-4 py-3 text-sm text-gray-700">{r.nome}</td>
+                <td className="px-4 py-3 text-center text-xs font-mono text-gray-500">{r.codigo || '—'}</td>
+                <td className="px-4 py-3 text-sm text-right font-semibold text-blue-600">{r.quantidade}</td>
               </tr>
             ))}
           </Tabela>
