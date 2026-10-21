@@ -299,7 +299,8 @@ export function Sidebar({
           const itensVisiveis = section.items.filter(podeVer)
           if (!itensVisiveis.length) return null
           const temAtivo = itensVisiveis.some((item) => isActive(item.href))
-          const aberta = temAtivo || !!abertasManual[section.group]
+          // 'Admin' fica SEMPRE aberto — o dono precisa achar os relatórios de relance.
+          const aberta = section.group === 'Admin' ? true : (temAtivo || !!abertasManual[section.group])
           return (
             <details key={section.group} open={aberta}
               onToggle={(e) => alternarSecao(section.group, e.currentTarget.open)}
