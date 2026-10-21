@@ -78,10 +78,16 @@ export async function POST(request: NextRequest) {
     const service = createServerClient(url, serviceKey, {
       cookies: { getAll() { return [] }, setAll() {} },
     })
-    const { data: perf } = await service.from('perfis').select('cargo_id, is_master, login_bloqueado').eq('id', data.user.id).maybeSingle()
-    const p = perf as { cargo_id?: string | null; is_master?: boolean | null; login_bloqueado?: boolean | null } | null
+    const { data: perf } = await service.from('perfis').select('cargo_id, is_master, login_bloqueado, data_demissao').eq('id', data.user.id).maybeSingle()
+    const p = perf as { cargo_id?: string | null; is_master?: boolean | null; login_bloqueado?: boolean | null; data_demissao?: string | null } | null
     if (p?.login_bloqueado && !p.is_master) {
       return voltarAoLogin('Acesso bloqueado. Peça ao master para liberar.')
+    }
+    if (p?.data_demissao && !p.is_master) {
+      const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+      if (p.data_demissao <= hoje) {
+        return voltarAoLogin('Acesso encerrado.')
+      }
     }
     const cargoId = p?.cargo_id ?? null
     if (cargoId) {
