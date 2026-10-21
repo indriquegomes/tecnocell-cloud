@@ -264,6 +264,7 @@ export default async function ProdutosPage({
                   ...baseParams,
                   ordem,
                   ...(nextDir === 'desc' ? { dir: 'desc' } : {}),
+                  ...(pagina > 1 ? { pagina: String(pagina) } : {}),
                 }).toString()
                 const arrow = ativo ? (ordemDir ? '↓' : '↑') : '↑'
                 return (
@@ -384,7 +385,7 @@ export default async function ProdutosPage({
             )}
           </tbody>
         </table>
-        <Paginacao pagina={pagina} totalPaginas={totalPaginas} total={total} params={baseParams} basePath="/painel/produtos" />
+        <Paginacao pagina={pagina} totalPaginas={totalPaginas} total={total} params={{ ...baseParams, ...(params.ordem ? { ordem: params.ordem } : {}), ...(params.dir === 'desc' ? { dir: 'desc' } : {}) }} basePath="/painel/produtos" />
       </div>
       </CopiarMultiplos>
     </div>
