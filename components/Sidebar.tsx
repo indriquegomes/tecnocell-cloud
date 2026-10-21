@@ -166,7 +166,7 @@ const navCompleto: NavGroup[] = [
       { href: '/painel/contabilidade', label: 'Contabilidade', permissao: 'master' },
       { href: '/painel/rh',            label: 'RH / Equipe',   permissao: 'master' },
       { href: '/painel/escala',        label: 'Escala',        permissao: 'master' },
-      { href: '/painel/lembretes',     label: 'Lembretes',     permissao: 'lembretes' },
+      { href: '/painel/lembretes',     label: 'Tarefas da Equipe', permissao: 'lembretes' },
       { href: '/painel/usuarios',      label: 'Usuários',      permissao: 'usuarios' },
       { href: '/painel/cargos',        label: 'Cargos',        permissao: 'usuarios' },
       { href: '/painel/configuracoes', label: 'Configurações', permissao: 'usuarios' },

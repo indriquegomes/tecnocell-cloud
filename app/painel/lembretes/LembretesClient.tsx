@@ -60,7 +60,7 @@ export function LembretesClient({
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Lembretes</h2>
+          <h2 className="text-2xl font-bold text-gray-900">Tarefas da Equipe</h2>
           <p className="mt-0.5 text-sm text-gray-500">
             Rotinas que o sistema cobra da equipe. Aparecem no painel no horário e só somem quando a pessoa marca <b>Feito</b>.
           </p>

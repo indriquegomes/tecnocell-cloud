@@ -72,7 +72,7 @@ export const TODAS_PERMISSOES = [
   { grupo: 'Módulos',  key: 'relatorios', label: 'Relatórios',           desc: 'Relatórios gerenciais e indicadores' },
   { grupo: 'Módulos',  key: 'metas',      label: 'Metas',                desc: 'Configurar metas e faixas de premiação por loja' },
   { grupo: 'Módulos',  key: 'rh',         label: 'RH / Equipe',          desc: 'Espelho de ponto, horários e tarefas da equipe' },
-  { grupo: 'Módulos',  key: 'lembretes',  label: 'Lembretes',            desc: 'Criar e editar as rotinas que o sistema cobra da equipe' },
+  { grupo: 'Módulos',  key: 'lembretes',  label: 'Tarefas da Equipe',    desc: 'Criar e editar as tarefas diárias da equipe (quem faz o quê, marcar feito)' },
   { grupo: 'Módulos',  key: 'usuarios',   label: 'Usuários',             desc: 'Gerenciar contas e permissões' },
   { grupo: 'Módulos',  key: 'chat_ia',    label: 'Chat com IA',          desc: 'Usar o assistente de IA (enxerga estoque, financeiro e clientes)' },
   { grupo: 'Módulos',  key: 'motoboy',    label: 'Motoboy',              desc: 'Registro de rotas do motoboy (só o motoboy usa)' },
