@@ -32,6 +32,7 @@ export async function abrirCaixa(
       obs_abertura: (formData.get('obs_abertura') as string) || null,
       status: 'aberto',
       loja_id: lojaId,
+      aberto_por: usuario.id,
     })
     if (error) return { ok: false, message: error.message }
 

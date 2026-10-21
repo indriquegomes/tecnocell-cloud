@@ -198,6 +198,10 @@ export async function carregarPedidosApp(unidade?: string, accessToken?: string,
     ? await service.from('pedidos_app_operacao').select('pedido_id,responsavel_id,responsavel_em,solicitacoes_impressao,versao,separado_em,entregue_em,papel_confirmado_em').eq('unidade', selecionada.unidade).in('pedido_id', ids)
     : { data: [], error: null }
   if (erroOperacao) throw new ErroPedido('Não foi possível conferir o andamento operacional. Atualize a lista.')
+  const { data: creditos, error: erroCreditos } = process.env.PEDIDOS_APP_AUTO_CREDITO_ENABLED === 'true' && ids.length
+    ? await service.from('pedidos_app_credito_fila').select('pedido_id,estado,motivo,automatico').eq('unidade', selecionada.unidade).in('pedido_id', ids)
+    : { data: [], error: null }
+  if (erroCreditos) throw new ErroPedido('Não foi possível conferir o lançamento automático. Atualize a lista.')
   const responsaveis = [...new Set((operacoes ?? []).map(o => o.responsavel_id).filter(Boolean))]
   const { data: nomesOperadores, error: erroNomes } = responsaveis.length
     ? await service.from('perfis').select('id,nome').in('id', responsaveis)
@@ -209,7 +213,9 @@ export async function carregarPedidosApp(unidade?: string, accessToken?: string,
       const atendimento = (atendimentos as unknown as { pedido_id: string; confirmado_em?: string | null; encaminhado_em?: string | null; venda_id?: string | null }[] | null)
         ?.find(a => a.pedido_id === p.id)
       const op = operacoes?.find(o => o.pedido_id === p.id)
+      const credito = creditos?.find(c => c.pedido_id === p.id)
       return { id: p.id, cliente: pessoas?.find(c => c.id === p.pessoa_id)?.nome ?? 'Cliente',
+        creditoAutomatico: credito ? { estado: credito.estado, motivo: credito.motivo, automatico: credito.automatico === true } : undefined,
         operacao: op ? { versao: op.versao, responsavelId: op.responsavel_id, responsavel: nomesOperadores?.find(n => n.id === op.responsavel_id)?.nome ?? null, responsavelEm: op.responsavel_em, solicitacoesImpressao: op.solicitacoes_impressao, separadoEm: op.separado_em, entregueEm: op.entregue_em, papelConfirmadoEm: op.papel_confirmado_em } : undefined,
         status: p.status, pagamento: p.status_pagamento, criadoEm: p.created_at, itens,
         total: Math.round(itens.reduce((s, i) => s + i.preco * i.quantidade, 0) * 100) / 100,

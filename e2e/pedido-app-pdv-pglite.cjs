@@ -90,6 +90,100 @@ async function fixture(){
  } catch (e) { await db.close(); throw e }
 }
 
+test('Crédito automático real: operador da abertura, dívida única, flags e bloqueios sem efeitos parciais',async()=>{
+ const f=await fixture();try{
+  await f.db.exec(`alter table lojas add column deposito_padrao_id text;
+    update lojas set deposito_padrao_id='d1' where id='${uuid(21)}';`);
+  await f.novo(800); // Histórico não pode ser processado.
+  await f.db.exec(ler('20261020200000_pedidos_app_credito_automatico.sql'));
+  const processar=async()=>Number((await f.db.query('select processar_pedidos_app_credito(5) n')).rows[0].n);
+  const fila=async n=>(await f.db.query('select estado,motivo from pedidos_app_credito_fila where pedido_id=$1',[uuid(n)])).rows[0];
+  await f.novo(801);
+  assert.equal(await fila(800),undefined);assert.equal(await fila(801),undefined);
+  await f.db.exec(`update lojas set pedidos_app_auto_credito=true where id='${uuid(21)}'`);
+  await f.novo(802);assert.equal(await processar(),0);
+  assert.match((await fila(802)).motivo,/funcionário/,'caixa antigo não recebe operador inventado');
+  await f.db.exec(`update caixas set aberto_por='${uuid(11)}' where id='${uuid(31)}'`);
+  await f.novo(803);assert.equal(await processar(),1);assert.equal(await processar(),0);
+  assert.equal(await f.saldo(),9);
+  const v=(await f.db.query('select id,vendedor_id,caixa_id from vendas')).rows[0];
+  assert.equal(v.vendedor_id,uuid(11));assert.equal(v.caixa_id,uuid(31));
+  assert.equal((await f.db.query("select count(*)::int n from lancamentos where venda_id=$1 and tipo='receber' and status='pendente'",[v.id])).rows[0].n,1);
+  assert.equal((await f.estado(803)).status_pagamento,'pendente');
+  await f.db.exec(`update pessoas set permite_fiado=false`);
+  await f.novo(804);assert.equal(await processar(),0);assert.match((await fila(804)).motivo,/Crédito Loja/);
+  await f.db.exec(`update pessoas set permite_fiado=true; update produtos set controla_serie=true`);
+  await f.novo(805);assert.equal(await processar(),0);assert.match((await fila(805)).motivo,/IMEI/);
+  await f.db.exec(`update produtos set controla_serie=false; update estoque set quantidade=0 where deposito_id='d1'`);
+  await f.novo(806);assert.equal(await processar(),0);assert.equal((await fila(806)).estado,'manual');
+  await f.db.exec(`update estoque set quantidade=9 where deposito_id='d1'`);
+  await f.novo(807);
+  await f.db.exec(`update caixas set status='fechado'; insert into caixas(id,loja_id,status,aberto_por) values('${uuid(32)}','${uuid(21)}','aberto','${uuid(11)}')`);
+  assert.equal(await processar(),0);assert.match((await fila(807)).motivo,/Caixa fechado/);
+  assert.equal((await fila(804)).estado,'manual','não retenta bloqueio comercial após liberar fiado');
+  assert.equal(await f.saldo(),9);
+  assert.equal((await f.db.query('select count(*)::int n from vendas')).rows[0].n,1);
+  await f.db.query('select cancelar_venda($1,$2)',[v.id,'Teste de cancelamento automático']);
+  assert.equal(await f.saldo(),10);assert.equal(await processar(),0,'cancelamento não cria nova venda');
+  assert.equal((await f.db.query('select count(*)::int n from vendas')).rows[0].n,1);
+  await f.db.exec(`update caixas set status='fechado'`);
+  await f.novo(808);assert.equal((await fila(808)).estado,'manual');assert.match((await fila(808)).motivo,/Caixa fechado/);
+  await f.db.exec('set role authenticated');
+  await assert.rejects(f.db.query('select processar_pedidos_app_credito(5)'),/permission denied/);
+  await assert.rejects(f.db.query('select * from pedidos_app_credito_fila'),/permission denied/);
+ }finally{await f.db.close()}
+});
+
+test('Crédito automático real: rollback, limite de tentativas e venda manual usam o mesmo vínculo',async()=>{
+ const f=await fixture();try{
+  await f.db.exec(`alter table lojas add column deposito_padrao_id text;
+    update lojas set deposito_padrao_id='d1' where id='${uuid(21)}';`);
+  await f.db.exec(ler('20261020200000_pedidos_app_credito_automatico.sql'));
+  await f.db.exec(`update lojas set pedidos_app_auto_credito=true where id='${uuid(21)}';
+    update caixas set aberto_por='${uuid(11)}';
+    create function interromper_auto() returns trigger language plpgsql as $$begin raise exception using errcode='40P01',message='Falha transitória fictícia'; end$$;
+    create trigger interromper_auto before update of caixa_id on vendas for each row execute function interromper_auto();`);
+  await f.novo(820);
+  for(let i=1;i<=3;i++){
+   await f.db.query('select processar_pedidos_app_credito(5)');
+   const q=(await f.db.query('select estado,tentativas from pedidos_app_credito_fila')).rows[0];
+   assert.equal(q.tentativas,i);assert.equal(q.estado,i===3?'manual':'pendente');
+   assert.equal(await f.saldo(),10);assert.equal((await f.db.query('select count(*)::int n from vendas')).rows[0].n,0);
+   assert.equal((await f.db.query('select count(*)::int n from lancamentos')).rows[0].n,0,'rollback não deixa dívida parcial');
+   await f.db.exec('update pedidos_app_credito_fila set proxima_tentativa=now()');
+  }
+  await f.db.exec('drop trigger interromper_auto on vendas');
+  await f.novo(821);const v=await f.vender(821,f.pagar('fiado'));
+  await f.db.query('select processar_pedidos_app_credito(5)');
+  assert.equal(await f.saldo(),9);assert.equal((await f.db.query('select count(*)::int n from vendas')).rows[0].n,1);
+  assert.equal((await f.db.query('select automatico from pedidos_app_credito_fila where pedido_id=$1',[uuid(821)])).rows[0].automatico,false,'venda manual não recebe selo automático');
+  await f.db.query('select cancelar_venda($1,$2)',[v.venda_id,'Teste local']);
+  await f.db.query('select processar_pedidos_app_credito(5)');assert.equal(await f.saldo(),10);
+  await f.novo(822);await f.db.exec('update lojas set pedidos_app_auto_credito=false');
+  await f.db.query('select processar_pedidos_app_credito(5)');assert.equal(await f.saldo(),10);
+  assert.equal((await f.db.query('select estado from pedidos_app_credito_fila where pedido_id=$1',[uuid(822)])).rows[0].estado,'manual');
+ }finally{await f.db.close()}
+});
+
+test('Crédito automático real: pedido de duas unidades usa depósito, caixa e vendedor próprios',async()=>{
+ const f=await fixture();try{
+  await f.db.exec(`alter table lojas add column deposito_padrao_id text;
+    update lojas set deposito_padrao_id=case when id='${uuid(21)}' then 'd1' else 'd-outra' end;`);
+  await f.db.exec(ler('20261020200000_pedidos_app_credito_automatico.sql'));
+  await f.db.exec(`update lojas set pedidos_app_auto_credito=true;
+    update perfis set lojas_permitidas=array['${uuid(21)}'::uuid] where id='${uuid(11)}';
+    insert into perfis(id,nome,ativo,permissoes,lojas_permitidas) values('${uuid(12)}','Operador outra loja',true,array['pdv'],array['${uuid(22)}'::uuid]);
+    update caixas set aberto_por='${uuid(11)}';
+    insert into caixas(id,loja_id,status,aberto_por) values('${uuid(32)}','${uuid(22)}','aberto','${uuid(12)}');`);
+  await f.db.query('insert into pedidos_app values($1,$2,$3,$4,$5,$6::jsonb)',[uuid(830),uuid(1),'p1','pendente','pendente',JSON.stringify(['Petrópolis','Outra'].map(loja=>({id:'peca',nome:'Peça QA',loja,quantidade:1,preco:12.5})))]);
+  assert.equal((await f.db.query('select processar_pedidos_app_credito(5) n')).rows[0].n,2);
+  const vendas=(await f.db.query('select deposito_id,vendedor_id,caixa_id from vendas order by deposito_id')).rows;
+  assert.deepEqual(vendas,[{deposito_id:'d-outra',vendedor_id:uuid(12),caixa_id:uuid(32)},{deposito_id:'d1',vendedor_id:uuid(11),caixa_id:uuid(31)}]);
+  assert.equal((await f.db.query('select count(*)::int n from lancamentos where status=$1',['pendente'])).rows[0].n,2);
+  assert.equal((await f.estado(830)).status_pagamento,'pendente');
+ }finally{await f.db.close()}
+});
+
 test('SQL real: finalização, idempotência e rollback de vínculo',async()=>{
  const f=await fixture();try{
   await f.novo(41)

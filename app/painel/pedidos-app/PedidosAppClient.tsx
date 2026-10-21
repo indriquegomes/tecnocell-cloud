@@ -126,12 +126,13 @@ export function PedidosAppClient({ dados: iniciais, pedidoId }: { dados: DadosPe
     <div className="rounded-xl border bg-white p-3 text-sm">
       <p>{dados.pedidos.filter(p => p.status !== 'cancelado' && !p.vendaId && !p.operacao?.responsavelId).length} pedido(s) sem responsável nesta lista · {verificadoEm ? `Última conferência: ${verificadoEm}` : 'Lista carregada ao abrir; aguardando nova conferência.'}</p>
       <p>{pedidoId || dados.pedidos.length > 100 ? 'Atualização automática pausada nesta consulta; use Atualizar pedidos para conferir os recentes.' : 'Atualização a cada 20 segundos com esta aba visível.'} Mantenha a fila aberta; o aviso não acompanha o WhatsApp em outra aba.</p>
-      <button className="min-h-11 underline" onClick={() => {
+      <button aria-describedby="ajuda-som-pedidos" className="min-h-11 underline" onClick={() => {
         if (!som) {
           try { audio.current ??= new AudioContext(); void audio.current.resume() } catch { setErro('Som indisponível neste navegador. Acompanhe o contador.'); return }
         }
         setSom(!som)
       }}>{som ? 'Desativar aviso sonoro' : 'Ativar aviso sonoro'}</button>
+      <p id="ajuda-som-pedidos" className="text-gray-600">Toca um aviso para novos pedidos enquanto esta aba estiver visível.</p>
     </div>
     {!dados.gerenciamentoHabilitado && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Somente consulta. O atendimento será liberado após a validação da integração.</p>}
     <div className="flex flex-wrap items-end gap-3">
@@ -146,8 +147,9 @@ export function PedidosAppClient({ dados: iniciais, pedidoId }: { dados: DadosPe
           <option value="abertos">Aguardando atendimento</option><option value="todos">Todos os recentes</option>
         </select></label>
       <button className="min-h-11 rounded-lg border border-gray-300 bg-white px-4 text-sm disabled:opacity-50" disabled={ocupado || !unidade}
-        onClick={() => { void executar(token => atualizar(token)) }}>{ocupado ? 'Aguarde…' : 'Atualizar pedidos'}</button>
+        aria-describedby="ajuda-atualizar-pedidos" onClick={() => { void executar(token => atualizar(token)) }}>{ocupado ? 'Aguarde…' : 'Atualizar pedidos'}</button>
     </div>
+    <p id="ajuda-atualizar-pedidos" className="text-sm text-gray-600">Consulta os pedidos e suas etapas novamente, sem alterar vendas.</p>
     {erro && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{erro}</p>}
     {mensagem && <p role="status" className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">{mensagem}</p>}
     {!dados.unidade && <p className="rounded-xl border bg-white p-6 text-sm text-gray-600">Nenhuma unidade está configurada para seu acesso. Peça ao administrador para conferir o vínculo da unidade.</p>}
@@ -157,34 +159,57 @@ export function PedidosAppClient({ dados: iniciais, pedidoId }: { dados: DadosPe
       <div className="flex flex-wrap items-start justify-between gap-3 p-4">
         <div className="min-w-0"><p className="break-words font-semibold text-gray-900">{p.cliente}</p>
           <p className="break-all text-xs text-gray-500">Pedido {p.id} · {formatDate(p.criadoEm)}</p>
+          <p className="mt-1 text-sm text-gray-600">{p.itens.length ? `${p.itens[0].quantidade}× ${p.itens[0].nome}${p.itens.length > 1 ? ` e mais ${p.itens.length - 1} produto(s)` : ''}` : 'Confira as peças nos detalhes.'}</p>
           <div className="mt-2 flex flex-wrap gap-2 text-xs">
             <span className={`rounded-full px-2 py-1 ${p.status === 'cancelado' || p.vendaCancelada ? 'bg-gray-100 text-gray-700' : p.vendaId ? 'bg-green-50 text-green-800' : 'bg-amber-50 text-amber-900'}`}>{p.vendaCancelada ? 'Venda cancelada no PDV' : p.status === 'cancelado' ? 'Cancelado' : p.vendaId ? 'Lançado no PDV' : p.encaminhado ? 'Em atendimento' : p.confirmado ? 'Disponibilidade confirmada' : 'Aguardando atendimento'}</span>
-            <span className="rounded-full bg-blue-50 px-2 py-1 text-blue-800">{p.pagamento === 'pago' ? 'Pagamento confirmado' : p.pagamento === 'cancelado' ? 'Pagamento cancelado' : 'Pagamento pendente'}</span>
+            <span className="rounded-full bg-blue-50 px-2 py-1 text-blue-800">{p.pagamento === 'pago' ? 'Pagamento confirmado' : p.pagamento === 'cancelado' ? 'Pagamento cancelado' : p.vendaId && p.status !== 'cancelado' && !p.vendaCancelada && p.creditoAutomatico?.automatico ? 'Crédito Loja: a receber no F9' : 'Pagamento pendente'}</span>
           </div></div>
         <p className="font-semibold text-gray-900">{formatBRL(p.total)}</p>
       </div>
-      {dados.operacaoHabilitada && <div className="space-y-2 border-t bg-slate-50 p-4 text-sm">
-        <p>Responsável: {p.operacao?.responsavel ?? (p.operacao?.responsavelId ? 'Operador da loja' : 'Ninguém assumiu')}{p.operacao?.responsavelEm ? ` desde ${formatDate(p.operacao.responsavelEm)}` : ''}</p>
-        <p>Solicitações de impressão registradas: {p.operacao?.solicitacoesImpressao ?? 0}. Este registro é manual e não comprova que o papel saiu.</p>
-        <p>{p.operacao?.entregueEm ? 'Entrega registrada' : p.operacao?.separadoEm ? 'Peças separadas; aguardando entrega' : 'Separação não confirmada'} · {p.operacao?.papelConfirmadoEm ? 'Papel confirmado pelo operador' : 'Papel ainda não confirmado'}</p>
-        <p>{p.vendaId ? 'Venda vinculada — consulte o pagamento no PDV.' : 'Ainda não virou venda.'} Ficha não comprova pagamento. Crédito Loja continua a receber até a quitação.</p>
-        <div className="flex flex-wrap gap-2">
-          <button disabled={ocupado || p.status === 'cancelado' || !!p.operacao?.entregueEm} className={controles} onClick={() => registrar(p, p.operacao?.responsavelId ? 'transferir' : 'assumir')}>{p.operacao?.responsavelId ? 'Assumir / transferir para mim' : 'Assumir atendimento'}</button>
-          {p.operacao?.responsavelId && !p.operacao.entregueEm && p.status !== 'cancelado' && <>
-            <button disabled={ocupado} className={controles} onClick={() => registrar(p, 'impressao_solicitada')}>Registrar solicitação de impressão</button>
-            <button disabled={ocupado} className={controles} onClick={() => registrar(p, 'papel_confirmado')}>Confirmar que o papel saiu</button>
-            <button disabled={ocupado || !!p.operacao.separadoEm} className={controles} onClick={() => registrar(p, 'separado')}>Confirmar peças separadas</button>
-            <button disabled={ocupado || !p.vendaId || p.vendaCancelada || !p.operacao.separadoEm} className={controles} onClick={() => registrar(p, 'entregue')}>Confirmar entrega ao cliente</button>
-          </>}
-        </div>
+      {p.creditoAutomatico && !p.vendaId && <p className="px-4 pb-3 text-sm text-amber-900">{p.creditoAutomatico.estado === 'pendente' ? 'Aguardando lançamento em Crédito Loja pelo servidor.' : p.creditoAutomatico.motivo ?? 'Confira este pedido no PDV.'}</p>}
+      {dados.operacaoHabilitada && <div className="px-4 pb-3 text-sm text-gray-600">
+        <p>Responsável: {p.operacao?.responsavel ?? (p.operacao?.responsavelId ? 'Operador da loja' : 'Ninguém assumiu')}</p>
+        {!p.operacao?.responsavelId && p.status !== 'cancelado' && !p.vendaCancelada && <p>Para registrar a separação, use Mais opções e assuma o atendimento.</p>}
+        {p.status !== 'cancelado' && !p.vendaCancelada && <p>{p.operacao?.entregueEm ? 'Entrega registrada' : p.operacao?.separadoEm ? 'Peças separadas; aguardando entrega' : 'Aguardando separação'}</p>}
       </div>}
-      <div className="flex flex-wrap gap-2 border-t border-gray-100 px-4 py-3">
-        <button aria-expanded={aberto === p.id} className="min-h-11 rounded-lg border border-gray-300 px-3 text-sm" onClick={() => setAberto(aberto === p.id ? null : p.id)}>{aberto === p.id ? 'Ocultar detalhes' : 'Ver pedido'}</button>
-        {dados.pdvHabilitado ? <button disabled={ocupado || (p.status === 'cancelado' && !p.vendaId)} onClick={() => abrirNoPDV(p)} className="min-h-11 rounded-lg bg-blue-600 px-3 text-sm font-medium text-white disabled:opacity-50">{p.vendaCancelada ? 'Ver venda cancelada' : p.vendaId ? 'Ver venda e reimprimir' : 'Atender no PDV'}</button> : <>
+      <div className="space-y-4 border-t border-gray-100 px-4 py-3">
+        <div className="flex flex-wrap items-start gap-4">
+        {dados.pdvHabilitado ? <div className="min-w-0 flex-1 basis-56">
+          <button aria-describedby={`pdv-${p.id}`} disabled={ocupado || (p.status === 'cancelado' && !p.vendaId)} onClick={() => abrirNoPDV(p)} className="min-h-11 rounded-lg bg-blue-600 px-4 text-sm font-medium text-white disabled:opacity-50">{p.vendaCancelada ? 'Ver venda cancelada' : p.vendaId ? 'Ver venda' : 'Abrir no PDV'}</button>
+          <p id={`pdv-${p.id}`} className="mt-1 text-sm text-gray-600">{p.vendaId ? 'Consulta a venda e permite imprimir ou salvar o cupom em PDF pelo navegador, sem vender de novo.' : p.status === 'cancelado' ? 'Pedido cancelado: não pode gerar venda.' : 'Leva as peças e o cliente ao caixa para escolher o pagamento.'}</p>
+        </div> : <div className="min-w-0 flex-1 basis-56">
           <button disabled={ocupado || !dados.gerenciamentoHabilitado || p.confirmado || p.status === 'cancelado'} onClick={() => confirmar(p)} className="min-h-11 rounded-lg bg-blue-600 px-3 text-sm font-medium text-white disabled:opacity-50">Confirmar disponibilidade</button>
+          <p className="mt-1 text-sm text-gray-600">Confirma que a loja pode atender. Não registra venda nem pagamento.</p>
           {p.confirmado && p.status !== 'cancelado' && <a target="_blank" rel="noopener noreferrer" href={`/painel/pedidos-app/imprimir?${new URLSearchParams({ pedido: p.id, unidade: unidade! })}`} className="flex min-h-11 items-center rounded-lg border border-gray-300 px-3 text-sm">Imprimir ficha sem pagamento</a>}
-        </>}
-        <button disabled={ocupado || !dados.gerenciamentoHabilitado || p.status === 'cancelado' || p.pagamento !== 'pendente' || !!p.vendaId} onClick={() => cancelar(p)} className="min-h-11 rounded-lg px-3 text-sm text-red-700 disabled:opacity-50">Cancelar pedido</button>
+        </div>}
+        {dados.operacaoHabilitada && p.operacao?.responsavelId && !p.operacao.entregueEm && p.status !== 'cancelado' && !p.vendaCancelada && <div className="min-w-0 flex-1 basis-56">
+          <button aria-describedby={`etapa-${p.id}`} disabled={ocupado || (!!p.operacao.separadoEm && !p.vendaId)} className="min-h-11 rounded-lg border border-gray-300 px-4 text-sm disabled:opacity-50" onClick={() => registrar(p, p.operacao?.separadoEm ? 'entregue' : 'separado')}>{p.operacao.separadoEm ? 'Entregue' : 'Separado'}</button>
+          <p id={`etapa-${p.id}`} className="mt-1 text-sm text-gray-600">{p.operacao.separadoEm ? p.vendaId ? 'O responsável confirma a retirada e confere o pagamento. Não quita o fiado.' : 'Registre a venda no PDV antes de confirmar a entrega.' : 'O responsável confirma que pegou as peças. Não altera estoque nem pagamento.'}</p>
+        </div>}
+        </div>
+        <div>
+          <button aria-describedby={`detalhes-${p.id}`} aria-expanded={aberto === p.id} className="min-h-11 rounded-lg border border-gray-300 px-3 text-sm" onClick={() => setAberto(aberto === p.id ? null : p.id)}>{aberto === p.id ? 'Ocultar detalhes' : 'Ver pedido'}</button>
+          <p id={`detalhes-${p.id}`} className="mt-1 text-sm text-gray-600">Mostra todas as peças, quantidades e valores.</p>
+        </div>
+        <details className="border-t border-gray-100 pt-2">
+          <summary aria-describedby={`opcoes-${p.id}`} className="min-h-11 cursor-pointer py-3 text-sm font-medium text-gray-700">Mais opções</summary>
+          <div className="space-y-4 pb-2 text-sm">
+            <p id={`opcoes-${p.id}`} className="text-gray-600">Controle de responsável, registros opcionais de papel e cancelamento.</p>
+            {dados.operacaoHabilitada && <>
+              <div><button aria-describedby={`responsavel-${p.id}`} disabled={ocupado || p.status === 'cancelado' || p.vendaCancelada || !!p.operacao?.entregueEm} className={controles} onClick={() => registrar(p, p.operacao?.responsavelId ? 'transferir' : 'assumir')}>{p.operacao?.responsavelId ? 'Assumir / transferir para mim' : 'Assumir atendimento'}</button>
+                <p id={`responsavel-${p.id}`} className="mt-1 text-gray-600">Registra quem cuida do pedido e libera as etapas para esse responsável. Não bloqueia o PDV dos colegas.</p></div>
+              {p.operacao?.responsavelId && !p.operacao.entregueEm && p.status !== 'cancelado' && !p.vendaCancelada && <>
+                <div><button aria-describedby={`impressao-${p.id}`} disabled={ocupado} className={controles} onClick={() => registrar(p, 'impressao_solicitada')}>Registrar solicitação de impressão</button>
+                  <p id={`impressao-${p.id}`} className="mt-1 text-gray-600">Anota uma tentativa. Não imprime; use o cupom no PDV.</p></div>
+                <div><button aria-describedby={`papel-${p.id}`} disabled={ocupado || !p.operacao.solicitacoesImpressao} className={controles} onClick={() => registrar(p, 'papel_confirmado')}>Confirmar que o papel saiu</button>
+                  <p id={`papel-${p.id}`} className="mt-1 text-gray-600">O responsável confirma que viu o papel impresso, após registrar a tentativa.</p></div>
+              </>}
+              <p className="text-gray-600">Solicitações registradas: {p.operacao?.solicitacoesImpressao ?? 0} · {p.operacao?.papelConfirmadoEm ? 'Papel confirmado pelo operador' : 'Papel não confirmado'}. Controle opcional, sem comprovar pagamento.</p>
+            </>}
+            <div><button aria-describedby={`cancelar-${p.id}`} disabled={ocupado || !dados.gerenciamentoHabilitado || p.status === 'cancelado' || p.pagamento !== 'pendente' || !!p.vendaId} onClick={() => cancelar(p)} className="min-h-11 rounded-lg px-3 text-sm text-red-700 disabled:opacity-50">Cancelar pedido</button>
+              <p id={`cancelar-${p.id}`} className="mt-1 text-gray-600">{p.vendaId ? 'Já existe venda: use cancelamento ou devolução no PDV.' : 'Cancela o pedido inteiro, inclusive outras unidades, antes de virar venda.'}</p></div>
+          </div>
+        </details>
       </div>
       {aberto === p.id && <ul aria-label="Peças do pedido" className="space-y-3 border-t border-gray-100 bg-gray-50 p-4 text-sm">{p.itens.map(i => <li key={i.id} className="flex justify-between gap-4"><span className="min-w-0 break-words">{i.quantidade}× {i.nome}</span><span className="shrink-0">{formatBRL(i.preco * i.quantidade)}</span></li>)}</ul>}
     </section>)}</div>
