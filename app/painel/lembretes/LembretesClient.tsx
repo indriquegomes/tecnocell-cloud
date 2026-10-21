@@ -43,6 +43,7 @@ export function LembretesClient({
 }) {
   const [editando, setEditando] = useState<Lembrete | null>(null)
   const [novo, setNovo] = useState(false)
+  const [aba, setAba] = useState<'rotina' | 'pagamento'>('rotina')
   useEffect(() => { supabaseBrowser.auth.getSession().then(({ data }) => { tokenCache = data.session?.access_token ?? '' }) }, [])
 
   const nomePerfil = Object.fromEntries(perfis.map((p) => [p.id, p.nome]))
@@ -55,6 +56,7 @@ export function LembretesClient({
         : 'Todos'
 
   const fechar = () => { setEditando(null); setNovo(false) }
+  const lembretesFiltrados = lembretes.filter((l) => (l.tipo ?? 'rotina') === aba)
 
   return (
     <div className="space-y-6">
@@ -69,8 +71,13 @@ export function LembretesClient({
           onClick={() => { setNovo(true); setEditando(null) }}
           className="shrink-0 rounded-xl bg-[#1B6CA8] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#155a8c] transition"
         >
-          + Novo lembrete
+          {aba === 'rotina' ? '+ Nova tarefa' : '+ Novo pagamento'}
         </button>
+      </div>
+
+      <div className="flex w-fit gap-1 rounded-xl border border-gray-200 bg-white p-1">
+        <button onClick={() => setAba('rotina')} className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition ${aba === 'rotina' ? 'bg-[#1B6CA8] text-white' : 'text-gray-500 hover:bg-gray-50'}`}>📋 Tarefas</button>
+        <button onClick={() => setAba('pagamento')} className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition ${aba === 'pagamento' ? 'bg-[#1B6CA8] text-white' : 'text-gray-500 hover:bg-gray-50'}`}>💳 Pagamentos</button>
       </div>
 
       {(novo || editando) && (
@@ -79,11 +86,12 @@ export function LembretesClient({
           lembrete={editando}
           perfis={perfis}
           cargos={cargos}
+          tipoInicial={aba}
           onFechar={fechar}
         />
       )}
 
-      {lembretes.length === 0 ? (
+      {lembretesFiltrados.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-16 text-center">
           <div className="mb-3 text-4xl">🔔</div>
           <p className="font-semibold text-gray-700">Nenhum lembrete ainda</p>
@@ -106,7 +114,7 @@ export function LembretesClient({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {lembretes.map((l) => {
+              {lembretesFiltrados.map((l) => {
                 const f = feitoPor[l.id]
                 return (
                   <tr key={l.id} className={`hover:bg-blue-50/40 transition ${l.ativo ? '' : 'opacity-50'}`}>
@@ -181,16 +189,17 @@ function BotaoExcluir({ id, titulo }: { id: string; titulo: string }) {
 }
 
 function Formulario({
-  lembrete, perfis, cargos, onFechar,
+  lembrete, perfis, cargos, onFechar, tipoInicial = 'rotina',
 }: {
   lembrete: Lembrete | null
   perfis: Pessoa[]
   cargos: Pessoa[]
   onFechar: () => void
+  tipoInicial?: 'rotina' | 'pagamento'
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(salvarLembrete, null)
   const [dias, setDias] = useState<number[]>(lembrete?.dias ?? DIAS_UTEIS)
-  const [tipo, setTipo] = useState(lembrete?.tipo ?? 'rotina')
+  const [tipo, setTipo] = useState(lembrete?.tipo ?? tipoInicial)
 
   useEffect(() => { if (state?.ok) { const t = setTimeout(onFechar, 800); return () => clearTimeout(t) } }, [state, onFechar])
 
