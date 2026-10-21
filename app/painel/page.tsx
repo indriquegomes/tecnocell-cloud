@@ -605,6 +605,34 @@ export default async function DashboardPage({
         {pode('financeiro') && <Link href="/painel/financeiro/novo" className="flex items-center gap-3 rounded-2xl border border-dashed border-gray-300 bg-white p-4 text-sm font-medium text-gray-600 transition hover:border-[#1B6CA8] hover:text-[#1B6CA8] md:col-span-2 lg:col-span-4"><span className="text-xl">💰</span> Novo lançamento</Link>}
         <Link href="/painel/relatorios" className="flex items-center gap-3 rounded-2xl border border-dashed border-gray-300 bg-white p-4 text-sm font-medium text-gray-600 transition hover:border-[#1B6CA8] hover:text-[#1B6CA8] md:col-span-2 lg:col-span-4"><span className="text-xl">📊</span> Relatórios</Link>
 
+        {/* Administração — relatórios completos num só lugar (só master) */}
+        {isMaster && (
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm md:col-span-6 lg:col-span-12">
+            <h3 className="text-sm font-semibold text-gray-800">🗂️ Administração</h3>
+            <p className="mt-0.5 text-xs text-gray-400">Relatórios completos do sistema — um clique em cada.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[
+                { l: 'Imobilizado', a: 'imobilizado' },
+                { l: 'Vendas', a: 'vendas' },
+                { l: 'Lucro', a: 'lucro' },
+                { l: 'DRE', a: 'dre' },
+                { l: 'Fluxo de Caixa', a: 'fluxo' },
+                { l: 'Inadimplência', a: 'inadimplencia' },
+                { l: 'Comissões', a: 'comissoes' },
+                { l: 'Estoque', a: 'estoque' },
+                { l: 'Movimentações', a: 'movsaldo' },
+                { l: 'Entradas', a: 'entradas' },
+                { l: 'Remanejo', a: 'remanejo' },
+                { l: 'Técnicos', a: 'tecnicos' },
+                { l: 'Registro', a: 'registro' },
+              ].map((r) => (
+                <Link key={r.a} href={'/painel/relatorios?aba=' + r.a} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm font-medium text-gray-600 hover:border-[#1B6CA8] hover:text-[#1B6CA8] transition">{r.l}</Link>
+              ))}
+              <Link href="/painel/relatorios" className="rounded-lg bg-[#1B6CA8] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#1B6CA8]/90 transition">Ver todos</Link>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   )
