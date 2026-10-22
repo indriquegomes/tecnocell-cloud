@@ -50,7 +50,9 @@ npm run dev          # servidor local
 npx playwright test  # e2e (e2e/pdv.spec.ts, e2e/f1.spec.ts)
 ```
 
-Não há suíte de testes unitários. `tsc` não pega erro de lógica — em caminho de
+Não há suíte de testes unitários de componentes — mas `test/*.test.ts` cobre a
+lógica pura (escala/ponto, motoboy, Pix, robustez); ver "Testes de lógica" em
+Ambientes. `tsc` não pega erro de lógica — em caminho de
 dinheiro (PDV, caixa, devolução), descrever o teste manual que o usuário deve
 fazer antes de usar no balcão.
 
@@ -62,6 +64,16 @@ fazer antes de usar no balcão.
 - Migrations do Supabase **não são aplicadas automaticamente**. O arquivo entra
   em `supabase/migrations/` e o usuário cola o SQL no SQL Editor do Supabase.
   Sempre avisar quando uma mudança depende de migration ainda não aplicada.
+- **Git neste PC:** o backend TLS padrão do Git (`schannel`) falha em QUALQUER
+  acesso ao GitHub com `schannel: AcquireCredentialsHandle failed:
+  SEC_E_NO_CREDENTIALS (0x8009030e)`. Já está corrigido com
+  `git config --global http.sslBackend openssl` — não desfazer. Mesmo com isso, o
+  `push` usa o gerenciador de credenciais do Windows, que a sandbox de uma sessão
+  de agente bloqueia: empurrar commit de dentro do agente exige permissão elevada.
+- **Testes de lógica:** `node --import ./test/alias.mjs test/<arquivo>.test.ts`.
+  O `test/alias.mjs` resolve o alias `@/` do tsconfig — sem ele os arquivos
+  `test/*.test.ts` não rodam (`ERR_MODULE_NOT_FOUND`), e não há `tsx` instalado.
+  Hoje são 158 testes (`logica`, `motoboy`, `pix-conciliacao`, `robustez`).
 
 ## Estrutura
 
