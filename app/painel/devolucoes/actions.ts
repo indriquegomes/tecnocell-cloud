@@ -361,11 +361,17 @@ export async function registrarDevolucao(
   ])
   const vendaDia = ((vendaOrig as { created_at?: string } | null)?.created_at ?? '').slice(0, 10)
   const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-  const temCartao = ((pagOrig ?? []) as { formas_pagamento?: { tipo?: string } | { tipo?: string }[] | null }[]).some((p) => {
+  const tipoDePag = (p: { formas_pagamento?: { tipo?: string } | { tipo?: string }[] | null }) => {
     const f = p.formas_pagamento
-    const t = Array.isArray(f) ? (f[0]?.tipo ?? '') : (f?.tipo ?? '')
-    return t === 'cartao_credito' || t === 'cartao_debito'
-  })
+    return Array.isArray(f) ? (f[0]?.tipo ?? '') : (f?.tipo ?? '')
+  }
+  const tiposPag = ((pagOrig ?? []) as { formas_pagamento?: { tipo?: string } | { tipo?: string }[] | null }[]).map(tipoDePag)
+  const temCartao = tiposPag.some((t) => t === 'cartao_credito' || t === 'cartao_debito')
+  // Venda 100% em dinheiro: o dinheiro entrou na GAVETA, não no banco. Devolver por
+  // PIX tira o valor da conta errada (a gaveta fica com o dinheiro e o banco paga).
+  // Confirmado em produção em 22/10 (venda #9049, teste do dono): passava direto
+  // porque a única trava de PIX olhava cartão.
+  const soDinheiro = tiposPag.length > 0 && tiposPag.every((t) => t === 'dinheiro')
   const vaiSairPix = input.reembolsos && input.reembolsos.length > 0
     ? input.reembolsos.some((r) => r.tipo === 'pix' && r.valor > 0.005)
     : input.tipo_credito === 'pix'
@@ -394,6 +400,14 @@ export async function registrarDevolucao(
   // REGRA 2: venda paga em cartão → devolver em PIX só com o master.
   if (temCartao && vaiSairPix && !isMaster) {
     throw new Error('Venda paga em cartão: devolver em PIX só com autorização do master. Faça o estorno no cartão ou chame o master pra liberar.')
+  }
+
+  // REGRA 3: venda paga 100% em dinheiro → PIX só com o master.
+  // O valor entrou na GAVETA; devolver por PIX paga com dinheiro do banco e deixa
+  // a gaveta com a venda na mão. Em 22/10 isso passou direto num teste do dono
+  // (venda #9049) porque a REGRA 2 só olhava cartão.
+  if (soDinheiro && vaiSairPix && !isMaster) {
+    throw new Error('Esta venda foi paga em DINHEIRO: o valor está na gaveta, não no banco. Devolva em dinheiro (mesmo dia) ou como crédito. PIX só com autorização do master.')
   }
 
   if (vaiSairDinheiro) {
