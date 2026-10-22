@@ -34,6 +34,7 @@ export function PontoWidget({
   const [agora, setAgora] = useState(() => Date.now())
   const [processando, setProcessando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  const [pin, setPin] = useState('')
   const emOperacao = !!emOperacaoDesde
 
   // relógio ao vivo só quando precisa (modal aberto ou em operação)
@@ -46,11 +47,12 @@ export function PontoWidget({
   const elapsedMs = emOperacaoDesde ? Math.max(0, agora - new Date(emOperacaoDesde).getTime()) : 0
   const totalHojeMs = horasFechadasHojeMs + elapsedMs
 
-  const acao = async (fn: () => Promise<{ ok: boolean; erro?: string }>) => {
+  const acao = async (fn: () => Promise<{ ok: boolean; saiu?: boolean; erro?: string }>) => {
     setProcessando(true); setErro(null)
     const r = await fn()
     setProcessando(false)
     if (!r.ok) { setErro(r.erro ?? 'Erro'); return }
+    if (r.saiu) { window.location.href = '/api/auth/signout'; return }
     router.refresh()
   }
 
@@ -84,14 +86,28 @@ export function PontoWidget({
                 {emOperacao && <p className="mt-0.5 text-[11px] text-emerald-600">🟢 em operação há {fmtDur(elapsedMs)}</p>}
               </div>
 
+              {/* PIN */}
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-400">PIN (4 dígitos)</label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
+                  placeholder="••••"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-2 text-center text-lg tracking-widest"
+                />
+              </div>
+
               {/* Iniciar / Parar */}
               {emOperacao ? (
-                <button type="button" disabled={processando} onClick={() => acao(pararPonto)}
+                <button type="button" disabled={processando} onClick={() => acao(() => pararPonto(pin))}
                   className="w-full rounded-xl bg-rose-600 py-3 text-sm font-bold text-white transition hover:bg-rose-700 disabled:opacity-50">
                   {processando ? 'Parando…' : '⏹ Parar'}
                 </button>
               ) : (
-                <button type="button" disabled={processando} onClick={() => acao(iniciarPonto)}
+                <button type="button" disabled={processando} onClick={() => acao(() => iniciarPonto(pin))}
                   className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:opacity-50">
                   {processando ? 'Iniciando…' : '▶ Iniciar'}
                 </button>

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Spinner } from '@/components/Spinner'
 import { createClient } from '@/lib/supabase/client'
-import { buscarMeuPerfil, atualizarMeuNome, alterarMinhaSenha, atualizarMinhaFoto, baterPonto, buscarMeuPontoHoje, buscarMeuBanco, buscarMeuSaldo, buscarMinhaEscala, type Res, type Ponto, type BancoHora, type MinhaEscala } from './actions'
+import { buscarMeuPerfil, atualizarMeuNome, alterarMinhaSenha, atualizarMinhaFoto, atualizarMeuPin, baterPonto, buscarMeuPontoHoje, buscarMeuBanco, buscarMeuSaldo, buscarMinhaEscala, type Res, type Ponto, type BancoHora, type MinhaEscala } from './actions'
 
 const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
@@ -25,6 +25,9 @@ export function MeuPerfilClient() {
   const [salvandoNome, setSalvandoNome] = useState(false)
   const [salvandoSenha, setSalvandoSenha] = useState(false)
   const [enviandoFoto, setEnviandoFoto] = useState(false)
+  const [pinNovo, setPinNovo] = useState('')
+  const [msgPin, setMsgPin] = useState<Res | null>(null)
+  const [salvandoPin, setSalvandoPin] = useState(false)
   const fotoRef = useRef<HTMLInputElement>(null)
 
   const [pontos, setPontos] = useState<Ponto[]>([])
@@ -75,6 +78,14 @@ export function MeuPerfilClient() {
     setMsgSenha(r)
     if (r.ok) { setSenhaAtual(''); setSenhaNova(''); setSenhaNova2('') }
     setSalvandoSenha(false)
+  }
+
+  async function salvarPin(e: React.FormEvent) {
+    e.preventDefault(); setMsgPin(null)
+    if (!/^[0-9]{4}$/.test(pinNovo)) { setMsgPin({ ok: false, message: 'O PIN precisa ter 4 dígitos.' }); return }
+    setSalvandoPin(true)
+    setMsgPin(await atualizarMeuPin(await token(), pinNovo))
+    setSalvandoPin(false)
   }
 
   async function enviarFoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -276,6 +287,21 @@ export function MeuPerfilClient() {
         <button type="submit" disabled={salvandoSenha}
           className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
           {salvandoSenha ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Alterando...</span> : 'Alterar senha'}
+        </button>
+      </form>
+
+      {/* PIN do ponto */}
+      <form onSubmit={salvarPin} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
+        <h3 className="text-sm font-semibold text-gray-700">PIN do ponto</h3>
+        <p className="text-xs text-gray-400">4 dígitos pra bater o ponto (evita bater na conta errada). Padrão: 1234.</p>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Novo PIN</label>
+          <input type="password" inputMode="numeric" maxLength={4} value={pinNovo} onChange={(e) => setPinNovo(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))} className="field" placeholder="••••" />
+        </div>
+        {msgPin && <div className={`rounded-lg border px-3 py-2 text-sm ${msgCls(msgPin)}`}>{msgPin.message}</div>}
+        <button type="submit" disabled={salvandoPin}
+          className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
+          {salvandoPin ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Salvando...</span> : 'Salvar PIN'}
         </button>
       </form>
     </div>

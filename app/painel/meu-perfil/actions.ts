@@ -56,6 +56,16 @@ export async function atualizarMeuNome(token: string, nome: string): Promise<Res
   return { ok: true, message: 'Nome atualizado' }
 }
 
+export async function atualizarMeuPin(token: string, pin: string): Promise<Res> {
+  const user = await requireAuth(token)
+  const p = (pin ?? '').trim()
+  if (!/^[0-9]{4}$/.test(p)) return { ok: false, message: 'O PIN precisa ter 4 dígitos.' }
+  const s = await createServiceClient()
+  const { error } = await s.from('perfis').update({ pin_ponto: p }).eq('id', user.id)
+  if (error) return { ok: false, message: error.message }
+  return { ok: true, message: 'PIN atualizado' }
+}
+
 export type Ponto = { id: string; tipo: string; criado_em: string }
 
 // Hoje é folga ou feriado pra pessoa? (escala semanal + exceção + feriados)
