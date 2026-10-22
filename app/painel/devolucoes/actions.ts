@@ -414,23 +414,53 @@ async function registrarDevolucaoInterno(
     ? input.reembolsos.some((r) => r.tipo === 'dinheiro' && r.valor > 0.005)
     : input.tipo_credito === 'dinheiro'
 
-  // REGRA 1: dinheiro só no MESMO dia da venda (outro dia → PIX).
-  if (vaiSairDinheiro && vendaDia && vendaDia !== hoje) {
-    const dd = vendaDia.slice(8, 10) + '/' + vendaDia.slice(5, 7) + '/' + vendaDia.slice(0, 4)
-    throw new Error(`Devolução em dinheiro só no MESMO dia da venda. Esta venda é de ${dd} — devolva em PIX.`)
+  // ═══ REGRAS DE DEVOLUÇÃO ═══════════════════════════════════════════════════
+  // Política do dono (22/10): a regra é o caminho correto e o aviso TEM que ensinar
+  // isso; se o cliente insistir, a atendente chama o master; o master pode quebrar a
+  // regra. Toda quebra fica registrada no log com `regra_quebrada` — sem isso o
+  // override vira invisível e não dá pra auditar depois.
+  const regrasQuebradas: string[] = []
+
+  const barrarOuLiberar = (regra: string, resumo: string, alternativa: string) => {
+    if (isMaster) {
+      regrasQuebradas.push(`${regra}: ${resumo}`)
+      return
+    }
+    throw new Error(
+      `⚠️ REGRA: ${resumo}\n\nO correto agora: ${alternativa}\n\n` +
+      'Se o cliente insistir mesmo assim, chame o master — só ele pode autorizar esta exceção.',
+    )
   }
 
-  // REGRA 2: venda paga em cartão → devolver em PIX só com o master.
-  if (temCartao && vaiSairPix && !isMaster) {
-    throw new Error('Venda paga em cartão: devolver em PIX só com autorização do master. Faça o estorno no cartão ou chame o master pra liberar.')
+  // REGRA 1: dinheiro só no MESMO dia da venda.
+  if (vaiSairDinheiro && vendaDia && vendaDia !== hoje) {
+    const dd = vendaDia.slice(8, 10) + '/' + vendaDia.slice(5, 7) + '/' + vendaDia.slice(0, 4)
+    barrarOuLiberar(
+      'REGRA 1 (dinheiro só no mesmo dia)',
+      `devolução em DINHEIRO só no mesmo dia da venda — esta venda é de ${dd}, e o caixa daquele dia já foi fechado.`,
+      `devolver em PIX ou como crédito.`,
+    )
+  }
+
+  // REGRA 2: venda paga em cartão → PIX só com o master.
+  if (temCartao && vaiSairPix) {
+    barrarOuLiberar(
+      'REGRA 2 (cartão não devolve em PIX)',
+      'venda paga em CARTÃO não devolve em PIX — o dinheiro está na maquininha/adquirente, não na conta.',
+      'fazer o estorno na maquininha ou devolver como crédito.',
+    )
   }
 
   // REGRA 3: venda paga 100% em dinheiro → PIX só com o master.
   // O valor entrou na GAVETA; devolver por PIX paga com dinheiro do banco e deixa
   // a gaveta com a venda na mão. Em 22/10 isso passou direto num teste do dono
   // (venda #9049) porque a REGRA 2 só olhava cartão.
-  if (soDinheiro && vaiSairPix && !isMaster) {
-    throw new Error('Esta venda foi paga em DINHEIRO: o valor está na gaveta, não no banco. Devolva em dinheiro (mesmo dia) ou como crédito. PIX só com autorização do master.')
+  if (soDinheiro && vaiSairPix) {
+    barrarOuLiberar(
+      'REGRA 3 (venda em dinheiro não devolve em PIX)',
+      'esta venda foi paga em DINHEIRO — o valor está na gaveta, não no banco.',
+      'devolver em dinheiro (mesmo dia da venda) ou como crédito.',
+    )
   }
 
   if (vaiSairDinheiro) {
@@ -543,6 +573,21 @@ async function registrarDevolucaoInterno(
     motivo: input.motivo_tipo || input.motivo || null,
     reembolso,
   }, usuario, '/painel/devolucoes')
+
+  // Registro da EXCEÇÃO: o master passou por cima de uma regra de dinheiro. Sem esta
+  // linha, a quebra fica invisível na auditoria e não dá pra distinguir "o dono
+  // autorizou" de "alguém usou a conta do dono".
+  if (regrasQuebradas.length > 0) {
+    await logAtividade('devolucao.regra_quebrada_pelo_master', {
+      devolucao_id: devolucaoId,
+      venda_id: input.venda_id,
+      pessoa_nome: input.pessoa_nome,
+      regras: regrasQuebradas,
+      tipo_credito: input.tipo_credito,
+      reembolsos: input.reembolsos ?? input.tipo_credito,
+      reembolso,
+    }, usuario, '/painel/devolucoes')
+  }
 
   // Saldo devedor ATUALIZADO do cliente (depois do abate) — a mensagem de
   // cancelamento de fiado mostra quanto ele AINDA deve. Só por pessoa_id (FK de
