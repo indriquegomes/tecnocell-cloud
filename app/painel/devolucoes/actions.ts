@@ -421,11 +421,23 @@ async function registrarDevolucaoInterno(
   // override vira invisível e não dá pra auditar depois.
   const regrasQuebradas: string[] = []
 
-  const barrarOuLiberar = (regra: string, resumo: string, alternativa: string) => {
+  // Recusa fica REGISTRADA. Antes, quando a regra bloqueava, não sobrava nada no
+  // banco — em 22/10 o dono tentou 3x na venda #9137 e não deu pra saber por quê,
+  // só dava pra deduzir. Agora cada bloqueio vira linha em logs_atividade.
+  const barrarOuLiberar = async (regra: string, resumo: string, alternativa: string) => {
     if (isMaster) {
       regrasQuebradas.push(`${regra}: ${resumo}`)
       return
     }
+    await logAtividade('devolucao.regra_bloqueada', {
+      regra,
+      motivo: resumo,
+      venda_id: input.venda_id,
+      pessoa_nome: input.pessoa_nome,
+      valor: input.reembolsos?.length ? input.reembolsos.reduce((t, r) => t + Number(r.valor || 0), 0) : null,
+      formas: input.reembolsos ?? input.tipo_credito,
+      como_a_venda_foi_paga: tiposPag,
+    }, usuario, '/painel/devolucoes')
     throw new Error(
       `⚠️ REGRA: ${resumo}\n\nO correto agora: ${alternativa}\n\n` +
       'Se o cliente insistir mesmo assim, chame o master — só ele pode autorizar esta exceção.',
@@ -435,7 +447,7 @@ async function registrarDevolucaoInterno(
   // REGRA 1: dinheiro só no MESMO dia da venda.
   if (vaiSairDinheiro && vendaDia && vendaDia !== hoje) {
     const dd = vendaDia.slice(8, 10) + '/' + vendaDia.slice(5, 7) + '/' + vendaDia.slice(0, 4)
-    barrarOuLiberar(
+    await barrarOuLiberar(
       'REGRA 1 (dinheiro só no mesmo dia)',
       `devolução em DINHEIRO só no mesmo dia da venda — esta venda é de ${dd}, e o caixa daquele dia já foi fechado.`,
       `devolver em PIX ou como crédito.`,
@@ -444,7 +456,7 @@ async function registrarDevolucaoInterno(
 
   // REGRA 2: venda paga em cartão → PIX só com o master.
   if (temCartao && vaiSairPix) {
-    barrarOuLiberar(
+    await barrarOuLiberar(
       'REGRA 2 (cartão não devolve em PIX)',
       'venda paga em CARTÃO não devolve em PIX — o dinheiro está na maquininha/adquirente, não na conta.',
       'fazer o estorno na maquininha ou devolver como crédito.',
@@ -456,10 +468,25 @@ async function registrarDevolucaoInterno(
   // a gaveta com a venda na mão. Em 22/10 isso passou direto num teste do dono
   // (venda #9049) porque a REGRA 2 só olhava cartão.
   if (soDinheiro && vaiSairPix) {
-    barrarOuLiberar(
+    await barrarOuLiberar(
       'REGRA 3 (venda em dinheiro não devolve em PIX)',
       'esta venda foi paga em DINHEIRO — o valor está na gaveta, não no banco.',
       'devolver em dinheiro (mesmo dia da venda) ou como crédito.',
+    )
+  }
+
+  // REGRA 4: venda que NÃO entrou em dinheiro não devolve em DINHEIRO.
+  // É o espelho da regra 3 e faltava: em 22/10 a venda #9137 (R$ 61,00 pagos em PIX)
+  // foi devolvida em dinheiro e o caixa perdeu R$ 61 que nunca passaram pela gaveta.
+  // A regra 1 só olhava o DIA, não a origem do dinheiro.
+  const teveDinheiroNaVenda = tiposPag.some((t) => t === 'dinheiro')
+  if (vaiSairDinheiro && tiposPag.length > 0 && !teveDinheiroNaVenda) {
+    const nomes: Record<string, string> = { pix: 'PIX', cartao_credito: 'crédito', cartao_debito: 'débito', vale_credito: 'vale-crédito', fiado: 'fiado' }
+    const comoEntrou = [...new Set(tiposPag.map((t) => nomes[t] ?? t))].join(' + ')
+    await barrarOuLiberar(
+      'REGRA 4 (venda sem dinheiro não devolve em dinheiro)',
+      `esta venda foi paga em ${comoEntrou.toUpperCase()} — nenhum valor entrou na gaveta, então devolver em DINHEIRO tira da gaveta um dinheiro que não veio dela.`,
+      `devolver na MESMA forma que entrou (${comoEntrou}) ou como crédito.`,
     )
   }
 
