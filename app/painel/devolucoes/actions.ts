@@ -1,6 +1,6 @@
 'use server'
 
-import { createServiceClient, requirePermissao, permissoesEfetivas } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { logAtividade } from '@/lib/log-atividade'
 import { sincronizarEstoqueML } from '@/lib/mercado-livre'
 import { palavrasBusca } from '@/lib/busca-produtos'
@@ -375,7 +375,8 @@ async function registrarDevolucaoInterno(
 ): Promise<{ id: string; abate_fiado: number; reembolso: number; saldo_devedor: number | null }> {
   const usuario = await requirePermissao('devolucoes', accessToken)
   const supabase = await createServiceClient()
-  const { isMaster } = await permissoesEfetivas(usuario.id)
+  // As regras de devolução valem para TODOS, inclusive o master (decisão do dono em
+  // 22/10) — por isso esta função não consulta mais o perfil para liberar exceção.
 
   // Dados da venda pra travar o reembolso na forma certa (não confia no cliente).
   const [{ data: vendaOrig }, { data: pagOrig }] = await Promise.all([
@@ -420,9 +421,9 @@ async function registrarDevolucaoInterno(
   //   PIX       → PIX
   //   cartão    → estorno na maquininha
   //   crédito   → sempre permitido (é saldo na loja, não sai dinheiro de lugar nenhum)
-  // Quebrar a regra é possível, mas só com o master, e fica registrado. O aviso sempre
-  // ensina o caminho correto e manda chamar o master se o cliente insistir.
-  const regrasQuebradas: string[] = []
+  // SEM EXCEÇÃO (decisão do dono em 22/10): nem o master libera. A regra é dura para
+  // todos; o aviso ensina o caminho correto e o que fazer quando não houver como
+  // (devolver como crédito). Cada bloqueio fica registrado.
   const nomeForma: Record<string, string> = {
     dinheiro: 'DINHEIRO', pix: 'PIX', cartao_credito: 'CARTÃO DE CRÉDITO',
     cartao_debito: 'CARTÃO DE DÉBITO', vale_credito: 'VALE-CRÉDITO', fiado: 'FIADO',
@@ -436,11 +437,7 @@ async function registrarDevolucaoInterno(
   // Recusa fica REGISTRADA. Quando a regra bloqueava, não sobrava nada no banco — em
   // 22/10 o dono tentou 3x na venda #9137 e não deu pra saber por quê. Agora cada
   // bloqueio vira linha em logs_atividade.
-  const barrarOuLiberar = async (regra: string, resumo: string, alternativa: string) => {
-    if (isMaster) {
-      regrasQuebradas.push(`${regra}: ${resumo}`)
-      return
-    }
+  const barrar = async (regra: string, resumo: string, alternativa: string): Promise<never> => {
     await logAtividade('devolucao.regra_bloqueada', {
       regra,
       motivo: resumo,
@@ -452,38 +449,38 @@ async function registrarDevolucaoInterno(
     }, usuario, '/painel/devolucoes')
     throw new Error(
       `⚠️ REGRA: ${resumo}\n\nO correto agora: ${alternativa}\n\n` +
-      'Se o cliente insistir mesmo assim, chame o master — só ele pode autorizar esta exceção.',
+      'Esta regra NÃO tem exceção no sistema: nenhuma forma fora da regra é liberada, nem pelo dono.',
     )
   }
 
   // REGRA 1: DINHEIRO só no MESMO dia da venda (a gaveta daquele dia já foi contada).
   if (vaiSairDinheiro && vendaDia && !mesmoDia) {
-    await barrarOuLiberar(
+    await barrar(
       'REGRA 1 (dinheiro só no mesmo dia)',
       `devolução em DINHEIRO só no mesmo dia da venda — esta venda é de ${ddVenda}, e o caixa daquele dia já foi fechado.`,
-      'devolver em PIX ou como crédito. Se o cliente só aceitar dinheiro, chame o master.',
+      'devolver em PIX ou como crédito.',
     )
   }
 
-  // REGRA 2: venda em CARTÃO devolve por ESTORNO na maquininha. PIX só com master.
+  // REGRA 2: venda em CARTÃO devolve por ESTORNO na maquininha.
   if (temCartao && vaiSairPix) {
-    await barrarOuLiberar(
+    await barrar(
       'REGRA 2 (cartão devolve por estorno)',
       'venda paga em CARTÃO devolve por ESTORNO na maquininha — o dinheiro está na adquirente, não na conta.',
-      'fazer o estorno na maquininha ou devolver como crédito. Se não conseguir o estorno, chame o master.',
+      'fazer o estorno na maquininha ou devolver como crédito.',
     )
   }
 
-  // REGRA 3: venda em DINHEIRO devolve em DINHEIRO. PIX só com master.
+  // REGRA 3: venda em DINHEIRO devolve em DINHEIRO.
   // O valor entrou na GAVETA; devolver por PIX paga com dinheiro do banco e deixa a
   // gaveta com a venda na mão (aconteceu de verdade na venda #9049 em 22/10).
   if (soDinheiro && vaiSairPix) {
-    await barrarOuLiberar(
+    await barrar(
       'REGRA 3 (dinheiro devolve em dinheiro)',
       'esta venda foi paga em DINHEIRO — o valor está na gaveta, não no banco.',
       mesmoDia
         ? 'devolver em dinheiro (a venda é de hoje) ou como crédito.'
-        : `devolver como crédito, ou pedir autorização do master para devolver em PIX (a venda é de ${ddVenda}).`,
+        : `devolver como crédito (a venda é de ${ddVenda}, e o dinheiro daquele dia já foi contado).`,
     )
   }
 
@@ -491,7 +488,7 @@ async function registrarDevolucaoInterno(
   // Espelho da regra 3. Em 22/10 a venda #9137 (R$ 61,00 em PIX) foi devolvida em
   // dinheiro e o caixa perdeu R$ 61 que nunca passaram pela gaveta.
   if (vaiSairDinheiro && tiposPag.length > 0 && !classesVenda.includes('dinheiro')) {
-    await barrarOuLiberar(
+    await barrar(
       'REGRA 4 (venda sem dinheiro não devolve em dinheiro)',
       `esta venda foi paga em ${comoEntrou} — nenhum valor entrou na gaveta, então devolver em DINHEIRO tira da gaveta um dinheiro que não veio dela.`,
       `devolver na MESMA forma que entrou (${comoEntrou}) ou como crédito.`,
@@ -508,10 +505,10 @@ async function registrarDevolucaoInterno(
     ? input.reembolsos.some((r) => classeDoReembolso(r.tipo) === 'cartao' && r.valor > 0.005)
     : classeDoReembolso(input.tipo_credito) === 'cartao'
   if (vaiSairCartao && tiposPag.length > 0 && !classesVenda.includes('cartao')) {
-    await barrarOuLiberar(
+    await barrar(
       'REGRA 5 (estorno só de venda no cartão)',
       `esta venda foi paga em ${comoEntrou} — não passou na maquininha, então não há o que estornar.`,
-      'devolver na MESMA forma que entrou ou como crédito. Se não houver como, chame o master.',
+      'devolver na MESMA forma que entrou ou como crédito.',
     )
   }
 
@@ -625,21 +622,6 @@ async function registrarDevolucaoInterno(
     motivo: input.motivo_tipo || input.motivo || null,
     reembolso,
   }, usuario, '/painel/devolucoes')
-
-  // Registro da EXCEÇÃO: o master passou por cima de uma regra de dinheiro. Sem esta
-  // linha, a quebra fica invisível na auditoria e não dá pra distinguir "o dono
-  // autorizou" de "alguém usou a conta do dono".
-  if (regrasQuebradas.length > 0) {
-    await logAtividade('devolucao.regra_quebrada_pelo_master', {
-      devolucao_id: devolucaoId,
-      venda_id: input.venda_id,
-      pessoa_nome: input.pessoa_nome,
-      regras: regrasQuebradas,
-      tipo_credito: input.tipo_credito,
-      reembolsos: input.reembolsos ?? input.tipo_credito,
-      reembolso,
-    }, usuario, '/painel/devolucoes')
-  }
 
   // Saldo devedor ATUALIZADO do cliente (depois do abate) — a mensagem de
   // cancelamento de fiado mostra quanto ele AINDA deve. Só por pessoa_id (FK de
