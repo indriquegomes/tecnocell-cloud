@@ -398,6 +398,9 @@ export function DevolucoesClient({
         reembolsos: usaMisto ? linhasEnvio : undefined,
         itens: itensDev, lancamento_pendente: venda.lancamento_pendente,
       })
+      // A recusa vem como dado (não como exceção): em produção o Next apagaria o texto
+      // e o atendente veria só "error occurred in the Server Components render".
+      if (!resultado.ok) { setErro(resultado.erro); return }
       const tipo = reembolso > 0.01 ? (usaMisto ? 'misto' : tipoCredito) : 'cancelamento_fiado'
       const mensagem = mensagemDevolucao({
         tipo,

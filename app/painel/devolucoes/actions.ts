@@ -346,7 +346,30 @@ export interface RegistrarDevolucaoInput {
   lancamento_pendente: boolean
 }
 
+// Em produção o Next ESCONDE a mensagem de erro lançada por server action: o
+// atendente recebe "An error occurred in the Server Components render" + digest, sem
+// saber o motivo. Foi o que aconteceu em 22/10 (vendas 9094/9095): a trava nova de
+// PIX-em-venda-de-dinheiro recusou, mas a tela mostrou o erro genérico em vez do texto.
+// Por isso a função pública devolve o erro como DADO (ok:false) e a mensagem de
+// negócio chega legível na tela.
+export type ResultadoRegistroDevolucao =
+  | { ok: true; id: string; abate_fiado: number; reembolso: number; saldo_devedor: number | null }
+  | { ok: false; erro: string }
+
 export async function registrarDevolucao(
+  accessToken: string,
+  input: RegistrarDevolucaoInput,
+): Promise<ResultadoRegistroDevolucao> {
+  try {
+    return { ok: true, ...(await registrarDevolucaoInterno(accessToken, input)) }
+  } catch (erro) {
+    const msg = erro instanceof Error && erro.message ? erro.message : 'Erro ao registrar devolução.'
+    console.error('registrarDevolucao recusou:', msg)
+    return { ok: false, erro: msg }
+  }
+}
+
+async function registrarDevolucaoInterno(
   accessToken: string,
   input: RegistrarDevolucaoInput,
 ): Promise<{ id: string; abate_fiado: number; reembolso: number; saldo_devedor: number | null }> {
