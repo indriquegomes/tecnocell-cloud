@@ -2,7 +2,7 @@ import { createServiceClient, permissoesUsuarioAtual, fetchAll } from '@/lib/sup
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { getFaturamentoMetas, type VendaCash } from '@/lib/cache-dashboard'
 import { temPermissao } from '@/lib/permissoes'
-import { formatBRL, formatDate } from '@/lib/utils'
+import { formatBRL, formatDate, diaSP } from '@/lib/utils'
 import { Valor } from '@/components/Valor'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
@@ -70,13 +70,13 @@ export default async function DashboardPage({
     { count: totalProdutos },
     { count: totalClientes },
     { data: resumo },
-    { data: vendasHoje },
+    vendasHoje,
     pendReceber,
     pendPagar,
     { data: lancRecentes },
     { data: metasAtivas },
     { data: lojasList },
-    { data: minhasVendasMes },
+    minhasVendasMes,
   ] = await Promise.all([
     supabase.from('produtos').select('*', { count: 'exact', head: true }).eq('ativo', true),
     supabase.from('pessoas').select('*', { count: 'exact', head: true }).eq('tipo', 'cliente'),
@@ -86,7 +86,12 @@ export default async function DashboardPage({
     // Agora o Postgres soma tudo e devolve pronto em 1 chamada (~120ms).
     // Conferido campo a campo contra o calculo antigo antes de trocar: bate 100%.
     supabase.rpc('dashboard_resumo', { p_de: filtroDe, p_ate: filtroAte, p_loja: filtroLoja || null }),
-    supabase.from('vendas').select('total').eq('status', 'concluida').eq('uso_interno', false).gte('created_at', hoje),
+    // fetchAll nos dois KPIs abaixo: o PostgREST corta em 1000 linhas e o card passaria a
+    // mentir pra menos sem avisar. Medido em 22/10: o vendedor de maior volume tinha 874
+    // vendas no mes (teto 1000) — ia estourar antes do fim do mes e travar o total.
+    fetchAll<{ total: number | null }>((from, to) =>
+      supabase.from('vendas').select('total').eq('status', 'concluida').eq('uso_interno', false)
+        .gte('created_at', `${hoje}T00:00:00-03:00`).order('id').range(from, to)),
     // fetchAll: estes dois viram os cards "A Receber"/"A Pagar". Sem paginar, o
     // PostgREST corta em 1000 e o total passaria a mentir pra MENOS assim que a loja
     // acumulasse mais de mil fiados em aberto — silenciosamente, que e o pior modo.
@@ -102,8 +107,14 @@ export default async function DashboardPage({
       .eq('ativo', true).lte('data_inicio', hoje).gte('data_fim', hoje),
     supabase.from('lojas').select('id, nome'),
     role === 'vendedora' && userId
-      ? supabase.from('vendas').select('total, created_at, numero').eq('vendedor_id', userId).eq('status', 'concluida').eq('uso_interno', false).gte('created_at', inicioMes).order('created_at', { ascending: false })
-      : Promise.resolve({ data: null }),
+      // fetchAll aqui também: era a consulta que mais chegava perto do teto de 1000
+      // (874 vendas do maior vendedor em 22 dias de outubro). Ordem com `id` de
+      // desempate — `created_at` empata e a fatia pode pular/duplicar linha.
+      ? fetchAll<{ total: number | null; created_at: string; numero: number | null }>((from, to) =>
+          supabase.from('vendas').select('total, created_at, numero')
+            .eq('vendedor_id', userId).eq('status', 'concluida').eq('uso_interno', false)
+            .gte('created_at', `${inicioMes}T00:00:00-03:00`).order('created_at', { ascending: false }).order('id').range(from, to))
+      : Promise.resolve([] as { total: number | null; created_at: string; numero: number | null }[]),
   ])
 
   // ---- Tudo isto vem SOMADO do banco agora (dashboard_resumo) ----
@@ -177,8 +188,10 @@ export default async function DashboardPage({
   // ---- Dados da VENDEDORA (minhas vendas do mês) — já veio no lote paralelo ----
   const minhasMes = (minhasVendasMes ?? []) as { total: number; created_at: string; numero: number | null }[]
   const meuFatMes = minhasMes.reduce((s, v) => s + (v.total ?? 0), 0)
-  const meuHoje = minhasMes.filter((v) => (v.created_at ?? '').split('T')[0] === hoje).reduce((s, v) => s + (v.total ?? 0), 0)
-  const meuNVendasHoje = minhasMes.filter((v) => (v.created_at ?? '').split('T')[0] === hoje).length
+  // diaSP: `created_at` é timestamp em UTC — cortar o ISO pega o dia em UTC e, depois
+  // das 21h em SP, a venda da noite caía no dia seguinte (o contador "hoje" zerava).
+  const meuHoje = minhasMes.filter((v) => v.created_at && diaSP(v.created_at) === hoje).reduce((s, v) => s + (v.total ?? 0), 0)
+  const meuNVendasHoje = minhasMes.filter((v) => v.created_at && diaSP(v.created_at) === hoje).length
   const meuNVendas = minhasMes.length
   const meuTicket = meuNVendas ? meuFatMes / meuNVendas : 0
 

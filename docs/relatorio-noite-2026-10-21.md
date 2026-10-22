@@ -11,8 +11,9 @@ em banco, dado real, financeiro, caixa ou estoque. Tudo em branch local.
 |---|---|---|---|
 | 1 | Card "Fiado em aberto" do cliente mostrava valor errado | `app/painel/clientes/[id]/editar/page.tsx` | **Corrigido** (bug real, dinheiro) |
 | 2 | Fluxo de caixa futuro parava em 1000 linhas | `app/painel/financeiro/fluxo/page.tsx` | **Corrigido** (proteção; hoje não afeta) |
-| 3 | Não dava pra rodar os testes sem `tsx` instalado | `test/alias.mjs` | **Adicionado** |
-| 4 | Sem conferência da dívida de fiado por cliente | `scripts/conferir-fiado-por-cliente.mjs` | **Adicionado** |
+| 3 | KPI de vendas do vendedor ia travar em 1000 no fim do mês | `app/painel/page.tsx` | **Corrigido** (bug real, quase estourando) |
+| 4 | Não dava pra rodar os testes sem `tsx` instalado | `test/alias.mjs` | **Adicionado** |
+| 5 | Sem conferência da dívida de fiado por cliente | `scripts/conferir-fiado-por-cliente.mjs` | **Adicionado** |
 
 ## 1. Fiado em aberto do cliente (bug de dinheiro — corrigido)
 
@@ -50,7 +51,32 @@ Hoje: 23 linhas, R$ 52.417,00 — o teto não é atingido. É proteção pra qua
 parcelamento/repetição em volume. Usei `fetchAll` + desempate por `id` na ordenação,
 porque página com ordem que empata pode pular ou duplicar linha entre as fatias.
 
-## 3. Testes rodando de novo
+## 3. KPI de vendas do vendedor (bug real, quase estourando — corrigido)
+
+O dashboard do vendedor monta "meu faturamento no mês" e "vendas hoje" com uma
+consulta **sem paginação**. O PostgREST devolve no máximo 1000 linhas.
+
+Medido no banco em 22/10: o vendedor de maior volume já tem **874 vendas** no mês
+(1 a 22 de outubro, 4.085 vendas na loja). Faltavam ~126 vendas para a consulta
+começar a mentir — ou seja, **estouraria antes do fim do mês**, e o total de
+faturamento/meta do vendedor congelaria em 1000 vendas, sem aviso.
+
+Correção: as duas consultas passaram a paginar (`fetchAll`), com desempate por `id`
+na ordenação. Também ancorei a janela no fuso de São Paulo
+(`${hoje}T00:00:00-03:00`) e troquei o corte de data por `diaSP()`.
+
+Sobre o fuso, sendo honesto: medi e **nenhuma venda deste mês aconteceu depois das
+21h** (a loja fecha antes), então esse pedaço não muda número nenhum hoje. Foi
+correção de consistência com a regra documentada do projeto, não bug em produção.
+
+## 3b. Por que isso importa mais que parece
+
+Esses três primeiros itens são o **mesmo defeito**: consulta que devolve lista e
+soma a lista, sem paginar. O modo de falha é sempre igual — o número diminui
+devagar e ninguém percebe, até alguém decidir dinheiro com base nele. Vale a pena,
+numa próxima noite, varrer as telas que somam listas e conferir uma por uma.
+
+## 4. Testes rodando de novo
 
 Os testes de lógica (`test/*.test.ts`) importam com o alias `@/lib/...` e não havia
 runner instalado que resolvesse isso. Com `test/alias.mjs`:
