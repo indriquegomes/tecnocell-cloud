@@ -34,16 +34,16 @@ const hhmm = (h: string) => (h ?? '').slice(0, 5)
 const DIAS_UTEIS = [1, 2, 3, 4, 5, 6]
 
 export function LembretesClient({
-  lembretes, perfis, cargos, feitosHoje,
+  lembretes, perfis, cargos, feitosHoje, somenteTipo,
 }: {
   lembretes: Lembrete[]
   perfis: Pessoa[]
   cargos: Pessoa[]
   feitosHoje: Feito[]
+  somenteTipo?: 'rotina' | 'pagamento'
 }) {
   const [editando, setEditando] = useState<Lembrete | null>(null)
   const [novo, setNovo] = useState(false)
-  const [aba, setAba] = useState<'rotina' | 'pagamento'>('rotina')
   useEffect(() => { supabaseBrowser.auth.getSession().then(({ data }) => { tokenCache = data.session?.access_token ?? '' }) }, [])
 
   const nomePerfil = Object.fromEntries(perfis.map((p) => [p.id, p.nome]))
@@ -56,28 +56,25 @@ export function LembretesClient({
         : 'Todos'
 
   const fechar = () => { setEditando(null); setNovo(false) }
-  const lembretesFiltrados = lembretes.filter((l) => (l.tipo ?? 'rotina') === aba)
+  const lembretesFiltrados = somenteTipo ? lembretes.filter((l) => (l.tipo ?? 'rotina') === somenteTipo) : lembretes
 
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Tarefas da Equipe</h2>
+          <h2 className="text-2xl font-bold text-gray-900">{somenteTipo === 'pagamento' ? 'Pagamentos Recorrentes' : 'Tarefas da Equipe'}</h2>
           <p className="mt-0.5 text-sm text-gray-500">
-            Rotinas que o sistema cobra da equipe. Aparecem no painel no horário e só somem quando a pessoa marca <b>Feito</b>.
+            {somenteTipo === 'pagamento'
+              ? 'Pagamentos fixos (PIX) que o sistema cobra. Aparecem no horário e só somem quando você marca como pago (com comprovante).'
+              : 'Rotinas que o sistema cobra da equipe. Aparecem no painel no horário e só somem quando a pessoa marca Feito.'}
           </p>
         </div>
         <button
           onClick={() => { setNovo(true); setEditando(null) }}
           className="shrink-0 rounded-xl bg-[#1B6CA8] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#155a8c] transition"
         >
-          {aba === 'rotina' ? '+ Nova tarefa' : '+ Novo pagamento'}
+          {somenteTipo === 'pagamento' ? '+ Novo pagamento' : '+ Nova tarefa'}
         </button>
-      </div>
-
-      <div className="flex w-fit gap-1 rounded-xl border border-gray-200 bg-white p-1">
-        <button onClick={() => setAba('rotina')} className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition ${aba === 'rotina' ? 'bg-[#1B6CA8] text-white' : 'text-gray-500 hover:bg-gray-50'}`}>📋 Tarefas</button>
-        <button onClick={() => setAba('pagamento')} className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition ${aba === 'pagamento' ? 'bg-[#1B6CA8] text-white' : 'text-gray-500 hover:bg-gray-50'}`}>💳 Pagamentos</button>
       </div>
 
       {(novo || editando) && (
@@ -86,7 +83,7 @@ export function LembretesClient({
           lembrete={editando}
           perfis={perfis}
           cargos={cargos}
-          tipoInicial={aba}
+          tipoInicial={somenteTipo ?? 'rotina'}
           onFechar={fechar}
         />
       )}
@@ -94,10 +91,11 @@ export function LembretesClient({
       {lembretesFiltrados.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-16 text-center">
           <div className="mb-3 text-4xl">🔔</div>
-          <p className="font-semibold text-gray-700">Nenhum lembrete ainda</p>
+          <p className="font-semibold text-gray-700">{somenteTipo === 'pagamento' ? 'Nenhum pagamento ainda' : 'Nenhuma tarefa ainda'}</p>
           <p className="mx-auto mt-1 max-w-md text-sm text-gray-400">
-            Ex: “Conferir o caixa” pra Duda às 18:30, de segunda a sábado. No horário, aparece
-            um aviso no painel dela — e você vê quando ela marcar como feito.
+            {somenteTipo === 'pagamento'
+              ? 'Ex: PIX fixo do motoboy toda segunda às 09:00. No horário, aparece um aviso e você marca como pago (com comprovante).'
+              : 'Ex: “Conferir o caixa” pra Duda às 18:30, de segunda a sábado. No horário, aparece um aviso no painel dela — e você vê quando ela marcar como feito.'}
           </p>
         </div>
       ) : (
@@ -243,13 +241,7 @@ function Formulario({
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Tipo</label>
-            <select name="tipo" value={tipo} onChange={(e) => setTipo(e.target.value)} className="field">
-              <option value="rotina">Rotina</option>
-              <option value="pagamento">Pagamento</option>
-            </select>
-          </div>
+          <input type="hidden" name="tipo" value={tipo} />
           {tipo === 'pagamento' && (
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700">Valor (R$)</label>

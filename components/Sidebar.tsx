@@ -122,6 +122,7 @@ const navCompleto: NavGroup[] = [
       { href: '/painel/vales-credito', label: 'Créditos de Clientes', permissao: 'financeiro' },
       { href: '/painel/contas',        label: 'Contas',               permissao: 'financeiro' },
       { href: '/painel/fechamento-mes', label: 'Fechamento do Mês',    permissao: 'financeiro' },
+      { href: '/painel/pagamentos-recorrentes', label: 'Pagamentos Recorrentes', permissao: 'financeiro' },
     ],
   },
   {

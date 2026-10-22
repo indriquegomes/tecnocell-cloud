@@ -28,6 +28,7 @@ export default async function LembretesPage() {
       perfis={perfisRes.data ?? []}
       cargos={cargosRes.data ?? []}
       feitosHoje={feitos}
+      somenteTipo="rotina"
     />
   )
 }
