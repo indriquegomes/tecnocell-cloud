@@ -30,12 +30,36 @@ antiga, ou quitação/nota manual lançada fora dessas 20, aparecia devendo meno
 - 1.016 clientes com venda no app.
 - **10 cadastros mostravam valor diferente do real, somando R$ 10.440,51 a menos.**
 - Pior caso: card mostrava **R$ 1.667,00** para dívida real de **R$ 6.288,40**.
+- ⚠️ **Correção do número (22/10):** aquela primeira medição só comparava clientes que
+  tinham venda no app. A varredura completa dá **12 cadastros e R$ 11.838,81** — os dois
+  que faltaram (ALMA TECH R$ 608,30 e a cliente da nota de R$ 790) não têm venda no app.
+  Número correto para citar: **12 cadastros, R$ 11.838,81**.
 
 **Correção:** a tela passou a usar a **mesma regra da tela Fiados** — lançamento
 `tipo='receber'` + `status='pendente'`, onde o dono é o `pessoa_id` da nota ou, nas notas
 antigas sem `pessoa_id`, a pessoa da venda ligada (435 notas hoje). Não se casa por NOME:
 dois cadastros com o mesmo nome fazem a dívida de um aparecer no outro (testei — gerava
 atribuição errada e foi descartado).
+
+**Quem era escondido (varredura completa, 22/10):**
+
+| Cliente | Card mostrava | Real | Faltava | Notas escondidas |
+|---|---|---|---|---|
+| TRICELL 16 DE MARÇO | R$ 1.667,00 | R$ 6.288,40 | R$ 4.621,40 | 48 |
+| TRICELL MR - MR CELL | R$ 1.107,00 | R$ 3.256,00 | R$ 2.149,00 | 24 |
+| TRICELL CURSO LOJA | R$ 1.156,00 | R$ 2.251,00 | R$ 1.095,00 | 13 |
+| SMART PHONE | R$ 1.334,90 | R$ 2.385,42 | R$ 1.050,52 | 9 |
+| Isabela Ponciano Camara | R$ 0,00 | R$ 790,00 | R$ 790,00 | 1 |
+| ALMA TECH ACESSÓRIOS | R$ 0,00 | R$ 608,30 | R$ 608,30 | 1 |
+| CENTRAL TECH / UP CELL / PAC TEC | R$ 1.166,00 | R$ 1.723,00 | R$ 557,00 | 10 |
+| LUIS GUILHERME FONTOURA SAMPAIO SIQUEIRA DA SILVA | R$ 0,00 | R$ 364,85 | R$ 364,85 | 1 |
+| BRUNA ALVES | R$ 158,00 | R$ 465,00 | R$ 307,00 | 3 |
+| Nikollas Bernardo Leocadio | R$ 0,00 | R$ 125,74 | R$ 125,74 | 2 |
+| FORCELL CENTRO | R$ 1.366,00 | R$ 1.472,00 | R$ 106,00 | 1 |
+| Maria Eduarda Kappler da Silva | R$ 427,30 | R$ 491,30 | R$ 64,00 | 1 |
+
+O padrão: três TRICELL (revendedores que compram fiado muitas vezes por mês) concentram
+R$ 7.865,40 dos R$ 11.838,81. Quem compra muito estoura fácil o recorte de 20 vendas.
 
 **Impacto em outras telas:** nenhum. Só o card do cadastro do cliente mudou; a tela
 Fiados já usava essa regra. Nenhum cálculo de caixa, venda ou estoque foi tocado.
@@ -122,6 +146,26 @@ não subir, a tela online continua com o número errado.
   segurança aqui mexe em autenticação — exige decisão e teste do dono.
 - **Nada de banco.** Nenhuma migration foi criada ou aplicada nesta noite.
 
+## Escrita em produção autorizada depois (22/10)
+
+Única alteração de DADO feita nesta frente, autorizada pelo dono ("liga o 790 a ela"):
+
+| Antes | Depois |
+|---|---|
+| `lancamentos.id = 7498c104-e1cf-4513-b5e9-8881bb00184e` — R$ 790,00, `itens diversos`, venc 19/12/2026, `pessoa_id = null` | mesmo registro com `pessoa_id =` cadastro da cliente |
+
+- Motivo: era a **única** nota do banco sem dono identificável. Casava só pelo nome, então
+  aparecia na tela Fiados e **não** aparecia no cadastro da cliente (card mostrava R$ 0,00).
+- Travas aplicadas antes de gravar: a nota tinha que estar `receber`/`pendente`, com valor
+  exatamente R$ 790, sem `pessoa_id`, e o nome da nota tinha que ser idêntico ao nome do
+  cadastro de destino. Tudo conferido; 1 linha alterada.
+- Resultado conferido: card da cliente passou a mostrar **R$ 790,00**; notas sem dono no
+  banco agora são **0**.
+- **Reversão:** `UPDATE lancamentos SET pessoa_id = NULL WHERE id = '7498c104-e1cf-4513-b5e9-8881bb00184e';`
+- Nenhum outro campo da nota foi tocado (valor, vencimento, loja, status continuam iguais).
+
 ## Estado do repositório
 
-Branch local `noite/2026-10-21`, **sem push**. `main` intacta, produção intacta.
+Branch local `noite/2026-10-21` foi mergeada na `main` e publicada (`84379be`, `14d1a0f`,
+`3ddde37`). A nota de R$ 790 foi ligada depois disso — mudança de dado, não de código, e
+não gera commit.
