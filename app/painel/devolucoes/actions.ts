@@ -1,6 +1,6 @@
 'use server'
 
-import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissao, permissoesEfetivas } from '@/lib/supabase/server'
 import { logAtividade } from '@/lib/log-atividade'
 import { sincronizarEstoqueML } from '@/lib/mercado-livre'
 import { palavrasBusca } from '@/lib/busca-produtos'
@@ -352,6 +352,23 @@ export async function registrarDevolucao(
 ): Promise<{ id: string; abate_fiado: number; reembolso: number; saldo_devedor: number | null }> {
   const usuario = await requirePermissao('devolucoes', accessToken)
   const supabase = await createServiceClient()
+  const { isMaster } = await permissoesEfetivas(usuario.id)
+
+  // Dados da venda pra travar o reembolso na forma certa (não confia no cliente).
+  const [{ data: vendaOrig }, { data: pagOrig }] = await Promise.all([
+    supabase.from('vendas').select('created_at').eq('id', input.venda_id).maybeSingle(),
+    supabase.from('pagamentos_venda').select('forma_pagamento_id, formas_pagamento(tipo)').eq('venda_id', input.venda_id),
+  ])
+  const vendaDia = ((vendaOrig as { created_at?: string } | null)?.created_at ?? '').slice(0, 10)
+  const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  const temCartao = ((pagOrig ?? []) as { formas_pagamento?: { tipo?: string } | { tipo?: string }[] | null }[]).some((p) => {
+    const f = p.formas_pagamento
+    const t = Array.isArray(f) ? (f[0]?.tipo ?? '') : (f?.tipo ?? '')
+    return t === 'cartao_credito' || t === 'cartao_debito'
+  })
+  const vaiSairPix = input.reembolsos && input.reembolsos.length > 0
+    ? input.reembolsos.some((r) => r.tipo === 'pix' && r.valor > 0.005)
+    : input.tipo_credito === 'pix'
 
   // TRAVA: devolver DINHEIRO exige caixa aberto.
   //
@@ -367,6 +384,17 @@ export async function registrarDevolucao(
   const vaiSairDinheiro = input.reembolsos && input.reembolsos.length > 0
     ? input.reembolsos.some((r) => r.tipo === 'dinheiro' && r.valor > 0.005)
     : input.tipo_credito === 'dinheiro'
+
+  // REGRA 1: dinheiro só no MESMO dia da venda (outro dia → PIX).
+  if (vaiSairDinheiro && vendaDia && vendaDia !== hoje) {
+    const dd = vendaDia.slice(8, 10) + '/' + vendaDia.slice(5, 7) + '/' + vendaDia.slice(0, 4)
+    throw new Error(`Devolução em dinheiro só no MESMO dia da venda. Esta venda é de ${dd} — devolva em PIX.`)
+  }
+
+  // REGRA 2: venda paga em cartão → devolver em PIX só com o master.
+  if (temCartao && vaiSairPix && !isMaster) {
+    throw new Error('Venda paga em cartão: devolver em PIX só com autorização do master. Faça o estorno no cartão ou chame o master pra liberar.')
+  }
 
   if (vaiSairDinheiro) {
     if (!input.deposito_id) {
