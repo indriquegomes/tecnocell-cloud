@@ -414,16 +414,28 @@ async function registrarDevolucaoInterno(
     ? input.reembolsos.some((r) => r.tipo === 'dinheiro' && r.valor > 0.005)
     : input.tipo_credito === 'dinheiro'
 
-  // ═══ REGRAS DE DEVOLUÇÃO ═══════════════════════════════════════════════════
-  // Política do dono (22/10): a regra é o caminho correto e o aviso TEM que ensinar
-  // isso; se o cliente insistir, a atendente chama o master; o master pode quebrar a
-  // regra. Toda quebra fica registrada no log com `regra_quebrada` — sem isso o
-  // override vira invisível e não dá pra auditar depois.
+  // ═══ REGRAS DE DEVOLUÇÃO — política do dono (22/10) ═════════════════════════
+  // Princípio: a devolução sai pela MESMA forma que entrou.
+  //   dinheiro  → dinheiro (só no mesmo dia)
+  //   PIX       → PIX
+  //   cartão    → estorno na maquininha
+  //   crédito   → sempre permitido (é saldo na loja, não sai dinheiro de lugar nenhum)
+  // Quebrar a regra é possível, mas só com o master, e fica registrado. O aviso sempre
+  // ensina o caminho correto e manda chamar o master se o cliente insistir.
   const regrasQuebradas: string[] = []
+  const nomeForma: Record<string, string> = {
+    dinheiro: 'DINHEIRO', pix: 'PIX', cartao_credito: 'CARTÃO DE CRÉDITO',
+    cartao_debito: 'CARTÃO DE DÉBITO', vale_credito: 'VALE-CRÉDITO', fiado: 'FIADO',
+  }
+  const classeDaForma = (t: string) => (t === 'cartao_credito' || t === 'cartao_debito' ? 'cartao' : t)
+  const classesVenda = [...new Set(tiposPag.map(classeDaForma))]
+  const comoEntrou = [...new Set(tiposPag.map((t) => nomeForma[t] ?? t))].join(' + ') || 'forma não identificada'
+  const ddVenda = vendaDia ? vendaDia.slice(8, 10) + '/' + vendaDia.slice(5, 7) + '/' + vendaDia.slice(0, 4) : '—'
+  const mesmoDia = !!vendaDia && vendaDia === hoje
 
-  // Recusa fica REGISTRADA. Antes, quando a regra bloqueava, não sobrava nada no
-  // banco — em 22/10 o dono tentou 3x na venda #9137 e não deu pra saber por quê,
-  // só dava pra deduzir. Agora cada bloqueio vira linha em logs_atividade.
+  // Recusa fica REGISTRADA. Quando a regra bloqueava, não sobrava nada no banco — em
+  // 22/10 o dono tentou 3x na venda #9137 e não deu pra saber por quê. Agora cada
+  // bloqueio vira linha em logs_atividade.
   const barrarOuLiberar = async (regra: string, resumo: string, alternativa: string) => {
     if (isMaster) {
       regrasQuebradas.push(`${regra}: ${resumo}`)
@@ -444,49 +456,62 @@ async function registrarDevolucaoInterno(
     )
   }
 
-  // REGRA 1: dinheiro só no MESMO dia da venda.
-  if (vaiSairDinheiro && vendaDia && vendaDia !== hoje) {
-    const dd = vendaDia.slice(8, 10) + '/' + vendaDia.slice(5, 7) + '/' + vendaDia.slice(0, 4)
+  // REGRA 1: DINHEIRO só no MESMO dia da venda (a gaveta daquele dia já foi contada).
+  if (vaiSairDinheiro && vendaDia && !mesmoDia) {
     await barrarOuLiberar(
       'REGRA 1 (dinheiro só no mesmo dia)',
-      `devolução em DINHEIRO só no mesmo dia da venda — esta venda é de ${dd}, e o caixa daquele dia já foi fechado.`,
-      `devolver em PIX ou como crédito.`,
+      `devolução em DINHEIRO só no mesmo dia da venda — esta venda é de ${ddVenda}, e o caixa daquele dia já foi fechado.`,
+      'devolver em PIX ou como crédito. Se o cliente só aceitar dinheiro, chame o master.',
     )
   }
 
-  // REGRA 2: venda paga em cartão → PIX só com o master.
+  // REGRA 2: venda em CARTÃO devolve por ESTORNO na maquininha. PIX só com master.
   if (temCartao && vaiSairPix) {
     await barrarOuLiberar(
-      'REGRA 2 (cartão não devolve em PIX)',
-      'venda paga em CARTÃO não devolve em PIX — o dinheiro está na maquininha/adquirente, não na conta.',
-      'fazer o estorno na maquininha ou devolver como crédito.',
+      'REGRA 2 (cartão devolve por estorno)',
+      'venda paga em CARTÃO devolve por ESTORNO na maquininha — o dinheiro está na adquirente, não na conta.',
+      'fazer o estorno na maquininha ou devolver como crédito. Se não conseguir o estorno, chame o master.',
     )
   }
 
-  // REGRA 3: venda paga 100% em dinheiro → PIX só com o master.
-  // O valor entrou na GAVETA; devolver por PIX paga com dinheiro do banco e deixa
-  // a gaveta com a venda na mão. Em 22/10 isso passou direto num teste do dono
-  // (venda #9049) porque a REGRA 2 só olhava cartão.
+  // REGRA 3: venda em DINHEIRO devolve em DINHEIRO. PIX só com master.
+  // O valor entrou na GAVETA; devolver por PIX paga com dinheiro do banco e deixa a
+  // gaveta com a venda na mão (aconteceu de verdade na venda #9049 em 22/10).
   if (soDinheiro && vaiSairPix) {
     await barrarOuLiberar(
-      'REGRA 3 (venda em dinheiro não devolve em PIX)',
+      'REGRA 3 (dinheiro devolve em dinheiro)',
       'esta venda foi paga em DINHEIRO — o valor está na gaveta, não no banco.',
-      'devolver em dinheiro (mesmo dia da venda) ou como crédito.',
+      mesmoDia
+        ? 'devolver em dinheiro (a venda é de hoje) ou como crédito.'
+        : `devolver como crédito, ou pedir autorização do master para devolver em PIX (a venda é de ${ddVenda}).`,
     )
   }
 
   // REGRA 4: venda que NÃO entrou em dinheiro não devolve em DINHEIRO.
-  // É o espelho da regra 3 e faltava: em 22/10 a venda #9137 (R$ 61,00 pagos em PIX)
-  // foi devolvida em dinheiro e o caixa perdeu R$ 61 que nunca passaram pela gaveta.
-  // A regra 1 só olhava o DIA, não a origem do dinheiro.
-  const teveDinheiroNaVenda = tiposPag.some((t) => t === 'dinheiro')
-  if (vaiSairDinheiro && tiposPag.length > 0 && !teveDinheiroNaVenda) {
-    const nomes: Record<string, string> = { pix: 'PIX', cartao_credito: 'crédito', cartao_debito: 'débito', vale_credito: 'vale-crédito', fiado: 'fiado' }
-    const comoEntrou = [...new Set(tiposPag.map((t) => nomes[t] ?? t))].join(' + ')
+  // Espelho da regra 3. Em 22/10 a venda #9137 (R$ 61,00 em PIX) foi devolvida em
+  // dinheiro e o caixa perdeu R$ 61 que nunca passaram pela gaveta.
+  if (vaiSairDinheiro && tiposPag.length > 0 && !classesVenda.includes('dinheiro')) {
     await barrarOuLiberar(
       'REGRA 4 (venda sem dinheiro não devolve em dinheiro)',
-      `esta venda foi paga em ${comoEntrou.toUpperCase()} — nenhum valor entrou na gaveta, então devolver em DINHEIRO tira da gaveta um dinheiro que não veio dela.`,
+      `esta venda foi paga em ${comoEntrou} — nenhum valor entrou na gaveta, então devolver em DINHEIRO tira da gaveta um dinheiro que não veio dela.`,
       `devolver na MESMA forma que entrou (${comoEntrou}) ou como crédito.`,
+    )
+  }
+
+  // REGRA 5: venda que NÃO passou na maquininha não devolve por ESTORNO de cartão.
+  // "Cartão só em estorno" (política do dono): estorno é desfazer uma passada na
+  // adquirente. Se a venda entrou em dinheiro/PIX, não existe transação para estornar.
+  // Atenção: a forma de reembolso usa as chaves 'debito'/'credito' (não
+  // 'cartao_debito'/'cartao_credito'), por isso a classe é normalizada aqui.
+  const classeDoReembolso = (t: string) => (t === 'debito' || t === 'credito' ? 'cartao' : t)
+  const vaiSairCartao = input.reembolsos && input.reembolsos.length > 0
+    ? input.reembolsos.some((r) => classeDoReembolso(r.tipo) === 'cartao' && r.valor > 0.005)
+    : classeDoReembolso(input.tipo_credito) === 'cartao'
+  if (vaiSairCartao && tiposPag.length > 0 && !classesVenda.includes('cartao')) {
+    await barrarOuLiberar(
+      'REGRA 5 (estorno só de venda no cartão)',
+      `esta venda foi paga em ${comoEntrou} — não passou na maquininha, então não há o que estornar.`,
+      'devolver na MESMA forma que entrou ou como crédito. Se não houver como, chame o master.',
     )
   }
 
