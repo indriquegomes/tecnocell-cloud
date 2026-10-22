@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { FinanceiroTabs } from '../FinanceiroTabs'
 import { PlanejamentoConfig } from './PlanejamentoConfig'
 import { formatBRL, hojeSP } from '@/lib/utils'
@@ -16,14 +16,19 @@ export default async function FluxoPage({ searchParams }: { searchParams: Promis
   const margem = typeof raw.margem === 'number' ? raw.margem : 10
 
   const hoje = hojeSP()
-  const { data: lancs } = await supabase.from('lancamentos')
-    .select('descricao, valor, categoria, data_vencimento, pessoa_nome')
+  // fetchAll: sem paginar, o PostgREST corta em 1000 linhas e o fluxo futuro (e a
+  // sugestão de transferência, que sai das fixas do mês) passa a subnotificar sem
+  // avisar. A ordem vai com `id` de desempate — página com ordem que empata pode
+  // pular/duplicar linha entre as fatias.
+  const lancs = await fetchAll<Lanc & { id: string }>((from, to) => supabase.from('lancamentos')
+    .select('id, descricao, valor, categoria, data_vencimento, pessoa_nome')
     .eq('tipo', 'pagar').eq('status', 'pendente').gte('data_vencimento', hoje)
-    .order('data_vencimento')
+    .order('data_vencimento').order('id')
+    .range(from, to))
 
   const porMes: Record<string, { total: number; fixas: number }> = {}
   const [ay, am] = hoje.split('-').map(Number)
-  for (const l of (lancs ?? []) as Lanc[]) {
+  for (const l of lancs) {
     const mes = (l.data_vencimento ?? '').slice(0, 7)
     if (!mes || mes < hoje.slice(0, 7)) continue
     const [y, m] = mes.split('-').map(Number)

@@ -1,4 +1,4 @@
-import { createServiceClient, permissoesUsuarioAtual } from '@/lib/supabase/server'
+import { createServiceClient, permissoesUsuarioAtual, fetchAll } from '@/lib/supabase/server'
 import { temPermissao } from '@/lib/permissoes'
 import { hojeSP } from '@/lib/utils'
 import { PessoaForm, type PessoaEdit } from '../../PessoaForm'
@@ -18,21 +18,43 @@ export default async function EditarClientePage({
   const { erro } = await searchParams
   const supabase = await createServiceClient()
 
-  const [{ data: pessoa }, { data: tabelas }, { data: vendedores }, { data: vendas }, { data: creds }, { data: oss }, { data: lojas }] = await Promise.all([
+  const [{ data: pessoa }, { data: tabelas }, { data: vendedores }, vendasTodas, { data: creds }, { data: oss }, { data: lojas }] = await Promise.all([
     supabase.from('pessoas').select('*').eq('id', id).single(),
     supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).eq('usa_preco_custo', false).order('nome'),
     supabase.from('perfis').select('id, nome').eq('ativo', true).order('nome'),
-    supabase.from('vendas').select('id, numero, total, created_at, status').eq('pessoa_id', id).order('created_at', { ascending: false }).limit(20),
+    // Todas as vendas do cliente (paginado): a lista abaixo mostra só as 20 últimas,
+    // mas o "no app" do card é o TOTAL — com .limit(20) ele subnotificava quem tem
+    // mais de 20 compras no app.
+    fetchAll<{ id: string; numero: number | null; total: number | null; created_at: string; status: string | null }>((from, to) =>
+      supabase.from('vendas').select('id, numero, total, created_at, status')
+        .eq('pessoa_id', id).order('created_at', { ascending: false }).order('id').range(from, to)),
     supabase.from('creditos_clientes').select('tipo, valor, loja_id').eq('pessoa_id', id),
     supabase.from('ordens_servico').select('id, numero, aparelho, modelo, status, total, created_at').eq('pessoa_id', id).order('created_at', { ascending: false }).limit(20),
     supabase.from('lojas').select('id, nome').order('nome'),
   ])
   if (!pessoa) notFound()
+  const vendas = vendasTodas.slice(0, 20)
 
-  const vendaIds = (vendas ?? []).map((v) => v.id)
-  const { data: lancs } = vendaIds.length
-    ? await supabase.from('lancamentos').select('valor, valor_pago').in('venda_id', vendaIds).eq('tipo', 'receber').eq('status', 'pendente')
-    : { data: [] as { valor: number | null; valor_pago: number | null }[] }
+  // FIADO EM ABERTO — mesma regra da tela Fiados (lançamentos tipo receber + status
+  // pendente, dono = pessoa_id da nota ou, quando a nota é antiga e não tem pessoa_id,
+  // a pessoa da venda ligada). Antes somava só as notas presas às 20 últimas vendas:
+  // cliente com dívida em venda antiga aparecia devendo menos do que deve — um caso
+  // real ia mostrar R$ 1.667,00 com R$ 6.288,40 em aberto. Não casar por NOME: dois
+  // cadastros com o mesmo nome fazem a dívida de um aparecer no outro.
+  type LancAberto = { id: string; valor: number | null; valor_pago: number | null }
+  const [porPessoa, semPessoa] = await Promise.all([
+    fetchAll<LancAberto>((from, to) => supabase.from('lancamentos').select('id, valor, valor_pago')
+      .eq('tipo', 'receber').eq('status', 'pendente').eq('pessoa_id', id).order('id').range(from, to)),
+    // notas antigas sem pessoa_id: quem resolve é a venda (435 linhas hoje — uma página)
+    fetchAll<LancAberto & { venda_id: string | null }>((from, to) => supabase.from('lancamentos')
+      .select('id, valor, valor_pago, venda_id')
+      .eq('tipo', 'receber').eq('status', 'pendente').is('pessoa_id', null).not('venda_id', 'is', null)
+      .order('id').range(from, to)),
+  ])
+  const minhasVendas = new Set(vendasTodas.map((v) => v.id))
+  const abertos = new Map<string, LancAberto>()
+  for (const l of porPessoa) abertos.set(l.id, l)
+  for (const l of semPessoa) if (l.venda_id && minhasVendas.has(l.venda_id)) abertos.set(l.id, l)
 
   // Histórico de compras importado do SIGE (casado pelo nome do cliente)
   const mesAtras = hojeSP(-30)
@@ -51,7 +73,7 @@ export default async function EditarClientePage({
   }))
   const compras = [...comprasApp, ...comprasSige].sort((a, b) => (b.data || '').localeCompare(a.data || ''))
 
-  const fiadoPendente = (lancs ?? []).reduce((s, l) => s + ((l.valor ?? 0) - (l.valor_pago ?? 0)), 0)
+  const fiadoPendente = [...abertos.values()].reduce((s, l) => s + ((l.valor ?? 0) - (l.valor_pago ?? 0)), 0)
   // Saldo por LOJA (vale-crédito é por loja). 'uso'/'estorno' subtraem; 'credito' soma.
   const lojaNomeMap: Record<string, string> = Object.fromEntries((lojas ?? []).map((l) => [l.id, l.nome ?? '—']))
   const saldoPorLoja: Record<string, number> = {}
@@ -59,7 +81,7 @@ export default async function EditarClientePage({
     const k = c.loja_id ?? ''
     saldoPorLoja[k] = (saldoPorLoja[k] ?? 0) + ((c.tipo === 'uso' || c.tipo === 'estorno') ? -(c.valor ?? 0) : (c.valor ?? 0))
   }
-  const totalComprado = (vendas ?? []).reduce((s, v) => s + (v.total ?? 0), 0)
+  const totalComprado = vendasTodas.reduce((s, v) => s + (v.total ?? 0), 0)
   const limite = Number(pessoa.limite_credito ?? 0)
   const { permissoes, isMaster } = await permissoesUsuarioAtual()
   const podeCredito = temPermissao(permissoes, 'credito_limite', isMaster)
