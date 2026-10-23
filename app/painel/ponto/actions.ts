@@ -15,16 +15,22 @@ async function bater(tipo: 'entrada' | 'saida', pin?: string): Promise<Res> {
   try {
     const { id } = await requireAuth()
     const s = await createServiceClient()
-    const { data: perfil } = await s.from('perfis').select('pdv_loja_id, pin_ponto').eq('id', id).maybeSingle()
-    const pp = perfil as { pdv_loja_id?: string | null; pin_ponto?: string | null } | null
     // PIN de 4 dígitos: confirma que é a própria pessoa (evita bater no login errado).
-    // Tolerante: se a coluna pin_ponto ainda não existir (migration não rodou), usa '1234'.
-    const pinSalvo = pp?.pin_ponto || '1234'
+    // Tolerante: se a coluna pin_ponto ainda não existir (migration não rodou), busca só
+    // a loja e usa '1234' — senão o ponto sairia com loja nula.
+    const { data: perfil, error: errPerfil } = await s.from('perfis').select('pdv_loja_id, pin_ponto').eq('id', id).maybeSingle()
+    let pdvLojaId = (perfil as { pdv_loja_id?: string | null } | null)?.pdv_loja_id ?? null
+    let pinSalvo = (perfil as { pin_ponto?: string | null } | null)?.pin_ponto || '1234'
+    if (errPerfil) {
+      const { data: soLoja } = await s.from('perfis').select('pdv_loja_id').eq('id', id).maybeSingle()
+      pdvLojaId = (soLoja as { pdv_loja_id?: string | null } | null)?.pdv_loja_id ?? null
+      pinSalvo = '1234'
+    }
     if ((pin ?? '').trim() !== pinSalvo) return { ok: false, erro: 'PIN incorreto.' }
     const { data, error } = await s.rpc('bater_ponto', {
       p_usuario_id: id,
       p_tipo: tipo,
-      p_loja_id: pp?.pdv_loja_id ?? null,
+      p_loja_id: pdvLojaId,
     })
     if (error) return { ok: false, erro: error.message }
     const r = data as { ok: boolean; erro?: string }

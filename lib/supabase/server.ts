@@ -25,7 +25,7 @@ export async function fetchAll<T>(
 export async function fetchAllIn<T>(
   ids: string[],
   make: (chunk: string[], from: number, to: number) => PromiseLike<{ data: T[] | null }>,
-  chunkSize = 100,
+  chunkSize = 200,
 ): Promise<T[]> {
   const out: T[] = []
   for (let i = 0; i < ids.length; i += chunkSize) {

@@ -121,16 +121,26 @@ export async function verificarDiaFolga(token: string): Promise<{ folga: boolean
 
 // Registra uma batida de ponto (entrada/pausa/retorno/saida) do usuário logado.
 // dobraTipo/dobraData só valem na ENTRADA em dia de folga/feriado ('extra' ou 'troca').
-export async function baterPonto(token: string, tipo: string, dobraTipo?: string, dobraData?: string): Promise<{ ok: boolean; message?: string; ponto?: Ponto }> {
+export async function baterPonto(token: string, tipo: string, dobraTipo?: string, dobraData?: string, pin?: string): Promise<{ ok: boolean; message?: string; ponto?: Ponto; saiu?: boolean }> {
   const user = await requireAuth(token)
   if (!['entrada', 'pausa', 'retorno', 'saida'].includes(tipo)) return { ok: false, message: 'Tipo inválido' }
   const s = await createServiceClient()
-  const { data: perfil } = await s.from('perfis').select('pdv_loja_id').eq('id', user.id).maybeSingle()
+  // PIN de 4 dígitos: confirma que é a própria pessoa (evita bater no login errado).
+  // Tolerante: se a coluna pin_ponto ainda não existir (migration não rodou), usa '1234'.
+  const { data: perfil, error: errPerfil } = await s.from('perfis').select('pdv_loja_id, pin_ponto').eq('id', user.id).maybeSingle()
+  let pdvLojaId = (perfil as { pdv_loja_id?: string | null } | null)?.pdv_loja_id ?? null
+  let pinSalvo = (perfil as { pin_ponto?: string | null } | null)?.pin_ponto || '1234'
+  if (errPerfil) {
+    const { data: soLoja } = await s.from('perfis').select('pdv_loja_id').eq('id', user.id).maybeSingle()
+    pdvLojaId = (soLoja as { pdv_loja_id?: string | null } | null)?.pdv_loja_id ?? null
+    pinSalvo = '1234'
+  }
+  if ((pin ?? '').trim() !== pinSalvo) return { ok: false, message: 'PIN incorreto.' }
   const { data, error } = await s.from('pontos')
     .insert({
       usuario_id: user.id,
       tipo,
-      loja_id: (perfil as { pdv_loja_id?: string | null } | null)?.pdv_loja_id ?? null,
+      loja_id: pdvLojaId,
       dobra_tipo: tipo === 'entrada' ? (dobraTipo || null) : null,
       dobra_data: tipo === 'entrada' && dobraTipo === 'troca' ? (dobraData || null) : null,
     })
@@ -141,7 +151,7 @@ export async function baterPonto(token: string, tipo: string, dobraTipo?: string
     await aplicarDobra(s, user.id, hoje)
     await aplicarHoraExtra(s, user.id, hoje)
   }
-  return { ok: true, ponto: data as Ponto }
+  return { ok: true, ponto: data as Ponto, saiu: tipo === 'saida' }
 }
 
 // Batidas de HOJE do usuário logado (fuso America/Sao_Paulo).

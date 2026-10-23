@@ -122,24 +122,26 @@ export default async function RelatoriosPage({
     const { data: formasCad } = await supabase.from('formas_pagamento').select('id, nome').order('nome')
     formasVendas = (formasCad ?? []) as { id: string; nome: string }[]
     const nomeForma = Object.fromEntries(formasVendas.map((f) => [f.id, f.nome]))
-    // clientes
+    // clientes + pagamentos por venda: independentes entre si, rodam em paralelo.
+    // Antes eram 2 fetchAllIn em fila (clientes depois pagamentos) — dobrava o tempo
+    // de carga do relatório de Vendas, o mais usado.
     const pids = [...new Set(raw.map((v) => v.pessoa_id).filter(Boolean))] as string[]
-    let nomeCliente: Record<string, string> = {}
-    if (pids.length) {
-      const ps = await fetchAllIn<{ id: string; nome: string }>(pids, (chunk, from, to) => supabase.from('pessoas').select('id, nome').in('id', chunk).range(from, to))
-      nomeCliente = Object.fromEntries(ps.map((p) => [p.id, p.nome]))
-    }
-    // pagamentos por venda (múltiplas formas — tabela filha pagamentos_venda)
     const vids = raw.map((v) => v.id)
+    const [pessoasRes, pags] = await Promise.all([
+      pids.length
+        ? fetchAllIn<{ id: string; nome: string }>(pids, (chunk, from, to) => supabase.from('pessoas').select('id, nome').in('id', chunk).range(from, to))
+        : Promise.resolve([] as { id: string; nome: string }[]),
+      vids.length
+        ? fetchAllIn<{ venda_id: string; forma_pagamento_id: string | null; valor: number }>(vids, (chunk, from, to) => supabase.from('pagamentos_venda').select('venda_id, forma_pagamento_id, valor').in('venda_id', chunk).range(from, to))
+        : Promise.resolve([] as { venda_id: string; forma_pagamento_id: string | null; valor: number }[]),
+    ])
+    const nomeCliente = Object.fromEntries(pessoasRes.map((p) => [p.id, p.nome]))
     const pagsPorVenda: Record<string, { nome: string; valor: number }[]> = {}
     const idsPorVenda: Record<string, Set<string>> = {}
-    if (vids.length) {
-      const pags = await fetchAllIn<{ venda_id: string; forma_pagamento_id: string | null; valor: number }>(vids, (chunk, from, to) => supabase.from('pagamentos_venda').select('venda_id, forma_pagamento_id, valor').in('venda_id', chunk).range(from, to))
-      for (const p of pags) {
-        const nome = (p.forma_pagamento_id && nomeForma[p.forma_pagamento_id]) || 'Não informado'
-        ;(pagsPorVenda[p.venda_id] ||= []).push({ nome, valor: p.valor ?? 0 })
-        if (p.forma_pagamento_id) (idsPorVenda[p.venda_id] ||= new Set()).add(p.forma_pagamento_id)
-      }
+    for (const p of pags) {
+      const nome = (p.forma_pagamento_id && nomeForma[p.forma_pagamento_id]) || 'Não informado'
+      ;(pagsPorVenda[p.venda_id] ||= []).push({ nome, valor: p.valor ?? 0 })
+      if (p.forma_pagamento_id) (idsPorVenda[p.venda_id] ||= new Set()).add(p.forma_pagamento_id)
     }
     const base = raw.map((v) => ({
       id: v.id, numero: v.numero, total: v.total ?? 0, desconto: v.desconto ?? 0,
@@ -283,14 +285,19 @@ export default async function RelatoriosPage({
     catsCond = (cats ?? []).map((c) => ({ cod: c.hierarquia as string, nome: c.nome as string }))
     const pids = Object.keys(porProduto)
     if (pids.length) {
-      const prodsMeta = await fetchAllIn<{ id: string; codigo: string | null; marca: string | null; fornecedor_id: string | null; preco_custo: number | null }>(pids, (chunk, from, to) => supabase.from('produtos').select('id, codigo, marca, fornecedor_id, preco_custo').in('id', chunk).range(from, to))
+      // prodsMeta (código/marca/fornecedor) e estoque por depósito são independentes:
+      // rodam em paralelo. Antes eram 2 fetchAllIn em fila, cada um paginando a lista
+      // inteira de produtos da aba — dobrava o tempo da aba Lucro.
+      const [prodsMeta, estoqueRows] = await Promise.all([
+        fetchAllIn<{ id: string; codigo: string | null; marca: string | null; fornecedor_id: string | null; preco_custo: number | null }>(pids, (chunk, from, to) => supabase.from('produtos').select('id, codigo, marca, fornecedor_id, preco_custo').in('id', chunk).range(from, to)),
+        fetchAllIn<{ produto_id: string; deposito_id: string; quantidade: number }>(pids, (chunk, from, to) => supabase.from('estoque').select('produto_id, deposito_id, quantidade').in('produto_id', chunk).range(from, to)),
+      ])
       const metaById = Object.fromEntries(prodsMeta.map((p) => [p.id, p]))
+      const estoquePorProd: Record<string, Record<string, number>> = {}
+      for (const e of estoqueRows) { (estoquePorProd[e.produto_id] ??= {})[e.deposito_id] = (estoquePorProd[e.produto_id][e.deposito_id] ?? 0) + (e.quantidade ?? 0) }
       const fornIds = [...new Set(prodsMeta.map((p) => p.fornecedor_id).filter(Boolean))] as string[]
       let fornById: Record<string, string> = {}
       if (fornIds.length) { const fs = await fetchAllIn<{ id: string; nome: string }>(fornIds, (chunk, from, to) => supabase.from('pessoas').select('id, nome').in('id', chunk).range(from, to)); fornById = Object.fromEntries(fs.map((f) => [f.id, f.nome])) }
-      const estoqueRows = await fetchAllIn<{ produto_id: string; deposito_id: string; quantidade: number }>(pids, (chunk, from, to) => supabase.from('estoque').select('produto_id, deposito_id, quantidade').in('produto_id', chunk).range(from, to))
-      const estoquePorProd: Record<string, Record<string, number>> = {}
-      for (const e of estoqueRows) { (estoquePorProd[e.produto_id] ??= {})[e.deposito_id] = (estoquePorProd[e.produto_id][e.deposito_id] ?? 0) + (e.quantidade ?? 0) }
       condensado = pids.map((pid) => {
         const agg = porProduto[pid]
         const meta = metaById[pid] ?? {}
@@ -389,11 +396,15 @@ export default async function RelatoriosPage({
   let dreReceita = 0, dreDespesas = 0
   let despesasPorCategoria: { categoria: string; valor: number }[] = []
   if (aba === 'dre') {
-    const vs = await fetchAll<{ total: number | null }>((from, to) => fcaixa(supabase.from('vendas').select('total').eq('status', 'concluida').eq('uso_interno', false)
-      .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)).range(from, to))
+    // Receita (vendas) e despesas (lançamentos) são independentes — rodam em
+    // paralelo (antes eram 2 fetchAll em fila).
+    const [vs, ds] = await Promise.all([
+      fetchAll<{ total: number | null }>((from, to) => fcaixa(supabase.from('vendas').select('total').eq('status', 'concluida').eq('uso_interno', false)
+        .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)).range(from, to)),
+      fetchAll<{ valor: number; categoria: string | null }>((from, to) => flanc(supabase.from('lancamentos').select('valor, categoria')
+        .eq('tipo', 'pagar').gte('data_vencimento', dataInicio).lte('data_vencimento', dataFim + 'T23:59:59')).range(from, to)),
+    ])
     dreReceita = (vs ?? []).reduce((s, v) => s + (v.total ?? 0), 0)
-    const ds = await fetchAll<{ valor: number; categoria: string | null }>((from, to) => flanc(supabase.from('lancamentos').select('valor, categoria')
-      .eq('tipo', 'pagar').gte('data_vencimento', dataInicio).lte('data_vencimento', dataFim + 'T23:59:59')).range(from, to))
     const catMap: Record<string, number> = {}
     for (const l of (ds ?? []) as { valor: number; categoria: string | null }[]) {
       dreDespesas += l.valor ?? 0
@@ -480,9 +491,17 @@ export default async function RelatoriosPage({
   let criticos: { nome: string; qtd: number; minimo: number }[] = []
   let previsao: { nome: string; estoque: number; vendido30: number; sugestao: number }[] = []
   if (aba === 'estoque') {
-    const data = await fetchAll((from, to) => supabase.from('estoque')
-      .select('produto_id, quantidade, produtos(nome, preco, preco_custo, estoque_minimo, ativo), depositos(nome)')
-      .gt('quantidade', 0).range(from, to))
+    const limite30 = new Date(Date.now() - 30 * 86400000).toISOString()
+    // Estoque atual e vendas dos últimos 30 dias são independentes — rodam em
+    // paralelo (antes eram 2 fetchAll em fila).
+    const [data, v30] = await Promise.all([
+      fetchAll((from, to) => supabase.from('estoque')
+        .select('produto_id, quantidade, produtos(nome, preco, preco_custo, estoque_minimo, ativo), depositos(nome)')
+        .gt('quantidade', 0).range(from, to)),
+      fetchAll((from, to) => supabase.from('itens_venda')
+        .select('quantidade, produto_id, vendas!inner(created_at, status)')
+        .eq('vendas.status', 'concluida').gte('vendas.created_at', limite30).range(from, to)),
+    ])
     estoque = (data ?? []).map((e) => {
       const p = e.produtos as unknown as { nome: string; preco: number; preco_custo: number | null; estoque_minimo: number | null; ativo: boolean } | null
       return {
@@ -505,10 +524,6 @@ export default async function RelatoriosPage({
       .sort((a, b) => a.qtd - b.qtd)
 
     // Previsão de compra: vendas dos últimos 30 dias × estoque atual
-    const limite30 = new Date(Date.now() - 30 * 86400000).toISOString()
-    const v30 = await fetchAll((from, to) => supabase.from('itens_venda')
-      .select('quantidade, produto_id, vendas!inner(created_at, status)')
-      .eq('vendas.status', 'concluida').gte('vendas.created_at', limite30).range(from, to))
     const vendido30: Record<string, number> = {}
     for (const it of (v30 ?? []) as unknown as { quantidade: number; produto_id: string }[]) {
       vendido30[it.produto_id] = (vendido30[it.produto_id] ?? 0) + it.quantidade
@@ -757,8 +772,13 @@ export default async function RelatoriosPage({
 
   // ---------- Precificação (lista de preços) ----------
   let precos: { nome: string; custo: number; preco: number; minimo: number; margem: number }[] = []
+  let totalPrecos = 0
   if (aba === 'precificacao') {
-    const data = await fetchAll((from, to) => supabase.from('produtos').select('nome, preco, preco_custo, preco_minimo').eq('ativo', true).order('nome').range(from, to))
+    // Só busca as 200 primeiras (AMOSTRA) + o total exato. Antes buscava TODOS os
+    // produtos ativos só pra mostrar 200 e o "de X" — economiza a lista inteira.
+    // O CSV continua completo: o ExportCsvLazy re-busca tudo sob demanda.
+    const { data, count } = await supabase.from('produtos').select('nome, preco, preco_custo, preco_minimo', { count: 'exact' }).eq('ativo', true).order('nome').limit(AMOSTRA)
+    totalPrecos = count ?? 0
     precos = (data ?? []).map((p) => {
       const custo = p.preco_custo ?? 0, preco = p.preco ?? 0
       return { nome: p.nome as string, custo, preco, minimo: (p as { preco_minimo?: number | null }).preco_minimo ?? 0, margem: custo > 0 ? ((preco - custo) / custo) * 100 : 0 }
@@ -814,8 +834,12 @@ export default async function RelatoriosPage({
 
   // ---------- Inventário (folha de contagem) ----------
   let inventario: { nome: string; deposito: string; sistema: number; custo: number }[] = []
+  let totalInventario = 0
   if (aba === 'inventario') {
-    const data = await fetchAll((from, to) => supabase.from('estoque').select('quantidade, produtos(nome, preco_custo), depositos(nome)').gt('quantidade', 0).range(from, to))
+    // Busca as 200 primeiras (por nome) + o total exato. Antes buscava TODAS as
+    // linhas de estoque só pra mostrar 200 e o "de X". O CSV continua completo.
+    const { data, count } = await supabase.from('estoque').select('quantidade, produtos(nome, preco_custo), depositos(nome)', { count: 'exact' }).gt('quantidade', 0).order('produto_id').limit(AMOSTRA)
+    totalInventario = count ?? 0
     inventario = (data ?? []).map((e) => ({
       nome: (e.produtos as unknown as { nome: string } | null)?.nome ?? '—',
       deposito: (e.depositos as unknown as { nome: string } | null)?.nome ?? '—',
@@ -2081,8 +2105,8 @@ export default async function RelatoriosPage({
             <ExportCsvLazy aba="precificacao" filename={`precificacao.csv`}
               cols={[{ key: 'nome', label: 'Produto' }, { key: 'custo', label: 'Custo', money: true }, { key: 'preco', label: 'Preço', money: true }, { key: 'minimo', label: 'Mínimo', money: true }, { key: 'margem', label: 'Margem %' }]} />
           </div>
-          {precos.length > AMOSTRA && <p className="text-[11px] text-gray-400">Mostrando {AMOSTRA} de {precos.length} — exporte o CSV pra lista completa.</p>}
-          <Tabela vazio={precos.length === 0} vazioMsg="Sem produtos." head={['Produto', 'Custo', 'Preço', 'Mínimo', 'Margem']} alinhas={['l', 'r', 'r', 'r', 'r']}>
+          {totalPrecos > AMOSTRA && <p className="text-[11px] text-gray-400">Mostrando {AMOSTRA} de {totalPrecos} — exporte o CSV pra lista completa.</p>}
+          <Tabela vazio={totalPrecos === 0} vazioMsg="Sem produtos." head={['Produto', 'Custo', 'Preço', 'Mínimo', 'Margem']} alinhas={['l', 'r', 'r', 'r', 'r']}>
             {precos.slice(0, AMOSTRA).map((p, i) => (
               <tr key={i} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{p.nome}</td>
@@ -2171,8 +2195,8 @@ export default async function RelatoriosPage({
             <ExportCsvLazy aba="inventario" filename={`inventario_${dataFim}.csv`}
               cols={[{ key: 'nome', label: 'Produto' }, { key: 'deposito', label: 'Depósito' }, { key: 'sistema', label: 'Sistema' }, { key: 'contagem', label: 'Contagem' }, { key: 'custo', label: 'Custo Unit', money: true }]} />
           </div>
-          {inventario.length > AMOSTRA && <p className="text-[11px] text-gray-400">Mostrando {AMOSTRA} de {inventario.length} — exporte o CSV pra folha completa.</p>}
-          <Tabela vazio={inventario.length === 0} vazioMsg="Sem estoque." head={['Produto', 'Depósito', 'Sistema', 'Contagem']} alinhas={['l', 'l', 'r', 'r']}>
+          {totalInventario > AMOSTRA && <p className="text-[11px] text-gray-400">Mostrando {AMOSTRA} de {totalInventario} — exporte o CSV pra folha completa.</p>}
+          <Tabela vazio={totalInventario === 0} vazioMsg="Sem estoque." head={['Produto', 'Depósito', 'Sistema', 'Contagem']} alinhas={['l', 'l', 'r', 'r']}>
             {inventario.slice(0, AMOSTRA).map((e, i) => (
               <tr key={i} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{e.nome}</td>

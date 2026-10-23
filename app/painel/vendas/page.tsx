@@ -58,31 +58,31 @@ export default async function PainelVendasPage({
   const lojas = nomesPermitidos
   const lojaDaVenda: Record<string, string> = Object.fromEntries((vendasRaw ?? []).map(v => [v.id, v.caixa_id ? (nomeLoja[lojaDoCaixa[v.caixa_id] ?? ''] ?? '') : '']))
 
-  // Nomes de clientes
+  // Nomes de clientes + formas de pagamento reais: independentes entre si, rodam em
+  // paralelo (antes eram 2 fetchAllIn em fila — dobrava o tempo da lista de Vendas).
   const pessoaIds = [...new Set((vendasRaw ?? []).map((v: { pessoa_id: string | null }) => v.pessoa_id).filter(Boolean))] as string[]
-  let pessoaMap: Record<string, string> = {}
-  if (pessoaIds.length > 0) {
-    const pessoas = await fetchAllIn<{ id: string; nome: string }>(pessoaIds, (chunk, from, to) =>
-      supabase.from('pessoas').select('id, nome').in('id', chunk).range(from, to))
-    pessoaMap = Object.fromEntries(pessoas.map(p => [p.id, p.nome]))
-  }
-
-  // Formas de pagamento reais (tabela filha pagamentos_venda — suporta múltiplos pagamentos)
   const vendaIds = (vendasRaw ?? []).map((v: { id: string }) => v.id)
+  const [pessoasRes, pags] = await Promise.all([
+    pessoaIds.length > 0
+      ? fetchAllIn<{ id: string; nome: string }>(pessoaIds, (chunk, from, to) =>
+          supabase.from('pessoas').select('id, nome').in('id', chunk).range(from, to))
+      : Promise.resolve([] as { id: string; nome: string }[]),
+    vendaIds.length > 0
+      ? fetchAllIn<{ venda_id: string; forma_pagamento_id: string }>(vendaIds, (chunk, from, to) =>
+          supabase.from('pagamentos_venda').select('venda_id, forma_pagamento_id').in('venda_id', chunk).range(from, to))
+      : Promise.resolve([] as { venda_id: string; forma_pagamento_id: string }[]),
+  ])
+  const pessoaMap = Object.fromEntries(pessoasRes.map(p => [p.id, p.nome]))
   const pagamentosMap: Record<string, string> = {}
   const pagamentosIds: Record<string, Set<string>> = {}
-  if (vendaIds.length > 0) {
-    const pags = await fetchAllIn<{ venda_id: string; forma_pagamento_id: string }>(vendaIds, (chunk, from, to) =>
-      supabase.from('pagamentos_venda').select('venda_id, forma_pagamento_id').in('venda_id', chunk).range(from, to))
-    const porVenda: Record<string, Set<string>> = {}
-    for (const p of pags) {
-      const nome = formaMap[p.forma_pagamento_id]
-      if (!nome) continue
-      ;(porVenda[p.venda_id] ||= new Set()).add(nome)
-      ;(pagamentosIds[p.venda_id] ||= new Set()).add(p.forma_pagamento_id)
-    }
-    for (const [vid, set] of Object.entries(porVenda)) pagamentosMap[vid] = [...set].join(' + ')
+  const porVenda: Record<string, Set<string>> = {}
+  for (const p of pags) {
+    const nome = formaMap[p.forma_pagamento_id]
+    if (!nome) continue
+    ;(porVenda[p.venda_id] ||= new Set()).add(nome)
+    ;(pagamentosIds[p.venda_id] ||= new Set()).add(p.forma_pagamento_id)
   }
+  for (const [vid, set] of Object.entries(porVenda)) pagamentosMap[vid] = [...set].join(' + ')
 
   const vendasBase = (vendasRaw ?? []).map((v: {
     id: string; numero: number | null; total: number; desconto: number

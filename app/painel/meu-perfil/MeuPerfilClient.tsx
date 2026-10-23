@@ -35,6 +35,8 @@ export function MeuPerfilClient() {
   const [banco, setBanco] = useState<{ saldo: number; itens: BancoHora[] }>({ saldo: 0, itens: [] })
   const [saldoH, setSaldoH] = useState({ hoje: 0, semana: 0 })
   const [escala, setEscala] = useState<MinhaEscala[]>([])
+  const [pinPonto, setPinPonto] = useState('')
+  const [msgPonto, setMsgPonto] = useState<string | null>(null)
 
   const token = async () => (await supabase.auth.getSession()).data.session?.access_token ?? ''
 
@@ -58,9 +60,15 @@ export function MeuPerfilClient() {
     await baterPontoDireto(tipo)
   }
   async function baterPontoDireto(tipo: string) {
-    setBatendo(true)
-    const r = await baterPonto(await token(), tipo)
-    if (r.ok) setPontos(await buscarMeuPontoHoje(await token()).catch(() => pontos))
+    setBatendo(true); setMsgPonto(null)
+    const r = await baterPonto(await token(), tipo, undefined, undefined, pinPonto)
+    if (r.ok) {
+      if (r.saiu) { window.location.href = '/api/auth/signout'; return }
+      setPontos(await buscarMeuPontoHoje(await token()).catch(() => pontos))
+      setPinPonto('')
+    } else {
+      setMsgPonto(r.message ?? 'Erro ao bater o ponto.')
+    }
     setBatendo(false)
   }
 
@@ -182,6 +190,18 @@ export function MeuPerfilClient() {
             {statusPonto === 'trabalhando' ? '🟢 Trabalhando' : statusPonto === 'pausa' ? '🍽 Em almoço' : statusPonto === 'encerrado' ? '✓ Encerrado' : 'Fora'}
           </span>
         </div>
+        <div className="mt-3">
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-400">PIN (4 dígitos)</label>
+          <input
+            type="password"
+            inputMode="numeric"
+            maxLength={4}
+            value={pinPonto}
+            onChange={(e) => setPinPonto(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
+            placeholder="••••"
+            className="w-full rounded-xl border border-gray-200 px-4 py-2 text-center text-lg tracking-widest"
+          />
+        </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {acoesPonto.map(([t, l, c]) => (
             <button key={t} type="button" onClick={() => registrarPonto(t)} disabled={batendo}
@@ -191,6 +211,7 @@ export function MeuPerfilClient() {
           ))}
           <span className="ml-auto text-sm text-gray-500">Trabalhado hoje: <b className="tabular-nums text-gray-800">{horasTxt}</b></span>
         </div>
+        {msgPonto && <p className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{msgPonto}</p>}
         <p className="mt-2 text-sm text-gray-500">
           Saldo de horas: <b className={`tabular-nums ${saldoH.hoje > 0 ? 'text-green-600' : saldoH.hoje < 0 ? 'text-red-500' : 'text-gray-600'}`}>{fmtSaldo(saldoH.hoje)}</b> hoje
           {' · '}<b className={`tabular-nums ${saldoH.semana > 0 ? 'text-green-600' : saldoH.semana < 0 ? 'text-red-500' : 'text-gray-600'}`}>{fmtSaldo(saldoH.semana)}</b> na semana
