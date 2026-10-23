@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#100f12">
+  <meta name="referrer" content="no-referrer">
+  <meta name="description" content="Caldeirão da Sorte TECNOCELL: compras a partir de R$ 200 dão direito a um giro na Roleta Mal-Assombrada.">
+  <title>Roleta Mal-Assombrada • TECNOCELL</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="assets/lilita-one.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="preload" href="assets/witch-cauldron.webp" as="image">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="game-page">
+  <a href="#spin" class="skip-link">Ir para o jogo</a>
+  <header class="site-header">
+    <a class="brand brand-official" href="index.html" aria-label="TECNOCELL — início"><img src="assets/tecnocell-logo.png" width="800" height="257" alt="TECNOCELL"><span class="brand-season">Halloween</span></a>
+    <nav aria-label="Navegação principal"><a class="desktop-link" href="#prizes">Os prêmios</a><a class="desktop-link" href="#howto">Como jogar</a><button id="sound" class="sound-button" aria-label="Ativar som" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4 6 8H3v8h3l5 4z"/><path class="sound-on" d="M15 8q4 4 0 8m3-11q7 7 0 14"/><path class="sound-off" d="m16 9 5 6m0-6-5 6"/></svg><span id="sound-label">Som desligado</span></button></nav>
+  </header>
+  <main>
+    <section class="hero" aria-labelledby="game-title">
+      <div class="intro">
+        <h1 id="game-title"><span class="title-top">Roleta</span><span class="title-main">Mal-assombrada</span></h1>
+        <p class="subtitle">Sua sorte está fervendo!</p>
+        <p class="instruction">Comprou R$ 200 ou mais? Use seu link exclusivo.<br class="desktop-break"> Gire o caldeirão e descubra seu prêmio.</p>
+      </div>
+      <div class="scene" id="scene" aria-label="Bruxa simpática preparando uma poção com uma roleta mágica">
+        <div class="scene-halo" aria-hidden="true"></div>
+        <svg class="scene-moon" viewBox="0 0 140 140" aria-hidden="true"><defs><linearGradient id="moon-gold" x2=".8" y2="1"><stop stop-color="#fff1bf"/><stop offset=".55" stop-color="#efb76a"/><stop offset="1" stop-color="#a96536"/></linearGradient></defs><path d="M103 17a52 52 0 1 0 20 83A49 49 0 0 1 103 17Z" fill="url(#moon-gold)"/><path d="M32 85a43 43 0 0 0 38 30" fill="none" stroke="#ffe6aa" stroke-opacity=".4" stroke-width="1.5" stroke-linecap="round"/><g fill="#ffe5ad"><path d="m116 38 2 6 6 2-6 2-2 6-2-6-6-2 6-2Z"/><circle cx="99" cy="66" r="1.7"/><circle cx="130" cy="73" r="1"/></g></svg>
+        <svg class="bats" viewBox="0 0 240 160" aria-hidden="true"><defs><path id="night-bat" d="M0 9Q13-1 18-17L25-10 30-16 34-8Q40-7 41-16L46-10 53-17Q58-1 71 9Q57 4 54 18Q46 9 40 20L35 25 30 20Q25 9 17 18Q14 4 0 9Z"/></defs><use href="#night-bat" x="10" y="63" transform="rotate(-12 45 65)"/><use href="#night-bat" x="140" y="39" transform="translate(39 3) scale(.7)"/><use href="#night-bat" x="155" y="134" transform="translate(80 25) scale(.5)"/></svg><svg class="night-stars" viewBox="0 0 600 600" aria-hidden="true"><g fill="#efc68e"><path d="m139 107 2 6 6 2-6 2-2 6-2-6-6-2 6-2Zm356 124 2 6 6 2-6 2-2 6-2-6-6-2 6-2Z"/><circle cx="100" cy="210" r="1.4"/><circle cx="465" cy="310" r="1"/><circle cx="190" cy="54" r="1.2"/><circle cx="540" cy="184" r="1.6"/></g></svg>
+        <div class="art-group">
+          <img class="hero-art" src="assets/witch-cauldron.webp" width="1000" height="1000" alt="Bruxa de cabelos lilás e chapéu roxo, com um caldeirão verde luminoso entre abóboras de Halloween" fetchpriority="high">
+          <div class="potion-light" aria-hidden="true"></div>
+          <div class="potion-steam" aria-hidden="true"><i></i><i></i><i></i></div>
+          <div class="potion-bubbles" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          <div class="roulette-rig" aria-hidden="true"><div class="roulette-frame"><div id="wheel" class="wheel"></div><div class="wheel-hub"><svg viewBox="0 0 24 24"><path d="m12 2 2.8 7.2L22 12l-7.2 2.8L12 22l-2.8-7.2L2 12l7.2-2.8z"/></svg></div><div class="wheel-pointer"></div></div></div>
+          <div class="particles" id="particles" aria-hidden="true"></div>
+          <div id="floating" aria-hidden="true"></div>
+        </div>
+        <div class="scene-caption"><span class="live-dot"></span><span id="scene-label">Uma pitada de magia. Uma dose de sorte.</span></div>
+      </div>
+      <div class="controls">
+        <p class="attempt"><span class="attempt-token">0</span> <span id="attempt-label">giros disponíveis</span> <span id="mode-label" class="demo-tag">HALLOWEEN</span></p>
+        <button id="spin" class="primary spin-button" disabled><svg class="magic-wand" viewBox="0 0 36 36" aria-hidden="true"><path d="m8 29 14-14" stroke="#d29453" stroke-width="5"/><path d="m8 28 13-13" stroke="#ffe5b3" stroke-width="2"/><path d="m25 3 2.2 6.2 6.5.2-5.1 4 1.8 6.3-5.4-3.6-5.4 3.6 1.8-6.3-5.1-4 6.5-.2Z" fill="#ffd38a" stroke="#fff0c7" stroke-width="1.2"/><path d="M9 5v6M6 8h6M29 25v4m-2-2h4" stroke="#f2ba72" stroke-width="1.6"/><circle cx="15" cy="25" r="1" fill="#ffe5b3" stroke="none"/></svg><span id="spin-label">GIRAR ROLETA</span><svg class="button-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></button>
+        <div class="brew-progress" aria-hidden="true"><span></span></div>
+        <p id="status" class="status" role="status">Conferindo a campanha…</p>
+        <p id="expiry" class="status"></p>
+        <button id="motion" class="motion-button" aria-label="Efeitos visuais" aria-pressed="true">Pausar efeitos</button>
+        <button id="view-result" class="text-button" hidden>Ver minha oferta novamente</button>
+      </div>
+    </section>
+    <ol class="participation" aria-label="Como participar">
+      <li><span class="step-number" aria-hidden="true">1</span><div><strong>Compre na TECNOCELL</strong><p>R$ 200 ou mais na mesma compra: um giro.</p></div></li>
+      <li><span class="step-number" aria-hidden="true">2</span><div><strong>Abra seu link e gire</strong><p>Você tem 48 horas após a compra.</p></div></li>
+      <li><span class="step-number" aria-hidden="true">3</span><div><strong>Resgate seu prêmio na loja</strong><p>O vale dura 48 horas após o sorteio.</p></div></li>
+    </ol>
+    <section class="prizes" id="prizes" aria-labelledby="prizes-title">
+      <div class="section-heading"><div><h2 id="prizes-title">Dentro do caldeirão…</h2><p>Cupons de desconto e dois prêmios grátis. Qual vai sair para você?</p></div><span class="rare-legend"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/></svg>Prêmios raros</span></div>
+      <ul id="prize-list" class="prize-list"></ul>
+      <details id="howto" class="how-to"><summary>Regras e como participar <span aria-hidden="true">+</span></summary><ol><li>De <strong>26 a 31 de outubro</strong>, uma compra paga de <strong>R$ 200 ou mais</strong> na loja dá direito a um giro, inclusive compras acima de R$ 400. Peça seu link ao atendente. Compras pendentes no crediário não liberam giro.</li><li>Você tem <strong>48 horas após a compra</strong> para girar. Uma nova compra elegível pode liberar outro giro.</li><li>Os onze primeiros modelos dão <strong>cupons de desconto</strong>. O desconto vale somente para o modelo sorteado, em quantas unidades desse modelo você quiser na compra em que usar o cupom. <strong>iCharge8Pro e cabo Sunshine são prêmios 100% gratuitos</strong>, de uma unidade por vale.</li><li>O vale dura <strong>48 horas após o sorteio</strong>, inclusive se esse prazo terminar depois de 31 de outubro. Resgate na <strong>mesma loja da compra</strong>; pode ser no mesmo dia e não exige nova compra para retirar um prêmio grátis.</li><li>Cada vale é de <strong>uso único</strong>. Não acumula com outros vales ou promoções. Apresente o código e confira produto e titular com a equipe.</li><li>Se o produto estiver indisponível, a equipe pode cancelar o vale não utilizado e devolver <strong>um giro com novas 48 horas</strong>. O cupom anterior fica inválido e o mesmo link abre o novo giro. O produto indisponível não participa desse novo sorteio.</li></ol><p>Percentuais de desconto e chances de ganhar são diferentes. Os dois prêmios grátis mantêm 0,5% de chance cada enquanto disponíveis; os cupons dividem o restante conforme disponibilidade. Um prêmio raro pode sair em qualquer giro. Se não houver cupons disponíveis para seu giro, ele não será consumido; consulte a loja antes do vencimento. Falha de conexão não gera prêmio extra: se o sorteio já tiver sido salvo, o mesmo resultado será recuperado. Horários de Brasília. As duas lojas participam; o resgate ocorre na loja da compra.</p></details>
+    </section>
+  </main>
+  <footer class="site-footer"><p><span class="demo-dot"></span><span id="campaign-note">Caldeirão da Sorte TECNOCELL.</span></p><a href="https://tecnocell-cloud.vercel.app/painel/promocao-halloween">Equipe · Acessar pelo Cloud <span aria-hidden="true">↗</span></a></footer>
+  <dialog id="result" aria-labelledby="reward-title" aria-describedby="reward-note">
+    <div id="confetti" class="confetti" aria-hidden="true"></div>
+    <button id="close" class="close" aria-label="Fechar resultado"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
+    <p class="result-message">O caldeirão escolheu você!</p>
+    <div class="reward-display"><div class="reward-rays"></div><div id="reward-icon"></div><span id="rarity"></span></div>
+    <p class="won-label">Sua oferta exclusiva</p><h2 id="reward-title"></h2>
+    <div class="ticket"><div><span>Cliente</span><strong id="customer"></strong></div><div><span>Código de resgate</span><strong id="code"></strong></div></div>
+    <button id="share" class="primary share-button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a8.5 8.5 0 0 1-12.6 7.4L3 20l1.1-4.4A8.5 8.5 0 1 1 20 11.5Z"/><path d="M8 7c0 5 4 9 8 8l1-2-3-1-1 1-3-3 1-1-1-2z"/></svg>Compartilhar no WhatsApp</button>
+    <button id="receipt" class="secondary">Ver meu comprovante</button>
+    <p id="reward-note" class="disclaimer"></p>
+    <div id="receipt-content" hidden></div>
+  </dialog>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
