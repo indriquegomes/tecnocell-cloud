@@ -26,8 +26,11 @@ update halloween_private.tickets t set loja_id=d.loja_id from public.vendas v jo
 create function halloween_private.sale_paid(p_sale uuid) returns boolean language sql stable security definer set search_path='' as $$
  select exists(select 1 from public.vendas v where v.id=p_sale and v.status='concluida'
  and not exists(select 1 from public.lancamentos l where l.venda_id=v.id and l.tipo='receber' and l.status is distinct from 'cancelado' and l.status is distinct from 'pago' and round(coalesce(l.valor,0)-coalesce(l.valor_pago,0),2)>0)
- and (coalesce((select sum(p.valor) from public.pagamentos_venda p where p.venda_id=v.id and p.status in('pago','vale')),0)>=v.total
- or coalesce((select sum(case when l.status='pago' then l.valor else coalesce(l.valor_pago,0) end) from public.lancamentos l where l.venda_id=v.id and l.tipo='receber' and l.status is distinct from 'cancelado'),0)>=v.total))
+ -- Credit is consumed separately. Payments and ledger receipts describe the
+ -- same money, so use their maximum rather than counting both copies.
+ and coalesce((select sum(p.valor) from public.pagamentos_venda p where p.venda_id=v.id and p.status='vale'),0)
+ +greatest(coalesce((select sum(p.valor+coalesce(p.taxa,0)) from public.pagamentos_venda p where p.venda_id=v.id and p.status='pago'),0),
+ coalesce((select sum(case when l.status='pago' then l.valor else coalesce(l.valor_pago,0) end) from public.lancamentos l where l.venda_id=v.id and l.tipo='receber' and l.status is distinct from 'cancelado'),0))>=v.total)
 $$;
 
 -- The existing OS receipt has no foreign key on its financial entry. Match its

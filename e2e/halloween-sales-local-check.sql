@@ -54,6 +54,16 @@ begin
  update public.pagamentos_venda set valor=100 where venda_id=sale_id;
  insert into public.pagamentos_venda(venda_id,valor,status)values(sale_id,100,'vale');
  if not halloween_private.sale_paid(sale_id)then raise exception 'FAIL store credit is paid value';end if;
+ update public.vendas set total=210 where id=sale_id;
+ update public.pagamentos_venda set taxa=10 where venda_id=sale_id and status='pago';
+ if not halloween_private.sale_paid(sale_id)then raise exception 'FAIL credit plus paid card fee';end if;
+ update public.vendas set total=200 where id=sale_id;
+ update public.pagamentos_venda set status='pendente',taxa=0 where venda_id=sale_id and status='pago';
+ insert into public.lancamentos(venda_id,tipo,status,valor,valor_pago)values(sale_id,'receber','pago',100,100);
+ if not halloween_private.sale_paid(sale_id)then raise exception 'FAIL credit plus F9 settled in ledger';end if;
+ delete from public.pagamentos_venda where venda_id=sale_id and status='vale';
+ update public.pagamentos_venda set status='pago'where venda_id=sale_id;
+ if halloween_private.sale_paid(sale_id)then raise exception 'FAIL same payment counted twice';end if;
  update public.lancamentos set status='pendente' where descricao='Recebimento OS #777';
  if halloween_private.sale_valid(ticket_id) is distinct from false then raise exception 'FAIL OS sem comprovação continua válida';end if;
 end $$;

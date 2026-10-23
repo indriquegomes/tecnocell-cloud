@@ -29,3 +29,10 @@ Plano autorizado na conversa em23/10. Trabalhar no checkout seguro existente, pr
 
 - Inspeção inicial: branch local codex/app-pdv-1910; alterações anteriores preservadas. main remota avançou para555cbae. Caminho C:/Users/usuario/tecnocell-cloud não existe neste computador; não é possível concluir o merge daquele checkout daqui.
 - Conector Supabase disponível pertence a outra conta/projeto; não usá-lo para a empresa. Navegador da empresa ainda não respondeu; seguir testes locais enquanto reconecta.
+
+## Retomada após reconexão em 23/10
+
+- Chrome TECNOCELL reconectado. Conferência somente leitura no Supabase da empresa: campanha real pausada, estoque não confirmado, zero giros; migração nova ainda ausente. Colunas reais de vendas, pagamentos, lançamentos, OS, lojas, depósitos e pessoas compatíveis com os tipos utilizados.
+- Revisão independente identificou e corrigiu lote de 200 candidatos inelegíveis, créditos consumidos, taxas e F9 quitado no lançamento, apresentação de snapshots antigos e dependência ausente do teste público.
+- Regressões reproduzidas antes da correção. Testes PGlite incluem 200 vendas sem pagamento, 200 OS sem recibo, crédito com cartão/taxa, crédito com F9 quitado e proteção contra dupla contagem. Teste VM cobre comprovante de preço histórico. TypeScript completo passou.
+- Nenhum push, deploy ou aplicação da migração nesta retomada. Avisar o usuário antes do envio ao Vercel. A validação PostgreSQL real em transação revertida e a publicação coordenada permanecem etapas seguintes.
