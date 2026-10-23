@@ -40,5 +40,6 @@ class Element {
  assert.equal(get('spin').disabled,false,'giro devolvido disponível no mesmo link');assert.equal(get('view-result').hidden,true,'resultado antigo não fica reutilizável');assert.equal(document.body.classList.contains('revealed'),false)
  assert.match(get('status').textContent,/novas 48 horas/)
  await get('spin').onclick();assert.equal(draws,2);assert.match(get('reward-title').textContent,/20% de desconto/)
+ ticket.result.offer={id:12,name:'Legado',benefit_type:'price',benefit_value:18000}; await get('expiry').afterNode.onclick();await flush();get('receipt').onclick();assert.doesNotMatch(get('receipt-content').textContent,/Prêmio grátis/,'preço histórico não vira grátis');
  console.log('PASS interface: resposta perdida recupera mesmo vale, regras por modelo/unidades/loja e giro devolvido limpa resultado antigo no mesmo link')
 })().catch(e=>{console.error(e.message);process.exitCode=1})

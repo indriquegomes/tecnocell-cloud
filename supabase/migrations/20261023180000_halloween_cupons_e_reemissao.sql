@@ -26,7 +26,7 @@ update halloween_private.tickets t set loja_id=d.loja_id from public.vendas v jo
 create function halloween_private.sale_paid(p_sale uuid) returns boolean language sql stable security definer set search_path='' as $$
  select exists(select 1 from public.vendas v where v.id=p_sale and v.status='concluida'
  and not exists(select 1 from public.lancamentos l where l.venda_id=v.id and l.tipo='receber' and l.status is distinct from 'cancelado' and l.status is distinct from 'pago' and round(coalesce(l.valor,0)-coalesce(l.valor_pago,0),2)>0)
- and (coalesce((select sum(p.valor) from public.pagamentos_venda p where p.venda_id=v.id and p.status='pago'),0)>=v.total
+ and (coalesce((select sum(p.valor) from public.pagamentos_venda p where p.venda_id=v.id and p.status in('pago','vale')),0)>=v.total
  or coalesce((select sum(case when l.status='pago' then l.valor else coalesce(l.valor_pago,0) end) from public.lancamentos l where l.venda_id=v.id and l.tipo='receber' and l.status is distinct from 'cancelado'),0)>=v.total))
 $$;
 
@@ -234,11 +234,15 @@ begin
     and(c.starts_at is null or s.created_at>=c.starts_at)and(c.ends_at is null or s.created_at<c.ends_at)
     and exists(select 1 from halloween_private.sale_windows w where w.campaign_id=c.id and s.created_at>=w.started_at and(w.ended_at is null or s.created_at<w.ended_at))
     and not exists(select 1 from halloween_private.tickets t where t.campaign_id=c.id and t.sale_id=s.id and t.replaces_coupon_id is null)
+    and nullif(btrim(p.nome),'')is not null
+    and(c.test_mode or(halloween_private.sale_paid(s.id)and exists(select 1 from public.depositos d join public.lojas l on l.id=d.loja_id and l.ativa where d.id=s.deposito_id)))
     order by s.created_at limit 200 loop
      if halloween_private.capture_sale(c.id,v.sale,v.nome)is not null then n:=n+1;end if;
     end loop;
     for v in select o.id from public.ordens_servico o where o.status='entregue'and o.total>=200 and o.pessoa_id is not null and o.recebido_em>clock_timestamp()-interval '48 hours'
     and(c.starts_at is null or o.recebido_em>=c.starts_at)and(c.ends_at is null or o.recebido_em<c.ends_at)
+    and halloween_private.paid_os(o.id)is not null
+    and exists(select 1 from halloween_private.sale_windows w where w.campaign_id=c.id and o.recebido_em>=w.started_at and(w.ended_at is null or o.recebido_em<w.ended_at))
     and not exists(select 1 from halloween_private.tickets t where t.campaign_id=c.id and t.os_id=o.id and t.replaces_coupon_id is null)order by o.recebido_em limit 200 loop
      if halloween_private.capture_os(c.id,v.id)is not null then n:=n+1;end if;
     end loop;
