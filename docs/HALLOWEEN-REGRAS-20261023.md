@@ -25,9 +25,10 @@ Cupons comuns não têm limite de emissão ou unidades do modelo indicado na com
 ## Participação e resgate
 
 - Compras pagas de pelo menosR$200, de26/10/2026 00:00 até01/11/2026 00:00 exclusivo, em Brasília. R$400 também libera um giro por compra.
+- Compra e quitação integral devem ocorrer no período da campanha. Sincronização ou envio tardio não renovam as48h. Uma quitação em31/10 pode gerar giro válido em novembro; o pagamento em novembro não participa.
 - Compras concluídas mas com dívida pendente no F9 não liberam giro. Quitação é consultada nos registros existentes, sem alterações financeiras.
-- Serviços vendidos no PDV entram como venda. OS recebida separadamente entra por conferência somente leitura do recebimento existente. OS exige cliente identificado, recebido_em, status entregue e um lançamento pago correspondente por número, titular, valor, horário e loja. Correspondência ausente ou ambígua não emite automaticamente; investigar na operação, sem criar lançamento.
-- Giro dura48h desde compra; vale48h desde sorteio. Encerramento do período não corta validade já emitida. Retirada na mesma loja; prêmios grátis podem ser retirados no mesmo dia, sem outra compra.
+- Serviços vendidos no PDV entram como venda. OS recebida separadamente entra por conferência somente leitura do recebimento existente. OS exige cliente identificado, recebido_em, status entregue e um lançamento pago correspondente por número, titular, valor, horário e loja. Correspondência ausente ou ambígua não emite automaticamente; a equipe poderá conferir recebimentos pagos existentes e liberar manualmente, com operador, justificativa e horário comprovado. Não se cria lançamento financeiro por esta área. A abertura da OS também deve ocorrer entre26 e31/10/2026.
+- Giro dura48h desde a quitação integral comprovada; vale48h desde sorteio. Encerramento do período não corta validade já emitida. Retirada na mesma loja; prêmios grátis podem ser retirados no mesmo dia, sem outra compra.
 - Equipe envia link manualmente. Cada consulta/resgate exige a sessão Cloud e autorização já existentes. Todos os funcionários autorizados podem operar, conforme decisão do dono.
 
 ## Erro e produto indisponível
@@ -50,3 +51,5 @@ Testes locais:
     node e2e/halloween-public-flow.cjs
 
 O arquivo halloween-sales-local-check.sql cria fixtures financeiras SOMENTE no PGlite local e nunca deve ser executado na produção. O teste local não prova concorrência com conexões PostgreSQL simultâneas, checkout financeiro real ou renderização em aparelhos físicos.
+
+Migração incremental desta etapa:20261023220000_halloween_quitacao_os_manual.sql. Recebimentos vinculados são exclusivos por origem na campanha; reemissões herdam a comprovação. Sem hora comprovada, a emissão aguarda conferência do comprovante com registro de dia compatível, motivo e operador. Cancelamento ou invalidação financeira bloqueiam giro e resgate.
