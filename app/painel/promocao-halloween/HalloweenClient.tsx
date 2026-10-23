@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { formatBRL } from '@/lib/utils'
+import PaymentReview from './PaymentReview'
 
 type Offer = { id: number; name: string; benefit_type: 'percent' | 'price'; benefit_value: number; unlimited_units?: boolean; loja?: string | null }
 type Product = Offer & { quantity: number; remaining: number; weight: number; unlimited: boolean; enabled: boolean }
 type Coupon = { code: string; offer: Offer; status: string; expires_at: string; redeemed_at: string | null }
 type Customer = { client_key: string; customer: string; total: number; available: number; used: number; expired: number; revoked: number }
-type Ticket = { id: string; purchase_ref: string; amount_cents: number; created_at: string; expires_at: string; status: string; token: string; result: Coupon | null; loja?: string | null; replaces_coupon_id?: string | null }
+type Ticket = { id: string; purchase_ref: string; amount_cents: number; created_at: string; expires_at: string; status: string; token: string; result: Coupon | null; loja?: string | null; replaces_coupon_id?: string | null; paid_at?: string | null; source_created_at?: string | null; emission_origin?: string | null }
 type CampaignState = {
   campaign: { id: string; active: boolean; test_mode: boolean }; stock_confirmed: boolean
   clients_total: number; stores: { id: string; nome: string }[]; last_sync_at: string | null; sync_error: string | null; products: Product[]; clients: Customer[]
@@ -39,17 +40,23 @@ export default function HalloweenClient() {
   const [redemptionStore, setRedemptionStore] = useState(''), [replacementReason, setReplacementReason] = useState('')
   const [replacement, setReplacement] = useState<{ token: string; expires_at: string } | null>(null)
   const [testName, setTestName] = useState(''), [testPurchase, setTestPurchase] = useState(''), [testAmount, setTestAmount] = useState('200')
+  const campaignRef = useRef(campaign)
+  campaignRef.current = campaign
   async function rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
     // Reuses the existing Cloud session, without a second login or service-role key.
     const { data, error } = await supabase.rpc(`halloween_${name}`, args)
-    if (error) throw new Error(error.message)
+    if (error) throw new Error(['55P03', '40P01', '57014'].includes(error.code) ? 'A conferência encontrou uma disputa ou atingiu o limite de tempo. Tente novamente; uma operação já concluída recupera o mesmo giro ou vale.' : error.message)
     return data as T
   }
   function apply(next: CampaignState) {
     setState(next)
     if (!dirtyRef.current) { setProducts(next.products); setConfirmed(next.stock_confirmed); setActive(next.campaign.active) }
   }
-  async function refresh(term = appliedSearch, offset = clientOffset) { apply(await rpc<CampaignState>('admin_state_v2', { p_campaign: campaign, p_search: term, p_offset: offset })) }
+  async function refresh(term = appliedSearch, offset = clientOffset) {
+    const requestedCampaign = campaign
+    const next = await rpc<CampaignState>('admin_state_v2', { p_campaign: requestedCampaign, p_search: term, p_offset: offset })
+    if (campaignRef.current === requestedCampaign) apply(next)
+  }
   async function action(fn: () => Promise<void>) {
     if (busyRef.current) return
     busyRef.current = true; setBusy(true); setMessage('')
@@ -94,7 +101,7 @@ export default function HalloweenClient() {
   return <main className="mx-auto max-w-7xl space-y-5 p-4 text-purple-100 sm:p-7">
     <section className={`${panel} border-orange-400/40`}>
       <h1 className="mt-2 text-3xl font-bold text-white">Promoção <span className="text-orange-300">Halloween</span></h1>
-      <p className="mt-3 text-purple-200">Uma compra paga de R$ 200 ou mais, de 26 a 31 de outubro, gera um giro. Acompanhe o cliente, copie o link e confira a oferta no resgate, usando seu acesso do Cloud.</p>
+      <p className="mt-3 text-purple-200">Compra e quitação integral de R$ 200 ou mais, de 26 a 31 de outubro, geram um giro com 48 horas após a quitação. Acompanhe o cliente, copie o link e confira a oferta no resgate, usando seu acesso do Cloud.</p>
       <div className="mt-5 flex flex-wrap items-end gap-3"><label className="text-sm">Campanha<select className={`${input} mt-1`} value={campaign} disabled={busy || dirty} onChange={e => setCampaign(e.target.value)}><option value="halloween-2026">Campanha real</option><option value="halloween-2026-test">Homologação — sem valor real</option></select></label><button className={button} disabled={busy || dirty} onClick={() => void action(async () => { await refresh(); if (customer) await history(customer) })}>Atualizar</button><a className="px-3 py-2 text-orange-200 underline" href={roulette} target="_blank" rel="noopener noreferrer">Ver roleta do cliente</a></div>
       {state && <p className="mt-4 rounded-xl bg-purple-900 p-3 text-sm">{state.campaign.test_mode ? 'HOMOLOGAÇÃO — giros e vales sem valor de resgate.' : state.campaign.active ? 'Campanha ativa. Vendas pagas conferidas a cada minuto. Atualize este painel para ver novidades.' : 'Campanha pausada. Confira os cupons disponíveis e as quantidades dos dois prêmios grátis antes de ativar. Compras anteriores à ativação não geram giros.'}</p>}
       <p role="status" aria-live="polite" className="mt-3 whitespace-pre-wrap text-orange-200">{message || (busy ? 'Conferindo…' : '')}</p>
@@ -106,12 +113,13 @@ export default function HalloweenClient() {
         const issued = await rpc<{ id: string; customer: string }>('issue', { p_campaign: campaign, p_ref: testPurchase.trim(), p_customer: testName.trim(), p_amount: Math.round(Number(testAmount) * 100) })
         await refresh(); await history({ client_key: `test:${issued.id}`, customer: issued.customer, total: 1, available: 1, used: 0, expired: 0, revoked: 0 }); setMessage('Giro de teste localizado. Confira o histórico abaixo.')
       }) }}><label className="text-sm">Referência do teste<input disabled={busy} className={`${input} mt-1`} required maxLength={100} value={testPurchase} onChange={e => setTestPurchase(e.target.value)} /></label><label className="text-sm">Nome de teste<input disabled={busy} className={`${input} mt-1`} required maxLength={80} value={testName} onChange={e => setTestName(e.target.value)} /></label><label className="text-sm">Valor de teste (R$)<input disabled={busy} className={`${input} mt-1`} required type="number" min={200} max={1000000} step="0.01" value={testAmount} onChange={e => setTestAmount(e.target.value)} /></label><button className={button} disabled={busy}>Gerar giro de teste</button></form></section>}
-      <section className={panel}><h2 className="text-xl font-bold text-white">Giros por cliente</h2><p className="mt-2 text-sm text-purple-200">Identifique o cliente na venda do Cloud. Giro: 48 horas após a compra. Vale: 48 horas após o sorteio. Copiar o link não confirma o envio.</p><p className="mt-2 text-sm text-orange-200">{state.sync_error || (!state.campaign.test_mode && `Última conferência: ${state.last_sync_at ? date(state.last_sync_at) : 'aguardando'}`)}</p>
+      {!state.campaign.test_mode && <PaymentReview key={campaign} campaign={campaign} disabled={busy || dirty} rpc={rpc} onBusyChange={value => { busyRef.current = value; setBusy(value) }} onIssued={() => refresh()} />}
+      <section className={panel}><h2 className="text-xl font-bold text-white">Giros por cliente</h2><p className="mt-2 text-sm text-purple-200">Identifique o cliente na venda do Cloud. Giro: 48 horas após a quitação integral. Vale: 48 horas após o sorteio. Copiar o link não confirma o envio.</p><p className="mt-2 text-sm text-orange-200">{state.sync_error || (!state.campaign.test_mode && `Última conferência: ${state.last_sync_at ? date(state.last_sync_at) : 'aguardando'}`)}</p>
         {!!state.pending.length && <p className="mt-3 rounded-xl bg-orange-300/10 p-3 text-orange-200">{state.pending.length} venda(s) sem cliente: {state.pending.map(p => p.numero || 'sem número').join(', ')}. Identifique no Cloud antes de completar 48 horas.</p>}
         <form className="mt-4 flex flex-wrap items-end gap-3" onSubmit={e => { e.preventDefault(); void action(async () => { await refresh(search, 0); setAppliedSearch(search); setClientOffset(0); setCustomer(null); setTickets([]) }) }}><label className="block max-w-md text-sm">Buscar cliente<input disabled={busy} maxLength={80} className={`${input} mt-1`} type="search" value={search} onChange={e => setSearch(e.target.value)} /></label><button className={button} disabled={busy}>Buscar em todos os clientes</button></form>
         <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead className="text-purple-300"><tr>{['Cliente', 'Total', 'Disponíveis', 'Usados', 'Vencidos', 'Cancelados', 'Histórico'].map(h => <th className="p-3" key={h}>{h}</th>)}</tr></thead><tbody>{state.clients.map(c => <tr key={c.client_key} className="border-t border-purple-800"><td className="p-3 font-semibold">{c.customer}</td>{[c.total, c.available, c.used, c.expired, c.revoked].map((v, i) => <td className="p-3" key={i}>{v}</td>)}<td className="p-3"><button className={button} disabled={busy} onClick={() => void action(() => history(c))}>Ver giros</button></td></tr>)}</tbody></table></div>{!state.clients.length && <p className="py-4 text-purple-300">Nenhum cliente encontrado nesta busca.</p>}
         <div className="mt-3 flex flex-wrap items-center gap-3 text-sm"><button className={button} disabled={busy || clientOffset === 0} onClick={() => void action(async () => { await refresh(appliedSearch, clientOffset - 50); setClientOffset(clientOffset - 50) })}>Anteriores</button><span>{state.clients_total} cliente(s) · página {Math.floor(clientOffset / 50) + 1}</span><button className={button} disabled={busy || clientOffset + 50 >= state.clients_total} onClick={() => void action(async () => { await refresh(appliedSearch, clientOffset + 50); setClientOffset(clientOffset + 50) })}>Próximos</button></div>
-        {customer && <div className="mt-6 space-y-3"><h3 className="text-lg font-bold text-orange-200">{customer.customer}</h3>{tickets.map(t => <article key={t.id} className="rounded-xl border border-purple-700 bg-purple-900/50 p-4 text-sm"><h4 className="font-bold text-white">{status(t.status)} · {formatBRL(t.amount_cents / 100)}</h4><p className="mt-2 break-all">Compra: {t.purchase_ref}</p>{t.loja && <p className="mt-1 font-semibold text-orange-200">Retirada: {t.loja}</p>}{t.replaces_coupon_id && <p className="mt-1">Giro devolvido · novas 48 horas</p>}<p className="mt-1">Liberado: {date(t.created_at)} · Giro vence: {date(t.expires_at)}</p>
+        {customer && <div className="mt-6 space-y-3"><h3 className="text-lg font-bold text-orange-200">{customer.customer}</h3>{tickets.map(t => <article key={t.id} className="rounded-xl border border-purple-700 bg-purple-900/50 p-4 text-sm"><h4 className="font-bold text-white">{status(t.status)} · {formatBRL(t.amount_cents / 100)}</h4><p className="mt-2 break-all">Compra: {t.purchase_ref}</p>{t.loja && <p className="mt-1 font-semibold text-orange-200">Retirada: {t.loja}</p>}{t.source_created_at && <p>Abertura/compra: {date(t.source_created_at)}</p>}{t.paid_at && <p>Quitação comprovada: {date(t.paid_at)} · {t.emission_origin === "auto" ? "Automática" : "Conferência da equipe"}</p>}{t.replaces_coupon_id && <p className="mt-1">Giro devolvido · novas 48 horas</p>}<p className="mt-1">Liberado: {date(t.created_at)} · Giro vence: {date(t.expires_at)}</p>
           {t.result && <div className="mt-3 space-y-1 text-orange-100"><p className="font-semibold">{benefit(t.result.offer)} · {t.result.offer.name}</p><p className="break-all">Vale: {t.result.code} · {status(t.result.status)}</p><p>Vale vence: {date(t.result.expires_at)}</p>{t.result.redeemed_at && <p>Resgatado: {date(t.result.redeemed_at)}</p>}{t.status === 'revoked' && t.result.redeemed_at && <p className="font-bold text-orange-300">Compra cancelada após o resgate. Conferir com a gerência.</p>}<button className={`${button} mt-2`} disabled={busy} onClick={() => void action(async () => { setCode(t.result!.code); await consult(t.result!.code) })}>Conferir vale</button></div>}
           {t.status === 'available' && <div className="mt-3 space-y-2"><label className="block">Link exclusivo<input disabled={busy} readOnly className={`${input} mt-1`} value={`${roulette}#giro=${t.token}`} onFocus={e => e.target.select()} /></label><button className={button} onClick={() => void copy(t)}>Copiar link para enviar</button></div>}
         </article>)}{more && <button className={button} disabled={busy} onClick={() => void action(() => history(customer, true))}>Ver mais giros</button>}</div>}
