@@ -53,6 +53,16 @@ await deduplica(lojaFake)
 ok('marcou o 2o como duplicado', db.porId(b.id).status === 'duplicado')
 ok('manteve o 1o valido', db.porId(a.id).status === 'extraido')
 
+// fuzzy dedup (sem E2E): mesmo pagador + valor + destinatario + dia → duplicado
+const f1 = db.guardaChegada({ ...base, msg_id: 6 })
+const f2 = db.guardaChegada({ ...base, msg_id: 7 })
+db.salvaLeitura(f1.id, { valor: 1000, data_pix: new Date().toISOString().slice(0, 10), pagador: 'MATEUS OLIVEIRA SOUZA', destinatario: 'ATOSCEL COMERCIO', destinatario_doc: '11222333000144', transacao_id: null, status: 'extraido' })
+db.salvaLeitura(f2.id, { valor: 1000, data_pix: new Date().toISOString().slice(0, 10), pagador: 'MATEUS OLIVEIRA SOUZA', destinatario: 'ATOSCEL COMERCIO', destinatario_doc: '11222333000144', transacao_id: null, status: 'extraido' })
+await deduplica(lojaFake)
+ok('fuzzy sem E2E marca o 2o como duplicado', db.porId(f2.id).status === 'duplicado')
+ok('fuzzy sem E2E mantem o 1o valido', db.porId(f1.id).status === 'extraido')
+db.db.exec(`delete from comprovantes where id in (${f1.id}, ${f2.id})`)
+
 console.log('== fila de leitura (o bug que travava o bot antigo) ==')
 ok('lido SEM transacao_id NAO volta pra fila', db.pendentes(CHAT, 10).length === 0)
 const d = db.guardaChegada({ ...base, msg_id: 4 })

@@ -3,7 +3,7 @@ import { leComprovante, apiPausada, saude } from './ia.mjs'
 import { enviaTexto, enviaFoto, enviaDoc, tipoDaMensagem } from './tg.mjs'
 import { agendaEscrita, escreveJa } from './sheets.mjs'
 import { atualizaAbasNovas } from './abas.mjs'
-import { agrupaPorDestino, dataDoId, resolveData, diaDiff, money, fmtDataBR, dorme, agora } from './util.mjs'
+import { agrupaPorDestino, dataDoId, resolveData, diaDiff, money, fmtDataBR, dorme, agora, normNome } from './util.mjs'
 import { pixPendentesDoPeriodo } from './pix.mjs'
 
 const LIDOS = ['extraido', 'data_divergente']
@@ -84,6 +84,24 @@ export async function deduplica(loja) {
         + `O mesmo Pix (ID ${tx}) foi postado nos dois grupos. Vejam de qual LOJA é e apaguem do grupo errado — pra não contar em dobro.`)
       db.setFlag(arr[0].id, 'cross_avisado')
     }
+  }
+
+  // FUZZY (sem E2E): a IA nem sempre enxerga o ID da transação (print cortado,
+  // PicPay). Sem o E2E o dedup acima não pega e o MESMO pix reenviado conta em
+  // dobro. Aqui marca duplicado quando TUDO bate: pagador + valor + destinatário
+  // + dia. Conservador de propósito — só pega reenvio do mesmo comprovante.
+  const desde15 = new Date(Date.now() - 15 * 86400000).toISOString()
+  const semTx = db.doPeriodo(loja.grupo).filter((c) =>
+    c.status !== 'nao_comprovante' && (!c.transacao_id || c.transacao_id === '')
+      && c.recebido_em >= desde15 && c.valor != null
+      && normNome(c.destinatario) && normNome(c.pagador)
+  )
+  const chaveFuzzy = (c) => [normNome(c.destinatario), Number(c.valor), String(c.recebido_em).slice(0, 10), normNome(c.pagador)].join('|')
+  const porChave = {}
+  for (const c of semTx) (porChave[chaveFuzzy(c)] = porChave[chaveFuzzy(c)] || []).push(c)
+  for (const k of Object.keys(porChave)) {
+    const arr = porChave[k].sort((a, b) => a.msg_id - b.msg_id)
+    arr.forEach((c, i) => { if (i > 0) db.setStatus(c.id, 'duplicado') })
   }
 }
 
