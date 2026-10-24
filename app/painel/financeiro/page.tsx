@@ -11,6 +11,13 @@ import { Dica } from '@/components/Dica'
 import { ExportCsv } from '../relatorios/ExportCsv'
 import { BuscaAvancada } from '@/components/BuscaAvancada'
 
+// Grupos de categoria pros filtros rápidos (chips) do topo do Financeiro.
+const GRUPOS_FINANCEIRO: Record<string, { label: string; categorias: string[] }> = {
+  funcionarios: { label: '👥 Funcionários', categorias: ['Salários', 'Motoboy', 'Limpeza'] },
+  fornecedores: { label: '🏭 Fornecedores', categorias: ['Fornecedor / Mercadoria', 'Mercadoria'] },
+  fixas:        { label: '📌 Contas fixas', categorias: ['Aluguel', 'Energia/Luz', 'Contabilidade', 'Impostos'] },
+}
+
 const CATEGORIAS_FINANCEIRO: { grupo: string; categorias: string[] }[] = [
   { grupo: 'Despesas da Loja', categorias: ['Alimentação', 'Combustível', 'Aluguel', 'Salários', 'Motoboy', 'Contabilidade', 'Energia/Luz', 'Impostos', 'Mercadoria', 'Serviços', 'Uso interno', 'Perda', 'Manutenção', 'Transporte', 'Limpeza', 'Saúde', 'Confraternização', 'Gastos em São Paulo'] },
   { grupo: 'Sócio', categorias: ['Retirada do sócio'] },
@@ -20,7 +27,7 @@ const CATEGORIAS_FINANCEIRO: { grupo: string; categorias: string[] }[] = [
 export default async function FinanceiroPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tipo?: string; busca?: string; ordem?: string; dir?: string; status?: string; de?: string; ate?: string; pessoa?: string; forma?: string; conta?: string; categoria?: string; valor_min?: string; valor_max?: string; campo?: string; erro?: string; ok?: string; loja?: string }>
+  searchParams: Promise<{ tipo?: string; busca?: string; ordem?: string; dir?: string; status?: string; de?: string; ate?: string; pessoa?: string; forma?: string; conta?: string; categoria?: string; grupo?: string; valor_min?: string; valor_max?: string; campo?: string; erro?: string; ok?: string; loja?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
@@ -60,6 +67,7 @@ export default async function FinanceiroPage({
     if (params.forma) q = q.eq('forma_pagamento', params.forma)
     if (params.conta) q = q.eq('conta_id', params.conta)
     if (params.categoria) q = q.eq('categoria', params.categoria)
+    if (params.grupo && GRUPOS_FINANCEIRO[params.grupo]) q = q.in('categoria', GRUPOS_FINANCEIRO[params.grupo].categorias)
     if (params.valor_min) q = q.gte('valor', Number(params.valor_min))
     if (params.valor_max) q = q.lte('valor', Number(params.valor_max))
     if (params.status === 'pago') q = q.eq('status', 'pago')
@@ -76,7 +84,7 @@ export default async function FinanceiroPage({
   const ordemDir = params.dir === 'desc'
   const camposDB: Record<string, string> = { data_vencimento: 'data_vencimento', valor: 'valor', descricao: 'descricao', pessoa_nome: 'pessoa_nome', tipo: 'tipo', status: 'status' }
   const baseParams: Record<string, string> = {}
-  for (const k of ['tipo', 'busca', 'status', 'de', 'ate', 'pessoa', 'forma', 'conta', 'categoria', 'valor_min', 'valor_max', 'campo', 'loja'] as const) {
+  for (const k of ['tipo', 'busca', 'status', 'de', 'ate', 'pessoa', 'forma', 'conta', 'categoria', 'grupo', 'valor_min', 'valor_max', 'campo', 'loja'] as const) {
     if (params[k]) baseParams[k] = params[k]!
   }
   const sortLink = (o: string) => {
@@ -148,6 +156,27 @@ export default async function FinanceiroPage({
         .limit(1)).maybeSingle()).data ?? null
     : null
 
+  // --- Filtros rápidos (chips) em cascata: grupo de categoria + período ---
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const hojeD = new Date(hojeSP() + 'T12:00:00')
+  const mesIni = hojeSP().slice(0, 7) + '-01'
+  const mesFim = iso(new Date(hojeD.getFullYear(), hojeD.getMonth() + 1, 0))
+  const dow = (hojeD.getDay() + 6) % 7 // 0 = segunda
+  const segD = new Date(hojeD); segD.setDate(hojeD.getDate() - dow)
+  const semIni = iso(segD)
+  const semFim = iso(new Date(segD.getTime() + 6 * 86400000))
+  const periodoAtivo = params.de === mesIni && params.ate === mesFim ? 'mes' : params.de === semIni && params.ate === semFim ? 'semana' : null
+  const chipBase: Record<string, string> = {}
+  for (const k of ['tipo', 'loja', 'busca', 'status', 'pessoa', 'forma', 'conta', 'categoria', 'valor_min', 'valor_max', 'campo', 'ordem', 'dir'] as const) {
+    if (params[k]) chipBase[k] = params[k]!
+  }
+  const chipLink = (extra: Record<string, string | undefined>) => {
+    const p = new URLSearchParams(chipBase)
+    for (const [k, v] of Object.entries(extra)) { if (v) p.set(k, v); else p.delete(k) }
+    const qs = p.toString()
+    return '/painel/financeiro' + (qs ? '?' + qs : '')
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
@@ -188,6 +217,35 @@ export default async function FinanceiroPage({
             Gerar folha de salários
           </button>
         </form>
+      </div>
+
+      {/* Filtros rápidos em cascata (grupo de categoria + período) */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Ver só</span>
+        {Object.entries(GRUPOS_FINANCEIRO).map(([key, g]) => {
+          const ativo = params.grupo === key
+          return (
+            <Link key={key} href={chipLink({ grupo: ativo ? undefined : key })}
+              className={'rounded-full border px-3 py-1.5 text-sm font-medium transition ' + (ativo ? 'border-[#1B6CA8] bg-[#1B6CA8] text-white shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50')}>
+              {g.label}
+            </Link>
+          )
+        })}
+        <div className="mx-1 hidden h-6 w-px bg-gray-200 sm:block" />
+        <Link href={chipLink(periodoAtivo === 'mes' ? { de: undefined, ate: undefined } : { de: mesIni, ate: mesFim })}
+          className={'rounded-full border px-3 py-1.5 text-sm font-medium transition ' + (periodoAtivo === 'mes' ? 'border-[#1B6CA8] bg-[#1B6CA8] text-white shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50')}>
+          📅 Este mês
+        </Link>
+        <Link href={chipLink(periodoAtivo === 'semana' ? { de: undefined, ate: undefined } : { de: semIni, ate: semFim })}
+          className={'rounded-full border px-3 py-1.5 text-sm font-medium transition ' + (periodoAtivo === 'semana' ? 'border-[#1B6CA8] bg-[#1B6CA8] text-white shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50')}>
+          📆 Esta semana
+        </Link>
+        {(params.grupo || periodoAtivo || params.de || params.ate) && (
+          <Link href={chipLink({ grupo: undefined, de: undefined, ate: undefined })}
+            className="rounded-full border border-red-200 bg-white px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50">
+            ✕ Limpar
+          </Link>
+        )}
       </div>
 
       {/* Resumo */}
