@@ -1,6 +1,5 @@
 import { relatorioLucroMensal } from './actions'
 import { formatBRL } from '@/lib/utils'
-import { FinanceiroTabs } from '../FinanceiroTabs'
 
 // Relatório de Lucro Mensal — cruza compras (custo) × vendas (faturamento/custo),
 // por mês e por loja. Mostra o lucro bruto do mês e acende quando vendeu mais do que
@@ -13,8 +12,6 @@ export default async function LucroMensalPage() {
 
   return (
     <div className="space-y-5">
-      <FinanceiroTabs active="lucro" />
-
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs text-gray-400 mb-0.5">Financeiro</p>

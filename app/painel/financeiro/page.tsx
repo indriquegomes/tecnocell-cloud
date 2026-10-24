@@ -150,31 +150,10 @@ export default async function FinanceiroPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <IconWallet className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
-          <h2 className="text-2xl font-bold text-gray-900">Financeiro</h2>
-          <Dica texto="Controle de contas a pagar e a receber. Registre despesas, receitas e acompanhe o saldo pendente." />
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <form action={gerarFolha} className="flex items-center gap-2">
-            <input type="date" name="vencimento" defaultValue={hojeSP()}
-              title="Vencimento dos salários"
-              className="rounded-lg border border-gray-200 px-2 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400" />
-            <button type="submit"
-              className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 transition">
-              Gerar folha
-            </button>
-          </form>
-          <Link href="/painel/financeiro/novo?tipo=receber"
-            className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
-            + A Receber
-          </Link>
-          <Link href="/painel/financeiro/novo?tipo=pagar"
-            className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition">
-            + A Pagar
-          </Link>
-        </div>
+      <div className="flex items-center gap-2">
+        <IconWallet className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
+        <h2 className="text-2xl font-bold text-gray-900">Financeiro</h2>
+        <Dica texto="Controle de contas a pagar e a receber. Registre despesas, receitas e acompanhe o saldo pendente." />
       </div>
 
       {params.erro && (
@@ -186,6 +165,30 @@ export default async function FinanceiroPage({
       )}
 
       <FinanceiroTabs active={params.tipo === 'receber' ? 'receber' : params.tipo === 'pagar' ? 'pagar' : 'lancamentos'} />
+
+      {/* Ações — criar e gerar separados do cabeçalho */}
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+        <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Novo lançamento</span>
+        <Link href="/painel/financeiro/novo?tipo=receber"
+          className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
+          + A Receber
+        </Link>
+        <Link href="/painel/financeiro/novo?tipo=pagar"
+          className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition">
+          + A Pagar
+        </Link>
+        <div className="mx-2 hidden h-6 w-px bg-gray-200 sm:block" />
+        <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Gerar</span>
+        <form action={gerarFolha} className="flex items-center gap-2">
+          <input type="date" name="vencimento" defaultValue={hojeSP()}
+            title="Vencimento dos salários"
+            className="rounded-lg border border-gray-200 px-2 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+          <button type="submit"
+            className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 transition">
+            Gerar folha de salários
+          </button>
+        </form>
+      </div>
 
       {/* Resumo */}
       <div className="grid gap-4 sm:grid-cols-3">

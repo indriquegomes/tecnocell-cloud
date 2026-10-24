@@ -1,5 +1,4 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
-import { FinanceiroTabs } from '../FinanceiroTabs'
 import { PlanejamentoConfig } from './PlanejamentoConfig'
 import { formatBRL, hojeSP } from '@/lib/utils'
 
@@ -47,7 +46,6 @@ export default async function FluxoPage({ searchParams }: { searchParams: Promis
 
   return (
     <div className="space-y-6">
-      <FinanceiroTabs active="fluxo" />
       <PlanejamentoConfig categorias={categoriasFixas} margem={margem} />
 
       <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
