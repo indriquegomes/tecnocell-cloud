@@ -27,6 +27,7 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
   const [forma, setForma] = useState(params.forma ?? '')
   const [conta, setConta] = useState(params.conta ?? '')
   const [categoria, setCategoria] = useState(params.categoria ?? '')
+  const [grupo, setGrupo] = useState(params.grupo ?? '')
   const [status, setStatus] = useState(params.status ?? '')
   const [loja, setLoja] = useState(params.loja ?? lojaEfetiva)
   const [valorMin, setValorMin] = useState(params.valor_min ?? '')
@@ -86,7 +87,7 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
     return lista
   }, [])
 
-  const mesAtivo = String(Math.max(0, meses.findIndex((m) => m.de === de)))
+  const mesAtivo = de === '' ? 'tudo' : String(Math.max(0, meses.findIndex((m) => m.de === de)))
 
   function aplicarMes(m: { label: string; de: string; ate: string }) {
     setDe(m.de)
@@ -113,14 +114,16 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
       <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Forma de pagamento</label><select name="forma" value={forma} onChange={(e) => setForma(e.target.value)} className={inp}><option value="">Todas</option>{formasOpc.map((f) => <option key={f} value={f}>{f}</option>)}</select></div>
       <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Conta</label><select name="conta" value={conta} onChange={(e) => setConta(e.target.value)} className={inp}><option value="">Todas</option>{contasOpc.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
       <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Categoria</label><select name="categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)} className={inp}><option value="">Todas</option>{categoriasGrupos.map((g) => <optgroup key={g.grupo} label={g.grupo}>{g.categorias.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>)}</select></div>
+      <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Grupo</label><select name="grupo" value={grupo} onChange={(e) => setGrupo(e.target.value)} className={inp}><option value="">Todos</option><option value="funcionarios">👥 Funcionários (folha)</option><option value="freelancers">🎒 Freelancers (motoboy pontual)</option><option value="fornecedores">🏭 Fornecedores</option><option value="fixas">📌 Contas fixas</option></select></div>
       <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Situação</label><select name="status" value={status} onChange={(e) => setStatus(e.target.value)} className={inp}><option value="">Todos</option><option value="pendente">Pendente</option><option value="pago">Pago</option><option value="vencido">Vencido</option></select></div>
       <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Valor de</label><input name="valor_min" type="number" step="0.01" value={valorMin} onChange={(e) => setValorMin(e.target.value)} placeholder="0,00" className={inp} /></div>
       <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Valor até</label><input name="valor_max" type="number" step="0.01" value={valorMax} onChange={(e) => setValorMax(e.target.value)} placeholder="0,00" className={inp} /></div>
       <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Filtrar período por</label><select name="campo" value={campo} onChange={(e) => setCampo(e.target.value)} className={inp}>{camposData.map((c) => <option key={c} value={c}>{labelCampo[c]}</option>)}</select></div>
       <div>
-        <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Mês</label>
-        <select value={mesAtivo} onChange={(e) => aplicarMes(meses[Number(e.target.value)])} className={inp}>
+        <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Período</label>
+        <select value={mesAtivo} onChange={(e) => { const v = e.target.value; if (v === 'tudo') { setDe(''); setAte(''); setTimeout(() => formRef.current?.requestSubmit(), 0) } else aplicarMes(meses[Number(v)]) }} className={inp}>
           {meses.map((m, i) => <option key={m.label} value={i}>{i === 0 ? m.label + ' (atual)' : m.label}</option>)}
+          <option value="tudo">🗂️ Tudo (histórico)</option>
         </select>
       </div>
       <input type="hidden" name="de" value={de} />
