@@ -1,0 +1,16 @@
+alter table public.vendas add column desconto numeric default 0;
+create table public.produtos(id text primary key,codigo text,nome text,preco numeric,preco_custo numeric);
+create table public.itens_venda(id uuid primary key,venda_id uuid,produto_id text,quantidade integer,preco_unitario numeric,desconto_item numeric default 0,total_item numeric);
+create table public.devolucoes(id uuid primary key,venda_id uuid,valor_total numeric);
+insert into public.produtos values('profit-sku','03535','KA-960',1000,100);
+insert into public.vendas(id,numero,total,status,created_at,pessoa_id,deposito_id)values('70000000-0000-4000-8000-000000000001',77001,800,'concluida','2026-10-27 12:00-03','profit-customer','profit-depot');
+insert into public.depositos values('profit-depot','70000000-0000-4000-8000-000000000010');
+insert into public.lojas values('70000000-0000-4000-8000-000000000010','Loja QA',true);
+insert into public.pagamentos_venda(venda_id,valor,status)values('70000000-0000-4000-8000-000000000001',800,'pago');
+insert into public.itens_venda values('70000000-0000-4000-8000-000000000002','70000000-0000-4000-8000-000000000001','profit-sku',1,800,0,800);
+update halloween_private.campaigns set active=false,stock_confirmed=true where id='halloween-2026-test';
+update halloween_private.campaigns set starts_at='2026-10-26 00:00-03',ends_at='2026-11-01 00:00-03' where id='halloween-2026-test';
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","session_id":"00000000-0000-4000-8000-000000000002"}',false);
+update halloween_private.products set enabled=true,quantity=10,remaining=10 where campaign_id='halloween-2026-test';
+
+update halloween_private.products p set weight=w.bps from(values(1,1269),(2,1269),(3,1269),(4,508),(5,508),(6,1269),(7,1269),(8,254),(9,1269),(10,508),(11,508),(12,50),(13,50))w(id,bps)where p.id=w.id and p.campaign_id='halloween-2026-test';

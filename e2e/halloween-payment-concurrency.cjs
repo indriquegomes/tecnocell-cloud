@@ -3,7 +3,7 @@ const assert = require('node:assert/strict')
 const { Client } = require('pg')
 module.exports = async function concurrency(url) {
  const target = new URL(url)
- if (target.hostname !== '127.0.0.1' || target.pathname !== '/halloween_test') throw new Error('Local test database only')
+ if (target.hostname !== '127.0.0.1' || !/^\/halloween_test(?:_[a-z0-9_]+)?$/.test(target.pathname)) throw new Error('Local test database only')
  const clients = [new Client({ connectionString: url }), new Client({ connectionString: url })]
  const [a, b] = clients
  try {

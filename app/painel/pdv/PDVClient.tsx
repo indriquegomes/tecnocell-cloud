@@ -26,6 +26,7 @@ const VALE_RECEB_ID = '__vale_receb__'
 import { buscarSaldoCredito } from '@/app/painel/creditos/actions'
 import type { PromoInfo } from './page'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
+import { halloweenUnitDiscount, isAutomaticPromotion } from '@/lib/halloween-pdv'
 import { aplicarDescontoItem, criarControleUltimaTroca, distribuirRecebimento, tabelaDoCliente, type TipoDescontoItem } from '@/lib/pdv-calculos'
 
 // Preço unitário de uma faixa progressiva conforme a quantidade TOTAL do grupo.
@@ -42,6 +43,7 @@ function precoFaixa(faixas: { quantidade_minima: number; preco: number }[], tota
 // Desconto que uma promoção dá para uma linha (preço base + quantidade).
 // grupoQtd = quantidade total do grupo no carrinho (usado só no tipo progressivo).
 function descontoDaPromo(promo: PromoInfo, base: number, qtd: number, grupoQtd?: number): number {
+  if (promo.campaign_id && promo.tipo === 'percentual') return halloweenUnitDiscount(base, Number(promo.valor)) * qtd
   if (promo.tipo === 'valor_direto' && promo.preco_promocional != null && base > promo.preco_promocional) {
     return qtd * (base - promo.preco_promocional)
   }
@@ -61,6 +63,7 @@ function descontoDaPromo(promo: PromoInfo, base: number, qtd: number, grupoQtd?:
 
 // Rótulo curto da promoção para o seletor do carrinho
 function labelPromo(p: PromoInfo): string {
+  if (p.campaign_id) return `${p.nome} · ${p.valor}% · aplicação manual`
   const brl = (v: number) => formatBRL(v)
   if (p.tipo === 'valor_direto' && p.preco_promocional != null) return `${p.nome} · ${brl(p.preco_promocional)}`
   if (p.tipo === 'progressivo') return `${p.nome} · por quantidade`
@@ -241,6 +244,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [erroImportacao, setErroImportacao] = useState<string | null>(erroPedidoEntrada)
   const [rascunhoPronto, setRascunhoPronto] = useState(false)
   const chaveRascunho = useRef('')
+  const halloweenOperation = useRef<string | null>(null)
   const clienteRestaurado = useRef<string | null>(null)
   const envioVenda = useRef(false)
   const pedidoAtualRef = useRef(pedidoApp)
@@ -757,6 +761,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       if (!userId) { setErroImportacao('Entre novamente para recuperar o atendimento.'); return }
       chaveRascunho.current = `pdv_rascunho_v1:${userId}`
       try {
+        halloweenOperation.current = sessionStorage.getItem(`${chaveRascunho.current}:halloween_operation`)
         const texto = sessionStorage.getItem(chaveRascunho.current)
         if (texto) {
           const r = JSON.parse(texto)
@@ -782,6 +787,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   }, [])
 
   useEffect(() => { setPedidoParaAbrir(pedidoEntrada) }, [pedidoEntrada?.pedidoId, pedidoEntrada?.unidade])
+  useEffect(() => {
+    if (!rascunhoPronto || carrinho.length !== 0 || !chaveRascunho.current) return
+    halloweenOperation.current = null
+    sessionStorage.removeItem(`${chaveRascunho.current}:halloween_operation`)
+  }, [rascunhoPronto, carrinho.length])
 
   useEffect(() => {
     const { data: { subscription } } = supabaseBrowser.auth.onAuthStateChange((_event, session) => {
@@ -1078,7 +1088,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   // Troca a promoção aplicada a uma linha do carrinho
   const trocarPromo = (produto_id: string, valor: string) => {
     if (pedidoAtualRef.current) return
-    setCarrinho((prev) => prev.map((i) => i.produto_id === produto_id ? { ...i, promoSel: valor } : i))
+    const halloween = (promosPorProduto[produto_id] ?? []).some(p => p.id === valor && p.campaign_id)
+    if (halloween) { setDesconto(''); setErro(null) }
+    setCarrinho((prev) => prev.map((i) => i.produto_id === produto_id ? { ...i, promoSel: valor, ...(halloween ? { desconto_valor: null } : {}) } : i))
   }
 
   // Quantidade total de um grupo (promo progressiva) somando TODAS as linhas do
@@ -1100,6 +1112,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     let melhor: PromoInfo | null = null
     let maior = 0
     for (const p of lista) {
+      if (!isAutomaticPromotion(p)) continue
       const d = descontoDaPromo(p, item.preco_unitario, item.quantidade, p.tipo === 'progressivo' ? grupoTotalProg(p.id) : undefined)
       if (d > maior) { maior = d; melhor = p }
     }
@@ -1111,6 +1124,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
   const alterarDescontoItem = (produto_id: string, tipo: TipoDescontoItem, valor: number | null) => {
     if (pedidoAtualRef.current) return
+    const item = carrinho.find(i => i.produto_id === produto_id)
+    if (item && promoEfetiva(item)?.campaign_id) { setErro('Retire a promoção Halloween antes de aplicar outro desconto nesse item.'); return }
     setCarrinho((prev) => prev.map((item) => item.produto_id === produto_id
       ? { ...item, desconto_tipo: tipo, desconto_valor: valor == null ? null : Math.max(0, valor) }
       : item))
@@ -1303,6 +1318,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     return [{ label: `${promo.nome} (${item.nome})`, valor }]
   })
   const descontoPromo = descontoPromoDetalhes.reduce((s, d) => s + d.valor, 0)
+  const temHalloween = carrinho.some(item => !!promoEfetiva(item)?.campaign_id)
+  const descontoHalloween = carrinho.reduce((sum, item) => {
+    const promo = promoEfetiva(item)
+    return sum + (promo?.campaign_id ? descontoDaPromo(promo, item.preco_unitario, item.quantidade) : 0)
+  }, 0)
 
   const baseDescontoGeral = Math.max(0, subtotal - descontoManualItens - descontoPromo)
   const descontoBruto = descontoTipo === 'percent'
@@ -1522,6 +1542,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   }
 
   const handleFinalizar = async () => {
+    if (temHalloween && descontoNum > 0) { setErro('Halloween não acumula desconto geral. Retire o desconto adicional para finalizar.'); return }
+    if (!temHalloween && halloweenOperation.current) { setErro('Há uma tentativa de venda Halloween pendente. Confira a venda ou repita o atendimento original antes de alterar os itens.'); return }
     if (!rascunhoPronto || envioVenda.current || conferindoPedido || pedidoPendente || erroImportacao || (pedidoApp && !pedidoConferido)) return
     if (emConsultaCusto) { setErro(AVISO_CUSTO); return }
     if (faltamPg > 0.01 || sobraPg > 0.01) { setErro('Ajuste os pagamentos ao novo total antes de confirmar.'); return }
@@ -1562,17 +1584,25 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             combinado_entrega: isFiadoForma(p.forma_id) && combinadoEntrega,
           }
         })
+      if (temHalloween && !halloweenOperation.current) {
+        halloweenOperation.current = crypto.randomUUID()
+        sessionStorage.setItem(`${chaveRascunho.current}:halloween_operation`, halloweenOperation.current)
+      }
       const result = await finalizarVenda(
         token,
         carrinho.map((item) => {
           const dm = descontoManualItem(item)
           const acrescimo = dm.descontoUnitario < 0 // ajustou pra cima: preço final > base
+          const promo = promoEfetiva(item)
+          const halloween = !!promo?.campaign_id
           return {
             produto_id: item.avulso ? null : item.produto_id,
             nome: item.nome,
             quantidade: item.quantidade,
             preco_unitario: acrescimo ? dm.precoFinal : item.preco_unitario,
-            desconto_item: acrescimo ? 0 : dm.descontoUnitario,
+            desconto_item: halloween ? halloweenUnitDiscount(item.preco_unitario, Number(promo?.valor)) : acrescimo ? 0 : dm.descontoUnitario,
+            ...(halloween ? { halloween_rule_id: promo!.id, halloween_version: promo!.version } : {}),
+            ...(temHalloween && !halloween && promo ? { promotion_id: promo.id, promotion_discount_total: descontoDaPromo(promo, item.preco_unitario, item.quantidade, promo.tipo === 'progressivo' ? grupoTotalProg(promo.id) : undefined) } : {}),
           }
         }),
         // ⚠️ AS LINHAS DE VALE NÃO VÃO AQUI. Elas viram o parâmetro de crédito (abaixo),
@@ -1586,7 +1616,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         // forma_pagamento_id '' e recusava a venda inteira, sem mensagem.
         pagamentosPayload,
         pessoaId || null,
-        descontoNum + descontoPromo,
+        Math.round((descontoNum + descontoPromo - descontoHalloween) * 100) / 100,
         observacoes,
         depositoId,
         carrinho.flatMap((i) => (i.series ?? []).map((serie) => ({ produto_id: i.produto_id, serie }))),
@@ -1598,6 +1628,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         rotaEntrega || null,
         horarioEntrega || null,
         pedidoApp,
+        temHalloween ? halloweenOperation.current : null,
       )
       if ('erro' in result) { setErro(result.erro); return }
 
@@ -1648,8 +1679,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         desconto: descontoNum + descontoPromo,
         horario: new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' }),
       }
-      const cupomPersistido = pedidoApp ? await buscarCupomVenda(token, result.vendaId) : null
-      if (pedidoApp && !cupomPersistido) { setErroImportacao('Venda registrada. Reabra o pedido para consultar e imprimir; não crie outra venda.'); return }
+      const cupomPersistido = pedidoApp || temHalloween ? await buscarCupomVenda(token, result.vendaId) : null
+      if ((pedidoApp || temHalloween) && !cupomPersistido) { setErroImportacao('Venda registrada. Consulte o histórico para imprimir; não crie outra venda.'); return }
       const cupomFinal = cupomPersistido ? { ...cupomPersistido, deposito: cupomPersistido.deposito ?? '' } : snap
       try { imprimirCupomAuto(cupomFinal, result.vendaId) } catch { setErro('Venda concluída. Use Imprimir para tentar novamente.') }   // sai sozinho (iframe, não é bloqueado como popup)
       setVendaConcluidaId(result.vendaId)
@@ -2955,6 +2986,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                         const promoAtual = promoEfetiva(item)
                         return (
                           <select
+                            aria-label={`Promoção: ${item.nome}`}
                             disabled={comercialTravado} value={item.promoSel}
                             onChange={(e) => trocarPromo(item.produto_id, e.target.value)}
                             className={`mt-1.5 rounded-md border px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-orange-400 ${
@@ -3040,14 +3072,14 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                           <span className={descontoUnitario > 0 ? 'text-xs text-gray-400 line-through' : ''}>{formatBRL(item.preco_unitario)}</span>
                           {descontoUnitario > 0 && <span className="ml-2 font-bold text-green-700">{formatBRL(precoFinal)}</span>}
                           <div className="mt-1 flex justify-end gap-1">
-                            <select disabled={comercialTravado} aria-label={`Tipo de desconto: ${item.nome}`} value={item.desconto_tipo}
+                            <select disabled={comercialTravado || !!promoEfetiva(item)?.campaign_id} aria-label={`Tipo de desconto: ${item.nome}`} value={item.desconto_tipo}
                               onChange={(e) => alterarDescontoItem(item.produto_id, e.target.value as TipoDescontoItem, item.desconto_valor)}
                               className="rounded border border-gray-200 bg-white px-1 py-0.5 text-[11px] text-gray-600">
                               <option value="final">Preço final</option>
                               <option value="valor">Desconto R$</option>
                               <option value="percent">Desconto %</option>
                             </select>
-                            <input disabled={comercialTravado} aria-label={`Preço ou desconto: ${item.nome}`} type="number" min="0" step="0.01" value={item.desconto_valor ?? ''}
+                            <input disabled={comercialTravado || !!promoEfetiva(item)?.campaign_id} aria-label={`Preço ou desconto: ${item.nome}`} type="number" min="0" step="0.01" value={item.desconto_valor ?? ''}
                               onChange={(e) => alterarDescontoItem(item.produto_id, item.desconto_tipo, e.target.value === '' ? null : Number(e.target.value))}
                               placeholder="0,00"
                               className="w-20 rounded border border-gray-200 px-1 py-0.5 text-right text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500" />
@@ -3062,7 +3094,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                       )
                     })()}
                     <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">
-                      {formatBRL(item.quantidade * descontoManualItem(item).precoFinal)}
+                      {formatBRL(item.quantidade * descontoManualItem(item).precoFinal - (promoEfetiva(item)?.campaign_id ? descontoDaPromo(promoEfetiva(item)!, item.preco_unitario, item.quantidade) : 0))}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-3">
@@ -3111,7 +3143,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 type="number"
                 min="0"
                 step="0.01"
-                disabled={comercialTravado}
+                disabled={comercialTravado || temHalloween}
                 value={desconto}
                 onChange={(e) => setDesconto(e.target.value)}
                 placeholder={descontoTipo === 'percent' ? '0%' : '0,00'}
@@ -3567,7 +3599,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 {carrinho.map((item) => (
                   <div key={item.produto_id} className="flex justify-between">
                     <span className="text-gray-700">{item.quantidade}x {item.nome}</span>
-                    <span className="font-medium text-gray-800">{formatBRL(item.quantidade * descontoManualItem(item).precoFinal)}</span>
+                    <span className="font-medium text-gray-800">{formatBRL(item.quantidade * descontoManualItem(item).precoFinal - (promoEfetiva(item)?.campaign_id ? descontoDaPromo(promoEfetiva(item)!, item.preco_unitario, item.quantidade) : 0))}</span>
                   </div>
                 ))}
               </div>
@@ -3580,7 +3612,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                     <option value="valor">R$</option>
                     <option value="percent">%</option>
                   </select>
-                  <input type="number" min="0" step="0.01" disabled={comercialTravado}
+                  <input type="number" min="0" step="0.01" disabled={comercialTravado || temHalloween}
                 value={desconto}
                     onChange={(e) => setDesconto(e.target.value)} placeholder="0,00"
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-right focus:outline-none focus:ring-2 focus:ring-blue-500" />

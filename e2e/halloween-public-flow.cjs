@@ -22,7 +22,7 @@ class Element {
  const expires=new Date(Date.now()+172800000).toISOString()
  let ticket={status:'available',customer:'QA',expires_at:expires,campaign,result:null},lost=true,draws=0
  async function rpc(name){if(name==='ticket')return structuredClone(ticket);if(name==='spin'){
-  if(!ticket.result){draws++;ticket.result={status:'available',code:'TC-TESTE-'+draws,created_at:new Date().toISOString(),expires_at:expires,offer:{...products[draws-1],unlimited_units:true,loja:'Loja QA'}};ticket.status='used'}
+  if(!ticket.result){draws++;ticket.result={status:'available',code:'TC-TESTE-'+draws,created_at:new Date().toISOString(),expires_at:expires,offer:{...products[draws-1],unlimited_units:true,loja:'Loja QA'},pickup_store:{name:'Loja QA',whatsapp:null}};ticket.status='used'}
   if(lost){lost=false;throw Error('Conexão interrompida depois de salvar')}
   return structuredClone(ticket.result)
  }throw Error('Unexpected RPC: '+name)}
@@ -30,6 +30,11 @@ class Element {
  vm.runInNewContext(source.replace(/^import[^\n]+\n/gm,''),context)
  const flush=()=>new Promise(resolve=>setImmediate(resolve));await flush()
  assert.equal(get('spin').disabled,false,'giro disponível')
+ assert.equal(get('wheel').children.length,13,'roleta mantém posições decorativas')
+ assert.ok(get('wheel').children.every(node=>node.textContent==='✦'),'nenhum modelo é antecipado na roda')
+ assert.equal(elements.has('prize-list'),false,'catálogo público não é preenchido antes do sorteio')
+ const publicHtml=fs.readFileSync('docs/halloween-site-index-20261022.html','utf8')
+ assert.doesNotMatch(publicHtml,/iCharge|Sunshine|YX-6028|YX-A34|prize-list|>Os prêmios</i,'HTML público preserva surpresa')
  await get('spin').onclick();assert.match(get('status').textContent,/Conexão/);assert.equal(get('spin').disabled,false,'falha permite recuperar o mesmo sorteio')
  await get('spin').onclick();assert.equal(draws,1,'retry não sorteia novamente');assert.match(get('reward-title').textContent,/15% de desconto/)
  assert.match(get('reward-note').textContent,/quantas unidades quiser/,'vale explica as unidades do mesmo modelo')

@@ -14,19 +14,10 @@ if(token)document.querySelector('.brand').href=location.pathname+location.hash;
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
 let products=[],campaign,ticket,result,busy=false,loading=false;
 function render(){
- const segment=360/products.length,colors=['#496d6a','#855580','#c3854b','#4c618c','#90627e','#be9652','#9b8d47'];
- $('wheel').style.background=`conic-gradient(from -${segment/2}deg,${products.map((_,i)=>`${colors[i%colors.length]} ${i*segment}deg ${(i+1)*segment}deg`).join(',')})`;
- $('wheel').replaceChildren(...products.map((p,i)=>{const item=document.createElement('span');item.className='wheel-item';item.style.setProperty('--angle',`${i*segment}deg`);item.append(productArt(p.name));return item;}));
- $('prize-list').replaceChildren(...products.map(p=>{
-  const card=document.createElement('li');card.className=`prize ${p.id>=12?'rare':''}`;
-  const visual=document.createElement('span');visual.className='prize-visual';visual.append(productArt(p.name));
-  const label=document.createElement('strong');label.textContent=p.name;
-  const detail=document.createElement('small');detail.textContent=benefit(p);const chance=document.createElement('span');chance.className='prize-chance';
-  const current=campaign.active&&p.chance_current!==undefined;
-  const value=current?p.chance_current:p.chance_base;
-  chance.textContent=current&&!p.available?'Esgotado':current&&campaign.can_spin===false?'Giros aguardam reposição':value===undefined?'':(current?'Chance atual: ':'Chance base: ')+new Intl.NumberFormat('pt-BR',{maximumFractionDigits:2}).format(value)+'%';
-  card.append(visual,label,detail,chance);return card;
- }));
+ const slots=products.length?products:Array.from({length:13},(_,i)=>({id:i+1}));
+ const segment=360/slots.length,colors=['#496d6a','#855580','#c3854b','#4c618c','#90627e','#be9652','#9b8d47'];
+ $('wheel').style.background=`conic-gradient(from -${segment/2}deg,${slots.map((_,i)=>`${colors[i%colors.length]} ${i*segment}deg ${(i+1)*segment}deg`).join(',')})`;
+ $('wheel').replaceChildren(...slots.map((_,i)=>{const item=document.createElement('span');item.className='wheel-item';item.style.setProperty('--angle',`${i*segment}deg`);item.textContent='✦';item.setAttribute('aria-hidden','true');return item;}));
  $('mode-label').textContent=campaign.test_mode?'HOMOLOGAÇÃO':'HALLOWEEN TECNOCELL';
  $('campaign-note').textContent=campaign.test_mode?'Homologação. Nenhuma oferta ou código tem valor de resgate.':'Ofertas sujeitas ao regulamento e à disponibilidade da campanha.';
  $('spin').disabled=!ticket||ticket.status!=='available'||campaign.can_spin===false;
@@ -54,24 +45,67 @@ function celebrate(rare){
  const colors=rare?['#ffdc83','#fff0bd','#bc9142']:['#e9b358','#b4db88','#b88ada','#f7d7b0'];
  for(let i=0;i<32;i++){const dot=document.createElement('i');for(const[k,v]of Object.entries({x:`${i*37%100}%`,color:colors[i%colors.length],duration:`${2+i%3*.5}s`,delay:`${i%6*.13}s`,rotation:`${i*29}deg`,drift:`${i%2?40:-40}px`}))dot.style.setProperty(`--${k}`,v);$('confetti').append(dot);}
 }
-function showResult(){
- const p=result.offer,rare=p.id>=12;
+const clean=value=>String(value??'').replace(/\s+/g,' ').trim();
+function receiptState(){
+ if(result.status!=='available')return result.status;
+ return !Number.isFinite(Date.parse(result.expires_at))||Date.parse(result.expires_at)<=Date.now()?'expired':'available';
+}
+function receiptConditions(){
+ const p=result.offer;
+ return (p.unlimited_units?'Desconto somente no modelo indicado, em quantas unidades quiser nesta compra.':p.benefit_type==='percent'&&p.benefit_value===100?'Prêmio grátis: uma unidade. Não exige nova compra.':'Benefício somente no modelo indicado, conforme o valor deste vale.')+' Uso único. Sem acumular com outros vales ou promoções.';
+}
+function receiptStatus(state=receiptState()){
+ return ({available:'DISPONÍVEL PARA RETIRADA',redeemed:'RESGATADO — não pode ser usado novamente.',expired:'VENCIDO — não pode ser resgatado.',revoked:'CANCELADO — não pode ser resgatado.',replaced:'CANCELADO — giro devolvido; este código não pode ser resgatado.'})[state]||'SITUAÇÃO NÃO CONFIRMADA — consulte a loja da compra.';
+}
+function receiptText(state=receiptState()){
+ const store=clean(result.pickup_store?.name)||'Não informada — contate a loja da compra.';
+ return [campaign.test_mode?'TESTE — SEM VALOR DE RESGATE':'COMPROVANTE HALLOWEEN TECNOCELL',
+  `Cliente: ${clean(ticket.customer)}`,`Produto/modelo: ${clean(result.offer.name)}`,`Benefício: ${benefit(result.offer)}`,
+  `Código do vale: ${clean(result.code)}`,`Situação: ${receiptStatus(state)}`,
+  `Validade: ${dateTime(result.expires_at)} (horário de Brasília)`,`Loja de retirada: ${store}`,receiptConditions()].join('\n');
+}
+function storePhone(value){
+ if(typeof value!=='string'||! /^(?:\+|00)?[\d\s().-]+$/.test(value.trim()))return null;
+ let digits=value.replace(/\D/g,'');if(digits.startsWith('0055'))digits=digits.slice(2);
+ if(digits.length===10||digits.length===11)digits='55'+digits;
+ if(!/^55\d{2}(?:9\d{8}|[2-5]\d{7})$/.test(digits))return null;
+ const ddd=digits.slice(2,4);
+ if(!'11 12 13 14 15 16 17 18 19 21 22 24 27 28 31 32 33 34 35 37 38 41 42 43 44 45 46 47 48 49 51 53 54 55 61 62 63 64 65 66 67 68 69 71 73 74 75 77 79 81 82 83 84 85 86 87 88 89 91 92 93 94 95 96 97 98 99'.split(' ').includes(ddd))return null;
+ return digits;
+}
+function renderReceipt(){
+ const state=receiptState(),store=result.pickup_store,phone=storePhone(store?.whatsapp),name=clean(store?.name);
+ $('receipt-content').textContent=receiptText();
+ $('share').textContent=name?`Enviar para ${name}`:'Enviar para a loja da compra';
+ $('share').hidden=state!=='available'||!name||!phone;$('share').disabled=$('share').hidden;
+ $('store-contact-note').textContent=state!=='available'?receiptStatus(state):!name||!phone?'WhatsApp desta unidade não informado ou inválido. Copie o comprovante e contate a loja da compra.':'O WhatsApp abrirá com o comprovante. Revise a mensagem e toque em enviar na conversa.';
+}
+async function refreshReceipt(){
+ const current=await rpc('ticket',{p_token:token});
+ if(current.result?.code===result.code){ticket=current;campaign=current.campaign;result=current.result;}
+ else result={...result,status:current.status==='revoked'?'revoked':'replaced'};
+ showResult(false);
+}
+function showResult(animate=true){
+ const p=result.offer,rare=p.id>=12,pickup=clean(result.pickup_store?.name);
+ $('result-mode').hidden=!campaign.test_mode;
  document.body.classList.remove('spinning');document.body.classList.add('revealed');
  $('floating').replaceChildren(productArt(p.name));$('reward-icon').replaceChildren(productArt(p.name));
  $('rarity').textContent=result.status==='replaced'?'CUPOM CANCELADO':result.status==='revoked'?'VALE CANCELADO':result.status==='redeemed'?'VALE JÁ RESGATADO':result.status==='expired'?'VALE VENCIDO':rare?'OFERTA ESPECIAL':'SUA OFERTA';
  $('result').classList.toggle('rare-result',rare);$('reward-title').textContent=`${benefit(p)} · ${p.name}`;
  $('customer').textContent=ticket.customer;$('code').textContent=result.code;
- $('share').disabled=result.status!=='available';
  $('reward-note').textContent=result.status==='replaced'?'Este cupom foi cancelado e um giro foi devolvido. Reabra o mesmo link para consultar.':result.status==='revoked'?'Compra cancelada ou fora das regras. Este vale não pode ser resgatado. Consulte a loja.':result.status==='expired'?'Este vale venceu e não pode ser resgatado.':campaign.test_mode?'Homologação: sem valor de resgate.':result.status==='redeemed'?`Resgatado em ${dateTime(result.redeemed_at)}.`:`Apresente este vale na loja até ${dateTime(result.expires_at)}. Uso único. Horário de Brasília.`;
  if(result.status==='available')$('reward-note').textContent+=p.unlimited_units?' Desconto somente neste modelo, em quantas unidades quiser nesta compra. Uso único, sem acumular.':p.benefit_type==='percent'&&p.benefit_value===100?' Prêmio grátis de uma unidade.':'';
- if(p.loja)$('reward-note').textContent+=` Retirada somente em ${p.loja}.`;
- $('receipt-content').hidden=true;$('receipt').textContent='Ver meu comprovante';
+ if(pickup)$('reward-note').textContent+=` Retirada somente em ${pickup}.`;
+ renderReceipt();$('receipt-content').hidden=false;$('receipt').textContent='Ocultar comprovante';$('copy-status').textContent='';
+ if(receiptState()!=='available'){$('rarity').textContent=receiptStatus();$('reward-note').textContent=receiptStatus();}
+ if(campaign.test_mode)$('reward-note').textContent='TESTE — SEM VALOR DE RESGATE. '+$('reward-note').textContent;
  $('spin-label').textContent='OFERTA REVELADA';$('spin').disabled=true;
  document.querySelector('.attempt-token').textContent='0';$('attempt-label').textContent='giros disponíveis';
- $('expiry').textContent=`Vale válido até ${dateTime(result.expires_at)}.${p.loja?' Retirada em '+p.loja+'.':''}`;
+ $('expiry').textContent=`${receiptState()==='available'?'Vale válido até':'Validade do vale:'} ${dateTime(result.expires_at)}.${pickup?' Retirada em '+pickup+'.':''}`;
  $('status').textContent='Seu resultado está salvo. Você pode abrir este link novamente para consultar.';
  $('scene-label').textContent=`O caldeirão escolheu: ${p.name}!`;
- $('view-result').hidden=false;celebrate(rare);if(!$('result').open)$('result').showModal();
+ $('view-result').hidden=false;if(animate)celebrate(rare);if(!$('result').open)$('result').showModal();
 }
 $('spin').onclick=async()=>{
  if(busy||!ticket||ticket.status!=='available')return;
@@ -87,11 +121,33 @@ $('spin').onclick=async()=>{
 };
 $('close').onclick=()=>$('result').close();$('view-result').onclick=()=>showResult();
 $('result').addEventListener('close',()=>$('view-result').focus({preventScroll:true}));
-$('receipt').onclick=()=>{const p=result.offer,d=$('receipt-content');d.hidden=!d.hidden;$('receipt').textContent=d.hidden?'Ver meu comprovante':'Ocultar comprovante';d.textContent=`${campaign.test_mode?'HOMOLOGAÇÃO — SEM VALOR DE RESGATE':'VALE TECNOCELL'} · ${ticket.customer} · ${benefit(result.offer)} em ${result.offer.name} · ${result.code} · Emitido: ${dateTime(result.created_at)} · Validade: ${dateTime(result.expires_at)} · Uso único${p.unlimited_units?' · Desconto somente no modelo indicado, em quantas unidades quiser nesta compra. Sem acumular.':p.benefit_type==='percent'&&p.benefit_value===100?' · Prêmio grátis de uma unidade.':' · Benefício somente no modelo indicado, conforme o valor deste vale.'}${p.loja?' · Retirada em '+p.loja+'.':''}`;};
-$('share').onclick=()=>{const text=`${campaign.test_mode?'TESTE SEM VALOR DE RESGATE — ':''}Minha oferta Halloween TECNOCELL: ${benefit(result.offer)} em ${result.offer.name}. Código: ${result.code}. Válido até ${dateTime(result.expires_at)}. Uso único na loja.`;window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,'_blank','noopener,noreferrer');};
+$('receipt').onclick=()=>{renderReceipt();const d=$('receipt-content');d.hidden=!d.hidden;$('receipt').textContent=d.hidden?'Ver meu comprovante':'Ocultar comprovante';};
+let receiptBusy=false;
+async function receiptAction(action){
+ if(receiptBusy||!result)return;receiptBusy=true;$('copy-receipt').disabled=true;$('share').disabled=true;
+ try{
+  await refreshReceipt();
+  const text=receiptText();
+  if(action==='copy'){
+   try{await navigator.clipboard.writeText(text);$('copy-status').textContent='Comprovante copiado!';}
+   catch{$('receipt-content').hidden=false;$('receipt').textContent='Ocultar comprovante';$('copy-status').textContent='Não foi possível copiar automaticamente. Selecione o comprovante abaixo e copie o texto.';}
+  }else{
+   const phone=storePhone(result.pickup_store?.whatsapp);
+   if(receiptState()!=='available'||!clean(result.pickup_store?.name)||!phone)return;
+   const opened=window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`,'_blank','noopener,noreferrer');
+   if(!opened)$('copy-status').textContent='Se a conversa não abrir, permita a abertura no navegador ou copie o comprovante.';
+  }
+ }catch{
+  $('receipt-content').textContent=receiptText(receiptState()==='available'?'unconfirmed':receiptState());$('receipt-content').hidden=false;$('receipt').textContent='Ocultar comprovante';$('share').hidden=true;
+  $('store-contact-note').textContent='Confirme a situação com a loja da compra antes de solicitar a retirada.';
+  $('copy-status').textContent='Não foi possível atualizar a situação do vale. Confira sua conexão e tente novamente; o comprovante abaixo pode ser selecionado.';
+ }finally{receiptBusy=false;$('copy-receipt').disabled=false;$('share').disabled=$('share').hidden;}
+}
+$('copy-receipt').onclick=()=>receiptAction('copy');
+$('share').onclick=()=>receiptAction('share');
 for(let i=0;i<18;i++){const dot=document.createElement('i');dot.className='particle';for(const[k,v]of Object.entries({x:`${30+i*17%43}%`,size:`${2+i%3}px`,delay:`${-i*.37}s`,duration:`${3+i%4}s`,drift:`${i%2?25:-25}px`}))dot.style.setProperty(`--${k}`,v);$('particles').append(dot);}
 async function load(){
- if(loading||busy)return;loading=true;
+ if(loading||busy||receiptBusy)return;loading=true;
  try{
   if(token){ticket=await rpc('ticket',{p_token:token});campaign=ticket.campaign;}else campaign=await rpc('catalog',{p_campaign:campaignId});
   if(!campaign)throw new Error('Campanha não encontrada.');products=campaign.products;render();

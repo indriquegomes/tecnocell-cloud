@@ -48,6 +48,11 @@ export default async function PromocoesPage({
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>
       )}
 
+      <Link href="/painel/promocoes/halloween" className="block rounded-xl border border-purple-300 bg-purple-50 p-5 text-purple-950">
+        <strong>🎃 Halloween · controle interno</strong>
+        <p className="mt-1 text-sm">Acompanhar automaticamente a margem das vendas Halloween e a liberação dos raros por loja ao atingir R$700.</p>
+      </Link>
+
       {/* Cards */}
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">

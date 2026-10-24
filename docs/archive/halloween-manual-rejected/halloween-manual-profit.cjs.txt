@@ -1,0 +1,11 @@
+// Reuse isolated PGlite fixture setup; never connect to the company database.
+const fs=require('node:fs'),path=require('node:path'),Module=require('node:module');
+if(process.env.HALLOWEEN_LOCAL_PG_URL)throw Error('Use PGlite isolated fixture only');
+const root=path.resolve(__dirname,'..');
+let src=fs.readFileSync(path.join(__dirname,'halloween-payment-proof-pglite.cjs'),'utf8');
+src=src.replace("if (process.env.HALLOWEEN_LOCAL_PG_URL) await require('./halloween-payment-concurrency.cjs')(process.env.HALLOWEEN_LOCAL_PG_URL)",`await db.exec(fs.readFileSync(path.join(root,'e2e/halloween-manual-profit-fixture.sql'),'utf8'));
+const profit=path.join(root,'supabase/migrations/20261024170000_halloween_manual_profit.sql');
+if(fs.existsSync(profit))await db.exec(fs.readFileSync(profit,'utf8'));
+await db.exec(fs.readFileSync(path.join(root,'e2e/halloween-manual-profit-check.sql'),'utf8'));
+console.log('PASS manual profit: threshold, duplicates, authorization, amounts, unpaid, drift, negative margin, no ERP writes');`);
+const mod=new Module(path.join(__dirname,'profit-fixture-runner.cjs'),module);mod.filename=path.join(__dirname,'profit-fixture-runner.cjs');mod.paths=module.paths;mod._compile(src,mod.filename);
