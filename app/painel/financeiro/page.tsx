@@ -274,10 +274,9 @@ export default async function FinanceiroPage({
 
       {/* ✨ Totais do que está filtrado (não só o global) + exportar */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-gray-100 bg-gray-50/60 px-5 py-3 text-sm">
-        <span className="font-semibold text-gray-500">No filtro atual:</span>
-        <span>A Receber <b className="text-green-600">{formatBRL(fReceber)}</b></span>
-        <span>A Pagar <b className="text-red-500">{formatBRL(fPagar)}</b></span>
-        <span>Saldo <b className={fReceber - fPagar >= 0 ? 'text-gray-800' : 'text-red-500'}>{formatBRL(fReceber - fPagar)}</b></span>
+        <span className="font-semibold text-gray-500">Total no filtro (pago + pendente):</span>
+        <span>Receber <b className="text-green-600">{formatBRL(fReceber)}</b></span>
+        <span>Pagar <b className="text-red-500">{formatBRL(fPagar)}</b></span>
         <span className="text-gray-400">{fCount} lançamento(s)</span>
         <div className="ml-auto">
           <ExportCsv filename={`financeiro_${hojeSP()}.csv`}
