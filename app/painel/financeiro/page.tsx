@@ -12,8 +12,9 @@ import { ExportCsv } from '../relatorios/ExportCsv'
 import { BuscaAvancada } from '@/components/BuscaAvancada'
 
 // Grupos de categoria pros filtros rápidos (chips) do topo do Financeiro.
-const GRUPOS_FINANCEIRO: Record<string, { label: string; categorias: string[] }> = {
-  funcionarios: { label: '👥 Funcionários', categorias: ['Salários', 'Motoboy', 'Limpeza'] },
+const GRUPOS_FINANCEIRO: Record<string, { label: string; categorias?: string[]; tipo?: 'funcionarios' | 'freelancers' }> = {
+  funcionarios: { label: '👥 Funcionários', tipo: 'funcionarios' },
+  freelancers:  { label: '🎒 Freelancers', tipo: 'freelancers' },
   fornecedores: { label: '🏭 Fornecedores', categorias: ['Fornecedor / Mercadoria', 'Mercadoria'] },
   fixas:        { label: '📌 Contas fixas', categorias: ['Aluguel', 'Energia/Luz', 'Contabilidade', 'Impostos'] },
 }
@@ -27,7 +28,7 @@ const CATEGORIAS_FINANCEIRO: { grupo: string; categorias: string[] }[] = [
 export default async function FinanceiroPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tipo?: string; busca?: string; ordem?: string; dir?: string; status?: string; de?: string; ate?: string; pessoa?: string; forma?: string; conta?: string; categoria?: string; grupo?: string; valor_min?: string; valor_max?: string; campo?: string; erro?: string; ok?: string; loja?: string }>
+  searchParams: Promise<{ tipo?: string; busca?: string; ordem?: string; dir?: string; status?: string; de?: string; ate?: string; pessoa?: string; forma?: string; conta?: string; categoria?: string; grupo?: string; tudo?: string; valor_min?: string; valor_max?: string; campo?: string; erro?: string; ok?: string; loja?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
@@ -59,6 +60,25 @@ export default async function FinanceiroPage({
     if (lojaEfetiva !== 'todas') return q.eq('loja_id', lojaEfetiva)
     return q
   }
+  // Funcionário = quem tem cadastro em perfis. Freelancer = quem presta serviço
+  // pontual e NÃO está na folha. A distinção é pelo cadastro, não pela categoria.
+  const { data: perfisNomesData } = await supabase.from('perfis').select('nome')
+  const nomesFuncionarios = ((perfisNomesData ?? []) as { nome: string | null }[])
+    .map((p) => p.nome).filter((n): n is string => !!n)
+  const inFuncionarios = '(' + nomesFuncionarios.map((n) => '"' + n.replace(/"/g, '') + '"').join(',') + ')'
+
+  // Período padrão/cálculo dos chips. Sem filtro de data, a lista abre no MÊS ATUAL
+  // (não em todo o histórico) — 'tudo=1' mostra tudo.
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const hojeD = new Date(hojeSP() + 'T12:00:00')
+  const mesIni = hojeSP().slice(0, 7) + '-01'
+  const mesFim = iso(new Date(hojeD.getFullYear(), hojeD.getMonth() + 1, 0))
+  const dow = (hojeD.getDay() + 6) % 7 // 0 = segunda
+  const segD = new Date(hojeD); segD.setDate(hojeD.getDate() - dow)
+  const semIni = iso(segD)
+  const semFim = iso(new Date(segD.getTime() + 6 * 86400000))
+  const verTudo = params.tudo === '1'
+
   const aplica = (q: any): any => {
     q = aplicaLoja(q)
     if (params.tipo === 'pagar' || params.tipo === 'receber') q = q.eq('tipo', params.tipo)
@@ -67,14 +87,21 @@ export default async function FinanceiroPage({
     if (params.forma) q = q.eq('forma_pagamento', params.forma)
     if (params.conta) q = q.eq('conta_id', params.conta)
     if (params.categoria) q = q.eq('categoria', params.categoria)
-    if (params.grupo && GRUPOS_FINANCEIRO[params.grupo]) q = q.in('categoria', GRUPOS_FINANCEIRO[params.grupo].categorias)
+    if (params.grupo && GRUPOS_FINANCEIRO[params.grupo]) {
+      const g = GRUPOS_FINANCEIRO[params.grupo]
+      if (g.categorias) q = q.in('categoria', g.categorias)
+      else if (g.tipo === 'funcionarios') q = q.in('pessoa_nome', nomesFuncionarios)
+      else if (g.tipo === 'freelancers') q = q.not('pessoa_nome', 'in', inFuncionarios).ilike('categoria', 'motoboy')
+    }
     if (params.valor_min) q = q.gte('valor', Number(params.valor_min))
     if (params.valor_max) q = q.lte('valor', Number(params.valor_max))
     if (params.status === 'pago') q = q.eq('status', 'pago')
     else if (params.status === 'pendente') q = q.neq('status', 'pago')
     else if (params.status === 'vencido') q = q.neq('status', 'pago').lt('data_vencimento', hojeSP())
-    if (params.de) q = q.gte(campoData, params.de)
-    if (params.ate) q = q.lte(campoData, params.ate)
+    const deEfetivo = params.de ?? (verTudo ? undefined : mesIni)
+    const ateEfetivo = params.ate ?? (verTudo ? undefined : mesFim)
+    if (deEfetivo) q = q.gte(campoData, deEfetivo)
+    if (ateEfetivo) q = q.lte(campoData, ateEfetivo)
     return q
   }
   /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -157,17 +184,9 @@ export default async function FinanceiroPage({
     : null
 
   // --- Filtros rápidos (chips) em cascata: grupo de categoria + período ---
-  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  const hojeD = new Date(hojeSP() + 'T12:00:00')
-  const mesIni = hojeSP().slice(0, 7) + '-01'
-  const mesFim = iso(new Date(hojeD.getFullYear(), hojeD.getMonth() + 1, 0))
-  const dow = (hojeD.getDay() + 6) % 7 // 0 = segunda
-  const segD = new Date(hojeD); segD.setDate(hojeD.getDate() - dow)
-  const semIni = iso(segD)
-  const semFim = iso(new Date(segD.getTime() + 6 * 86400000))
   const periodoAtivo = params.de === mesIni && params.ate === mesFim ? 'mes' : params.de === semIni && params.ate === semFim ? 'semana' : null
   const chipBase: Record<string, string> = {}
-  for (const k of ['tipo', 'loja', 'busca', 'status', 'pessoa', 'forma', 'conta', 'categoria', 'valor_min', 'valor_max', 'campo', 'ordem', 'dir'] as const) {
+  for (const k of ['tipo', 'loja', 'busca', 'status', 'pessoa', 'forma', 'conta', 'categoria', 'tudo', 'valor_min', 'valor_max', 'campo', 'ordem', 'dir'] as const) {
     if (params[k]) chipBase[k] = params[k]!
   }
   const chipLink = (extra: Record<string, string | undefined>) => {
@@ -232,16 +251,20 @@ export default async function FinanceiroPage({
           )
         })}
         <div className="mx-1 hidden h-6 w-px bg-gray-200 sm:block" />
-        <Link href={chipLink(periodoAtivo === 'mes' ? { de: undefined, ate: undefined } : { de: mesIni, ate: mesFim })}
+        <Link href={chipLink(periodoAtivo === 'mes' ? { de: undefined, ate: undefined } : { de: mesIni, ate: mesFim, tudo: undefined })}
           className={'rounded-full border px-3 py-1.5 text-sm font-medium transition ' + (periodoAtivo === 'mes' ? 'border-[#1B6CA8] bg-[#1B6CA8] text-white shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50')}>
           📅 Este mês
         </Link>
-        <Link href={chipLink(periodoAtivo === 'semana' ? { de: undefined, ate: undefined } : { de: semIni, ate: semFim })}
+        <Link href={chipLink(periodoAtivo === 'semana' ? { de: undefined, ate: undefined } : { de: semIni, ate: semFim, tudo: undefined })}
           className={'rounded-full border px-3 py-1.5 text-sm font-medium transition ' + (periodoAtivo === 'semana' ? 'border-[#1B6CA8] bg-[#1B6CA8] text-white shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50')}>
           📆 Esta semana
         </Link>
-        {(params.grupo || periodoAtivo || params.de || params.ate) && (
-          <Link href={chipLink({ grupo: undefined, de: undefined, ate: undefined })}
+        <Link href={chipLink(verTudo ? { tudo: undefined } : { tudo: '1', de: undefined, ate: undefined })}
+          className={'rounded-full border px-3 py-1.5 text-sm font-medium transition ' + (verTudo ? 'border-[#1B6CA8] bg-[#1B6CA8] text-white shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50')}>
+          🗂️ Ver tudo
+        </Link>
+        {(params.grupo || periodoAtivo || verTudo || params.de || params.ate) && (
+          <Link href="/painel/financeiro"
             className="rounded-full border border-red-200 bg-white px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50">
             ✕ Limpar
           </Link>
