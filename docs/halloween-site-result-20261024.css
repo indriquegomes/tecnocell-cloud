@@ -1,0 +1,11 @@
+/* Complemento do resultado; preserva a identidade e o restante da campanha. */
+#result { max-height:calc(100dvh - 24px); overflow-y:auto; }
+#result #copy-receipt, #result #share, #result #receipt { width:100%; min-height:48px; white-space:normal; line-height:1.35; }
+#result #copy-status { margin:8px 0; min-height:1.3em; color:#ffe0b2; }
+#result #store-contact-note { margin:8px 0 12px; }
+#result #receipt-content { white-space:pre-wrap; overflow-wrap:anywhere; text-align:left; user-select:text; -webkit-user-select:text; font:inherit; font-size:14px; line-height:1.65; padding:16px; border:1px solid #73543b; border-radius:14px; background:#171313; color:#fff5e7; }
+#result [hidden] { display:none !important; }
+#result .result-mode { margin:0 44px 16px 0; padding:8px; border:1px solid #ffce85; border-radius:8px; color:#ffe0b2; font-size:13px; font-weight:700; line-height:1.5; }
+#result .ticket strong { overflow-wrap:anywhere; user-select:text; -webkit-user-select:text; }
+#result button:focus-visible, #receipt-content:focus-visible { outline:3px solid #ffce85; outline-offset:3px; }
+@media(max-width:480px) { #result { max-width:calc(100vw - 24px); } #result #receipt-content { padding:12px; } }

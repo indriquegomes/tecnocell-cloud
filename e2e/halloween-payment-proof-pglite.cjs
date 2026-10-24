@@ -8,7 +8,7 @@ const root = path.resolve(__dirname, '..')
  let db
  if (process.env.HALLOWEEN_LOCAL_PG_URL) {
   const target = new URL(process.env.HALLOWEEN_LOCAL_PG_URL)
-  if (target.hostname !== '127.0.0.1' || target.pathname !== '/halloween_test') throw new Error('Local test database only')
+  if (target.hostname !== '127.0.0.1' || !/^\/halloween_test(?:_[a-z0-9_]+)?$/.test(target.pathname)) throw new Error('Local test database only')
   const client = new (require('pg').Client)({ connectionString: target.href })
   await client.connect()
   db = { exec: async sql => { const result = await client.query(sql); return Array.isArray(result) ? result : [result] }, close: () => client.end() }
@@ -52,6 +52,16 @@ const root = path.resolve(__dirname, '..')
   if(fs.existsSync(next))await db.exec(fs.readFileSync(next,'utf8'));
   await db.exec(fs.readFileSync(path.join(root,'e2e/halloween-coupons-check.sql'),'utf8'));
   for(const item of await db.exec(fs.readFileSync(path.join(root,'e2e/halloween-payment-proof-check.sql'),'utf8')))for(const row of item.rows??[])console.log(JSON.stringify(row));
+  if(process.argv.includes('--receipt')) {
+   await db.exec(fs.readFileSync(path.join(root,'supabase/migrations/20261024020821_halloween_configure_alias.sql'),'utf8'));
+   await db.exec('alter table public.lojas add column whatsapp text');
+   await db.exec(fs.readFileSync(path.join(root,'supabase/migrations/20261024061236_halloween_result_receipt_store.sql'),'utf8'));
+   for(const item of await db.exec(fs.readFileSync(path.join(root,'e2e/halloween-receipt-store-check.sql'),'utf8')))for(const row of item.rows??[])console.log(JSON.stringify(row));
+   await db.exec(fs.readFileSync(path.join(root,'e2e/halloween-coupons-check.sql'),'utf8'));
+   await db.exec(fs.readFileSync(path.join(root,'e2e/halloween-payment-proof-check.sql'),'utf8'));
+   for(const item of await db.exec(fs.readFileSync(path.join(root,'e2e/halloween-current-probability-check.sql'),'utf8')))for(const row of item.rows??[])console.log(JSON.stringify(row));
+   console.log('PASS regressão após contato: cupons, reemissão, resgate e quitação permanecem preservados.');
+  }
   if (process.env.HALLOWEEN_LOCAL_PG_URL) await require('./halloween-payment-concurrency.cjs')(process.env.HALLOWEEN_LOCAL_PG_URL)
  } finally { await db.close() }
 })().catch(e=>{console.error(e.message);process.exitCode=1})

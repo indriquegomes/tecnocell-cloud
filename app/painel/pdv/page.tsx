@@ -27,7 +27,10 @@ async function configPdvUsuario(supabase: Awaited<ReturnType<typeof createServic
 export type PromoInfo = {
   id: string
   nome: string
-  tipo: 'valor_direto' | 'progressivo' | 'leve_x_pague_y' | 'acima_x_pague_y'
+  tipo: 'valor_direto' | 'progressivo' | 'leve_x_pague_y' | 'acima_x_pague_y' | 'percentual'
+  manual_only?: boolean
+  campaign_id?: string
+  version?: number
   preco_promocional: number | null
   x: number | null
   y: number | null
@@ -145,6 +148,14 @@ export default async function PDVPage({ searchParams }: { searchParams?: Promise
         tabelas: tabelasPorPromo[promo.id],
       })
     }
+  }
+
+  // Separate manual-only rules never enter the generic automatic promotion catalogue.
+  const { data: halloweenRules, error: halloweenError } = await supabase.rpc('halloween_pdv_rules', { p_campaign: 'halloween-2026' })
+  if (halloweenError && halloweenError.code !== 'PGRST202') console.error('Halloween: catálogo manual indisponível', halloweenError.code)
+  for (const rule of (halloweenRules ?? []) as { product_id: string; rule_id: string; campaign_id: string; percent: number; version: number }[]) {
+    ;(promosPorProduto[rule.product_id] ??= []).push({ id: rule.rule_id, nome: '🎃 Halloween TECNOCELL', tipo: 'percentual', valor: rule.percent,
+      preco_promocional: null, x: null, y: null, manual_only: true, campaign_id: rule.campaign_id, version: rule.version })
   }
 
   // Restrição/padrão de lojas por usuário (Config PDV do perfil)

@@ -1,0 +1,112 @@
+-- Internal manual promotion attribution only. No ERP writes or triggers.
+begin;
+set local lock_timeout='3s';
+do $$begin if exists(select 1 from halloween_private.campaigns where id='halloween-2026'and active)then raise exception 'Pause a campanha antes de instalar a meta';end if;end $$;
+create table halloween_private.profit_catalog(code text primary key,model_id integer unique not null,discount numeric not null);
+insert into halloween_private.profit_catalog values('03535',1,15),('12451',2,20),('12457',3,20),('06483',4,15),('12443',5,20),('12454',6,15),('12445',7,18),('11799',8,15),('12464',9,18),('03393',10,18),('12437',11,10);
+create table halloween_private.profit_entries(
+ id uuid primary key default gen_random_uuid(),campaign_id text not null references halloween_private.campaigns(id),sale_id uuid not null references public.vendas(id),
+ actor uuid not null,reason text not null,created_at timestamptz not null default clock_timestamp(),fingerprint text not null,
+ revenue numeric(14,2)not null,cost numeric(14,2)not null,fees numeric(14,2)not null check(fees>=0),taxes numeric(14,2)not null check(taxes>=0),expenses numeric(14,2)not null check(expenses>=0),
+ result numeric(14,2)generated always as(revenue-cost-fees-taxes-expenses)stored,items jsonb not null,
+ unique(campaign_id,sale_id),check(length(btrim(reason))between 10 and 500));
+alter table halloween_private.profit_catalog enable row level security;
+alter table halloween_private.profit_entries enable row level security;
+revoke all on halloween_private.profit_catalog,halloween_private.profit_entries from public,anon,authenticated;
+
+create function halloween_private.profit_fingerprint(p_sale uuid)returns text language sql stable security definer set search_path=''as $$
+ select md5(jsonb_build_object('sale',jsonb_build_array(v.id,v.total,v.desconto,v.status,v.created_at,v.deposito_id,v.uso_interno,v.ml_order_id),'items',(select jsonb_agg(jsonb_build_array(i.id,i.produto_id,i.quantidade,i.preco_unitario,i.desconto_item,i.total_item)order by i.id)from public.itens_venda i where i.venda_id=v.id),'payments',(select jsonb_agg(jsonb_build_array(p.valor,p.taxa,p.status)order by p.valor,p.taxa,p.status)from public.pagamentos_venda p where p.venda_id=v.id),'returns',(select jsonb_agg(jsonb_build_array(d.id,d.valor_total)order by d.id)from public.devolucoes d where d.venda_id=v.id))::text)from public.vendas v where v.id=p_sale
+$$;
+create function halloween_private.profit_entry_valid(p_id uuid)returns boolean language sql stable security definer set search_path=''as $$
+ select coalesce((select halloween_private.sale_paid(e.sale_id)and e.fingerprint=halloween_private.profit_fingerprint(e.sale_id)and not exists(select 1 from public.devolucoes d where d.venda_id=e.sale_id)from halloween_private.profit_entries e where e.id=p_id),false)
+$$;
+create function halloween_private.profit_gate(p_campaign text)returns boolean language sql stable security definer set search_path=''as $$
+ select coalesce(sum(e.result),0)>=700 and count(*)filter(where not halloween_private.profit_entry_valid(e.id))=0 from halloween_private.profit_entries e where e.campaign_id=p_campaign
+$$;
+
+create function public.halloween_profit_sale(p_campaign text,p_number integer)returns jsonb language plpgsql security definer set search_path=''set lock_timeout='3s'set statement_timeout='10s'as $$
+declare v public.vendas; c halloween_private.campaigns; r jsonb;
+begin
+ perform halloween_private.require_staff();select * into strict c from halloween_private.campaigns where id=p_campaign;
+ if(select count(*)from public.vendas where numero=p_number)<>1 then raise exception 'Número de venda ausente ou ambíguo';end if;
+ select * into v from public.vendas where numero=p_number;
+ if not found then raise exception 'Venda não encontrada';end if;
+ if not halloween_private.sale_paid(v.id)then raise exception 'A venda precisa estar concluída e integralmente quitada';end if;
+ if v.created_at<c.starts_at or v.created_at>=c.ends_at+interval '48 hours'or coalesce(v.uso_interno,false)or v.ml_order_id is not null then raise exception 'Venda fora do período ou origem da promoção';end if;
+ if exists(select 1 from public.devolucoes where venda_id=v.id)then raise exception 'Venda com devolução exige conferência antes de participar';end if;
+ select jsonb_build_object('sale_id',v.id,'number',v.numero,'total',v.total,'store',l.nome,'created_at',v.created_at,'registered',exists(select 1 from halloween_private.profit_entries e where e.campaign_id=p_campaign and e.sale_id=v.id),'items',coalesce((select jsonb_agg(jsonb_build_object('item_id',i.id,'name',p.nome,'code',p.codigo,'quantity',i.quantidade,'total',i.total_item,'catalog_cost',p.preco_custo,'discount',m.discount)order by i.id)from public.itens_venda i join public.produtos p on p.id=i.produto_id join halloween_private.profit_catalog m on ltrim(p.codigo,'0')=ltrim(m.code,'0')where i.venda_id=v.id),'[]'))into r from public.depositos d join public.lojas l on l.id=d.loja_id where d.id=v.deposito_id;
+ if r is null then raise exception 'Loja da venda não identificada';end if;return r;
+end $$;
+
+create function public.halloween_profit_record(p_campaign text,p_sale uuid,p_items jsonb,p_fees numeric,p_taxes numeric,p_expenses numeric,p_reason text,p_confirm boolean)returns jsonb language plpgsql security definer set search_path=''set lock_timeout='3s'set statement_timeout='10s'as $$
+declare u uuid;v public.vendas;c halloween_private.campaigns;x jsonb;i public.itens_venda;ids uuid[]:='{}'; rev numeric:=0;cmv numeric:=0;base numeric;rate numeric;uc numeric;rows jsonb:='[]';result_id uuid;source_hash text;
+begin
+ u:=halloween_private.require_staff();
+ if p_confirm is distinct from true or length(btrim(coalesce(p_reason,'')))not between 10 and 500 then raise exception 'Confirme os custos e despesas e informe a origem da conferência';end if;
+ if p_fees is null or p_taxes is null or p_expenses is null or least(p_fees,p_taxes,p_expenses)<0 or greatest(p_fees,p_taxes,p_expenses)>10000000 or p_fees<>round(p_fees,2)or p_taxes<>round(p_taxes,2)or p_expenses<>round(p_expenses,2)then raise exception 'Informe taxas, impostos e despesas em reais, inclusive zero confirmado';end if;
+ select * into strict c from halloween_private.campaigns where id=p_campaign for update;
+ select * into v from public.vendas where id=p_sale for share;
+ if not found or not halloween_private.sale_paid(p_sale)then raise exception 'Venda inexistente ou não quitada';end if;
+ if not exists(select 1 from public.depositos d join public.lojas l on l.id=d.loja_id and l.ativa where d.id=v.deposito_id)then raise exception 'Loja da venda não identificada ou inativa';end if;
+ if v.created_at<c.starts_at or v.created_at>=c.ends_at+interval '48 hours'or coalesce(v.uso_interno,false)or v.ml_order_id is not null or exists(select 1 from public.devolucoes where venda_id=p_sale)then raise exception 'Origem inválida ou devolvida';end if;
+ if jsonb_typeof(p_items)is distinct from 'array'or jsonb_array_length(p_items)not between 1 and 100 then raise exception 'Selecione os itens participantes';end if;
+ source_hash:=halloween_private.profit_fingerprint(p_sale);
+ select sum(total_item)into base from public.itens_venda where venda_id=p_sale;
+ if base is null or base<=0 or coalesce(v.desconto,0)<0 or coalesce(v.desconto,0)>base then raise exception 'Base de rateio inválida';end if;
+ -- Determine each item's allocation from all sale items, not independently rounded totals.
+ for x in select value from jsonb_array_elements(p_items)loop
+  select iv.* into i from public.itens_venda iv join public.produtos p on p.id=iv.produto_id join halloween_private.profit_catalog m on ltrim(p.codigo,'0')=ltrim(m.code,'0')where iv.id=(x->>'item_id')::uuid and iv.venda_id=p_sale;
+  if not found or i.id=any(ids)or i.quantidade<=0 or i.total_item<0 then raise exception 'Item inválido, repetido ou fora da campanha';end if;
+  ids:=array_append(ids,i.id);uc:=(x->>'unit_cost')::numeric;
+  if uc is null or uc<=0 or uc>10000000 or uc<>round(uc,2)then raise exception 'Custo histórico unitário obrigatório e positivo';end if;
+  with allocation as(select z.id,floor(coalesce(v.desconto,0)*100*z.total_item/base) cents,coalesce(v.desconto,0)*100*z.total_item/base-floor(coalesce(v.desconto,0)*100*z.total_item/base) frac from public.itens_venda z where z.venda_id=p_sale), ranked as(select *,row_number()over(order by frac desc,id)rn,sum(cents)over()allocated from allocation)
+  select (cents+case when rn<=round(coalesce(v.desconto,0)*100)-allocated then 1 else 0 end)/100 into rate from ranked where id=i.id;
+  rev:=rev+i.total_item-rate;cmv:=cmv+uc*i.quantidade;
+  rows:=rows||jsonb_build_array(jsonb_build_object('item_id',i.id,'product_id',i.produto_id,'quantity',i.quantidade,'revenue',i.total_item-rate,'unit_cost',uc));
+ end loop;
+ if source_hash is distinct from halloween_private.profit_fingerprint(p_sale)then raise exception 'A venda mudou durante a conferência. Consulte novamente.'using errcode='40001';end if;
+ insert into halloween_private.profit_entries(campaign_id,sale_id,actor,reason,fingerprint,revenue,cost,fees,taxes,expenses,items)values(p_campaign,p_sale,u,btrim(p_reason),source_hash,rev,cmv,p_fees,p_taxes,p_expenses,rows)returning id into result_id;
+ return jsonb_build_object('id',result_id,'result',rev-cmv-p_fees-p_taxes-p_expenses);
+end $$;
+
+create function public.halloween_profit_state(p_campaign text)returns jsonb language plpgsql security definer set search_path=''set lock_timeout='3s'set statement_timeout='10s'as $$
+begin
+ perform halloween_private.require_staff();
+ return jsonb_build_object('by_product',(select coalesce(jsonb_agg(to_jsonb(g)),'[]')from(select x->>'product_id'product_id,max(p.nome)name,sum((x->>'quantity')::numeric)quantity,sum((x->>'revenue')::numeric)revenue,sum((x->>'unit_cost')::numeric*(x->>'quantity')::numeric)cost from halloween_private.profit_entries e cross join lateral jsonb_array_elements(e.items)x left join public.produtos p on p.id=x->>'product_id' where e.campaign_id=p_campaign and halloween_private.profit_entry_valid(e.id)and not exists(select 1 from halloween_private.profit_adjustments a where a.entry_id=e.id)group by x->>'product_id')g),'threshold',700,'scope','Duas lojas — total global','unlocked',halloween_private.profit_gate(p_campaign),'total',(select coalesce(sum(halloween_private.profit_effective(id))filter(where halloween_private.profit_entry_valid(id)),0)from halloween_private.profit_entries where campaign_id=p_campaign),'pending',(select count(*)from halloween_private.profit_entries where campaign_id=p_campaign and not halloween_private.profit_entry_valid(id)),
+ 'entries',(select coalesce(jsonb_agg(row order by row->>'created_at'desc),'[]')from(select jsonb_build_object('id',e.id,'sale_number',v.numero,'created_at',e.created_at,'revenue',e.revenue,'cost',e.cost,'fees',e.fees,'taxes',e.taxes,'expenses',e.expenses,'result',halloween_private.profit_effective(e.id),'valid',halloween_private.profit_entry_valid(e.id),'adjusted',exists(select 1 from halloween_private.profit_adjustments a where a.entry_id=e.id),'adjustment_reason',(select a.reason from halloween_private.profit_adjustments a where a.entry_id=e.id order by a.id desc limit 1),'reason',e.reason)row from halloween_private.profit_entries e join public.vendas v on v.id=e.sale_id where e.campaign_id=p_campaign order by e.created_at desc limit 100)x));
+end $$;
+
+create or replace function halloween_private.draw_pool_for(p_campaign text,p_excluded integer[])returns table(product_id integer,chance_bps numeric)language sql stable security definer set search_path=''as $$
+ with gate as(select halloween_private.profit_gate(p_campaign)ok),available as(select p.id,p.weight from halloween_private.products p cross join gate g where p.campaign_id=p_campaign and p.enabled and(p.unlimited or p.remaining>0)and p.weight>0 and not(p.id=any(coalesce(p_excluded,'{}')))and(p.id not in(12,13)or g.ok)),totals as(select coalesce(sum(weight)filter(where id not in(12,13)),0)::numeric common,coalesce(sum(weight)filter(where id in(12,13)),0)::numeric rare from available)
+ select a.id,case when a.id in(12,13)then a.weight::numeric else a.weight*(10000-t.rare)/nullif(t.common,0)end from available a cross join totals t where t.common>0 and t.rare<10000
+$$;
+revoke all on function halloween_private.profit_fingerprint(uuid),halloween_private.profit_entry_valid(uuid),halloween_private.profit_gate(text)from public,anon,authenticated;
+revoke all on function public.halloween_profit_sale(text,integer),public.halloween_profit_record(text,uuid,jsonb,numeric,numeric,numeric,text,boolean),public.halloween_profit_state(text)from public,anon;
+grant execute on function public.halloween_profit_sale(text,integer),public.halloween_profit_record(text,uuid,jsonb,numeric,numeric,numeric,text,boolean),public.halloween_profit_state(text)to authenticated;
+create table halloween_private.profit_adjustments(id bigint generated always as identity primary key,entry_id uuid not null references halloween_private.profit_entries(id),actor uuid not null,reason text not null,result numeric(14,2)not null,fingerprint text not null,created_at timestamptz not null default clock_timestamp());
+alter table halloween_private.profit_adjustments enable row level security;
+revoke all on halloween_private.profit_adjustments from public,anon,authenticated;
+create function halloween_private.profit_effective(p_id uuid)returns numeric language sql stable security definer set search_path=''as $$
+ select coalesce((select a.result from halloween_private.profit_adjustments a where a.entry_id=e.id order by a.id desc limit 1),e.result)from halloween_private.profit_entries e where e.id=p_id
+$$;
+create or replace function halloween_private.profit_entry_valid(p_id uuid)returns boolean language sql stable security definer set search_path=''as $$
+ select coalesce((select case when a.id is not null then a.fingerprint=halloween_private.profit_fingerprint(e.sale_id)else halloween_private.sale_paid(e.sale_id)and e.fingerprint=halloween_private.profit_fingerprint(e.sale_id)and not exists(select 1 from public.devolucoes d where d.venda_id=e.sale_id)end from halloween_private.profit_entries e left join lateral(select * from halloween_private.profit_adjustments where entry_id=e.id order by id desc limit 1)a on true where e.id=p_id),false)
+$$;
+create or replace function halloween_private.profit_gate(p_campaign text)returns boolean language sql stable security definer set search_path=''as $$
+ select coalesce(sum(halloween_private.profit_effective(e.id)),0)>=700 and count(*)filter(where not halloween_private.profit_entry_valid(e.id))=0 from halloween_private.profit_entries e where e.campaign_id=p_campaign
+$$;
+create function public.halloween_profit_adjust(p_entry uuid,p_result numeric,p_reason text)returns void language plpgsql security definer set search_path=''set lock_timeout='3s'set statement_timeout='10s'as $$
+declare u uuid;e halloween_private.profit_entries;cid text;
+begin
+ u:=halloween_private.require_staff();select campaign_id into strict cid from halloween_private.profit_entries where id=p_entry;
+ perform 1 from halloween_private.campaigns where id=cid for update;
+ select * into strict e from halloween_private.profit_entries where id=p_entry for update;
+ perform 1 from public.vendas where id=e.sale_id for share;
+ if halloween_private.profit_entry_valid(e.id)then raise exception 'O lançamento não tem pendência';end if;
+ if p_result is null or p_result<>round(p_result,2)or p_result>least(0,halloween_private.profit_effective(e.id))or p_result< -10000000 or length(btrim(coalesce(p_reason,'')))not between 10 and 500 then raise exception 'Informe perda ou zero conservador, sem aumentar resultado, e a origem da conferência';end if;
+ insert into halloween_private.profit_adjustments(entry_id,actor,reason,result,fingerprint)values(e.id,u,btrim(p_reason),p_result,halloween_private.profit_fingerprint(e.sale_id));
+end $$;
+revoke all on function halloween_private.profit_effective(uuid)from public,anon,authenticated;
+revoke all on function public.halloween_profit_adjust(uuid,numeric,text)from public,anon;
+grant execute on function public.halloween_profit_adjust(uuid,numeric,text)to authenticated;
+commit;

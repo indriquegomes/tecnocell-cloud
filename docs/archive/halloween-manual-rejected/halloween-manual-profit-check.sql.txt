@@ -1,0 +1,70 @@
+do $$declare r jsonb; failed boolean:=false;before_sale jsonb;begin
+select to_jsonb(v)into before_sale from public.vendas v where numero=77001;
+if halloween_private.profit_gate('halloween-2026-test')then raise exception 'Empty campaign unlocked';end if;
+r:=public.halloween_profit_sale('halloween-2026-test',77001);
+if jsonb_array_length(r->'items')<>1 then raise exception 'Item missing';end if;
+-- No voucher argument: operator declares historical cost and absolute expenses.
+perform public.halloween_profit_record('halloween-2026-test','70000000-0000-4000-8000-000000000001','[{"item_id":"70000000-0000-4000-8000-000000000002","unit_cost":100}]',0,0,0,'Custo histórico conferido no documento QA',true);
+if not halloween_private.profit_gate('halloween-2026-test')then raise exception 'Exactly700 must unlock';end if;
+if (public.halloween_profit_state('halloween-2026-test')->>'total')::numeric<>700 then raise exception 'Wrong net';end if;
+begin perform public.halloween_profit_record('halloween-2026-test','70000000-0000-4000-8000-000000000001','[{"item_id":"70000000-0000-4000-8000-000000000002","unit_cost":100}]',0,0,0,'Repeated QA declaration',true);exception when unique_violation then failed:=true;end;
+if not failed then raise exception 'Duplicate allowed';end if;
+if (select to_jsonb(v)from public.vendas v where numero=77001)is distinct from before_sale then raise exception 'ERP was modified';end if;
+update public.vendas set status='cancelada'where numero=77001;
+if halloween_private.profit_gate('halloween-2026-test')then raise exception 'Cancelled sale unlocked';end if;
+update public.vendas set status='concluida'where numero=77001;
+insert into public.devolucoes values(gen_random_uuid(),'70000000-0000-4000-8000-000000000001',1);
+if halloween_private.profit_gate('halloween-2026-test')then raise exception 'Return unlocked';end if;
+delete from public.devolucoes where venda_id='70000000-0000-4000-8000-000000000001';
+update public.itens_venda set total_item=799.99 where id='70000000-0000-4000-8000-000000000002';
+if halloween_private.profit_gate('halloween-2026-test')then raise exception 'Drift unlocked';end if;
+end $$;
+-- Continue from prior drift test. Local fixtures only.
+do $$declare failed boolean:=false;r jsonb;begin
+ update public.itens_venda set total_item=800 where id='70000000-0000-4000-8000-000000000002';
+ update halloween_private.profit_entries set fees=0.01 where sale_id='70000000-0000-4000-8000-000000000001';
+ if halloween_private.profit_gate('halloween-2026-test')then raise exception '699.99 unlocked';end if;
+ if exists(select 1 from halloween_private.draw_pool_for('halloween-2026-test','{}')where product_id in(12,13))then raise exception 'Locked rares in pool';end if;
+ if(select round(sum(chance_bps),6)from halloween_private.draw_pool_for('halloween-2026-test','{}'))<>10000 then raise exception 'Common pool not100 percent';end if;
+ update halloween_private.profit_entries set fees=0 where sale_id='70000000-0000-4000-8000-000000000001';
+ if(select count(*)from halloween_private.draw_pool_for('halloween-2026-test','{}')where product_id in(12,13)and chance_bps=50)<>2 then raise exception 'Rare rates changed';end if;
+ perform set_config('request.jwt.claims','{}',true);
+ begin perform public.halloween_profit_state('halloween-2026-test');exception when insufficient_privilege then failed:=true;end;
+ if not failed then raise exception 'Anonymous read allowed';end if;
+ if has_function_privilege('anon','public.halloween_profit_record(text,uuid,jsonb,numeric,numeric,numeric,text,boolean)','EXECUTE')then raise exception 'Anon can execute';end if;
+ perform set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","session_id":"00000000-0000-4000-8000-000000000002"}',true);
+ insert into public.vendas(id,numero,total,status,created_at,deposito_id)values('70000000-0000-4000-8000-000000000003',77002,800,'concluida','2026-10-27 12:00-03','profit-depot');
+ insert into public.itens_venda values('70000000-0000-4000-8000-000000000004','70000000-0000-4000-8000-000000000003','profit-sku',1,800,0,800);
+ failed:=false;
+ begin perform public.halloween_profit_record('halloween-2026-test','70000000-0000-4000-8000-000000000003','[{"item_id":"70000000-0000-4000-8000-000000000004","unit_cost":100}]',0,0,0,'QA sem pagamento não participa',true);exception when others then failed:=true;end;
+ if not failed then raise exception 'Unpaid accepted';end if;
+ insert into public.pagamentos_venda(venda_id,valor,status)values('70000000-0000-4000-8000-000000000003',800,'pago');
+ failed:=false;
+ begin perform public.halloween_profit_record('halloween-2026-test','70000000-0000-4000-8000-000000000003','[{"item_id":"70000000-0000-4000-8000-000000000004","unit_cost":0}]',0,0,0,'QA custo zero não participa',true);exception when others then failed:=true;end;
+ if not failed then raise exception 'Zero cost accepted';end if;
+ failed:=false;
+ begin perform public.halloween_profit_record('halloween-2026-test','70000000-0000-4000-8000-000000000003','[{"item_id":"70000000-0000-4000-8000-000000000004","unit_cost":100}]',null,0,0,'QA taxa ausente não participa',true);exception when others then failed:=true;end;
+ if not failed then raise exception 'Missing expense accepted';end if;
+ perform public.halloween_profit_record('halloween-2026-test','70000000-0000-4000-8000-000000000003','[{"item_id":"70000000-0000-4000-8000-000000000004","unit_cost":900}]',0,0,0,'QA margem negativa também entra',true);
+ if(public.halloween_profit_state('halloween-2026-test')->>'total')::numeric<>600 then raise exception 'Negative margin ignored';end if;
+ if halloween_private.profit_gate('halloween-2026-test')then raise exception 'Negative margin still unlocked';end if;
+end $$;
+
+do $$declare entry uuid;begin
+ select id into entry from halloween_private.profit_entries where sale_id='70000000-0000-4000-8000-000000000001';
+ update public.vendas set total=799 where numero=77001;
+ perform public.halloween_profit_adjust(entry,0,'QA conferência posterior: excluir ganho da venda alterada');
+ if(public.halloween_profit_state('halloween-2026-test')->>'pending')::int<>0 then raise exception 'Recovery left pending';end if;
+ if(public.halloween_profit_state('halloween-2026-test')->>'total')::numeric<>-100 then raise exception 'Recovery wrong result';end if;
+end $$;
+alter table public.vendas add column observacoes text;
+do $$begin
+update public.vendas set observacoes='Edição sem efeito financeiro'where numero=77002;
+if not halloween_private.profit_entry_valid((select id from halloween_private.profit_entries where sale_id='70000000-0000-4000-8000-000000000003'))then raise exception 'Metadata invalidated entry';end if;
+if not exists(select 1 from jsonb_array_elements(public.halloween_profit_state('halloween-2026-test')->'entries')x where(x->>'adjusted')::boolean and x->>'adjustment_reason'like 'QA conferência%')then raise exception 'Adjustment explanation missing';end if;
+insert into public.vendas(id,numero,total,status,created_at,deposito_id)values('70000000-0000-4000-8000-000000000005',77003,2000,'concluida','2026-10-27 12:00-03','profit-depot');
+insert into public.pagamentos_venda(venda_id,valor,status)values('70000000-0000-4000-8000-000000000005',2000,'pago');
+insert into public.itens_venda values('70000000-0000-4000-8000-000000000006','70000000-0000-4000-8000-000000000005','profit-sku',2,1000,0,2000);
+perform public.halloween_profit_record('halloween-2026-test','70000000-0000-4000-8000-000000000005','[{"item_id":"70000000-0000-4000-8000-000000000006","unit_cost":500}]',0,0,0,'QA receita posterior supera meta após correção',true);
+if not halloween_private.profit_gate('halloween-2026-test')then raise exception 'Recovery did not allow future unlock';end if;
+end $$;

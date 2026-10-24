@@ -186,6 +186,10 @@ interface ItemCarrinho {
   quantidade: number
   preco_unitario: number
   desconto_item?: number
+  halloween_rule_id?: string
+  halloween_version?: number
+  promotion_id?: string
+  promotion_discount_total?: number
 }
 
 async function produtoNoCusto(itens: { produto_id: string | null; preco_unitario: number }[]): Promise<string | null> {
@@ -312,6 +316,7 @@ export async function finalizarVenda(
   rota_entrega: string | null = null,
   horario_entrega: string | null = null,
   pedidoApp: { pedidoId: string; unidade: string } | null = null,
+  halloweenOperation: string | null = null,
 ): Promise<
   | { erro: string }
   | { vendaId: string; vendaNumero: number | null; total: number; estoqueAtualizado: Record<string, number>; vendedorNome: string; jaExistia?: boolean }
@@ -319,12 +324,29 @@ export async function finalizarVenda(
   if (itens.length === 0) return { erro: 'Carrinho vazio' }
   if (!deposito_id) return { erro: 'Depósito não selecionado' }
   if (pagamentos.length === 0 && credito_valor <= 0) return { erro: 'Selecione a forma de pagamento' }
+  const hasHalloween = itens.some(i => !!i.halloween_rule_id)
+  if (hasHalloween && (!halloweenOperation || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(halloweenOperation))) return { erro: 'Identificador da venda Halloween inválido. Preserve o atendimento e tente novamente.' }
 
   let usuario: { id: string; email: string | null }
   try {
     usuario = await requirePermissao('pdv', accessToken)
   } catch (e) {
     return { erro: 'Sessão expirada. Recarregue a página (F5) e entre novamente. ' + (e instanceof Error ? e.message : '') }
+  }
+
+  // Recover a committed checkout BEFORE checking current prices or current caixa.
+  // Replays must never move a historical sale into a newly opened cash register.
+  if (hasHalloween) {
+    if (pedidoApp) return { erro: 'A promoção Halloween é aplicada no atendimento de balcão; o preço do pedido do App permanece protegido.' }
+    const replayClient = await createServiceClient()
+    const { data: replayProfile } = await replayClient.from('perfis').select('nome').eq('id', usuario.id).maybeSingle()
+    const { data: replay, error: replayError } = await replayClient.rpc('halloween_margin_replay', {
+      p_operation: halloweenOperation, p_actor: usuario.id,
+      p_request: [itens, pagamentos, pessoa_id, desconto, observacoes || null, deposito_id, series, usuario.id, replayProfile?.nome ?? usuario.email ?? '', credito_valor, tipo_entrega, endereco_entrega, tabela_preco_id],
+    })
+    if (replayError) return { erro: replayError.code === 'PGRST202' ? 'A integração Halloween ainda não foi instalada no banco.' : replayError.message }
+    if (replay) return { vendaId: replay.venda_id as string, vendaNumero: replay.venda_numero as number | null, total: replay.total as number,
+      estoqueAtualizado: replay.estoque_atualizado as Record<string, number>, vendedorNome: replay.vendedor_nome as string ?? '', jaExistia: true }
   }
 
   if (pedidoApp) {
@@ -431,7 +453,7 @@ export async function finalizarVenda(
     .maybeSingle()
   const vendedorNome = perfil?.nome ?? usuario.email ?? ''
 
-  let { data, error } = await supabase.rpc('finalizar_venda_com_desconto_item', {
+  let { data, error } = await supabase.rpc(hasHalloween ? 'finalizar_venda_halloween' : 'finalizar_venda_com_desconto_item', {
     p_itens: itens,
     p_pagamentos: pagamentos,
     p_pessoa_id: pessoa_id,
@@ -444,6 +466,7 @@ export async function finalizarVenda(
     p_credito_valor: credito_valor,
     p_tipo_entrega: tipo_entrega,
     p_endereco_entrega: endereco_entrega,
+    ...(hasHalloween ? { p_operation: halloweenOperation, p_tabela_id: tabela_preco_id } : {}),
   })
 
   // A migration que adiciona tipo_entrega/endereco_entrega ao RPC (2026-08-28)
@@ -451,6 +474,7 @@ export async function finalizarVenda(
   // rede de segurança, TODA venda pararia de funcionar até alguém colar o SQL.
   // Cai pra assinatura antiga (sem entrega) só nesse caso específico.
   if (error?.code === 'PGRST202') {
+    if (hasHalloween) return { erro: 'A integração Halloween ainda não foi instalada no banco. A venda não foi enviada pelo fluxo antigo.' }
     if (itens.some((i) => Number(i.desconto_item ?? 0) > 0)) {
       return { erro: 'Atualização de desconto por peça ainda não foi aplicada no banco.' }
     }
@@ -470,6 +494,8 @@ export async function finalizarVenda(
 
   if (error) return { erro: error.message }
   if (!data) return { erro: 'RPC retornou vazio. Verifique o banco.' }
+  if (hasHalloween && data.jaExistia) return { vendaId: data.venda_id as string, vendaNumero: data.venda_numero as number | null,
+    total: data.total as number, estoqueAtualizado: data.estoque_atualizado as Record<string, number>, vendedorNome: data.vendedor_nome as string ?? vendedorNome, jaExistia: true }
 
   // "Combinou pagar na entrega": marca o fiado da venda (categoria) pra aparecer
   // destacado na lista de cobrança. Fazemos aqui (pós-RPC) pra não mexer no
