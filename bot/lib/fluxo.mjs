@@ -333,6 +333,18 @@ export async function processaMensagem(loja, update) {
   if (txt.startsWith('/revisar')) return revisar(loja)
   if (txt.startsWith('/status') || txt.startsWith('/parcial')) return status(loja)
   if (txt.startsWith('/pix') || txt.startsWith('/cobrar')) return cobraPix(loja)
+  // Marca NA MÃO um comprovante como duplicado: responde a foto e manda /dup.
+  // Pra quando a IA leu diferente nas duas fotos e o dedup automático não pegou.
+  if (txt.startsWith('/dup')) {
+    const alvo = m.reply_to_message
+    if (!alvo) return enviaTexto(loja.token, loja.grupo, 'Responda (reply) à FOTO do comprovante duplicado e mande /dup.', m.message_id)
+    const c = db.porMsgId(loja.grupo, alvo.message_id)
+    if (!c) return enviaTexto(loja.token, loja.grupo, 'Não achei esse comprovante no banco.', m.message_id)
+    db.setStatus(c.id, 'duplicado')
+    await deduplica(loja)
+    await atualizaPlanilhaJa(loja)
+    return enviaTexto(loja.token, loja.grupo, '✅ Marquei como duplicado — não conta mais no total.', m.message_id)
+  }
   if (txt.startsWith('/')) return
 
   const t = tipoDaMensagem(m)

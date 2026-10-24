@@ -87,6 +87,7 @@ export function guardaChegada(c) {
 }
 
 export const porId = (id) => q('select * from comprovantes where id=?').get(id)
+export const porMsgId = (chat_id, msg_id) => q('select * from comprovantes where chat_id=? and msg_id=?').get(chat_id, msg_id)
 
 // FILA DE LEITURA — a regra que travava o bot antigo morreu aqui.
 // Pendente é SÓ quem está 'recebido' (nunca foi lido com sucesso). Um comprovante lido
