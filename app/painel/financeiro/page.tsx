@@ -242,7 +242,7 @@ export default async function FinanceiroPage({
       {/* 🔎 Busca Avançada (Isa 29/07 — espelha a do SIGE) */}
       <BuscaAvancada ativo={temFiltro}>
         <BuscaFinanceiro
-          params={params as Record<string, string | undefined>}
+          params={{ ...params, de: params.de ?? (verTudo ? '' : mesIni), ate: params.ate ?? (verTudo ? '' : mesFim) }}
           lojaEfetiva={lojaEfetiva}
           operaveis={operaveis}
           formasOpc={formasOpc}
