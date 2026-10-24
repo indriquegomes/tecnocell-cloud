@@ -186,7 +186,7 @@ export default async function FinanceiroPage({
   // --- Filtros rápidos (chips) em cascata: grupo de categoria + período ---
   const periodoAtivo = params.de === mesIni && params.ate === mesFim ? 'mes' : params.de === semIni && params.ate === semFim ? 'semana' : null
   const chipBase: Record<string, string> = {}
-  for (const k of ['tipo', 'loja', 'busca', 'status', 'pessoa', 'forma', 'conta', 'categoria', 'tudo', 'valor_min', 'valor_max', 'campo', 'ordem', 'dir'] as const) {
+  for (const k of ['tipo', 'loja', 'busca', 'status', 'pessoa', 'forma', 'conta', 'categoria', 'grupo', 'de', 'ate', 'tudo', 'valor_min', 'valor_max', 'campo', 'ordem', 'dir'] as const) {
     if (params[k]) chipBase[k] = params[k]!
   }
   const chipLink = (extra: Record<string, string | undefined>) => {
