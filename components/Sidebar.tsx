@@ -166,6 +166,7 @@ const navCompleto: NavGroup[] = [
     group: 'Admin',
     items: [
       { href: '/painel/relatorios',    label: 'Relatórios',    permissao: 'relatorios' },
+      { href: '/painel/saude',         label: 'Saúde do sistema', permissao: 'master' },
       { href: '/painel/contabilidade', label: 'Contabilidade', permissao: 'master' },
       { href: '/painel/rh',            label: 'RH / Equipe',   permissao: 'master' },
       { href: '/painel/escala',        label: 'Escala',        permissao: 'master' },
