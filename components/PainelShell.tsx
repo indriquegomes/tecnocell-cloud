@@ -43,12 +43,14 @@ export function PainelShell({
 
   // No celular a sidebar COMEÇA FECHADA: ela é fixa de 240px e, numa tela de 390px,
   // sobrava uma tira de 150px pro conteúdo — o painel ficava inutilizável no telefone.
-  // No PC/tablet mantém a preferência salva (o Vitor gosta de recolher).
+  // No PC abre sempre: não reaplica o "recolhido" salvo (causava o menu sumir sozinho).
   useEffect(() => {
     const celular = window.matchMedia('(max-width: 1023px)').matches
     if (celular) { setAberta(false); return }
-    const salvo = localStorage.getItem('sidebar-aberta')
-    if (salvo !== null) setAberta(salvo === 'true')
+    // PC: menu SEMPRE aberto. O navegador guardava "recolhido" (localStorage
+    // 'sidebar-aberta' = 'false') e reaplicava a cada carregamento completo —
+    // era o "menu some sozinho" relatado no login do master. Ignora a preferência.
+    setAberta(true)
   }, [])
 
   useEffect(() => {
