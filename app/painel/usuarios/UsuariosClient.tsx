@@ -184,7 +184,7 @@ function CargoOuPermissoes({ cargos, cargoId, onCargoChange, permissoes, isMaste
 
 // Lojas que a pessoa pode operar + o que já vem selecionado no PDV.
 // lojas_permitidas vazio = todas. Só aparece se houver >1 loja (senão não faz sentido).
-function LojasPdvConfig({ lojas, depositos, tabelas, usuario, isMotoboy }: { lojas: Loja[]; depositos: Deposito[]; tabelas: Tabela[]; usuario: Usuario; isMotoboy: boolean }) {
+function LojasPdvConfig({ lojas, depositos, tabelas, usuario }: { lojas: Loja[]; depositos: Deposito[]; tabelas: Tabela[]; usuario: Usuario }) {
   const [permitidas, setPermitidas] = useState<Set<string>>(new Set(usuario.lojasPermitidas))
   const [tabsSel, setTabsSel] = useState<Set<string>>(new Set(usuario.tabelasPermitidas))
   const [lojaPadrao, setLojaPadrao] = useState(usuario.pdvLojaId ?? '')
@@ -256,32 +256,37 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario, isMotoboy }: { loj
         <input name="chave_pix" defaultValue={usuario.chavePix ?? ''} className="field w-full text-sm" placeholder="CPF/CNPJ, telefone, e-mail ou aleatória" />
       </div>
 
-      {isMotoboy && (
+      {/* PAGAMENTO — como essa pessoa é paga, não o que ela faz.
+          A função (vendedor, estoquista, motoboy) vem do Cargo, acima. Aqui é só o
+          dinheiro: valor fixo por semana, adicional por entrega e por extra.
+          Antes este bloco só aparecia para cargo MOTOBOY — então quem era pago por
+          semana e não era motoboy (estoquista, vendedor) digitava o valor semanal no
+          campo "Salário", e a folha mensal transformava uma semana em um mês. */}
       <div className="border-t border-gray-200 pt-3 mt-3">
-        <p className="text-sm font-semibold text-gray-700">Motoboy (só preencher se o cargo for MOTOBOY)</p>
+        <p className="text-sm font-semibold text-gray-700">Como essa pessoa é paga</p>
+        <p className="text-xs text-gray-500 mt-0.5">A função vem do Cargo. Aqui vai só o combinado do dinheiro.</p>
         <div className="grid grid-cols-2 gap-3 mt-2">
-          <div className="w-40">
-            <label className="mb-1 block text-xs font-medium text-gray-600">Tipo</label>
+          <div className="w-48">
+            <label className="mb-1 block text-xs font-medium text-gray-600">Forma do combinado</label>
             <select name="motoboy_tipo" defaultValue={usuario.motoboyTipo ?? 'variavel'} className="field w-full text-sm">
-              <option value="variavel">Variável (comissão)</option>
-              <option value="fixo">Fixo semanal (débito automático)</option>
+              <option value="variavel">Por entrega / comissão</option>
+              <option value="fixo">Fixo por semana</option>
             </select>
           </div>
-          <div className="w-40">
-            <label className="mb-1 block text-xs font-medium text-gray-600">Fixo semanal (R$)</label>
+          <div className="w-48">
+            <label className="mb-1 block text-xs font-medium text-gray-600">Valor fixo por semana (R$)</label>
             <CampoDinheiro name="motoboy_valor_fixo" defaultValue={Number(usuario.motoboyValorFixo || 0)} className="text-sm" />
           </div>
-          <div className="w-40">
+          <div className="w-48">
             <label className="mb-1 block text-xs font-medium text-gray-600">Adicional por entrega (R$)</label>
             <CampoDinheiro name="motoboy_adicional_loja" defaultValue={Number(usuario.motoboyAdicionalLoja || 0)} className="text-sm" />
           </div>
-          <div className="w-40">
-            <label className="mb-1 block text-xs font-medium text-gray-600">Adicional extra (R$)</label>
+          <div className="w-48">
+            <label className="mb-1 block text-xs font-medium text-gray-600">Adicional por extra (R$)</label>
             <CampoDinheiro name="motoboy_adicional_extra" defaultValue={Number(usuario.motoboyAdicionalExtra || 0)} className="text-sm" />
           </div>
         </div>
       </div>
-      )}
 
       <div className="border-t border-gray-200 pt-3 mt-3">
         <p className="text-sm font-semibold text-gray-700">Freelancer (serviço por hora)</p>
@@ -620,7 +625,6 @@ function EditarModal({ usuario, cargos, lojas, depositos, tabelas, onClose }: { 
   const router = useRouter()
   const [tk, setTk] = useState('')
   const [cargoId, setCargoId] = useState(usuario.cargoId ?? '')
-  const isMotoboy = cargos.find((c) => c.id === cargoId)?.nome?.toUpperCase() === 'MOTOBOY'
   useEffect(() => { authToken().then(setTk) }, [])
   // Ao salvar: atualiza a lista E FECHA o modal. Manter aberto era o bug — o modal
   // seguia com o dado de antes do save, e um 2o "Salvar" gravava null nos campos que
@@ -681,7 +685,7 @@ function EditarModal({ usuario, cargos, lojas, depositos, tabelas, onClose }: { 
               <label className="mb-2 block text-sm font-medium text-gray-700">Cargo / Permissões</label>
               <CargoOuPermissoes cargos={cargos} cargoId={cargoId} onCargoChange={setCargoId} permissoes={usuario.permissoes} isMaster={usuario.isMaster} />
             </div>
-            <LojasPdvConfig lojas={lojas} depositos={depositos} tabelas={tabelas} usuario={usuario} isMotoboy={isMotoboy} />
+            <LojasPdvConfig lojas={lojas} depositos={depositos} tabelas={tabelas} usuario={usuario} />
             <RestricaoAcesso usuario={usuario} />
           </form>
 
