@@ -44,7 +44,6 @@ export const ROTAS_PERMISSAO: Record<string, string | string[]> = {
   '/painel/promocoes':        'produtos',
   '/painel/loja':             'produtos',
   '/painel/chat':             'chat_ia',
-  '/painel/motoboy':           'motoboy',
   '/painel/freelancers':        'master',
   '/painel/integracoes':                    'integracoes',
   '/painel/integracoes/lojas':               'integracoes',

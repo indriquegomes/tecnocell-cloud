@@ -89,13 +89,8 @@ export async function POST(request: NextRequest) {
         return voltarAoLogin('Acesso encerrado.')
       }
     }
-    const cargoId = p?.cargo_id ?? null
-    if (cargoId) {
-      const { data: cargo } = await service.from('cargos').select('nome').eq('id', cargoId).maybeSingle()
-      if ((cargo as { nome?: string } | null)?.nome === 'MOTOBOY') {
-        response.headers.set('Location', new URL('/painel/motoboy', request.url).toString())
-      }
-    }
+    // A tela "Minhas Rotas" (/painel/motoboy) foi removida do app (26/10), então não
+    // existe mais redirecionamento por cargo de motoboy no login.
   }
 
   return response

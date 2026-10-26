@@ -41,7 +41,6 @@ const PREFIXOS: { p: string; nome: string; cor: string }[] = [
   // Equipe / Admin (rosa) — RH e telas de quem gerencia
   { p: '/painel/rh', nome: 'Equipe', cor: '#e11d48' },
   { p: '/painel/escala', nome: 'Equipe', cor: '#e11d48' },
-  { p: '/painel/motoboy', nome: 'Equipe', cor: '#e11d48' },
   { p: '/painel/freelancers', nome: 'Equipe', cor: '#e11d48' },
   { p: '/painel/lembretes', nome: 'Admin', cor: '#e11d48' },
   { p: '/painel/usuarios', nome: 'Admin', cor: '#e11d48' },

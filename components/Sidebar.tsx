@@ -39,7 +39,6 @@ const ICONS: Record<string, IconComp> = {
   '/painel/vales-credito': IconCard,
   '/painel/contas': IconBank,
   '/painel/fechamento-mes': IconChart,
-  '/painel/motoboy': IconStore,
   '/painel/clientes': IconUsers,
   '/painel/clientes-app': IconUsers,
   '/painel/lojas': IconStore,
@@ -77,7 +76,6 @@ const navCompleto: NavGroup[] = [
     items: [
       { href: '/painel', label: 'Dashboard' },
       { href: '/painel/meu-perfil', label: 'Meu Perfil' },
-      { href: '/painel/motoboy', label: 'Minhas Rotas', permissao: 'motoboy' },
       { href: '/painel/chat', label: 'Chat com IA', permissao: 'chat_ia' },
     ],
   },

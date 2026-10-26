@@ -33,8 +33,8 @@ export default async function DashboardPage({
     : { data: null }
   const cargoDoVinculo = (meuPerfil as { cargos?: { nome: string } | null } | null)?.cargos?.nome
   const cargoNome = (cargoDoVinculo ?? meuPerfil?.cargo ?? '').toLowerCase()
-  // Motoboy não vê o dashboard normal — cai na tela dele (entregas + rotas).
-  if (!isMaster && cargoNome === 'motoboy') redirect('/painel/motoboy')
+  // A tela "Minhas Rotas" foi removida do app (decisão do dono, 26/10). Quem tem
+  // cargo de motoboy agora cai no dashboard como todo mundo.
   const primeiroNome = (meuPerfil?.nome ?? '').trim().split(/\s+/)[0] || ''
   const meta = Number((meuPerfil as { meta_venda_mensal?: number } | null)?.meta_venda_mensal ?? 0)
   // classifica: cargo pelo nome; fallback por permissão
