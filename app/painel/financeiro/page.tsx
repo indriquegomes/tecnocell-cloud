@@ -78,7 +78,22 @@ export default async function FinanceiroPage({
   const aplica = (q: any): any => {
     q = aplicaLoja(q)
     if (params.tipo === 'pagar' || params.tipo === 'receber') q = q.eq('tipo', params.tipo)
-    if (params.busca) { for (const w of params.busca.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)) q = q.or(`descricao.ilike.%${w}%,pessoa_nome.ilike.%${w}%,categoria.ilike.%${w}%`) }
+    if (params.busca) {
+      for (const w of params.busca.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)) {
+        // Busca sem frescura de acento: digitar "salarios" tem que achar "Salários",
+        // "franca" tem que achar "França", "leticia" tem que achar "Letícia".
+        //
+        // No ilike do banco não existe comparar sem acento, então cada vogal e cada c
+        // do termo digitado vira um curinga de UMA letra (_): "salarios" -> "s_l_r__s",
+        // que casa com "Salários" e com "salarios". O teto conhecido: pode trazer
+        // alguma linha a mais de mesmo tamanho e mesmas consoantes — numa lista
+        // filtrável isso aparece na hora e não machuca número nenhum.
+        // ponytail: se um dia incomodar, o caminho é coluna gerada com unaccent() no
+        // banco (aí a busca fica exata).
+        const padrao = w.length >= 3 ? w.toLowerCase().replace(/[aeiouc]/g, '_') : w
+        q = q.or(`descricao.ilike.%${padrao}%,pessoa_nome.ilike.%${padrao}%,categoria.ilike.%${padrao}%`)
+      }
+    }
     if (params.pessoa) q = q.ilike('pessoa_nome', `%${params.pessoa}%`)
     if (params.forma) q = q.eq('forma_pagamento', params.forma)
     if (params.conta) q = q.eq('conta_id', params.conta)
