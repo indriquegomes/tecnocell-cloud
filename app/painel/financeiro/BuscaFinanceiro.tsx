@@ -201,7 +201,12 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
                           <span className="block truncate text-sm font-medium text-gray-800">{tipo === 'termo' ? 'Buscar «' + s.valor + '»' : s.valor}</span>
                           <span className="block truncate text-[11px] text-gray-400">{s.detalhe}</span>
                         </span>
-                        {s.n > 0 && <span className="shrink-0 text-right text-[11px] text-gray-500">{s.n} lanç.<br />{dinheiro(s.total)}</span>}
+                        {s.n > 0 && (
+                          <span className="shrink-0 text-right text-[11px] text-gray-500">
+                            {s.n.toLocaleString('pt-BR')} lanç.
+                            {s.total > 0 && <><br />{dinheiro(s.total)}</>}
+                          </span>
+                        )}
                       </button>
                     ))}
                   </div>

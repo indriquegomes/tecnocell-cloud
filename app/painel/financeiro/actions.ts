@@ -574,6 +574,24 @@ export async function sugerirFinanceiro(
     }
   }
 
+  // O PostgREST corta em 1000 linhas: quando um grupo bate no teto, o valor somado
+  // estaria errado. Nesse caso eu conto certo (head count) e NÃO mostro dinheiro —
+  // melhor mostrar só "1.000+ lançamentos" do que um total mentiroso.
+  const TETO = 1000
+  const contador = (coluna: 'categoria' | 'subcategoria' | 'pessoa_nome', valor: string) => {
+    let q = supabase.from('lancamentos').select('id', { count: 'exact', head: true }).eq(coluna, valor)
+    if (contexto.loja === 'sem') q = q.is('loja_id', null)
+    else if (contexto.loja && contexto.loja !== 'todas') q = q.eq('loja_id', contexto.loja)
+    if (contexto.de) q = q.gte(campo, contexto.de)
+    if (contexto.ate) q = q.lte(campo, contexto.ate)
+    return q
+  }
+  async function grupo(coluna: 'categoria' | 'subcategoria' | 'pessoa_nome', nome: string, dados: { n: number; total: number }) {
+    if (dados.n < TETO) return dados
+    const { count } = await contador(coluna, nome)
+    return { n: count ?? dados.n, total: 0 }
+  }
+
   for (const [nome, dados] of agrupar(cats, (l) => l.categoria).slice(0, 6)) {
     const setor = SETORES.find((s) => s.categorias.some((c) => c.trim().toLowerCase() === nome.trim().toLowerCase()))
     out.push({
@@ -581,8 +599,7 @@ export async function sugerirFinanceiro(
       valor: nome,
       detalhe: setor ? setor.emoji + ' ' + setor.label : 'sem setor',
       setorChave: setor?.chave,
-      n: dados.n,
-      total: dados.total,
+      ...(await grupo('categoria', nome, dados)),
     })
   }
 
@@ -593,13 +610,12 @@ export async function sugerirFinanceiro(
       valor: nome,
       detalhe: 'dentro de ' + (linha?.categoria ?? 'categoria'),
       categoria: linha?.categoria ?? undefined,
-      n: dados.n,
-      total: dados.total,
+      ...(await grupo('subcategoria', nome, dados)),
     })
   }
 
   for (const [nome, dados] of agrupar(pessoas, (l) => l.pessoa_nome).slice(0, 5)) {
-    out.push({ tipo: 'pessoa', valor: nome, detalhe: 'cliente / fornecedor', n: dados.n, total: dados.total })
+    out.push({ tipo: 'pessoa', valor: nome, detalhe: 'cliente / fornecedor', ...(await grupo('pessoa_nome', nome, dados)) })
   }
 
   return out

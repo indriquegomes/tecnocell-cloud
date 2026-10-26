@@ -45,7 +45,9 @@ export const SETORES: Setor[] = [
     chave: 'operacao',
     label: 'Operação do dia',
     emoji: '🛠️',
-    categorias: ['Motoboy', 'motoboy', 'Combustível', 'Alimentação', 'Manutenção', 'Limpeza', 'Transporte', 'Perda', 'Uso interno', 'Serviços', 'Gastos em São Paulo', 'Saúde', 'Confraternização', 'Outras despesas', 'despesas loja'],
+    // 'Frete / Entrega' é para pagamento a transportadora ou entregador terceirizado.
+    // Pagar o SEU entregador é Salário: a função dele é motoboy, o gasto é salário.
+    categorias: ['Frete / Entrega', 'Combustível', 'Alimentação', 'Manutenção', 'Limpeza', 'Transporte', 'Perda', 'Uso interno', 'Serviços', 'Gastos em São Paulo', 'Saúde', 'Confraternização', 'Outras despesas', 'despesas loja'],
   },
   {
     chave: 'vendas',
@@ -105,7 +107,11 @@ export const SUBCATEGORIAS: Record<string, string[]> = {
   'Mercadoria': ['Aparelho', 'Peça', 'Acessório', 'Perfume / importado'],
   'Fornecedor / Mercadoria': ['Aparelho', 'Peça', 'Acessório', 'Frete'],
   // gente
-  'Salários': ['Mensal', 'Adiantamento', 'Rescisão'],
+  // Subcategoria responde O QUE É, nunca QUANDO é. "Mensal" saiu: periodicidade é
+  // tempo, e tempo se lê nas datas (uma linha por semana, uma por mês) e no filtro
+  // de período. O que sobra separa natureza: adiantamento não é salário fechado,
+  // rescisão não é salário do mês, hora extra e comissão são componentes.
+  'Salários': ['Adiantamento', 'Rescisão', 'Hora extra', 'Comissão'],
   'Bônus': ['Comissão', 'Meta batida', 'Prêmio'],
   'Motoboy': ['Fixo', 'Por entrega', 'Extra'],
   'motoboy': ['Fixo', 'Por entrega', 'Extra'],
