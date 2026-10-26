@@ -7,6 +7,7 @@ import { logAtividade } from '@/lib/log-atividade'
 import { registrarNoCaixa, lojaDoLancamento } from '@/lib/caixa'
 import { travarSeMesFechado } from '@/lib/fechamento'
 import { hojeSP } from '@/lib/utils'
+import { SETORES } from '@/lib/financeiro-setores'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -485,4 +486,121 @@ export async function editarLancamentoInline(id: string, formData: FormData) {
   await logAtividade('lancamento.editar_inline', { lancamento_id: id }, usuario, '/painel/financeiro')
   revalidatePath('/painel/financeiro')
   return { ok: true }
+}
+
+// SUGESTÕES DA BUSCA DO FINANCEIRO.
+//
+// O dono digita "sa" e quer ver a categoria "Salários" — a que existe de verdade,
+// com quantos lançamentos e quanto dinheiro. O campo Buscar aceitava só texto
+// livre e as opções ficavam num menu fixo; isso não acha nada.
+//
+// A contagem respeita a loja, o período e o campo de data que estão na tela: a
+// sugestão diz o que ele VAI ver depois de clicar, não o número do banco inteiro.
+export type SugestaoBusca = {
+  tipo: 'termo' | 'setor' | 'categoria' | 'subcategoria' | 'pessoa'
+  valor: string
+  detalhe: string
+  setorChave?: string
+  categoria?: string
+  n: number
+  total: number
+}
+
+export async function sugerirFinanceiro(
+  accessToken: string,
+  termo: string,
+  contexto: { loja?: string; de?: string; ate?: string; campo?: string } = {},
+): Promise<SugestaoBusca[]> {
+  await requirePermissao('financeiro', accessToken)
+  const t = termo.trim()
+  if (t.length < 2) return []
+
+  // Mesma regra da busca livre: cada vogal e cada c viram curinga de uma letra,
+  // então "salarios" acha "Salários" e "franca" acha "França".
+  const padrao = t.length >= 3 ? t.toLowerCase().replace(/[aeiouc]/g, '_') : t
+  const campo = ['data_vencimento', 'data_competencia', 'data_pagamento'].includes(contexto.campo ?? '')
+    ? contexto.campo!
+    : 'data_vencimento'
+
+  const supabase = await createServiceClient()
+  const base = () => {
+    let q = supabase.from('lancamentos').select('categoria, subcategoria, pessoa_nome, valor')
+    if (contexto.loja === 'sem') q = q.is('loja_id', null)
+    else if (contexto.loja && contexto.loja !== 'todas') q = q.eq('loja_id', contexto.loja)
+    if (contexto.de) q = q.gte(campo, contexto.de)
+    if (contexto.ate) q = q.lte(campo, contexto.ate)
+    return q
+  }
+
+  const semAcento = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  const [catsRes, subsRes, pessoasRes] = await Promise.all([
+    base().not('categoria', 'is', null).ilike('categoria', '%' + padrao + '%').limit(4000),
+    base().not('subcategoria', 'is', null).ilike('subcategoria', '%' + padrao + '%').limit(3000),
+    base().not('pessoa_nome', 'is', null).ilike('pessoa_nome', '%' + padrao + '%').limit(4000),
+  ])
+  type Linha = { categoria: string | null; subcategoria: string | null; pessoa_nome: string | null; valor: number | null }
+  const cats = (catsRes.data ?? []) as Linha[]
+  const subs = (subsRes.data ?? []) as Linha[]
+  const pessoas = (pessoasRes.data ?? []) as Linha[]
+
+  // Ordem: primeiro o que COMEÇA com o que foi digitado, depois o que só contém.
+  // Digitar "sa" tem que trazer "Salários" no topo, não uma categoria que só tem
+  // a ver com o assunto e mais lançamentos.
+  const comeca = (nome: string) => semAcento(nome).startsWith(semAcento(t)) ? 1 : 0
+  function agrupar<T extends { valor: number | null }>(linhas: T[], chave: (l: T) => string | null) {
+    const mapa = new Map<string, { n: number; total: number }>()
+    for (const l of linhas) {
+      const k = chave(l)
+      if (!k) continue
+      const atual = mapa.get(k) ?? { n: 0, total: 0 }
+      atual.n += 1
+      atual.total += Number(l.valor ?? 0)
+      mapa.set(k, atual)
+    }
+    return [...mapa.entries()].sort((a, b) => {
+      const pa = comeca(a[0]), pb = comeca(b[0])
+      if (pa !== pb) return pb - pa
+      return b[1].n - a[1].n
+    })
+  }
+
+  const out: SugestaoBusca[] = [
+    { tipo: 'termo', valor: t, detalhe: 'procurar no texto das descrições', n: 0, total: 0 },
+  ]
+
+  for (const s of SETORES) {
+    if (s.label && semAcento(s.label).includes(semAcento(t))) {
+      out.push({ tipo: 'setor', valor: s.label, detalhe: 'setor inteiro', setorChave: s.chave, n: 0, total: 0 })
+    }
+  }
+
+  for (const [nome, dados] of agrupar(cats, (l) => l.categoria).slice(0, 6)) {
+    const setor = SETORES.find((s) => s.categorias.some((c) => c.trim().toLowerCase() === nome.trim().toLowerCase()))
+    out.push({
+      tipo: 'categoria',
+      valor: nome,
+      detalhe: setor ? setor.emoji + ' ' + setor.label : 'sem setor',
+      setorChave: setor?.chave,
+      n: dados.n,
+      total: dados.total,
+    })
+  }
+
+  for (const [nome, dados] of agrupar(subs, (l) => l.subcategoria).slice(0, 4)) {
+    const linha = subs.find((l) => l.subcategoria === nome)
+    out.push({
+      tipo: 'subcategoria',
+      valor: nome,
+      detalhe: 'dentro de ' + (linha?.categoria ?? 'categoria'),
+      categoria: linha?.categoria ?? undefined,
+      n: dados.n,
+      total: dados.total,
+    })
+  }
+
+  for (const [nome, dados] of agrupar(pessoas, (l) => l.pessoa_nome).slice(0, 5)) {
+    out.push({ tipo: 'pessoa', valor: nome, detalhe: 'cliente / fornecedor', n: dados.n, total: dados.total })
+  }
+
+  return out
 }

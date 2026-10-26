@@ -3,17 +3,19 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { buscarPessoasSugestao } from './actions'
+import { sugerirFinanceiro, type SugestaoBusca } from './actions'
 
 const sb = createClient()
 
-// Barra de filtro do Financeiro.
+// BARRA DE FILTRO DO FINANCEIRO — uma caixa de busca que acha, e nada duplicado.
 //
-// Antes eram 14 campos sempre abertos, sem busca por texto (o motor existia mas o
-// campo estava escondido) e sem resumo do que estava aplicado. Agora:
-//   1. uma linha na frente: busca + loja + situação + período + Filtrar;
-//   2. etiquetas do que está aplicado, cada uma com X para tirar só aquele filtro;
-//   3. o resto atrás de "Mais filtros", fechado por padrão.
+// Como funciona: você digita "sa" e aparece o que existe de verdade nos seus dados
+// (categoria Salários com 10 lançamentos e o valor, setor Funcionários, cliente que
+// casa com o termo). Clica e está filtrado. Não existe menu fixo repetindo os campos
+// de baixo: as opções NASCEM do que você digita.
+//
+// Na linha ficam só as quatro coisas de uso diário: Buscar, Loja, Situação, Período.
+// Forma de pagamento, Conta, Valor e "por qual data" ficam em + Filtros, fechado.
 export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, contasOpc, setores, subcategorias, camposData, labelCampo, temFiltro }: {
   params: Record<string, string | undefined>
   lojaEfetiva: string
@@ -28,22 +30,17 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
 }) {
   const inp = 'w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400'
   const [busca, setBusca] = useState(params.busca ?? '')
-  // Seta da busca: abre a lista de sugestões (setor, categoria e as últimas buscas).
+  const [sugestoes, setSugestoes] = useState<SugestaoBusca[]>([])
   const [sugAberto, setSugAberto] = useState(false)
-  const [recentes, setRecentes] = useState<string[]>([])
-  const sugBox = useRef<HTMLDivElement>(null)
+  const [carregando, setCarregando] = useState(false)
+  const caixaBusca = useRef<HTMLDivElement>(null)
+
   const [pessoa, setPessoa] = useState(params.pessoa ?? '')
-  const [opcoes, setOpcoes] = useState<{ label: string; value: string }[]>([])
-  const [aberto, setAberto] = useState(false)
-  const [buscando, setBuscando] = useState(false)
-  const digitou = useRef(false)
-  const box = useRef<HTMLDivElement>(null)
-  const [forma, setForma] = useState(params.forma ?? '')
-  const [conta, setConta] = useState(params.conta ?? '')
+  const [setor, setSetor] = useState(params.setor ?? '')
   const [categoria, setCategoria] = useState(params.categoria ?? '')
   const [subcategoria, setSubcategoria] = useState(params.subcategoria ?? '')
-  // Setor manda na categoria: a lista de categoria só mostra as do setor escolhido.
-  const [setor, setSetor] = useState(params.setor ?? '')
+  const [forma, setForma] = useState(params.forma ?? '')
+  const [conta, setConta] = useState(params.conta ?? '')
   const [status, setStatus] = useState(params.status ?? '')
   const [loja, setLoja] = useState(params.loja ?? lojaEfetiva)
   const [valorMin, setValorMin] = useState(params.valor_min ?? '')
@@ -51,57 +48,38 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
   const [de, setDe] = useState(params.de ?? '')
   const [ate, setAte] = useState(params.ate ?? '')
   const [campo, setCampo] = useState(params.campo ?? 'data_vencimento')
-  // "Tudo (histórico)" precisa viajar como parâmetro: só apagar de/ate volta para o
-  // mês atual, e a opção virava um clique que não fazia nada.
   const [tudo, setTudo] = useState(params.tudo === '1' ? '1' : '')
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false)
 
+  const formRef = useRef<HTMLFormElement>(null)
+  const enviar = () => setTimeout(() => formRef.current?.requestSubmit(), 0)
   async function token() { const { data } = await sb.auth.getSession(); return data.session?.access_token ?? '' }
 
+  // SUGESTÃO VIVA: a cada 250 ms depois de parar de digitar, pergunta ao banco
+  // quais categorias, setores e clientes casam com o termo digitado.
   useEffect(() => {
-    if (!digitou.current) return
-    const termo = pessoa.trim()
-    if (!termo) { setOpcoes([]); setBuscando(false); return }
-    setBuscando(true)
+    const termo = busca.trim()
+    if (termo.length < 2) { setSugestoes([]); setSugAberto(false); return }
     let vivo = true
+    setCarregando(true)
     const t = setTimeout(async () => {
-      try { const res = await buscarPessoasSugestao(await token(), termo); if (vivo) { setOpcoes(res); setAberto(true) } }
-      catch { if (vivo) setOpcoes([]) }
-      finally { if (vivo) setBuscando(false) }
-    }, 300)
+      try {
+        const lista = await sugerirFinanceiro(await token(), termo, { loja, de, ate, campo })
+        if (vivo) { setSugestoes(lista); setSugAberto(true) }
+      } catch { if (vivo) setSugestoes([]) }
+      finally { if (vivo) setCarregando(false) }
+    }, 250)
     return () => { vivo = false; clearTimeout(t) }
-  }, [pessoa])
+  }, [busca, loja, de, ate, campo])
 
   useEffect(() => {
     const fechar = (e: MouseEvent) => {
-      if (box.current && !box.current.contains(e.target as Node)) setAberto(false)
-      if (sugBox.current && !sugBox.current.contains(e.target as Node)) setSugAberto(false)
+      if (caixaBusca.current && !caixaBusca.current.contains(e.target as Node)) setSugAberto(false)
     }
     document.addEventListener('mousedown', fechar)
     return () => document.removeEventListener('mousedown', fechar)
   }, [])
 
-  // As últimas buscas ficam no próprio navegador (nada vai para o servidor).
-  const CHAVE_RECENTES = 'financeiro:buscas'
-  useEffect(() => {
-    try { const salvo = localStorage.getItem(CHAVE_RECENTES); if (salvo) setRecentes(JSON.parse(salvo).slice(0, 6)) } catch { /* navegador sem storage */ }
-  }, [])
-  function guardarRecente(termo: string) {
-    const t = termo.trim()
-    if (!t) return
-    try {
-      const lista = [t, ...recentes.filter((r) => r.toLowerCase() !== t.toLowerCase())].slice(0, 6)
-      localStorage.setItem(CHAVE_RECENTES, JSON.stringify(lista))
-      setRecentes(lista)
-    } catch { /* navegador sem storage */ }
-  }
-
-  // Escolher a pessoa NÃO apaga mais os outros filtros: antes limpava loja, forma,
-  // categoria, mês e valor sem avisar, e o dono achava que estava filtrando o mês.
-  function escolher(nome: string) {
-    setPessoa(nome); setAberto(false); setOpcoes([])
-  }
-
-  const formRef = useRef<HTMLFormElement>(null)
   const NOMES_MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
   const meses = useMemo(() => {
     const lista: { label: string; de: string; ate: string }[] = []
@@ -112,25 +90,36 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
       const m = d.getMonth()
       const ultimo = new Date(ano, m + 1, 0).getDate()
       lista.push({
-        label: `${NOMES_MES[m]}/${ano}`,
-        de: `${ano}-${String(m + 1).padStart(2, '0')}-01`,
-        ate: `${ano}-${String(m + 1).padStart(2, '0')}-${String(ultimo).padStart(2, '0')}`,
+        label: NOMES_MES[m] + '/' + ano,
+        de: ano + '-' + String(m + 1).padStart(2, '0') + '-01',
+        ate: ano + '-' + String(m + 1).padStart(2, '0') + '-' + String(ultimo).padStart(2, '0'),
       })
     }
     return lista
   }, [])
-
-  const mesAtivo = tudo === '1' ? 'tudo' : String(Math.max(0, meses.findIndex((m) => m.de === de)))
   const mesPadrao = meses[0]
+  const mesAtivo = tudo === '1' ? 'tudo' : String(Math.max(0, meses.findIndex((m) => m.de === de)))
 
   function aplicarMes(m: { label: string; de: string; ate: string }) {
-    setTudo('')
-    setDe(m.de)
-    setAte(m.ate)
-    setTimeout(() => formRef.current?.requestSubmit(), 0)
+    setTudo(''); setDe(m.de); setAte(m.ate); enviar()
   }
 
-  // Link que tira UM filtro e mantém todo o resto (inclusive o tipo da aba).
+  // Escolher uma sugestão tira o texto da busca (a etiqueta passa a ser a dona do
+  // filtro) e já aplica.
+  function escolher(s: SugestaoBusca) {
+    setSugAberto(false)
+    if (s.tipo === 'termo') { setBusca(s.valor); enviar(); return }
+    setBusca('')
+    if (s.tipo === 'setor') { setSetor(s.setorChave ?? ''); setCategoria(''); setSubcategoria('') }
+    if (s.tipo === 'categoria') { setSetor(s.setorChave ?? ''); setCategoria(s.valor); setSubcategoria('') }
+    if (s.tipo === 'subcategoria') {
+      const dono = setores.find((x) => x.categorias.includes(s.categoria ?? ''))
+      setSetor(dono?.chave ?? ''); setCategoria(s.categoria ?? ''); setSubcategoria(s.valor)
+    }
+    if (s.tipo === 'pessoa') setPessoa(s.valor)
+    enviar()
+  }
+
   function semFiltro(chaves: string[]) {
     const sp = new URLSearchParams()
     for (const [k, v] of Object.entries(params)) {
@@ -143,21 +132,21 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
 
   type Etiqueta = { chave: string; label: string; href: string }
   const etiquetas: Etiqueta[] = []
-  if (params.busca) etiquetas.push({ chave: 'busca', label: 'Busca: ' + params.busca, href: semFiltro(['busca']) })
-  if (params.pessoa) etiquetas.push({ chave: 'pessoa', label: 'Pessoa: ' + params.pessoa, href: semFiltro(['pessoa']) })
+  if (params.busca) etiquetas.push({ chave: 'busca', label: 'Texto: ' + params.busca, href: semFiltro(['busca']) })
+  if (params.pessoa) etiquetas.push({ chave: 'pessoa', label: params.pessoa, href: semFiltro(['pessoa']) })
   if (params.loja) {
     const nome = params.loja === 'sem' ? 'Sem loja' : params.loja === 'todas' ? 'Todas as lojas' : (operaveis.find((l) => l.id === params.loja)?.nome ?? 'Loja')
     etiquetas.push({ chave: 'loja', label: nome, href: semFiltro(['loja']) })
   }
   if (params.status) etiquetas.push({ chave: 'status', label: params.status.charAt(0).toUpperCase() + params.status.slice(1), href: semFiltro(['status']) })
-  if (params.forma) etiquetas.push({ chave: 'forma', label: 'Forma: ' + params.forma, href: semFiltro(['forma']) })
-  if (params.conta) etiquetas.push({ chave: 'conta', label: 'Conta: ' + (contasOpc.find((c) => c.id === params.conta)?.nome ?? 'conta'), href: semFiltro(['conta']) })
-  if (params.categoria) etiquetas.push({ chave: 'categoria', label: params.categoria, href: semFiltro(['categoria', 'subcategoria']) })
-  if (params.subcategoria) etiquetas.push({ chave: 'subcategoria', label: '› ' + params.subcategoria, href: semFiltro(['subcategoria']) })
+  if (params.forma) etiquetas.push({ chave: 'forma', label: params.forma, href: semFiltro(['forma']) })
+  if (params.conta) etiquetas.push({ chave: 'conta', label: contasOpc.find((c) => c.id === params.conta)?.nome ?? 'conta', href: semFiltro(['conta']) })
   if (params.setor) {
     const s = setores.find((x) => x.chave === params.setor)
-    etiquetas.push({ chave: 'setor', label: 'Setor: ' + (s ? s.emoji + ' ' + s.label : params.setor), href: semFiltro(['setor']) })
+    etiquetas.push({ chave: 'setor', label: s ? s.emoji + ' ' + s.label : params.setor, href: semFiltro(['setor', 'categoria', 'subcategoria']) })
   }
+  if (params.categoria) etiquetas.push({ chave: 'categoria', label: params.categoria, href: semFiltro(['categoria', 'subcategoria']) })
+  if (params.subcategoria) etiquetas.push({ chave: 'subcategoria', label: '› ' + params.subcategoria, href: semFiltro(['subcategoria']) })
   if (params.valor_min) etiquetas.push({ chave: 'valor_min', label: 'Valor ≥ ' + params.valor_min, href: semFiltro(['valor_min']) })
   if (params.valor_max) etiquetas.push({ chave: 'valor_max', label: 'Valor ≤ ' + params.valor_max, href: semFiltro(['valor_max']) })
   if (params.campo && params.campo !== 'data_vencimento') etiquetas.push({ chave: 'campo', label: 'Data: ' + (labelCampo[params.campo] ?? params.campo), href: semFiltro(['campo']) })
@@ -168,78 +157,61 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
     etiquetas.push({ chave: 'periodo', label: fmt(de) + ' a ' + fmt(ate), href: semFiltro(['de', 'ate']) })
   }
 
-  const maisFiltrosAbertos = !!(params.pessoa || params.forma || params.conta || params.categoria || params.subcategoria || params.setor || params.valor_min || params.valor_max || (params.campo && params.campo !== 'data_vencimento'))
-
-  // CASCATA: a categoria oferecida depende do setor escolhido.
-  const setorAtual = setores.find((s) => s.chave === setor)
-  const categoriasVisiveis = setorAtual ? setorAtual.categorias : setores.flatMap((s) => s.categorias)
-  // Cascata de três níveis: setor limita categoria, categoria limita subcategoria.
-  function trocarSetor(novo: string) {
-    setSetor(novo)
-    const s = setores.find((x) => x.chave === novo)
-    if (s && categoria && !s.categorias.includes(categoria)) { setCategoria(''); setSubcategoria('') }
+  const ROTULO: Record<SugestaoBusca['tipo'], string> = {
+    termo: 'Texto',
+    setor: 'Setor',
+    categoria: 'Categoria',
+    subcategoria: 'Subcategoria',
+    pessoa: 'Cliente / Fornecedor',
   }
-  function trocarCategoria(nova: string) {
-    setCategoria(nova)
-    const subs = subcategorias[nova] ?? []
-    if (subcategoria && !subs.includes(subcategoria)) setSubcategoria('')
-  }
-  const subsDaCategoria = subcategorias[categoria] ?? []
+  const ordemTipos: SugestaoBusca['tipo'][] = ['categoria', 'subcategoria', 'setor', 'pessoa', 'termo']
+  const dinheiro = (v: number) => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   return (
-    <form ref={formRef} method="GET" className="space-y-3" onSubmit={() => guardarRecente(busca)}>
+    <form ref={formRef} method="GET" className="space-y-3">
       {params.tipo && <input type="hidden" name="tipo" value={params.tipo} />}
       {tudo === '1' && <input type="hidden" name="tudo" value="1" />}
+      <input type="hidden" name="setor" value={setor} />
+      <input type="hidden" name="categoria" value={categoria} />
+      <input type="hidden" name="subcategoria" value={subcategoria} />
+      <input type="hidden" name="pessoa" value={pessoa} />
+      <input type="hidden" name="de" value={de} />
+      <input type="hidden" name="ate" value={ate} />
 
-      {/* Linha 1 — o que se usa toda hora */}
       <div className="flex flex-wrap items-end gap-2">
-        <div ref={sugBox} className="relative min-w-[16rem] flex-1">
+        <div ref={caixaBusca} className="relative min-w-[18rem] flex-1">
           <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Buscar</label>
-          <div className="relative">
-            <input name="busca" value={busca} onChange={(e) => setBusca(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') guardarRecente(busca) }}
-              placeholder="Nome, descrição ou nº da nota…" autoComplete="off" className={inp + ' pr-9'} />
-            <button type="button" onClick={() => setSugAberto((v) => !v)} aria-label="Ver sugestões"
-              title="Ver sugestões"
-              className="absolute right-1 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-            </button>
-          </div>
+          <input name="busca" value={busca} onChange={(e) => setBusca(e.target.value)}
+            onFocus={() => sugestoes.length > 0 && setSugAberto(true)}
+            placeholder="Digite e escolha: salário, fornecedor, cliente, setor…" autoComplete="off" className={inp} />
 
           {sugAberto && (
-            <div className="absolute z-30 mt-1 max-h-80 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white p-2 shadow-lg">
-              {recentes.length > 0 && (
-                <div className="mb-2">
-                  <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Suas últimas buscas</p>
-                  {recentes.map((t) => (
-                    <button key={t} type="button"
-                      onClick={() => { setBusca(t); setSugAberto(false); guardarRecente(t); setTimeout(() => formRef.current?.requestSubmit(), 0) }}
-                      className="block w-full rounded-lg px-2 py-1.5 text-left text-sm text-gray-700 hover:bg-blue-50 transition">🕘 {t}</button>
-                  ))}
-                </div>
-              )}
-
-              <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Ir para um setor</p>
-              {setores.map((s) => (
-                <button key={s.chave} type="button"
-                  onClick={() => { setSetor(s.chave); setCategoria(''); setSubcategoria(''); setSugAberto(false); setTimeout(() => formRef.current?.requestSubmit(), 0) }}
-                  className="block w-full rounded-lg px-2 py-1.5 text-left text-sm text-gray-700 hover:bg-blue-50 transition">{s.emoji} {s.label}</button>
-              ))}
-
-              <p className="mt-2 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Uma categoria direto</p>
-              {setores.flatMap((s) => s.categorias).slice(0, 12).map((c) => {
-                const dono = setores.find((s) => s.categorias.includes(c))
+            <div className="absolute z-30 mt-1 max-h-96 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white py-1 shadow-xl">
+              {carregando && sugestoes.length === 0 && <p className="px-3 py-2 text-sm text-gray-400">Procurando…</p>}
+              {ordemTipos.map((tipo) => {
+                const doTipo = sugestoes.filter((s) => s.tipo === tipo)
+                if (doTipo.length === 0) return null
                 return (
-                  <button key={c} type="button"
-                    onClick={() => { setSetor(dono?.chave ?? ''); setCategoria(c); setSubcategoria(''); setSugAberto(false); setTimeout(() => formRef.current?.requestSubmit(), 0) }}
-                    className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm text-gray-700 hover:bg-blue-50 transition">
-                    <span>{c}</span><span className="text-[11px] text-gray-400">{dono ? dono.emoji + ' ' + dono.label : ''}</span>
-                  </button>
+                  <div key={tipo} className="py-1">
+                    <p className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{ROTULO[tipo]}</p>
+                    {doTipo.map((s, i) => (
+                      <button key={tipo + i} type="button" onMouseDown={(e) => { e.preventDefault(); escolher(s) }}
+                        className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left transition hover:bg-blue-50">
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-gray-800">{tipo === 'termo' ? 'Buscar «' + s.valor + '»' : s.valor}</span>
+                          <span className="block truncate text-[11px] text-gray-400">{s.detalhe}</span>
+                        </span>
+                        {s.n > 0 && <span className="shrink-0 text-right text-[11px] text-gray-500">{s.n} lanç.<br />{dinheiro(s.total)}</span>}
+                      </button>
+                    ))}
+                  </div>
                 )
               })}
+              {!carregando && sugestoes.length === 0 && <p className="px-3 py-2 text-sm text-gray-400">Nada com esse nome. Aperte Filtrar para procurar no texto.</p>}
             </div>
           )}
         </div>
+
         <div className="w-40">
           <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Loja</label>
           <select name="loja" value={loja} onChange={(e) => setLoja(e.target.value)} className={inp}>
@@ -259,18 +231,27 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
         </div>
         <div className="w-36">
           <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Período</label>
-          <select value={mesAtivo} onChange={(e) => { const v = e.target.value; if (v === 'tudo') { setTudo('1'); setDe(''); setAte(''); setTimeout(() => formRef.current?.requestSubmit(), 0) } else aplicarMes(meses[Number(v)]) }} className={inp}>
+          <select value={mesAtivo} onChange={(e) => { const v = e.target.value; if (v === 'tudo') { setTudo('1'); setDe(''); setAte(''); enviar() } else aplicarMes(meses[Number(v)]) }} className={inp}>
             {meses.map((m, i) => <option key={m.label} value={i}>{i === 0 ? m.label + ' (atual)' : m.label}</option>)}
             <option value="tudo">🗂️ Tudo (histórico)</option>
           </select>
         </div>
+        <button type="button" onClick={() => setFiltrosAbertos((v) => !v)}
+          className="rounded-lg border border-gray-200 px-3 py-[9px] text-sm text-gray-600 hover:bg-gray-50 transition">+ Filtros</button>
         <button type="submit" className="rounded-lg bg-blue-600 px-5 py-[9px] text-sm font-semibold text-white hover:bg-blue-700 transition">Filtrar</button>
         {temFiltro && <Link href="/painel/financeiro" className="rounded-lg border border-gray-200 px-4 py-[9px] text-sm text-gray-500 hover:bg-gray-50 transition">Limpar tudo</Link>}
       </div>
-      <input type="hidden" name="de" value={de} />
-      <input type="hidden" name="ate" value={ate} />
 
-      {/* Etiquetas do que está aplicado */}
+      {filtrosAbertos && (
+        <div className="grid gap-3 rounded-xl border border-gray-200 bg-gray-50/60 p-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Forma de pagamento</label><select name="forma" value={forma} onChange={(e) => setForma(e.target.value)} className={inp}><option value="">Todas</option>{formasOpc.map((f) => <option key={f} value={f}>{f}</option>)}</select></div>
+          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Conta</label><select name="conta" value={conta} onChange={(e) => setConta(e.target.value)} className={inp}><option value="">Todas</option>{contasOpc.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
+          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Valor de</label><input name="valor_min" type="number" step="0.01" value={valorMin} onChange={(e) => setValorMin(e.target.value)} placeholder="0,00" className={inp} /></div>
+          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Valor até</label><input name="valor_max" type="number" step="0.01" value={valorMax} onChange={(e) => setValorMax(e.target.value)} placeholder="0,00" className={inp} /></div>
+          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Período conta pela data de</label><select name="campo" value={campo} onChange={(e) => setCampo(e.target.value)} className={inp}>{camposData.map((c) => <option key={c} value={c}>{labelCampo[c]}</option>)}</select></div>
+        </div>
+      )}
+
       {etiquetas.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold uppercase text-gray-400">Filtrando por</span>
@@ -282,52 +263,6 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
           ))}
         </div>
       )}
-
-      {/* Mais filtros — fechado por padrão */}
-      <details open={maisFiltrosAbertos} className="rounded-xl border border-gray-200 bg-gray-50/60 px-4 py-3">
-        <summary className="cursor-pointer select-none text-sm font-semibold text-gray-600">Mais filtros</summary>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div ref={box} className="relative">
-            <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Cliente / Fornecedor</label>
-            <input name="pessoa" value={pessoa} onChange={(e) => { digitou.current = true; setPessoa(e.target.value) }} onFocus={() => opcoes.length && setAberto(true)} placeholder="Digite o nome…" autoComplete="off" className={inp} />
-            {aberto && pessoa.trim().length >= 1 && (
-              <ul className="absolute z-20 mt-1 max-h-72 w-full min-w-[20rem] overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
-                {buscando && opcoes.length === 0 ? <li className="px-3 py-2 text-sm text-gray-400">Buscando…</li>
-                  : opcoes.length === 0 ? <li className="px-3 py-2 text-sm text-gray-400">Nenhum resultado.</li>
-                  : opcoes.map((o, i) => (<li key={i}><button type="button" onMouseDown={(e) => { e.preventDefault(); escolher(o.value) }} className="block w-full px-3 py-2 text-left text-sm text-gray-800 hover:bg-blue-50 transition">{o.label}</button></li>))}
-              </ul>
-            )}
-          </div>
-          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Forma de pagamento</label><select name="forma" value={forma} onChange={(e) => setForma(e.target.value)} className={inp}><option value="">Todas</option>{formasOpc.map((f) => <option key={f} value={f}>{f}</option>)}</select></div>
-          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Conta</label><select name="conta" value={conta} onChange={(e) => setConta(e.target.value)} className={inp}><option value="">Todas</option>{contasOpc.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Setor</label>
-            <select name="setor" value={setor} onChange={(e) => trocarSetor(e.target.value)} className={inp}>
-              <option value="">Todos os setores</option>
-              {setores.map((s) => <option key={s.chave} value={s.chave}>{s.emoji} {s.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Categoria</label>
-            <select name="categoria" value={categoria} onChange={(e) => trocarCategoria(e.target.value)} className={inp} disabled={!!setorAtual?.semCategoria}>
-              <option value="">{setorAtual && !setorAtual.semCategoria ? 'Todas do setor' : 'Todas'}</option>
-              {categoriasVisiveis.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-            {setorAtual?.semCategoria && <p className="mt-1 text-[11px] text-gray-400">Este setor é justamente o que está sem categoria.</p>}
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Subcategoria</label>
-            <select name="subcategoria" value={subcategoria} onChange={(e) => setSubcategoria(e.target.value)} className={inp} disabled={subsDaCategoria.length === 0}>
-              <option value="">{subsDaCategoria.length ? 'Todas' : '—'}</option>
-              {subsDaCategoria.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-            {!categoria && <p className="mt-1 text-[11px] text-gray-400">Escolha a categoria primeiro.</p>}
-          </div>
-          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Valor de</label><input name="valor_min" type="number" step="0.01" value={valorMin} onChange={(e) => setValorMin(e.target.value)} placeholder="0,00" className={inp} /></div>
-          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Valor até</label><input name="valor_max" type="number" step="0.01" value={valorMax} onChange={(e) => setValorMax(e.target.value)} placeholder="0,00" className={inp} /></div>
-          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Filtrar período por</label><select name="campo" value={campo} onChange={(e) => setCampo(e.target.value)} className={inp}>{camposData.map((c) => <option key={c} value={c}>{labelCampo[c]}</option>)}</select></div>
-        </div>
-      </details>
     </form>
   )
 }
