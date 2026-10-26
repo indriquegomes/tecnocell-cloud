@@ -102,7 +102,7 @@ export const SUBCATEGORIAS: Record<string, string[]> = {
   'Fiado (a receber)': ['Varejo (cliente da loja)', 'Atacado (loja parceira)'],
   'Vendas': ['Loja', 'Atacado', 'Serviço'],
   'Vale crédito usado': ['Troca', 'Devolução'],
-  'Estorno': ['Cartão', 'PIX', 'Dinheiro'],
+  'Estorno': ['Cartão', 'PIX', 'Dinheiro', 'Crédito'],
   // mercadoria
   'Mercadoria': ['Aparelho', 'Peça', 'Acessório', 'Perfume / importado'],
   'Fornecedor / Mercadoria': ['Aparelho', 'Peça', 'Acessório', 'Frete'],
