@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { ConfigForm } from './ConfigForm'
+import { SenhaLiberacaoForm } from './SenhaLiberacaoForm'
 
 export default async function ConfiguracoesPage() {
   const supabase = await createServiceClient()
@@ -18,6 +19,7 @@ export default async function ConfiguracoesPage() {
     <div className="mx-auto max-w-2xl space-y-6">
       <h2 className="text-2xl font-bold text-gray-900">Configurações</h2>
       <ConfigForm dados={dados} dadosPdv={dadosPdv} dadosEntregas={dadosEntregas} />
+      <SenhaLiberacaoForm />
     </div>
   )
 }

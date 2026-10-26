@@ -175,10 +175,15 @@ export function DevolucoesClient({
   const [confirmouReembolso, setConfirmouReembolso] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
+  // Senha do dono: quando a devolução fura uma regra de dinheiro, a tela vira
+  // "modo liberar" e mostra o campo. Só manda a senha pro servidor nesse modo
+  // (senha digitada em devolução que NÃO furou regra seria recusada à toa).
+  const [podeSenha, setPodeSenha] = useState(false)
+  const [senha, setSenha] = useState('')
   const [sucesso, setSucesso] = useState<{ mensagem: string | null; whatsapp: string | null } | null>(null)
 
   // reseta o "confirmei" sempre que a forma de reembolso muda
-  useEffect(() => { setConfirmouReembolso(false) }, [tipoCredito, modoMistoReemb, linhasReemb])
+  useEffect(() => { setConfirmouReembolso(false); setPodeSenha(false); setSenha('') }, [tipoCredito, modoMistoReemb, linhasReemb])
 
   // ── modal detalhe ──────────────────────────────────────────────────────────
   const [detalhe, setDetalhe] = useState<{
@@ -209,7 +214,7 @@ export function DevolucoesClient({
     setOpen(false); setStep('buscar'); setBuscaVenda(''); setVendas([])
     setVenda(null); setItens(new Map()); setStatusProduto(new Map()); setSeriesSel(new Map())
     setMotivo(''); setMotivoTipo(''); setTipoCredito('dinheiro'); setErro('')
-    setModoMistoReemb(false); setLinhasReemb([])
+    setModoMistoReemb(false); setLinhasReemb([]); setPodeSenha(false); setSenha('')
   }
 
   // Busca da venda: DEBOUNCE (350ms) + "último venceu" (ignora resposta velha) + loading
@@ -397,10 +402,12 @@ export function DevolucoesClient({
         tipo_credito: reembolso > 0.01 ? (usaMisto ? 'misto' : tipoCredito) : 'cancelamento_fiado',
         reembolsos: usaMisto ? linhasEnvio : undefined,
         itens: itensDev, lancamento_pendente: venda.lancamento_pendente,
+        // senha do dono: só manda se a tela está no modo "liberar com senha"
+        senhaLiberacao: podeSenha ? senha : undefined,
       })
       // A recusa vem como dado (não como exceção): em produção o Next apagaria o texto
       // e o atendente veria só "error occurred in the Server Components render".
-      if (!resultado.ok) { setErro(resultado.erro); return }
+      if (!resultado.ok) { setErro(resultado.erro); setPodeSenha(!!resultado.podeLiberarComSenha); return }
       const tipo = reembolso > 0.01 ? (usaMisto ? 'misto' : tipoCredito) : 'cancelamento_fiado'
       const mensagem = mensagemDevolucao({
         tipo,
@@ -1129,6 +1136,23 @@ export function DevolucoesClient({
                   </div>
 
                   {erro && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{erro}</p>}
+
+                  {/* Senha do dono — aparece quando a devolução fura uma regra de dinheiro
+                      e o dono decide liberar mesmo assim (passa só nesta vez, com registro). */}
+                  {podeSenha && (
+                    <div className="rounded-xl border-2 border-amber-300 bg-amber-50 px-4 py-3 space-y-2">
+                      <p className="text-sm font-semibold text-amber-800">🔑 Senha de liberação (só o dono tem)</p>
+                      <input
+                        type="password"
+                        value={senha}
+                        onChange={(e) => setSenha(e.target.value)}
+                        placeholder="Digite a senha do dono"
+                        autoFocus
+                        className="w-full rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                      <p className="text-xs text-amber-700">A devolução passa só nesta vez e fica registrada com seu login.</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1149,12 +1173,13 @@ export function DevolucoesClient({
                 </button>
               )}
               {step === 'confirmar' && (
-                <button onClick={confirmar} disabled={salvando || !motivoTipo || (motivoTipo === 'outro' && !motivo.trim()) || (reembolso > 0.01 && !confirmouReembolso)}
-                  title={!motivoTipo ? 'Escolha por que a peça voltou' : undefined}
+                <button onClick={confirmar} disabled={salvando || !motivoTipo || (motivoTipo === 'outro' && !motivo.trim()) || (reembolso > 0.01 && !confirmouReembolso) || (podeSenha && !senha.trim())}
+                  title={!motivoTipo ? 'Escolha por que a peça voltou' : (podeSenha && !senha.trim()) ? 'Digite a senha do dono' : undefined}
                   className="flex-1 rounded-xl bg-green-600 py-2.5 text-sm font-bold text-white hover:bg-green-700 transition disabled:opacity-50">
                   {salvando
                     ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Registrando...</span>
                     : !motivoTipo ? 'Escolha o motivo acima'
+                    : podeSenha ? '🔑 Liberar com a senha do dono'
                     : `✓ Confirmar — ${fmt(totalSelecionado)}`}
                 </button>
               )}

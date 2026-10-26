@@ -1,6 +1,7 @@
 'use server'
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { hashSenha, verificarSenhaLiberacao } from '@/lib/senha-liberacao'
 
 type State = { ok: boolean; erro: string | null }
 
@@ -50,5 +51,42 @@ export async function salvarConfiguracoes(_prev: State, formData: FormData): Pro
   if (r1.error) return { ok: false, erro: r1.error.message }
   if (r2.error) return { ok: false, erro: r2.error.message }
   if (r3.error) return { ok: false, erro: r3.error.message }
+  return { ok: true, erro: null }
+}
+
+// Troca da senha de liberação de devolução pelo próprio dono (tela Configurações).
+// Guarda só o HASH scrypt — a senha em si não fica em lugar nenhum. Exige a senha
+// atual para confirmar que é o dono mesmo (e não uma sessão de master deixada aberta).
+export async function alterarSenhaLiberacao(_prev: State, formData: FormData): Promise<State> {
+  await requirePermissao('usuarios')
+
+  // Se a senha está travada por variável de ambiente (Vercel), trocar aqui não
+  // surtiria efeito — a variável tem prioridade sobre o banco.
+  if (process.env.SENHA_LIBERACAO_DEVOLUCAO) {
+    return { ok: false, erro: 'A senha está travada por uma variável de ambiente (Vercel). Troque por lá, não aqui.' }
+  }
+
+  const atual = ((formData.get('senha_atual') as string) ?? '').trim()
+  const nova = ((formData.get('senha_nova') as string) ?? '').trim()
+  const confirma = ((formData.get('senha_confirma') as string) ?? '').trim()
+
+  if (!atual) return { ok: false, erro: 'Digite a senha atual.' }
+  if (!nova) return { ok: false, erro: 'Digite a nova senha.' }
+  if (nova.length < 4) return { ok: false, erro: 'A nova senha precisa de pelo menos 4 caracteres.' }
+  if (nova !== confirma) return { ok: false, erro: 'A nova senha e a confirmação não são iguais.' }
+
+  const verificado = await verificarSenhaLiberacao(atual)
+  if (!verificado.ok) {
+    return {
+      ok: false,
+      erro: verificado.motivo === 'nao_configurada' ? 'Nenhuma senha configurada ainda — nada a trocar.' : 'Senha atual incorreta.',
+    }
+  }
+
+  const supabase = await createServiceClient()
+  const { error } = await supabase
+    .from('configuracoes')
+    .upsert({ chave: 'senha_liberacao_devolucao', valor: hashSenha(nova) }, { onConflict: 'chave' })
+  if (error) return { ok: false, erro: error.message }
   return { ok: true, erro: null }
 }
