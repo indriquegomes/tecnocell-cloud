@@ -5,30 +5,20 @@ import { IconWallet } from '@/components/icons'
 import { formatBRL, hojeSP } from '@/lib/utils'
 import { BuscaFinanceiro } from './BuscaFinanceiro'
 import { Paginacao } from '@/components/Paginacao'
+import { SETORES, categoriasDoSetor } from '@/lib/financeiro-setores'
 import { LinhaEditable } from './LinhaEditable'
 import { gerarFolha } from './actions'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 import { ExportCsv } from '../relatorios/ExportCsv'
 
-// Grupos de categoria pros filtros rápidos (chips) do topo do Financeiro.
-const GRUPOS_FINANCEIRO: Record<string, { label: string; categorias?: string[]; tipo?: 'funcionarios' | 'freelancers' }> = {
-  funcionarios: { label: '👥 Funcionários', tipo: 'funcionarios' },
-  freelancers:  { label: '🎒 Freelancers', tipo: 'freelancers' },
-  fornecedores: { label: '🏭 Fornecedores', categorias: ['Fornecedor / Mercadoria', 'Mercadoria'] },
-  fixas:        { label: '📌 Contas fixas', categorias: ['Aluguel', 'Energia/Luz', 'Contabilidade', 'Impostos'] },
-}
-
-const CATEGORIAS_FINANCEIRO: { grupo: string; categorias: string[] }[] = [
-  { grupo: 'Despesas da Loja', categorias: ['Alimentação', 'Combustível', 'Aluguel', 'Salários', 'Motoboy', 'Contabilidade', 'Energia/Luz', 'Impostos', 'Mercadoria', 'Serviços', 'Uso interno', 'Perda', 'Manutenção', 'Transporte', 'Limpeza', 'Saúde', 'Confraternização', 'Gastos em São Paulo'] },
-  { grupo: 'Sócio', categorias: ['Retirada do sócio'] },
-  { grupo: 'Outros', categorias: ['Estorno', 'Outras despesas', 'Combinado na entrega', 'Vale crédito usado', 'Dívida parcelada'] },
-]
+// A classificação vive em um lugar só (lib/financeiro-setores.ts): setor → categoria.
+// O filtro em cascata e o formulário leem daqui, então não nasce categoria fora de lugar.
 
 export default async function FinanceiroPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tipo?: string; busca?: string; ordem?: string; dir?: string; status?: string; de?: string; ate?: string; pessoa?: string; forma?: string; conta?: string; categoria?: string; grupo?: string; tudo?: string; valor_min?: string; valor_max?: string; campo?: string; erro?: string; ok?: string; loja?: string; pagina?: string }>
+  searchParams: Promise<{ tipo?: string; busca?: string; ordem?: string; dir?: string; status?: string; de?: string; ate?: string; pessoa?: string; forma?: string; conta?: string; categoria?: string; grupo?: string; tudo?: string; valor_min?: string; valor_max?: string; campo?: string; erro?: string; ok?: string; loja?: string; pagina?: string; setor?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
@@ -49,7 +39,7 @@ export default async function FinanceiroPage({
   ])
   const formasOpc = [...new Set((formasList ?? []).map((f) => f.nome as string))]
   const contasOpc = (contasList ?? []) as { id: string; nome: string }[]
-  const categoriasOpc = CATEGORIAS_FINANCEIRO.flatMap((g) => g.categorias)
+  const categoriasOpc = [...new Set(SETORES.flatMap((s) => s.categorias))]
 
   // Aplica TODOS os filtros da busca avançada a uma query (reusado na lista e nos totais)
   /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -98,11 +88,12 @@ export default async function FinanceiroPage({
     if (params.forma) q = q.eq('forma_pagamento', params.forma)
     if (params.conta) q = q.eq('conta_id', params.conta)
     if (params.categoria) q = q.eq('categoria', params.categoria)
-    if (params.grupo && GRUPOS_FINANCEIRO[params.grupo]) {
-      const g = GRUPOS_FINANCEIRO[params.grupo]
-      if (g.categorias) q = q.in('categoria', g.categorias)
-      else if (g.tipo === 'funcionarios') q = q.in('pessoa_nome', nomesFuncionarios)
-      else if (g.tipo === 'freelancers') q = q.not('pessoa_nome', 'in', inFuncionarios).ilike('categoria', 'motoboy')
+    if (params.setor) {
+      // Setor vem antes da categoria: escolher Funcionários já restringe àquelas
+      // categorias, e a cascata na tela só oferece as do setor escolhido.
+      const cats = categoriasDoSetor(params.setor)
+      if (params.setor === 'sem_categoria') q = q.is('categoria', null)
+      else if (cats.length) q = q.in('categoria', cats)
     }
     if (params.valor_min) q = q.gte('valor', Number(params.valor_min))
     if (params.valor_max) q = q.lte('valor', Number(params.valor_max))
@@ -116,13 +107,13 @@ export default async function FinanceiroPage({
     return q
   }
   /* eslint-enable @typescript-eslint/no-explicit-any */
-  const temFiltro = !!(params.busca || params.pessoa || params.forma || params.conta || params.categoria || params.valor_min || params.valor_max || params.status || params.de || params.ate || params.tipo)
+  const temFiltro = !!(params.busca || params.pessoa || params.forma || params.conta || params.categoria || params.setor || params.valor_min || params.valor_max || params.status || params.de || params.ate || params.tipo)
 
   const ordemAtual = params.ordem ?? 'data_vencimento'
   const ordemDir = params.dir === 'desc'
   const camposDB: Record<string, string> = { data_vencimento: 'data_vencimento', valor: 'valor', descricao: 'descricao', pessoa_nome: 'pessoa_nome', tipo: 'tipo', status: 'status' }
   const baseParams: Record<string, string> = {}
-  for (const k of ['tipo', 'busca', 'status', 'de', 'ate', 'pessoa', 'forma', 'conta', 'categoria', 'grupo', 'valor_min', 'valor_max', 'campo', 'loja'] as const) {
+  for (const k of ['tipo', 'busca', 'status', 'de', 'ate', 'pessoa', 'forma', 'conta', 'categoria', 'setor', 'valor_min', 'valor_max', 'campo', 'loja', 'tudo'] as const) {
     if (params[k]) baseParams[k] = params[k]!
   }
   const sortLink = (o: string) => {
@@ -271,7 +262,7 @@ export default async function FinanceiroPage({
           operaveis={operaveis}
           formasOpc={formasOpc}
           contasOpc={contasOpc}
-          categoriasGrupos={CATEGORIAS_FINANCEIRO}
+          setores={SETORES}
           camposData={camposData}
           labelCampo={labelCampo}
           temFiltro={temFiltro}

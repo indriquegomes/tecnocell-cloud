@@ -6,6 +6,7 @@ import { SubmitButton } from '@/components/SubmitButton'
 import Link from 'next/link'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
 import { ClienteFornecedorField } from '../ClienteFornecedorField'
+import { TODAS_CATEGORIAS } from '@/lib/financeiro-setores'
 
 export default async function NovoLancamentoPage({
   searchParams,
@@ -88,12 +89,13 @@ export default async function NovoLancamentoPage({
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Categoria</label>
-            <input name="categoria" list="categorias-list" className="field" placeholder="Ex: Aluguel, Fornecedor..." />
+            {/* As sugestões vêm da lista oficial (lib/financeiro-setores.ts). Antes
+                eram nomes escritos na mão que nem existiam na classificação —
+                "Energia / Água / Internet", "Marketing", "Serviços (OS)" — e cada
+                um deles virava uma categoria solta que o filtro não reconhecia. */}
+            <input name="categoria" list="categorias-list" className="field" placeholder="Ex: Aluguel, Salários, Mercadoria…" />
             <datalist id="categorias-list">
-              <option value="Vendas" /><option value="Serviços (OS)" /><option value="Aluguel" />
-              <option value="Fornecedor / Mercadoria" /><option value="Salários" /><option value="Impostos" />
-              <option value="Energia / Água / Internet" /><option value="Marketing" /><option value="Manutenção" />
-              <option value="Outras receitas" /><option value="Outras despesas" />
+              {TODAS_CATEGORIAS.map((c) => <option key={c} value={c} />)}
             </datalist>
           </div>
           <div>

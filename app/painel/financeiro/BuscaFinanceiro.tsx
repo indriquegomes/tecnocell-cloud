@@ -7,13 +7,6 @@ import { buscarPessoasSugestao } from './actions'
 
 const sb = createClient()
 
-const ROTULO_GRUPO: Record<string, string> = {
-  funcionarios: 'Funcionários (folha)',
-  freelancers: 'Freelancers (motoboy pontual)',
-  fornecedores: 'Fornecedores',
-  fixas: 'Contas fixas',
-}
-
 // Barra de filtro do Financeiro.
 //
 // Antes eram 14 campos sempre abertos, sem busca por texto (o motor existia mas o
@@ -21,13 +14,13 @@ const ROTULO_GRUPO: Record<string, string> = {
 //   1. uma linha na frente: busca + loja + situação + período + Filtrar;
 //   2. etiquetas do que está aplicado, cada uma com X para tirar só aquele filtro;
 //   3. o resto atrás de "Mais filtros", fechado por padrão.
-export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, contasOpc, categoriasGrupos, camposData, labelCampo, temFiltro }: {
+export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, contasOpc, setores, camposData, labelCampo, temFiltro }: {
   params: Record<string, string | undefined>
   lojaEfetiva: string
   operaveis: { id: string; nome: string }[]
   formasOpc: string[]
   contasOpc: { id: string; nome: string }[]
-  categoriasGrupos: { grupo: string; categorias: string[] }[]
+  setores: { chave: string; label: string; emoji: string; categorias: string[]; semCategoria?: boolean }[]
   camposData: string[]
   labelCampo: Record<string, string>
   temFiltro: boolean
@@ -43,7 +36,8 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
   const [forma, setForma] = useState(params.forma ?? '')
   const [conta, setConta] = useState(params.conta ?? '')
   const [categoria, setCategoria] = useState(params.categoria ?? '')
-  const [grupo, setGrupo] = useState(params.grupo ?? '')
+  // Setor manda na categoria: a lista de categoria só mostra as do setor escolhido.
+  const [setor, setSetor] = useState(params.setor ?? '')
   const [status, setStatus] = useState(params.status ?? '')
   const [loja, setLoja] = useState(params.loja ?? lojaEfetiva)
   const [valorMin, setValorMin] = useState(params.valor_min ?? '')
@@ -135,7 +129,10 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
   if (params.forma) etiquetas.push({ chave: 'forma', label: 'Forma: ' + params.forma, href: semFiltro(['forma']) })
   if (params.conta) etiquetas.push({ chave: 'conta', label: 'Conta: ' + (contasOpc.find((c) => c.id === params.conta)?.nome ?? 'conta'), href: semFiltro(['conta']) })
   if (params.categoria) etiquetas.push({ chave: 'categoria', label: params.categoria, href: semFiltro(['categoria']) })
-  if (params.grupo) etiquetas.push({ chave: 'grupo', label: ROTULO_GRUPO[params.grupo] ?? params.grupo, href: semFiltro(['grupo']) })
+  if (params.setor) {
+    const s = setores.find((x) => x.chave === params.setor)
+    etiquetas.push({ chave: 'setor', label: 'Setor: ' + (s ? s.emoji + ' ' + s.label : params.setor), href: semFiltro(['setor']) })
+  }
   if (params.valor_min) etiquetas.push({ chave: 'valor_min', label: 'Valor ≥ ' + params.valor_min, href: semFiltro(['valor_min']) })
   if (params.valor_max) etiquetas.push({ chave: 'valor_max', label: 'Valor ≤ ' + params.valor_max, href: semFiltro(['valor_max']) })
   if (params.campo && params.campo !== 'data_vencimento') etiquetas.push({ chave: 'campo', label: 'Data: ' + (labelCampo[params.campo] ?? params.campo), href: semFiltro(['campo']) })
@@ -146,7 +143,16 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
     etiquetas.push({ chave: 'periodo', label: fmt(de) + ' a ' + fmt(ate), href: semFiltro(['de', 'ate']) })
   }
 
-  const maisFiltrosAbertos = !!(params.pessoa || params.forma || params.conta || params.categoria || params.grupo || params.valor_min || params.valor_max || (params.campo && params.campo !== 'data_vencimento'))
+  const maisFiltrosAbertos = !!(params.pessoa || params.forma || params.conta || params.categoria || params.setor || params.valor_min || params.valor_max || (params.campo && params.campo !== 'data_vencimento'))
+
+  // CASCATA: a categoria oferecida depende do setor escolhido.
+  const setorAtual = setores.find((s) => s.chave === setor)
+  const categoriasVisiveis = setorAtual ? setorAtual.categorias : setores.flatMap((s) => s.categorias)
+  function trocarSetor(novo: string) {
+    setSetor(novo)
+    const s = setores.find((x) => x.chave === novo)
+    if (s && categoria && !s.categorias.includes(categoria)) setCategoria('')
+  }
 
   return (
     <form ref={formRef} method="GET" className="space-y-3">
@@ -220,8 +226,21 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
           </div>
           <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Forma de pagamento</label><select name="forma" value={forma} onChange={(e) => setForma(e.target.value)} className={inp}><option value="">Todas</option>{formasOpc.map((f) => <option key={f} value={f}>{f}</option>)}</select></div>
           <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Conta</label><select name="conta" value={conta} onChange={(e) => setConta(e.target.value)} className={inp}><option value="">Todas</option>{contasOpc.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
-          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Categoria</label><select name="categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)} className={inp}><option value="">Todas</option>{categoriasGrupos.map((g) => <optgroup key={g.grupo} label={g.grupo}>{g.categorias.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>)}</select></div>
-          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Grupo</label><select name="grupo" value={grupo} onChange={(e) => setGrupo(e.target.value)} className={inp}><option value="">Todos</option><option value="funcionarios">👥 Funcionários (folha)</option><option value="freelancers">🎒 Freelancers (motoboy pontual)</option><option value="fornecedores">🏭 Fornecedores</option><option value="fixas">📌 Contas fixas</option></select></div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Setor</label>
+            <select name="setor" value={setor} onChange={(e) => trocarSetor(e.target.value)} className={inp}>
+              <option value="">Todos os setores</option>
+              {setores.map((s) => <option key={s.chave} value={s.chave}>{s.emoji} {s.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Categoria</label>
+            <select name="categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)} className={inp} disabled={!!setorAtual?.semCategoria}>
+              <option value="">{setorAtual && !setorAtual.semCategoria ? 'Todas do setor' : 'Todas'}</option>
+              {categoriasVisiveis.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            {setorAtual?.semCategoria && <p className="mt-1 text-[11px] text-gray-400">Este setor é justamente o que está sem categoria.</p>}
+          </div>
           <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Valor de</label><input name="valor_min" type="number" step="0.01" value={valorMin} onChange={(e) => setValorMin(e.target.value)} placeholder="0,00" className={inp} /></div>
           <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Valor até</label><input name="valor_max" type="number" step="0.01" value={valorMax} onChange={(e) => setValorMax(e.target.value)} placeholder="0,00" className={inp} /></div>
           <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Filtrar período por</label><select name="campo" value={campo} onChange={(e) => setCampo(e.target.value)} className={inp}>{camposData.map((c) => <option key={c} value={c}>{labelCampo[c]}</option>)}</select></div>
