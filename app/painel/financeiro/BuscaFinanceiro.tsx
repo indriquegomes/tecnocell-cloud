@@ -28,6 +28,10 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
 }) {
   const inp = 'w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400'
   const [busca, setBusca] = useState(params.busca ?? '')
+  // Seta da busca: abre a lista de sugestões (setor, categoria e as últimas buscas).
+  const [sugAberto, setSugAberto] = useState(false)
+  const [recentes, setRecentes] = useState<string[]>([])
+  const sugBox = useRef<HTMLDivElement>(null)
   const [pessoa, setPessoa] = useState(params.pessoa ?? '')
   const [opcoes, setOpcoes] = useState<{ label: string; value: string }[]>([])
   const [aberto, setAberto] = useState(false)
@@ -68,10 +72,28 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
   }, [pessoa])
 
   useEffect(() => {
-    const fechar = (e: MouseEvent) => { if (box.current && !box.current.contains(e.target as Node)) setAberto(false) }
+    const fechar = (e: MouseEvent) => {
+      if (box.current && !box.current.contains(e.target as Node)) setAberto(false)
+      if (sugBox.current && !sugBox.current.contains(e.target as Node)) setSugAberto(false)
+    }
     document.addEventListener('mousedown', fechar)
     return () => document.removeEventListener('mousedown', fechar)
   }, [])
+
+  // As últimas buscas ficam no próprio navegador (nada vai para o servidor).
+  const CHAVE_RECENTES = 'financeiro:buscas'
+  useEffect(() => {
+    try { const salvo = localStorage.getItem(CHAVE_RECENTES); if (salvo) setRecentes(JSON.parse(salvo).slice(0, 6)) } catch { /* navegador sem storage */ }
+  }, [])
+  function guardarRecente(termo: string) {
+    const t = termo.trim()
+    if (!t) return
+    try {
+      const lista = [t, ...recentes.filter((r) => r.toLowerCase() !== t.toLowerCase())].slice(0, 6)
+      localStorage.setItem(CHAVE_RECENTES, JSON.stringify(lista))
+      setRecentes(lista)
+    } catch { /* navegador sem storage */ }
+  }
 
   // Escolher a pessoa NÃO apaga mais os outros filtros: antes limpava loja, forma,
   // categoria, mês e valor sem avisar, e o dono achava que estava filtrando o mês.
@@ -165,16 +187,58 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
   const subsDaCategoria = subcategorias[categoria] ?? []
 
   return (
-    <form ref={formRef} method="GET" className="space-y-3">
+    <form ref={formRef} method="GET" className="space-y-3" onSubmit={() => guardarRecente(busca)}>
       {params.tipo && <input type="hidden" name="tipo" value={params.tipo} />}
       {tudo === '1' && <input type="hidden" name="tudo" value="1" />}
 
       {/* Linha 1 — o que se usa toda hora */}
       <div className="flex flex-wrap items-end gap-2">
-        <div className="min-w-[16rem] flex-1">
+        <div ref={sugBox} className="relative min-w-[16rem] flex-1">
           <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Buscar</label>
-          <input name="busca" value={busca} onChange={(e) => setBusca(e.target.value)}
-            placeholder="Nome, descrição ou nº da nota…" autoComplete="off" className={inp} />
+          <div className="relative">
+            <input name="busca" value={busca} onChange={(e) => setBusca(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') guardarRecente(busca) }}
+              placeholder="Nome, descrição ou nº da nota…" autoComplete="off" className={inp + ' pr-9'} />
+            <button type="button" onClick={() => setSugAberto((v) => !v)} aria-label="Ver sugestões"
+              title="Ver sugestões"
+              className="absolute right-1 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+            </button>
+          </div>
+
+          {sugAberto && (
+            <div className="absolute z-30 mt-1 max-h-80 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white p-2 shadow-lg">
+              {recentes.length > 0 && (
+                <div className="mb-2">
+                  <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Suas últimas buscas</p>
+                  {recentes.map((t) => (
+                    <button key={t} type="button"
+                      onClick={() => { setBusca(t); setSugAberto(false); guardarRecente(t); setTimeout(() => formRef.current?.requestSubmit(), 0) }}
+                      className="block w-full rounded-lg px-2 py-1.5 text-left text-sm text-gray-700 hover:bg-blue-50 transition">🕘 {t}</button>
+                  ))}
+                </div>
+              )}
+
+              <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Ir para um setor</p>
+              {setores.map((s) => (
+                <button key={s.chave} type="button"
+                  onClick={() => { setSetor(s.chave); setCategoria(''); setSubcategoria(''); setSugAberto(false); setTimeout(() => formRef.current?.requestSubmit(), 0) }}
+                  className="block w-full rounded-lg px-2 py-1.5 text-left text-sm text-gray-700 hover:bg-blue-50 transition">{s.emoji} {s.label}</button>
+              ))}
+
+              <p className="mt-2 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Uma categoria direto</p>
+              {setores.flatMap((s) => s.categorias).slice(0, 12).map((c) => {
+                const dono = setores.find((s) => s.categorias.includes(c))
+                return (
+                  <button key={c} type="button"
+                    onClick={() => { setSetor(dono?.chave ?? ''); setCategoria(c); setSubcategoria(''); setSugAberto(false); setTimeout(() => formRef.current?.requestSubmit(), 0) }}
+                    className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm text-gray-700 hover:bg-blue-50 transition">
+                    <span>{c}</span><span className="text-[11px] text-gray-400">{dono ? dono.emoji + ' ' + dono.label : ''}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
         <div className="w-40">
           <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Loja</label>
