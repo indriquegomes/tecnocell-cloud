@@ -4,12 +4,12 @@ import { FinanceiroTabs } from './FinanceiroTabs'
 import { IconWallet } from '@/components/icons'
 import { formatBRL, hojeSP } from '@/lib/utils'
 import { BuscaFinanceiro } from './BuscaFinanceiro'
+import { Paginacao } from '@/components/Paginacao'
 import { LinhaEditable } from './LinhaEditable'
 import { gerarFolha } from './actions'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 import { ExportCsv } from '../relatorios/ExportCsv'
-import { BuscaAvancada } from '@/components/BuscaAvancada'
 
 // Grupos de categoria pros filtros rápidos (chips) do topo do Financeiro.
 const GRUPOS_FINANCEIRO: Record<string, { label: string; categorias?: string[]; tipo?: 'funcionarios' | 'freelancers' }> = {
@@ -28,7 +28,7 @@ const CATEGORIAS_FINANCEIRO: { grupo: string; categorias: string[] }[] = [
 export default async function FinanceiroPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tipo?: string; busca?: string; ordem?: string; dir?: string; status?: string; de?: string; ate?: string; pessoa?: string; forma?: string; conta?: string; categoria?: string; grupo?: string; tudo?: string; valor_min?: string; valor_max?: string; campo?: string; erro?: string; ok?: string; loja?: string }>
+  searchParams: Promise<{ tipo?: string; busca?: string; ordem?: string; dir?: string; status?: string; de?: string; ate?: string; pessoa?: string; forma?: string; conta?: string; categoria?: string; grupo?: string; tudo?: string; valor_min?: string; valor_max?: string; campo?: string; erro?: string; ok?: string; loja?: string; pagina?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
@@ -78,7 +78,7 @@ export default async function FinanceiroPage({
   const aplica = (q: any): any => {
     q = aplicaLoja(q)
     if (params.tipo === 'pagar' || params.tipo === 'receber') q = q.eq('tipo', params.tipo)
-    if (params.busca) { for (const w of params.busca.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)) q = q.or(`descricao.ilike.%${w}%,pessoa_nome.ilike.%${w}%`) }
+    if (params.busca) { for (const w of params.busca.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)) q = q.or(`descricao.ilike.%${w}%,pessoa_nome.ilike.%${w}%,categoria.ilike.%${w}%`) }
     if (params.pessoa) q = q.ilike('pessoa_nome', `%${params.pessoa}%`)
     if (params.forma) q = q.eq('forma_pagamento', params.forma)
     if (params.conta) q = q.eq('conta_id', params.conta)
@@ -118,12 +118,18 @@ export default async function FinanceiroPage({
     return { href: `/painel/financeiro?${qs}`, arrow, ativo }
   }
 
+  // A lista era cortada em 200 sem "próxima página": filtrar certo e não achar a
+  // linha porque ela era a 201ª. Agora pagina de 200 em 200 e mostra o total real.
+  const POR_PAGINA = 200
+  const pagina = Math.max(1, Number(params.pagina) || 1)
   const listaQuery = supabase
     .from('lancamentos')
-    .select('id, codigo, descricao, valor, tipo, status, data_vencimento, data_pagamento, data_competencia, forma_pagamento, pessoa_nome, categoria, comprovante_url')
+    .select('id, codigo, descricao, valor, tipo, status, data_vencimento, data_pagamento, data_competencia, forma_pagamento, pessoa_nome, categoria, comprovante_url', { count: 'exact' })
     .order(camposDB[ordemAtual] ?? 'data_vencimento', { ascending: !ordemDir })
-    .limit(200)
-  const { data: lancamentos } = await aplica(listaQuery)
+    .range((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA - 1)
+  const { data: lancamentos, count: totalLista } = await aplica(listaQuery)
+  const totalRegistros = totalLista ?? 0
+  const totalPaginas = Math.max(1, Math.ceil(totalRegistros / POR_PAGINA))
 
   type LancRow = { id: string; codigo: string | null; descricao: string | null; valor: number | null; tipo: string; status: string | null; data_vencimento: string | null; data_pagamento: string | null; data_competencia: string | null; forma_pagamento: string | null; pessoa_nome: string | null; categoria: string | null; comprovante_url: string | null }
   const todos = (lancamentos ?? []) as LancRow[]
@@ -148,8 +154,10 @@ export default async function FinanceiroPage({
 
   // ✨ Totais DO FILTRO (não só os globais): soma exatamente o que está filtrado,
   // sem o cap de 200 da lista. Isa: "quanto tenho a receber em PIX vencendo em agosto".
-  const filtrados = await fetchAll<{ valor: number | null; tipo: string; status: string | null }>(
-    (from, to) => aplica(supabase.from('lancamentos').select('valor, tipo, status')).range(from, to)
+  const filtrados = await fetchAll<Record<string, unknown> & { valor: number | null; tipo: string; status: string | null }>(
+    (from, to) => aplica(supabase.from('lancamentos')
+      .select('descricao, pessoa_nome, data_vencimento, data_competencia, valor, tipo, status, forma_pagamento, categoria'))
+      .range(from, to)
   )
   const fReceber = filtrados.filter((l) => l.tipo === 'receber').reduce((s, l) => s + (l.valor ?? 0), 0)
   const fPagar = filtrados.filter((l) => l.tipo === 'pagar').reduce((s, l) => s + (l.valor ?? 0), 0)
@@ -239,8 +247,9 @@ export default async function FinanceiroPage({
         </div>
       </div>
 
-      {/* 🔎 Busca Avançada (Isa 29/07 — espelha a do SIGE) */}
-      <BuscaAvancada ativo={temFiltro}>
+      {/* Filtro sempre visível. Antes tudo isso ficava escondido dentro de uma caixa
+          "Busca Avançada" fechada: quem abria a tela não via filtro nenhum. */}
+      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <BuscaFinanceiro
           params={{ ...params, de: params.de ?? (verTudo ? '' : mesIni), ate: params.ate ?? (verTudo ? '' : mesFim) }}
           lojaEfetiva={lojaEfetiva}
@@ -252,7 +261,7 @@ export default async function FinanceiroPage({
           labelCampo={labelCampo}
           temFiltro={temFiltro}
         />
-      </BuscaAvancada>
+      </div>
 
       {/* ✨ Último pagamento da pessoa escolhida (informativo, não é filtro) */}
       {params.pessoa && (
@@ -281,7 +290,7 @@ export default async function FinanceiroPage({
         <div className="ml-auto">
           <ExportCsv filename={`financeiro_${hojeSP()}.csv`}
             cols={[{ key: 'descricao', label: 'Descrição' }, { key: 'pessoa_nome', label: 'Pessoa' }, { key: 'data_vencimento', label: 'Vencimento' }, { key: 'data_competencia', label: 'Competência' }, { key: 'valor', label: 'Valor', money: true }, { key: 'tipo', label: 'Tipo' }, { key: 'status', label: 'Status' }, { key: 'forma_pagamento', label: 'Forma' }, { key: 'categoria', label: 'Categoria' }]}
-            rows={todos as unknown as Record<string, unknown>[]} />
+            rows={filtrados as unknown as Record<string, unknown>[]} />
         </div>
       </div>
 
@@ -335,11 +344,13 @@ export default async function FinanceiroPage({
                   comprovanteUrl={comprovanteUrl.get(l.id) ?? null}
                   idsDesfazer={idsDesfazer.has(l.id)}
                   formasOpc={formasOpc}
+                  filtroBase={new URLSearchParams(baseParams).toString()}
                 />
               ))
             )}
           </tbody>
         </table>
+        <Paginacao pagina={pagina} totalPaginas={totalPaginas} total={totalRegistros} params={baseParams} basePath="/painel/financeiro" />
       </div>
     </div>
   )

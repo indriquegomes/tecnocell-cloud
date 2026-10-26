@@ -16,6 +16,7 @@ export function LinhaEditable({
   comprovanteUrl,
   idsDesfazer,
   formasOpc,
+  filtroBase,
 }: {
   lanc: {
     id: string
@@ -31,6 +32,11 @@ export function LinhaEditable({
   comprovanteUrl: string | null
   idsDesfazer: boolean
   formasOpc: string[]
+  // Filtros atuais em formato de query string. Com isso o nome da pessoa vira um
+  // link: um clique isola aquele cliente/fornecedor sem digitar nada, sem perder
+  // os outros filtros. (string, não função: Server Component não passa função
+  // para Client Component.)
+  filtroBase?: string
 }) {
   const [valor, setValor] = useState((lanc.valor ?? 0).toFixed(2))
   const [forma, setForma] = useState(lanc.forma_pagamento ?? '')
@@ -56,6 +62,14 @@ export function LinhaEditable({
     }
   }
 
+  // Link para "só desta pessoa", mantendo os filtros que já estão aplicados.
+  const linkDaPessoa = (nome: string) => {
+    const sp = new URLSearchParams(filtroBase ?? '')
+    sp.set('pessoa', nome)
+    sp.delete('pagina')
+    return '/painel/financeiro?' + sp.toString()
+  }
+
   const pago = (lanc.status ?? '').toLowerCase().includes('pago')
   const inputCls = 'w-full rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400'
 
@@ -67,7 +81,11 @@ export function LinhaEditable({
           <a href={comprovanteUrl} target="_blank" rel="noreferrer" className="ml-1.5 text-blue-600 underline" title="Ver comprovante">📎</a>
         )}
       </td>
-      <td className="px-4 py-3 text-sm text-gray-500">{lanc.pessoa_nome || '—'}</td>
+      <td className="px-4 py-3 text-sm text-gray-500">
+        {lanc.pessoa_nome
+          ? <Link href={linkDaPessoa(lanc.pessoa_nome)} title="Ver só desta pessoa" className="text-gray-600 underline decoration-dotted underline-offset-2 hover:text-blue-700">{lanc.pessoa_nome}</Link>
+          : '—'}
+      </td>
       <td className="px-4 py-3">
         <input type="date" value={venc} onChange={(e) => setVenc(e.target.value)} className={inputCls} />
       </td>
