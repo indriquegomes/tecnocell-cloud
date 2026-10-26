@@ -5,6 +5,7 @@ import { SubmitButton } from '@/components/SubmitButton'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
+import { TODAS_CATEGORIAS, TODAS_SUBCATEGORIAS } from '@/lib/financeiro-setores'
 
 export default async function EditarLancamentoPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ erro?: string }> }) {
   const { id } = await params
@@ -75,12 +76,18 @@ export default async function EditarLancamentoPage({ params, searchParams }: { p
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Categoria</label>
-            <input name="categoria" list="categorias-list" defaultValue={lancamento.categoria ?? ''} className="field" placeholder="Ex: Aluguel, Fornecedor..." />
+            {/* Sugestões da lista oficial (lib/financeiro-setores.ts) — a lista escrita na
+                mão aqui oferecia nomes que não existem na classificação. */}
+            <input name="categoria" list="categorias-list" defaultValue={lancamento.categoria ?? ''} className="field" placeholder="Ex: Aluguel, Salários, Mercadoria…" />
             <datalist id="categorias-list">
-              <option value="Vendas" /><option value="Serviços (OS)" /><option value="Aluguel" />
-              <option value="Fornecedor / Mercadoria" /><option value="Salários" /><option value="Impostos" />
-              <option value="Energia / Água / Internet" /><option value="Marketing" /><option value="Manutenção" />
-              <option value="Outras receitas" /><option value="Outras despesas" />
+              {TODAS_CATEGORIAS.map((c) => <option key={c} value={c} />)}
+            </datalist>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Subcategoria <span className="text-gray-400">(opcional)</span></label>
+            <input name="subcategoria" list="subcategorias-list" defaultValue={lancamento.subcategoria ?? ''} className="field" placeholder="Ex: Peça, Atacado, Mensal…" />
+            <datalist id="subcategorias-list">
+              {TODAS_SUBCATEGORIAS.map((s) => <option key={s} value={s} />)}
             </datalist>
           </div>
           <div>

@@ -51,7 +51,7 @@ export const SETORES: Setor[] = [
     chave: 'vendas',
     label: 'Vendas e entregas',
     emoji: '🧾',
-    categorias: ['Combinado na entrega', 'Vale crédito usado', 'Estorno', 'Vendas'],
+    categorias: ['Combinado na entrega', 'Fiado (a receber)', 'Vale crédito usado', 'Estorno', 'Vendas'],
   },
   {
     chave: 'socio',
@@ -88,3 +88,45 @@ export function setorDaCategoria(categoria: string | null | undefined): Setor {
 
 // Lista plana de todas as categorias conhecidas — usada nas sugestões do formulário.
 export const TODAS_CATEGORIAS: string[] = SETORES.flatMap((s) => s.categorias)
+
+// SUBCATEGORIA — o terceiro nível, opcional.
+//
+// Só existe onde separa uma decisão de verdade. Categoria sem entrada aqui fica
+// só com ela mesma — e está certo: subcategoria em tudo vira enfeite que ninguém
+// preenche. É rótulo: não entra em conta, total, cartão nem relatório de dinheiro.
+export const SUBCATEGORIAS: Record<string, string[]> = {
+  // receita
+  'Combinado na entrega': ['Sinal', 'Entrega combinada', 'Encomenda paga na retirada'],
+  'Fiado (a receber)': ['Varejo (cliente da loja)', 'Atacado (loja parceira)'],
+  'Vendas': ['Loja', 'Atacado', 'Serviço'],
+  'Vale crédito usado': ['Troca', 'Devolução'],
+  'Estorno': ['Cartão', 'PIX', 'Dinheiro'],
+  // mercadoria
+  'Mercadoria': ['Aparelho', 'Peça', 'Acessório', 'Perfume / importado'],
+  'Fornecedor / Mercadoria': ['Aparelho', 'Peça', 'Acessório', 'Frete'],
+  // gente
+  'Salários': ['Mensal', 'Adiantamento', 'Rescisão'],
+  'Bônus': ['Comissão', 'Meta batida', 'Prêmio'],
+  'Motoboy': ['Fixo', 'Por entrega', 'Extra'],
+  'motoboy': ['Fixo', 'Por entrega', 'Extra'],
+  'Freelancer': ['Diária', 'Por serviço'],
+  'Vale transporte': ['Passagem', 'Combustível próprio'],
+  'Vale Transporte': ['Passagem', 'Combustível próprio'],
+  // estrutura
+  'Aluguel': ['Loja', 'Depósito'],
+  'Energia/Luz': ['Loja', 'Depósito'],
+  // operação
+  'Manutenção': ['Loja', 'Equipamento', 'Veículo'],
+  'Perda': ['Avaria', 'Extravio', 'Furto'],
+  'Uso interno': ['Teste', 'Consumo'],
+  'Alimentação': ['Equipe', 'Cliente'],
+  'Gastos em São Paulo': ['Compra', 'Viagem'],
+  // sócio e dívidas
+  'Dívida parcelada': ['Fornecedor', 'Sócio', 'Empréstimo'],
+  'Retirada do sócio': ['Retirada', 'Pró-labore'],
+}
+
+export const subcategoriasDe = (categoria: string | null | undefined): string[] =>
+  SUBCATEGORIAS[(categoria ?? '').trim()] ?? []
+
+export const TODAS_SUBCATEGORIAS: string[] = [...new Set(Object.values(SUBCATEGORIAS).flat())]

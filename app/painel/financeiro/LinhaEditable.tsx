@@ -28,6 +28,7 @@ export function LinhaEditable({
     forma_pagamento: string | null
     pessoa_nome: string | null
     categoria: string | null
+    subcategoria?: string | null
   }
   comprovanteUrl: string | null
   idsDesfazer: boolean
@@ -103,6 +104,7 @@ export function LinhaEditable({
       </td>
       <td className="px-4 py-3">
         <input value={cat} onChange={(e) => setCat(e.target.value)} list="categorias-lista" placeholder="Categoria…" className={inputCls} />
+        {lanc.subcategoria && <p className="mt-0.5 pl-1 text-[11px] text-gray-400">› {lanc.subcategoria}</p>}
       </td>
       <td className="px-4 py-3 text-center">
         <div className="flex items-center justify-center gap-1">

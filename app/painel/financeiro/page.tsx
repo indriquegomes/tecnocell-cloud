@@ -5,7 +5,7 @@ import { IconWallet } from '@/components/icons'
 import { formatBRL, hojeSP } from '@/lib/utils'
 import { BuscaFinanceiro } from './BuscaFinanceiro'
 import { Paginacao } from '@/components/Paginacao'
-import { SETORES, categoriasDoSetor } from '@/lib/financeiro-setores'
+import { SETORES, categoriasDoSetor, SUBCATEGORIAS } from '@/lib/financeiro-setores'
 import { LinhaEditable } from './LinhaEditable'
 import { gerarFolha } from './actions'
 import Link from 'next/link'
@@ -18,7 +18,7 @@ import { ExportCsv } from '../relatorios/ExportCsv'
 export default async function FinanceiroPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tipo?: string; busca?: string; ordem?: string; dir?: string; status?: string; de?: string; ate?: string; pessoa?: string; forma?: string; conta?: string; categoria?: string; grupo?: string; tudo?: string; valor_min?: string; valor_max?: string; campo?: string; erro?: string; ok?: string; loja?: string; pagina?: string; setor?: string }>
+  searchParams: Promise<{ tipo?: string; busca?: string; ordem?: string; dir?: string; status?: string; de?: string; ate?: string; pessoa?: string; forma?: string; conta?: string; categoria?: string; grupo?: string; tudo?: string; valor_min?: string; valor_max?: string; campo?: string; erro?: string; ok?: string; loja?: string; pagina?: string; setor?: string; subcategoria?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
@@ -88,6 +88,7 @@ export default async function FinanceiroPage({
     if (params.forma) q = q.eq('forma_pagamento', params.forma)
     if (params.conta) q = q.eq('conta_id', params.conta)
     if (params.categoria) q = q.eq('categoria', params.categoria)
+    if (params.subcategoria) q = q.eq('subcategoria', params.subcategoria)
     if (params.setor) {
       // Setor vem antes da categoria: escolher Funcionários já restringe àquelas
       // categorias, e a cascata na tela só oferece as do setor escolhido.
@@ -107,13 +108,13 @@ export default async function FinanceiroPage({
     return q
   }
   /* eslint-enable @typescript-eslint/no-explicit-any */
-  const temFiltro = !!(params.busca || params.pessoa || params.forma || params.conta || params.categoria || params.setor || params.valor_min || params.valor_max || params.status || params.de || params.ate || params.tipo)
+  const temFiltro = !!(params.busca || params.pessoa || params.forma || params.conta || params.categoria || params.subcategoria || params.setor || params.valor_min || params.valor_max || params.status || params.de || params.ate || params.tipo)
 
   const ordemAtual = params.ordem ?? 'data_vencimento'
   const ordemDir = params.dir === 'desc'
   const camposDB: Record<string, string> = { data_vencimento: 'data_vencimento', valor: 'valor', descricao: 'descricao', pessoa_nome: 'pessoa_nome', tipo: 'tipo', status: 'status' }
   const baseParams: Record<string, string> = {}
-  for (const k of ['tipo', 'busca', 'status', 'de', 'ate', 'pessoa', 'forma', 'conta', 'categoria', 'setor', 'valor_min', 'valor_max', 'campo', 'loja', 'tudo'] as const) {
+  for (const k of ['tipo', 'busca', 'status', 'de', 'ate', 'pessoa', 'forma', 'conta', 'categoria', 'subcategoria', 'setor', 'valor_min', 'valor_max', 'campo', 'loja', 'tudo'] as const) {
     if (params[k]) baseParams[k] = params[k]!
   }
   const sortLink = (o: string) => {
@@ -130,14 +131,14 @@ export default async function FinanceiroPage({
   const pagina = Math.max(1, Number(params.pagina) || 1)
   const listaQuery = supabase
     .from('lancamentos')
-    .select('id, codigo, descricao, valor, tipo, status, data_vencimento, data_pagamento, data_competencia, forma_pagamento, pessoa_nome, categoria, comprovante_url', { count: 'exact' })
+    .select('id, codigo, descricao, valor, tipo, status, data_vencimento, data_pagamento, data_competencia, forma_pagamento, pessoa_nome, categoria, subcategoria, comprovante_url', { count: 'exact' })
     .order(camposDB[ordemAtual] ?? 'data_vencimento', { ascending: !ordemDir })
     .range((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA - 1)
   const { data: lancamentos, count: totalLista } = await aplica(listaQuery)
   const totalRegistros = totalLista ?? 0
   const totalPaginas = Math.max(1, Math.ceil(totalRegistros / POR_PAGINA))
 
-  type LancRow = { id: string; codigo: string | null; descricao: string | null; valor: number | null; tipo: string; status: string | null; data_vencimento: string | null; data_pagamento: string | null; data_competencia: string | null; forma_pagamento: string | null; pessoa_nome: string | null; categoria: string | null; comprovante_url: string | null }
+  type LancRow = { id: string; codigo: string | null; descricao: string | null; valor: number | null; tipo: string; status: string | null; data_vencimento: string | null; data_pagamento: string | null; data_competencia: string | null; forma_pagamento: string | null; pessoa_nome: string | null; categoria: string | null; subcategoria: string | null; comprovante_url: string | null }
   const todos = (lancamentos ?? []) as LancRow[]
 
   // Comprovantes ficam no bucket privado `pagamentos` — troca o caminho por URL
@@ -162,7 +163,7 @@ export default async function FinanceiroPage({
   // sem o cap de 200 da lista. Isa: "quanto tenho a receber em PIX vencendo em agosto".
   const filtrados = await fetchAll<Record<string, unknown> & { valor: number | null; tipo: string; status: string | null }>(
     (from, to) => aplica(supabase.from('lancamentos')
-      .select('descricao, pessoa_nome, data_vencimento, data_competencia, valor, tipo, status, forma_pagamento, categoria'))
+      .select('descricao, pessoa_nome, data_vencimento, data_competencia, valor, tipo, status, forma_pagamento, categoria, subcategoria'))
       .range(from, to)
   )
   const fReceber = filtrados.filter((l) => l.tipo === 'receber').reduce((s, l) => s + (l.valor ?? 0), 0)
@@ -263,6 +264,7 @@ export default async function FinanceiroPage({
           formasOpc={formasOpc}
           contasOpc={contasOpc}
           setores={SETORES}
+          subcategorias={SUBCATEGORIAS}
           camposData={camposData}
           labelCampo={labelCampo}
           temFiltro={temFiltro}

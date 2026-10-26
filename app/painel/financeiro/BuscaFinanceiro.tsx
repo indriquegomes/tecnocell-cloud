@@ -14,13 +14,14 @@ const sb = createClient()
 //   1. uma linha na frente: busca + loja + situação + período + Filtrar;
 //   2. etiquetas do que está aplicado, cada uma com X para tirar só aquele filtro;
 //   3. o resto atrás de "Mais filtros", fechado por padrão.
-export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, contasOpc, setores, camposData, labelCampo, temFiltro }: {
+export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, contasOpc, setores, subcategorias, camposData, labelCampo, temFiltro }: {
   params: Record<string, string | undefined>
   lojaEfetiva: string
   operaveis: { id: string; nome: string }[]
   formasOpc: string[]
   contasOpc: { id: string; nome: string }[]
   setores: { chave: string; label: string; emoji: string; categorias: string[]; semCategoria?: boolean }[]
+  subcategorias: Record<string, string[]>
   camposData: string[]
   labelCampo: Record<string, string>
   temFiltro: boolean
@@ -36,6 +37,7 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
   const [forma, setForma] = useState(params.forma ?? '')
   const [conta, setConta] = useState(params.conta ?? '')
   const [categoria, setCategoria] = useState(params.categoria ?? '')
+  const [subcategoria, setSubcategoria] = useState(params.subcategoria ?? '')
   // Setor manda na categoria: a lista de categoria só mostra as do setor escolhido.
   const [setor, setSetor] = useState(params.setor ?? '')
   const [status, setStatus] = useState(params.status ?? '')
@@ -128,7 +130,8 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
   if (params.status) etiquetas.push({ chave: 'status', label: params.status.charAt(0).toUpperCase() + params.status.slice(1), href: semFiltro(['status']) })
   if (params.forma) etiquetas.push({ chave: 'forma', label: 'Forma: ' + params.forma, href: semFiltro(['forma']) })
   if (params.conta) etiquetas.push({ chave: 'conta', label: 'Conta: ' + (contasOpc.find((c) => c.id === params.conta)?.nome ?? 'conta'), href: semFiltro(['conta']) })
-  if (params.categoria) etiquetas.push({ chave: 'categoria', label: params.categoria, href: semFiltro(['categoria']) })
+  if (params.categoria) etiquetas.push({ chave: 'categoria', label: params.categoria, href: semFiltro(['categoria', 'subcategoria']) })
+  if (params.subcategoria) etiquetas.push({ chave: 'subcategoria', label: '› ' + params.subcategoria, href: semFiltro(['subcategoria']) })
   if (params.setor) {
     const s = setores.find((x) => x.chave === params.setor)
     etiquetas.push({ chave: 'setor', label: 'Setor: ' + (s ? s.emoji + ' ' + s.label : params.setor), href: semFiltro(['setor']) })
@@ -143,16 +146,23 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
     etiquetas.push({ chave: 'periodo', label: fmt(de) + ' a ' + fmt(ate), href: semFiltro(['de', 'ate']) })
   }
 
-  const maisFiltrosAbertos = !!(params.pessoa || params.forma || params.conta || params.categoria || params.setor || params.valor_min || params.valor_max || (params.campo && params.campo !== 'data_vencimento'))
+  const maisFiltrosAbertos = !!(params.pessoa || params.forma || params.conta || params.categoria || params.subcategoria || params.setor || params.valor_min || params.valor_max || (params.campo && params.campo !== 'data_vencimento'))
 
   // CASCATA: a categoria oferecida depende do setor escolhido.
   const setorAtual = setores.find((s) => s.chave === setor)
   const categoriasVisiveis = setorAtual ? setorAtual.categorias : setores.flatMap((s) => s.categorias)
+  // Cascata de três níveis: setor limita categoria, categoria limita subcategoria.
   function trocarSetor(novo: string) {
     setSetor(novo)
     const s = setores.find((x) => x.chave === novo)
-    if (s && categoria && !s.categorias.includes(categoria)) setCategoria('')
+    if (s && categoria && !s.categorias.includes(categoria)) { setCategoria(''); setSubcategoria('') }
   }
+  function trocarCategoria(nova: string) {
+    setCategoria(nova)
+    const subs = subcategorias[nova] ?? []
+    if (subcategoria && !subs.includes(subcategoria)) setSubcategoria('')
+  }
+  const subsDaCategoria = subcategorias[categoria] ?? []
 
   return (
     <form ref={formRef} method="GET" className="space-y-3">
@@ -235,11 +245,19 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
           </div>
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Categoria</label>
-            <select name="categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)} className={inp} disabled={!!setorAtual?.semCategoria}>
+            <select name="categoria" value={categoria} onChange={(e) => trocarCategoria(e.target.value)} className={inp} disabled={!!setorAtual?.semCategoria}>
               <option value="">{setorAtual && !setorAtual.semCategoria ? 'Todas do setor' : 'Todas'}</option>
               {categoriasVisiveis.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
             {setorAtual?.semCategoria && <p className="mt-1 text-[11px] text-gray-400">Este setor é justamente o que está sem categoria.</p>}
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Subcategoria</label>
+            <select name="subcategoria" value={subcategoria} onChange={(e) => setSubcategoria(e.target.value)} className={inp} disabled={subsDaCategoria.length === 0}>
+              <option value="">{subsDaCategoria.length ? 'Todas' : '—'}</option>
+              {subsDaCategoria.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+            {!categoria && <p className="mt-1 text-[11px] text-gray-400">Escolha a categoria primeiro.</p>}
           </div>
           <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Valor de</label><input name="valor_min" type="number" step="0.01" value={valorMin} onChange={(e) => setValorMin(e.target.value)} placeholder="0,00" className={inp} /></div>
           <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Valor até</label><input name="valor_max" type="number" step="0.01" value={valorMax} onChange={(e) => setValorMax(e.target.value)} placeholder="0,00" className={inp} /></div>

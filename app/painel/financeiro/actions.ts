@@ -58,6 +58,7 @@ export async function criarLancamento(formData: FormData) {
     valor: valorParcela,
     tipo,
     categoria: (formData.get('categoria') as string) || null,
+    subcategoria: (formData.get('subcategoria') as string) || null,
     data_competencia: competencia,
     data_vencimento: i === 0 ? vencimento : somaMeses(vencimento, i),
     forma_pagamento: (formData.get('forma_pagamento') as string) || null,
@@ -99,6 +100,7 @@ export async function editarLancamento(id: string, formData: FormData) {
     forma_pagamento: (formData.get('forma_pagamento') as string) || null,
     pessoa_nome: (formData.get('pessoa_nome') as string) || null,
     categoria: (formData.get('categoria') as string) || null,
+    subcategoria: (formData.get('subcategoria') as string) || null,
     conta_id: (formData.get('conta_id') as string) || null,
     updated_at: new Date().toISOString(),
   }).eq('id', id)

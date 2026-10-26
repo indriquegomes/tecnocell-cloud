@@ -6,7 +6,7 @@ import { SubmitButton } from '@/components/SubmitButton'
 import Link from 'next/link'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
 import { ClienteFornecedorField } from '../ClienteFornecedorField'
-import { TODAS_CATEGORIAS } from '@/lib/financeiro-setores'
+import { TODAS_CATEGORIAS, TODAS_SUBCATEGORIAS } from '@/lib/financeiro-setores'
 
 export default async function NovoLancamentoPage({
   searchParams,
@@ -96,6 +96,13 @@ export default async function NovoLancamentoPage({
             <input name="categoria" list="categorias-list" className="field" placeholder="Ex: Aluguel, Salários, Mercadoria…" />
             <datalist id="categorias-list">
               {TODAS_CATEGORIAS.map((c) => <option key={c} value={c} />)}
+            </datalist>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Subcategoria <span className="text-gray-400">(opcional)</span></label>
+            <input name="subcategoria" list="subcategorias-list" className="field" placeholder="Ex: Peça, Atacado, Mensal…" />
+            <datalist id="subcategorias-list">
+              {TODAS_SUBCATEGORIAS.map((s) => <option key={s} value={s} />)}
             </datalist>
           </div>
           <div>
