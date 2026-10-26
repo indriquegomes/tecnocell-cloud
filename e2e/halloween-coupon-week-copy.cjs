@@ -1,0 +1,10 @@
+const fs=require('node:fs'),assert=require('node:assert/strict'),path=require('node:path');
+const root=path.resolve(__dirname,'..'),read=f=>fs.readFileSync(path.join(root,f),'utf8');
+const html=read('docs/halloween-site-index-20261022.html');
+assert.match(html,/REVELAR SURPRESA/);
+assert.match(html,/vale dura 7 dias após o sorteio/);
+assert.match(html,/48 horas após a quitação integral/);
+assert.match(html,/um giro com novas 48 horas/);
+assert.doesNotMatch(html,/vale dura (?:<strong>)?48 horas/);
+assert.match(read('app/painel/promocao-halloween/HalloweenClient.tsx'),/Giro: 48 horas após a quitação integral\. Vale: 7 dias após o sorteio/);
+console.log('PASS textos públicos e internos: participação 48h, vale 7 dias e giro devolvido 48h.');

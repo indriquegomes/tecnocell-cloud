@@ -24,7 +24,7 @@ const input = 'w-full rounded-xl border border-purple-700 bg-purple-950 px-3 py-
 const panel = 'rounded-2xl border border-purple-800 bg-purple-950 p-5 sm:p-6'
 const roulette = 'https://roleta-mal-assombrada-tecnocell.vercel.app/'
 
-export default function HalloweenClient() {
+export default function HalloweenClient({ activeStoreId, activeStoreName }: { activeStoreId: string; activeStoreName: string }) {
   const [supabase] = useState(createClient)
   const [campaign, setCampaign] = useState('halloween-2026')
   const [state, setState] = useState<CampaignState | null>(null)
@@ -43,6 +43,10 @@ export default function HalloweenClient() {
   const campaignRef = useRef(campaign)
   campaignRef.current = campaign
   async function rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
+    if (name === 'admin_state_v2' || name === 'client_tickets') {
+      name = name === 'admin_state_v2' ? 'admin_state_for_store' : 'client_tickets_for_store'
+      args = { ...args, p_store: activeStoreId }
+    }
     // Reuses the existing Cloud session, without a second login or service-role key.
     const { data, error } = await supabase.rpc(`halloween_${name}`, args)
     if (error) throw new Error(['55P03', '40P01', '57014'].includes(error.code) ? 'A conferência encontrou uma disputa ou atingiu o limite de tempo. Tente novamente; uma operação já concluída recupera o mesmo giro ou vale.' : error.message)
@@ -70,7 +74,7 @@ export default function HalloweenClient() {
       if (busyRef.current || dirtyRef.current || document.hidden) return
       busyRef.current = true; setBusy(true)
       try {
-        const next = await supabase.rpc('halloween_admin_state_v2', { p_campaign: campaign, p_search: '', p_offset: 0 })
+        const next = await supabase.rpc('halloween_admin_state_for_store', { p_campaign: campaign, p_store: activeStoreId, p_search: '', p_offset: 0 })
         if (!alive) return
         if (next.error) throw new Error(next.error.message)
         apply(next.data as CampaignState); loaded = true
@@ -81,7 +85,7 @@ export default function HalloweenClient() {
     const onVisible = () => { if (!loaded && !document.hidden) void load() }
     document.addEventListener('visibilitychange', onVisible)
     return () => { alive = false; document.removeEventListener('visibilitychange', onVisible); busyRef.current = false }
-  }, [campaign, supabase])
+  }, [campaign, supabase, activeStoreId])
   function changed() { dirtyRef.current = true; setDirty(true) }
   async function history(c: Customer, append = false) {
     const items = await rpc<Ticket[]>('client_tickets', { p_campaign: campaign, p_customer: c.client_key, p_offset: append ? tickets.length : 0 })
@@ -95,12 +99,13 @@ export default function HalloweenClient() {
   async function save() {
     if (products.some(p => !Number.isInteger(p.quantity) || !Number.isInteger(p.weight))) throw new Error('Use quantidades inteiras e chances com até duas casas decimais.')
     if (products.reduce((sum, p) => sum + p.weight, 0) !== 10000) throw new Error('As chances base devem somar 100%.')
-    const next = await rpc<CampaignState>('configure', { p_campaign: campaign, p_products: products.map(({ id, quantity, weight, enabled }) => ({ id, quantity, weight, enabled })), p_confirm: confirmed, p_active: active })
-    dirtyRef.current = false; setDirty(false); apply(next); setMessage('Configuração salva no servidor.')
+    await rpc<CampaignState>('configure', { p_campaign: campaign, p_products: products.map(({ id, quantity, weight, enabled }) => ({ id, quantity, weight, enabled })), p_confirm: confirmed, p_active: active })
+    dirtyRef.current = false; setDirty(false); await refresh(); setMessage('Configuração salva no servidor.')
   }
   return <main className="mx-auto max-w-7xl space-y-5 p-4 text-purple-100 sm:p-7">
     <section className={`${panel} border-orange-400/40`}>
       <h1 className="mt-2 text-3xl font-bold text-white">Promoção <span className="text-orange-300">Halloween</span></h1>
+      <p className="mt-2 font-semibold text-orange-200">Loja: {activeStoreName}</p>
       <p className="mt-3 text-purple-200">Compra e quitação integral de R$ 200 ou mais, de 26 a 31 de outubro, geram um giro com 48 horas após a quitação. Acompanhe o cliente, copie o link e confira a oferta no resgate, usando seu acesso do Cloud.</p>
       <div className="mt-5 flex flex-wrap items-end gap-3"><label className="text-sm">Campanha<select className={`${input} mt-1`} value={campaign} disabled={busy || dirty} onChange={e => setCampaign(e.target.value)}><option value="halloween-2026">Campanha real</option><option value="halloween-2026-test">Homologação — sem valor real</option></select></label><button className={button} disabled={busy || dirty} onClick={() => void action(async () => { await refresh(); if (customer) await history(customer) })}>Atualizar</button><a className="px-3 py-2 text-orange-200 underline" href={roulette} target="_blank" rel="noopener noreferrer">Ver roleta do cliente</a></div>
       {state && <p className="mt-4 rounded-xl bg-purple-900 p-3 text-sm">{state.campaign.test_mode ? 'HOMOLOGAÇÃO — giros e vales sem valor de resgate.' : state.campaign.active ? 'Campanha ativa. Vendas pagas conferidas a cada minuto. Atualize este painel para ver novidades.' : 'Campanha pausada. Confira os cupons disponíveis e as quantidades dos dois prêmios grátis antes de ativar. Compras anteriores à ativação não geram giros.'}</p>}
@@ -114,7 +119,7 @@ export default function HalloweenClient() {
         await refresh(); await history({ client_key: `test:${issued.id}`, customer: issued.customer, total: 1, available: 1, used: 0, expired: 0, revoked: 0 }); setMessage('Giro de teste localizado. Confira o histórico abaixo.')
       }) }}><label className="text-sm">Referência do teste<input disabled={busy} className={`${input} mt-1`} required maxLength={100} value={testPurchase} onChange={e => setTestPurchase(e.target.value)} /></label><label className="text-sm">Nome de teste<input disabled={busy} className={`${input} mt-1`} required maxLength={80} value={testName} onChange={e => setTestName(e.target.value)} /></label><label className="text-sm">Valor de teste (R$)<input disabled={busy} className={`${input} mt-1`} required type="number" min={200} max={1000000} step="0.01" value={testAmount} onChange={e => setTestAmount(e.target.value)} /></label><button className={button} disabled={busy}>Gerar giro de teste</button></form></section>}
       {!state.campaign.test_mode && <PaymentReview key={campaign} campaign={campaign} disabled={busy || dirty} rpc={rpc} onBusyChange={value => { busyRef.current = value; setBusy(value) }} onIssued={() => refresh()} />}
-      <section className={panel}><h2 className="text-xl font-bold text-white">Giros por cliente</h2><p className="mt-2 text-sm text-purple-200">Identifique o cliente na venda do Cloud. Giro: 48 horas após a quitação integral. Vale: 48 horas após o sorteio. Copiar o link não confirma o envio.</p><p className="mt-2 text-sm text-orange-200">{state.sync_error || (!state.campaign.test_mode && `Última conferência: ${state.last_sync_at ? date(state.last_sync_at) : 'aguardando'}`)}</p>
+      <section className={panel}><h2 className="text-xl font-bold text-white">Giros por cliente</h2><p className="mt-2 text-sm text-purple-200">Identifique o cliente na venda do Cloud. Giro: 48 horas após a quitação integral. Vale: 7 dias após o sorteio. Copiar o link não confirma o envio.</p><p className="mt-2 text-sm text-orange-200">{state.sync_error || (!state.campaign.test_mode && `Última conferência: ${state.last_sync_at ? date(state.last_sync_at) : 'aguardando'}`)}</p>
         {!!state.pending.length && <p className="mt-3 rounded-xl bg-orange-300/10 p-3 text-orange-200">{state.pending.length} venda(s) sem cliente: {state.pending.map(p => p.numero || 'sem número').join(', ')}. Identifique no Cloud antes de completar 48 horas.</p>}
         <form className="mt-4 flex flex-wrap items-end gap-3" onSubmit={e => { e.preventDefault(); void action(async () => { await refresh(search, 0); setAppliedSearch(search); setClientOffset(0); setCustomer(null); setTickets([]) }) }}><label className="block max-w-md text-sm">Buscar cliente<input disabled={busy} maxLength={80} className={`${input} mt-1`} type="search" value={search} onChange={e => setSearch(e.target.value)} /></label><button className={button} disabled={busy}>Buscar em todos os clientes</button></form>
         <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead className="text-purple-300"><tr>{['Cliente', 'Total', 'Disponíveis', 'Usados', 'Vencidos', 'Cancelados', 'Histórico'].map(h => <th className="p-3" key={h}>{h}</th>)}</tr></thead><tbody>{state.clients.map(c => <tr key={c.client_key} className="border-t border-purple-800"><td className="p-3 font-semibold">{c.customer}</td>{[c.total, c.available, c.used, c.expired, c.revoked].map((v, i) => <td className="p-3" key={i}>{v}</td>)}<td className="p-3"><button className={button} disabled={busy} onClick={() => void action(() => history(c))}>Ver giros</button></td></tr>)}</tbody></table></div>{!state.clients.length && <p className="py-4 text-purple-300">Nenhum cliente encontrado nesta busca.</p>}

@@ -70,5 +70,19 @@ const root = path.resolve(__dirname, '..')
  await db.exec("update public.lojas set nome=case when id='aaaaaaaa-0000-4000-8000-000000000001'then 'Petrópolis'else 'Teresópolis'end where id in('aaaaaaaa-0000-4000-8000-000000000001','aaaaaaaa-0000-4000-8000-000000000002')");
  await db.exec(fs.readFileSync(path.join(root,'supabase/migrations/20261024200000_halloween_store_prizes.sql'),'utf8'));
  for(const item of await db.exec(fs.readFileSync(path.join(root,'e2e/halloween-store-prizes-check.sql'),'utf8')))for(const row of item.rows??[])console.log(JSON.stringify(row));
+  if(process.argv.includes('--coupon-week')) {
+   await db.exec(fs.readFileSync(path.join(root,'e2e/halloween-coupon-week-before.sql'),'utf8'));
+   const week=path.join(root,'supabase/migrations/20261026090000_halloween_coupon_week.sql');
+   if(fs.existsSync(week))await db.exec(fs.readFileSync(week,'utf8'));
+   for(const item of await db.exec(fs.readFileSync(path.join(root,'e2e/halloween-coupon-week-check.sql'),'utf8')))for(const row of item.rows??[])console.log(JSON.stringify(row));
+   await db.exec('create temporary table qa_week_audit_count as select count(*) n from halloween_private.audit where action=\'coupon_validity_extended\'');
+   await db.exec(fs.readFileSync(week,'utf8'));
+   await db.exec("do $$begin if(select n from qa_week_audit_count)<>(select count(*)from halloween_private.audit where action='coupon_validity_extended')then raise exception 'FAIL extensão reaplicada gerou nova auditoria';end if;end $$;");
+   console.log('PASS migração reaplicável sem renovar prazos ou duplicar auditoria.');
+  }
+ if(process.argv.includes('--store-scope')) {
+  for(const file of fs.readdirSync(path.join(root,'supabase/migrations')).filter(n=>n.endsWith('_halloween_active_store.sql')))await db.exec(fs.readFileSync(path.join(root,'supabase/migrations',file),'utf8'));
+  for(const result of await db.exec(fs.readFileSync(path.join(root,'e2e/halloween-active-store-check.sql'),'utf8')))for(const row of result.rows??[])console.log(JSON.stringify(row));
+ }
  } finally { await db.close() }
 })().catch(e=>{console.error(e.message);process.exitCode=1})

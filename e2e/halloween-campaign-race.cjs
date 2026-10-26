@@ -18,7 +18,7 @@ vm.runInNewContext(compiled, { exports: out, Error, Date, Number, navigator: {},
  throw Error(name)
 } })
 function nodes(n) { if (Array.isArray(n)) return n.flatMap(nodes); if (!n || typeof n !== 'object') return []; return [n, ...nodes(n.props?.children)] }
-function render() { cursor = 0; return nodes(out.default()) }
+function render() { cursor = 0; return nodes(out.default({activeStoreId:"store-a",activeStoreName:"Loja A"})) }
 ;(async () => {
  render(); hooks[2] = real
  const child = render().find(n => n.type === PaymentReview)
