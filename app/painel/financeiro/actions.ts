@@ -68,7 +68,7 @@ export async function criarLancamento(formData: FormData) {
     loja_id: lojaId,
     // só a 1ª pode nascer quitada; as futuras ficam pendentes
     status: quitado && i === 0 ? 'pago' : 'pendente',
-    data_pagamento: quitado && i === 0 ? hoje : null,
+    data_pagamento: quitado && i === 0 ? new Date().toISOString() : null,
     valor_pago: quitado && i === 0 ? valorParcela : 0,
     updated_at: new Date().toISOString(),
   }))
@@ -179,7 +179,7 @@ export async function marcarPago(id: string, formData?: FormData) {
   const valor = Number(antes?.valor ?? 0)
   const { error } = await supabase.from('lancamentos').update({
     status: 'pago',
-    data_pagamento: hojeSP(),
+    data_pagamento: new Date().toISOString(),
     valor_pago: valor,
     // Grava a forma escolhida: sem isso o lançamento seguia sem forma e o
     // relatório por forma de pagamento ficava cego justamente pro fiado quitado.
@@ -380,7 +380,7 @@ export async function registrarSangria(formData: FormData) {
     descricao: motivo, valor, tipo: 'pagar', categoria: 'Sangria / Retirada',
     data_competencia: hoje, data_vencimento: hoje, conta_id: contaId,
     loja_id: (conta as { loja_id?: string | null } | null)?.loja_id ?? null,
-    status: 'pago', data_pagamento: hoje, valor_pago: valor, updated_at: new Date().toISOString(),
+    status: 'pago', data_pagamento: new Date().toISOString(), valor_pago: valor, updated_at: new Date().toISOString(),
   })
   if (error) redirect(`/painel/contas?aba=saldos&erro=${encodeURIComponent(error.message)}`)
   revalidatePath('/painel/contas'); revalidatePath('/painel/financeiro')
