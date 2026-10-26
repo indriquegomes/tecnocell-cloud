@@ -2,6 +2,7 @@
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { logAtividade } from '@/lib/log-atividade'
+import { verificarSenhaLiberacao } from '@/lib/senha-liberacao'
 import { sincronizarEstoqueML } from '@/lib/mercado-livre'
 import { palavrasBusca } from '@/lib/busca-produtos'
 
@@ -344,6 +345,12 @@ export interface RegistrarDevolucaoInput {
   reembolsos?: { tipo: string; valor: number; conta_id?: string | null }[]
   itens: { produto_id: string; nome: string; quantidade: number; preco_unitario: number; total_item: number; status_produto: string; series?: string[] }[]
   lancamento_pendente: boolean
+  /**
+   * Senha de liberação do dono. Quando a devolução fura uma regra de dinheiro, ele
+   * digita esta senha e a devolução passa NAQUELA VEZ, com registro. A senha é
+   * conferida no servidor (hash scrypt ou variável de ambiente) — nunca no navegador.
+   */
+  senhaLiberacao?: string
 }
 
 // Em produção o Next ESCONDE a mensagem de erro lançada por server action: o
@@ -353,8 +360,12 @@ export interface RegistrarDevolucaoInput {
 // Por isso a função pública devolve o erro como DADO (ok:false) e a mensagem de
 // negócio chega legível na tela.
 export type ResultadoRegistroDevolucao =
-  | { ok: true; id: string; abate_fiado: number; reembolso: number; saldo_devedor: number | null }
-  | { ok: false; erro: string }
+  | { ok: true; id: string; abate_fiado: number; reembolso: number; saldo_devedor: number | null; liberadoPorSenha?: boolean }
+  | { ok: false; erro: string; podeLiberarComSenha?: boolean }
+
+// Erro de REGRA (bloqueio de dinheiro) — a tela usa isto para oferecer o campo da
+// senha de liberação do dono em vez de só mostrar o texto.
+class ErroDeRegra extends Error {}
 
 export async function registrarDevolucao(
   accessToken: string,
@@ -365,14 +376,14 @@ export async function registrarDevolucao(
   } catch (erro) {
     const msg = erro instanceof Error && erro.message ? erro.message : 'Erro ao registrar devolução.'
     console.error('registrarDevolucao recusou:', msg)
-    return { ok: false, erro: msg }
+    return { ok: false, erro: msg, podeLiberarComSenha: erro instanceof ErroDeRegra }
   }
 }
 
 async function registrarDevolucaoInterno(
   accessToken: string,
   input: RegistrarDevolucaoInput,
-): Promise<{ id: string; abate_fiado: number; reembolso: number; saldo_devedor: number | null }> {
+): Promise<{ id: string; abate_fiado: number; reembolso: number; saldo_devedor: number | null; liberadoPorSenha: boolean }> {
   const usuario = await requirePermissao('devolucoes', accessToken)
   const supabase = await createServiceClient()
   // As regras de devolução valem para TODOS, inclusive o master (decisão do dono em
@@ -437,7 +448,42 @@ async function registrarDevolucaoInterno(
   // Recusa fica REGISTRADA. Quando a regra bloqueava, não sobrava nada no banco — em
   // 22/10 o dono tentou 3x na venda #9137 e não deu pra saber por quê. Agora cada
   // bloqueio vira linha em logs_atividade.
-  const barrar = async (regra: string, resumo: string, alternativa: string): Promise<never> => {
+  // SENHA DO DONO: se ele digitou a senha de liberação e ela conferiu, a regra fica
+  // anotada como liberada e a devolução segue — registrando quem estava logado e qual
+  // regra foi furada. Sem senha (ou senha errada), bloqueia como sempre.
+  const regrasLiberadas: string[] = []
+  const senhaFornecida = (input.senhaLiberacao ?? '').trim()
+  let senhaOk = false
+  if (senhaFornecida) {
+    // Anti-chute: 3 erros em 10 minutos bloqueiam por 10 minutos.
+    const desde = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+    const { count: erros } = await supabase
+      .from('logs_atividade')
+      .select('id', { count: 'exact', head: true })
+      .eq('tipo_acao', 'devolucao.senha_liberacao_errada')
+      .eq('usuario_id', usuario.id)
+      .gte('created_at', desde)
+    if ((erros ?? 0) >= 3) {
+      throw new Error('Muitas tentativas de senha erradas (3 em 10 minutos). Aguarde 10 minutos e tente de novo.')
+    }
+    const verificado = await verificarSenhaLiberacao(senhaFornecida)
+    if (!verificado.ok) {
+      await logAtividade('devolucao.senha_liberacao_errada', {
+        venda_id: input.venda_id,
+        pessoa_nome: input.pessoa_nome,
+        motivo: verificado.motivo,
+      }, usuario, '/painel/devolucoes')
+      throw new Error(
+        verificado.motivo === 'nao_configurada'
+          ? 'A senha de liberação ainda não foi configurada no sistema. Devolva na forma da regra ou como crédito.'
+          : 'Senha de liberação incorreta. Confira com o dono e tente de novo.',
+      )
+    }
+    senhaOk = true
+  }
+
+  const barrar = async (regra: string, resumo: string, alternativa: string): Promise<void> => {
+    if (senhaOk) { regrasLiberadas.push(regra); return }
     await logAtividade('devolucao.regra_bloqueada', {
       regra,
       motivo: resumo,
@@ -447,9 +493,9 @@ async function registrarDevolucaoInterno(
       formas: input.reembolsos ?? input.tipo_credito,
       como_a_venda_foi_paga: tiposPag,
     }, usuario, '/painel/devolucoes')
-    throw new Error(
+    throw new ErroDeRegra(
       `⚠️ REGRA: ${resumo}\n\nO correto agora: ${alternativa}\n\n` +
-      'Esta regra NÃO tem exceção no sistema: nenhuma forma fora da regra é liberada, nem pelo dono.',
+      'Se o DONO autorizar mesmo assim, ele digita a senha de liberação abaixo: a devolução passa só nesta vez e fica registrada.',
     )
   }
 
@@ -623,6 +669,20 @@ async function registrarDevolucaoInterno(
     reembolso,
   }, usuario, '/painel/devolucoes')
 
+  // REGISTRO DA LIBERAÇÃO: o dono digitou a senha e a devolução furou uma regra de
+  // dinheiro. Guarda qual regra foi furada, o valor, as formas e QUEM estava logado —
+  // é a diferença entre "o dono autorizou" e "alguém usou a senha sem ele saber".
+  if (regrasLiberadas.length > 0) {
+    await logAtividade('devolucao.regra_liberada_por_senha', {
+      devolucao_id: devolucaoId,
+      venda_id: input.venda_id,
+      pessoa_nome: input.pessoa_nome,
+      regras: regrasLiberadas,
+      como_a_venda_foi_paga: tiposPag,
+      formas: input.reembolsos ?? input.tipo_credito,
+      reembolso,
+    }, usuario, '/painel/devolucoes')
+  }
   // Saldo devedor ATUALIZADO do cliente (depois do abate) — a mensagem de
   // cancelamento de fiado mostra quanto ele AINDA deve. Só por pessoa_id (FK de
   // verdade); sem pessoa_id não dá pra confiar (nome duplicado é problema real).
@@ -639,7 +699,7 @@ async function registrarDevolucaoInterno(
     )
   }
 
-  return { id: devolucaoId, abate_fiado: abateFiado, reembolso, saldo_devedor: saldoDevedor }
+  return { id: devolucaoId, abate_fiado: abateFiado, reembolso, saldo_devedor: saldoDevedor, liberadoPorSenha: regrasLiberadas.length > 0 }
 }
 
 export async function buscarItensDevolucao(

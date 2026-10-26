@@ -11,7 +11,6 @@ const PREFIXOS: { p: string; nome: string; cor: string }[] = [
   { p: '/painel/pdv', nome: 'Vendas', cor: '#059669' },
   { p: '/painel/vendas', nome: 'Vendas', cor: '#059669' },
   { p: '/painel/pedidos', nome: 'Vendas', cor: '#059669' },
-  { p: '/painel/entregas', nome: 'Vendas', cor: '#059669' },
   { p: '/painel/devolucoes', nome: 'Vendas', cor: '#059669' },
   { p: '/painel/painel-vendedor', nome: 'Vendas', cor: '#059669' },
   { p: '/painel/metas', nome: 'Vendas', cor: '#059669' },

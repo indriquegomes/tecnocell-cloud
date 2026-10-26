@@ -274,7 +274,7 @@ export async function excluirUsuario(_: ActionResult | null, fd: FormData): Prom
   }
 
   // 1) Limpa referências que travariam o delete (FK NO ACTION).
-  await supabase.from('rotas_motoboy').delete().eq('perfil_id', userId)
+  // rotas_motoboy foi apagada do sistema junto com a tela de Entregas (26/10).
   await supabase.from('lembretes_feitos').delete().eq('perfil_id', userId)
   await supabase.from('escala_excecoes').update({ criado_por: null }).eq('criado_por', userId)
   await supabase.from('lembretes').update({ criado_por: null }).eq('criado_por', userId)
