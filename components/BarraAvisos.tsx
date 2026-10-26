@@ -49,7 +49,7 @@ export function BarraAvisos({
     })
   }
 
-  const pagar = (id: string, file: File) => {
+  const pagar = (id: string, file: File | null) => {
     startTransition(async () => {
       setSubindo(id)
       try {
@@ -120,11 +120,24 @@ export function BarraAvisos({
             </span>
           </p>
           {r.tipo === 'pagamento' ? (
-            <label className={`shrink-0 cursor-pointer rounded-lg bg-white/80 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-white transition ${subindo === r.id ? 'opacity-50' : ''}`}>
-              {subindo === r.id ? 'Enviando...' : '📎 Comprovante'}
-              <input type="file" accept="image/*" className="hidden" disabled={subindo === r.id}
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) pagar(r.id, f); e.target.value = '' }} />
-            </label>
+            <div className="flex shrink-0 items-center gap-1">
+              {/* Pagamento entra no financeiro sozinho; o comprovante é opcional. */}
+              <button
+                type="button"
+                disabled={pendente || subindo === r.id}
+                onClick={() => pagar(r.id, null)}
+                title="Marcar como pago (lança no financeiro)"
+                className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700 transition disabled:opacity-50"
+              >
+                {subindo === r.id ? '...' : '✓ Pago'}
+              </button>
+              <label className={`cursor-pointer rounded-lg bg-white/80 px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-white transition ${subindo === r.id ? 'opacity-50' : ''}`}
+                title="Pagar anexando o comprovante">
+                📎
+                <input type="file" accept="image/*" className="hidden" disabled={subindo === r.id}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) pagar(r.id, f); e.target.value = '' }} />
+              </label>
+            </div>
           ) : (
             <button
               type="button"

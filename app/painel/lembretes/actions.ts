@@ -3,6 +3,7 @@
 import { createServiceClient, requireAuth, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { hojeSP } from '@/lib/lembretes'
+import { dataEmMesFechado } from '@/lib/fechamento'
 
 export type ActionState = { ok: boolean; message: string } | null
 
@@ -79,6 +80,63 @@ export async function excluirLembrete(_prev: ActionState, fd: FormData): Promise
   }
 }
 
+// LANÇA O PAGAMENTO NO FINANCEIRO.
+//
+// Regra do dono: pagamento recorrente marcado como pago entra no financeiro
+// sozinho — antes só marcava o lembrete e o dinheiro nunca aparecia nas contas.
+//
+// Cuidados:
+//  - id fixo por lembrete + data: marcar duas vezes não duplica (código 23505 é
+//    engolido de propósito, é o mesmo pagamento);
+//  - mês fechado não recebe lançamento retroativo (mesma trava do resto do app);
+//  - sem valor no lembrete, não lança nada;
+//  - a pessoa sai do título ("Pagamento: NOME") e a loja do cadastro dela.
+async function lancarPagamentoRecorrente(
+  supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  lembreteId: string,
+  data: string,
+): Promise<void> {
+  const { data: lembrete } = await supabase
+    .from('lembretes')
+    .select('titulo, valor, tipo')
+    .eq('id', lembreteId)
+    .maybeSingle()
+  const l = lembrete as { titulo?: string; valor?: number | null; tipo?: string | null } | null
+  if (!l || (l.tipo ?? 'rotina') !== 'pagamento') return
+  const valor = Number(l.valor ?? 0)
+  if (!(valor > 0)) return
+  if (await dataEmMesFechado(supabase, data)) return
+
+  const nome = (l.titulo ?? '').replace(/^pagamento:\s*/i, '').trim()
+  if (!nome) return
+  const { data: perfil } = await supabase
+    .from('perfis')
+    .select('nome, pdv_loja_id')
+    .ilike('nome', nome)
+    .maybeSingle()
+  const p = perfil as { nome?: string; pdv_loja_id?: string | null } | null
+  const ddmm = data.slice(8, 10) + '/' + data.slice(5, 7)
+
+  const { error } = await supabase.from('lancamentos').insert({
+    id: 'pagamento-' + lembreteId + '-' + data,
+    descricao: 'Salário — ' + nome + ' — semana de ' + ddmm,
+    valor,
+    tipo: 'pagar',
+    categoria: 'Salários',
+    pessoa_nome: p?.nome ?? nome,
+    loja_id: p?.pdv_loja_id ?? null,
+    data_competencia: data,
+    data_vencimento: data,
+    data_pagamento: data,
+    status: 'pago',
+    valor_pago: valor,
+    forma_pagamento: 'PIX',
+    updated_at: new Date().toISOString(),
+  })
+  // 23505 = já lançado para este lembrete nesta data. Não é erro.
+  if (error && error.code !== '23505') console.error('lancarPagamentoRecorrente:', error.message)
+}
+
 // Marcar como FEITO — qualquer um que veja o lembrete pode marcar o seu.
 // A trava de duplicata é no banco (unique lembrete_id+data), não aqui.
 export async function marcarFeito(accessToken: string, lembreteId: string): Promise<void> {
@@ -90,10 +148,13 @@ export async function marcarFeito(accessToken: string, lembreteId: string): Prom
     p_data: hojeSP().data,
   })
   if (error) throw new Error(error.message)
+  await lancarPagamentoRecorrente(supabase, lembreteId, hojeSP().data)
   revalidatePath('/painel', 'layout')
+  revalidatePath('/painel/financeiro')
 }
 
-// Pagamento recorrente: marcar como feito exige anexar o comprovante. A imagem vai
+// Pagamento recorrente: o comprovante é OPCIONAL (decisão do dono, 26/10) — o que
+// importa é o pagamento entrar no financeiro. A imagem vai
 // pro bucket PRIVADO `pagamentos` e o caminho fica gravado no feito — só some depois
 // de pagar e provar. Mesmo padrão de upload do clientes/actions.ts.
 const EXT_COMPROVANTE: Record<string, string> = {
@@ -102,26 +163,31 @@ const EXT_COMPROVANTE: Record<string, string> = {
 
 export async function marcarPagamentoFeito(accessToken: string, lembreteId: string, file: File | null): Promise<void> {
   const usuario = await requireAuth(accessToken)
-  if (!file || file.size === 0) throw new Error('Anexe o comprovante do pagamento.')
-  const ext = EXT_COMPROVANTE[file.type]
-  if (!ext) throw new Error('Envie uma imagem (JPG, PNG, WEBP ou GIF).')
-
   const supabase = await createServiceClient()
-  const path = `pagamentos/${lembreteId}/${hojeSP().data}.${ext}`
-  const buffer = Buffer.from(await file.arrayBuffer())
-  const { error: upErr } = await supabase.storage.from('pagamentos').upload(path, buffer, {
-    contentType: file.type,
-    upsert: true,
-  })
-  if (upErr) throw new Error(upErr.message)
+
+  // Comprovante é opcional: se vier, sobe; se não vier, marca pago do mesmo jeito.
+  let path: string | null = null
+  if (file && file.size > 0) {
+    const ext = EXT_COMPROVANTE[file.type]
+    if (!ext) throw new Error('Envie uma imagem (JPG, PNG, WEBP ou GIF).')
+    path = `pagamentos/${lembreteId}/${hojeSP().data}.${ext}`
+    const buffer = Buffer.from(await file.arrayBuffer())
+    const { error: upErr } = await supabase.storage.from('pagamentos').upload(path, buffer, {
+      contentType: file.type,
+      upsert: true,
+    })
+    if (upErr) throw new Error(upErr.message)
+  }
 
   const { error } = await supabase.rpc('marcar_lembrete_feito', {
     p_lembrete_id: lembreteId,
     p_perfil_id: usuario.id,
     p_data: hojeSP().data,
-    p_comprovante_url: path,
+    ...(path ? { p_comprovante_url: path } : {}),
   })
   if (error) throw new Error(error.message)
+  await lancarPagamentoRecorrente(supabase, lembreteId, hojeSP().data)
   revalidatePath('/painel', 'layout')
   revalidatePath('/painel/lembretes')
+  revalidatePath('/painel/financeiro')
 }

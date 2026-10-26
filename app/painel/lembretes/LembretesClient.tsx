@@ -65,7 +65,7 @@ export function LembretesClient({
           <h2 className="text-2xl font-bold text-gray-900">{somenteTipo === 'pagamento' ? 'Pagamentos Recorrentes' : 'Tarefas da Equipe'}</h2>
           <p className="mt-0.5 text-sm text-gray-500">
             {somenteTipo === 'pagamento'
-              ? 'Pagamentos fixos (PIX) que o sistema cobra. Aparecem no horário e só somem quando você marca como pago (com comprovante).'
+              ? 'Pagamentos fixos (PIX) que o sistema cobra. Aparecem no horário e, ao marcar como pago, entram no financeiro sozinhos — o comprovante é opcional.'
               : 'Rotinas que o sistema cobra da equipe. Aparecem no painel no horário e só somem quando a pessoa marca Feito.'}
           </p>
         </div>
@@ -94,7 +94,7 @@ export function LembretesClient({
           <p className="font-semibold text-gray-700">{somenteTipo === 'pagamento' ? 'Nenhum pagamento ainda' : 'Nenhuma tarefa ainda'}</p>
           <p className="mx-auto mt-1 max-w-md text-sm text-gray-400">
             {somenteTipo === 'pagamento'
-              ? 'Ex: PIX fixo do motoboy toda segunda às 09:00. No horário, aparece um aviso e você marca como pago (com comprovante).'
+              ? 'Ex: PIX fixo do motoboy toda segunda às 09:00. No horário aparece um aviso: ao marcar ✓ Pago, o valor é lançado no financeiro com a data do dia. Se quiser guardar o comprovante, use o 📎.'
               : 'Ex: “Conferir o caixa” pra Duda às 18:30, de segunda a sábado. No horário, aparece um aviso no painel dela — e você vê quando ela marcar como feito.'}
           </p>
         </div>
