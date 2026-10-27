@@ -219,16 +219,26 @@ export default async function FinanceiroPage({
   const totalPagar = paraTotais.filter((l) => l.tipo === 'pagar' && l.status === 'pendente').reduce((s, l) => s + restanteDe(l), 0)
   const pendentes = paraTotais.filter((l) => l.status === 'pendente').length
 
-  // Último pagamento da pessoa escolhida — faixa informativa no topo da lista.
-  // Não filtra nada: a lista principal já mostra tudo dela.
-  const ultimoPessoa = params.pessoa
-    ? (await aplicaLoja(supabase.from('lancamentos')
-        .select('descricao, valor, categoria, status, forma_pagamento, data_vencimento, tipo')
-        .ilike('pessoa_nome', `%${params.pessoa}%`)
-        .order('data_vencimento', { ascending: false })
-        .order('created_at', { ascending: false })
-        .limit(1)).maybeSingle()).data ?? null
-    : null
+  // Faixa informativa da pessoa escolhida. Não filtra nada: a lista já mostra tudo.
+  //
+  // Antes esta faixa pegava só o lançamento de MAIOR VENCIMENTO e chamava de "último
+  // pagamento" — então um salário futuro, ainda pendente, aparecia como se já tivesse
+  // sido pago (foi o caso do salário de 31/10 da Isabella aparecendo em 26/10).
+  // Agora são duas informações separadas: o último PAGO de verdade, e o que está em
+  // aberto (se houver), cada um com seu rótulo.
+  type LinhaInfo = { descricao: string | null; valor: number | null; categoria: string | null; status: string | null; forma_pagamento: string | null; data_vencimento: string | null; data_pagamento: string | null; tipo: string }
+  const colunasInfo = 'descricao, valor, categoria, status, forma_pagamento, data_vencimento, data_pagamento, tipo'
+  const baseInfo = () => aplicaLoja(supabase.from('lancamentos').select(colunasInfo)).ilike('pessoa_nome', `%${params.pessoa}%`)
+  const [pagoRes, recenteRes] = params.pessoa
+    ? await Promise.all([
+        baseInfo().eq('status', 'pago').order('data_pagamento', { ascending: false, nullsFirst: false })
+          .order('data_vencimento', { ascending: false }).limit(1).maybeSingle(),
+        baseInfo().order('data_vencimento', { ascending: false }).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      ])
+    : [{ data: null }, { data: null }]
+  const ultimoPago = (pagoRes?.data ?? null) as LinhaInfo | null
+  const maisRecente = (recenteRes?.data ?? null) as LinhaInfo | null
+  const emAberto = maisRecente && maisRecente.status === 'pendente' ? maisRecente : null
 
   return (
     <div className="space-y-6">
@@ -304,20 +314,30 @@ export default async function FinanceiroPage({
         />
       </div>
 
-      {/* ✨ Último pagamento da pessoa escolhida (informativo, não é filtro) */}
+      {/* Faixa informativa da pessoa escolhida (não é filtro) */}
       {params.pessoa && (
-        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 shadow-sm">
-          {ultimoPessoa ? (
+        <div className="space-y-1 rounded-2xl border border-blue-200 bg-blue-50 p-4 shadow-sm">
+          {ultimoPago ? (
             <p className="text-sm text-gray-800">
               <span className="font-semibold text-gray-900">Último pagamento para {params.pessoa}:</span>{' '}
-              <span className="font-bold tabular-nums">{ultimoPessoa.tipo === 'receber' ? '+' : '−'}{formatBRL(Number(ultimoPessoa.valor ?? 0))}</span>
-              {' '}— {ultimoPessoa.descricao || 'sem descrição'}
-              {ultimoPessoa.forma_pagamento ? ' · ' + ultimoPessoa.forma_pagamento : ''}
-              {ultimoPessoa.categoria ? ' · ' + ultimoPessoa.categoria : ''}
-              {' · '}{(ultimoPessoa.data_vencimento ?? '').slice(0, 10).split('-').reverse().join('/')}
+              <span className="font-bold tabular-nums">{ultimoPago.tipo === 'receber' ? '+' : '−'}{formatBRL(Number(ultimoPago.valor ?? 0))}</span>
+              {' '}— {ultimoPago.descricao || 'sem descrição'}
+              {ultimoPago.forma_pagamento ? ' · ' + ultimoPago.forma_pagamento : ''}
+              {ultimoPago.categoria ? ' · ' + ultimoPago.categoria : ''}
+              {' · pago em '}{((ultimoPago.data_pagamento ?? ultimoPago.data_vencimento) ?? '').slice(0, 10).split('-').reverse().join('/')}
             </p>
           ) : (
-            <p className="text-sm text-gray-500">Nenhum lançamento para {params.pessoa}.</p>
+            <p className="text-sm text-gray-500">Nenhum pagamento registrado para {params.pessoa}.</p>
+          )}
+          {emAberto && (
+            <p className="text-sm text-amber-800">
+              <span className="font-semibold">Em aberto:</span>{' '}
+              <span className="font-bold tabular-nums">{emAberto.tipo === 'receber' ? '+' : '−'}{formatBRL(Number(emAberto.valor ?? 0))}</span>
+              {' '}— {emAberto.descricao || 'sem descrição'}
+              {emAberto.categoria ? ' · ' + emAberto.categoria : ''}
+              {' · vence '}{((emAberto.data_vencimento) ?? '').slice(0, 10).split('-').reverse().join('/')}
+              {' (ainda não pago)'}
+            </p>
           )}
         </div>
       )}
