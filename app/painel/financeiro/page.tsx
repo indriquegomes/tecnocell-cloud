@@ -235,7 +235,7 @@ export default async function FinanceiroPage({
       <div className="flex items-center gap-2">
         <IconWallet className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
         <h2 className="text-2xl font-bold text-gray-900">Financeiro</h2>
-        <Dica texto="Controle de contas a pagar e a receber. Registre despesas, receitas e acompanhe o saldo pendente." />
+        <Dica texto="Contas a pagar e a receber. Digite no Buscar e escolha a categoria, o setor ou o cliente — o sistema sugere o que existe nos seus dados. Para somar em vez de listar, use + Filtros e Agrupar." />
       </div>
 
       {params.erro && (
@@ -416,7 +416,9 @@ export default async function FinanceiroPage({
             {grupos ? null : todos.length === 0 ? (
               <tr>
                 <td colSpan={9} className="px-4 py-12 text-center text-sm text-gray-400">
-                  Nenhum lançamento encontrado.
+                  Nada encontrado com esse filtro.
+                  <br />
+                  <span className="text-xs">Tente outro período, outra loja, ou clique em <b>Limpar tudo</b>.</span>
                 </td>
               </tr>
             ) : (

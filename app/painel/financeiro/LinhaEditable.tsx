@@ -120,16 +120,17 @@ export function LinhaEditable({
           {msg && <span className="text-xs text-gray-500" title={msg}>{msg}</span>}
           {!pago && (
             <form action={marcarPago.bind(null, lanc.id)} encType="multipart/form-data" className="flex items-center gap-1">
-              <input name="forma_pagamento" required list="formas-lista" defaultValue={lanc.forma_pagamento ?? ''} placeholder="Forma…" className="max-w-[7rem] rounded-lg border border-gray-200 px-1.5 py-1 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400" />
-              <button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-medium text-green-600 hover:bg-green-50 transition">Pago</button>
+              <input name="forma_pagamento" required list="formas-lista" defaultValue={lanc.forma_pagamento ?? ''} placeholder="Forma…" title="Como foi pago (dinheiro, PIX…). Obrigatório para dar baixa."
+                className="max-w-[7rem] rounded-lg border border-gray-200 px-1.5 py-1 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+              <button type="submit" title="Marcar como pago e dar baixa" className="rounded-lg px-2.5 py-1 text-xs font-medium text-green-600 hover:bg-green-50 transition">Marcar pago</button>
             </form>
           )}
           {pago && (lanc.tipo === 'pagar' || idsDesfazer) && (
             <form action={desfazerPagamento.bind(null, lanc.id)}>
-              <button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 transition">Desfazer</button>
+              <button type="submit" title="Desfazer o pagamento e voltar para pendente" className="rounded-lg px-2.5 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 transition">Desfazer</button>
             </form>
           )}
-          <Link href={`/painel/financeiro/${lanc.id}/editar`} className="rounded-lg px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 transition">Editar</Link>
+          <Link href={`/painel/financeiro/${lanc.id}/editar`} title="Abrir a edição completa" className="rounded-lg px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 transition">Editar</Link>
           <BotaoExcluir action={deletarLancamento.bind(null, lanc.id)} mensagem="Excluir este lançamento?" />
         </div>
       </td>
