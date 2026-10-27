@@ -67,11 +67,12 @@ export default async function NovoLancamentoPage({
             <CampoDinheiro name="valor" required />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Data Competência</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Mês de referência</label>
             <input name="data_competencia" type="date" defaultValue={hoje} className="field" />
+            <p className="mt-1 text-[11px] text-gray-400">O mês a que este gasto pertence. Normalmente é o mesmo do vencimento.</p>
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Data Vencimento *</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Data de vencimento *</label>
             <input name="data_vencimento" type="date" defaultValue={hoje} required className="field" />
           </div>
           <div>
@@ -100,13 +101,13 @@ export default async function NovoLancamentoPage({
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Subcategoria <span className="text-gray-400">(opcional)</span></label>
-            <input name="subcategoria" list="subcategorias-list" className="field" placeholder="Ex: Peça, Atacado, Mensal…" />
+            <input name="subcategoria" list="subcategorias-list" className="field" placeholder="Ex: Peça, Atacado, Comissão…" />
             <datalist id="subcategorias-list">
               {TODAS_SUBCATEGORIAS.map((s) => <option key={s} value={s} />)}
             </datalist>
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Conta (entra/sai daqui) *</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Conta que recebe ou paga *</label>
             <select name="conta_id" required defaultValue="" className="field">
               <option value="" disabled>Selecione a conta…</option>
               {(contas ?? []).map((c) => (
@@ -119,7 +120,7 @@ export default async function NovoLancamentoPage({
             Já está pago/recebido?
           </label>
         </div>
-        <p className="text-[11px] text-gray-400">Marque a Conta + &quot;já pago&quot; pra o valor entrar no saldo da conta na hora. Fiado/a pagar futuro deixa desmarcado.</p>
+        <p className="text-[11px] text-gray-400">Marcando <b>Já está pago/recebido</b>, o valor entra no saldo da conta na hora. Conta a pagar ou fiado que ainda vai acontecer: deixe desmarcado.</p>
 
         <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
           <p className="mb-2 text-sm font-semibold text-gray-700">Repetição</p>

@@ -55,16 +55,17 @@ export default async function EditarLancamentoPage({ params, searchParams }: { p
             <CampoDinheiro name="valor" defaultValue={Number(lancamento.valor)} required />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Data Competência</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Mês de referência</label>
             <input name="data_competencia" type="date" defaultValue={lancamento.data_competencia?.split('T')[0] ?? ''} className="field" />
+            <p className="mt-1 text-[11px] text-gray-400">O mês a que este gasto pertence. Normalmente é o mesmo do vencimento.</p>
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Data Vencimento *</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Data de vencimento *</label>
             <input name="data_vencimento" type="date" required defaultValue={lancamento.data_vencimento?.split('T')[0] ?? ''} className="field" />
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Forma de Pagamento</label>
-            <input name="forma_pagamento" list="formas-lista" defaultValue={lancamento.forma_pagamento ?? ''} className="field" placeholder="Pix chave…, conta nº…, dinheiro" />
+            <input name="forma_pagamento" list="formas-lista" defaultValue={lancamento.forma_pagamento ?? ''} className="field" placeholder="Dinheiro, PIX, cartão…" />
             <datalist id="formas-lista">
               {(formas ?? []).map((f) => <option key={f.id} value={f.nome} />)}
               <option value="Pix chave" /><option value="Conta nº" /><option value="Transferência" />
@@ -91,7 +92,7 @@ export default async function EditarLancamentoPage({ params, searchParams }: { p
             </datalist>
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Conta (entra/sai daqui)</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Conta que recebe ou paga</label>
             <select name="conta_id" defaultValue={lancamento.conta_id ?? ''} className="field">
               <option value="">—</option>
               {(contas ?? []).map((c) => (
