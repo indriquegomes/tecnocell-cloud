@@ -143,7 +143,16 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, set
   if (params.forma) etiquetas.push({ chave: 'forma', label: params.forma, href: semFiltro(['forma']) })
   if (params.setor) {
     const s = setores.find((x) => x.chave === params.setor)
-    etiquetas.push({ chave: 'setor', label: s ? s.emoji + ' ' + s.label : params.setor, href: semFiltro(['setor', 'categoria', 'subcategoria']) })
+    // O setor NÃO filtra pessoa: ele mantém só as categorias daquele assunto. O rótulo
+    // mostra as categorias quando são poucas, senão o nome do setor basta.
+    const resumo = s && s.categorias.length > 0 && s.categorias.length <= 5
+      ? ' (' + s.categorias.map((c) => c.toLowerCase()).join(', ') + ')'
+      : ''
+    etiquetas.push({
+      chave: 'setor',
+      label: (s ? s.emoji + ' ' + s.label : params.setor) + resumo,
+      href: semFiltro(['setor', 'categoria', 'subcategoria']),
+    })
   }
   if (params.categoria) etiquetas.push({ chave: 'categoria', label: params.categoria, href: semFiltro(['categoria', 'subcategoria']) })
   if (params.subcategoria) etiquetas.push({ chave: 'subcategoria', label: '› ' + params.subcategoria, href: semFiltro(['subcategoria']) })

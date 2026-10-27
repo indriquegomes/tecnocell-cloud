@@ -68,6 +68,13 @@ export function LinhaEditable({
     const sp = new URLSearchParams(filtroBase ?? '')
     sp.set('pessoa', nome)
     sp.delete('pagina')
+    // Clicar na pessoa mostra o histórico COMPLETO dela. Antes o setor e a categoria
+    // vinham junto, então quem clicava num nome a partir da visão "Funcionários" caía
+    // numa lista que só tinha salário — parecia que faltavam informações. Loja e
+    // período continuam, porque são recorte de tempo/lugar, não de assunto.
+    sp.delete('setor')
+    sp.delete('categoria')
+    sp.delete('subcategoria')
     return '/painel/financeiro?' + sp.toString()
   }
 
