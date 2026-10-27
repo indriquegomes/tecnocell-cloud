@@ -15,17 +15,17 @@ const sb = createClient()
 // de baixo: as opções NASCEM do que você digita.
 //
 // Na linha ficam só as quatro coisas de uso diário: Buscar, Loja, Situação, Período.
-// Forma de pagamento, Conta, Valor e "por qual data" ficam em + Filtros, fechado.
-export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, contasOpc, setores, subcategorias, camposData, labelCampo, temFiltro }: {
+// Em + Filtros ficam as perguntas que a barra de cima não responde: faixa de valor,
+// forma de pagamento, datas personalizadas, de onde o lançamento veio (venda / fiado /
+// digitado à mão), o que vence nos próximos dias e o agrupamento com total.
+// Saíram daqui "Conta" e "por qual data" — eram ruído de contador.
+export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, setores, subcategorias, temFiltro }: {
   params: Record<string, string | undefined>
   lojaEfetiva: string
   operaveis: { id: string; nome: string }[]
   formasOpc: string[]
-  contasOpc: { id: string; nome: string }[]
   setores: { chave: string; label: string; emoji: string; categorias: string[]; semCategoria?: boolean }[]
   subcategorias: Record<string, string[]>
-  camposData: string[]
-  labelCampo: Record<string, string>
   temFiltro: boolean
 }) {
   const inp = 'w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400'
@@ -40,14 +40,15 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
   const [categoria, setCategoria] = useState(params.categoria ?? '')
   const [subcategoria, setSubcategoria] = useState(params.subcategoria ?? '')
   const [forma, setForma] = useState(params.forma ?? '')
-  const [conta, setConta] = useState(params.conta ?? '')
+  const [origem, setOrigem] = useState(params.origem ?? '')
+  const [vence, setVence] = useState(params.vence ?? '')
+  const [agrupar, setAgrupar] = useState(params.agrupar ?? '')
   const [status, setStatus] = useState(params.status ?? '')
   const [loja, setLoja] = useState(params.loja ?? lojaEfetiva)
   const [valorMin, setValorMin] = useState(params.valor_min ?? '')
   const [valorMax, setValorMax] = useState(params.valor_max ?? '')
   const [de, setDe] = useState(params.de ?? '')
   const [ate, setAte] = useState(params.ate ?? '')
-  const [campo, setCampo] = useState(params.campo ?? 'data_vencimento')
   const [tudo, setTudo] = useState(params.tudo === '1' ? '1' : '')
   const [filtrosAbertos, setFiltrosAbertos] = useState(false)
 
@@ -64,13 +65,13 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
     setCarregando(true)
     const t = setTimeout(async () => {
       try {
-        const lista = await sugerirFinanceiro(await token(), termo, { loja, de, ate, campo })
+        const lista = await sugerirFinanceiro(await token(), termo, { loja, de, ate })
         if (vivo) { setSugestoes(lista); setSugAberto(true) }
       } catch { if (vivo) setSugestoes([]) }
       finally { if (vivo) setCarregando(false) }
     }, 250)
     return () => { vivo = false; clearTimeout(t) }
-  }, [busca, loja, de, ate, campo])
+  }, [busca, loja, de, ate])
 
   useEffect(() => {
     const fechar = (e: MouseEvent) => {
@@ -140,7 +141,6 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
   }
   if (params.status) etiquetas.push({ chave: 'status', label: params.status.charAt(0).toUpperCase() + params.status.slice(1), href: semFiltro(['status']) })
   if (params.forma) etiquetas.push({ chave: 'forma', label: params.forma, href: semFiltro(['forma']) })
-  if (params.conta) etiquetas.push({ chave: 'conta', label: contasOpc.find((c) => c.id === params.conta)?.nome ?? 'conta', href: semFiltro(['conta']) })
   if (params.setor) {
     const s = setores.find((x) => x.chave === params.setor)
     etiquetas.push({ chave: 'setor', label: s ? s.emoji + ' ' + s.label : params.setor, href: semFiltro(['setor', 'categoria', 'subcategoria']) })
@@ -149,7 +149,18 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
   if (params.subcategoria) etiquetas.push({ chave: 'subcategoria', label: '› ' + params.subcategoria, href: semFiltro(['subcategoria']) })
   if (params.valor_min) etiquetas.push({ chave: 'valor_min', label: 'Valor ≥ ' + params.valor_min, href: semFiltro(['valor_min']) })
   if (params.valor_max) etiquetas.push({ chave: 'valor_max', label: 'Valor ≤ ' + params.valor_max, href: semFiltro(['valor_max']) })
-  if (params.campo && params.campo !== 'data_vencimento') etiquetas.push({ chave: 'campo', label: 'Data: ' + (labelCampo[params.campo] ?? params.campo), href: semFiltro(['campo']) })
+  if (params.origem) {
+    const rotulo = params.origem === 'venda' ? 'Veio de venda' : params.origem === 'fiado' ? 'Veio de fiado' : 'Digitado à mão'
+    etiquetas.push({ chave: 'origem', label: rotulo, href: semFiltro(['origem']) })
+  }
+  if (params.vence) {
+    const rotulo = params.vence === 'hoje' ? 'Vence hoje' : params.vence === '7dias' ? 'Vence em até 7 dias' : 'Vence neste mês'
+    etiquetas.push({ chave: 'vence', label: rotulo, href: semFiltro(['vence']) })
+  }
+  if (params.agrupar) {
+    const rotulo = params.agrupar === 'categoria' ? 'Total por categoria' : params.agrupar === 'loja' ? 'Total por loja' : 'Total por pessoa'
+    etiquetas.push({ chave: 'agrupar', label: rotulo, href: semFiltro(['agrupar']) })
+  }
   const foraDoMesAtual = !!de && (de !== mesPadrao.de || ate !== mesPadrao.ate)
   if (tudo === '1') etiquetas.push({ chave: 'tudo', label: 'Histórico inteiro', href: semFiltro(['tudo', 'de', 'ate']) })
   else if (foraDoMesAtual) {
@@ -175,8 +186,6 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
       <input type="hidden" name="categoria" value={categoria} />
       <input type="hidden" name="subcategoria" value={subcategoria} />
       <input type="hidden" name="pessoa" value={pessoa} />
-      <input type="hidden" name="de" value={de} />
-      <input type="hidden" name="ate" value={ate} />
 
       <div className="flex flex-wrap items-end gap-2">
         <div ref={caixaBusca} className="relative min-w-[18rem] flex-1">
@@ -248,12 +257,48 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, con
       </div>
 
       {filtrosAbertos && (
-        <div className="grid gap-3 rounded-xl border border-gray-200 bg-gray-50/60 p-3 sm:grid-cols-2 lg:grid-cols-5">
-          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Forma de pagamento</label><select name="forma" value={forma} onChange={(e) => setForma(e.target.value)} className={inp}><option value="">Todas</option>{formasOpc.map((f) => <option key={f} value={f}>{f}</option>)}</select></div>
-          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Conta</label><select name="conta" value={conta} onChange={(e) => setConta(e.target.value)} className={inp}><option value="">Todas</option>{contasOpc.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
+        <div className="grid gap-3 rounded-xl border border-gray-200 bg-gray-50/60 p-3 sm:grid-cols-2 lg:grid-cols-4">
           <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Valor de</label><input name="valor_min" type="number" step="0.01" value={valorMin} onChange={(e) => setValorMin(e.target.value)} placeholder="0,00" className={inp} /></div>
           <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Valor até</label><input name="valor_max" type="number" step="0.01" value={valorMax} onChange={(e) => setValorMax(e.target.value)} placeholder="0,00" className={inp} /></div>
-          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Período conta pela data de</label><select name="campo" value={campo} onChange={(e) => setCampo(e.target.value)} className={inp}>{camposData.map((c) => <option key={c} value={c}>{labelCampo[c]}</option>)}</select></div>
+          <div><label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Forma de pagamento</label><select name="forma" value={forma} onChange={(e) => setForma(e.target.value)} className={inp}><option value="">Todas</option>{formasOpc.map((f) => <option key={f} value={f}>{f}</option>)}</select></div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">De onde veio</label>
+            <select name="origem" value={origem} onChange={(e) => setOrigem(e.target.value)} className={inp}>
+              <option value="">Qualquer origem</option>
+              <option value="venda">Veio de uma venda</option>
+              <option value="fiado">Veio de fiado</option>
+              <option value="manual">Digitado à mão</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Vence em</label>
+            <select name="vence" value={vence} onChange={(e) => setVence(e.target.value)} className={inp}>
+              <option value="">Qualquer data</option>
+              <option value="hoje">Hoje</option>
+              <option value="7dias">Até 7 dias</option>
+              <option value="mes">Neste mês</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Período personalizado</label>
+            <div className="flex items-center gap-1">
+              <input name="de" type="date" value={de} onChange={(e) => { setDe(e.target.value); setTudo('') }} className={inp} />
+              <span className="text-xs text-gray-400">até</span>
+              <input name="ate" type="date" value={ate} onChange={(e) => { setAte(e.target.value); setTudo('') }} className={inp} />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Agrupar e totalizar</label>
+            <select name="agrupar" value={agrupar} onChange={(e) => setAgrupar(e.target.value)} className={inp}>
+              <option value="">Listar linha por linha</option>
+              <option value="categoria">Total por categoria</option>
+              <option value="loja">Total por loja</option>
+              <option value="pessoa">Total por pessoa</option>
+            </select>
+          </div>
+          <div className="flex items-end">
+            <p className="text-[11px] leading-tight text-gray-400">Agrupado, a tela deixa de listar e passa a somar: quanto cada categoria, loja ou pessoa pesa no filtro.</p>
+          </div>
         </div>
       )}
 

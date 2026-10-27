@@ -18,7 +18,7 @@ import { ExportCsv } from '../relatorios/ExportCsv'
 export default async function FinanceiroPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tipo?: string; busca?: string; ordem?: string; dir?: string; status?: string; de?: string; ate?: string; pessoa?: string; forma?: string; conta?: string; categoria?: string; grupo?: string; tudo?: string; valor_min?: string; valor_max?: string; campo?: string; erro?: string; ok?: string; loja?: string; pagina?: string; setor?: string; subcategoria?: string }>
+  searchParams: Promise<{ tipo?: string; busca?: string; ordem?: string; dir?: string; status?: string; de?: string; ate?: string; pessoa?: string; forma?: string; conta?: string; categoria?: string; grupo?: string; tudo?: string; valor_min?: string; valor_max?: string; campo?: string; erro?: string; ok?: string; loja?: string; pagina?: string; setor?: string; subcategoria?: string; origem?: string; vence?: string; agrupar?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
@@ -98,6 +98,18 @@ export default async function FinanceiroPage({
     }
     if (params.valor_min) q = q.gte('valor', Number(params.valor_min))
     if (params.valor_max) q = q.lte('valor', Number(params.valor_max))
+    // ORIGEM: de onde o lançamento nasceu. Responde "isso veio de venda, de fiado ou
+    // alguém digitou à mão?" — pergunta que a tela não respondia.
+    if (params.origem === 'venda') q = q.not('venda_id', 'is', null).neq('categoria', 'Fiado (a receber)')
+    else if (params.origem === 'fiado') q = q.eq('categoria', 'Fiado (a receber)')
+    else if (params.origem === 'manual') q = q.is('venda_id', null)
+
+    // VENCE EM: janela para frente (dinheiro que ainda vai sair/entrar), independente
+    // de estar vencido ou não.
+    if (params.vence === 'hoje') q = q.eq('data_vencimento', hojeSP())
+    else if (params.vence === '7dias') q = q.gte('data_vencimento', hojeSP()).lte('data_vencimento', hojeSP(7))
+    else if (params.vence === 'mes') q = q.gte('data_vencimento', mesIni).lte('data_vencimento', mesFim)
+
     if (params.status === 'pago') q = q.eq('status', 'pago')
     else if (params.status === 'pendente') q = q.neq('status', 'pago')
     else if (params.status === 'vencido') q = q.neq('status', 'pago').lt('data_vencimento', hojeSP())
@@ -108,13 +120,13 @@ export default async function FinanceiroPage({
     return q
   }
   /* eslint-enable @typescript-eslint/no-explicit-any */
-  const temFiltro = !!(params.busca || params.pessoa || params.forma || params.conta || params.categoria || params.subcategoria || params.setor || params.valor_min || params.valor_max || params.status || params.de || params.ate || params.tipo)
+  const temFiltro = !!(params.busca || params.pessoa || params.forma || params.conta || params.categoria || params.subcategoria || params.setor || params.origem || params.vence || params.valor_min || params.valor_max || params.status || params.de || params.ate || params.tipo)
 
   const ordemAtual = params.ordem ?? 'data_vencimento'
   const ordemDir = params.dir === 'desc'
   const camposDB: Record<string, string> = { data_vencimento: 'data_vencimento', valor: 'valor', descricao: 'descricao', pessoa_nome: 'pessoa_nome', tipo: 'tipo', status: 'status' }
   const baseParams: Record<string, string> = {}
-  for (const k of ['tipo', 'busca', 'status', 'de', 'ate', 'pessoa', 'forma', 'conta', 'categoria', 'subcategoria', 'setor', 'valor_min', 'valor_max', 'campo', 'loja', 'tudo'] as const) {
+  for (const k of ['tipo', 'busca', 'status', 'de', 'ate', 'pessoa', 'forma', 'conta', 'categoria', 'subcategoria', 'setor', 'valor_min', 'valor_max', 'campo', 'loja', 'tudo', 'origem', 'vence', 'agrupar'] as const) {
     if (params[k]) baseParams[k] = params[k]!
   }
   const sortLink = (o: string) => {
@@ -163,13 +175,37 @@ export default async function FinanceiroPage({
   // sem o cap de 200 da lista. Isa: "quanto tenho a receber em PIX vencendo em agosto".
   const filtrados = await fetchAll<Record<string, unknown> & { valor: number | null; tipo: string; status: string | null }>(
     (from, to) => aplica(supabase.from('lancamentos')
-      .select('descricao, pessoa_nome, data_vencimento, data_competencia, valor, tipo, status, forma_pagamento, categoria, subcategoria'))
+      .select('descricao, pessoa_nome, data_vencimento, data_competencia, valor, tipo, status, forma_pagamento, categoria, subcategoria, loja_id'))
       .range(from, to)
   )
   const fReceber = filtrados.filter((l) => l.tipo === 'receber').reduce((s, l) => s + (l.valor ?? 0), 0)
   const fPagar = filtrados.filter((l) => l.tipo === 'pagar').reduce((s, l) => s + (l.valor ?? 0), 0)
   const fCount = filtrados.length
   const labelCampo: Record<string, string> = { data_vencimento: 'Vencimento', data_competencia: 'Competência', data_pagamento: 'Pagamento' }
+
+  // AGRUPAR E TOTALIZAR — soma o filtro inteiro por categoria, loja ou pessoa, em vez
+  // de listar linha por linha. É a separação que a lista não dá: quanto cada coisa
+  // pesa no período. Usa o mesmo conjunto já carregado para os totais (sem consulta nova).
+  const nomeDaLoja = new Map(operaveis.map((l) => [l.id, l.nome]))
+  const grupos = (() => {
+    const modo = params.agrupar
+    if (modo !== 'categoria' && modo !== 'loja' && modo !== 'pessoa') return null
+    const mapa = new Map<string, { n: number; receber: number; pagar: number }>()
+    for (const l of filtrados) {
+      const bruto = modo === 'categoria'
+        ? ((l as { categoria?: string | null }).categoria || '(sem categoria)')
+        : modo === 'pessoa'
+          ? ((l as { pessoa_nome?: string | null }).pessoa_nome || '(sem nome)')
+          : (nomeDaLoja.get(((l as { loja_id?: string | null }).loja_id) ?? '') ?? 'Sem loja')
+      const atual = mapa.get(bruto) ?? { n: 0, receber: 0, pagar: 0 }
+      atual.n += 1
+      const v = Number((l as { valor?: number | null }).valor ?? 0)
+      if (l.tipo === 'receber') atual.receber += v
+      else atual.pagar += v
+      mapa.set(bruto, atual)
+    }
+    return [...mapa.entries()].sort((a, b) => (b[1].receber + b[1].pagar) - (a[1].receber + a[1].pagar))
+  })()
   // Cards de resumo somam TODOS os pendentes (globais), sem o cap de 200 da lista
   // nem o filtro de busca/tipo — senão os totais subcontam quando houver >200 lançamentos.
   const paraTotais = await fetchAll<{ valor: number | null; valor_pago: number | null; tipo: string; status: string | null }>(
@@ -262,11 +298,8 @@ export default async function FinanceiroPage({
           lojaEfetiva={lojaEfetiva}
           operaveis={operaveis}
           formasOpc={formasOpc}
-          contasOpc={contasOpc}
           setores={SETORES}
           subcategorias={SUBCATEGORIAS}
-          camposData={camposData}
-          labelCampo={labelCampo}
           temFiltro={temFiltro}
         />
       </div>
@@ -314,8 +347,50 @@ export default async function FinanceiroPage({
         {categoriasOpc.map((c) => <option key={c} value={c} />)}
       </datalist>
 
-      {/* Tabela */}
-      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+      {/* AGRUPADO: totais por categoria / loja / pessoa */}
+      {grupos && (
+        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+          <table className="min-w-full divide-y divide-gray-100">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  {params.agrupar === 'categoria' ? 'Categoria' : params.agrupar === 'loja' ? 'Loja' : 'Pessoa'}
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Lançamentos</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">A receber</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">A pagar</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Saldo</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {grupos.length === 0 ? (
+                <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">Nada no filtro.</td></tr>
+              ) : grupos.map(([nomeGrupo, dados]) => (
+                <tr key={nomeGrupo} className="hover:bg-blue-50/60 transition">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-800">{nomeGrupo}</td>
+                  <td className="px-4 py-3 text-right text-sm text-gray-500">{dados.n}</td>
+                  <td className="px-4 py-3 text-right text-sm font-semibold text-green-600">{dados.receber ? formatBRL(dados.receber) : '—'}</td>
+                  <td className="px-4 py-3 text-right text-sm font-semibold text-red-500">{dados.pagar ? formatBRL(dados.pagar) : '—'}</td>
+                  <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">{formatBRL(dados.receber - dados.pagar)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-gray-50">
+              <tr>
+                <td className="px-4 py-3 text-sm font-bold text-gray-900">Total</td>
+                <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">{fCount}</td>
+                <td className="px-4 py-3 text-right text-sm font-bold text-green-700">{formatBRL(fReceber)}</td>
+                <td className="px-4 py-3 text-right text-sm font-bold text-red-600">{formatBRL(fPagar)}</td>
+                <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">{formatBRL(fReceber - fPagar)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+
+      {/* Tabela (só quando não está agrupado) */}
+      <div className={`overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm ${grupos ? 'hidden' : ''}`}
+        style={grupos ? { display: 'none' } : undefined}>
         <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
             <tr>
@@ -338,7 +413,7 @@ export default async function FinanceiroPage({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {todos.length === 0 ? (
+            {grupos ? null : todos.length === 0 ? (
               <tr>
                 <td colSpan={9} className="px-4 py-12 text-center text-sm text-gray-400">
                   Nenhum lançamento encontrado.
