@@ -143,19 +143,15 @@ export function BuscaFinanceiro({ params, lojaEfetiva, operaveis, formasOpc, set
   if (params.forma) etiquetas.push({ chave: 'forma', label: params.forma, href: semFiltro(['forma']) })
   if (params.setor) {
     const s = setores.find((x) => x.chave === params.setor)
-    // O setor NÃO filtra pessoa: ele mantém só as categorias daquele assunto. O rótulo
-    // mostra as categorias quando são poucas, senão o nome do setor basta.
-    const resumo = s && s.categorias.length > 0 && s.categorias.length <= 5
-      ? ' (' + s.categorias.map((c) => c.toLowerCase()).join(', ') + ')'
-      : ''
-    etiquetas.push({
-      chave: 'setor',
-      label: (s ? s.emoji + ' ' + s.label : params.setor) + resumo,
-      href: semFiltro(['setor', 'categoria', 'subcategoria']),
-    })
+    etiquetas.push({ chave: 'setor', label: s ? s.emoji + ' ' + s.label : params.setor, href: semFiltro(['setor', 'categoria', 'subcategoria']) })
   }
-  if (params.categoria) etiquetas.push({ chave: 'categoria', label: params.categoria, href: semFiltro(['categoria', 'subcategoria']) })
-  if (params.subcategoria) etiquetas.push({ chave: 'subcategoria', label: '› ' + params.subcategoria, href: semFiltro(['subcategoria']) })
+  // Categoria, subcategoria e setor são aplicados juntos (a cascata escolhe os três de
+  // uma vez). Por isso fechar qualquer um deles volta ao estado ANTERIOR à escolha:
+  // descarta o grupo inteiro, em vez de deixar o setor filtrando sozinho e a tela
+  // parecendo que não mudou nada.
+  const GRUPO_CLASSIFICACAO = ['setor', 'categoria', 'subcategoria']
+  if (params.categoria) etiquetas.push({ chave: 'categoria', label: params.categoria, href: semFiltro(GRUPO_CLASSIFICACAO) })
+  if (params.subcategoria) etiquetas.push({ chave: 'subcategoria', label: '› ' + params.subcategoria, href: semFiltro(GRUPO_CLASSIFICACAO) })
   if (params.valor_min) etiquetas.push({ chave: 'valor_min', label: 'Valor ≥ ' + params.valor_min, href: semFiltro(['valor_min']) })
   if (params.valor_max) etiquetas.push({ chave: 'valor_max', label: 'Valor ≤ ' + params.valor_max, href: semFiltro(['valor_max']) })
   if (params.origem) {
