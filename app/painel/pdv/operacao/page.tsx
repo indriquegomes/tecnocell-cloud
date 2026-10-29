@@ -391,7 +391,9 @@ export default async function OperacaoPDVPage({
         .select('id, aberto_em, fechado_em, valor_abertura, obs_fechamento')
         .eq('status', 'fechado')
         .eq('loja_id', lojaAtual)
-        .order('fechado_em', { ascending: false })
+        // nullsFirst: false — caixa 'fechado' sem data de fechamento (fantasma) vinha
+        // PRIMEIRO no DESC e virava o "último caixa", zerando o troco do papel Z.
+        .order('fechado_em', { ascending: false, nullsFirst: false })
         .limit(1)
         .maybeSingle(),
     ])

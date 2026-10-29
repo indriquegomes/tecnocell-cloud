@@ -1,0 +1,30 @@
+[
+  {
+    "id": "8a93f99f-c190-4d1a-bfbf-d4695727e426",
+    "status": "fechado",
+    "valor_abertura": "0.00",
+    "valor_fechamento": "0.00",
+    "obs_abertura": null,
+    "obs_fechamento": null,
+    "usuario_id": null,
+    "aberto_em": "2026-10-12 10:34:16.532531+00",
+    "fechado_em": null,
+    "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+    "sige_caixa_id": null,
+    "aberto_por": null
+  },
+  {
+    "id": "d0f0f74b-f4d1-425f-8583-531541b239a5",
+    "status": "fechado",
+    "valor_abertura": "0.00",
+    "valor_fechamento": "0.00",
+    "obs_abertura": null,
+    "obs_fechamento": null,
+    "usuario_id": null,
+    "aberto_em": "2026-10-12 10:45:58.570145+00",
+    "fechado_em": null,
+    "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+    "sige_caixa_id": null,
+    "aberto_por": null
+  }
+]
