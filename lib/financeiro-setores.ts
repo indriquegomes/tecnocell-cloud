@@ -125,11 +125,13 @@ export const SUBCATEGORIAS: Record<string, string[]> = {
   'Aluguel': ['Loja', 'Depósito'],
   'Energia/Luz': ['Loja', 'Depósito'],
   // operação
+  // Viagem a São Paulo ganhou subcategoria porque o dono vai lançar mais gastos
+  // dessa viagem (passagem, hotel, comida, transporte lá) e quer separar por tipo.
+  'Gastos em São Paulo': ['Passagem', 'Hospedagem', 'Alimentação', 'Transporte local', 'Compra', 'Outros'],
   'Manutenção': ['Loja', 'Equipamento', 'Veículo'],
   'Perda': ['Avaria', 'Extravio', 'Furto'],
   'Uso interno': ['Teste', 'Consumo'],
   'Alimentação': ['Equipe', 'Cliente'],
-  'Gastos em São Paulo': ['Compra', 'Viagem'],
   // sócio e dívidas
   'Dívida parcelada': ['Fornecedor', 'Sócio', 'Empréstimo'],
   'Retirada do sócio': ['Retirada', 'Pró-labore'],
