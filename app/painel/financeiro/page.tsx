@@ -10,7 +10,7 @@ import { LinhaEditable } from './LinhaEditable'
 import { gerarFolha } from './actions'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
-import { ExportCsv } from '../relatorios/ExportCsv'
+import { aplicarFiltros, aplicarLoja, periodoDe, querystringDoFiltro } from '@/lib/financeiro-filtros'
 
 // A classificação vive em um lugar só (lib/financeiro-setores.ts): setor → categoria.
 // O filtro em cascata e o formulário leem daqui, então não nasce categoria fora de lugar.
@@ -41,85 +41,14 @@ export default async function FinanceiroPage({
   const contasOpc = (contasList ?? []) as { id: string; nome: string }[]
   const categoriasOpc = [...new Set(SETORES.flatMap((s) => s.categorias))]
 
-  // Aplica TODOS os filtros da busca avançada a uma query (reusado na lista e nos totais)
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  // Filtro SÓ de loja (sem busca/tipo) — pros cards de resumo e "último pagamento",
-  // que somam por loja sem esconder pelo texto digitado.
-  const aplicaLoja = (q: any): any => {
-    if (lojaEfetiva === 'sem') return q.is('loja_id', null)
-    if (lojaEfetiva !== 'todas') return q.eq('loja_id', lojaEfetiva)
-    return q
-  }
-  // Funcionário = quem tem cadastro em perfis. Freelancer = quem presta serviço
-  // pontual e NÃO está na folha. A distinção é pelo cadastro, não pela categoria.
-  const { data: perfisNomesData } = await supabase.from('perfis').select('nome')
-  const nomesFuncionarios = ((perfisNomesData ?? []) as { nome: string | null }[])
-    .map((p) => p.nome).filter((n): n is string => !!n)
-  const inFuncionarios = '(' + nomesFuncionarios.map((n) => '"' + n.replace(/"/g, '') + '"').join(',') + ')'
-
-  // Período padrão/cálculo dos chips. Sem filtro de data, a lista abre no MÊS ATUAL
-  // (não em todo o histórico) — 'tudo=1' mostra tudo.
-  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  const hojeD = new Date(hojeSP() + 'T12:00:00')
-  const mesIni = hojeSP().slice(0, 7) + '-01'
-  const mesFim = iso(new Date(hojeD.getFullYear(), hojeD.getMonth() + 1, 0))
-  const verTudo = params.tudo === '1'
-
-  const aplica = (q: any): any => {
-    q = aplicaLoja(q)
-    if (params.tipo === 'pagar' || params.tipo === 'receber') q = q.eq('tipo', params.tipo)
-    if (params.busca) {
-      for (const w of params.busca.replace(/[,()%]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6)) {
-        // Busca sem frescura de acento: digitar "salarios" tem que achar "Salários",
-        // "franca" tem que achar "França", "leticia" tem que achar "Letícia".
-        //
-        // No ilike do banco não existe comparar sem acento, então cada vogal e cada c
-        // do termo digitado vira um curinga de UMA letra (_): "salarios" -> "s_l_r__s",
-        // que casa com "Salários" e com "salarios". O teto conhecido: pode trazer
-        // alguma linha a mais de mesmo tamanho e mesmas consoantes — numa lista
-        // filtrável isso aparece na hora e não machuca número nenhum.
-        // ponytail: se um dia incomodar, o caminho é coluna gerada com unaccent() no
-        // banco (aí a busca fica exata).
-        const padrao = w.length >= 3 ? w.toLowerCase().replace(/[aeiouc]/g, '_') : w
-        q = q.or(`descricao.ilike.%${padrao}%,pessoa_nome.ilike.%${padrao}%,categoria.ilike.%${padrao}%`)
-      }
-    }
-    if (params.pessoa) q = q.ilike('pessoa_nome', `%${params.pessoa}%`)
-    if (params.forma) q = q.eq('forma_pagamento', params.forma)
-    if (params.conta) q = q.eq('conta_id', params.conta)
-    if (params.categoria) q = q.eq('categoria', params.categoria)
-    if (params.subcategoria) q = q.eq('subcategoria', params.subcategoria)
-    if (params.setor) {
-      // Setor vem antes da categoria: escolher Funcionários já restringe àquelas
-      // categorias, e a cascata na tela só oferece as do setor escolhido.
-      const cats = categoriasDoSetor(params.setor)
-      if (params.setor === 'sem_categoria') q = q.is('categoria', null)
-      else if (cats.length) q = q.in('categoria', cats)
-    }
-    if (params.valor_min) q = q.gte('valor', Number(params.valor_min))
-    if (params.valor_max) q = q.lte('valor', Number(params.valor_max))
-    // ORIGEM: de onde o lançamento nasceu. Responde "isso veio de venda, de fiado ou
-    // alguém digitou à mão?" — pergunta que a tela não respondia.
-    if (params.origem === 'venda') q = q.not('venda_id', 'is', null).neq('categoria', 'Fiado (a receber)')
-    else if (params.origem === 'fiado') q = q.eq('categoria', 'Fiado (a receber)')
-    else if (params.origem === 'manual') q = q.is('venda_id', null)
-
-    // VENCE EM: janela para frente (dinheiro que ainda vai sair/entrar), independente
-    // de estar vencido ou não.
-    if (params.vence === 'hoje') q = q.eq('data_vencimento', hojeSP())
-    else if (params.vence === '7dias') q = q.gte('data_vencimento', hojeSP()).lte('data_vencimento', hojeSP(7))
-    else if (params.vence === 'mes') q = q.gte('data_vencimento', mesIni).lte('data_vencimento', mesFim)
-
-    if (params.status === 'pago') q = q.eq('status', 'pago')
-    else if (params.status === 'pendente') q = q.neq('status', 'pago')
-    else if (params.status === 'vencido') q = q.neq('status', 'pago').lt('data_vencimento', hojeSP())
-    const deEfetivo = params.de ?? (verTudo ? undefined : mesIni)
-    const ateEfetivo = params.ate ?? (verTudo ? undefined : mesFim)
-    if (deEfetivo) q = q.gte(campoData, deEfetivo)
-    if (ateEfetivo) q = q.lte(campoData, ateEfetivo)
-    return q
-  }
-  /* eslint-enable @typescript-eslint/no-explicit-any */
+  // Filtro de loja e filtros completos vêm de lib/financeiro-filtros.ts, para a rota
+  // de exportação usar exatamente o mesmo recorte (antes o filtro vivia aqui e o CSV
+  // era montado no navegador com a lista inteira — 2 MB de HTML em cada abertura).
+  const aplicaLoja = (q: unknown) => aplicarLoja(q, lojaEfetiva)
+  // Filtros completos e período vêm de lib/financeiro-filtros.ts (mesma regra usada
+  // pela rota de exportação — filtro duplicado é filtro que divergiu).
+  const { mesIni, mesFim, verTudo } = periodoDe(params)
+  const aplica = (q: unknown) => aplicarFiltros(q, params, { lojaEfetiva })
   const temFiltro = !!(params.busca || params.pessoa || params.forma || params.conta || params.categoria || params.subcategoria || params.setor || params.origem || params.vence || params.valor_min || params.valor_max || params.status || params.de || params.ate || params.tipo)
 
   const ordemAtual = params.ordem ?? 'data_vencimento'
@@ -349,9 +278,11 @@ export default async function FinanceiroPage({
         <span>Pagar <b className="text-red-500">{formatBRL(fPagar)}</b></span>
         <span className="text-gray-400">{fCount} lançamento(s)</span>
         <div className="ml-auto">
-          <ExportCsv filename={`financeiro_${hojeSP()}.csv`}
-            cols={[{ key: 'descricao', label: 'Descrição' }, { key: 'pessoa_nome', label: 'Pessoa' }, { key: 'data_vencimento', label: 'Vencimento' }, { key: 'data_competencia', label: 'Competência' }, { key: 'valor', label: 'Valor', money: true }, { key: 'tipo', label: 'Tipo' }, { key: 'status', label: 'Status' }, { key: 'forma_pagamento', label: 'Forma' }, { key: 'categoria', label: 'Categoria' }]}
-            rows={filtrados as unknown as Record<string, unknown>[]} />
+          <a href={`/painel/financeiro/exportar?${querystringDoFiltro(params)}`}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
+            title={`Baixa em CSV exatamente o que está filtrado (${fCount} lançamento(s))`}>
+            ⬇ Exportar CSV
+          </a>
         </div>
       </div>
 
