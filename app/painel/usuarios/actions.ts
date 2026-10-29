@@ -200,6 +200,11 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
     update.data_contrato_inicio = dataContratoInicio
     update.data_contrato_fim = dataContratoFim
   }
+  // Autônomo (RPA): tem início de combinado, mas não tem "fim de contrato" — o
+  // campo nem aparece no formulário. Gravar sempre apagaria o início já salvo.
+  if (vinculo === 'autonomo') {
+    update.data_contrato_inicio = dataContratoInicio
+  }
 
   const { error } = await supabase.from('perfis').update(update).eq('id', userId)
 

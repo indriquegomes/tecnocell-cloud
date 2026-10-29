@@ -312,6 +312,7 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario }: { lojas: Loja[];
             <option value="mei">MEI</option>
             <option value="clt">CLT</option>
             <option value="estagio">Estágio</option>
+            <option value="autonomo">Autônomo (RPA)</option>
           </select>
         </div>
 
@@ -339,6 +340,32 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario }: { lojas: Loja[];
               <label className="mb-1 block text-xs font-medium text-gray-600">Funções a desempenhar</label>
               <input name="mei_funcoes" defaultValue={usuario.meiFuncoes ?? ''} className="field w-full text-sm" placeholder="Ex: balcão, estoque, caixa..." />
             </div>
+          </div>
+        )}
+
+        {/* AUTÔNOMO (RPA): recebe combinado, emite recibo, sem carteira e sem CNPJ.
+            Usa o MESMO campo "Salário mensal" do topo do formulário (é ele que a
+            "Gerar folha" lê) — aqui só entram as datas e o dia do pagamento. */}
+        {vinculo === 'autonomo' && (
+          <div className="grid grid-cols-2 gap-3 mt-3">
+            <div className="w-44">
+              <label className="mb-1 block text-xs font-medium text-gray-600">Início do combinado</label>
+              <input type="date" name="data_contrato_inicio" defaultValue={usuario.dataContratoInicio ?? ''} className="field w-full text-sm" />
+            </div>
+            <div className="w-44">
+              <label className="mb-1 block text-xs font-medium text-gray-600">Dia padrão de pagamento</label>
+              <select name="mei_dia_pagamento" defaultValue={usuario.meiDiaPagamento ?? 'sexta'} className="field w-full text-sm">
+                {['segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado', 'domingo'].map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <div className="col-span-2">
+              <label className="mb-1 block text-xs font-medium text-gray-600">Funções a desempenhar</label>
+              <input name="mei_funcoes" defaultValue={usuario.meiFuncoes ?? ''} className="field w-full text-sm" placeholder="Ex.: coordenação geral das duas lojas" />
+            </div>
+            <p className="col-span-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
+              Autônomo não tem carteira nem CNPJ: o valor fixo vai no campo <b>Salário mensal</b> lá em cima,
+              e cada pagamento pede <b>recibo (RPA)</b>. Os extras (hora ou tarefa) entram à mão no financeiro.
+            </p>
           </div>
         )}
 
