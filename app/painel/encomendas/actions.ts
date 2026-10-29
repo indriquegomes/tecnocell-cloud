@@ -80,9 +80,13 @@ export async function criarEncomenda(formData: FormData) {
   if (sinal > 0) {
     const hoje = hojeSP()
     const desc = `Sinal encomenda ${item_nome} — ${pessoa_nome}`
+    // O sinal é receita de encomenda, não venda fechada: nasce classificado como
+    // "Combinado na entrega › Sinal" (antes nascia SEM categoria e ia para o balde
+    // "Sem categoria" do financeiro).
     const { error: eLanc } = await supabase.from('lancamentos').insert({
       id: crypto.randomUUID(),
       descricao: desc, valor: sinal, tipo: 'receber', status: 'pago',
+      categoria: 'Combinado na entrega', subcategoria: 'Sinal',
       data_competencia: hoje, data_vencimento: hoje, data_pagamento: hoje,
       forma_pagamento: sinal_forma, pessoa_nome, pessoa_id, loja_id,
     })
