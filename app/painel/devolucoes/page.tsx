@@ -6,9 +6,9 @@ import { DevolucoesClient, type ItemDevolucaoLinha } from './DevolucoesClient'
 export default async function DevolucoesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ de?: string; ate?: string; q?: string; venda?: string; loja?: string }>
+  searchParams: Promise<{ de?: string; ate?: string; q?: string; venda?: string; loja?: string; tudo?: string }>
 }) {
-  const { de, ate, q, venda, loja } = await searchParams
+  const { de, ate, q, venda, loja, tudo } = await searchParams
   const supabase = await createServiceClient()
 
   const hoje = hojeSP()
@@ -84,6 +84,20 @@ export default async function DevolucoesPage({
     (vemTodas || !l.loja || nomesPermitidos.includes(l.loja)) &&
     (!loja || l.loja === loja))
 
+  // LISTA LIMITADA, TOTAIS INTEIROS.
+  //
+  // O mês inteiro dá mais de 1.800 linhas de item: mandar tudo para o navegador dava
+  // 2,5 MB de página (medido em 27/10/2026). A tela agora recebe as 200 devoluções
+  // mais recentes e os TOTAIS do período inteiro já calculados aqui — número não
+  // muda, só a lista é curta. Quem precisa varrer o período todo clica em "ver tudo"
+  // (?tudo=1), que carrega completo como antes.
+  const LIMITE_DEVOLUCOES = 200
+  const totalDevolucoesPeriodo = new Set(linhasVisiveis.map(l => l.devolucao_id)).size
+  const totalItensPeriodo = linhasVisiveis.reduce((s, l) => s + l.quantidade, 0)
+  const totalValorPeriodo = linhasVisiveis.reduce((s, l) => s + l.total_item, 0)
+  const devolucoesRecentes = new Set([...new Set(linhasVisiveis.map(l => l.devolucao_id))].slice(0, LIMITE_DEVOLUCOES))
+  const linhasParaTela = tudo === '1' ? linhasVisiveis : linhasVisiveis.filter(l => devolucoesRecentes.has(l.devolucao_id))
+
   // Contas de BANCO pro reembolso em PIX/cartão: quem devolve escolhe de qual
   // conta o dinheiro sai. Antes a devolução gravava só a palavra "pix" e o
   // saldo era descontado de um chute (a primeira conta daquele tipo) — com
@@ -99,9 +113,11 @@ export default async function DevolucoesPage({
 
   return (
     <DevolucoesClient
-      linhas={linhasVisiveis}
+      linhas={linhasParaTela}
       lojas={nomesPermitidos}
       filtros={{ de: dataInicio, ate: dataFim, q: q ?? '', loja: loja ?? '' }}
+      totais={{ devolucoes: totalDevolucoesPeriodo, itens: totalItensPeriodo, valor: totalValorPeriodo }}
+      limitado={tudo !== '1'}
       vendaInicial={venda ?? null}
       contas={(contasBanco ?? []).map((c) => ({
         id: c.id as string,

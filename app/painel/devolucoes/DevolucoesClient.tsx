@@ -87,11 +87,15 @@ type Step = 'buscar' | 'itens' | 'confirmar'
 
 // ── Componente principal ───────────────────────────────────────────────────────
 export function DevolucoesClient({
-  linhas, lojas, filtros, vendaInicial = null, contas = [],
+  linhas, lojas, filtros, vendaInicial = null, contas = [], totais, limitado = false,
 }: {
   linhas: ItemDevolucaoLinha[]
   lojas: string[]
   filtros: { de: string; ate: string; q: string; loja: string }
+  /** Totais do PERÍODO INTEIRO, calculados no servidor (a lista pode vir resumida). */
+  totais?: { devolucoes: number; itens: number; valor: number }
+  /** true = a lista traz só as devoluções mais recentes; os cards seguem sendo do período todo. */
+  limitado?: boolean
   /** ?venda=<id> — veio do botão "Devolver produto" no detalhe da venda: já abre nela. */
   vendaInicial?: string | null
   /** contas de banco — de qual sai o reembolso em PIX/cartão (dinheiro sai da gaveta) */
@@ -143,10 +147,14 @@ export function DevolucoesClient({
     )
   }, [linhas, busca, filtroMotivo, filtroVendedor])
 
-  // Cards recalculam pro recorte visível (loja no servidor + vendedor/motivo/busca no cliente)
-  const nDevolucoes = new Set(linhasFiltradas.map(l => l.devolucao_id)).size
-  const totalItens  = linhasFiltradas.reduce((s, l) => s + l.quantidade, 0)
-  const totalValor  = linhasFiltradas.reduce((s, l) => s + l.total_item, 0)
+  // Cards: com a lista resumida, o número do card é o do PERÍODO (vem do servidor);
+  // filtrando por vendedor/motivo/busca na tela, ele passa a refletir o que está à
+  // vista. Assim o card nunca mente sobre o período nem sobre o filtro.
+  const filtrandoNaTela = !!(busca.trim() || filtroMotivo || filtroVendedor)
+  const usarTotaisDoServidor = limitado && !filtrandoNaTela && !!totais
+  const nDevolucoes = usarTotaisDoServidor ? totais!.devolucoes : new Set(linhasFiltradas.map(l => l.devolucao_id)).size
+  const totalItens  = usarTotaisDoServidor ? totais!.itens      : linhasFiltradas.reduce((s, l) => s + l.quantidade, 0)
+  const totalValor  = usarTotaisDoServidor ? totais!.valor      : linhasFiltradas.reduce((s, l) => s + l.total_item, 0)
 
   const aplicarFiltros = () => {
     const p = new URLSearchParams({ de: filtroDe, ate: filtroAte, q: busca })
@@ -493,6 +501,19 @@ export function DevolucoesClient({
           </div>
         ))}
       </div>
+
+      {limitado && (
+        <p className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          A lista mostra as <b>200 devoluções mais recentes</b> do período (os cards acima somam o período inteiro).
+          {' '}
+          <button onClick={() => {
+            const p = new URLSearchParams({ de: filtroDe, ate: filtroAte, q: busca, tudo: '1' })
+            if (filtroLoja) p.set('loja', filtroLoja)
+            router.push('/painel/devolucoes?' + p.toString())
+          }} className="font-semibold underline">Ver o período inteiro</button>
+          {' '}(mais lento em mês cheio).
+        </p>
+      )}
 
       {/* ── Barra busca + filtros ────────────────────────────────────────── */}
       <div className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-3 py-2 shadow-sm">
