@@ -407,12 +407,15 @@ export async function gerarFolha(formData: FormData) {
 
   const { data } = await supabase
     .from('perfis')
-    .select('nome, salario, is_master, pdv_loja_id, lojas_permitidas')
+    .select('nome, salario, is_master, pdv_loja_id, lojas_permitidas, vinculo')
     .eq('ativo', true)
     .gt('salario', 0)
+  // Perfil de TREINAMENTO/TESTE nunca entra na folha: ele existe para a pessoa
+  // treinar no sistema (gente nova ou de outra loja), não é funcionário da casa.
   const perfis = ((data ?? []) as {
-    nome: string; salario: number | null; is_master: boolean | null; pdv_loja_id: string | null; lojas_permitidas: string[] | null
-  }[]).filter((p) => !p.is_master)
+    nome: string; salario: number | null; is_master: boolean | null; pdv_loja_id: string | null
+    lojas_permitidas: string[] | null; vinculo: string | null
+  }[]).filter((p) => !p.is_master && p.vinculo !== 'treinamento')
 
   // Evita duplicar se clicar 2x no mesmo vencimento: pula quem já tem salário
   // naquela data (pago ou pendente).

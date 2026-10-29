@@ -313,6 +313,7 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario }: { lojas: Loja[];
             <option value="clt">CLT</option>
             <option value="estagio">Estágio</option>
             <option value="autonomo">Autônomo (RPA)</option>
+            <option value="treinamento">Treinamento / teste</option>
           </select>
         </div>
 
@@ -341,6 +342,16 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario }: { lojas: Loja[];
               <input name="mei_funcoes" defaultValue={usuario.meiFuncoes ?? ''} className="field w-full text-sm" placeholder="Ex: balcão, estoque, caixa..." />
             </div>
           </div>
+        )}
+
+        {/* TREINAMENTO / TESTE: perfil que existe para treinar gente nova ou de outra
+            loja (antes chamados "Visita Pet" e "Visita Tere"). Não entra em folha,
+            não tem salário e não conta como funcionário na conferência. */}
+        {vinculo === 'treinamento' && (
+          <p className="col-span-2 mt-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">
+            Perfil de <b>treinamento/teste</b>: serve para a pessoa treinar no sistema. Não entra na
+            folha de pagamento, não tem salário e fica fora da conferência de funcionários.
+          </p>
         )}
 
         {/* AUTÔNOMO (RPA): recebe combinado, emite recibo, sem carteira e sem CNPJ.
