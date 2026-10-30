@@ -13,7 +13,9 @@ import { detectarFaltas } from '@/lib/faltas'
 const LIMITE_EXTRA = 8
 const fmtH = (h: number) => {
   const m = Math.round(Math.abs(h) * 60)
-  return `${h > 0 ? '+' : h < 0 ? '−' : ''}${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}m`
+  // m===0 → sem sinal: h minúsculo negativo (ex -0.0001) não pode virar "-0h00m"
+  const sinal = m === 0 ? '' : h > 0 ? '+' : '−'
+  return `${sinal}${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}m`
 }
 
 type Ponto = { id: string; usuario_id: string; tipo: string; criado_em: string }

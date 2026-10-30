@@ -130,7 +130,7 @@ export function MeuPerfilClient() {
   }
   if (aberto != null) trabMin += (Date.now() - aberto) / 60000
   const horasTxt = `${Math.floor(trabMin / 60)}h ${String(Math.round(trabMin % 60)).padStart(2, '0')}m`
-  const fmtSaldo = (min: number) => (min > 0 ? '+' : min < 0 ? '−' : '') + Math.floor(Math.abs(min) / 60) + 'h' + String(Math.abs(min) % 60).padStart(2, '0') + 'm'
+  const fmtSaldo = (min: number) => { const m = Math.round(Math.abs(min)); const sinal = m === 0 ? '' : min > 0 ? '+' : '−'; return sinal + Math.floor(m / 60) + 'h' + String(m % 60).padStart(2, '0') + 'm' }
   const acoesPonto: [string, string, string][] =
     !ultimo || ultimo === 'saida' ? [['entrada', '▶ Entrada', 'bg-emerald-600 hover:bg-emerald-700']]
     : ultimo === 'pausa' ? [['retorno', '▶ Retornar', 'bg-emerald-600 hover:bg-emerald-700']]
