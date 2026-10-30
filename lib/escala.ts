@@ -187,18 +187,24 @@ export interface Trabalhado {
   aberto: boolean                          // ainda está trabalhando agora
 }
 
+// Instâncias reutilizadas — criar Intl.DateTimeFormat a cada ponto (109/semana × 2
+// chamadas) era o gargalo do refresh da tela de escala ao salvar.
+const fmtMinutoSP = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false,
+})
+const fmtDataSP = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit',
+})
+
 /** Minuto do dia (fuso da loja) de um timestamp. */
 function minutoSP(iso: string): number {
-  const f = new Intl.DateTimeFormat('pt-BR', {
-    timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false,
-  })
-  const [h, m] = f.format(new Date(iso)).split(':').map(Number)
+  const [h, m] = fmtMinutoSP.format(new Date(iso)).split(':').map(Number)
   return (h || 0) * 60 + (m || 0)
 }
 
 /** Data (YYYY-MM-DD) de um timestamp, no fuso da loja. */
 function dataSP(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  return fmtDataSP.format(new Date(iso))
 }
 
 /**

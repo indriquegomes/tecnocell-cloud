@@ -435,7 +435,6 @@ function ReguaEditor({
   fecha: number
   onFechar: () => void
 }) {
-  const router = useRouter()
   const [state, action, pending] = useActionState<ActionState, FormData>(salvarRegua, null)
   const [pessoa, setPessoa] = useState(perfis[0]?.id ?? '')
   const [cor, setCor] = useState(corDe(perfis[0]?.id ?? '', perfis, cores))
@@ -488,7 +487,6 @@ function ReguaEditor({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ent, sai, p1, p2])
 
-  useEffect(() => { if (state?.ok) router.refresh() }, [state, router])
 
   // trilho = DIA TODO (00:00–24:00); a loja é só a faixa sombreada dentro dele
   const span = DIA_FIM - DIA_INICIO
