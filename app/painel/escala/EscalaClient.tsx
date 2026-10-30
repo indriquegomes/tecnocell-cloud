@@ -107,7 +107,7 @@ export function EscalaClient({
                   const h = horas.find((x) => x.perfilId === id)
                   const nome = h?.nome ?? perfis.find((p) => p.id === id)?.nome ?? '—'
                   const real = trabalhadoSemana[id] ?? 0
-                  const saldo = real - (h?.minutos ?? 0)
+                  const saldo = Math.round(real - (h?.minutos ?? 0))
                   return (
                     <div key={id} className="flex items-center gap-3 text-sm">
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: corDe(id, perfis, cores) }} />

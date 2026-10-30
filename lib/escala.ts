@@ -268,8 +268,11 @@ export function horasPorPessoa(
 }
 
 export const horasTexto = (minutos: number) => {
-  const h = Math.floor(minutos / 60)
-  const m = minutos % 60
+  // arredonda pra minuto inteiro — soma/subtração de minutos pode dar erro de
+  // ponto flutuante (ex: -0.0000001) e virar "-0h" em vez de "0h"
+  const total = Math.round(minutos)
+  const h = Math.floor(total / 60)
+  const m = total % 60
   return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, '0')}`
 }
 
