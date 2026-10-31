@@ -37,6 +37,29 @@ export async function emitirCredito(formData: FormData) {
   redirect('/painel/vales-credito?ok=1')
 }
 
+// BUSCA DE CLIENTE SOB DEMANDA (para o modal "Emitir crédito").
+// Antes a tela mandava TODOS os clientes da base (2.053 nomes) só para o campo de
+// busca sugerir. Agora a sugestão vem do banco pelo que foi digitado.
+export async function buscarClientesParaCredito(
+  accessToken: string,
+  termo: string,
+): Promise<{ id: string; nome: string }[]> {
+  await requirePermissao('financeiro', accessToken)
+  const t = (termo || '').trim()
+  if (t.length < 2) return []
+  const supabase = await createServiceClient()
+  const { data } = await supabase
+    .from('pessoas')
+    .select('id, nome')
+    .in('tipo', ['cliente', 'ambos'])
+    .ilike('nome', '%' + t + '%')
+    .order('nome')
+    .limit(8)
+  return ((data ?? []) as { id: string; nome: string | null }[])
+    .filter((p) => !!p.nome)
+    .map((p) => ({ id: p.id, nome: p.nome as string }))
+}
+
 export async function estornarCredito(id: string) {
   await requirePermissao('financeiro')
   const supabase = await createServiceClient()

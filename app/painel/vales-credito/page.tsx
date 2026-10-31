@@ -158,7 +158,7 @@ export default async function CreditosClientePage({
   return (
     <CreditosClient
       clientes={clientesParaTela}
-      pessoas={pessoas ?? []}
+      pessoas={[]}
       lojas={(lojasData ?? []) as { id: string; nome: string }[]}
       totalEmCirculacao={totalEmCirculacao}
       clienteFiltroInicial={clienteFiltro ?? ''}

@@ -1,11 +1,18 @@
 'use client'
 
 import { IconCard } from '@/components/icons'
-import { useState } from 'react'
-import { emitirCredito, estornarCredito } from './actions'
+import { useEffect, useState } from 'react'
+import { buscarClientesParaCredito, emitirCredito, estornarCredito } from './actions'
 import { ConfirmButton } from '@/components/ConfirmButton'
 import { SubmitButton } from '@/components/SubmitButton'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
+import { createClient } from '@/lib/supabase/client'
+
+const supabaseBrowser = createClient()
+async function authToken(): Promise<string> {
+  const { data } = await supabaseBrowser.auth.getSession()
+  return data.session?.access_token ?? ''
+}
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtData = (d: string) => new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
@@ -81,13 +88,24 @@ export function CreditosClient({
   const [expandido, setExpandido] = useState<string | null>(null)
   const [mostrarEmitir, setMostrarEmitir] = useState(false)
 
-  // Busca de cliente no modal Emitir (sem precisar rolar a lista inteira)
+  // Busca de cliente no modal Emitir — feita NO BANCO, não na lista que veio junto.
+  // (Antes a página mandava os 2.053 clientes só para este campo.)
   const [buscaEmit, setBuscaEmit] = useState('')
   const [clienteEmit, setClienteEmit] = useState<{ id: string; nome: string } | null>(null)
-  const abrirEmitir = () => { setClienteEmit(null); setBuscaEmit(''); setMostrarEmitir(true) }
-  const pessoasEmit = buscaEmit.trim() && !clienteEmit
-    ? pessoas.filter((p) => semAcento(p.nome).includes(semAcento(buscaEmit))).slice(0, 8)
-    : []
+  const [pessoasEmit, setPessoasEmit] = useState<{ id: string; nome: string }[]>([])
+  const abrirEmitir = () => { setClienteEmit(null); setBuscaEmit(''); setPessoasEmit([]); setMostrarEmitir(true) }
+  useEffect(() => {
+    const termo = buscaEmit.trim()
+    if (clienteEmit || termo.length < 2) { setPessoasEmit([]); return }
+    let cancelado = false
+    const timer = setTimeout(async () => {
+      try {
+        const achados = await buscarClientesParaCredito(await authToken(), termo)
+        if (!cancelado) setPessoasEmit(achados)
+      } catch { if (!cancelado) setPessoasEmit([]) }
+    }, 300)
+    return () => { cancelado = true; clearTimeout(timer) }
+  }, [buscaEmit, clienteEmit])
 
   const clientesFiltrados = busca.trim()
     ? clientes.filter((c) => semAcento(c.nome).includes(semAcento(busca)))
