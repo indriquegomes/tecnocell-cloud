@@ -232,6 +232,53 @@ export async function auditarFinanceiro(supabase: SB): Promise<Achado[]> {
       .filter((e) => Number(e.quantidade ?? 0) < 0 && !permiteNegativo.get(e.produto_id))
       .map((e) => ({ valor: Math.abs(Number(e.quantidade ?? 0)), rotulo: nomeProduto.get(e.produto_id) ?? e.produto_id }))))
 
+  // ── Devolução: reembolso nasceu "pago" sem dizer quanto foi pago ──────────
+  // A função registrar_devolucao grava status pago e a data, mas não grava valor_pago.
+  // A conta do dinheiro sabe compensar (pagoReal), mas o campo fica torto e some dos
+  // relatórios que leem valor_pago cru.
+  out.push(achado('devolucao_sem_valor_pago', 'Devolução paga com "quanto foi pago" vazio',
+    'Reembolso pago tem valor pago registrado.',
+    'A conta usa o valor cheio, então o total não está errado. O conserto definitivo é na função do banco (registrar_devolucao).',
+    'atencao',
+    lancamentos
+      .filter((l) => l.status === 'pago' && Number(l.valor_pago ?? 0) <= 0 && Number(l.valor ?? 0) > 0
+        && ((l as { categoria?: string | null }).categoria || '').toLowerCase().includes('devolu'))
+      .map((l) => ({ valor: Number(l.valor ?? 0), rotulo: nome(l) }))))
+
+  // ── Fiado que existe na venda mas não virou nota no financeiro ────────────
+  // A venda importada do SIGE trouxe a forma "pendente" e nenhuma conta a receber.
+  // A tela de Fiados lê as NOTAS, então essa dívida fica invisível.
+  const janelaVenda = vendas.filter((v) => (v.status as string) !== 'cancelada')
+  const idsComNota = new Set(lancamentos.map((l) => (l as { venda_id?: string | null }).venda_id).filter(Boolean) as string[])
+  const pagamentosPendentes = pagamentos.filter((p) => (p.status as string) === 'pendente')
+  const vendaPorId = new Map(janelaVenda.map((v) => [v.id as string, v]))
+  const semNota = pagamentosPendentes.filter((p) => {
+    const v = vendaPorId.get(p.venda_id as string)
+    return !!v && !idsComNota.has(p.venda_id as string)
+  })
+  out.push(achado('venda_fiada_sem_nota', 'Venda fiada sem conta a receber no financeiro',
+    'Toda venda no fiado tem que virar conta a receber.',
+    'A tela de Fiados mostra só as contas; o que está aqui não aparece para cobrança. É herança da importação do SIGE — tratar depois da virada do mês.',
+    'atencao',
+    semNota.map((p) => ({ valor: Number(p.valor ?? 0), rotulo: 'venda #' + ((vendaPorId.get(p.venda_id as string)?.numero as number | null) ?? '?') }))))
+
+  // ── Duplicata: mesma pessoa, mesmo valor, mesmo vencimento ───────────────
+  // Não é erro automático (pode ser parcelamento igual), é convite a olhar.
+  const grupos = new Map<string, { valor: number; qtd: number }>()
+  for (const l of lancamentos) {
+    if (l.status === 'cancelado') continue
+    const chave = [l.tipo, (l as { pessoa_nome?: string | null }).pessoa_nome ?? '', l.valor ?? 0, l.data_vencimento ?? ''].join('|')
+    const atual = grupos.get(chave) ?? { valor: Number(l.valor ?? 0), qtd: 0 }
+    atual.qtd += 1
+    grupos.set(chave, atual)
+  }
+  const sobras = [...grupos.entries()].filter(([, g]) => g.qtd > 1)
+  out.push(achado('duplicata_suspeita', 'Mesmo valor, mesma pessoa e mesmo vencimento',
+    'Duas linhas iguais no mesmo dia são duplicata ou parcelamento.',
+    'Se for parcelamento, é legítimo (ex.: 3 notas de R$ 64,40 da mesma venda). Se for duplicata, cancele uma.',
+    'atencao',
+    sobras.map(([chave, g]) => ({ valor: g.valor * (g.qtd - 1), rotulo: chave.split('|')[1] + ' (' + g.qtd + 'x)' }))))
+
   return out
 }
 
