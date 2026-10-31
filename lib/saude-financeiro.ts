@@ -246,24 +246,25 @@ export async function auditarFinanceiro(supabase: SB): Promise<Achado[]> {
       .map((l) => ({ valor: Number(l.valor ?? 0), rotulo: nome(l) }))))
 
   // ── Fiado que existe na venda mas não virou nota no financeiro ────────────
-  // A venda importada do SIGE trouxe a forma "pendente" e nenhuma conta a receber.
-  // A tela de Fiados lê as NOTAS, então essa dívida fica invisível.
+  // LIMITADO DE PROPÓSITO: cruzar todas as parcelas pendentes com as notas em JS
+  // deixava a tela lenta (chegou a estourar o tempo). Aqui só olhamos as primeiras
+  // 500 parcelas da janela — serve de amostra e mantém a tela rápida.
+  // ponytail: se um dia precisar do total exato, fazer por SQL (count + not exists).
+  const AMOSTRA = 500
   const janelaVenda = vendas.filter((v) => (v.status as string) !== 'cancelada')
-  const idsComNota = new Set(lancamentos.map((l) => (l as { venda_id?: string | null }).venda_id).filter(Boolean) as string[])
-  const pagamentosPendentes = pagamentos.filter((p) => (p.status as string) === 'pendente')
   const vendaPorId = new Map(janelaVenda.map((v) => [v.id as string, v]))
-  const semNota = pagamentosPendentes.filter((p) => {
-    const v = vendaPorId.get(p.venda_id as string)
-    return !!v && !idsComNota.has(p.venda_id as string)
-  })
-  out.push(achado('venda_fiada_sem_nota', 'Venda fiada sem conta a receber no financeiro',
+  const idsComNota = new Set(lancamentos.map((l) => (l as { venda_id?: string | null }).venda_id).filter(Boolean) as string[])
+  const semNota = pagamentos
+    .filter((p) => (p.status as string) === 'pendente')
+    .slice(0, AMOSTRA)
+    .filter((p) => vendaPorId.has(p.venda_id as string) && !idsComNota.has(p.venda_id as string))
+  out.push(achado('venda_fiada_sem_nota', 'Venda fiada sem conta a receber no financeiro (amostra)',
     'Toda venda no fiado tem que virar conta a receber.',
-    'A tela de Fiados mostra só as contas; o que está aqui não aparece para cobrança. É herança da importação do SIGE — tratar depois da virada do mês.',
+    'A tela de Fiados mostra só as contas; o que está aqui não aparece para cobrança. Herança da importação do SIGE — tratar depois da virada.',
     'atencao',
-    semNota.map((p) => ({ valor: Number(p.valor ?? 0), rotulo: 'venda #' + ((vendaPorId.get(p.venda_id as string)?.numero as number | null) ?? '?') }))))
+    semNota.map((p) => ({ valor: 0, rotulo: 'venda #' + ((vendaPorId.get(p.venda_id as string)?.numero as number | null) ?? '?') }))))
 
   // ── Duplicata: mesma pessoa, mesmo valor, mesmo vencimento ───────────────
-  // Não é erro automático (pode ser parcelamento igual), é convite a olhar.
   const grupos = new Map<string, { valor: number; qtd: number }>()
   for (const l of lancamentos) {
     if (l.status === 'cancelado') continue
