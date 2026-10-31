@@ -30,7 +30,10 @@ type ClienteComSaldo = {
   nome: string
   loja: string
   saldo: number
+  /** Histórico enviado para a tela (pode vir resumido — o saldo NÃO é recalculado aqui). */
   movimentos: Movimento[]
+  /** Quantos movimentos existem no total (o saldo vem de todos eles). */
+  totalMovimentos?: number
 }
 
 type DetalheDevolucao = {
@@ -171,7 +174,10 @@ export function CreditosClient({
                   </div>
                   <div>
                     <p className="font-semibold text-gray-800">{c.nome}</p>
-                    <p className="text-xs text-gray-400">{c.loja} · {c.movimentos.length} movimento{c.movimentos.length !== 1 ? 's' : ''}</p>
+                    <p className="text-xs text-gray-400">
+                      {c.loja} · {(c.totalMovimentos ?? c.movimentos.length)} movimento{(c.totalMovimentos ?? c.movimentos.length) !== 1 ? 's' : ''}
+                      {(c.totalMovimentos ?? 0) > c.movimentos.length && ' (histórico resumido)'}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">

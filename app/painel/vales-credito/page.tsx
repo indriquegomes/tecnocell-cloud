@@ -145,9 +145,19 @@ export default async function CreditosClientePage({
 
   const totalEmCirculacao = clientes.reduce((s, c) => s + Math.max(0, c.saldo), 0)
 
+  // HISTÓRICO RESUMIDO: o saldo de cada cliente já foi calculado acima com TODOS os
+  // movimentos. O que vai para o navegador é só o histórico recente de cada um — a
+  // tela estava mandando 2.657 movimentos e pesava 607 KB.
+  const LIMITE_MOVIMENTOS = 8
+  const clientesParaTela = clientes.map((c) => ({
+    ...c,
+    totalMovimentos: c.movimentos.length,
+    movimentos: c.movimentos.slice(0, LIMITE_MOVIMENTOS),
+  }))
+
   return (
     <CreditosClient
-      clientes={clientes}
+      clientes={clientesParaTela}
       pessoas={pessoas ?? []}
       lojas={(lojasData ?? []) as { id: string; nome: string }[]}
       totalEmCirculacao={totalEmCirculacao}
