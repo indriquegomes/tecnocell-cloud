@@ -172,17 +172,19 @@ export default async function MovimentacoesPage({
       manuais = manuais.filter((m) => m.deposito_id === params.deposito)
     }
   } else {
-    // PADRÃO: período + limite 500 (visão recente)
+    // PADRÃO: período + limite 200 por origem (visão recente).
+    // Antes eram 500 de cada uma das 3 origens: a tela mandava 1 MB para o navegador.
+    // Quem precisa varrer tudo usa o filtro (produto, depósito, cliente) ou o "Tudo".
     let qManuais = supabase.from('movimentacoes_estoque')
       .select('id, produto_id, deposito_id, operacao, quantidade, qtd_anterior, qtd_nova, observacao, created_at')
-      .gte('created_at', ini).lte('created_at', fim).order('created_at', { ascending: false }).limit(500)
+      .gte('created_at', ini).lte('created_at', fim).order('created_at', { ascending: false }).limit(200)
     let qVendas = supabase.from('vendas')
       .select('id, numero, created_at, vendedor_nome, pessoa_id, deposito_id, status')
       .neq('status', 'aberta')
-      .gte('created_at', ini).lte('created_at', fim).order('created_at', { ascending: false }).limit(500)
+      .gte('created_at', ini).lte('created_at', fim).order('created_at', { ascending: false }).limit(200)
     let qDevs = supabase.from('devolucoes')
       .select('id, created_at, pessoa_nome, vendedor_nome, deposito_id, motivo')
-      .gte('created_at', ini).lte('created_at', fim).order('created_at', { ascending: false }).limit(500)
+      .gte('created_at', ini).lte('created_at', fim).order('created_at', { ascending: false }).limit(200)
     if (params.deposito) {
       qManuais = qManuais.eq('deposito_id', params.deposito)
       qVendas = qVendas.eq('deposito_id', params.deposito)
