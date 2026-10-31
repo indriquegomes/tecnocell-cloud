@@ -1,4 +1,4 @@
-import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server'
+import { createServiceClient, fetchAllIn } from '@/lib/supabase/server'
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { CreditosClient } from './CreditosClient'
 
@@ -10,12 +10,14 @@ export default async function CreditosClientePage({
   const { cliente: clienteFiltro, erro, ok } = await searchParams
   const supabase = await createServiceClient()
 
-  const [{ data: movimentos }, pessoas, { data: lojasData }] = await Promise.all([
+  // A lista de TODOS os clientes saiu daqui: o campo de busca do "Emitir crédito"
+  // agora consulta o banco pelo que foi digitado (buscarClientesParaCredito).
+  // Isso tirou ~146 KB da página (2.053 nomes em cada abertura).
+  const [{ data: movimentos }, { data: lojasData }] = await Promise.all([
     supabase
       .from('creditos_clientes')
       .select('id, pessoa_id, pessoa_nome, valor, tipo, descricao, devolucao_id, venda_id, lancamento_id, loja_id, created_at')
       .order('created_at', { ascending: false }),
-    fetchAll((from, to) => supabase.from('pessoas').select('id, nome').in('tipo', ['cliente', 'ambos']).order('nome').range(from, to)),
     supabase.from('lojas').select('id, nome').order('nome'),
   ])
   const lojaNome: Record<string, string> = Object.fromEntries((lojasData ?? []).map((l) => [l.id, l.nome ?? '—']))
@@ -158,7 +160,6 @@ export default async function CreditosClientePage({
   return (
     <CreditosClient
       clientes={clientesParaTela}
-      pessoas={[]}
       lojas={(lojasData ?? []) as { id: string; nome: string }[]}
       totalEmCirculacao={totalEmCirculacao}
       clienteFiltroInicial={clienteFiltro ?? ''}

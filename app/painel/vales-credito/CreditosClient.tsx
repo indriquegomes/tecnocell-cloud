@@ -63,7 +63,6 @@ type DetalheFiado = {
 
 export function CreditosClient({
   clientes,
-  pessoas,
   lojas,
   totalEmCirculacao,
   clienteFiltroInicial,
@@ -74,7 +73,6 @@ export function CreditosClient({
   ok,
 }: {
   clientes: ClienteComSaldo[]
-  pessoas: { id: string; nome: string }[]
   lojas: { id: string; nome: string }[]
   totalEmCirculacao: number
   clienteFiltroInicial: string

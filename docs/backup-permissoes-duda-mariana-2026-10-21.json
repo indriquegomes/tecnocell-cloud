@@ -1,0 +1,55 @@
+{
+  "data": "2026-10-21",
+  "motivo": "Remover permissao relatorios da Duda e Mariana (dono autorizou: so Bruna estoquista deve ver relatorios). Antes de array_remove.",
+  "antes": [
+    {
+      "id": "c6093774-8d38-4bea-8f42-10cca2189e3c",
+      "nome": "Maria Eduarda Kappler da Silva (Duda)",
+      "permissoes": [
+        "pdv",
+        "vendas",
+        "devolucoes",
+        "os",
+        "pedidos",
+        "clientes",
+        "produtos",
+        "estoque",
+        "compras",
+        "notas_entrada",
+        "financeiro",
+        "fiados",
+        "relatorios",
+        "chat_ia",
+        "venda_desconto",
+        "produto_custo",
+        "venda_abaixo_minimo",
+        "crediario_receber"
+      ]
+    },
+    {
+      "id": "4b6fe389-0c65-4af9-9dbd-b4f788e2b6c0",
+      "nome": "Mariana Vila Real Castelli",
+      "permissoes": [
+        "pdv",
+        "vendas",
+        "devolucoes",
+        "os",
+        "pedidos",
+        "clientes",
+        "produtos",
+        "estoque",
+        "compras",
+        "notas_entrada",
+        "financeiro",
+        "fiados",
+        "relatorios",
+        "metas",
+        "chat_ia",
+        "venda_desconto",
+        "produto_custo",
+        "venda_abaixo_minimo",
+        "crediario_receber"
+      ]
+    }
+  ]
+}

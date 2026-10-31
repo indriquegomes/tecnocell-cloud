@@ -1,0 +1,33 @@
+{
+  "data": "2026-10-23",
+  "motivo": "Normalizar nomes legados de pagamento (LUCAS/GIOVANI/ARNALDO MOTOBOY) para os nomes reais",
+  "antes": [
+    {
+      "id": "5f67a5b5-40a1-4db9-8cf2-563c1350b505",
+      "pessoa_nome": "GIOVANI MOTOBOY",
+      "tipo": "pagar",
+      "categoria": "Outras despesas",
+      "valor": "495.00",
+      "status": "pago",
+      "data_vencimento": "2026-09-30"
+    },
+    {
+      "id": "8c3d4aae-f51d-418e-86ae-2b4647c4f3c5",
+      "pessoa_nome": "LUCAS MOTOBOY",
+      "tipo": "pagar",
+      "categoria": "Motoboy",
+      "valor": "382.00",
+      "status": "pago",
+      "data_vencimento": "2026-09-30"
+    },
+    {
+      "id": "b5241482-1359-4f6a-a5f7-3bf0627b24ee",
+      "pessoa_nome": "ARNALDO MOTOBOY",
+      "tipo": "pagar",
+      "categoria": "Motoboy",
+      "valor": "15.00",
+      "status": "pago",
+      "data_vencimento": "2026-09-30"
+    }
+  ]
+}

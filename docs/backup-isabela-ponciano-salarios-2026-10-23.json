@@ -1,0 +1,24 @@
+{
+  "data": "2026-10-23",
+  "motivo": "Corrigir categoria Salarios -> Divida parcelada (Isabela Ponciano e ex-socia, nao funcionaria)",
+  "antes": [
+    {
+      "id": "0f893a83-e383-40ce-b777-28377651a5d3",
+      "descricao": "Salário - Isabela Ponciano Camara (parte Tere)",
+      "categoria": "Salários",
+      "valor": "1500.00",
+      "valor_pago": "1500.00",
+      "status": "pago",
+      "data_vencimento": "2026-09-30"
+    },
+    {
+      "id": "f8ce0c82-5a6f-49dd-8860-fb8030ac73b6",
+      "descricao": "Salário — Isabela Ponciano Camara (parte Pet, mês 9)",
+      "categoria": "Salários",
+      "valor": "3500.00",
+      "valor_pago": "3500.00",
+      "status": "pago",
+      "data_vencimento": "2026-09-30"
+    }
+  ]
+}

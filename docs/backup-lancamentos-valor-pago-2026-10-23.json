@@ -1,0 +1,146 @@
+{
+  "data": "2026-10-23",
+  "motivo": "Corrigir valor_pago=0 em lancamentos ja pagos, conferido com extrato bancario",
+  "antes": [
+    {
+      "id": "f53e42a4-cdf7-4e59-9d8d-46f3800e0a1b",
+      "pessoa_nome": "Arnaldo Ribeiro Tavares Filho",
+      "categoria": "Motoboy",
+      "valor": "60.00",
+      "valor_pago": "0.00",
+      "status": "pago",
+      "data_vencimento": "2026-10-05 00:00:00+00",
+      "data_pagamento": "2026-10-05 00:00:00+00"
+    },
+    {
+      "id": "aad7cb34-a59d-4531-b014-5053ac7e48b7",
+      "pessoa_nome": "Isabella Pereira Bulhoes",
+      "categoria": "Transporte",
+      "valor": "100.00",
+      "valor_pago": "0.00",
+      "status": "pago",
+      "data_vencimento": "2026-10-08 00:00:00+00",
+      "data_pagamento": "2026-10-08 00:00:00+00"
+    },
+    {
+      "id": "c3d2f136-a73e-4a13-9757-08134176423b",
+      "pessoa_nome": "Isabella Pereira Bulhoes",
+      "categoria": "Transporte",
+      "valor": "50.00",
+      "valor_pago": "0.00",
+      "status": "pago",
+      "data_vencimento": "2026-10-08 00:00:00+00",
+      "data_pagamento": "2026-10-08 00:00:00+00"
+    },
+    {
+      "id": "2f998a91-a5da-4173-ac1e-fb0a4a3e60eb",
+      "pessoa_nome": "Maria Eduarda Kappler da Silva",
+      "categoria": "Salários",
+      "valor": "623.08",
+      "valor_pago": "0.00",
+      "status": "pago",
+      "data_vencimento": "2026-10-10 00:00:00+00",
+      "data_pagamento": "2026-10-10 00:00:00+00"
+    },
+    {
+      "id": "ab74ecbc-a140-4885-99e7-1dc74cde6f7d",
+      "pessoa_nome": "Brunna Furtado Gonçalves",
+      "categoria": "Salários",
+      "valor": "656.00",
+      "valor_pago": "0.00",
+      "status": "pago",
+      "data_vencimento": "2026-10-10 00:00:00+00",
+      "data_pagamento": "2026-10-10 00:00:00+00"
+    },
+    {
+      "id": "de0b7d6f-af41-47a9-b0e0-8d65b4158935",
+      "pessoa_nome": "Mariana Vila Real Castelli",
+      "categoria": "Salários",
+      "valor": "611.54",
+      "valor_pago": "0.00",
+      "status": "pago",
+      "data_vencimento": "2026-10-10 00:00:00+00",
+      "data_pagamento": "2026-10-10 00:00:00+00"
+    },
+    {
+      "id": "e7cdbe0d-ef2b-45b5-a681-b715e8f7a243",
+      "pessoa_nome": "Nikollas Bernardo Leocadio",
+      "categoria": "Motoboy",
+      "valor": "720.00",
+      "valor_pago": "0.00",
+      "status": "pago",
+      "data_vencimento": "2026-10-10 00:00:00+00",
+      "data_pagamento": "2026-10-10 00:00:00+00"
+    },
+    {
+      "id": "39e691d0-e0e2-4a95-94f4-04427041bfd3",
+      "pessoa_nome": "Giovane Rego da Silva",
+      "categoria": "Motoboy",
+      "valor": "910.00",
+      "valor_pago": "0.00",
+      "status": "pago",
+      "data_vencimento": "2026-10-10 00:00:00+00",
+      "data_pagamento": "2026-10-10 00:00:00+00"
+    },
+    {
+      "id": "7d7d2e28-65d7-44cd-aa52-deb25ccc9eb0",
+      "pessoa_nome": "Isaac Bento Morelli",
+      "categoria": "Motoboy",
+      "valor": "600.00",
+      "valor_pago": "0.00",
+      "status": "pago",
+      "data_vencimento": "2026-10-10 00:00:00+00",
+      "data_pagamento": "2026-10-10 00:00:00+00"
+    },
+    {
+      "id": "aa142dc4-9efc-43d9-8315-267279ee71fa",
+      "pessoa_nome": "Lucas da Silva Mello",
+      "categoria": "Motoboy",
+      "valor": "923.00",
+      "valor_pago": "0.00",
+      "status": "pago",
+      "data_vencimento": "2026-10-10 00:00:00+00",
+      "data_pagamento": "2026-10-10 00:00:00+00"
+    },
+    {
+      "id": "1ad599ee-290d-4901-a04a-d386e6f9d390",
+      "pessoa_nome": "Leticia De Oliveira Amaro",
+      "categoria": "Transporte",
+      "valor": "150.00",
+      "valor_pago": "0.00",
+      "status": "pago",
+      "data_vencimento": "2026-10-12 00:00:00+00",
+      "data_pagamento": "2026-10-12 00:00:00+00"
+    },
+    {
+      "id": "65e1e6f4-688c-4a5e-85b4-47b48f6d7a43",
+      "pessoa_nome": "Erick Alves de Mattos",
+      "categoria": "Motoboy",
+      "valor": "1000.00",
+      "valor_pago": "0.00",
+      "status": "pago",
+      "data_vencimento": "2026-10-13 00:00:00+00",
+      "data_pagamento": "2026-10-13 00:00:00+00"
+    },
+    {
+      "id": "c61598d1-7382-4601-9142-ce952a53a307",
+      "pessoa_nome": "Isabella Beatriz Ferreira De Assumpcao",
+      "categoria": "Salários",
+      "valor": "73.00",
+      "valor_pago": "0.00",
+      "status": "pago",
+      "data_vencimento": "2026-10-13 00:00:00+00",
+      "data_pagamento": "2026-10-13 00:00:00+00"
+    },
+    {
+      "id": "0b56a7ce-27ff-492a-ad6f-2539bada3053",
+      "pessoa_nome": "Brunna Furtado Gonçalves",
+      "categoria": "Limpeza",
+      "valor": "49.00",
+      "valor_pago": "0.00",
+      "status": "pago",
+      "data_vencimento": "2026-10-13 00:00:00+00",
+      "data_pagamento": "2026-10-13 00:00:00+00"
+    }
+  ]
+}
