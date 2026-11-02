@@ -336,28 +336,15 @@ export default async function DashboardPage({
           </div>
         </div>
 
-        <div className="relative overflow-hidden rounded-2xl bg-[#1B6CA8] p-6 text-white shadow-sm">
-          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/5" />
-          <p className="relative text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Minha meta · este mês</p>
-          {metaEfetiva > 0 ? (
-            <>
-              <div className="relative mt-3 flex items-end justify-between gap-4">
-                <p className="text-[64px] font-extrabold leading-none tabular-nums">{metaEfetivaPct}%</p>
-                <p className="pb-1 text-sm text-white/80">{meuNVendas} vendas</p>
-              </div>
-              <div className="relative mt-5 h-4 overflow-hidden rounded-full bg-white/15">
-                <div className="h-full rounded-full bg-gradient-to-r from-white to-white/70 transition-all" style={{ width: `${metaEfetivaPct}%` }} />
-              </div>
-              <p className="relative mt-3 text-sm text-white/85">
-                {metaEfetivaPct >= 100
-                  ? <>🏆 Meta batida! Parabéns!</>
-                  : <>Faltam <b className="font-semibold text-white">{100 - metaEfetivaPct}%</b> pra bater a meta 💪</>}
-              </p>
-            </>
-          ) : (
-            <p className="relative mt-3 inline-flex rounded-lg bg-white/10 px-2.5 py-1.5 text-xs text-white/80">🎯 Sem meta definida — peça pro gerente configurar</p>
-          )}
-        </div>
+        {velocimetro ? (
+          <MetaVelocimetro faixas={velocimetro.faixas} pagoInicial={0} de={velocimetro.de} ate={velocimetro.ate} rotulo={velocimetro.rotulo} />
+        ) : (
+          <div className="rounded-2xl bg-[#111827] p-6 text-white">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-400">Minha meta · este mês</p>
+            <p className="mt-3 text-2xl font-bold">Nenhuma meta ativa no momento.</p>
+            <p className="mt-1 text-sm text-gray-400">Peça pro dono configurar as faixas da loja.</p>
+          </div>
+        )}
 
         <Link href="/painel/pdv" className="flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 p-5 text-lg font-bold text-white shadow-sm shadow-emerald-600/25 transition hover:from-emerald-700 hover:to-emerald-600">
           🛒 Abrir o PDV
