@@ -116,6 +116,9 @@ export async function fecharCaixa(
       valor_esperado: valorEsperado,
       valor_contado: valorFechamento,
       divergencia,
+      // o operador viu os avisos de regra e confirmou? fica registrado junto do
+      // fechamento — é o que permite cobrar depois "você fechou com Pix sem baixa"
+      ciente_dos_avisos: (formData.get('ciente') as string) === '1',
     }, usuario, '/painel/pdv/operacao')
     redirect(`/painel/pdv/operacao?fechado=1&esperado=${valorEsperado}&contado=${valorFechamento}`)
   } catch (e: unknown) {

@@ -402,6 +402,10 @@ export default async function OperacaoPDVPage({
   // nada sozinho — a baixa é um clique (ver baixarPixDoFornecedor em actions.ts).
   let pixDestinos: DestinoNaTela[] = []
   let pixAvisos: PixAvisos = { repetidos: 0, valorRepetido: 0, naoComprovante: 0, naoLidos: 0, semDestino: 0, valorSemDestino: 0, cruzados: 0, valorCruzado: 0, apagados: 0, daSessaoAnterior: 0 }
+  // Troco fixo da loja (saldo inicial da conta Caixa) — base do aviso de abertura
+  // diferente do troco quando o turno troca no meio do dia.
+  let trocoPadrao = 0
+  let pixFornecedorSemBaixa = { total: 0, comprovantes: 0 }
   if (caixaAberto) {
     const nomeLojaAtual = lojas.find((l) => l.id === lojaAtual)?.nome ?? ''
     const chat = await grupoDoTelegram(supabase, nomeLojaAtual)
@@ -495,6 +499,23 @@ export default async function OperacaoPDVPage({
         divida: f ? Math.round((emAberto[f.id] ?? 0) * 100) / 100 : 0,
       }
     })
+
+    // Pix do dia que foram para fornecedor: é o que precisa de baixa antes de
+    // fechar a sessão (senão a dívida fica em aberto e o comprovante não volta).
+    const paraFornecedor = pixDestinos.filter((d) => !d.propria && d.fornecedorId && d.total > 0.005)
+    pixFornecedorSemBaixa = {
+      total: Math.round(paraFornecedor.reduce((s, d) => s + d.total, 0) * 100) / 100,
+      comprovantes: paraFornecedor.reduce((s, d) => s + d.comprovantes, 0),
+    }
+
+    const { data: contaCaixa } = await supabase
+      .from('contas')
+      .select('saldo_inicial')
+      .eq('tipo', 'caixa')
+      .eq('loja_id', lojaAtual)
+      .limit(1)
+      .maybeSingle()
+    trocoPadrao = Number(contaCaixa?.saldo_inicial ?? 0)
   }
 
   // Quando caixa acaba de fechar, busca dados completos do Z Report
@@ -676,6 +697,8 @@ export default async function OperacaoPDVPage({
       pixPendentes={pixPendentes}
       pixDestinos={pixDestinos}
       pixAvisos={pixAvisos}
+      pixFornecedorSemBaixa={pixFornecedorSemBaixa}
+      trocoPadrao={trocoPadrao}
       estornosPix={estornosPix}
       estornosSemSplit={estornosSemSplit}
       erro={erro}

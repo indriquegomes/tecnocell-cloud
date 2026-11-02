@@ -16,6 +16,7 @@ import {
   type ActionState,
 } from './actions'
 import type { DestinoNaTela, PixAvisos } from '@/lib/pix-destinos'
+import { avisosDeFechamento, precisaCiencia, type AvisoCaixa } from '@/lib/avisos-caixa'
 
 // Token de auth lido do navegador e injetado no submit dos forms — cookies()
 // vem vazio em server actions na Vercel, então o servidor valida este token.
@@ -138,6 +139,8 @@ interface Props {
   pixPendentes: { id: string; cliente: string | null; valor: number; hora: string }[]
   pixDestinos?: DestinoNaTela[]
   pixAvisos?: PixAvisos
+  pixFornecedorSemBaixa?: { total: number; comprovantes: number }
+  trocoPadrao?: number
   erro?: string
   fechado?: boolean
   aberto?: boolean
@@ -710,6 +713,29 @@ function BaixaPixForm({
   )
 }
 
+// Lista de avisos de regra do caixa (troca de turno, contagem, Pix sem baixa).
+// Vermelho = pede ciência explícita de quem fecha; âmbar = só informa.
+function ListaAvisos({ avisos }: { avisos: AvisoCaixa[] }) {
+  if (avisos.length === 0) return null
+  return (
+    <div className="space-y-2">
+      {avisos.map((a, i) => (
+        <div
+          key={i}
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            a.nivel === 'conferir'
+              ? 'border-red-200 bg-red-50 text-red-800'
+              : 'border-amber-200 bg-amber-50 text-amber-800'
+          }`}
+        >
+          <p className="font-semibold">{a.nivel === 'conferir' ? '⛔ ' : '⚠ '}{a.titulo}</p>
+          {a.detalhe && <p className="mt-0.5 text-xs leading-snug opacity-90">{a.detalhe}</p>}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function FecharCaixaPanel({
   caixaId,
   valorAbertura,
@@ -722,6 +748,11 @@ function FecharCaixaPanel({
   recebidosDinheiro,
   pixDestinos,
   pixAvisos,
+  pixFornecedorSemBaixa,
+  pixSemComprovante,
+  movimentos,
+  abertoEm,
+  trocoPadrao,
 }: {
   caixaId: string
   valorAbertura: number
@@ -734,11 +765,39 @@ function FecharCaixaPanel({
   recebidosDinheiro: number
   pixDestinos: DestinoNaTela[]
   pixAvisos?: PixAvisos
+  pixFornecedorSemBaixa: { total: number; comprovantes: number }
+  pixSemComprovante: number
+  movimentos: Movimento[]
+  abertoEm: string
+  trocoPadrao: number
 }) {
   const [etapa, setEtapa] = useState<'resumo' | 'cego'>('resumo')
   const [state, action, pending] = useActionState<ActionState, FormData>(fecharCaixa, null)
+  // contagem controlada: dá pra avisar "falta X" ANTES de confirmar o fechamento
+  const [contado, setContado] = useState(0)
+  const [ciente, setCiente] = useState(false)
 
   const formasEntries = listaPorForma(porForma, valorAbertura)
+
+  // Avisos de regra (troca de turno fecha o caixa mais de uma vez por dia)
+  const movimentosSemMotivo = movimentos.filter(
+    (m) => ['reforco', 'retirada'].includes(m.tipo) && !(m.motivo ?? '').trim(),
+  ).length
+  const avisos = avisosDeFechamento({
+    abertoEm,
+    agora: new Date().toISOString(),
+    divergencia: etapa === 'cego' ? Math.round((contado - saldoCaixa) * 100) / 100 : 0,
+    pixFornecedorSemBaixa,
+    pixSemComprovante,
+    movimentosSemMotivo,
+    valorAbertura,
+    trocoPadrao,
+    saldoGaveta: saldoCaixa,
+    // na tela de contagem o valor da diferença não aparece: quem está contando
+    // não pode saber o esperado (senão ajusta o número e some com a falta).
+    divergenciaComValor: false,
+  })
+  const exigeCiencia = precisaCiencia(avisos)
 
   // Etapa 1 — resumo do dia (operador vê tudo antes de contar)
   if (etapa === 'resumo') {
@@ -800,16 +859,21 @@ function FecharCaixaPanel({
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between gap-4">
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-700 flex-1">
-            ⚠ Ao prosseguir, você contará o caixa sem ver o saldo esperado.
+        <div className="px-6 py-4 border-t border-gray-100 space-y-3">
+          {/* Avisos de regra — a troca de funcionário fecha o caixa mais de uma
+              vez por dia, então o que é fácil de esquecer aparece aqui ANTES. */}
+          <ListaAvisos avisos={avisos} />
+          <div className="flex items-center justify-between gap-4">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-700 flex-1">
+              ⚠ Ao prosseguir, você contará o caixa sem ver o saldo esperado.
+            </div>
+            <button
+              onClick={() => setEtapa('cego')}
+              className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition shrink-0"
+            >
+              Contar Caixa →
+            </button>
           </div>
-          <button
-            onClick={() => setEtapa('cego')}
-            className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition shrink-0"
-          >
-            Contar Caixa →
-          </button>
         </div>
       </div>
     )
@@ -826,12 +890,13 @@ function FecharCaixaPanel({
       <form action={withToken(action)} className="px-6 py-5 space-y-4">
         <input type="hidden" name="caixa_id" value={caixaId} />
         <input type="hidden" name="valor_esperado" value={saldoCaixa} />
+        <input type="hidden" name="ciente" value={exigeCiencia ? (ciente ? '1' : '0') : '0'} />
 
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-gray-700">
             Dinheiro Contado na Gaveta (R$)
           </label>
-          <CampoDinheiro name="valor_fechamento" autoFocus required className="text-xl" />
+          <CampoDinheiro name="valor_fechamento" value={contado} onChange={setContado} autoFocus required className="text-xl" />
           <p className="text-xs text-gray-400 mt-1">Só cédulas e moedas — PIX, cartão e fiado não entram (conferem no WhatsApp e na maquininha)</p>
         </div>
 
@@ -839,6 +904,20 @@ function FecharCaixaPanel({
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Observações</label>
           <input name="obs_fechamento" className="field" placeholder="Opcional" />
         </div>
+
+        <ListaAvisos avisos={avisos} />
+
+        {exigeCiencia && (
+          <label className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            <input
+              type="checkbox"
+              checked={ciente}
+              onChange={(e) => setCiente(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-red-600"
+            />
+            <span>Li os avisos acima e quero fechar o caixa assim mesmo. Sei que o que ficou pendente aparece no relatório com o meu nome.</span>
+          </label>
+        )}
 
         <div className="flex gap-2 pt-1">
           <button
@@ -851,12 +930,15 @@ function FecharCaixaPanel({
           </button>
           <button
             type="submit"
-            disabled={pending}
-            className="flex-1 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50"
+            disabled={pending || (exigeCiencia && !ciente)}
+            className="flex-1 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {pending ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Fechando...</span> : 'Confirmar Fechamento'}
           </button>
         </div>
+        {exigeCiencia && !ciente && (
+          <p className="text-center text-xs text-red-600">Marque a caixa de ciência para liberar o fechamento.</p>
+        )}
         <FeedbackMsg state={state} />
       </form>
     </div>
@@ -1416,6 +1498,8 @@ export function OperacaoClient({
   pixPendentes,
   pixDestinos = [],
   pixAvisos,
+  pixFornecedorSemBaixa = { total: 0, comprovantes: 0 },
+  trocoPadrao = 0,
   estornosPix = 0,
   estornosSemSplit = 0,
   erro,
@@ -1663,6 +1747,11 @@ export function OperacaoClient({
               recebidosDinheiro={recebidosDinheiro}
               pixDestinos={pixDestinos}
               pixAvisos={pixAvisos}
+              pixFornecedorSemBaixa={pixFornecedorSemBaixa}
+              pixSemComprovante={pixPendentes.length}
+              movimentos={movimentos}
+              abertoEm={caixaAberto.aberto_em}
+              trocoPadrao={trocoPadrao}
             />
           )}
           {panel === 'reforco' && (
