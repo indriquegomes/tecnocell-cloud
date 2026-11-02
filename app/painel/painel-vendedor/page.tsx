@@ -1,6 +1,6 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
-import { headers } from 'next/headers'
+import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { PainelVendedorClient } from './PainelVendedorClient'
 
 export default async function PainelVendedorPage({
@@ -16,12 +16,9 @@ export default async function PainelVendedorPage({
   const dataInicio = de ?? inicioMes
   const dataFim = ate ?? hoje
 
-  // Velocímetro: loja da vendedora + meta ativa + faixas + pagamento real
-  const userId = (await headers()).get('x-user-id')
-  const { data: perfil } = userId
-    ? await supabase.from('perfis').select('pdv_loja_id').eq('id', userId).maybeSingle()
-    : { data: null }
-  const minhaLojaId = (perfil as { pdv_loja_id?: string | null } | null)?.pdv_loja_id ?? null
+  // Velocímetro: loja ATIVA da vendedora + meta ativa + faixas + pagamento real
+  const { ativa: lojaAtiva } = await lojasDoUsuario().catch(() => ({ ativa: null }))
+  const minhaLojaId = lojaAtiva?.id ?? null
 
   let metaGauge: { lojaId: string; de: string; ate: string; rotulo: string; faixas: { nome: string; valor: number }[]; pagoInicial: number } | null = null
   if (minhaLojaId) {
