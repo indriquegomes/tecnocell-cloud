@@ -9,6 +9,9 @@ export type ContaSaldo = { id: string; saldo_inicial?: number | null; tipo?: str
 // o cofre somaria todas as vendas em dinheiro desde o começo e o saldo inicial teria que
 // ser negativo pra compensar (não é o que o dono quer).
 const INICIO_COFRE = '2026-11-01T00:00:00-03:00'
+// Mesmo corte para dinheiro e banco: o passado de cada conta está no SALDO INICIAL dela.
+// Sem isso, a conta PIX somava todas as vendas em PIX da história e aparecia com 711 mil.
+const INICIO_CONTAS = '2026-11-01'
 
 // Saldo de cada conta — FONTE ÚNICA (Contas e Financeiro usam esta).
 // saldo = saldo_inicial
@@ -44,7 +47,7 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
       supabase.from('forma_conta_loja').select('forma_id, loja_id, conta_id'),   // vazio/inexistente = fallback p/ conta_destino_id
       fetchAll<{ valor: number; taxa: number | null; forma_pagamento_id: string | null; venda_id: string | null }>((from, to) => supabase.from('pagamentos_venda').select('valor, taxa, forma_pagamento_id, venda_id').eq('status', 'pago').range(from, to)),
       fetchAll<{ conta_origem_id: string; conta_destino_id: string; valor: number }>((from, to) => supabase.from('transferencias').select('conta_origem_id, conta_destino_id, valor').range(from, to)),
-      fetchAll<{ tipo: string; valor: number; conta_id: string }>((from, to) => supabase.from('lancamentos').select('tipo, valor, conta_id, status').eq('status', 'pago').not('conta_id', 'is', null).range(from, to)),
+      fetchAll<{ tipo: string; valor: number; conta_id: string }>((from, to) => supabase.from('lancamentos').select('tipo, valor, conta_id, status, data_pagamento').eq('status', 'pago').not('conta_id', 'is', null).gte('data_pagamento', INICIO_COFRE).range(from, to)),
     ])
     const formaById = Object.fromEntries((formas ?? []).map((f) => [f.id, f as { tipo: string | null; conta_destino_id: string | null }]))
 
@@ -91,6 +94,8 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
 
     for (const p of (pv ?? [])) {
       if (p.venda_id && statusDaVenda[p.venda_id] === 'cancelada') continue
+      // Venda anterior a 01/11 não entra no fluxo de conta (está no saldo inicial).
+      if (p.venda_id && (dataDaVenda[p.venda_id] ?? '') < INICIO_CONTAS) continue
       const f = p.forma_pagamento_id ? formaById[p.forma_pagamento_id] : null
       if (!f) continue
       let conta = f.conta_destino_id
