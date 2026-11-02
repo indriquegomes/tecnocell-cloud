@@ -141,6 +141,15 @@ export default async function EditarProdutoPage({ params, searchParams }: { para
               </span>
             </span>
           </label>
+          <label className="sm:col-span-2 flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 cursor-pointer">
+            <input name="servico" type="checkbox" value="true" defaultChecked={produto.servico ?? false} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+            <span>
+              <span className="block text-sm font-medium text-gray-800">Serviço (não controla estoque)</span>
+              <span className="block text-xs text-gray-500 mt-0.5">
+                Marque para taxa, entrega, aplicação, mão de obra. Não baixa estoque na venda.
+              </span>
+            </span>
+          </label>
         </div>
 
         <div className="flex gap-3 pt-2">

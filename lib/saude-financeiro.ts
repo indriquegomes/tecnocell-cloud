@@ -78,8 +78,8 @@ export async function auditarFinanceiro(supabase: SB): Promise<Achado[]> {
     // já filtrado no banco: só o que está negativo interessa (19.553 linhas de estoque não vêm todas)
     fetchAll<{ produto_id: string; quantidade: number | null }>(
       (from, to) => supabase.from('estoque').select('produto_id, quantidade').lt('quantidade', 0).order('id').range(from, to)),
-    fetchAll<{ id: string; nome: string | null; permite_estoque_negativo: boolean | null }>(
-      (from, to) => supabase.from('produtos').select('id, nome, permite_estoque_negativo').order('id').range(from, to)),
+    fetchAll<{ id: string; nome: string | null; permite_estoque_negativo: boolean | null; servico: boolean | null }>(
+      (from, to) => supabase.from('produtos').select('id, nome, permite_estoque_negativo, servico').order('id').range(from, to)),
   ])
 
   // Pagamentos e movimentos vêm pela janela de created_at, não por lista de ids:
@@ -224,12 +224,13 @@ export async function auditarFinanceiro(supabase: SB): Promise<Achado[]> {
   // ── Estoque ──────────────────────────────────────────────────────────────
   const nomeProduto = new Map(produtos.map((p) => [p.id, p.nome ?? p.id]))
   const permiteNegativo = new Map(produtos.map((p) => [p.id, !!p.permite_estoque_negativo]))
+  const ehServico = new Map(produtos.map((p) => [p.id, !!p.servico]))
   out.push(achado('estoque_negativo', 'Produto com estoque negativo',
     'Estoque não fica abaixo de zero, salvo produto marcado para permitir.',
     'Significa saída sem entrada registrada. Sua contagem física é que manda.',
     'atencao',
     estoque
-      .filter((e) => Number(e.quantidade ?? 0) < 0 && !permiteNegativo.get(e.produto_id))
+      .filter((e) => Number(e.quantidade ?? 0) < 0 && !permiteNegativo.get(e.produto_id) && !ehServico.get(e.produto_id))
       .map((e) => ({ valor: Math.abs(Number(e.quantidade ?? 0)), rotulo: nomeProduto.get(e.produto_id) ?? e.produto_id }))))
 
   // ── Devolução: reembolso nasceu "pago" sem dizer quanto foi pago ──────────
