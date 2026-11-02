@@ -4,7 +4,7 @@ import crypto from 'node:crypto'
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { logAtividade } from '@/lib/log-atividade'
-import { registrarNoCaixa, lojaDoLancamento } from '@/lib/caixa'
+import { registrarNoCaixa, retirarDoCaixa, lojaDoLancamento } from '@/lib/caixa'
 import { travarSeMesFechado } from '@/lib/fechamento'
 import { hojeSP } from '@/lib/utils'
 import { SETORES } from '@/lib/financeiro-setores'
@@ -211,6 +211,29 @@ export async function marcarPago(id: string, formData?: FormData) {
     )
   }
 
+  // PAGAR EM DINHEIRO SAI DA GAVETA (decisão do dono, 26/10/2026).
+  // O checkbox "Saiu da gaveta" vem marcado por padrão; desmarcado = dinheiro que
+  // estava em envelope/cofre, que não passa pela gaveta e não deve mexer nela.
+  // Só vale para dinheiro: PIX/cartão não são gaveta.
+  const saiuGaveta = ((formData?.get('saiu_gaveta') as string) ?? '') === '1'
+  const ehDinheiroTexto = (forma || '').trim().toLowerCase().includes('dinheiro')
+  if (faltava > 0 && antes?.tipo === 'pagar' && saiuGaveta && ehDinheiroTexto) {
+    const lojaId = await lojaDoLancamento(supabase, id)
+    const ret = await retirarDoCaixa(
+      supabase,
+      lojaId,
+      Math.round(faltava * 100) / 100,
+      `Pagamento em dinheiro — ${antes?.pessoa_nome ?? 'fornecedor/despesa'}`,
+      id,
+      'financeiro',
+    )
+    // Gaveta sem saldo para a saída: avisa e manda desmarcar em vez de deixar a
+    // gaveta negativa no fechamento (dinheiro de envelope não passa por ela).
+    if (!ret.ok && ret.erro && ret.erro.startsWith('A gaveta tem')) {
+      redirect(`/painel/financeiro?erro=${encodeURIComponent(ret.erro)}`)
+    }
+  }
+
   revalidatePath('/painel/financeiro')
   revalidatePath('/painel/fiados')
 }
@@ -239,17 +262,22 @@ export async function desfazerPagamento(id: string) {
     redirect(`/painel/financeiro?erro=${encodeURIComponent('Só é possível desfazer um lançamento já pago.')}`)
   }
 
-  // Movimentos que o "Pago" jogou no caixa (só receber gera movimento) — é o que
-  // sai da gaveta agora.
+  // Movimentos que o "Pago" jogou no caixa: 'recebimento' (fiado recebido) e
+  // 'retirada' (despesa paga em dinheiro saindo da gaveta).
   const { data: movs, error: erroMov } = await supabase
     .from('movimentos_caixa')
-    .select('id, valor, caixa_id')
+    .select('id, valor, caixa_id, tipo')
     .eq('lancamento_id', id)
-    .eq('tipo', 'recebimento')
+    .in('tipo', ['recebimento', 'retirada'])
     .eq('origem', 'financeiro')
   if (erroMov) redirect(`/painel/financeiro?erro=${encodeURIComponent(erroMov.message)}`)
-  const lista = (movs ?? []) as { id: string; valor: number | null; caixa_id: string | null }[]
-  const valorMovido = Math.round(lista.reduce((s, m) => s + Number(m.valor ?? 0), 0) * 100) / 100
+  const lista = (movs ?? []) as { id: string; valor: number | null; caixa_id: string | null; tipo?: string }[]
+  // Recebimento devolve dinheiro à gaveta; retirada tirou dinheiro dela. Só o que o
+  // "Pago" criou, e com o sinal certo.
+  const valorMovido = Math.round(lista.reduce((s, m) => {
+    const v = Number(m.valor ?? 0)
+    return s + (m.tipo === 'retirada' ? -v : v)
+  }, 0) * 100) / 100
 
   // Pago fora do Financeiro (PDV/OS) não tem movimento ligado — desfazer aqui
   // voltaria a dívida mas deixaria o dinheiro na gaveta (o mesmo bug, ao contrário).
@@ -272,7 +300,7 @@ export async function desfazerPagamento(id: string) {
   }
 
   // Receber: devolve só o que o "Pago" adicionou (preserva parcial anterior).
-  // Pagar: não tem movimento na gaveta → zera o pago.
+  // Pagar: zera o pago (a dívida volta inteira).
   const pagoAtual = Number(lanc.valor_pago ?? 0)
   const novoPago = lanc.tipo === 'receber'
     ? Math.max(0, Math.round((pagoAtual - valorMovido) * 100) / 100)
@@ -285,7 +313,7 @@ export async function desfazerPagamento(id: string) {
   }, usuario, '/painel/financeiro')
 
   if (lista.length > 0) {
-    const { error: erroDel } = await supabase.from('movimentos_caixa').delete().eq('lancamento_id', id).eq('tipo', 'recebimento').eq('origem', 'financeiro')
+    const { error: erroDel } = await supabase.from('movimentos_caixa').delete().eq('lancamento_id', id).in('tipo', ['recebimento', 'retirada']).eq('origem', 'financeiro')
     if (erroDel) redirect(`/painel/financeiro?erro=${encodeURIComponent(erroDel.message)}`)
   }
 

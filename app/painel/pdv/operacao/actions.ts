@@ -27,14 +27,16 @@ export async function abrirCaixa(
     const { data: existente } = await qExist.maybeSingle()
     if (existente) return { ok: false, message: 'Já existe um caixa aberto nesta loja. Feche ele antes de abrir outro.' }
 
-    const { error } = await supabase.from('caixas').insert({
-      valor_abertura: Math.max(0, parseFloat(formData.get('valor_abertura') as string) || 0),
+    const valorAbertura = Math.max(0, parseFloat(formData.get('valor_abertura') as string) || 0)
+    const { data: criado, error } = await supabase.from('caixas').insert({
+      valor_abertura: valorAbertura,
       obs_abertura: (formData.get('obs_abertura') as string) || null,
       status: 'aberto',
       loja_id: lojaId,
       aberto_por: usuario.id,
-    })
+    }).select('id').single()
     if (error) return { ok: false, message: error.message }
+
 
     await logAtividade('caixa.abrir', {
       loja_id: lojaId,

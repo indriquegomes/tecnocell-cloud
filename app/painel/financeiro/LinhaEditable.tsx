@@ -122,6 +122,15 @@ export function LinhaEditable({
             <form action={marcarPago.bind(null, lanc.id)} className="flex items-center gap-1">
               <input name="forma_pagamento" required list="formas-lista" defaultValue={lanc.forma_pagamento ?? ''} placeholder="Forma…" title="Como foi pago (dinheiro, PIX…). Obrigatório para dar baixa."
                 className="max-w-[7rem] rounded-lg border border-gray-200 px-1.5 py-1 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+              {/* Saiu da gaveta: DESMARCADO por padrão — na operação do dono o
+                  pagamento em dinheiro sai do dinheiro guardado (envelope/cofre),
+                  nunca da gaveta. A gaveta só perde dinheiro por devolução. */}
+              {lanc.tipo === 'pagar' && (
+                <label className="flex items-center gap-1 text-[11px] text-gray-500" title="Deixe DESMARCADO: o pagamento saiu do dinheiro guardado (envelope/cofre) ou do banco, e não da gaveta. Marque só se a cédula saiu literalmente do caixa aberto.">
+                  <input type="checkbox" name="saiu_gaveta" value="1" className="h-3 w-3 accent-emerald-600" />
+                  gaveta
+                </label>
+              )}
               <button type="submit" title="Marcar como pago e dar baixa" className="rounded-lg px-2.5 py-1 text-xs font-medium text-green-600 hover:bg-green-50 transition">Marcar pago</button>
             </form>
           )}

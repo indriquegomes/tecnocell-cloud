@@ -3,6 +3,13 @@ import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 type SB = Awaited<ReturnType<typeof createServiceClient>>
 export type ContaSaldo = { id: string; saldo_inicial?: number | null; tipo?: string | null; loja_id?: string | null }
 
+// A conta COFRE nasce em 01/11/2026 (decisão do dono, 26/10): dinheiro em espécie que
+// fica fora da gaveta. O histórico anterior já está refletido no SALDO INICIAL dela —
+// então só entra aqui o dinheiro de venda/devolução A PARTIR dessa data. Sem o corte,
+// o cofre somaria todas as vendas em dinheiro desde o começo e o saldo inicial teria que
+// ser negativo pra compensar (não é o que o dono quer).
+const INICIO_COFRE = '2026-11-01T00:00:00-03:00'
+
 // Saldo de cada conta — FONTE ÚNICA (Contas e Financeiro usam esta).
 // saldo = saldo_inicial
 //   + vendas pagas (pagamentos_venda) roteadas pra conta certa
@@ -18,9 +25,19 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
   const saldo: Record<string, number> = {}
   for (const c of contas) saldo[c.id] = Number(c.saldo_inicial ?? 0)
   try {
-    // caixa (tipo=caixa) de cada loja → destino do dinheiro daquela loja
+    // GAVETA (tipo=caixa) = fundo fixo de troco, NUNCA é mexido.
+    // COFRE (tipo=cofre) = destino do dinheiro em espécie (decisão do dono, 26/10/2026):
+    // o operador conta, deixa os 200 de troco na gaveta e o resto vai para o cofre.
+    // Por isso o dinheiro da VENDA (e da devolução em espécie) cai no COFRE da loja,
+    // não na gaveta — assim a gaveta fica parada nos 200 e o cofre guarda o acumulado.
     const caixaDaLoja: Record<string, string> = {}
-    for (const c of contas) if (c.tipo === 'caixa' && c.loja_id) caixaDaLoja[c.loja_id] = c.id
+    const cofreDaLoja: Record<string, string> = {}
+    for (const c of contas) {
+      if (c.tipo === 'caixa' && c.loja_id) caixaDaLoja[c.loja_id] = c.id
+      if (c.tipo === 'cofre' && c.loja_id) cofreDaLoja[c.loja_id] = c.id
+    }
+    const contaDoDinheiro = (loja: string | null | undefined): string | null =>
+      (loja ? (cofreDaLoja[loja] ?? caixaDaLoja[loja] ?? null) : null)
 
     const [{ data: formas }, { data: rotaRows }, pv, tr, lc] = await Promise.all([
       supabase.from('formas_pagamento').select('id, tipo, conta_destino_id'),
@@ -48,15 +65,17 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
     // ficado com a loja.
     const lojaDaVenda: Record<string, string | null> = {}
     const statusDaVenda: Record<string, string | null> = {}
+    const dataDaVenda: Record<string, string | null> = {}
     const temDinheiro = (pv ?? []).some((p) => { const f = p.forma_pagamento_id ? formaById[p.forma_pagamento_id] : null; return f?.tipo === 'dinheiro' })
     const vendaIds = [...new Set((pv ?? []).map((p) => p.venda_id).filter(Boolean))] as string[]
     if (vendaIds.length) {
       const depDaVenda: Record<string, string | null> = {}
       for (let i = 0; i < vendaIds.length; i += 300) {
-        const { data } = await supabase.from('vendas').select('id, deposito_id, status').in('id', vendaIds.slice(i, i + 300))
+        const { data } = await supabase.from('vendas').select('id, deposito_id, status, data').in('id', vendaIds.slice(i, i + 300))
         for (const v of data ?? []) {
           depDaVenda[v.id] = (v as { deposito_id: string | null }).deposito_id
           statusDaVenda[v.id] = (v as { status: string | null }).status
+          dataDaVenda[v.id] = (v as { data: string | null }).data
         }
       }
       if ((temDinheiro && Object.keys(caixaDaLoja).length) || temRota) {
@@ -77,7 +96,14 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
       let conta = f.conta_destino_id
       const loja = p.venda_id ? lojaDaVenda[p.venda_id] : null
       if (f.tipo === 'dinheiro') {
-        if (loja && caixaDaLoja[loja]) conta = caixaDaLoja[loja]   // dinheiro → caixa da loja
+        // Dinheiro só abastece o COFRE a partir de 01/11/2026. Venda anterior a isso
+        // NÃO entra no saldo do cofre (o passado já está no saldo inicial dele) e
+        // continua indo pra conta Caixa, como sempre foi. Sem esse corte, o cofre
+        // somaria todas as vendas em dinheiro da história.
+        const dataVenda = p.venda_id ? dataDaVenda[p.venda_id] : null
+        const antesDoCofre = !!dataVenda && dataVenda < '2026-11-01'
+        const destino = antesDoCofre ? (loja ? caixaDaLoja[loja] : null) : contaDoDinheiro(loja)
+        if (destino) conta = destino
       } else if (loja && p.forma_pagamento_id && rota[p.forma_pagamento_id]?.[loja]) {
         conta = rota[p.forma_pagamento_id][loja]                    // cartão/PIX → conta da loja (Isa)
       }
@@ -106,15 +132,18 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
     // da venda original, sem nunca descontar o reembolso.
     //
     // DINHEIRO: sem ambiguidade — sempre a gaveta da loja do caixa, igual venda.
-    const movDev = await fetchAll<{ caixa_id: string; valor: number }>((from, to) =>
-      supabase.from('movimentos_caixa').select('caixa_id, valor').eq('tipo', 'devolucao').range(from, to))
+    const movDev = await fetchAll<{ caixa_id: string; valor: number; created_at: string }>((from, to) =>
+      supabase.from('movimentos_caixa').select('caixa_id, valor, created_at').eq('tipo', 'devolucao').range(from, to))
     if (movDev.length) {
       const caixaIds = [...new Set(movDev.map((m) => m.caixa_id))]
       const { data: caixasRows } = await supabase.from('caixas').select('id, loja_id').in('id', caixaIds)
       const lojaPorCaixa = Object.fromEntries((caixasRows ?? []).map((c) => [c.id, (c as { loja_id: string | null }).loja_id]))
       for (const m of movDev) {
         const loja = lojaPorCaixa[m.caixa_id]
-        const conta = loja ? caixaDaLoja[loja] : null
+        // devolução em dinheiro ANTES de 01/11 pertence à conta Caixa (histórico);
+        // a partir de 01/11 sai do COFRE, que é onde o dinheiro da venda passou a ficar.
+        const antesDoCofre = (m.created_at ?? '') < INICIO_COFRE
+        const conta = antesDoCofre ? (loja ? caixaDaLoja[loja] : null) : contaDoDinheiro(loja)
         if (conta && conta in saldo) saldo[conta] -= m.valor ?? 0
       }
     }
