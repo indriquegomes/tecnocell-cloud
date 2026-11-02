@@ -28,7 +28,10 @@ export async function alternarFechamento(prev: Estado | null, formData: FormData
       if (!k.startsWith('caixa_final_')) continue
       const lojaId = k.slice('caixa_final_'.length)
       const valor = Number(v)
-      if (lojaId && Number.isFinite(valor)) caixaFinal[lojaId] = valor
+      // dinheiro em mãos não pode ser negativo: valor negativo aqui vira a ABERTURA
+      // do mês seguinte e contamina todos os meses depois dele.
+      if (!Number.isFinite(valor) || valor < 0) return { erro: 'Caixa final não pode ser negativo. Digite o valor que você contou.' }
+      if (lojaId) caixaFinal[lojaId] = valor
     }
     await supabase.from('configuracoes').upsert({
       chave: `fechamento_mes:${mes}`,

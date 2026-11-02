@@ -58,6 +58,31 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
   ])
 
   const lojasList = (lojas ?? []) as { id: string; nome: string }[]
+
+  // ─── Avisos antes de fechar ─────────────────────────────────────────────────
+  // "Fechar mês" congela o estoque do MOMENTO do clique. Se o mês está sendo
+  // fechado com atraso e já houve venda depois dele, o custo dessa venda entra no
+  // resultado do mês errado. E caixa aberto faz o caixa final sair sem o dia.
+  const inicioSeguinte = `${mesSeguinte}-01T00:00:00-03:00`
+  const [{ count: vendasDepois }, { data: caixasAbertos }] = await Promise.all([
+    supabase.from('vendas').select('id', { count: 'exact', head: true }).gte('data', inicioSeguinte).eq('status', 'concluida'),
+    supabase.from('caixas').select('id, loja_id').eq('status', 'aberto'),
+  ])
+  const abertoPorLoja = lojasList.filter((l) => (caixasAbertos ?? []).some((c) => c.loja_id === l.id)).map((l) => l.nome)
+  const avisosFechamento: string[] = []
+  if ((vendasDepois ?? 0) > 0) {
+    avisosFechamento.push(
+      `Já houve ${vendasDepois} venda${vendasDepois === 1 ? '' : 's'} depois de ${nomeMes(mes)}. ` +
+      `Fechar agora congela o estoque de HOJE, então o custo dessas vendas cai no resultado de ${nomeMes(mes)} ` +
+      `e ${nomeMes(mesSeguinte)} começa sem ele. Se o mês está atrasado, feche antes de vender.`,
+    )
+  }
+  if (abertoPorLoja.length > 0) {
+    avisosFechamento.push(
+      `O caixa de ${abertoPorLoja.join(' e ')} está aberto. Feche o caixa antes de fechar o mês — ` +
+      `senão o dinheiro do dia fica fora do caixa final.`,
+    )
+  }
   const petropolisId = lojasList.find((l) => l.nome === 'Petrópolis')?.id ?? null
   const lojaDeDeposito = new Map((deps ?? []).map((d) => [d.id, d.loja_id as string | null]))
   const lojaDeCaixa = new Map((cxs ?? []).map((c) => [c.id, c.loja_id as string | null]))
@@ -239,7 +264,15 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
       estoqueFinalVitrine: estoqueFinal.vitrine, estoqueFinalFundo: estoqueFinal.fundo, estoqueFinalTotal,
       consumido: estoqueInicialTotal - estoqueFinalTotal,
       temEstoqueBase,
-      caixaFinal: caixaInicial + entradas - saidas, resultado: entradas - saidas,
+      // Referência de dinheiro em mãos: saldo do mês anterior + cédula que entrou −
+      // cédula que saiu. É só REFERÊNCIA: depende de todo o dinheiro vivo estar
+      // lançado (fornecedor pago em espécie, envelope no cofre, troco), e em outubro
+      // ainda não está. Por isso o campo abre em BRANCO — quem fecha digita o que
+      // contou. O cálculo antigo (caixaInicial + entradas − saidas) somava PIX,
+      // cartão e compras e abria em −61.176,75: bastava clicar para fechar o mês
+      // com um caixa negativo que virava a abertura de novembro.
+      caixaCalculado: Math.max(0, Math.round((caixaInicial + dinheiroEmMaos) * 100) / 100),
+      resultado: entradas - saidas,
     }
   })
 
@@ -317,9 +350,9 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
               <p className="text-[11px] text-red-600">compras + despesas</p>
             </div>
             <div className="rounded-2xl bg-blue-50 p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase text-blue-700">Caixa final</p>
-              <p className="mt-1 text-2xl font-bold text-blue-700">{fmt(linha.caixaFinal)}</p>
-              <p className="text-[11px] text-blue-600">inicial + entrou − saiu</p>
+              <p className="text-xs font-semibold uppercase text-blue-700">Dinheiro em mãos (referência)</p>
+              <p className="mt-1 text-2xl font-bold text-blue-700">{fmt(linha.caixaCalculado)}</p>
+              <p className="text-[11px] text-blue-600">abertura + cédula que entrou − cédula que saiu</p>
             </div>
             <div className={`rounded-2xl p-4 shadow-sm ${linha.resultado >= 0 ? 'bg-emerald-100' : 'bg-amber-100'}`}>
               <p className="text-xs font-semibold uppercase text-gray-600">{linha.resultado >= 0 ? 'Lucro' : 'Prejuízo'}</p>
@@ -487,10 +520,20 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
       )}
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        {avisosFechamento.length > 0 && (
+          <div className="mb-4 space-y-2">
+            {avisosFechamento.map((a, i) => (
+              <div key={i} className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <p className="font-semibold">⚠ Antes de fechar</p>
+                <p className="mt-0.5 text-xs leading-snug">{a}</p>
+              </div>
+            ))}
+          </div>
+        )}
         <FecharMesButton
           mes={mes}
           fechado={!!fechamento}
-          lojas={lojasList.map((l) => ({ id: l.id, nome: l.nome, caixaFinal: linhas.find((x) => x.loja === l.id)?.caixaFinal ?? 0 }))}
+          lojas={lojasList.map((l) => ({ id: l.id, nome: l.nome, caixaFinal: 0, caixaCalculado: linhas.find((x) => x.loja === l.id)?.caixaCalculado ?? 0 }))}
         />
         <p className="mt-3 text-xs text-gray-400">Fechar o mês grava o caixa final que você conferiu e congela o estoque. Esse caixa final vira a abertura do mês seguinte. Reabrir desfaz.</p>
       </div>

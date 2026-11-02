@@ -793,9 +793,10 @@ function FecharCaixaPanel({
     valorAbertura,
     trocoPadrao,
     saldoGaveta: saldoCaixa,
-    // na tela de contagem o valor da diferença não aparece: quem está contando
-    // não pode saber o esperado (senão ajusta o número e some com a falta).
-    divergenciaComValor: false,
+    // O dono pediu o valor na tela de contagem (03/11): "fica mais fácil procurar
+    // onde está o erro". O resumo já mostra o envelope, então esconder aqui não
+    // protegia nada — e a conferência na mão vale mais.
+    divergenciaComValor: true,
   })
   const exigeCiencia = precisaCiencia(avisos)
 

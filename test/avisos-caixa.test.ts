@@ -29,13 +29,14 @@ test('falta e sobra na contagem avisam com o valor e o lado certo', () => {
   assert.equal(precisaCiencia(falta), true)
 })
 
-test('na tela de contagem o aviso não revela o valor esperado', () => {
-  // Quem está contando não pode ver "falta 37,50": dá pra ajustar o número ao
-  // esperado e esconder a falta.
-  const a = avisosDeFechamento({ ...base, divergencia: -37.5, divergenciaComValor: false })
-  assert.equal(a[0].nivel, 'conferir')
-  assert.doesNotMatch(a[0].titulo, /37/)
-  assert.match(a[0].titulo, /não confere/)
+test('o valor da diferença aparece por padrão (pedido do dono: ajuda achar o erro)', () => {
+  // Mostrar "falta 37,50" na contagem é o default: é o que aponta onde procurar.
+  const a = avisosDeFechamento({ ...base, divergencia: -37.5 })
+  assert.match(a[0].titulo, /37/)
+  // a opção existe para telas onde revelar o esperado não deve acontecer
+  const sem = avisosDeFechamento({ ...base, divergencia: -37.5, divergenciaComValor: false })
+  assert.doesNotMatch(sem[0].titulo, /37/)
+  assert.match(sem[0].titulo, /não confere/)
 })
 
 test('centavo de arredondamento não vira aviso', () => {
