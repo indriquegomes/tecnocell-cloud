@@ -86,6 +86,9 @@ export default async function ContasPage({
               {nomeLoja(c.loja_id) && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-600">{nomeLoja(c.loja_id)}</span>}
             </div>
             <p className={`mt-2 text-2xl font-bold tabular-nums ${(saldos[c.id] ?? 0) < 0 ? 'text-red-600' : 'text-gray-900'}`}>{formatBRL(saldos[c.id] ?? 0)}</p>
+            {c.chave_pix && (
+              <p className="mt-1.5 text-[11px] leading-snug text-gray-400">Pix {c.chave_pix}{c.titular ? ` · ${c.titular}` : ''}</p>
+            )}
           </div>
         ))}
       </div>
@@ -173,6 +176,7 @@ export default async function ContasPage({
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">
                   {c.tipo === 'caixa' ? '💵' : '🏦'} {c.nome}
                   {nomeLoja(c.loja_id) && <span className="ml-2 text-xs font-normal text-gray-400">· {nomeLoja(c.loja_id)}</span>}
+                  {c.chave_pix && <div className="text-[11px] font-normal text-gray-400">Pix {c.chave_pix}{c.titular ? ` · ${c.titular}` : ''}</div>}
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-500">{c.tipo === 'caixa' ? 'Caixa' : 'Banco'}</td>
                 <td className={`px-4 py-3 text-right text-sm font-bold tabular-nums ${(saldos[c.id] ?? 0) >= 0 ? 'text-gray-900' : 'text-red-600'}`}>{formatBRL(saldos[c.id] ?? 0)}</td>

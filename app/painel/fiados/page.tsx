@@ -161,15 +161,16 @@ export default async function FiadosPage() {
   // lista de vendedores que têm fiado em aberto (pro seletor "quem vendeu")
   const vendedores = [...new Set(clientes.flatMap((c) => c.notas.map((n) => n.vendedor)))].sort()
 
-  // Pix por loja pra sair na cobrança. Vem da CONTA (conta já é por loja),
-  // então cliente de Teresópolis recebe a chave de Teresópolis sem ninguém
-  // escolher. Conta sem loja vira o fallback "geral". Sem chave cadastrada,
-  // a mensagem simplesmente sai sem o Pix, como era antes.
+  // Pix por loja pra sair na cobrança. Vem da CONTA que tem chave cadastrada
+  // (hoje uma só, o PagBank, que recebe o Pix das duas lojas). Conta sem loja
+  // vira o fallback "geral". Sem chave cadastrada, a mensagem sai sem o Pix,
+  // como era antes. O filtro é por chave, não pelo nome: renomear a conta não
+  // pode apagar o Pix da cobrança.
   const { data: contasPix } = await supabase
     .from('contas')
     .select('id, nome, chave_pix, titular, loja_id')
     .eq('ativa', true)
-    .ilike('nome', '%pix%')
+    .not('chave_pix', 'is', null)
   const pixPorLoja: Record<string, { chave: string; titular: string | null }> = {}
   const pixContas: { id: string; nome: string; loja: string; chave: string; titular: string | null }[] = []
   for (const c of (contasPix ?? []) as { id: string; nome: string; chave_pix: string | null; titular: string | null; loja_id: string | null }[]) {
