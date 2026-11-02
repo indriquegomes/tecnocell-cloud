@@ -1,5 +1,6 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
+import { headers } from 'next/headers'
 import { PainelVendedorClient } from './PainelVendedorClient'
 
 export default async function PainelVendedorPage({
@@ -14,6 +15,38 @@ export default async function PainelVendedorPage({
   const inicioMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
   const dataInicio = de ?? inicioMes
   const dataFim = ate ?? hoje
+
+  // Velocímetro: loja da vendedora + meta ativa + faixas + pagamento real
+  const userId = (await headers()).get('x-user-id')
+  const { data: perfil } = userId
+    ? await supabase.from('perfis').select('pdv_loja_id').eq('id', userId).maybeSingle()
+    : { data: null }
+  const minhaLojaId = (perfil as { pdv_loja_id?: string | null } | null)?.pdv_loja_id ?? null
+
+  let metaGauge: { lojaId: string; de: string; ate: string; rotulo: string; faixas: { nome: string; valor: number }[]; pagoInicial: number } | null = null
+  if (minhaLojaId) {
+    const { data: metaAtiva } = await supabase.from('metas')
+      .select('id, loja_id, rotulo, data_inicio, data_fim')
+      .eq('loja_id', minhaLojaId).eq('ativo', true)
+      .order('data_inicio', { ascending: false }).limit(1).maybeSingle()
+    if (metaAtiva) {
+      const [{ data: faixasMeta }, { data: pagoRows }] = await Promise.all([
+        supabase.from('metas_faixas').select('nome, valor').eq('meta_id', metaAtiva.id).order('ordem'),
+        supabase.rpc('dashboard_meta_pago', { p_de: metaAtiva.data_inicio, p_ate: metaAtiva.data_fim }),
+      ])
+      const pagoInicial = ((pagoRows ?? []) as { loja_id: string; valor: number }[])
+        .filter((r) => r.loja_id === minhaLojaId)
+        .reduce((s, r) => s + (Number(r.valor) || 0), 0)
+      metaGauge = {
+        lojaId: minhaLojaId,
+        de: metaAtiva.data_inicio,
+        ate: metaAtiva.data_fim,
+        rotulo: metaAtiva.rotulo ?? 'Meta',
+        faixas: (faixasMeta ?? []).map((f) => ({ nome: f.nome, valor: Number(f.valor) })),
+        pagoInicial,
+      }
+    }
+  }
 
   // fetchAll: sem isso o cap de 1000 do PostgREST subcontaria totalGeral/ranking/gráfico
   // quando o período tivesse >1000 vendas.
@@ -101,6 +134,7 @@ export default async function PainelVendedorPage({
       vendasDiarias={vendasDiarias}
       resumoPedidos={{ orcamentos, finalizados, cancelados }}
       comissaoPct={comissaoPct}
+      metaGauge={metaGauge}
     />
   )
 }

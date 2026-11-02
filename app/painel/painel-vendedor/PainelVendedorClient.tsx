@@ -1,6 +1,7 @@
 'use client'
 
 import { IconChart } from '@/components/icons'
+import { MetaVelocimetro } from './MetaVelocimetro'
 import { useState, useTransition } from 'react'
 import { hojeSP } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
@@ -96,6 +97,7 @@ export function PainelVendedorClient({
   vendasDiarias,
   resumoPedidos,
   comissaoPct = 0,
+  metaGauge,
 }: {
   ranking: VendedorRow[]
   totalGeral: number
@@ -105,6 +107,7 @@ export function PainelVendedorClient({
   vendasDiarias: DiaRow[]
   resumoPedidos: { orcamentos: number; finalizados: number; cancelados: number }
   comissaoPct?: number
+  metaGauge: { lojaId: string; de: string; ate: string; rotulo: string; faixas: { nome: string; valor: number }[]; pagoInicial: number } | null
 }) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -138,6 +141,19 @@ export function PainelVendedorClient({
         <IconChart className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
         <h2 className="text-2xl font-bold text-gray-900">Painel Vendedor</h2>
       </div>
+
+      {/* Velocímetro da meta (pagamento real, atualiza sozinho) */}
+      {metaGauge && (
+        <div className="max-w-sm">
+          <MetaVelocimetro
+            faixas={metaGauge.faixas}
+            pagoInicial={metaGauge.pagoInicial}
+            de={metaGauge.de}
+            ate={metaGauge.ate}
+            rotulo={metaGauge.rotulo}
+          />
+        </div>
+      )}
 
       {/* Filtro */}
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
