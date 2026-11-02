@@ -1,6 +1,7 @@
 import { NextResponse, after } from 'next/server'
 import crypto from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
+import { nomeDaChave } from '@/lib/pix-chaves'
 
 // ============================================================================
 // Webhook do bot de comprovantes Pix — roda na Vercel (sem depender de PC ligado).
@@ -96,6 +97,8 @@ function agrupaPorDestino(cs: Comp[]) {
   return g
 }
 const fmtDataBR = (d: string | null) => { if (!d) return ''; const p = String(d).slice(0, 10).split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : String(d) }
+// Nome curto da chave (H20, ADL, INOVA, ZL, PLANETA). Só EXIBIÇÃO — não mexe em valor.
+const nomeGrupo = (g: { nome: string; itens: Comp[] }) => nomeDaChave(g.nome, g.itens.map((c) => docDe(c)).find(Boolean) || null)
 
 // ---------- Telegram ----------
 // fetch COM TIMEOUT. Sem isso, uma chamada travada (Google Sheets/Telegram — acontece)
@@ -508,9 +511,9 @@ async function escreveSheet(loja: Loja) {
         else if (c.status === 'data_divergente') { obs = '⚠️ data ≠ hoje'; tp = 'alerta' }
         else { obs = 'ok' }
       }
-      linhas.push([g.nome, c.pagador || '—', clienteDe(c), c.valor != null ? v : '', fmtDataBR(c.data_pix), obs]); rowTypes.push(tp)
+      linhas.push([nomeGrupo(g), c.pagador || '—', clienteDe(c), c.valor != null ? v : '', fmtDataBR(c.data_pix), obs]); rowTypes.push(tp)
     }
-    linhas.push(['', 'TOTAL ' + g.nome, '', soma, nImg + (nImg === 1 ? ' imagem' : ' imagens'), '']); rowTypes.push('subtotal')
+    linhas.push(['', 'TOTAL ' + nomeGrupo(g), '', soma, nImg + (nImg === 1 ? ' imagem' : ' imagens'), '']); rowTypes.push('subtotal')
     linhas.push(['', '', '', '', '', '']); rowTypes.push('blank')
   }
   const notas = [validos + ' comprovantes']
@@ -617,7 +620,7 @@ async function gravaHistorico(loja: Loja, cs: Comp[], fechadoEm: string) {
       for (const c of g.itens) {
         const v = Number(c.valor) || 0
         total += v
-        linhas.push([g.nome, c.pagador || '—', clienteDe(c) || '—', v, fmtDataBR(c.data_pix), c.status === 'data_divergente' ? '⚠️ data ≠ hoje' : 'ok'])
+        linhas.push([nomeGrupo(g), c.pagador || '—', clienteDe(c) || '—', v, fmtDataBR(c.data_pix), c.status === 'data_divergente' ? '⚠️ data ≠ hoje' : 'ok'])
       }
     }
     linhas.push(['', 'TOTAL DO FECHAMENTO', '', total, '', cs.length + ' comprovantes'])
@@ -686,7 +689,7 @@ async function backfillHistorico(loja: Loja) {
       for (const c of g.itens) {
         const v = Number(c.valor) || 0
         total += v
-        linhas.push([g.nome, c.pagador || '—', clienteDe(c) || '—', v, fmtDataBR(c.data_pix), c.status === 'data_divergente' ? '⚠️ data ≠ hoje' : 'ok'])
+        linhas.push([nomeGrupo(g), c.pagador || '—', clienteDe(c) || '—', v, fmtDataBR(c.data_pix), c.status === 'data_divergente' ? '⚠️ data ≠ hoje' : 'ok'])
       }
     }
     linhas.push(['', 'TOTAL DO DIA', '', total, '', grupoDia.length + ' comprovantes'])
@@ -714,7 +717,7 @@ async function fechar(loja: Loja, p: any, quem: string | null) {
   const groups = agrupaPorDestino((cs || []) as Comp[]); const keys = Object.keys(groups).sort()
   let geral = 0, resumo = '📊 FECHAMENTO DO PIX' + (quem ? ' — ' + quem : '') + '\n'
   resumo += '(' + new Date(p.aberto_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }) + ' → agora)\n\n'
-  for (const k of keys) { const g = groups[k]; const soma = g.itens.reduce((s, c) => s + (Number(c.valor) || 0), 0); geral += soma; resumo += '• ' + g.itens.length + ' imagens — ' + g.nome + ' — R$ ' + money(soma) + '\n' }
+  for (const k of keys) { const g = groups[k]; const soma = g.itens.reduce((s, c) => s + (Number(c.valor) || 0), 0); geral += soma; resumo += '• ' + g.itens.length + ' imagens — ' + nomeGrupo(g) + ' — R$ ' + money(soma) + '\n' }
   resumo += '\n💰 TOTAL: R$ ' + money(geral) + ' · ' + (cs || []).length + ' comprovantes'
   await tgSend(loja.token, loja.grupo, resumo)
   // fecha o período e ENFILEIRA o arquivo agrupado (fotos+pdfs+links). Reenviar 30+ de uma
