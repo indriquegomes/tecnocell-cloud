@@ -239,8 +239,8 @@ export default async function DashboardPage({
   }
   const metasWidgets = (metasAtivas ?? []).map(construirMeta).filter((m) => m.faixas.length > 0)
 
-  // Velocímetro da vendedora (não-master): meta da loja ATIVA + faixas
-  const velocimetro = !isMaster && lojaAtiva?.id
+  // Velocímetro da meta: loja ATIVA + faixas (todo mundo vê — master e vendedora)
+  const velocimetro = lojaAtiva?.id
     ? (() => {
         const metaLoja = (metasAtivas ?? []).find((m) => m.loja_id === lojaAtiva.id)
         if (!metaLoja) return null
@@ -531,8 +531,8 @@ export default async function DashboardPage({
           </div>
         )}
 
-        {/* Velocímetro da meta — só vendedora (sobe com pagamento real) */}
-        {!isMaster && velocimetro && (
+        {/* Velocímetro da meta — sobe com pagamento real */}
+        {velocimetro && (
           <div className="md:col-span-6 lg:col-span-4">
             <MetaVelocimetro faixas={velocimetro.faixas} pagoInicial={0} de={velocimetro.de} ate={velocimetro.ate} rotulo={velocimetro.rotulo} />
           </div>
