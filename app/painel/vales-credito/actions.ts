@@ -1,6 +1,7 @@
 'use server'
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { retirarDoCaixa } from '@/lib/caixa'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -60,9 +61,16 @@ export async function buscarClientesParaCredito(
     .map((p) => ({ id: p.id, nome: p.nome as string }))
 }
 
-export async function estornarCredito(id: string) {
+export async function estornarCredito(id: string, formData?: FormData) {
   await requirePermissao('financeiro')
   const supabase = await createServiceClient()
+
+  // O dinheiro do crédito estornado vai para o cliente AGORA ou fica para depois?
+  // Sem essa resposta a conta a pagar que a RPC cria ficava pendente para sempre —
+  // em outubro/2026 foram 6 lançamentos (786,00) acumulados sem ninguém dar baixa.
+  // Escolher a origem = já entregou. Deixar em branco = ainda deve ao cliente.
+  const origem = ((formData?.get('origem') as string | null) ?? '').trim()   // 'Dinheiro' | 'PIX' | ''
+  const entregue = origem !== ''
 
   // Tudo numa RPC atômica (migration 2026-08-27): trava saldo negativo (mesmo
   // achado de DIEGO PALMA em 27/08 — dois créditos de R$45+R$100, R$45 já
@@ -70,7 +78,7 @@ export async function estornarCredito(id: string) {
   // único em estorna_credito_id) + — se o crédito veio de uma DEVOLUÇÃO —
   // cria um lançamento 'pagar' pendente, porque estornar não pode fazer
   // dinheiro que saiu de uma devolução simplesmente sumir do sistema.
-  const { error } = await supabase.rpc('estornar_credito_cliente', { p_credito_id: id })
+  const { data, error } = await supabase.rpc('estornar_credito_cliente', { p_credito_id: id })
   if (error) {
     const m = error.message
     let msg = m
@@ -83,7 +91,43 @@ export async function estornarCredito(id: string) {
     redirect(`/painel/vales-credito?erro=${encodeURIComponent(msg)}`)
   }
 
+  // Dinheiro entregue ao cliente: a conta a pagar nasce QUITADA. Era o buraco —
+  // o caixa entregava a cédula e o lançamento ficava pendente para sempre.
+  const lancId = (data as { lancamento_id?: string | null } | null)?.lancamento_id ?? null
+  let avisoGaveta = ''
+  if (entregue && lancId) {
+    const { data: lanc } = await supabase
+      .from('lancamentos')
+      .select('valor, historico_pagamentos, loja_id, descricao')
+      .eq('id', lancId)
+      .maybeSingle()
+    const valor = Number(lanc?.valor ?? 0)
+    const agora = new Date().toISOString()
+    const hist = Array.isArray(lanc?.historico_pagamentos) ? (lanc!.historico_pagamentos as unknown[]) : []
+    const { error: erroBaixa } = await supabase.from('lancamentos').update({
+      status: 'pago',
+      valor_pago: valor,
+      data_pagamento: agora,
+      forma_pagamento: origem,
+      historico_pagamentos: [...hist, { valor, forma: origem, data: agora }],
+      updated_at: agora,
+    }).eq('id', lancId)
+    if (erroBaixa) redirect(`/painel/vales-credito?erro=${encodeURIComponent(erroBaixa.message)}`)
+
+    // Dinheiro em espécie sai da GAVETA da loja (mesma regra da devolução).
+    if (origem.toLowerCase().includes('dinheiro') && valor > 0) {
+      const lojaId = (lanc as { loja_id?: string | null } | null)?.loja_id ?? null
+      if (lojaId) {
+        const r = await retirarDoCaixa(
+          supabase, lojaId, valor,
+          'Crédito estornado — dinheiro devolvido ao cliente', lancId, 'financeiro',
+        )
+        if (!r.ok) avisoGaveta = ` A conta foi baixada, mas a gaveta não: ${r.erro}`
+      }
+    }
+  }
+
   revalidatePath('/painel/vales-credito')
   revalidatePath('/painel/financeiro')   // a dívida nova (se houver) precisa aparecer lá
-  redirect('/painel/vales-credito')
+  redirect(`/painel/vales-credito${avisoGaveta ? `?erro=${encodeURIComponent(avisoGaveta.trim())}` : ''}`)
 }

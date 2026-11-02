@@ -296,8 +296,21 @@ export function CreditosClient({
                           </td>
                           <td className="px-5 py-2.5 text-right">
                             {m.tipo === 'credito' && (
-                              <form action={estornarCredito.bind(null, m.id)}>
-                                <ConfirmButton message="Cancelar este vale (crédito)? O saldo dele sai do cliente." className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-100 transition">
+                              <form action={estornarCredito.bind(null, m.id)} className="flex items-center justify-end gap-1.5">
+                                {/* De onde saiu o dinheiro devolvido? Escolher aqui já quita a
+                                    conta a pagar que o estorno cria — antes ela ficava pendente
+                                    para sempre (786,00 acumulados só em outubro). */}
+                                <select
+                                  name="origem"
+                                  defaultValue=""
+                                  title="De onde saiu o dinheiro devolvido ao cliente?"
+                                  className="rounded-lg border border-gray-200 px-1.5 py-1 text-xs text-gray-600"
+                                >
+                                  <option value="">não entreguei</option>
+                                  <option value="Dinheiro">dinheiro da gaveta</option>
+                                  <option value="PIX">PIX / conta</option>
+                                </select>
+                                <ConfirmButton message="Cancelar este vale (crédito)? O saldo dele sai do cliente e, se você escolheu a origem, já fica registrado como devolvido." className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-100 transition">
                                   Cancelar
                                 </ConfirmButton>
                               </form>
