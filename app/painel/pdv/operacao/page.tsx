@@ -1,5 +1,6 @@
 import { createServiceClient, requireAuth, fetchAll } from '@/lib/supabase/server'
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
+import { hojeSP } from '@/lib/utils'
 import { pixSemComprovante } from '@/lib/pix-pendentes'
 import { agruparPorDestino, casarFornecedor, ehContaPropria, normNome, separarComprovantes, type DestinoNaTela, type FornecedorRef, type PixAvisos } from '@/lib/pix-destinos'
 import { carregarDevolucoesCaixa, aplicarEstornosPix } from '@/lib/devolucoes-caixa'
@@ -400,7 +401,7 @@ export default async function OperacaoPDVPage({
   // quem recebeu, quanto, e quanto ainda se deve àquele fornecedor. Não baixa
   // nada sozinho — a baixa é um clique (ver baixarPixDoFornecedor em actions.ts).
   let pixDestinos: DestinoNaTela[] = []
-  let pixAvisos: PixAvisos = { repetidos: 0, valorRepetido: 0, naoComprovante: 0, naoLidos: 0, semDestino: 0, valorSemDestino: 0, cruzados: 0, valorCruzado: 0, apagados: 0 }
+  let pixAvisos: PixAvisos = { repetidos: 0, valorRepetido: 0, naoComprovante: 0, naoLidos: 0, semDestino: 0, valorSemDestino: 0, cruzados: 0, valorCruzado: 0, apagados: 0, daSessaoAnterior: 0 }
   if (caixaAberto) {
     const nomeLojaAtual = lojas.find((l) => l.id === lojaAtual)?.nome ?? ''
     const chat = await grupoDoTelegram(supabase, nomeLojaAtual)
@@ -466,6 +467,23 @@ export default async function OperacaoPDVPage({
       cruzados: sep.cruzados.length,
       valorCruzado: sep.valorCruzado,
       apagados: sep.apagados,
+      daSessaoAnterior: 0,
+    }
+
+    // CAIXA FECHADO NO MEIO DO DIA: o bloco lê os comprovantes DESTA sessão (desde
+    // que este caixa abriu). Se o caixa anterior de hoje tinha comprovante de
+    // fornecedor e a baixa não foi feita antes de fechar, a dívida continua aberta
+    // e não aparece mais aqui. Em vez de somar de novo (arriscaria baixa em dobro),
+    // a tela só avisa quantos ficaram para trás.
+    if (chat) {
+      const { count } = await supabase
+        .from('comprovantes_pix')
+        .select('id', { count: 'exact', head: true })
+        .eq('telegram_chat_id', chat)
+        .neq('status', 'furo')
+        .eq('data_pix', hojeSP())
+        .lt('recebido_em', caixaAberto.aberto_em)
+      pixAvisos.daSessaoAnterior = count ?? 0
     }
     pixDestinos = agruparPorDestino(sep.validos).map((d) => {
       const f = casarFornecedor(d, fornecedores)

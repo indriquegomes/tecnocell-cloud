@@ -634,9 +634,12 @@ export function PixDoDiaCard({
 
       {/* ERRO HUMANO — o que ficou fora da conta tem nome e valor. Sem esta caixa,
           comprovante repetido ou do grupo errado viraria dívida baixada. */}
-      {avisos && (avisos.cruzados + avisos.repetidos + avisos.naoLidos + avisos.semDestino + avisos.naoComprovante + avisos.apagados) > 0 && (
+      {avisos && (avisos.cruzados + avisos.repetidos + avisos.naoLidos + avisos.semDestino + avisos.naoComprovante + avisos.apagados + (avisos.daSessaoAnterior ?? 0)) > 0 && (
         <div className="mt-3 space-y-1 rounded-xl border border-amber-200 bg-amber-50/80 px-3.5 py-2.5 text-xs leading-snug text-amber-800">
           <p className="font-semibold">Conferência dos comprovantes</p>
+          {(avisos.daSessaoAnterior ?? 0) > 0 && (
+            <p>↩ {avisos.daSessaoAnterior} comprovante{(avisos.daSessaoAnterior ?? 0) === 1 ? '' : 's'} de hoje fic{(avisos.daSessaoAnterior ?? 0) === 1 ? 'ou' : 'caram'} na sessão anterior deste caixa (ele foi fechado no meio do dia). Se a baixa não foi feita antes, faça pelo Financeiro — aqui só aparecem os comprovantes desta sessão.</p>
+          )}
           {avisos.cruzados > 0 && (
             <p>⚠ {avisos.cruzados} comprovante{avisos.cruzados === 1 ? '' : 's'} de {fmt(avisos.valorCruzado)} também {avisos.cruzados === 1 ? 'foi postado' : 'foram postados'} no grupo da OUTRA loja. {avisos.cruzados === 1 ? 'Não soma' : 'Não somam'} em nenhuma das duas até decidirem de quem é.</p>
           )}
@@ -792,7 +795,7 @@ function FecharCaixaPanel({
 
           {/* PIX do dia — para onde foi, lido dos comprovantes do Telegram.
               Só aparece quando o bot já leu algum comprovante deste caixa. */}
-          {(pixDestinos.length > 0 || (pixAvisos ? (pixAvisos.cruzados + pixAvisos.repetidos + pixAvisos.naoLidos + pixAvisos.semDestino + pixAvisos.naoComprovante) > 0 : false)) && (
+          {(pixDestinos.length > 0 || (pixAvisos ? (pixAvisos.cruzados + pixAvisos.repetidos + pixAvisos.naoLidos + pixAvisos.semDestino + pixAvisos.naoComprovante + (pixAvisos.daSessaoAnterior ?? 0)) > 0 : false)) && (
             <PixDoDiaCard destinos={pixDestinos} pixDoCaixa={porTipo['pix'] ?? 0} avisos={pixAvisos} />
           )}
         </div>

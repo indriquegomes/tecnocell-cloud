@@ -253,6 +253,8 @@ export type PixAvisos = {
   cruzados: number
   valorCruzado: number
   apagados: number
+  /** comprovantes de hoje que ficaram na sessão anterior deste caixa (caixa fechado no meio do dia) */
+  daSessaoAnterior?: number
 }
 
 /** O destino já com o que a tela precisa: fornecedor casado, se é conta própria e quanto se deve. */
