@@ -7,6 +7,9 @@ import { redirect } from 'next/navigation'
 
 export type ActionState = { ok: boolean; message: string } | null
 
+// Dinheiro em reais legível ("1.234,56") — a mensagem da baixa é lida no balcão.
+const brl = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
 export async function abrirCaixa(
   _prev: ActionState,
   formData: FormData,
@@ -202,5 +205,100 @@ export async function registrarRetirada(
     return { ok: true, message: 'Retirada registrada com sucesso.' }
   } catch (e) {
     return { ok: false, message: 'Erro ao registrar retirada.' }
+  }
+}
+
+// ─── Baixa do fornecedor pago pelo PIX do cliente ────────────────────────────
+// O cliente paga direto na chave do fornecedor: o dinheiro NUNCA entra na conta
+// nem na gaveta. O que acontece é só isto: a dívida da compra diminui.
+// Por isso aqui NÃO se mexe em movimentos_caixa nem em conta_id — quem tirasse
+// dinheiro de uma conta estaria inventando uma saída que não existiu (e o saldo
+// da conta iria a negativo sozinho). O pagamento é lançado em ordem de
+// vencimento (o mais velho primeiro), igual à planilha que o dono já usa.
+//
+// Trava de mês fechado: NÃO se aplica. O fato que acontece é o PAGAMENTO, hoje,
+// no mês corrente; o lançamento de compra (competência) não é tocado. Baixar
+// conta a pagar não muda resultado de mês nenhum — só o saldo devedor.
+export async function baixarPixDoFornecedor(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const usuario = await requirePermissao('pdv', formData.get('access_token') as string)
+    const pessoaId = (formData.get('pessoa_id') as string | null) || ''
+    const valor = Math.round((parseFloat((formData.get('valor') as string) ?? '') || 0) * 100) / 100
+    if (!pessoaId) return { ok: false, message: 'Fornecedor não identificado.' }
+    if (valor <= 0) return { ok: false, message: 'Informe um valor maior que zero.' }
+
+    const supabase = await createServiceClient()
+    const { data: pessoa } = await supabase.from('pessoas').select('id, nome').eq('id', pessoaId).maybeSingle()
+    if (!pessoa) return { ok: false, message: 'Fornecedor não encontrado no cadastro.' }
+
+    const { data: abertos, error: erroBusca } = await supabase
+      .from('lancamentos')
+      .select('id, valor, valor_pago, status, historico_pagamentos, data_vencimento')
+      .eq('tipo', 'pagar')
+      .eq('pessoa_id', pessoaId)
+      .neq('status', 'cancelado')
+      .neq('status', 'pago')
+      .order('data_vencimento', { ascending: true, nullsFirst: false })
+    if (erroBusca) return { ok: false, message: erroBusca.message }
+
+    const lista = (abertos ?? [])
+      .map((l) => ({
+        id: l.id as string,
+        valor: Number(l.valor ?? 0),
+        pago: Number(l.valor_pago ?? 0),
+        historico: Array.isArray(l.historico_pagamentos) ? (l.historico_pagamentos as { valor: number; forma: string; data: string; tipo?: string }[]) : [],
+      }))
+      .filter((l) => l.valor - l.pago > 0.005)
+    if (lista.length === 0) return { ok: false, message: `Não há dívida em aberto com ${pessoa.nome}.` }
+
+    const totalAberto = Math.round(lista.reduce((s, l) => s + (l.valor - l.pago), 0) * 100) / 100
+    if (valor > totalAberto + 0.005) {
+      return { ok: false, message: `O valor passa da dívida em aberto (${brl(totalAberto)}). Corrija o valor.` }
+    }
+
+    const agora = new Date().toISOString()
+    let restante = valor
+    let baixado = 0
+    for (const l of lista) {
+      if (restante <= 0.005) break
+      const falta = Math.round((l.valor - l.pago) * 100) / 100
+      const pago = Math.min(falta, restante)
+      const novoPago = Math.round((l.pago + pago) * 100) / 100
+      const quitado = novoPago >= l.valor - 0.005
+      const { error } = await supabase
+        .from('lancamentos')
+        .update({
+          valor_pago: novoPago,
+          status: quitado ? 'pago' : 'pendente',
+          data_pagamento: quitado ? agora : null,
+          // registra COMO foi pago: sem conta e sem caixa, é o cliente que pagou
+          forma_pagamento: 'PIX do cliente ao fornecedor',
+          historico_pagamentos: [...l.historico, { valor: pago, forma: 'PIX do cliente ao fornecedor', data: agora }],
+          updated_at: agora,
+        })
+        .eq('id', l.id)
+      if (error) return { ok: false, message: error.message }
+      restante = Math.round((restante - pago) * 100) / 100
+      baixado += pago
+    }
+
+    await logAtividade('fornecedor.baixa_pix_cliente', {
+      pessoa_id: pessoaId,
+      fornecedor: pessoa.nome,
+      valor: Math.round(baixado * 100) / 100,
+      comprovantes: Number(formData.get('comprovantes') ?? 0) || null,
+    }, usuario, '/painel/pdv/operacao')
+    revalidatePath('/painel/pdv/operacao')
+    revalidatePath('/painel/financeiro')
+    revalidatePath('/painel/contas')
+    return {
+      ok: true,
+      message: `Baixa de ${brl(baixado)} em ${pessoa.nome}. Dívida agora: ${brl(Math.max(0, totalAberto - baixado))}.`,
+    }
+  } catch (e) {
+    return { ok: false, message: 'Erro ao dar baixa no fornecedor.' }
   }
 }

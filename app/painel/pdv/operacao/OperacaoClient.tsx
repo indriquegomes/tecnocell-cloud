@@ -9,11 +9,13 @@ import { createClient } from '@/lib/supabase/client'
 import { labelTipoPagamento } from '@/lib/formas-pagamento'
 import {
   abrirCaixa,
+  baixarPixDoFornecedor,
   fecharCaixa,
   registrarReforco,
   registrarRetirada,
   type ActionState,
 } from './actions'
+import type { DestinoNaTela, PixAvisos } from '@/lib/pix-destinos'
 
 // Token de auth lido do navegador e injetado no submit dos forms — cookies()
 // vem vazio em server actions na Vercel, então o servidor valida este token.
@@ -134,6 +136,8 @@ interface Props {
   estornosPix?: number
   estornosSemSplit?: number
   pixPendentes: { id: string; cliente: string | null; valor: number; hora: string }[]
+  pixDestinos?: DestinoNaTela[]
+  pixAvisos?: PixAvisos
   erro?: string
   fechado?: boolean
   aberto?: boolean
@@ -519,6 +523,190 @@ function AbrirCaixaPanel({ lojaId }: { lojaId: string }) {
   )
 }
 
+// ─── PIX do dia: quem recebeu e quanto ainda se deve ─────────────────────────
+// É a conferência que o dono faz no Telegram, já somada e ligada ao cadastro.
+// Cada linha é um recebedor dos comprovantes do dia:
+//   · fornecedor       → o cliente pagou a dívida da compra; NÃO entrou dinheiro
+//   · nossa conta      → o dinheiro está no banco e paga folha/custo
+//   · não identificado → o dono aponta uma vez qual fornecedor é
+// A baixa não tira nada de gaveta nem de conta: só diminui a dívida.
+export function PixDoDiaCard({
+  destinos,
+  pixDoCaixa,
+  avisos,
+}: {
+  destinos: DestinoNaTela[]
+  pixDoCaixa?: number
+  avisos?: PixAvisos
+}) {
+  const totalGeral = destinos.reduce((s, d) => s + d.total, 0)
+  const paraFornecedor = destinos.filter((d) => !d.propria)
+  const naConta = destinos.filter((d) => d.propria).reduce((s, d) => s + d.total, 0)
+  const semLer = destinos.reduce((s, d) => s + d.semValor, 0)
+
+  return (
+    <div className="px-6 py-4 border-t border-blue-100 bg-blue-50/50">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+        <p className="text-xs font-semibold text-blue-900/70 uppercase tracking-wider">PIX do dia — quem recebeu</p>
+        <p className="text-[11px] text-blue-900/50">lido dos comprovantes do Telegram</p>
+      </div>
+
+      <div className="mt-3 space-y-2.5">
+        {paraFornecedor.map((d) => (
+          <div key={d.nome + (d.fornecedorId ?? '')} className="rounded-xl border border-blue-100 bg-white px-3.5 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-gray-800">
+                  {d.fornecedorNome ?? d.nome}
+                  {!d.fornecedorNome && <span className="ml-1.5 text-[11px] font-semibold text-amber-600">não identificado</span>}
+                </p>
+                <p className="text-[11px] text-gray-400">
+                  {d.comprovantes} comprovante{d.comprovantes === 1 ? '' : 's'}
+                  {d.fornecedorNome && d.fornecedorNome.toUpperCase() !== d.nome ? ` · ${d.nome}` : ''}
+                  {d.semValor > 0 ? ` · ${d.semValor} sem valor legível` : ''}
+                </p>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="text-base font-bold tabular-nums text-blue-700">{fmt(d.total)}</p>
+                {d.fornecedorId && <p className="text-[11px] text-gray-400">deve hoje {fmt(d.divida)}</p>}
+              </div>
+            </div>
+
+            {d.fornecedorId && d.divida > 0.005 ? (
+              <BaixaPixForm
+                fornecedorId={d.fornecedorId}
+                fornecedorNome={d.fornecedorNome ?? d.nome}
+                total={d.total}
+                divida={d.divida}
+                comprovantes={d.comprovantes}
+              />
+            ) : d.fornecedorId ? (
+              <p className="mt-2 border-t border-gray-100 pt-2 text-[11px] text-gray-400">Sem dívida em aberto no app — nada a baixar.</p>
+            ) : (
+              <p className="mt-2 border-t border-gray-100 pt-2 text-[11px] text-amber-600">
+                Cadastre este fornecedor no Financeiro para poder dar baixa na dívida.
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {paraFornecedor.length === 0 && totalGeral <= 0.005 && (
+        <p className="mt-3 rounded-xl border border-blue-100 bg-white px-3.5 py-3 text-sm text-gray-500">
+          Nenhum comprovante válido para somar neste caixa.
+        </p>
+      )}
+
+      {totalGeral > 0.005 && (
+        <div className="mt-3 space-y-1 border-t border-blue-100 pt-2.5 text-sm">
+          {naConta > 0.005 && (
+            <div className="flex justify-between text-gray-600">
+              <span>💠 Caiu na nossa conta (banco)</span>
+              <span className="font-medium tabular-nums">{fmt(naConta)}</span>
+            </div>
+          )}
+          {typeof pixDoCaixa === 'number' && pixDoCaixa > 0.005 && (
+            <div className="flex justify-between text-gray-600">
+              <span>PIX lançado no caixa</span>
+              <span className="font-medium tabular-nums">{fmt(pixDoCaixa)}</span>
+            </div>
+          )}
+          <div className="flex justify-between font-semibold text-blue-900">
+            <span>Total de PIX lido hoje</span>
+            <span className="tabular-nums">{fmt(totalGeral)}</span>
+          </div>
+          {typeof pixDoCaixa === 'number' && pixDoCaixa > 0.005 && (() => {
+            const dif = Math.round((totalGeral - pixDoCaixa) * 100) / 100
+            return Math.abs(dif) < 0.005 ? (
+              <p className="text-[11px] font-medium text-green-700">✓ Confere com o PIX lançado no caixa.</p>
+            ) : (
+              <p className="text-[11px] font-medium text-amber-600">
+                Diferença de {fmt(Math.abs(dif))} contra o caixa{dif > 0 ? ' (comprovante a mais)' : ' (comprovante a menos)'} — confira no Telegram antes de baixar.
+              </p>
+            )
+          })()}
+        </div>
+      )}
+
+      <p className="mt-2 text-[11px] leading-snug text-blue-900/50">
+        Dinheiro que o cliente paga direto ao fornecedor não entra na gaveta nem na conta — ele só diminui a dívida.
+      </p>
+
+      {/* ERRO HUMANO — o que ficou fora da conta tem nome e valor. Sem esta caixa,
+          comprovante repetido ou do grupo errado viraria dívida baixada. */}
+      {avisos && (avisos.cruzados + avisos.repetidos + avisos.naoLidos + avisos.semDestino + avisos.naoComprovante + avisos.apagados) > 0 && (
+        <div className="mt-3 space-y-1 rounded-xl border border-amber-200 bg-amber-50/80 px-3.5 py-2.5 text-xs leading-snug text-amber-800">
+          <p className="font-semibold">Conferência dos comprovantes</p>
+          {avisos.cruzados > 0 && (
+            <p>⚠ {avisos.cruzados} comprovante{avisos.cruzados === 1 ? '' : 's'} de {fmt(avisos.valorCruzado)} também {avisos.cruzados === 1 ? 'foi postado' : 'foram postados'} no grupo da OUTRA loja. {avisos.cruzados === 1 ? 'Não soma' : 'Não somam'} em nenhuma das duas até decidirem de quem é.</p>
+          )}
+          {avisos.repetidos > 0 && (
+            <p>↺ {avisos.repetidos} comprovante{avisos.repetidos === 1 ? '' : 's'} repetido{avisos.repetidos === 1 ? '' : 's'} de {fmt(avisos.valorRepetido)} — {avisos.repetidos === 1 ? 'contado' : 'contados'} uma vez só.</p>
+          )}
+          {avisos.naoLidos > 0 && (
+            <p>⚠ {avisos.naoLidos} comprovante{avisos.naoLidos === 1 ? '' : 's'} ilegíve{avisos.naoLidos === 1 ? 'l ou não lido' : 'is ou não lidos'} — confira na mão no Telegram.</p>
+          )}
+          {avisos.semDestino > 0 && (
+            <p>⚠ {avisos.semDestino} comprovante{avisos.semDestino === 1 ? '' : 's'} sem o nome de quem recebeu — {fmt(avisos.valorSemDestino)} fora da conta.</p>
+          )}
+          {avisos.naoComprovante > 0 && (
+            <p>🖼 {avisos.naoComprovante} foto{avisos.naoComprovante === 1 ? '' : 's'} que não {avisos.naoComprovante === 1 ? 'era comprovante' : 'eram comprovantes'} — ignorada{avisos.naoComprovante === 1 ? '' : 's'}.</p>
+          )}
+          {avisos.apagados > 0 && (
+            <p>🗑 {avisos.apagados} comprovante{avisos.apagados === 1 ? '' : 's'} apagado{avisos.apagados === 1 ? '' : 's'} do grupo — contam como válidos (o grupo apaga sozinho). Se algum foi CANCELADO, desconte antes de dar baixa.</p>
+          )}
+        </div>
+      )}
+
+      {semLer > 0 && (
+        <p className="mt-1 text-[11px] text-amber-600">{semLer} comprovante{semLer === 1 ? '' : 's'} com valor ilegível — confira no Telegram antes de baixar.</p>
+      )}
+    </div>
+  )
+}
+
+// Uma linha de baixa = um form. Valor sugerido é o menor entre o que foi pago no
+// PIX do dia e a dívida em aberto; a atendente pode corrigir antes de confirmar.
+function BaixaPixForm({
+  fornecedorId,
+  fornecedorNome,
+  total,
+  divida,
+  comprovantes,
+}: {
+  fornecedorId: string
+  fornecedorNome: string
+  total: number
+  divida: number
+  comprovantes: number
+}) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(baixarPixDoFornecedor, null)
+  const sugerido = Math.min(total, divida)
+  return (
+    <form action={withToken(action)} className="mt-2.5 border-t border-gray-100 pt-2.5">
+      <input type="hidden" name="pessoa_id" value={fornecedorId} />
+      <input type="hidden" name="comprovantes" value={comprovantes} />
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="w-32">
+          <label className="mb-1 block text-[11px] font-medium text-gray-500">Valor a baixar</label>
+          <CampoDinheiro name="valor" defaultValue={sugerido} className="py-1.5 text-sm" />
+        </div>
+        <button
+          type="submit"
+          disabled={pending}
+          aria-label={`Dar baixa na dívida com ${fornecedorNome}`}
+          className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
+        >
+          {pending ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Baixando...</span> : 'Dar baixa'}
+        </button>
+      </div>
+      {state && (
+        <p className={`mt-1.5 text-xs ${state.ok ? 'text-green-700' : 'text-red-600'}`}>{state.message}</p>
+      )}
+    </form>
+  )
+}
+
 function FecharCaixaPanel({
   caixaId,
   valorAbertura,
@@ -529,6 +717,8 @@ function FecharCaixaPanel({
   reforcosDinheiro,
   retiradasDinheiro,
   recebidosDinheiro,
+  pixDestinos,
+  pixAvisos,
 }: {
   caixaId: string
   valorAbertura: number
@@ -539,6 +729,8 @@ function FecharCaixaPanel({
   reforcosDinheiro: number
   retiradasDinheiro: number
   recebidosDinheiro: number
+  pixDestinos: DestinoNaTela[]
+  pixAvisos?: PixAvisos
 }) {
   const [etapa, setEtapa] = useState<'resumo' | 'cego'>('resumo')
   const [state, action, pending] = useActionState<ActionState, FormData>(fecharCaixa, null)
@@ -596,6 +788,12 @@ function FecharCaixaPanel({
                 ))}
               </div>
             </div>
+          )}
+
+          {/* PIX do dia — para onde foi, lido dos comprovantes do Telegram.
+              Só aparece quando o bot já leu algum comprovante deste caixa. */}
+          {(pixDestinos.length > 0 || (pixAvisos ? (pixAvisos.cruzados + pixAvisos.repetidos + pixAvisos.naoLidos + pixAvisos.semDestino + pixAvisos.naoComprovante) > 0 : false)) && (
+            <PixDoDiaCard destinos={pixDestinos} pixDoCaixa={porTipo['pix'] ?? 0} avisos={pixAvisos} />
           )}
         </div>
 
@@ -1213,6 +1411,8 @@ export function OperacaoClient({
   vendasPorTipo,
   vendasDetalhe,
   pixPendentes,
+  pixDestinos = [],
+  pixAvisos,
   estornosPix = 0,
   estornosSemSplit = 0,
   erro,
@@ -1458,6 +1658,8 @@ export function OperacaoClient({
               reforcosDinheiro={reforcosDinheiro}
               retiradasDinheiro={retiradasDinheiro}
               recebidosDinheiro={recebidosDinheiro}
+              pixDestinos={pixDestinos}
+              pixAvisos={pixAvisos}
             />
           )}
           {panel === 'reforco' && (

@@ -1,8 +1,41 @@
-import { createServiceClient, requireAuth } from '@/lib/supabase/server'
+import { createServiceClient, requireAuth, fetchAll } from '@/lib/supabase/server'
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { pixSemComprovante } from '@/lib/pix-pendentes'
+import { agruparPorDestino, casarFornecedor, ehContaPropria, normNome, separarComprovantes, type DestinoNaTela, type FornecedorRef, type PixAvisos } from '@/lib/pix-destinos'
 import { carregarDevolucoesCaixa, aplicarEstornosPix } from '@/lib/devolucoes-caixa'
 import { OperacaoClient } from './OperacaoClient'
+
+// PIX do dia agrupado por QUEM RECEBEU — a conferência que o dono faz no Telegram,
+// só que já somada e ligada ao cadastro. O app não fala com o Telegram: o bot grava
+// cada comprovante em `comprovantes_pix` e aqui a gente só lê e agrupa.
+// Grupo do Telegram por loja: o bot identifica a loja pelo nome de quem abriu o
+// caixa no grupo (`pix_periodos.aberto_por`). Sem migration, sem cadastro novo —
+// e se um dia a loja trocar de grupo, a tela acompanha sozinha.
+async function grupoDoTelegram(
+  supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  nomeLoja: string,
+): Promise<number | null> {
+  const alvo = normNome(nomeLoja)
+  if (!alvo) return null
+  const { data } = await supabase
+    .from('pix_periodos')
+    .select('telegram_chat_id, aberto_por, aberto_em')
+    .order('aberto_em', { ascending: false })
+    .limit(120)
+  const conta = new Map<number, number>()
+  for (const p of data ?? []) {
+    const quem = normNome(p.aberto_por)
+    if (!quem) continue
+    if (alvo.length >= 6 && (quem.includes(alvo) || alvo.includes(quem.replace('TECNOCELL ', '')))) {
+      conta.set(p.telegram_chat_id as number, (conta.get(p.telegram_chat_id as number) ?? 0) + 1)
+    }
+  }
+  let melhor: number | null = null
+  let vistos = 0
+  for (const [chat, n] of conta) if (n > vistos) { vistos = n; melhor = chat }
+  return melhor
+}
+
 
 export default async function OperacaoPDVPage({
   searchParams,
@@ -14,7 +47,7 @@ export default async function OperacaoPDVPage({
 
   // Loja atual (caixa é por loja): a loja ATIVA do usuário rege; atendente
   // restrita não consegue trocar pra loja que não opera (URL ignorada).
-  const { data: lojasData } = await supabase.from('lojas').select('id, nome').eq('ativa', true).order('nome')
+  const { data: lojasData } = await supabase.from('lojas').select('id, nome, cnpj').eq('ativa', true).order('nome')
   const lojas = lojasData ?? []
   const { ativa, operaveis } = await lojasDoUsuario().catch(() => ({ ativa: null, operaveis: lojas }))
   const lojaAtual = (loja && operaveis.some((l) => l.id === loja)) ? loja : (ativa?.id ?? lojas[0]?.id ?? '')
@@ -362,6 +395,90 @@ export default async function OperacaoPDVPage({
     }
   }
 
+  // ─── PIX do dia por destino (conferência do dono, feita no Telegram) ───────
+  // Lê os comprovantes que o bot já gravou desde que este caixa abriu e mostra:
+  // quem recebeu, quanto, e quanto ainda se deve àquele fornecedor. Não baixa
+  // nada sozinho — a baixa é um clique (ver baixarPixDoFornecedor em actions.ts).
+  let pixDestinos: DestinoNaTela[] = []
+  let pixAvisos: PixAvisos = { repetidos: 0, valorRepetido: 0, naoComprovante: 0, naoLidos: 0, semDestino: 0, valorSemDestino: 0, cruzados: 0, valorCruzado: 0, apagados: 0 }
+  if (caixaAberto) {
+    const nomeLojaAtual = lojas.find((l) => l.id === lojaAtual)?.nome ?? ''
+    const chat = await grupoDoTelegram(supabase, nomeLojaAtual)
+    const [compsRes, fornecedores, abertos, contasProprias] = await Promise.all([
+      chat
+        ? supabase
+            .from('comprovantes_pix')
+            .select('valor, destinatario, extraido_raw, transacao_id, status, pagador, data_pix')
+            .eq('telegram_chat_id', chat)
+            .neq('status', 'furo')
+            .gte('recebido_em', caixaAberto.aberto_em)
+            .order('recebido_em')
+        : Promise.resolve({ data: [] as { valor: number | null; destinatario: string | null; extraido_raw: unknown; transacao_id: string | null; status: string | null; pagador: string | null; data_pix: string | null }[] }),
+      fetchAll<FornecedorRef>((from, to) =>
+        supabase.from('pessoas').select('id, nome, nome_fantasia, cpf_cnpj, chave_pix').eq('tipo', 'fornecedor').order('nome').range(from, to)),
+      fetchAll<{ pessoa_id: string | null; valor: number | null; valor_pago: number | null }>((from, to) =>
+        supabase.from('lancamentos').select('pessoa_id, valor, valor_pago').eq('tipo', 'pagar').neq('status', 'cancelado').not('pessoa_id', 'is', null).range(from, to)),
+      supabase.from('contas').select('chave_pix, titular').not('chave_pix', 'is', null),
+    ])
+    const emAberto: Record<string, number> = {}
+    for (const l of abertos) {
+      if (!l.pessoa_id) continue
+      const falta = Number(l.valor ?? 0) - Number(l.valor_pago ?? 0)
+      if (falta > 0.005) emAberto[l.pessoa_id] = (emAberto[l.pessoa_id] ?? 0) + falta
+    }
+    const docsProprios = [...lojas.map((l) => l.cnpj), ...((contasProprias.data ?? []).map((c) => c.chave_pix))]
+    const nomesProprios = (contasProprias.data ?? []).map((c) => c.titular)
+
+    // MESMO Pix postado no grupo da outra loja: o bot avisa nas duas, mas quem
+    // decide é gente. Enquanto ninguém decidir, não soma em loja nenhuma —
+    // contar nos dois lados é baixar dívida de fornecedor duas vezes.
+    const meus = (compsRes.data ?? []) as { valor: number | null; destinatario: string | null; extraido_raw: unknown; transacao_id: string | null; status: string | null; pagador: string | null; data_pix: string | null }[]
+    const txMinhas = [...new Set(meus.map((c) => c.transacao_id).filter(Boolean))] as string[]
+    let txDoOutroGrupo: string[] = []
+    if (chat && txMinhas.length > 0) {
+      const { data: outras } = await supabase
+        .from('comprovantes_pix')
+        .select('transacao_id')
+        .neq('telegram_chat_id', chat)
+        .in('transacao_id', txMinhas)
+      txDoOutroGrupo = [...new Set((outras ?? []).map((o) => o.transacao_id as string))]
+    }
+
+    const sep = separarComprovantes(
+      meus.map((c) => ({
+        valor: Number(c.valor) || null,
+        destinatario: c.destinatario ?? null,
+        doc: (c.extraido_raw as { destinatario_doc?: string } | null)?.destinatario_doc ?? null,
+        transacaoId: c.transacao_id ?? null,
+        status: c.status ?? null,
+        pagador: c.pagador ?? null,
+        dia: c.data_pix ?? null,
+      })),
+      { transacoesDoOutroGrupo: txDoOutroGrupo },
+    )
+    pixAvisos = {
+      repetidos: sep.repetidos,
+      valorRepetido: sep.valorRepetido,
+      naoComprovante: sep.naoComprovante,
+      naoLidos: sep.naoLidos,
+      semDestino: sep.semDestino,
+      valorSemDestino: sep.valorSemDestino,
+      cruzados: sep.cruzados.length,
+      valorCruzado: sep.valorCruzado,
+      apagados: sep.apagados,
+    }
+    pixDestinos = agruparPorDestino(sep.validos).map((d) => {
+      const f = casarFornecedor(d, fornecedores)
+      return {
+        ...d,
+        fornecedorId: f?.id ?? null,
+        fornecedorNome: f?.nome ?? null,
+        propria: ehContaPropria(d, docsProprios, nomesProprios),
+        divida: f ? Math.round((emAberto[f.id] ?? 0) * 100) / 100 : 0,
+      }
+    })
+  }
+
   // Quando caixa acaba de fechar, busca dados completos do Z Report
   let zReport: {
     aberto_em: string
@@ -539,6 +656,8 @@ export default async function OperacaoPDVPage({
       vendasPorTipo={vendasPorTipo}
       vendasDetalhe={vendasDetalhe}
       pixPendentes={pixPendentes}
+      pixDestinos={pixDestinos}
+      pixAvisos={pixAvisos}
       estornosPix={estornosPix}
       estornosSemSplit={estornosSemSplit}
       erro={erro}
