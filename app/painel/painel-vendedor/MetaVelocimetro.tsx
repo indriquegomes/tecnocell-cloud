@@ -35,7 +35,7 @@ export function MetaVelocimetro({
   const pct = Math.min(100, (real / meta) * 100)
   const falta = Math.max(0, meta - real)
   const fmtBRL = (v: number) =>
-    v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+    v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   return <VelocimetroMeta pct={pct} rotulo={rotulo} falta={fmtBRL(falta)} />
 }

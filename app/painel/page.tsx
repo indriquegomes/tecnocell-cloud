@@ -336,7 +336,7 @@ export default async function DashboardPage({
           </div>
         </div>
 
-        <MetaVelocimetro meta={metaEfetiva} vendido={meuFatMes} rotulo="Minha meta" />
+        <MetaVelocimetro meta={metaEfetiva} vendido={meuFatMes} rotulo="META DE VENDAS" />
 
         <Link href="/painel/pdv" className="flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 p-5 text-lg font-bold text-white shadow-sm shadow-emerald-600/25 transition hover:from-emerald-700 hover:to-emerald-600">
           🛒 Abrir o PDV
