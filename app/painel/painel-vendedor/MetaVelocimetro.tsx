@@ -6,8 +6,9 @@ import { buscarMetaPago } from './actions'
 
 type Faixa = { nome: string; valor: number }
 
-// Velocímetro compacto: arco de 180° com gradiente vermelho→verde, agulha e o
-// valor colado na ponta da agulha. Sobe com o PAGAMENTO REAL da loja.
+// Velocímetro compacto nas cores da loja (azul #1B6CA8 + laranja #F47920):
+// arco de 180°, agulha, e o valor colado na ponta da agulha. Sobe com o
+// PAGAMENTO REAL da loja.
 const CX = 100
 const CY = 92
 const R = 72
@@ -63,7 +64,7 @@ export function MetaVelocimetro({
 
   if (!faixas.length) {
     return (
-      <div className="max-w-xs rounded-2xl bg-[#111827] px-4 py-6 text-center text-sm text-gray-400">
+      <div className="max-w-xs rounded-2xl border border-gray-200 bg-white px-4 py-6 text-center text-sm text-gray-400">
         Sem meta cadastrada pra esta loja.
       </div>
     )
@@ -73,7 +74,7 @@ export function MetaVelocimetro({
   const pct = topo > 0 ? Math.min(100, Math.round((pago / topo) * 100)) : 0
   const ang = 180 - (Math.min(pago, topo) / topo) * 180
   const ponteiro = pt(ang)
-  const rotuloValor = pt(ang, R + 16)
+  const rotuloValor = pt(ang, R + 18)
 
   let faixaNome = 'A caminho'
   for (const f of faixas) if (pago >= f.valor) faixaNome = f.nome
@@ -81,61 +82,58 @@ export function MetaVelocimetro({
   const fmtBRL = (v: number) =>
     v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
   const fmtCurto = (v: number) =>
-    v >= 1000 ? (v / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) + 'k' : String(Math.round(v))
+    v >= 1000 ? (v / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + 'k' : String(Math.round(v))
 
   return (
-    <div className="max-w-xs rounded-2xl bg-[#111827] p-4 text-white shadow-sm">
+    <div className="max-w-xs rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold">{rotulo}</p>
-        <p className="text-xs text-gray-400">{fmtBRL(pago)}</p>
+        <p className="text-sm font-semibold text-gray-800">{rotulo}</p>
+        <p className="text-xs font-semibold text-[#1B6CA8]">{fmtBRL(pago)}</p>
       </div>
 
-      <svg viewBox="0 0 200 112" className="mt-1 w-full" role="img" aria-label="Velocímetro da meta">
+      <svg viewBox="0 0 200 116" className="mt-1 w-full" role="img" aria-label="Velocímetro da meta">
         <defs>
           <linearGradient id="metaGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#ef4444" />
-            <stop offset="33%" stopColor="#f97316" />
-            <stop offset="50%" stopColor="#f59e0b" />
-            <stop offset="66%" stopColor="#84cc16" />
-            <stop offset="100%" stopColor="#10b981" />
+            <stop offset="0%" stopColor="#F47920" />
+            <stop offset="100%" stopColor="#1B6CA8" />
           </linearGradient>
         </defs>
 
-        <path d={arco(180, 0)} stroke="#1f2937" strokeWidth="13" fill="none" strokeLinecap="round" />
+        <path d={arco(180, 0)} stroke="#e5e7eb" strokeWidth="13" fill="none" strokeLinecap="round" />
         <path d={arco(180, ang)} stroke="url(#metaGrad)" strokeWidth="13" fill="none" strokeLinecap="round" />
 
-        {/* marcas das faixas */}
+        {/* marcas das faixas + valores */}
         {faixas.slice(0, -1).map((f) => {
           const a = 180 - (f.valor / topo) * 180
           const p1 = pt(a)
           const p2 = pt(a, R - 8)
-          return <line key={f.nome} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="#111827" strokeWidth="3" />
+          return <line key={f.nome} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="#ffffff" strokeWidth="3" />
         })}
 
         {/* agulha */}
-        <line x1={CX} y1={CY} x2={ponteiro.x} y2={ponteiro.y} stroke="#f8fafc" strokeWidth="2.5" strokeLinecap="round" />
-        <circle cx={CX} cy={CY} r="4.5" fill="#f8fafc" />
+        <line x1={CX} y1={CY} x2={ponteiro.x} y2={ponteiro.y} stroke="#1B6CA8" strokeWidth="2.5" strokeLinecap="round" />
+        <circle cx={CX} cy={CY} r="4.5" fill="#1B6CA8" />
 
-        {/* valor colado na ponta da agulha */}
-        <text x={rotuloValor.x} y={rotuloValor.y} textAnchor="middle" dominantBaseline="middle" className="fill-white" style={{ font: '700 13px ui-sans-serif, system-ui' }}>
-          {pct}%
+        {/* valor na ponta da agulha */}
+        <text x={rotuloValor.x} y={rotuloValor.y} textAnchor="middle" dominantBaseline="middle" className="fill-[#1B6CA8]" style={{ font: '800 14px ui-sans-serif, system-ui' }}>
+          {fmtCurto(pago)}
         </text>
 
-        {/* faixa no centro */}
-        <text x={CX} y={CY + 2} textAnchor="middle" className="fill-gray-400" style={{ font: '600 11px ui-sans-serif, system-ui' }}>
-          {faixaNome}
+        {/* faixa + % no centro */}
+        <text x={CX} y={CY + 1} textAnchor="middle" className="fill-gray-500" style={{ font: '600 11px ui-sans-serif, system-ui' }}>
+          {faixaNome} · {pct}%
         </text>
 
         {/* pontas */}
-        <text x={CX - R - 2} y={CY + 5} textAnchor="middle" className="fill-gray-500" style={{ font: '600 10px ui-sans-serif, system-ui' }}>0</text>
-        <text x={CX + R + 2} y={CY + 5} textAnchor="middle" className="fill-gray-500" style={{ font: '600 10px ui-sans-serif, system-ui' }}>{fmtCurto(topo)}</text>
+        <text x={CX - R - 2} y={CY + 5} textAnchor="middle" className="fill-gray-400" style={{ font: '600 10px ui-sans-serif, system-ui' }}>0</text>
+        <text x={CX + R + 2} y={CY + 5} textAnchor="middle" className="fill-gray-400" style={{ font: '600 10px ui-sans-serif, system-ui' }}>{fmtCurto(topo)}</text>
       </svg>
 
       {/* legenda compacta */}
-      <div className="mt-1 flex justify-between px-1 text-[9px] text-gray-400">
+      <div className="mt-1 flex justify-between px-1 text-[9px] text-gray-500">
         {faixas.map((f, i) => (
           <span key={f.nome} className="flex flex-col items-center gap-0.5">
-            <span className="font-semibold" style={{ color: ['#ef4444', '#f97316', '#84cc16', '#10b981'][i] ?? '#10b981' }}>{f.nome}</span>
+            <span className="font-semibold" style={{ color: ['#F47920', '#f59e0b', '#38bdf8', '#1B6CA8'][i] ?? '#1B6CA8' }}>{f.nome}</span>
             <span className="tabular-nums">{fmtCurto(f.valor)}</span>
           </span>
         ))}
