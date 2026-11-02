@@ -12,8 +12,8 @@ const jakarta = Plus_Jakarta_Sans({
 })
 
 export const metadata: Metadata = {
-  title: 'TecnoCell Cloud — Smartphones e Acessórios',
-  description: 'TecnoCell Cloud — Petrópolis e Teresópolis. Smartphones, acessórios e eletrônicos.',
+  title: 'TecnoCell Cloud — TESTES',
+  description: 'Ambiente de homologação. Dados fictícios, sem vínculo com caixa ou estoque da loja.',
   // PWA: deixa instalar como app (janela própria, ícone na barra, abre no PDV)
   manifest: '/manifest.webmanifest',
   appleWebApp: { capable: true, title: 'TecnoCell', statusBarStyle: 'default' },
@@ -32,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR" className={`h-full ${jakarta.variable}`} suppressHydrationWarning>
       <body className="min-h-full bg-gray-50 antialiased">
         <RegistrarSW />
+        <div className="bg-amber-200 px-3 py-1 text-center text-xs font-bold text-amber-950 print:hidden">AMBIENTE DE TESTES — dados fictícios</div>
         {children}
       </body>
     </html>
