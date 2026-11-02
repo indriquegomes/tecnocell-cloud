@@ -1,17 +1,15 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { buscarMetaPago } from './actions'
+import { buscarMinhaVenda } from './actions'
 
-type Faixa = { nome: string; valor: number }
-
-// Velocímetro compacto nas cores da loja (azul #1B6CA8 + laranja #F47920):
-// arco de 180°, agulha, e o valor colado na ponta da agulha. Sobe com o
-// PAGAMENTO REAL da loja.
+// Velocímetro de meta individual (inspirado no Speedtest / Fear & Greed).
+// Escala 0–100, arco de 180°, 4 zonas de cor, agulha branca com o % na ponta.
+// O ponteiro parte do zero e sobe suavemente até o percentual real (ease-out),
+// e volta a se mover quando o percentual muda após uma venda (poll de 60s).
 const CX = 100
-const CY = 92
-const R = 72
+const CY = 98
+const R = 74
 
 function pt(angDeg: number, r = R) {
   const rad = (angDeg * Math.PI) / 180
@@ -23,120 +21,112 @@ function arco(a1: number, a2: number) {
   const large = Math.abs(a2 - a1) > 180 ? 1 : 0
   return `M ${p1.x.toFixed(2)} ${p1.y.toFixed(2)} A ${R} ${R} 0 ${large} 1 ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`
 }
+// % → ângulo: 0% = esquerda (180°), 100% = direita (0°)
+const angDe = (p: number) => 180 - Math.min(100, Math.max(0, p)) * 1.8
+
+const ZONAS = [
+  { de: 0, ate: 30, cor: '#ef4444' },
+  { de: 30, ate: 50, cor: '#f97316' },
+  { de: 50, ate: 75, cor: '#facc15' },
+  { de: 75, ate: 100, cor: '#22c55e' },
+]
 
 export function MetaVelocimetro({
-  faixas,
-  pagoInicial,
-  de,
-  ate,
+  meta,
+  vendido,
   rotulo,
 }: {
-  faixas: Faixa[]
-  pagoInicial: number
-  de: string
-  ate: string
+  meta: number
+  vendido: number
   rotulo: string
 }) {
-  const [pago, setPago] = useState(pagoInicial)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [real, setReal] = useState(vendido)
+  const [anim, setAnim] = useState(0)
+  const animRef = useRef(0)
 
-  const refresh = () => buscarMetaPago(de, ate).then(setPago).catch(() => {})
-  const refreshDebounced = () => {
-    if (timer.current) clearTimeout(timer.current)
-    timer.current = setTimeout(refresh, 1200)
-  }
+  const pct = meta > 0 ? Math.min(100, (real / meta) * 100) : 0
+  const falta = Math.max(0, meta - real)
 
+  // anima o ponteiro (respeita prefers-reduced-motion)
   useEffect(() => {
-    refresh()
-    const sb = createClient()
-    const chan = sb
-      .channel('meta-velocimetro')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pagamentos_venda', filter: 'status=eq.pago' }, () => refreshDebounced())
-      .subscribe()
-    const interval = setInterval(refresh, 60000)
-    return () => {
-      sb.removeChannel(chan)
-      if (timer.current) clearTimeout(timer.current)
-      clearInterval(interval)
+    const reduzido = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduzido) {
+      animRef.current = pct
+      setAnim(pct)
+      return
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [de, ate])
+    const de = animRef.current
+    const inicio = performance.now()
+    const duracao = 1200
+    let raf = 0
+    const tick = (agora: number) => {
+      const t = Math.min(1, (agora - inicio) / duracao)
+      const e = 1 - Math.pow(1 - t, 3) // easeOutCubic
+      const v = de + (pct - de) * e
+      animRef.current = v
+      setAnim(v)
+      if (t < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [pct])
 
-  if (!faixas.length) {
+  // atualiza o vendido a cada 60s (pega a venda feita no PDV sem recarregar)
+  useEffect(() => {
+    const id = setInterval(() => buscarMinhaVenda().then(setReal).catch(() => {}), 60000)
+    return () => clearInterval(id)
+  }, [])
+
+  if (meta <= 0) {
     return (
-      <div className="max-w-xs rounded-2xl border border-gray-200 bg-white px-4 py-6 text-center text-sm text-gray-400">
-        Sem meta cadastrada pra esta loja.
+      <div className="rounded-2xl bg-[#0d1117] px-5 py-8 text-center">
+        <p className="text-sm font-semibold text-gray-300">{rotulo}</p>
+        <p className="mt-2 text-xs text-gray-500">Sem meta definida — peça pro gerente configurar.</p>
       </div>
     )
   }
 
-  const topo = faixas[faixas.length - 1].valor
-  const pct = topo > 0 ? Math.min(100, Math.round((pago / topo) * 100)) : 0
-  const ang = 180 - (Math.min(pago, topo) / topo) * 180
-  const ponteiro = pt(ang)
-  const rotuloValor = pt(ang, R + 18)
-
-  let faixaNome = 'A caminho'
-  for (const f of faixas) if (pago >= f.valor) faixaNome = f.nome
+  const ang = angDe(anim)
+  const ponta = pt(ang)
+  const rotuloPonta = pt(ang, R + 22)
+  const pctInt = Math.round(anim)
 
   const fmtBRL = (v: number) =>
     v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
-  const fmtCurto = (v: number) =>
-    v >= 1000 ? (v / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + 'k' : String(Math.round(v))
 
   return (
-    <div className="max-w-xs rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="rounded-2xl bg-[#0d1117] p-5 text-white shadow-lg ring-1 ring-white/5">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-gray-800">{rotulo}</p>
-        <p className="text-xs font-semibold text-[#1B6CA8]">{fmtBRL(pago)}</p>
+        <p className="text-sm font-semibold text-gray-200">{rotulo}</p>
+        <p className="text-xs text-gray-500">faltam {fmtBRL(falta)}</p>
       </div>
 
-      <svg viewBox="0 0 200 116" className="mt-1 w-full" role="img" aria-label="Velocímetro da meta">
-        <defs>
-          <linearGradient id="metaGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#F47920" />
-            <stop offset="100%" stopColor="#1B6CA8" />
-          </linearGradient>
-        </defs>
+      <svg viewBox="0 0 200 116" className="mx-auto mt-1 w-full max-w-[280px]" role="img" aria-label="Velocímetro da meta">
+        {/* zonas de cor */}
+        {ZONAS.map((z) => (
+          <path key={z.cor} d={arco(angDe(z.de), angDe(z.ate))} stroke={z.cor} strokeWidth="14" fill="none" strokeLinecap="butt" opacity="0.9" />
+        ))}
 
-        <path d={arco(180, 0)} stroke="#e5e7eb" strokeWidth="13" fill="none" strokeLinecap="round" />
-        <path d={arco(180, ang)} stroke="url(#metaGrad)" strokeWidth="13" fill="none" strokeLinecap="round" />
+        {/* agulha branca */}
+        <line x1={CX} y1={CY} x2={ponta.x} y2={ponta.y} stroke="#ffffff" strokeWidth="3" strokeLinecap="round" />
+        <circle cx={CX} cy={CY} r="5" fill="#ffffff" />
 
-        {/* marcas das faixas + valores */}
-        {faixas.slice(0, -1).map((f) => {
-          const a = 180 - (f.valor / topo) * 180
-          const p1 = pt(a)
-          const p2 = pt(a, R - 8)
-          return <line key={f.nome} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="#ffffff" strokeWidth="3" />
-        })}
-
-        {/* agulha */}
-        <line x1={CX} y1={CY} x2={ponteiro.x} y2={ponteiro.y} stroke="#1B6CA8" strokeWidth="2.5" strokeLinecap="round" />
-        <circle cx={CX} cy={CY} r="4.5" fill="#1B6CA8" />
-
-        {/* valor na ponta da agulha */}
-        <text x={rotuloValor.x} y={rotuloValor.y} textAnchor="middle" dominantBaseline="middle" className="fill-[#1B6CA8]" style={{ font: '800 14px ui-sans-serif, system-ui' }}>
-          {fmtCurto(pago)}
+        {/* percentual na ponta da agulha */}
+        <text x={rotuloPonta.x} y={rotuloPonta.y} textAnchor="middle" dominantBaseline="middle" className="fill-white" style={{ font: '800 15px ui-sans-serif, system-ui' }}>
+          {pctInt}%
         </text>
-
-        {/* faixa + % no centro */}
-        <text x={CX} y={CY + 1} textAnchor="middle" className="fill-gray-500" style={{ font: '600 11px ui-sans-serif, system-ui' }}>
-          {faixaNome} · {pct}%
-        </text>
-
-        {/* pontas */}
-        <text x={CX - R - 2} y={CY + 5} textAnchor="middle" className="fill-gray-400" style={{ font: '600 10px ui-sans-serif, system-ui' }}>0</text>
-        <text x={CX + R + 2} y={CY + 5} textAnchor="middle" className="fill-gray-400" style={{ font: '600 10px ui-sans-serif, system-ui' }}>{fmtCurto(topo)}</text>
       </svg>
 
-      {/* legenda compacta */}
-      <div className="mt-1 flex justify-between px-1 text-[9px] text-gray-500">
-        {faixas.map((f, i) => (
-          <span key={f.nome} className="flex flex-col items-center gap-0.5">
-            <span className="font-semibold" style={{ color: ['#F47920', '#f59e0b', '#38bdf8', '#1B6CA8'][i] ?? '#1B6CA8' }}>{f.nome}</span>
-            <span className="tabular-nums">{fmtCurto(f.valor)}</span>
-          </span>
-        ))}
+      {/* percentual grande abaixo */}
+      <p className="mt-1 text-center text-5xl font-extrabold tabular-nums leading-none">{pctInt}%</p>
+      <p className="mt-1.5 text-center text-[11px] font-semibold uppercase tracking-[0.25em] text-gray-400">da meta</p>
+
+      {/* indicador rumo à meta */}
+      <div className="mt-3 flex items-center justify-center gap-1.5 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-400">
+        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M8 13V3M4 7l4-4 4 4" />
+        </svg>
+        RUMO À META
       </div>
     </div>
   )

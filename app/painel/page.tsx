@@ -336,15 +336,7 @@ export default async function DashboardPage({
           </div>
         </div>
 
-        {velocimetro ? (
-          <MetaVelocimetro faixas={velocimetro.faixas} pagoInicial={0} de={velocimetro.de} ate={velocimetro.ate} rotulo={velocimetro.rotulo} />
-        ) : (
-          <div className="rounded-2xl bg-[#111827] p-6 text-white">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-400">Minha meta · este mês</p>
-            <p className="mt-3 text-2xl font-bold">Nenhuma meta ativa no momento.</p>
-            <p className="mt-1 text-sm text-gray-400">Peça pro dono configurar as faixas da loja.</p>
-          </div>
-        )}
+        <MetaVelocimetro meta={metaEfetiva} vendido={meuFatMes} rotulo="Minha meta" />
 
         <Link href="/painel/pdv" className="flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 p-5 text-lg font-bold text-white shadow-sm shadow-emerald-600/25 transition hover:from-emerald-700 hover:to-emerald-600">
           🛒 Abrir o PDV
@@ -492,15 +484,28 @@ export default async function DashboardPage({
             )}
           </div>
         ) : (
-          <div className="md:col-span-6 lg:col-span-8 lg:row-span-2">
-            {velocimetro ? (
-              <MetaVelocimetro faixas={velocimetro.faixas} pagoInicial={0} de={velocimetro.de} ate={velocimetro.ate} rotulo={velocimetro.rotulo} />
+          <div className="relative flex flex-col justify-center overflow-hidden rounded-2xl bg-[#1B6CA8] p-6 text-white shadow-sm md:col-span-6 lg:col-span-8 lg:row-span-2">
+            <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/5" />
+            {metaTopo ? (
+              <>
+                <p className="relative text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Meta {metaTopo.rotulo ? `· ${metaTopo.rotulo}` : ''} · {metaTopo.loja}</p>
+                <p className="relative mt-3 text-[64px] font-extrabold leading-none tabular-nums">{metaTopoPct}%</p>
+                <p className="relative mt-1 text-sm text-white/75">da meta do mês</p>
+                <div className="relative mt-5 h-4 overflow-hidden rounded-full bg-white/15">
+                  <div className="h-full rounded-full bg-gradient-to-r from-white to-white/70 transition-all" style={{ width: `${metaTopoPct}%` }} />
+                </div>
+                <p className="relative mt-3 text-sm text-white/85">
+                  {metaTopoProx
+                    ? <>Faltam <b className="font-semibold text-white">{Math.max(0, 100 - metaTopoPct)}%</b> pra bater <b className="font-semibold text-white">{metaTopoProx.nome}</b> 💪</>
+                    : <>🏆 Meta batida! Todas as faixas conquistadas.</>}
+                </p>
+              </>
             ) : (
-              <div className="rounded-2xl bg-[#111827] p-6 text-white">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-400">Meta</p>
-                <p className="mt-3 text-2xl font-bold">Nenhuma meta ativa no momento.</p>
-                <p className="mt-1 text-sm text-gray-400">Peça pro dono configurar as faixas da loja.</p>
-              </div>
+              <>
+                <p className="relative text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Meta</p>
+                <p className="relative mt-3 text-2xl font-bold text-white/90">Nenhuma meta ativa no momento.</p>
+                <p className="relative mt-1 text-sm text-white/70">Peça pro dono configurar as faixas da loja.</p>
+              </>
             )}
           </div>
         )}
