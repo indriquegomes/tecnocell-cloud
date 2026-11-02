@@ -90,7 +90,7 @@ export default function VelocimetroMeta({
   const angulo = 180 - valor * 1.8;
 
   const ponteiro = polarToCartesian(180, 180, 112, angulo);
-  const etiqueta = polarToCartesian(180, 180, 145, angulo);
+  const etiqueta = polarToCartesian(180, 180, 118, angulo);
 
   const marcacoes = [0, 20, 40, 60, 80, 100];
 
