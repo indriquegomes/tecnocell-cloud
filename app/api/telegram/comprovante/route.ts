@@ -97,7 +97,8 @@ function agrupaPorDestino(cs: Comp[]) {
   return g
 }
 const fmtDataBR = (d: string | null) => { if (!d) return ''; const p = String(d).slice(0, 10).split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : String(d) }
-// Nome curto da chave (H20, ADL, INOVA, ZL, PLANETA). Só EXIBIÇÃO — não mexe em valor.
+// Nome do grupo na planilha/mensagem: nome fantasia da chave (H2O, Tecnocell Petrópolis, ADL,
+// INOVA, ZL, Isabela Ponciano, PLANETA). Só EXIBIÇÃO — não mexe em valor.
 const nomeGrupo = (g: { nome: string; itens: Comp[] }) => nomeDaChave(g.nome, g.itens.map((c) => docDe(c)).find(Boolean) || null)
 
 // ---------- Telegram ----------
