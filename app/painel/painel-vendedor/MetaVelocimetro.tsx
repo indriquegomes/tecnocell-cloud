@@ -47,6 +47,7 @@ export function MetaVelocimetro({
   }
 
   useEffect(() => {
+    refresh()
     const sb = createClient()
     const chan = sb
       .channel('meta-velocimetro')

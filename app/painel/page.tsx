@@ -9,6 +9,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 import { MetaWidget, type MetaInput } from '@/components/MetaWidget'
+import { MetaVelocimetro } from './painel-vendedor/MetaVelocimetro'
 import { FluxoDiario, StatusPedidos } from '@/components/GraficosVendas'
 import { FiltroDashboard } from '@/components/FiltroDashboard'
 import { PontoWidget } from '@/components/PontoWidget'
@@ -237,6 +238,17 @@ export default async function DashboardPage({
     return { loja: nome, rotulo: m.rotulo, diasUteis: m.dias_uteis, diasDecorridos: diasCorridos, faturamento: fat, faturamentoHoje: fatHoje, pessoas: (m as { pessoas?: number }).pessoas ?? 4, faixas }
   }
   const metasWidgets = (metasAtivas ?? []).map(construirMeta).filter((m) => m.faixas.length > 0)
+
+  // Velocímetro da vendedora (não-master): meta da loja ATIVA + faixas
+  const velocimetro = !isMaster && lojaAtiva?.id
+    ? (() => {
+        const metaLoja = (metasAtivas ?? []).find((m) => m.loja_id === lojaAtiva.id)
+        if (!metaLoja) return null
+        const fs = (faixasAll ?? []).filter((f) => f.meta_id === metaLoja.id).map((f) => ({ nome: f.nome, valor: Number(f.valor) }))
+        if (!fs.length) return null
+        return { de: metaLoja.data_inicio, ate: metaLoja.data_fim, rotulo: metaLoja.rotulo, faixas: fs }
+      })()
+    : null
   const minhaLojaId = (meuPerfil as { pdv_loja_id?: string | null } | null)?.pdv_loja_id
   const minhaMetaNome = minhaLojaId ? nomeLoja[minhaLojaId] : null
   // só mostra "a meta dela" quando sabemos a loja (pdv_loja_id). Senão, mostra
@@ -516,6 +528,13 @@ export default async function DashboardPage({
                 <p className="relative mt-1 text-sm text-white/70">Peça pro dono configurar as faixas da loja.</p>
               </>
             )}
+          </div>
+        )}
+
+        {/* Velocímetro da meta — só vendedora (sobe com pagamento real) */}
+        {!isMaster && velocimetro && (
+          <div className="md:col-span-6 lg:col-span-4">
+            <MetaVelocimetro faixas={velocimetro.faixas} pagoInicial={0} de={velocimetro.de} ate={velocimetro.ate} rotulo={velocimetro.rotulo} />
           </div>
         )}
 
