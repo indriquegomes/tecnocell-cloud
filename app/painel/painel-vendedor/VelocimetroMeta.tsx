@@ -89,8 +89,8 @@ export default function VelocimetroMeta({
   const percentual = Math.round(valor);
   const angulo = 180 - valor * 1.8;
 
-  const ponteiro = polarToCartesian(180, 180, 112, angulo);
-  const etiqueta = polarToCartesian(180, 180, 118, angulo);
+  const ponteiro = polarToCartesian(180, 180, 128, angulo);
+  const etiqueta = polarToCartesian(180, 180, 148, angulo);
 
   const marcacoes = [0, 20, 40, 60, 80, 100];
 
@@ -189,10 +189,9 @@ export default function VelocimetroMeta({
             y1="180"
             x2={ponteiro.x}
             y2={ponteiro.y}
-            stroke="white"
-            strokeWidth="4"
+            stroke="#ffffff"
+            strokeWidth="5"
             strokeLinecap="round"
-            filter="url(#needleGlow)"
           />
 
           {/* Ponta do ponteiro */}
