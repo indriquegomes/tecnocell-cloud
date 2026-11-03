@@ -175,6 +175,9 @@ export function DevolucoesClient({
   const [seriesSel, setSeriesSel] = useState<Map<string, string[]>>(new Map())  // produto_id → IMEIs escolhidos p/ devolver
   const [motivo, setMotivo] = useState('')
   const [motivoTipo, setMotivoTipo] = useState('')   // motivo FECHADO (o texto livre virou detalhe)
+  // Peça com defeito que não volta pra loja: vai pro fornecedor (troca/garantia).
+  // Marcando aqui, a linha nasce sozinha em Estoque → Trocas e a peça sai do estoque.
+  const [vaiFornecedor, setVaiFornecedor] = useState(false)
   const [tipoCredito, setTipoCredito] = useState('dinheiro')
   // Reembolso MISTO: devolver parte em dinheiro, parte em PIX, parte como crédito.
   // Fora do modo misto tudo segue como antes (uma forma só, `tipoCredito`).
@@ -188,7 +191,7 @@ export function DevolucoesClient({
   // (senha digitada em devolução que NÃO furou regra seria recusada à toa).
   const [podeSenha, setPodeSenha] = useState(false)
   const [senha, setSenha] = useState('')
-  const [sucesso, setSucesso] = useState<{ mensagem: string | null; whatsapp: string | null } | null>(null)
+  const [sucesso, setSucesso] = useState<{ mensagem: string | null; whatsapp: string | null; aviso?: string | null; avisoErro?: boolean } | null>(null)
 
   // reseta o "confirmei" sempre que a forma de reembolso muda
   useEffect(() => { setConfirmouReembolso(false); setPodeSenha(false); setSenha('') }, [tipoCredito, modoMistoReemb, linhasReemb])
@@ -221,7 +224,7 @@ export function DevolucoesClient({
   const fechar = () => {
     setOpen(false); setStep('buscar'); setBuscaVenda(''); setVendas([])
     setVenda(null); setItens(new Map()); setStatusProduto(new Map()); setSeriesSel(new Map())
-    setMotivo(''); setMotivoTipo(''); setTipoCredito('dinheiro'); setErro('')
+    setMotivo(''); setMotivoTipo(''); setTipoCredito('dinheiro'); setErro(''); setVaiFornecedor(false)
     setModoMistoReemb(false); setLinhasReemb([]); setPodeSenha(false); setSenha('')
   }
 
@@ -410,6 +413,7 @@ export function DevolucoesClient({
         tipo_credito: reembolso > 0.01 ? (usaMisto ? 'misto' : tipoCredito) : 'cancelamento_fiado',
         reembolsos: usaMisto ? linhasEnvio : undefined,
         itens: itensDev, lancamento_pendente: venda.lancamento_pendente,
+        vai_para_fornecedor: vaiFornecedor,
         // senha do dono: só manda se a tela está no modo "liberar com senha"
         senhaLiberacao: podeSenha ? senha : undefined,
       })
@@ -425,7 +429,17 @@ export function DevolucoesClient({
         numero: venda.numero,
         produtos: itensDev.map(({ nome, quantidade }) => ({ nome, quantidade })),
       })
-      fechar(); setSucesso({ mensagem, whatsapp: mensagem ? whatsappDevolucao(venda.telefone, mensagem) : null })
+      const avisoTroca = resultado.aviso_troca
+        ? resultado.aviso_troca
+        : (resultado.trocas_criadas ?? 0) > 0
+          ? `${resultado.trocas_criadas} ${resultado.trocas_criadas === 1 ? 'peça foi' : 'peças foram'} para Estoque → Trocas.`
+          : null
+      fechar(); setSucesso({
+        mensagem,
+        whatsapp: mensagem ? whatsappDevolucao(venda.telefone, mensagem) : null,
+        aviso: avisoTroca,
+        avisoErro: !!resultado.aviso_troca,
+      })
       router.refresh()
     } catch (e) { setErro(e instanceof Error ? e.message : 'Erro ao registrar devolução.') }
     finally { setSalvando(false) }
@@ -459,6 +473,11 @@ export function DevolucoesClient({
             <strong className="text-green-700">✅ Devolução registrada com sucesso!</strong>
             <button onClick={() => setSucesso(null)} className="text-gray-400 hover:text-gray-700" aria-label="Fechar">×</button>
           </div>
+          {sucesso.aviso && (
+            <p className={`mt-2 rounded-lg px-3 py-2 text-xs ${sucesso.avisoErro ? 'bg-amber-50 text-amber-800' : 'bg-orange-50 text-orange-800'}`}>
+              📦 {sucesso.aviso}
+            </p>
+          )}
           {sucesso.mensagem && (
             <>
               <p className="mt-2 whitespace-pre-line text-xs text-gray-600">{sucesso.mensagem}</p>
@@ -988,6 +1007,40 @@ export function DevolucoesClient({
                       required={motivoTipo === 'outro'}
                       className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
+
+                    {/* Peça com defeito: não fica na loja, vai pro fornecedor.
+                        Marcando, a linha já nasce na aba Trocas com a saída do estoque —
+                        a atendente não precisa lançar nada em outro lugar. */}
+                    <label className={`mt-3 flex cursor-pointer items-start gap-2.5 rounded-xl border px-3 py-2.5 text-sm transition ${
+                      vaiFornecedor ? 'border-orange-300 bg-orange-50' : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={vaiFornecedor}
+                        onChange={(e) => {
+                          const marcar = e.target.checked
+                          setVaiFornecedor(marcar)
+                          // Peça que vai pro fornecedor sai do estoque — é o mesmo que
+                          // marcar "Troca · Saída" no item. Faz sozinho pra atendente não
+                          // precisar decidir duas vezes (e pra IMEI não voltar como estoque).
+                          setStatusProduto((m) => {
+                            const novo = new Map(m)
+                            for (const [pid, qtd] of itens) {
+                              if (qtd < 1) continue
+                              if (marcar) novo.set(pid, 'troca')
+                              else if (novo.get(pid) === 'troca') novo.delete(pid)
+                            }
+                            return novo
+                          })
+                        }}
+                        className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                      />
+                      <span>
+                        <span className="font-semibold text-gray-700">📦 Esta peça vai para o fornecedor</span>
+                        <span className="mt-0.5 block text-xs text-gray-500">
+                          Sai do estoque agora e aparece em <strong>Estoque → Trocas</strong> pro dono dizer de qual fornecedor é.
+                        </span>                      </span>
+                    </label>
                   </div>
 
                   {/* Split: abate dívida × reembolso */}

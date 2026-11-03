@@ -351,6 +351,12 @@ export interface RegistrarDevolucaoInput {
    * conferida no servidor (hash scrypt ou variável de ambiente) — nunca no navegador.
    */
   senhaLiberacao?: string
+  /**
+   * A peça devolvida vai para o FORNECEDOR (troca/garantia). A atendente marca no
+   * balcão e a linha nasce sozinha na aba Estoque → Trocas, já com a saída do
+   * estoque registrada — o dono só escolhe o fornecedor depois.
+   */
+  vai_para_fornecedor?: boolean
 }
 
 // Em produção o Next ESCONDE a mensagem de erro lançada por server action: o
@@ -360,7 +366,13 @@ export interface RegistrarDevolucaoInput {
 // Por isso a função pública devolve o erro como DADO (ok:false) e a mensagem de
 // negócio chega legível na tela.
 export type ResultadoRegistroDevolucao =
-  | { ok: true; id: string; abate_fiado: number; reembolso: number; saldo_devedor: number | null; liberadoPorSenha?: boolean }
+  | {
+      ok: true; id: string; abate_fiado: number; reembolso: number; saldo_devedor: number | null; liberadoPorSenha?: boolean
+      /** quantas linhas nasceram na aba Trocas (peça marcada "vai pro fornecedor") */
+      trocas_criadas?: number
+      /** aviso quando a troca NÃO pôde ser lançada sozinha — a devolução continua valendo */
+      aviso_troca?: string
+    }
   | { ok: false; erro: string; podeLiberarComSenha?: boolean }
 
 // Erro de REGRA (bloqueio de dinheiro) — a tela usa isto para oferecer o campo da
@@ -383,7 +395,7 @@ export async function registrarDevolucao(
 async function registrarDevolucaoInterno(
   accessToken: string,
   input: RegistrarDevolucaoInput,
-): Promise<{ id: string; abate_fiado: number; reembolso: number; saldo_devedor: number | null; liberadoPorSenha: boolean }> {
+): Promise<{ id: string; abate_fiado: number; reembolso: number; saldo_devedor: number | null; liberadoPorSenha: boolean; trocas_criadas: number; aviso_troca?: string }> {
   const usuario = await requirePermissao('devolucoes', accessToken)
   const supabase = await createServiceClient()
   // As regras de devolução valem para TODOS, inclusive o master (decisão do dono em
@@ -658,6 +670,76 @@ async function registrarDevolucaoInterno(
     await supabase.from('devolucoes').update({ motivo_tipo: input.motivo_tipo }).eq('id', devolucaoId)
   }
 
+  // ── TROCA COM FORNECEDOR ──────────────────────────────────────────────────
+  // A atendente marcou "vai pro fornecedor" no balcão. O RPC acima já devolveu a
+  // peça ao estoque; aqui ela SAI de novo como operação 'troca' e nasce a linha
+  // na aba Estoque → Trocas, pro dono só classificar o fornecedor.
+  //
+  // Best-effort DE PROPÓSITO: a devolução (estoque, crédito, fiado, caixa) já
+  // está gravada e não pode ser desfeita porque a troca falhou. Se algo aqui der
+  // errado, a tela avisa e a troca é lançada na mão — nada se perde em silêncio.
+  let trocasCriadas = 0
+  let avisoTroca: string | undefined
+  if (input.vai_para_fornecedor) {
+    if (!input.deposito_id) {
+      avisoTroca = 'A venda não tem depósito, então não deu pra tirar a peça do estoque. Lance a troca na mão em Estoque → Trocas.'
+    } else {
+      const idsProdutos = [...new Set(input.itens.map((i) => i.produto_id))]
+      const [{ data: prodsCusto }, { data: depTroca }] = await Promise.all([
+        supabase.from('produtos').select('id, preco_custo').in('id', idsProdutos),
+        supabase.from('depositos').select('loja_id').eq('id', input.deposito_id).maybeSingle(),
+      ])
+      const custoPorProduto: Record<string, number> = {}
+      for (const p of (prodsCusto ?? []) as { id: string; preco_custo: number | null }[]) {
+        custoPorProduto[p.id] = Number(p.preco_custo ?? 0)
+      }
+      const lojaIdTroca = (depTroca as { loja_id: string | null } | null)?.loja_id ?? null
+      const motivoTroca = `Devolução — ${input.motivo_tipo || 'motivo não informado'}${input.motivo ? ': ' + input.motivo : ''}`
+
+      for (const item of input.itens) {
+        const qtd = Number(item.quantidade ?? 0)
+        if (qtd <= 0) continue
+        const { error: erroTroca } = await supabase.from('trocas').insert({
+          produto_id: item.produto_id,
+          produto_nome: item.nome,
+          quantidade: qtd,
+          custo: custoPorProduto[item.produto_id] ?? 0,
+          loja_id: lojaIdTroca,
+          deposito_saida_id: input.deposito_id,
+          motivo: motivoTroca,
+          pessoa_nome: input.pessoa_nome,
+          venda_id: input.venda_id,
+          devolucao_id: devolucaoId,
+          status: 'aberta',
+          criado_por: usuario?.id ?? null,
+        })
+        if (erroTroca) {
+          avisoTroca = `${item.nome}: não deu pra abrir a troca (${erroTroca.message}). Devolução registrada — lance a troca na mão.`
+          continue
+        }
+        // Peça marcada como "Troca · Saída" no item já NÃO voltou ao estoque pelo
+        // RPC — tirar de novo aqui deixaria o saldo negativo em dobro. Só tira do
+        // estoque a peça que a devolução devolveu como boa ('ok').
+        if ((item.status_produto ?? 'ok') !== 'ok') { trocasCriadas++; continue }
+        const { error: erroMov } = await supabase.rpc('movimentar_estoque', {
+          p_produto_id: item.produto_id,
+          p_deposito_id: input.deposito_id,
+          p_operacao: 'troca',
+          p_quantidade: qtd,
+          p_series: [],
+          p_observacao: motivoTroca,
+          p_user: usuario?.id ?? null,
+          p_created_at: new Date().toISOString(),
+        })
+        if (erroMov) {
+          avisoTroca = `${item.nome}: a troca foi aberta mas a saída do estoque falhou (${erroMov}). Confira o saldo dessa peça.`
+          continue
+        }
+        trocasCriadas++
+      }
+    }
+  }
+
   // Câmera de segurança: registra QUEM devolveu, qual venda e quanto. Nunca derruba a
   // devolução se o log falhar (a própria logAtividade engole o erro).
   await logAtividade('devolucao.criar', {
@@ -667,6 +749,8 @@ async function registrarDevolucaoInterno(
     tipo_credito: input.tipo_credito,
     motivo: input.motivo_tipo || input.motivo || null,
     reembolso,
+    vai_para_fornecedor: !!input.vai_para_fornecedor,
+    trocas_criadas: trocasCriadas,
   }, usuario, '/painel/devolucoes')
 
   // REGISTRO DA LIBERAÇÃO: o dono digitou a senha e a devolução furou uma regra de
@@ -699,7 +783,7 @@ async function registrarDevolucaoInterno(
     )
   }
 
-  return { id: devolucaoId, abate_fiado: abateFiado, reembolso, saldo_devedor: saldoDevedor, liberadoPorSenha: regrasLiberadas.length > 0 }
+  return { id: devolucaoId, abate_fiado: abateFiado, reembolso, saldo_devedor: saldoDevedor, liberadoPorSenha: regrasLiberadas.length > 0, trocas_criadas: trocasCriadas, aviso_troca: avisoTroca }
 }
 
 export async function buscarItensDevolucao(
