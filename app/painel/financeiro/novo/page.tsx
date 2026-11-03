@@ -107,13 +107,20 @@ export default async function NovoLancamentoPage({
             </datalist>
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Conta que recebe ou paga *</label>
-            <select name="conta_id" required defaultValue="" className="field">
-              <option value="" disabled>Selecione a conta…</option>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Conta que recebe ou paga</label>
+            <select name="conta_id" defaultValue="" className="field">
+              <option value="">— Sem conta (PIX do cliente direto ao fornecedor) —</option>
               {(contas ?? []).map((c) => (
                 <option key={c.id} value={c.id}>{c.tipo === 'caixa' ? '💵' : '🏦'} {c.nome}</option>
               ))}
             </select>
+            {/* Sem conta é o caso do fornecedor pago com o PIX do cliente: o dinheiro
+                nunca passou pelo banco, cofre ou gaveta. Deixar vazio faz o lançamento
+                não mexer em saldo nenhum — escolher PagBank/Caixa aqui tiraria do
+                saldo um dinheiro que nunca esteve lá. */}
+            <p className="mt-1 text-[11px] text-gray-400">
+              Só escolha conta quando o dinheiro passa por ela. Cliente pagando o fornecedor direto pelo PIX dele: deixe <b>Sem conta</b>.
+            </p>
           </div>
           <label className="flex items-center gap-2 self-end pb-2.5 text-sm font-medium text-gray-700">
             <input type="checkbox" name="quitado" value="1" className="h-4 w-4 rounded" />
