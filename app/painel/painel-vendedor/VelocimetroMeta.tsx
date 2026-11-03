@@ -38,6 +38,8 @@ export default function VelocimetroMeta({
 }: Props) {
   const [valor, setValor] = useState(0);
   const valorAtual = useRef(0);
+  const entrou = useRef(true);
+  const frameRef = useRef(0);
 
   useEffect(() => {
     const destino = clamp(pct);
@@ -52,38 +54,41 @@ export default function VelocimetroMeta({
       return;
     }
 
-    const inicio = valorAtual.current;
-    const duracao = 1600;
-    let frame = 0;
-    let inicioAnimacao: number | null = null;
+    const animarAte = (alvo: number, duracao: number, aoTerminar?: () => void) => {
+      const de = valorAtual.current;
+      const inicio = performance.now();
 
-    const animar = (tempo: number) => {
-      if (inicioAnimacao === null) inicioAnimacao = tempo;
+      const tick = (tempo: number) => {
+        const progresso = Math.min((tempo - inicio) / duracao, 1);
 
-      const progresso = Math.min(
-        (tempo - inicioAnimacao) / duracao,
-        1
-      );
+        // Começa rápido e desacelera suavemente no final.
+        const suavizacao = 1 - Math.pow(1 - progresso, 4);
+        const v = de + (alvo - de) * suavizacao;
 
-      // Começa rápido e desacelera suavemente no final.
-      const suavizacao = 1 - Math.pow(1 - progresso, 4);
+        valorAtual.current = v;
+        setValor(v);
 
-      const novoValor = inicio + (destino - inicio) * suavizacao;
+        if (progresso < 1) {
+          frameRef.current = requestAnimationFrame(tick);
+        } else {
+          valorAtual.current = alvo;
+          setValor(alvo);
+          if (aoTerminar) aoTerminar();
+        }
+      };
 
-      valorAtual.current = novoValor;
-      setValor(novoValor);
-
-      if (progresso < 1) {
-        frame = requestAnimationFrame(animar);
-      } else {
-        valorAtual.current = destino;
-        setValor(destino);
-      }
+      frameRef.current = requestAnimationFrame(tick);
     };
 
-    frame = requestAnimationFrame(animar);
+    if (entrou.current) {
+      entrou.current = false;
+      // Entrada: varre do 0 até o máximo (100) e depois volta pro valor real.
+      animarAte(100, 900, () => animarAte(destino, 1200));
+    } else {
+      animarAte(destino, 1600);
+    }
 
-    return () => cancelAnimationFrame(frame);
+    return () => cancelAnimationFrame(frameRef.current);
   }, [pct]);
 
   const percentual = Math.round(valor);
