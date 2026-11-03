@@ -231,12 +231,12 @@ export default function VelocimetroMeta({
         </svg>
 
         {/* Percentual principal */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-[1px] flex flex-col items-center">
+        <div className="flex flex-col items-center">
           <div className="flex items-baseline">
-            <span className="text-6xl font-black tracking-tighter tabular-nums text-white drop-shadow-lg">
+            <span className="text-5xl font-black tracking-tighter tabular-nums text-white drop-shadow-lg">
               {percentual}
             </span>
-            <span className="ml-1 text-2xl font-bold text-gray-400">
+            <span className="ml-1 text-xl font-bold text-gray-400">
               %
             </span>
           </div>
