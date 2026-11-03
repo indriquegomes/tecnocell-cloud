@@ -239,16 +239,6 @@ export default async function DashboardPage({
   }
   const metasWidgets = (metasAtivas ?? []).map(construirMeta).filter((m) => m.faixas.length > 0)
 
-  // Velocímetro da meta: loja ATIVA + faixas (todo mundo vê — master e vendedora)
-  const velocimetro = lojaAtiva?.id
-    ? (() => {
-        const metaLoja = (metasAtivas ?? []).find((m) => m.loja_id === lojaAtiva.id)
-        if (!metaLoja) return null
-        const fs = (faixasAll ?? []).filter((f) => f.meta_id === metaLoja.id).map((f) => ({ nome: f.nome, valor: Number(f.valor) }))
-        if (!fs.length) return null
-        return { de: metaLoja.data_inicio, ate: metaLoja.data_fim, rotulo: metaLoja.rotulo, faixas: fs }
-      })()
-    : null
   const minhaLojaId = (meuPerfil as { pdv_loja_id?: string | null } | null)?.pdv_loja_id
   const minhaMetaNome = minhaLojaId ? nomeLoja[minhaLojaId] : null
   // só mostra "a meta dela" quando sabemos a loja (pdv_loja_id). Senão, mostra
