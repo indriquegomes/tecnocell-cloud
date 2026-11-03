@@ -54,16 +54,28 @@ export default function VelocimetroMeta({
       return;
     }
 
-    const animarAte = (alvo: number, duracao: number, aoTerminar?: () => void) => {
+    // ida: começa rápida e desacelera (fica boa no sweep até 100)
+    const suaveSair = (t: number) => 1 - Math.pow(1 - t, 4);
+    // volta: devagar e com "empacada" no fim (passa do alvo e assenta, como
+    // agulha de carro desacelerando)
+    const empacada = (t: number) => {
+      const c1 = 1.6;
+      const c3 = c1 + 1;
+      return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+    };
+
+    const animarAte = (
+      alvo: number,
+      duracao: number,
+      aoTerminar?: () => void,
+      suavizar: (t: number) => number = suaveSair,
+    ) => {
       const de = valorAtual.current;
       const inicio = performance.now();
 
       const tick = (tempo: number) => {
         const progresso = Math.min((tempo - inicio) / duracao, 1);
-
-        // Começa rápido e desacelera suavemente no final.
-        const suavizacao = 1 - Math.pow(1 - progresso, 4);
-        const v = de + (alvo - de) * suavizacao;
+        const v = Math.max(0, Math.min(100, de + (alvo - de) * suavizar(progresso)));
 
         valorAtual.current = v;
         setValor(v);
@@ -82,8 +94,8 @@ export default function VelocimetroMeta({
 
     if (entrou.current) {
       entrou.current = false;
-      // Entrada: varre do 0 até o máximo (100) e depois volta pro valor real.
-      animarAte(100, 900, () => animarAte(destino, 1200));
+      // Entrada: varre até o máximo (rápido) e volta devagar com empacada.
+      animarAte(100, 900, () => animarAte(destino, 2200, undefined, empacada));
     } else {
       animarAte(destino, 1600);
     }
