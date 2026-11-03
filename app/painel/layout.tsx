@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { PainelShell } from '@/components/PainelShell'
 import { ChatWidget } from '@/components/ChatWidget'
 import { NavProgress } from '@/components/NavProgress'
+import { BotaoSair } from '@/components/BotaoSair'
 import { createServiceClient, permissoesEfetivas, configAcesso } from '@/lib/supabase/server'
 import { permissaoPorRota, temPermissao, temAlgumaPermissao } from '@/lib/permissoes'
 import { acessoBloqueado } from '@/lib/acesso'
@@ -49,12 +50,11 @@ export default async function PainelLayout({ children }: { children: React.React
           <div className="text-5xl">🔒</div>
           <h1 className="text-xl font-bold text-gray-800">Fora do horário de acesso</h1>
           <p className="max-w-sm text-sm text-gray-500">{motivo}</p>
-          {/* logout via form POST (nunca <Link>/GET: o Next prefetcha e desloga sozinho) */}
-          <form action="/api/auth/signout" method="POST">
-            <button type="submit" className="rounded-xl bg-gray-800 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-900 transition">
-              Sair
-            </button>
-          </form>
+          {/* logout via form POST (nunca <Link>/GET: o Next prefetcha e desloga sozinho)
+              + limpa a sessão do navegador (ver components/BotaoSair.tsx) */}
+          <BotaoSair className="rounded-xl bg-gray-800 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-900 transition">
+            Sair
+          </BotaoSair>
         </div>
       )
     }
