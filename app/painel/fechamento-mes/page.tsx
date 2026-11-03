@@ -1,6 +1,7 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { formatBRL } from '@/lib/utils'
 import { FecharMesButton } from './FecharMesButton'
+import { BotaoImprimirResumo } from './BotaoImprimirResumo'
 import { estoqueCustoPorLoja } from '@/lib/estoque-custo'
 
 function nomeMes(mes: string) {
@@ -233,6 +234,38 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     trocasNaRua[t.loja_id] = (trocasNaRua[t.loja_id] ?? 0) + Number(t.valor ?? 0)
   }
 
+  // ─── Resumo do fechamento (uma folha, para imprimir e arquivar) ─────────────
+  // O que o dono precisa ver de uma vez: quanto entrou, quanto saiu, o resultado,
+  // o dinheiro que sobrou na mão, o estoque congelado, o que voltou de devolução,
+  // o que vai ser pago de comissão no mês seguinte e o que ficou devendo.
+  const devolucoesMes = await fetchAll<{ valor_total: number | null }>((from, to) =>
+    supabase.from('devolucoes').select('valor_total')
+      .gte('created_at', inicio + 'T00:00:00-03:00').lt('created_at', proxMes + 'T00:00:00-03:00').range(from, to))
+  const totalDevolucoes = devolucoesMes.reduce((s, d) => s + Number(d.valor_total ?? 0), 0)
+  // As comissões do mês que fecha vencem no mês SEGUINTE inteiro. O limite tem que
+  // ser o primeiro dia do mês depois do seguinte ('2026-11-32' não é data válida).
+  const [anoSeg, mesSeg] = mesSeguinte.split('-').map(Number)
+  const fimDoSeguinte = mesSeg === 12 ? `${anoSeg + 1}-01-01` : `${anoSeg}-${String(mesSeg + 1).padStart(2, '0')}-01`
+  const comissaoProximoMes = await fetchAll<{ valor: number | null }>((from, to) =>
+    supabase.from('lancamentos').select('valor').eq('tipo', 'pagar').eq('categoria', 'Comissão')
+      .gte('data_vencimento', `${mesSeguinte}-01`).lt('data_vencimento', fimDoSeguinte).range(from, to))
+  const totalComissaoProximo = comissaoProximoMes.reduce((s, l) => s + Number(l.valor ?? 0), 0)
+  // venda BRUTA do mês por loja (a mesma régua da meta e da comissão)
+  const vendasMes = await fetchAll<{ total: number | null; deposito_id: string }>((from, to) =>
+    supabase.from('vendas').select('total, deposito_id')
+      .gte('data', inicio).lt('data', proxMes).eq('status', 'concluida').range(from, to))
+  const vendaBrutaPorLoja: Record<string, number> = {}
+  for (const v of vendasMes) {
+    const loja = lojaDeDeposito.get(v.deposito_id)
+    if (!loja) continue
+    vendaBrutaPorLoja[loja] = (vendaBrutaPorLoja[loja] ?? 0) + Number(v.total ?? 0)
+  }
+  const emAberto = await fetchAll<{ valor: number | null; valor_pago: number | null }>((from, to) =>
+    supabase.from('lancamentos').select('valor, valor_pago').eq('tipo', 'pagar').neq('status', 'cancelado').range(from, to))
+  const totalEmAberto = emAberto.reduce((s, l) => s + Math.max(0, Number(l.valor ?? 0) - Number(l.valor_pago ?? 0)), 0)
+  // o fechamento gravado guarda caixa_final/estoque_final por loja (tipo não declara)
+  const gravado = fechamento as { caixa_final?: Record<string, number>; estoque_final?: Record<string, { vitrine: number; fundo: number }>; fechado_em?: string; fechado_por?: string } | null
+
   const linhas = lojasList.map((l) => {
     const b = porLoja[l.id]
     const entradas = b.entradas + b.fiadoCobrado
@@ -293,6 +326,18 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
   const prevConsumido = temPrevEstoque
     ? (prevEstInicial.vitrine + prevEstInicial.fundo) - (prevEstFinal.vitrine + prevEstFinal.fundo)
     : null
+
+  // linhas prontas para a folha de resumo (usa o fechamento gravado)
+  const resumo = linhas.map((l) => ({
+    nome: lojasList.find((x) => x.id === l.loja)?.nome ?? '—',
+    vendaBruta: vendaBrutaPorLoja[l.loja] ?? 0,
+    entradas: l.entradas,
+    saidas: l.saidas,
+    caixaFinal: gravado?.caixa_final?.[l.loja] ?? null,
+    estoqueFinal: gravado?.estoque_final?.[l.loja] ?? null,
+    consumido: l.temEstoqueBase ? l.consumido : null,
+  }))
+  const somaResumo = (campo: 'vendaBruta' | 'entradas' | 'saidas') => resumo.reduce((s, r) => s + r[campo], 0)
 
   const fmt = (v: number) => formatBRL(v)
   const fmtDelta = (atual: number | null, anterior: number | null) => {
@@ -520,8 +565,7 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
       )}
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-        {avisosFechamento.length > 0 && (
-          <div className="mb-4 space-y-2">
+        {avisosFechamento.length > 0 && (          <div className="mb-4 space-y-2">
             {avisosFechamento.map((a, i) => (
               <div key={i} className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                 <p className="font-semibold">⚠ Antes de fechar</p>
@@ -537,6 +581,88 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
         />
         <p className="mt-3 text-xs text-gray-400">Fechar o mês grava o caixa final que você conferiu e congela o estoque. Esse caixa final vira a abertura do mês seguinte. Reabrir desfaz.</p>
       </div>
+
+      {/* ─── RESUMO DO FECHAMENTO — uma folha para imprimir e arquivar ─── */}
+      <section id="resumo-fechamento" className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">Resumo do fechamento — {nomeMes(mes)}</h3>
+            <p className="text-xs text-gray-500">
+              {fechamento
+                ? `Fechado em ${new Date(gravado?.fechado_em as string).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })} por ${gravado?.fechado_por ?? '—'}`
+                : 'Mês ainda não fechado — os valores de caixa e estoque finais aparecem depois de fechar.'}
+            </p>
+          </div>
+          <BotaoImprimirResumo />
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500">
+                <th className="py-2 pr-3">Loja</th>
+                <th className="py-2 pr-3 text-right">Venda bruta</th>
+                <th className="py-2 pr-3 text-right">Entrou no caixa</th>
+                <th className="py-2 pr-3 text-right">Saiu do caixa</th>
+                <th className="py-2 pr-3 text-right">Dinheiro em mãos</th>
+                <th className="py-2 pr-3 text-right">Estoque final</th>
+                <th className="py-2 text-right">Estoque consumido (CMV)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {resumo.map((r) => (
+                <tr key={r.nome}>
+                  <td className="py-2 pr-3 font-medium text-gray-800">{r.nome}</td>
+                  <td className="py-2 pr-3 text-right font-semibold tabular-nums text-gray-900">{fmt(r.vendaBruta)}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums text-emerald-700">{fmt(r.entradas)}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums text-red-600">{fmt(r.saidas)}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums text-gray-700">{r.caixaFinal == null ? '—' : fmt(r.caixaFinal)}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums text-gray-700">{r.estoqueFinal == null ? '—' : fmt(r.estoqueFinal.vitrine + r.estoqueFinal.fundo)}</td>
+                  <td className="py-2 text-right tabular-nums text-gray-700">{r.consumido == null ? '—' : fmt(r.consumido)}</td>
+                </tr>
+              ))}
+              <tr className="border-t-2 border-gray-300 font-bold text-gray-900">
+                <td className="py-2 pr-3">Total</td>
+                <td className="py-2 pr-3 text-right tabular-nums">{fmt(somaResumo('vendaBruta'))}</td>
+                <td className="py-2 pr-3 text-right tabular-nums">{fmt(somaResumo('entradas'))}</td>
+                <td className="py-2 pr-3 text-right tabular-nums">{fmt(somaResumo('saidas'))}</td>
+                <td className="py-2 pr-3 text-right tabular-nums">{fmt(resumo.reduce((s, r) => s + ((r.caixaFinal ?? 0)), 0))}</td>
+                <td className="py-2 pr-3 text-right tabular-nums">{fmt(resumo.reduce((s, r) => s + (r.estoqueFinal ? r.estoqueFinal.vitrine + r.estoqueFinal.fundo : 0), 0))}</td>
+                <td className="py-2 text-right tabular-nums">{fmt(resumo.reduce((s, r) => s + (r.consumido ?? 0), 0))}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+            <p className="text-[11px] font-semibold uppercase text-gray-500">Devoluções do mês</p>
+            <p className="mt-1 text-lg font-bold tabular-nums text-gray-900">{fmt(totalDevolucoes)}</p>
+            <p className="text-[11px] text-gray-500">{totalDevolucoes > 0 && somaResumo('entradas') > 0 ? `${((totalDevolucoes / somaResumo('entradas')) * 100).toFixed(1)}% do que entrou` : '—'}</p>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+            <p className="text-[11px] font-semibold uppercase text-gray-500">Comissão e meta ({nomeMes(mesSeguinte)})</p>
+            <p className="mt-1 text-lg font-bold tabular-nums text-gray-900">{fmt(totalComissaoProximo)}</p>
+            <p className="text-[11px] text-gray-500">a pagar no mês seguinte</p>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+            <p className="text-[11px] font-semibold uppercase text-gray-500">Contas a pagar em aberto</p>
+            <p className="mt-1 text-lg font-bold tabular-nums text-amber-700">{fmt(totalEmAberto)}</p>
+            <p className="text-[11px] text-gray-500">fornecedor, INOVA, parcelas e o que rolou do mês</p>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+            <p className="text-[11px] font-semibold uppercase text-gray-500">Dinheiro em mãos</p>
+            <p className="mt-1 text-lg font-bold tabular-nums text-gray-900">{fmt(resumo.reduce((s, r) => s + ((r.caixaFinal ?? 0)), 0))}</p>
+            <p className="text-[11px] text-gray-500">vira a abertura de {nomeMes(mesSeguinte)}</p>
+          </div>
+        </div>
+
+        <p className="mt-4 text-[11px] leading-snug text-gray-400">
+          Entrou = venda recebida no mês + fiado cobrado. Saiu = compras + despesas pagas. Dinheiro em mãos e estoque final são os valores
+          gravados no fechamento. Devoluções contam pelo dia em que foram registradas.
+        </p>
+      </section>
     </div>
   )
 }
+
