@@ -37,8 +37,11 @@ export default async function TrocasPage({ searchParams }: { searchParams: Promi
   const nomeLoja = new Map((lojas ?? []).map((l) => [l.id, l.nome as string]))
 
   let linhas: TrocaLinha[] = []
-  let migracaoFaltando = false
-  try {
+  // fetchAll engole erro (devolve vazio), então a tabela ausente tem que ser
+  // testada direto — senão a tela mostra "nenhuma troca" em vez de avisar.
+  const { error: erroTabela } = await supabase.from('trocas').select('id').limit(1)
+  const migracaoFaltando = !!erroTabela && /does not exist|Could not find the table/i.test(erroTabela.message)
+  if (!migracaoFaltando) {
     const brutos = await fetchAll<{
       id: string; produto_id: string; produto_nome: string | null; quantidade: number | null; custo: number | null
       loja_id: string | null; deposito_saida_id: string | null; fornecedor_id: string | null; fornecedor_nome: string | null
@@ -71,8 +74,6 @@ export default async function TrocasPage({ searchParams }: { searchParams: Promi
       observacao: t.observacao,
       dias: Math.max(0, Math.floor((agora - new Date(t.data_saida).getTime()) / 86400000)),
     }))
-  } catch {
-    migracaoFaltando = true
   }
 
   // fornecedores para o seletor da classificação
