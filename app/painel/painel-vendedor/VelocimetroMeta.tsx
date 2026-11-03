@@ -56,8 +56,10 @@ export default function VelocimetroMeta({
 
     // ida: começa rápida e desacelera (fica boa no sweep até 100)
     const suaveSair = (t: number) => 1 - Math.pow(1 - t, 4);
-    // volta: começa muito devagar e acelera aos poucos (ease-in suave)
-    const acelerar = (t: number) => Math.pow(t, 2);
+    // volta: acelera (a "acelerada") até o meio e depois solta o acelerador
+    // (coast) até assentar — ease-in-out, como carro que acelera e para de acelerar
+    const acelerar = (t: number) =>
+      t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
     const animarAte = (
       alvo: number,
