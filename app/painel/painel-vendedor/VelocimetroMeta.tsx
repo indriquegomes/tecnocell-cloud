@@ -56,8 +56,8 @@ export default function VelocimetroMeta({
 
     // ida: começa rápida e desacelera (fica boa no sweep até 100)
     const suaveSair = (t: number) => 1 - Math.pow(1 - t, 4);
-    // volta: começa bem devagar e acelera aos poucos (ease-in)
-    const acelerar = (t: number) => Math.pow(t, 3);
+    // volta: começa muito devagar e acelera aos poucos (ease-in suave)
+    const acelerar = (t: number) => Math.pow(t, 2);
 
     const animarAte = (
       alvo: number,
@@ -90,7 +90,7 @@ export default function VelocimetroMeta({
     if (entrou.current) {
       entrou.current = false;
       // Entrada: varre até o máximo (rápido) e volta devagar com empacada.
-      animarAte(100, 900, () => animarAte(destino, 3000, undefined, acelerar));
+      animarAte(100, 900, () => animarAte(destino, 6000, undefined, acelerar));
     } else {
       animarAte(destino, 1600);
     }
