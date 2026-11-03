@@ -5,7 +5,7 @@ import Link from 'next/link'
 // A Receber e A Pagar são abas SEPARADAS (pedido do dono: não misturar).
 // Fluxo de Caixa e Lucro Mensal saíram daqui: são RELATÓRIO, ficam em /painel/relatorios
 // e no Fechamento do Mês — não misturar análise com o dia a dia do financeiro.
-export function FinanceiroTabs({ active }: { active: 'saldos' | 'lancamentos' | 'receber' | 'pagar' | 'contas' }) {
+export function FinanceiroTabs({ active }: { active: 'saldos' | 'lancamentos' | 'receber' | 'pagar' | 'contas' | 'comissao' }) {
   const tabs = [
     // As duas abas com seta abrem a tela Contas — o rótulo avisa, senão parece que
     // o clique não funcionou quando a tela muda.
@@ -14,6 +14,7 @@ export function FinanceiroTabs({ active }: { active: 'saldos' | 'lancamentos' | 
     { key: 'receber', label: '🟢 A Receber', href: '/painel/financeiro?tipo=receber' },
     { key: 'pagar', label: '🔴 A Pagar', href: '/painel/financeiro?tipo=pagar' },
     { key: 'contas', label: '⚙️ Contas ↗', href: '/painel/contas?aba=contas', fora: true },
+    { key: 'comissao', label: '💸 Comissão ↗', href: '/painel/financeiro/comissao', fora: true },
   ] as const
   return (
     <div className="flex flex-wrap gap-1 rounded-xl border border-gray-200 bg-white p-1.5 shadow-sm">
@@ -26,3 +27,4 @@ export function FinanceiroTabs({ active }: { active: 'saldos' | 'lancamentos' | 
     </div>
   )
 }
+
