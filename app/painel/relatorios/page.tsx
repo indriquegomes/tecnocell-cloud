@@ -3,11 +3,12 @@ import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
-import { formatDate, hojeSP, diaSP } from '@/lib/utils'
+import { formatDate, hojeSP, diaSP, formatBRL } from '@/lib/utils'
 import { ExportCsv } from './ExportCsv'
 import { ExportCsvLazy } from './ExportCsvLazy'
 import { ImprimirVendas } from './ImprimirVendas'
 import { FluxoChart, ParetoChart, Donut, Barra } from './Charts'
+import { ehCompraDeMercadoria } from '@/lib/financeiro-setores'
 import { FechamentoDetalhe, type MovDetalhe } from './FechamentoDetalhe'
 import { BuscaAvancada } from '@/components/BuscaAvancada'
 
@@ -393,7 +394,7 @@ export default async function RelatoriosPage({
   }
 
   // ---------- DRE (resultado do período) ----------
-  let dreReceita = 0, dreDespesas = 0
+  let dreReceita = 0, dreDespesas = 0, dreComprasMercadoria = 0
   let despesasPorCategoria: { categoria: string; valor: number }[] = []
   if (aba === 'dre') {
     // Receita (vendas) e despesas (lançamentos) são independentes — rodam em
@@ -407,6 +408,13 @@ export default async function RelatoriosPage({
     dreReceita = (vs ?? []).reduce((s, v) => s + (v.total ?? 0), 0)
     const catMap: Record<string, number> = {}
     for (const l of (ds ?? []) as { valor: number; categoria: string | null }[]) {
+      // Mercadoria comprada é ESTOQUE, não despesa: o custo já entra no resultado
+      // pelo CMV (dreCmv) no dia da venda. Somar o pagamento de fornecedor aqui
+      // contava a mesma compra duas vezes e derrubava o resultado.
+      if (ehCompraDeMercadoria(l.categoria)) {
+        dreComprasMercadoria += l.valor ?? 0
+        continue
+      }
       dreDespesas += l.valor ?? 0
       const cat = (l.categoria || 'Sem categoria').trim()
       catMap[cat] = (catMap[cat] ?? 0) + (l.valor ?? 0)
@@ -738,9 +746,14 @@ export default async function RelatoriosPage({
           if (caixasDaLoja) q = q.in('caixa_id', caixasDaLoja)
           return q.range(from, to)
         }),
-        fetchAll<{ valor: number | null }>((from, to) => flanc(supabase.from('lancamentos').select('valor').eq('tipo', 'pagar').gte('data_vencimento', ini.slice(0, 10)).lte('data_vencimento', fim.slice(0, 10) + 'T23:59:59')).range(from, to)),
+        fetchAll<{ valor: number | null; categoria: string | null }>((from, to) => flanc(supabase.from('lancamentos').select('valor, categoria').eq('tipo', 'pagar').gte('data_vencimento', ini.slice(0, 10)).lte('data_vencimento', fim.slice(0, 10) + 'T23:59:59')).range(from, to)),
       ])
-      return { receita: (vs ?? []).reduce((s, v) => s + (v.total ?? 0), 0), despesas: (ds ?? []).reduce((s, l) => s + (l.valor ?? 0), 0), nvendas: (vs ?? []).length }
+      return {
+        receita: (vs ?? []).reduce((s, v) => s + (v.total ?? 0), 0),
+        // compra de mercadoria é estoque, não despesa (mesma regra da DRE)
+        despesas: (ds ?? []).filter((l) => !ehCompraDeMercadoria(l.categoria)).reduce((s, l) => s + (l.valor ?? 0), 0),
+        nvendas: (vs ?? []).length,
+      }
     }
     compAtual = await janela(periodo.inicio, periodo.fim)
     compAnt = await janela(prevIni.toISOString(), prevFim.toISOString())
@@ -1494,7 +1507,13 @@ export default async function RelatoriosPage({
             <LinhaDRE label="(−) Despesas (contas a pagar)" valor={-dreDespesas} cor="text-red-500" />
             <div className="my-1 border-t-2 border-gray-200" />
             <LinhaDRE label="(=) Resultado do período" valor={dreResultado} cor={dreResultado >= 0 ? 'text-blue-600' : 'text-red-600'} bold big />
-            <p className="pt-3 text-[11px] text-gray-400">Receita e CMV pela data da venda; despesas pelo vencimento no período. CMV usa o custo atual do produto.</p>
+            {dreComprasMercadoria > 0 && (
+              <p className="pt-3 text-[11px] text-gray-500">
+                Fora do resultado: <b>{formatBRL(dreComprasMercadoria)}</b> de compra de mercadoria paga no período — é
+                estoque, já contado no CMV quando a peça é vendida.
+              </p>
+            )}
+            <p className="pt-2 text-[11px] text-gray-400">Receita e CMV pela data da venda; despesas pelo vencimento no período. CMV usa o custo atual do produto.</p>
           </div>
           <div className="flex items-center justify-center rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             {dreReceita > 0 ? (

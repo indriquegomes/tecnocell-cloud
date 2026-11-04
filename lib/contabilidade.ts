@@ -1,5 +1,6 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { custoMensalCLT } from '@/lib/folha'
+import { ehCompraDeMercadoria } from '@/lib/financeiro-setores'
 
 // Fonte única dos dados da Contabilidade (tela + exportação). A contadora precisa
 // do DRE simplificado: faturamento, compras, despesas, folha (com encargos) e
@@ -90,7 +91,10 @@ export async function buscarDadosContabilidade(mes: string, lojaId?: string): Pr
     .sort((a, b) => a.data.localeCompare(b.data))
   const compras = notas.reduce((s, n) => s + n.valor, 0)
 
-  const despesasTotal = (despesas ?? []).reduce((s, d) => s + Number(d.valor ?? 0), 0)
+  // Despesas pagas — MENOS compra de mercadoria: essa é estoque e já entra em
+  // `compras` (abaixo). Somar as duas contava a compra duas vezes no resultado.
+  const despesasList = (despesas ?? []).filter((d) => !ehCompraDeMercadoria(d.categoria))
+  const despesasTotal = despesasList.reduce((s, d) => s + Number(d.valor ?? 0), 0)
 
   // folha: filtra por loja (quem pode trabalhar nela); encargos só pra CLT
   const perfisFiltrados = lojaId
@@ -116,9 +120,9 @@ export async function buscarDadosContabilidade(mes: string, lojaId?: string): Pr
 
   const resultado = faturamento - descontos - compras - despesasTotal - folha - folhaEncargos
 
-  // despesas agrupadas por categoria
+  // despesas agrupadas por categoria (sem mercadoria — ela é compra/estoque)
   const catMap: Record<string, number> = {}
-  for (const d of (despesas ?? [])) {
+  for (const d of despesasList) {
     const cat = (d.categoria || 'Sem categoria').trim()
     catMap[cat] = (catMap[cat] ?? 0) + Number(d.valor ?? 0)
   }
@@ -134,12 +138,12 @@ export async function buscarDadosContabilidade(mes: string, lojaId?: string): Pr
   }
   const porDia = Object.entries(diaMap).map(([dia, v]) => ({ dia, qtd: v.qtd, total: v.total })).sort((a, b) => a.dia.localeCompare(b.dia))
 
-  const despesasList = (despesas ?? []).map((d) => ({
+  const despesasLista = despesasList.map((d) => ({
     data: new Date(d.data_pagamento).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }),
     categoria: (d.categoria || 'Sem categoria').trim(),
     descricao: d.descricao || '—',
     valor: Number(d.valor ?? 0),
   }))
 
-  return { mes, inicio, proxMes, faturamento, descontos, compras, despesasTotal, folha, folhaEncargos, resultado, porCategoria, porDia, notas, despesas: despesasList, folhaLista }
+  return { mes, inicio, proxMes, faturamento, descontos, compras, despesasTotal, folha, folhaEncargos, resultado, porCategoria, porDia, notas, despesas: despesasLista, folhaLista }
 }
