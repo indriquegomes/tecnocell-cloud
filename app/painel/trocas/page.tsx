@@ -29,6 +29,8 @@ export type TrocaLinha = {
   custo_retorno: number | null
   perda: number | null
   observacao: string | null
+  /** crédito que o fornecedor deu na dívida (abatimento não é perda) */
+  valor_abatido: number | null
   dias: number
 }
 
@@ -45,15 +47,22 @@ export default async function TrocasPage({ searchParams }: { searchParams: Promi
   // testada direto — senão a tela mostra "nenhuma troca" em vez de avisar.
   const { error: erroTabela } = await supabase.from('trocas').select('id').limit(1)
   const migracaoFaltando = !!erroTabela && /does not exist|Could not find the table/i.test(erroTabela.message)
+  // Migration 2026-11-04 (abatimento) pode não ter rodado: nesse caso a tela
+  // continua funcionando, só sem as colunas de abatimento.
+  const { error: erroAbatimento } = await supabase.from('trocas').select('id, valor_abatido').limit(1)
+  const temAbatimento = !erroAbatimento
   if (!migracaoFaltando) {
+    // select('*') de propósito: a coluna valor_abatido pode não existir ainda
+    // (migration 2026-11-04) e a tela tem que continuar abrindo.
     const brutos = await fetchAll<{
       id: string; produto_id: string; produto_nome: string | null; quantidade: number | null; custo: number | null
       loja_id: string | null; deposito_saida_id: string | null; fornecedor_id: string | null; fornecedor_nome: string | null
       pessoa_nome: string | null; motivo: string | null; status: string; data_saida: string
       data_envio: string | null; data_retorno: string | null; produto_retorno_nome: string | null
       custo_retorno: number | null; perda: number | null; observacao: string | null
+      valor_abatido?: number | null
     }>((from, to) => supabase.from('trocas')
-      .select('id, produto_id, produto_nome, quantidade, custo, loja_id, deposito_saida_id, fornecedor_id, fornecedor_nome, pessoa_nome, motivo, status, data_saida, data_envio, data_retorno, produto_retorno_nome, custo_retorno, perda, observacao')
+      .select('*')
       .order('data_saida', { ascending: false }).range(from, to))
 
     const agora = Date.now()
@@ -76,6 +85,7 @@ export default async function TrocasPage({ searchParams }: { searchParams: Promi
       custo_retorno: t.custo_retorno == null ? null : Number(t.custo_retorno),
       perda: t.perda == null ? null : Number(t.perda),
       observacao: t.observacao,
+      valor_abatido: t.valor_abatido == null ? null : Number(t.valor_abatido),
       dias: Math.max(0, Math.floor((agora - new Date(t.data_saida).getTime()) / 86400000)),
     }))
   }
@@ -84,9 +94,21 @@ export default async function TrocasPage({ searchParams }: { searchParams: Promi
   const fornecedores = await fetchAll<{ id: string; nome: string }>((from, to) =>
     supabase.from('pessoas').select('id, nome').in('tipo', ['fornecedor', 'ambos']).eq('ativo', true).order('nome').range(from, to))
 
+  // dívida pendente por fornecedor — o abatimento desconta daqui, e a tela mostra
+  // quanto existe antes de abater (evita abater mais do que se deve).
+  const pendentes = await fetchAll<{ pessoa_nome: string | null; valor: number | null; valor_pago: number | null }>((from, to) =>
+    supabase.from('lancamentos').select('pessoa_nome, valor, valor_pago').eq('tipo', 'pagar').eq('status', 'pendente').range(from, to))
+  const dividaMap: Record<string, number> = {}
+  for (const p of pendentes) {
+    if (!p.pessoa_nome) continue
+    dividaMap[p.pessoa_nome] = Math.round(((dividaMap[p.pessoa_nome] ?? 0) + Number(p.valor ?? 0) - Number(p.valor_pago ?? 0)) * 100) / 100
+  }
+  const dividas = Object.entries(dividaMap).map(([fornecedor, valor]) => ({ fornecedor, valor }))
+
   const emGarantia = linhas.filter((l) => l.status === 'aberta' || l.status === 'enviada')
   const custoEmGarantia = emGarantia.reduce((s, l) => s + l.custo * l.quantidade, 0)
   const totalPerdas = linhas.reduce((s, l) => s + (l.perda ?? 0), 0)
+  const totalAbatido = linhas.reduce((s, l) => s + (l.valor_abatido ?? 0), 0)
 
   return (
     <div className="space-y-4">
@@ -107,6 +129,10 @@ export default async function TrocasPage({ searchParams }: { searchParams: Promi
             <p className="text-lg font-bold tabular-nums text-[#1B6CA8]">{formatBRL(custoEmGarantia)}</p>
           </div>
           <div className="rounded-xl border border-gray-200 bg-white px-4 py-2 shadow-sm">
+            <p className="text-[11px] uppercase text-gray-500">Abatido em dívida</p>
+            <p className="text-lg font-bold tabular-nums text-emerald-700">{formatBRL(totalAbatido)}</p>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-white px-4 py-2 shadow-sm">
             <p className="text-[11px] uppercase text-gray-500">Perda acumulada</p>
             <p className={`text-lg font-bold tabular-nums ${totalPerdas > 0 ? 'text-rose-600' : 'text-gray-900'}`}>{formatBRL(totalPerdas)}</p>
           </div>
@@ -120,13 +146,24 @@ export default async function TrocasPage({ searchParams }: { searchParams: Promi
           no SQL Editor do Supabase para a aba começar a funcionar.
         </div>
       ) : (
-        <TrocasClient
-          linhas={linhas}
-          fornecedores={fornecedores}
-          depositos={(deps ?? []).map((d) => ({ id: d.id as string, nome: d.nome as string }))}
-          lojas={(lojas ?? []).map((l) => ({ id: l.id as string, nome: l.nome as string }))}
-          erro={erro}
-        />
+        <>
+          {!temAbatimento && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              O abatimento em nota ainda não está liberado: falta rodar
+              <code className="mx-1 rounded bg-white px-1">supabase/migrations/2026-11-04-trocas-abatimento.sql</code>
+              no SQL Editor do Supabase.
+            </div>
+          )}
+          <TrocasClient
+            linhas={linhas}
+            fornecedores={fornecedores}
+            depositos={(deps ?? []).map((d) => ({ id: d.id as string, nome: d.nome as string }))}
+            lojas={(lojas ?? []).map((l) => ({ id: l.id as string, nome: l.nome as string }))}
+            dividas={dividas}
+            temAbatimento={temAbatimento}
+            erro={erro}
+          />
+        </>
       )}
     </div>
   )

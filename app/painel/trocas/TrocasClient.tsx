@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import type { TrocaLinha } from './page'
 import {
   definirFornecedor, marcarEnviada, confirmarRetorno, marcarPerdida, excluirTroca,
-  lancarTrocaManual, buscarProdutosParaTroca,
+  lancarTrocaManual, buscarProdutosParaTroca, abaterTrocaNoFornecedor,
 } from './actions'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -16,10 +16,12 @@ const CORES: Record<string, string> = {
   enviada: 'bg-blue-100 text-blue-700',
   retornou: 'bg-emerald-100 text-emerald-700',
   perdida: 'bg-rose-100 text-rose-700',
+  abatida: 'bg-teal-100 text-teal-700',
   cancelada: 'bg-gray-100 text-gray-500',
 }
 const ROTULO: Record<string, string> = {
-  aberta: 'Aberta', enviada: 'No fornecedor', retornou: 'Retornou', perdida: 'Perdida', cancelada: 'Cancelada',
+  aberta: 'Aberta', enviada: 'No fornecedor', retornou: 'Retornou',
+  perdida: 'Perdeu', abatida: 'Abatida na dívida', cancelada: 'Cancelada',
 }
 
 export function TrocasClient({
@@ -27,20 +29,25 @@ export function TrocasClient({
   fornecedores,
   depositos,
   lojas,
+  dividas,
+  temAbatimento,
   erro,
 }: {
   linhas: TrocaLinha[]
   fornecedores: { id: string; nome: string }[]
   depositos: { id: string; nome: string }[]
   lojas: { id: string; nome: string }[]
+  dividas: { fornecedor: string; valor: number }[]
+  temAbatimento: boolean
   erro?: string
 }) {
   const router = useRouter()
   const [pendente, iniciar] = useTransition()
   const [msg, setMsg] = useState<string | null>(erro ?? null)
-  const [filtro, setFiltro] = useState<'todas' | 'aberta' | 'enviada' | 'retornou' | 'perdida'>('todas')
+  const [filtro, setFiltro] = useState<'todas' | 'aberta' | 'enviada' | 'retornou' | 'abatida' | 'perdida'>('todas')
   const [lojaFiltro, setLojaFiltro] = useState<string>('todas')
   const [fornFiltro, setFornFiltro] = useState<string>('todos')
+  const [abatendo, setAbatendo] = useState<TrocaLinha | null>(null)
 
   const visiveis = linhas.filter((l) => {
     if (filtro !== 'todas' && l.status !== filtro) return false
@@ -66,7 +73,7 @@ export function TrocasClient({
 
       {/* Situação */}
       <div className="flex flex-wrap items-center gap-2">
-        {(['todas', 'aberta', 'enviada', 'retornou', 'perdida'] as const).map((f) => (
+        {(['todas', 'aberta', 'enviada', 'retornou', 'abatida', 'perdida'] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFiltro(f)}
@@ -167,6 +174,7 @@ export function TrocasClient({
                 <td className="px-3 py-2 text-center tabular-nums text-gray-600">{l.dias}</td>
                 <td className="px-3 py-2">
                   <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${CORES[l.status] ?? 'bg-gray-100 text-gray-600'}`}>{ROTULO[l.status] ?? l.status}</span>
+                  {l.valor_abatido ? <p className="mt-0.5 text-[11px] text-teal-700">abatido {fmt(l.valor_abatido)}</p> : null}
                   {l.perda ? <p className="mt-0.5 text-[11px] text-rose-600">perda {fmt(l.perda)}</p> : null}
                   {l.observacao && <p className="mt-0.5 text-[11px] text-gray-400">{l.observacao}</p>}
                 </td>
@@ -184,6 +192,14 @@ export function TrocasClient({
                     {(l.status === 'aberta' || l.status === 'enviada') && (
                       <>
                         <button
+                          disabled={pendente || !temAbatimento}
+                          onClick={() => setAbatendo(l)}
+                          className="rounded bg-teal-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-teal-700 disabled:opacity-40"
+                          title={temAbatimento ? 'O fornecedor não devolveu a peça: deu crédito na dívida' : 'Falta rodar a migration do abatimento'}
+                        >
+                          Abatido na nota
+                        </button>
+                        <button
                           disabled={pendente}
                           onClick={() => rodar(() => { const fd = new FormData(); fd.set('id', l.id); return confirmarRetorno(fd) })}
                           className="rounded bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700"
@@ -195,9 +211,9 @@ export function TrocasClient({
                           disabled={pendente}
                           onClick={() => rodar(() => { const fd = new FormData(); fd.set('id', l.id); return marcarPerdida(fd) })}
                           className="rounded border border-rose-200 px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50"
-                          title="Fornecedor recusou: fecha como perda"
+                          title="Fornecedor recusou sem dar crédito: fecha como perda"
                         >
-                          Perdida
+                          Perdeu
                         </button>
                       </>
                     )}
@@ -221,12 +237,106 @@ export function TrocasClient({
         </table>
       </div>
 
+      {abatendo && (
+        <AbaterNaNota
+          troca={abatendo}
+          fornecedores={fornecedores}
+          dividas={dividas}
+          pendente={pendente}
+          fechar={() => setAbatendo(null)}
+          rodar={rodar}
+        />
+      )}
+
       <NovaTroca depositos={depositos} pendente={pendente} rodar={rodar} setMsg={setMsg} />
 
       <p className="text-[11px] leading-snug text-gray-400">
         A peça sai do estoque como movimento de <b>troca</b> e não volta sozinha. O check de retorno dá entrada no
         <b> PETRÓPOLIS ESTOQUE</b> — nunca no LOJA. Peça substituta mais barata gera a perda da diferença.
       </p>
+    </div>
+  )
+}
+
+function AbaterNaNota({
+  troca,
+  fornecedores,
+  dividas,
+  pendente,
+  fechar,
+  rodar,
+}: {
+  troca: TrocaLinha
+  fornecedores: { id: string; nome: string }[]
+  dividas: { fornecedor: string; valor: number }[]
+  pendente: boolean
+  fechar: () => void
+  rodar: (fn: () => Promise<unknown>) => void
+}) {
+  const [valor, setValor] = useState('')
+  const [fornecedorId, setFornecedorId] = useState(troca.fornecedor_id ?? '')
+  const [erro, setErro] = useState<string | null>(null)
+  const custoTotal = Math.round(troca.custo * troca.quantidade * 100) / 100
+  const digitado = Math.round(Number(valor.replace(/\./g, '').replace(',', '.')) * 100) / 100
+  const perdaPrevista = digitado > 0 ? Math.max(0, Math.round((custoTotal - digitado) * 100) / 100) : 0
+  const nomeFornecedor = fornecedores.find((f) => f.id === fornecedorId)?.nome ?? null
+  const dividaAberta = nomeFornecedor ? (dividas.find((d) => d.fornecedor === nomeFornecedor)?.valor ?? 0) : 0
+  const sobra = digitado > 0 && digitado > dividaAberta ? Math.round((digitado - dividaAberta) * 100) / 100 : 0
+
+  return (
+    <div className="rounded-xl border border-teal-200 bg-teal-50/40 p-4 shadow-sm space-y-3">
+      <div>
+        <p className="text-sm font-semibold text-gray-800">Abatido na nota — {troca.produto_nome ?? 'peça'}</p>
+        <p className="text-[11px] text-gray-500">O fornecedor não devolveu a peça e deu crédito na dívida. Isso <b>não é perda</b>: o valor compra outras peças.</p>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-3">
+        <label className="text-xs text-gray-500">
+          Fornecedor que abateu
+          <select value={fornecedorId} onChange={(e) => setFornecedorId(e.target.value)} className="field mt-1 text-xs">
+            <option value="">— escolher —</option>
+            {fornecedores.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
+          </select>
+        </label>
+        <label className="text-xs text-gray-500">
+          Valor abatido (R$)
+          <input value={valor} onChange={(e) => setValor(e.target.value)} inputMode="decimal" placeholder="ex: 910,00" className="field mt-1 text-xs" />
+        </label>
+        <div className="rounded-lg bg-white px-3 py-2 text-[11px] text-gray-600">
+          <p>Custo da peça: <b>{fmt(custoTotal)}</b></p>
+          <p>Dívida aberta do fornecedor: <b>{fmt(dividaAberta)}</b></p>
+          <p className={perdaPrevista > 0 ? 'text-rose-600' : 'text-emerald-700'}>
+            {digitado > 0 ? (perdaPrevista > 0 ? `Vai registrar perda de ${fmt(perdaPrevista)}` : 'Sem perda') : '—'}
+          </p>
+          {sobra > 0 && <p className="text-amber-700">{fmt(sobra)} viram crédito com o fornecedor</p>}
+        </div>
+      </div>
+
+      {erro && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{erro}</p>}
+
+      <div className="flex gap-2">
+        <button
+          disabled={pendente}
+          onClick={() => {
+            if (!fornecedorId) { setErro('Escolha o fornecedor que deu o abatimento.'); return }
+            if (!(digitado > 0)) { setErro('Digite o valor que ele abateu.'); return }
+            setErro(null)
+            const fd = new FormData()
+            fd.set('id', troca.id)
+            fd.set('valor', valor)
+            fd.set('fornecedor_id', fornecedorId)
+            rodar(() => abaterTrocaNoFornecedor(fd).then((r) => {
+              if (r.ok) fechar()
+              else setErro(r.erro ?? 'Não deu pra abater.')
+              return r
+            }))
+          }}
+          className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
+        >
+          Abater na dívida
+        </button>
+        <button onClick={fechar} className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-white">Cancelar</button>
+      </div>
     </div>
   )
 }
