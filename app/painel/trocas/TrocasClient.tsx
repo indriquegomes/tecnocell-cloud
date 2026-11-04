@@ -3,7 +3,10 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { TrocaLinha } from './page'
-import { definirFornecedor, marcarEnviada, confirmarRetorno, marcarPerdida, excluirTroca, lancarTrocaManual } from './actions'
+import {
+  definirFornecedor, marcarEnviada, confirmarRetorno, marcarPerdida, excluirTroca,
+  lancarTrocaManual, buscarProdutosParaTroca,
+} from './actions'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const dataBR = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '—')
@@ -23,19 +26,29 @@ export function TrocasClient({
   linhas,
   fornecedores,
   depositos,
+  lojas,
   erro,
 }: {
   linhas: TrocaLinha[]
   fornecedores: { id: string; nome: string }[]
   depositos: { id: string; nome: string }[]
+  lojas: { id: string; nome: string }[]
   erro?: string
 }) {
   const router = useRouter()
   const [pendente, iniciar] = useTransition()
   const [msg, setMsg] = useState<string | null>(erro ?? null)
   const [filtro, setFiltro] = useState<'todas' | 'aberta' | 'enviada' | 'retornou' | 'perdida'>('todas')
+  const [lojaFiltro, setLojaFiltro] = useState<string>('todas')
+  const [fornFiltro, setFornFiltro] = useState<string>('todos')
 
-  const visiveis = linhas.filter((l) => filtro === 'todas' || l.status === filtro)
+  const visiveis = linhas.filter((l) => {
+    if (filtro !== 'todas' && l.status !== filtro) return false
+    if (lojaFiltro !== 'todas' && (l.loja ?? '—') !== lojaFiltro) return false
+    if (fornFiltro === 'sem' && l.fornecedor_id) return false
+    if (fornFiltro !== 'todos' && fornFiltro !== 'sem' && l.fornecedor_id !== fornFiltro) return false
+    return true
+  })
 
   function rodar(fn: () => Promise<unknown>) {
     iniciar(async () => {
@@ -51,6 +64,7 @@ export function TrocasClient({
     <div className="space-y-3">
       {msg && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{msg}</div>}
 
+      {/* Situação */}
       <div className="flex flex-wrap items-center gap-2">
         {(['todas', 'aberta', 'enviada', 'retornou', 'perdida'] as const).map((f) => (
           <button
@@ -61,6 +75,47 @@ export function TrocasClient({
             {f === 'todas' ? 'Todas' : ROTULO[f]} ({f === 'todas' ? linhas.length : linhas.filter((l) => l.status === f).length})
           </button>
         ))}
+      </div>
+
+      {/* Loja + fornecedor */}
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2.5 shadow-sm">
+        <div>
+          <p className="mb-1 text-[11px] font-semibold uppercase text-gray-400">Loja</p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setLojaFiltro('todas')}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${lojaFiltro === 'todas' ? 'bg-gray-800 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+            >
+              As duas ({linhas.length})
+            </button>
+            {lojas.map((loja) => {
+              const n = linhas.filter((l) => l.loja === loja.nome).length
+              return (
+                <button
+                  key={loja.id}
+                  onClick={() => setLojaFiltro(loja.nome)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${lojaFiltro === loja.nome ? 'bg-gray-800 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                >
+                  {loja.nome} ({n})
+                </button>
+              )
+            })}
+          </div>
+        </div>
+        <label className="min-w-[240px] flex-1 text-xs text-gray-500">
+          <span className="mb-1 block font-semibold uppercase text-gray-400">Fornecedor</span>
+          <select value={fornFiltro} onChange={(e) => setFornFiltro(e.target.value)} className="field text-xs">
+            <option value="todos">Todos os fornecedores</option>
+            <option value="sem">— Sem fornecedor definido —</option>
+            {fornecedores.map((f) => {
+              const n = linhas.filter((l) => l.fornecedor_id === f.id).length
+              return <option key={f.id} value={f.id}>{f.nome}{n ? ` (${n})` : ''}</option>
+            })}
+          </select>
+        </label>
+        <p className="pb-1 text-xs text-gray-500">
+          Mostrando <b className="text-gray-800">{visiveis.length}</b> de {linhas.length}
+        </p>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -80,7 +135,7 @@ export function TrocasClient({
           </thead>
           <tbody className="divide-y divide-gray-50">
             {visiveis.length === 0 ? (
-              <tr><td colSpan={9} className="px-3 py-10 text-center text-gray-400">Nenhuma troca {filtro === 'todas' ? 'registrada' : `em "${ROTULO[filtro]}"`}.</td></tr>
+              <tr><td colSpan={9} className="px-3 py-10 text-center text-gray-400">Nenhuma troca com esse filtro.</td></tr>
             ) : visiveis.map((l) => (
               <tr key={l.id} className="hover:bg-blue-50/40 transition">
                 <td className="px-3 py-2 whitespace-nowrap text-gray-600">{dataBR(l.data_saida)}</td>
@@ -166,7 +221,7 @@ export function TrocasClient({
         </table>
       </div>
 
-      <NovaTroca depositos={depositos} pendente={pendente} rodar={rodar} />
+      <NovaTroca depositos={depositos} pendente={pendente} rodar={rodar} setMsg={setMsg} />
 
       <p className="text-[11px] leading-snug text-gray-400">
         A peça sai do estoque como movimento de <b>troca</b> e não volta sozinha. O check de retorno dá entrada no
@@ -180,17 +235,24 @@ function NovaTroca({
   depositos,
   pendente,
   rodar,
+  setMsg,
 }: {
   depositos: { id: string; nome: string }[]
   pendente: boolean
   rodar: (fn: () => Promise<unknown>) => void
+  setMsg: (m: string | null) => void
 }) {
   const [aberto, setAberto] = useState(false)
-  const [produto, setProduto] = useState('')
+  const [termo, setTermo] = useState('')
+  const [resultados, setResultados] = useState<{ id: string; nome: string }[]>([])
+  const [buscando, setBuscando] = useState(false)
+  const [buscou, setBuscou] = useState(false)
+  const [escolhido, setEscolhido] = useState<{ id: string; nome: string } | null>(null)
   const [qtd, setQtd] = useState('1')
   const [dep, setDep] = useState('')
   const [motivo, setMotivo] = useState('')
   const [tirar, setTirar] = useState(true)
+  const [erroLocal, setErroLocal] = useState<string | null>(null)
 
   if (!aberto) {
     return (
@@ -200,21 +262,62 @@ function NovaTroca({
     )
   }
 
-  async function buscarProduto(termo: string) {
-    const r = await fetch(`/api/produtos/busca?termo=${encodeURIComponent(termo)}`).catch(() => null)
-    if (!r || !r.ok) return
-    const lista = (await r.json()) as { id: string; nome: string }[]
-    if (lista[0] && !produto) setProduto(lista[0].id)
+  async function buscar() {
+    const t = termo.trim()
+    if (t.length < 2) { setErroLocal('Digite pelo menos 2 letras do nome (ou o código) da peça.'); return }
+    setBuscando(true); setErroLocal(null); setEscolhido(null)
+    try {
+      const lista = await buscarProdutosParaTroca(t)
+      setResultados(lista)
+      setBuscou(true)
+    } catch (e) {
+      setErroLocal(e instanceof Error ? e.message : 'Erro ao buscar a peça.')
+    } finally { setBuscando(false) }
   }
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-3">
       <p className="text-sm font-semibold text-gray-700">Lançar troca na mão</p>
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="text-xs text-gray-500">
-          Código ou ID do produto
-          <input value={produto} onChange={(e) => setProduto(e.target.value)} onBlur={(e) => buscarProduto(e.target.value)} placeholder="ex: 6880e8b9bd5ca4a5…" className="field mt-1 text-xs" />
-        </label>
+
+      {/* Busca por nome/código — antes pedia o ID do produto e não achava nada */}
+      <div>
+        <p className="text-xs text-gray-500">Qual é a peça?</p>
+        <div className="mt-1 flex gap-2">
+          <input
+            value={termo}
+            onChange={(e) => setTermo(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void buscar() } }}
+            placeholder="ex: frontal samsung a15"
+            className="field flex-1 text-sm"
+          />
+          <button onClick={() => void buscar()} disabled={buscando} className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-900 disabled:opacity-50">
+            {buscando ? 'Buscando…' : 'Buscar'}
+          </button>
+        </div>
+        {escolhido && (
+          <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+            Peça escolhida: <b>{escolhido.nome}</b>
+          </p>
+        )}
+        {!escolhido && buscou && resultados.length === 0 && (
+          <p className="mt-2 text-xs text-amber-700">Nenhuma peça encontrada com esse nome. Tente outra palavra.</p>
+        )}
+        {!escolhido && resultados.length > 0 && (
+          <div className="mt-2 max-h-52 overflow-y-auto rounded-lg border border-gray-200">
+            {resultados.map((r) => (
+              <button
+                key={r.id}
+                onClick={() => { setEscolhido(r); setResultados([]) }}
+                className="block w-full border-b border-gray-100 px-3 py-2 text-left text-xs text-gray-700 last:border-0 hover:bg-blue-50"
+              >
+                {r.nome}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         <label className="text-xs text-gray-500">
           Quantidade
           <input value={qtd} onChange={(e) => setQtd(e.target.value)} inputMode="numeric" className="field mt-1 text-xs" />
@@ -231,22 +334,33 @@ function NovaTroca({
           <input value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="ex: defeito no frontal" className="field mt-1 text-xs" />
         </label>
       </div>
+
       <label className="flex items-center gap-2 text-xs text-gray-600">
         <input type="checkbox" checked={tirar} onChange={(e) => setTirar(e.target.checked)} />
         Já tirar do estoque agora
       </label>
+
+      {erroLocal && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{erroLocal}</p>}
+
       <div className="flex gap-2">
         <button
-          disabled={pendente || !produto}
-          onClick={() => rodar(() => {
+          disabled={pendente || !escolhido}
+          onClick={() => {
+            if (!escolhido) { setErroLocal('Busque e escolha a peça antes de salvar.'); return }
+            if (tirar && !dep) { setErroLocal('Escolha de qual depósito a peça saiu.'); return }
+            setErroLocal(null)
             const fd = new FormData()
-            fd.set('produto_id', produto.trim())
+            fd.set('produto_id', escolhido.id)
             fd.set('quantidade', qtd)
             fd.set('deposito_saida_id', dep)
             fd.set('motivo', motivo)
             if (tirar) fd.set('tirar_do_estoque', '1')
-            return lancarTrocaManual(fd).then((r) => { if (r.ok) setAberto(false); return r })
-          })}
+            rodar(() => lancarTrocaManual(fd).then((r) => {
+              if (r.ok) { setAberto(false); setMsg(`Troca lançada: ${escolhido.nome}.`) }
+              else setMsg(r.erro ?? 'Não deu pra lançar a troca.')
+              return r
+            }))
+          }}
           className="rounded-lg bg-[#1B6CA8] px-4 py-2 text-sm font-semibold text-white hover:bg-[#155a8a] disabled:opacity-50"
         >
           Salvar

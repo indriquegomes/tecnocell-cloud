@@ -3,6 +3,7 @@
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { logAtividade } from '@/lib/log-atividade'
+import { palavrasBusca, aplicaBusca } from '@/lib/busca-produtos'
 
 // TROCAS COM FORNECEDOR (garantia / RMA)
 //
@@ -188,6 +189,23 @@ export async function excluirTroca(formData: FormData): Promise<{ ok: boolean; e
   await logAtividade('troca.excluir', { troca_id: id, produto: troca.produto_nome }, usuario, '/painel/trocas')
   for (const r of REVALIDAR) revalidatePath(r)
   return { ok: true }
+}
+
+/**
+ * Busca de peça para o lançamento manual. O formulário antigo pedia "código ou
+ * ID do produto" e chamava /api/produtos/busca — endpoint que NÃO existe (404),
+ * então digitar o nome da peça não achava nada e a troca não era gravada.
+ * Agora a busca é por palavra (nome, código ou marca), igual ao Estoque.
+ */
+export async function buscarProdutosParaTroca(termo: string): Promise<{ id: string; nome: string }[]> {
+  await requirePermissao('estoque')
+  const supabase = await createServiceClient()
+  const palavras = palavrasBusca(termo ?? '')
+  if (!palavras.length) return []
+  const base = supabase.from('produtos').select('id, nome').eq('ativo', true)
+  const { data, error } = await aplicaBusca(base, 'busca_norm', palavras).order('nome').limit(20)
+  if (error) throw new Error(error.message)
+  return (data ?? []) as { id: string; nome: string }[]
 }
 
 /**

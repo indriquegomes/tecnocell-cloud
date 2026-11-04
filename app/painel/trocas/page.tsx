@@ -5,6 +5,10 @@ import { TrocasClient } from './TrocasClient'
 // TROCAS COM FORNECEDOR — garantia do balcão até a peça voltar ao estoque.
 // A fila vive em `trocas` (migration 2026-11-03). Se a migration ainda não
 // rodou, a tela avisa em vez de quebrar.
+//
+// force-dynamic: a lista tem que refletir o que foi gravado no instante anterior
+// (o dono lançou troca e a linha não aparecia — cache de rota servindo HTML velho).
+export const dynamic = 'force-dynamic'
 
 export type TrocaLinha = {
   id: string
@@ -116,7 +120,13 @@ export default async function TrocasPage({ searchParams }: { searchParams: Promi
           no SQL Editor do Supabase para a aba começar a funcionar.
         </div>
       ) : (
-        <TrocasClient linhas={linhas} fornecedores={fornecedores} depositos={(deps ?? []).map((d) => ({ id: d.id as string, nome: d.nome as string }))} erro={erro} />
+        <TrocasClient
+          linhas={linhas}
+          fornecedores={fornecedores}
+          depositos={(deps ?? []).map((d) => ({ id: d.id as string, nome: d.nome as string }))}
+          lojas={(lojas ?? []).map((l) => ({ id: l.id as string, nome: l.nome as string }))}
+          erro={erro}
+        />
       )}
     </div>
   )
