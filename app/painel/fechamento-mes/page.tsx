@@ -3,6 +3,7 @@ import { formatBRL } from '@/lib/utils'
 import { FecharMesButton } from './FecharMesButton'
 import { BotaoImprimirResumo } from './BotaoImprimirResumo'
 import { estoqueCustoPorLoja } from '@/lib/estoque-custo'
+import { ehCompraDeMercadoria } from '@/lib/financeiro-setores'
 
 function nomeMes(mes: string) {
   const [ano, m] = mes.split('-').map(Number)
@@ -125,7 +126,9 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
   const tipoPorFormaId = new Map((formasPg ?? []).map((f) => [f.id, f.tipo as string]))
   const ehDinheiro = (txt: string | null | undefined) => (txt ?? '').trim().toLowerCase().includes('dinheiro')
 
-  const CAT_COMPRAS = ['Fornecedor / Mercadoria', 'Fornecedor ZL', 'fonecedor']
+  // Mercadoria comprada é estoque, não despesa — a lista de categorias que valem
+  // como compra mora em lib/financeiro-setores.ts (ehCompraDeMercadoria), junto com
+  // as outras classificações do financeiro, pra não nascer uma terceira grafia solta.
 
   // Movimento de um mês (entradas, saídas, despesas e dinheiro) por loja.
   // Reusado pro mês atual E pro anterior — é o que sustenta a comparação mês a mês.
@@ -164,8 +167,7 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     for (const r of movsCaixa) if (r.tipo === 'recebimento') add(lojaDeCaixa.get(r.caixa_id) ?? null, 'fiadoCobrado', r.valor ?? 0)
     for (const c of comprasItens) add(lojaDeDeposito.get(c.deposito_id) ?? null, 'compras', c.total_item ?? 0)
     for (const d of despesas) {
-      const cat = (d.categoria || '').trim()
-      if (CAT_COMPRAS.includes(cat)) continue
+      if (ehCompraDeMercadoria(d.categoria)) continue
       const loja = d.loja_id || lojaDePessoa(d.pessoa_nome || '') || petropolisId
       add(loja, 'despesas', d.valor ?? 0)
     }
@@ -193,8 +195,7 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     // despesa paga em dinheiro
     for (const d of despesas) {
       if (!ehDinheiro(d.forma_pagamento)) continue
-      const cat = (d.categoria || '').trim()
-      if (CAT_COMPRAS.includes(cat)) continue   // mercadoria é estoque, não gaveta
+      if (ehCompraDeMercadoria(d.categoria)) continue   // mercadoria é estoque, não gaveta
       const loja = d.loja_id || lojaDePessoa(d.pessoa_nome || '') || petropolisId
       addDin(loja, 'saiu', d.valor ?? 0)
     }

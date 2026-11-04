@@ -140,4 +140,16 @@ export const SUBCATEGORIAS: Record<string, string[]> = {
 export const subcategoriasDe = (categoria: string | null | undefined): string[] =>
   SUBCATEGORIAS[(categoria ?? '').trim()] ?? []
 
+// Compra de mercadoria NÃO é despesa: é estoque. O custo só vira despesa quando a
+// peça é vendida (CMV). Contar as duas coisas derruba o resultado do mês em dobro.
+//
+// O fechamento excluía só 'Fornecedor / Mercadoria' e 'Fornecedor ZL' — mas existem
+// 'Mercadoria' (outra grafia da mesma coisa) e 'fonecedor' (erro de digitação antigo)
+// na base. Lançamento com essas categorias entrava como despesa EM CIMA do CMV. Em
+// 04/11 isso inflava novembro em 4.443,50 e outubro em 53.969,35.
+const CATEGORIAS_MERCADORIA = ['fornecedor / mercadoria', 'fornecedor zl', 'fonecedor', 'mercadoria']
+
+export const ehCompraDeMercadoria = (categoria: string | null | undefined): boolean =>
+  CATEGORIAS_MERCADORIA.includes((categoria ?? '').trim().toLowerCase())
+
 export const TODAS_SUBCATEGORIAS: string[] = [...new Set(Object.values(SUBCATEGORIAS).flat())]
