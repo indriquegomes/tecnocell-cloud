@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { controlaSerie, IMEI_ATIVO } from '@/lib/imei'
 import { NovaMovimentacaoForm } from '../historico/NovaMovimentacaoForm'
 import Link from 'next/link'
 
@@ -49,7 +50,11 @@ export default async function MovimentarEstoquePage({
       <NovaMovimentacaoForm
         abertoPadrao
         depositos={(depositosRes.data ?? []) as { id: string; nome: string }[]}
-        produtos={(produtosRes.data ?? []) as { id: string; nome: string; codigo: string | null; controla_serie: boolean | null }[]}
+        produtos={(produtosRes.data ?? []).map((p) => ({
+          ...p,
+          // IMEI desligado no app inteiro (lib/imei.ts)
+          controla_serie: controlaSerie((p as { controla_serie?: boolean | null }).controla_serie),
+        })) as { id: string; nome: string; codigo: string | null; controla_serie: boolean | null }[]}
         seriesPorProduto={seriesPorProduto}
         dataHoje={dataHoje}
         horaAgora={horaAgora}

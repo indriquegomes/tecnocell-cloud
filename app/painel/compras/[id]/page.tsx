@@ -8,6 +8,7 @@ import { AddItemNota } from './AddItemNota'
 import { SeriesItemNota } from './SeriesItemNota'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { controlaSerie } from '@/lib/imei'
 
 export default async function NotaEntradaDetalhe({
   params,
@@ -46,7 +47,8 @@ export default async function NotaEntradaDetalhe({
   const lojaNome = new Map((lojas ?? []).map((l) => [l.id, l.nome]))
   const depMap = new Map((depositos ?? []).map((d) => [d.id, { nome: d.nome, loja: d.loja_id ? (lojaNome.get(d.loja_id) ?? null) : null }]))
   const prodNome = new Map((produtos ?? []).map((p) => [p.id, p.nome]))
-  const prodControlaSerie = new Map((produtos ?? []).map((p) => [p.id, p.controla_serie ?? false]))
+  // IMEI desligado (lib/imei.ts): nenhum produto pede série na entrada de nota.
+  const prodControlaSerie = new Map((produtos ?? []).map((p) => [p.id, controlaSerie(p.controla_serie)]))
   const pendente = nota.status === 'pendente'
 
   return (

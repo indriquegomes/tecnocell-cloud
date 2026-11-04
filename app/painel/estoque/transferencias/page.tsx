@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { controlaSerie, IMEI_ATIVO } from '@/lib/imei'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 import { TransferenciaForm } from './TransferenciaForm'
@@ -82,7 +83,11 @@ export default async function TransferenciasPage({
 
       <TransferenciaForm
         depositos={depositos ?? []}
-        produtos={produtos ?? []}
+        produtos={(produtos ?? []).map((p) => ({
+          ...p,
+          // IMEI desligado no app inteiro (lib/imei.ts)
+          controla_serie: controlaSerie((p as { controla_serie?: boolean | null }).controla_serie),
+        }))}
         seriesPorProduto={seriesPorProduto}
         produtoInicial={params.produto}
       />

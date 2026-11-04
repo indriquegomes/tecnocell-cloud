@@ -1,6 +1,7 @@
 'use server'
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { controlaSerie, IMEI_ATIVO } from '@/lib/imei'
 import { sincronizarEstoqueML } from '@/lib/mercado-livre'
 import { revalidatePath } from 'next/cache'
 import ExcelJS from 'exceljs'
@@ -106,7 +107,8 @@ export async function conferirPlanilha(formData: FormData): Promise<ResultadoCon
         erros.push(`Linha ${item.linha} (${item.nome}): produto nao encontrado no sistema.`)
         continue
       }
-      if (p.controla_serie) {
+      // IMEI desligado (lib/imei.ts): todo produto pode ser corrigido por aqui.
+      if (controlaSerie(p.controla_serie)) {
         erros.push(`Linha ${item.linha} (${item.nome}): produto com IMEI nao pode ser corrigido por aqui.`)
         continue
       }

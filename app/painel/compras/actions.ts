@@ -4,6 +4,7 @@ import { createServiceClient, requirePermissaoAny } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { IMEI_ATIVO } from '@/lib/imei'
 
 export async function criarNotaEntrada(formData: FormData) {
   await requirePermissaoAny(['compras', 'notas_entrada'])
@@ -36,21 +37,22 @@ export async function receberNota(id: string) {
   await requirePermissaoAny(['compras', 'notas_entrada'])
   const supabase = await createServiceClient()
 
-  // Checagem antecipada: produto com controla_serie precisa ter um IMEI
-  // cadastrado pra cada unidade da nota. O RPC também trava isso (defesa em
-  // profundidade), mas checar aqui antes dá uma mensagem com o nome do
-  // produto — o RPC só tem o id.
-  const { data: itens } = await supabase.from('itens_nota_entrada').select('produto_id, quantidade, series').eq('nota_id', id)
-  if (itens && itens.length > 0) {
-    const produtoIds = [...new Set(itens.map((i) => i.produto_id).filter(Boolean))] as string[]
-    const { data: produtos } = await supabase.from('produtos').select('id, nome, controla_serie').in('id', produtoIds)
-    const produtoPorId = new Map((produtos ?? []).map((p) => [p.id, p]))
-    for (const item of itens) {
-      const produto = item.produto_id ? produtoPorId.get(item.produto_id) : null
-      if (!produto?.controla_serie) continue
-      const qtdSeries = Array.isArray(item.series) ? item.series.length : 0
-      if (qtdSeries !== item.quantidade) {
-        redirect(`/painel/compras/${id}?erro=${encodeURIComponent(`"${produto.nome}" controla IMEI: faltam ${item.quantidade - qtdSeries} de ${item.quantidade} pra cadastrar antes de confirmar.`)}`)
+  // IMEI/SÉRIE DESLIGADO (decisão do dono, 04/11/2026): a entrada de nota não
+  // exige mais número de série. Guarda antiga mantida abaixo, desligada por
+  // `IMEI_ATIVO = false` — ligar de volta é só trocar a constante em lib/imei.ts.
+  if (IMEI_ATIVO) {
+    const { data: itens } = await supabase.from('itens_nota_entrada').select('produto_id, quantidade, series').eq('nota_id', id)
+    if (itens && itens.length > 0) {
+      const produtoIds = [...new Set(itens.map((i) => i.produto_id).filter(Boolean))] as string[]
+      const { data: produtos } = await supabase.from('produtos').select('id, nome, controla_serie').in('id', produtoIds)
+      const produtoPorId = new Map((produtos ?? []).map((p) => [p.id, p]))
+      for (const item of itens) {
+        const produto = item.produto_id ? produtoPorId.get(item.produto_id) : null
+        if (!produto?.controla_serie) continue
+        const qtdSeries = Array.isArray(item.series) ? item.series.length : 0
+        if (qtdSeries !== item.quantidade) {
+          redirect(`/painel/compras/${id}?erro=${encodeURIComponent(`"${produto.nome}" controla IMEI: faltam ${item.quantidade - qtdSeries} de ${item.quantidade} pra cadastrar antes de confirmar.`)}`)
+        }
       }
     }
   }

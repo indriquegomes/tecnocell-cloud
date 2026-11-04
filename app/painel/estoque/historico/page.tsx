@@ -1,4 +1,5 @@
 import { IconDownload, IconSwap } from '@/components/icons'
+import { controlaSerie, IMEI_ATIVO } from '@/lib/imei'
 import { createServiceClient, fetchAllIn } from '@/lib/supabase/server'
 import { formatBRL } from '@/lib/utils'
 import Link from 'next/link'
@@ -111,12 +112,15 @@ export default async function MovimentacoesPage({
     supabase.from('numeros_serie').select('produto_id, deposito_id, serie').eq('status', 'em_estoque').order('serie'),
   ])
 
-  // IMEIs disponíveis por produto/depósito (para baixa de serializado na saída)
+  // IMEIs disponíveis por produto/depósito — DESLIGADO (lib/imei.ts): o formulário
+  // não pede mais série. Os movimentos antigos continuam mostrando o que tinham.
   const seriesPorProduto: Record<string, Record<string, string[]>> = {}
-  for (const s of (seriesEmEstoque ?? []) as { produto_id: string; deposito_id: string; serie: string }[]) {
-    if (!s.produto_id || !s.deposito_id) continue
-    ;(seriesPorProduto[s.produto_id] ??= {})[s.deposito_id] ??= []
-    seriesPorProduto[s.produto_id][s.deposito_id].push(s.serie)
+  if (IMEI_ATIVO) {
+    for (const s of (seriesEmEstoque ?? []) as { produto_id: string; deposito_id: string; serie: string }[]) {
+      if (!s.produto_id || !s.deposito_id) continue
+      ;(seriesPorProduto[s.produto_id] ??= {})[s.deposito_id] ??= []
+      seriesPorProduto[s.produto_id][s.deposito_id].push(s.serie)
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -437,7 +441,11 @@ export default async function MovimentacoesPage({
       {/* Aba Nova Movimentação */}
       <NovaMovimentacaoForm
         depositos={depositos ?? []}
-        produtos={todosProdutos ?? []}
+        produtos={(todosProdutos ?? []).map((p) => ({
+          ...p,
+          // IMEI desligado no app inteiro (lib/imei.ts)
+          controla_serie: controlaSerie((p as { controla_serie?: boolean | null }).controla_serie),
+        }))}
         seriesPorProduto={seriesPorProduto}
         dataHoje={dataHoje}
         horaAgora={horaAgora}

@@ -1,6 +1,7 @@
 'use server'
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { controlaSerie, IMEI_ATIVO } from '@/lib/imei'
 import { logAtividade } from '@/lib/log-atividade'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
@@ -98,7 +99,8 @@ export async function faturarPedido(id: string): Promise<{ ok: boolean; msg: str
     .eq('pedido_id', id)
   const lista = (itens ?? []) as unknown as { produto_id: string; quantidade: number; preco_unitario: number; total_item: number | null; produtos: { nome: string; controla_serie: boolean | null } | null }[]
   if (lista.length === 0) return { ok: false, msg: 'Pedido sem itens.' }
-  if (lista.some((i) => i.produtos?.controla_serie)) {
+  // IMEI desligado (lib/imei.ts): pedido fatura direto, sem exigir escolher série.
+  if (IMEI_ATIVO && lista.some((i) => controlaSerie(i.produtos?.controla_serie))) {
     return { ok: false, msg: 'Tem aparelho com IMEI. Fature pelo botão "Abrir no PDV" pra escolher a série.' }
   }
 
