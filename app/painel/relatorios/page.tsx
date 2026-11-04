@@ -1625,9 +1625,10 @@ export default async function RelatoriosPage({
               cols={[{ key: 'numero', label: 'Nº' }, { key: 'created_at', label: 'Data' }, { key: 'cliente_nome', label: 'Cliente' }, { key: 'vendedor_nome', label: 'Vendedor' }, { key: 'forma_nome', label: 'Forma' }, { key: 'desconto', label: 'Desconto', money: true }, { key: 'total', label: 'Total', money: true }, { key: 'devolvido', label: 'Devolução', money: true }, { key: 'status', label: 'Status' }]}
               rows={asRows(vendasLista)} />
           </div>
+          {vendasLista.length > 200 && <p className="mb-1 text-xs text-gray-400">Mostrando 200 de {vendasLista.length} vendas — baixe o CSV pra ver todas.</p>}
           <Tabela vazio={vendasLista.length === 0} vazioMsg="Nenhuma venda no período."
             head={['Nº', 'Data', 'Cliente', 'Vendedor', 'Forma', 'Desconto', 'Total', 'Devolução', 'Status']} alinhas={['l', 'l', 'l', 'l', 'l', 'r', 'r', 'r', 'c']}>
-            {vendasLista.map((v) => (
+            {vendasLista.slice(0, 200).map((v) => (
               <tr key={v.id} className="hover:bg-blue-50/60">
                 <td className="px-4 py-3 text-sm text-gray-500">{v.numero ?? '—'}</td>
                 <td className="px-4 py-3 text-sm text-gray-600">{new Date(v.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</td>
@@ -1660,10 +1661,11 @@ export default async function RelatoriosPage({
               cols={[{ key: 'nome', label: 'Produto' }, { key: 'codigo', label: 'Código' }, { key: 'marca', label: 'Marca' }, { key: 'fornecedor', label: 'Fornecedor' }, { key: 'qtd', label: 'Qtd Vendida' }, { key: 'precoCusto', label: 'Preço Custo', money: true }, { key: 'custo', label: 'Custo das Vendas', money: true }, { key: 'faturado', label: 'Faturado', money: true }, { key: 'lucro', label: 'Lucro', money: true }, { key: 'margem', label: 'Lucro %' }, ...depositosCond.map((d) => ({ key: `dep_${d.id}`, label: d.nome })), { key: 'estoqueTotal', label: 'Estoque Total' }, { key: 'valorEstoque', label: 'Valor em Estoque', money: true }]}
               rows={condensado.map((r) => ({ nome: r.nome, codigo: r.codigo, marca: r.marca, fornecedor: r.fornecedor, qtd: r.qtd, precoCusto: r.precoCusto, custo: r.custo, faturado: r.faturado, lucro: r.lucro, margem: r.margem.toFixed(1), ...Object.fromEntries(depositosCond.map((d) => [`dep_${d.id}`, r.estoquePorDep[d.id] ?? 0])), estoqueTotal: r.estoqueTotal, valorEstoque: r.valorEstoque }))} />
           </div>
+          {condensado.length > 200 && <p className="mb-1 text-xs text-gray-400">Mostrando 200 de {condensado.length} produtos — baixe o CSV pra ver todos.</p>}
           <Tabela vazio={condensado.length === 0} vazioMsg="Sem vendas concluídas no período/filtro."
             head={['Produto', 'Cód.', 'Marca', 'Fornecedor', 'Qtd', 'Custo un.', 'Custo', 'Faturado', 'Lucro', 'Margem', ...depositosCond.map((d) => d.nome), 'Est. Total', 'Vlr Estoque']}
             alinhas={['l', 'l', 'l', 'l', 'r', 'r', 'r', 'r', 'r', 'r', ...depositosCond.map(() => 'r' as const), 'r', 'r']}>
-            {condensado.map((r, i) => (
+            {condensado.slice(0, 200).map((r, i) => (
               <tr key={i} className="hover:bg-blue-50/60">
                 <td className="px-3 py-2 text-sm font-medium text-gray-800">{r.nome}</td>
                 <td className="px-3 py-2 text-sm text-gray-500 tabular-nums">{r.codigo ?? '—'}</td>
