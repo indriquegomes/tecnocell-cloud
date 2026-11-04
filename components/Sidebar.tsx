@@ -96,13 +96,9 @@ const navCompleto: NavGroup[] = [
       { href: '/painel/tabelas-preco',  label: 'Tabelas de Preço',      permissao: 'produtos' },
     ],
   },
-  {
-    group: 'Serviços',
-    items: [
-      { href: '/painel/os', label: 'Ordens de Serviço', permissao: 'os' },
-      { href: '/painel/os/checklists', label: 'Check-lists', permissao: 'os' },
-    ],
-  },
+  // "Serviços" (Ordens de Serviço) saiu do menu em 04/11/2026 a pedido do dono:
+  // ele não usa o módulo e a aba só atrapalhava. As rotas continuam existindo
+  // (nada de dado apagado), só não aparecem mais no menu.
   {
     group: 'Estoque',
     items: [

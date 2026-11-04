@@ -48,7 +48,10 @@ function mapRowToProdutoPDV(p: Record<string, unknown>): ProdutoPDV {
     id: p.id as string, nome: p.nome as string, preco: p.preco as number, codigo: p.codigo as string | null,
     marca: p.marca as string | null, categoria: (p.categoria as string | null) ?? null,
     descricao: (p.descricao as string | null) ?? null, imagem_url: (p.imagem_url as string | null) ?? null,
-    controla_serie: (p.controla_serie as boolean | null) ?? false, prateleira: (p.prateleira as string | null) ?? null,
+    // IMEI/SÉRIE DESLIGADO (decisão do dono, 04/11/2026): o PDV não trabalha mais
+    // com número de série. Forçado false aqui, no único lugar que monta o produto
+    // pro PDV, pra nenhuma tela pedir IMEI de novo — sem mexer nos dados antigos.
+    controla_serie: false, prateleira: (p.prateleira as string | null) ?? null,
     estoquePorDeposito,
   }
 }
@@ -324,6 +327,10 @@ export async function finalizarVenda(
   if (itens.length === 0) return { erro: 'Carrinho vazio' }
   if (!deposito_id) return { erro: 'Depósito não selecionado' }
   if (pagamentos.length === 0 && credito_valor <= 0) return { erro: 'Selecione a forma de pagamento' }
+  // IMEI/SÉRIE DESLIGADO (decisão do dono, 04/11/2026): a venda não amarra mais
+  // número de série. Ignora o que vier do cliente — o RPC aceita lista vazia e
+  // simplesmente não mexe em numeros_serie. Dado antigo fica intacto.
+  series = []
   const hasHalloween = itens.some(i => !!i.halloween_rule_id)
   if (hasHalloween && (!halloweenOperation || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(halloweenOperation))) return { erro: 'Identificador da venda Halloween inválido. Preserve o atendimento e tente novamente.' }
 

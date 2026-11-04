@@ -101,11 +101,11 @@ export async function buscarVendaParaDevolucao(
       .eq('status', 'concluida'),
   ])
 
-  // IMEIs vendidos agrupados por produto (aparelhos serializados desta venda)
+  // IMEIs vendidos agrupados por produto — DESLIGADO (decisão do dono, 04/11/2026):
+  // a devolução não pede mais número de série. Mapa fica vazio, então a tela não
+  // exige escolher IMEI. Os registros antigos de numeros_serie ficam intactos.
   const seriesPorProduto: Record<string, string[]> = {}
-  for (const s of (seriesRes.data ?? []) as { produto_id: string; serie: string }[]) {
-    ;(seriesPorProduto[s.produto_id] ??= []).push(s.serie)
-  }
+  void seriesRes
 
   // Já devolvido desta venda (devolução parcial): subtrai pra não oferecer devolver
   // de novo a peça que já saiu — era o "item cancelado que não sai da nota" e deixava
