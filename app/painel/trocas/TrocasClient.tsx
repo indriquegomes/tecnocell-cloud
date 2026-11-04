@@ -6,7 +6,7 @@ import type { TrocaLinha } from './page'
 import { AbaterLote } from './AbaterLote'
 import {
   definirFornecedor, marcarEnviada, confirmarRetorno, marcarPerdida, excluirTroca,
-  lancarTrocaManual, buscarProdutosParaTroca, abaterTrocaNoFornecedor, abaterTrocasEmLote,
+  lancarTrocaManual, buscarProdutosParaTroca, abaterTrocaNoFornecedor, abaterTrocasEmLote, ajustarCustoTroca,
 } from './actions'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -156,7 +156,36 @@ export function TrocasClient({
                   {l.pessoa_nome && <p className="text-[11px] text-gray-400">cliente: {l.pessoa_nome}</p>}
                 </td>
                 <td className="px-3 py-2 text-center tabular-nums">{l.quantidade}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{fmt(l.custo)}</td>
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {fmt(l.custo)}
+                  {(l.status === 'aberta' || l.status === 'enviada') && (
+                    <button
+                      disabled={pendente}
+                      onClick={() => {
+                        const atual = String(l.custo).replace('.', ',')
+                        const digitado = window.prompt(
+                          `Custo da peça "${l.produto_nome ?? l.produto_id}"\n\n` +
+                          `Hoje no app: R$ ${atual}\n\n` +
+                          'Digite o custo que o fornecedor está usando (o da última conta). ' +
+                          'Isso atualiza o CADASTRO do produto e o custo desta troca, e fica registrado.',
+                          atual,
+                        )
+                        if (digitado == null) return
+                        const fd = new FormData()
+                        fd.set('id', l.id)
+                        fd.set('custo', digitado)
+                        rodar(() => ajustarCustoTroca(fd).then((r) => {
+                          setMsg(r.ok ? `Custo ajustado: R$ ${fmt(r.de ?? 0)} → R$ ${fmt(r.para ?? 0)} (${l.produto_nome ?? ''})` : (r.erro ?? 'Não deu pra ajustar.'))
+                          return r
+                        }))
+                      }}
+                      className="ml-1.5 rounded border border-gray-200 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500 hover:bg-gray-50"
+                      title="Ajustar o custo desta peça para o valor que o fornecedor usa"
+                    >
+                      ajustar
+                    </button>
+                  )}
+                </td>
                 <td className="px-3 py-2 text-gray-600">{l.loja ?? '—'}</td>
                 <td className="px-3 py-2">
                   {l.status === 'retornou' || l.status === 'perdida' ? (

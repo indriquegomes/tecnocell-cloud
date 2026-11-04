@@ -570,6 +570,52 @@ export async function abaterTrocasEmLote(formData: FormData): Promise<{ ok: bool
 }
 
 /**
+ * AJUSTAR CUSTO da peça — pedido do dono (04/11).
+ *
+ * O fornecedor cobra/credita pelo custo da ÚLTIMA conta, mas o app guarda o custo
+ * diluído (média de todas as entradas). Isso gera diferenças de centavos a poucos
+ * reais que atrapalham o abatimento. Aqui ele alinha o custo do produto e o custo
+ * daquela troca no mesmo número, com registro de de/para.
+ *
+ * Efeito: muda a avaliação do estoque desse produto e o CMV das próximas vendas
+ * (venda já fechada não muda).
+ */
+export async function ajustarCustoTroca(formData: FormData): Promise<{ ok: boolean; erro?: string; de?: number; para?: number }> {
+  const usuario = await requirePermissao('estoque')
+  const supabase = await createServiceClient()
+  const id = String(formData.get('id') ?? '')
+  const novo = Math.round(Number(String(formData.get('custo') ?? '').replace(/\./g, '').replace(',', '.')) * 100) / 100
+  if (!id) return { ok: false, erro: 'troca não identificada' }
+  if (!(novo >= 0)) return { ok: false, erro: 'Informe o custo novo.' }
+
+  const { data: troca } = await supabase.from('trocas')
+    .select('id, produto_id, produto_nome, custo, quantidade, status')
+    .eq('id', id).maybeSingle()
+  if (!troca) return { ok: false, erro: 'troca não encontrada' }
+  const de = Number(troca.custo ?? 0)
+  if (Math.abs(de - novo) < 0.001) return { ok: true, de, para: novo }
+
+  const { error: e1 } = await supabase.from('trocas')
+    .update({ custo: novo, updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (e1) return { ok: false, erro: e1.message }
+
+  // alinha o cadastro do produto também, senão a próxima venda volta ao custo velho
+  if (troca.produto_id) {
+    const { error: e2 } = await supabase.from('produtos')
+      .update({ preco_custo: novo, updated_at: new Date().toISOString() })
+      .eq('id', troca.produto_id)
+    if (e2) return { ok: false, erro: `Troca ajustada, mas o cadastro do produto não: ${e2.message}` }
+  }
+
+  await logAtividade('produto.custo_ajustado', {
+    produto_id: troca.produto_id, produto: troca.produto_nome, troca_id: id, de, para: novo, origem: 'aba Trocas',
+  }, usuario, '/painel/trocas')
+  for (const r of [...REVALIDAR, '/painel/produtos', '/painel/estoque']) revalidatePath(r)
+  return { ok: true, de, para: novo }
+}
+
+/**
  * Busca de peça para o lançamento manual. O formulário antigo pedia "código ou
  * ID do produto" e chamava /api/produtos/busca — endpoint que NÃO existe (404),
  * então digitar o nome da peça não achava nada e a troca não era gravada.

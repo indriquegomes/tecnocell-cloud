@@ -4,6 +4,7 @@ import { createServiceClient, requirePermissao, podeAcao } from '@/lib/supabase/
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createHash } from 'node:crypto'
+import { logAtividade } from '@/lib/log-atividade'
 
 // Extensão do NOME do arquivo (file.name) é o que o cliente digita — só trocar
 // "malicioso.html" pra "malicioso.jpg" já bastava antes disso. Bucket "produtos"
@@ -158,6 +159,12 @@ export async function editarProduto(id: string, formData: FormData) {
   }
   if (novaImagem) updates.imagem_url = novaImagem
 
+  // CUSTO: guarda o valor de antes para registrar de/para depois de gravar.
+  const { data: antesCusto } = podeCusto
+    ? await supabase.from('produtos').select('preco_custo').eq('id', id).maybeSingle()
+    : { data: null }
+  const custoAntes = Number((antesCusto as { preco_custo?: number } | null)?.preco_custo ?? 0)
+
   const { error } = await supabase.from('produtos').update(updates).eq('id', id)
   if (error) {
     // editarProduto nunca checou duplicidade de código antes de salvar (só
@@ -167,6 +174,18 @@ export async function editarProduto(id: string, formData: FormData) {
     // action> sem error boundary derruba a tela inteira (achado 26/08).
     if (error.code === '23505') redirect(`/painel/produtos/${id}/editar?erro=${encodeURIComponent(`Já existe outro produto ativo com o código "${updates.codigo}".`)}`)
     redirect(`/painel/produtos/${id}/editar?erro=${encodeURIComponent(error.message)}`)
+  }
+
+  // CUSTO MUDOU: registrar de/para. Alterar custo muda a avaliação do estoque e o
+  // CMV das próximas vendas — antes não ficava rastro nenhum de quem mudou (pedido
+  // do dono em 04/11: precisa ajustar o custo sem gerar diferença, mas auditado).
+  if (podeCusto) {
+    const custoDepois = Number(updates.preco_custo ?? 0)
+    if (Math.abs(custoAntes - custoDepois) > 0.001) {
+      await logAtividade('produto.custo_ajustado', {
+        produto_id: id, produto: nomeEditado, de: custoAntes, para: custoDepois, origem: 'editar produto',
+      })
+    }
   }
   await salvarPrecosTabela(supabase, id, formData)
   revalidatePath('/painel/produtos')
