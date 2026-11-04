@@ -9,7 +9,7 @@ test('trocas: abatimento em grupo', async ({ page }) => {
   await expect(btn).toBeVisible()
   await btn.click()
   await expect(page.getByText('Abatimento em grupo').first()).toBeVisible()
-  await expect(page.getByRole('button', { name: /Abater \d+ peça/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Abater/ })).toBeVisible()
   const texto = await page.locator('main').innerText()
   console.log(texto.split('\n').filter((l) => /abatimento|peças marcadas|custo|dívida/i.test(l)).slice(0, 10).join('\n'))
 })

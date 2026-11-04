@@ -402,7 +402,9 @@ function AbaterLote({
           }}
           className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
         >
-          Abater {escolhidas.length} peça(s) na dívida
+          {digitado > 0
+            ? `Abater R$ ${fmt(digitado)} em ${escolhidas.length} peça(s)`
+            : `Abater ${escolhidas.length} peça(s) na dívida`}
         </button>
         <button onClick={fechar} className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-white">Cancelar</button>
       </div>
