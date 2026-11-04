@@ -574,17 +574,19 @@ export async function abaterTrocasEmLote(formData: FormData): Promise<{ ok: bool
  *
  * O fornecedor cobra/credita pelo custo da ÚLTIMA conta, mas o app guarda o custo
  * diluído (média de todas as entradas). Isso gera diferenças de centavos a poucos
- * reais que atrapalham o abatimento. Aqui ele alinha o custo do produto e o custo
- * daquela troca no mesmo número, com registro de de/para.
+ * reais que atrapalham o abatimento.
  *
- * Efeito: muda a avaliação do estoque desse produto e o CMV das próximas vendas
- * (venda já fechada não muda).
+ * Dois escopos (escolha do dono):
+ *   - só a troca (padrão): corrige a linha, NÃO mexe no cadastro do produto, então
+ *     não reavalia estoque nem CMV
+ *   - cadastro também: alinha o preco_custo do produto (muda estoque e CMV futuro)
  */
-export async function ajustarCustoTroca(formData: FormData): Promise<{ ok: boolean; erro?: string; de?: number; para?: number }> {
+export async function ajustarCustoTroca(formData: FormData): Promise<{ ok: boolean; erro?: string; de?: number; para?: number; cadastro?: boolean }> {
   const usuario = await requirePermissao('estoque')
   const supabase = await createServiceClient()
   const id = String(formData.get('id') ?? '')
   const novo = Math.round(Number(String(formData.get('custo') ?? '').replace(/\./g, '').replace(',', '.')) * 100) / 100
+  const noCadastro = String(formData.get('no_cadastro') ?? '') === '1'
   if (!id) return { ok: false, erro: 'troca não identificada' }
   if (!(novo >= 0)) return { ok: false, erro: 'Informe o custo novo.' }
 
@@ -593,15 +595,14 @@ export async function ajustarCustoTroca(formData: FormData): Promise<{ ok: boole
     .eq('id', id).maybeSingle()
   if (!troca) return { ok: false, erro: 'troca não encontrada' }
   const de = Number(troca.custo ?? 0)
-  if (Math.abs(de - novo) < 0.001) return { ok: true, de, para: novo }
+  if (Math.abs(de - novo) < 0.001 && !noCadastro) return { ok: true, de, para: novo }
 
   const { error: e1 } = await supabase.from('trocas')
     .update({ custo: novo, updated_at: new Date().toISOString() })
     .eq('id', id)
   if (e1) return { ok: false, erro: e1.message }
 
-  // alinha o cadastro do produto também, senão a próxima venda volta ao custo velho
-  if (troca.produto_id) {
+  if (noCadastro && troca.produto_id) {
     const { error: e2 } = await supabase.from('produtos')
       .update({ preco_custo: novo, updated_at: new Date().toISOString() })
       .eq('id', troca.produto_id)
@@ -609,10 +610,11 @@ export async function ajustarCustoTroca(formData: FormData): Promise<{ ok: boole
   }
 
   await logAtividade('produto.custo_ajustado', {
-    produto_id: troca.produto_id, produto: troca.produto_nome, troca_id: id, de, para: novo, origem: 'aba Trocas',
+    produto_id: troca.produto_id, produto: troca.produto_nome, troca_id: id, de, para: novo,
+    origem: 'aba Trocas', escopo: noCadastro ? 'troca + cadastro' : 'somente a troca',
   }, usuario, '/painel/trocas')
-  for (const r of [...REVALIDAR, '/painel/produtos', '/painel/estoque']) revalidatePath(r)
-  return { ok: true, de, para: novo }
+  for (const r of [...REVALIDAR, ...(noCadastro ? ['/painel/produtos', '/painel/estoque'] : [])]) revalidatePath(r)
+  return { ok: true, de, para: novo, cadastro: noCadastro }
 }
 
 /**

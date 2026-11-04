@@ -166,16 +166,24 @@ export function TrocasClient({
                         const digitado = window.prompt(
                           `Custo da peça "${l.produto_nome ?? l.produto_id}"\n\n` +
                           `Hoje no app: R$ ${atual}\n\n` +
-                          'Digite o custo que o fornecedor está usando (o da última conta). ' +
-                          'Isso atualiza o CADASTRO do produto e o custo desta troca, e fica registrado.',
+                          'Digite o custo que o fornecedor está usando (o da última conta).',
                           atual,
                         )
                         if (digitado == null) return
+                        // Padrão = só esta troca: não reavalia estoque nem CMV.
+                        const tambemCadastro = window.confirm(
+                          'Ajustar TAMBÉM o cadastro do produto?\n\n' +
+                          'OK  = cadastro também (muda a avaliação do estoque e o CMV das próximas vendas)\n' +
+                          'Cancelar = SOMENTE esta troca (não mexe em estoque nem CMV)',
+                        )
                         const fd = new FormData()
                         fd.set('id', l.id)
                         fd.set('custo', digitado)
+                        if (tambemCadastro) fd.set('no_cadastro', '1')
                         rodar(() => ajustarCustoTroca(fd).then((r) => {
-                          setMsg(r.ok ? `Custo ajustado: R$ ${fmt(r.de ?? 0)} → R$ ${fmt(r.para ?? 0)} (${l.produto_nome ?? ''})` : (r.erro ?? 'Não deu pra ajustar.'))
+                          setMsg(r.ok
+                            ? `Custo ajustado: R$ ${fmt(r.de ?? 0)} → R$ ${fmt(r.para ?? 0)} · ${r.cadastro ? 'troca e cadastro do produto' : 'somente esta troca'}`
+                            : (r.erro ?? 'Não deu pra ajustar.'))
                           return r
                         }))
                       }}

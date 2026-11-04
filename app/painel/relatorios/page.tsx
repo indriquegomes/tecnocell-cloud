@@ -41,6 +41,8 @@ type ItemVenda = {
   preco_unitario: number
   total_item: number
   produto_id: string
+  /** custo travado no momento da venda (migration 2026-11-04) */
+  custo_unitario?: number | null
   produtos: { nome: string; preco_custo: number | null } | null
   vendas: { created_at: string; status: string; pessoa_id: string | null } | null
 }
@@ -193,7 +195,7 @@ export default async function RelatoriosPage({
   if (precisaItens) {
     const data = await fetchAll((from, to) => {
       let q = supabase.from('itens_venda')
-        .select('quantidade, preco_unitario, total_item, produto_id, produtos!inner(nome, preco_custo, categoria), vendas!inner(created_at, status, pessoa_id, caixa_id)')
+        .select('quantidade, preco_unitario, total_item, produto_id, custo_unitario, produtos!inner(nome, preco_custo, categoria), vendas!inner(created_at, status, pessoa_id, caixa_id)')
         .eq('vendas.status', 'concluida')
         .gte('vendas.created_at', periodo.inicio).lte('vendas.created_at', periodo.fim)
       if (caixasDaLoja) q = q.in('vendas.caixa_id', caixasDaLoja)
@@ -202,7 +204,9 @@ export default async function RelatoriosPage({
     })
     for (const it of (data ?? []) as unknown as ItemVenda[]) {
       const nome = it.produtos?.nome ?? '—'
-      const custoLinha = (it.produtos?.preco_custo ?? 0) * it.quantidade
+      // custo_unitario = custo travado no momento da venda (migration 2026-11-04).
+      // Venda antiga sem esse valor cai no preco_custo do cadastro.
+      const custoLinha = (it.custo_unitario ?? it.produtos?.preco_custo ?? 0) * it.quantidade
       const vendidoLinha = it.total_item ?? it.preco_unitario * it.quantidade
       if (!porProduto[it.produto_id]) porProduto[it.produto_id] = { nome, qtd: 0, vendido: 0, custo: 0 }
       porProduto[it.produto_id].qtd += it.quantidade
