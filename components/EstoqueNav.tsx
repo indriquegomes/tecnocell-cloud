@@ -21,7 +21,9 @@ const ANALISAR = [
 ]
 const GERIR = [
   { href: '/painel/estoque/transferencias', label: 'Transferências' },
-  { href: '/painel/estoque/imeis', label: 'Aparelhos' },
+  // "Aparelhos" (lista de IMEIs) saiu do menu em 04/11/2026: o dono desligou o
+  // controle por número de série. A rota /painel/estoque/imeis continua existindo
+  // pra consulta de histórico, mas não aparece mais na navegação.
   { href: '/painel/estoque/marcas', label: 'Marcas' },
   { href: '/painel/estoque/etiquetas', label: 'Etiquetas' },
 ]
