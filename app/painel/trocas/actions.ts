@@ -454,15 +454,9 @@ export async function abaterTrocasEmLote(formData: FormData): Promise<{ ok: bool
   const ids = String(formData.get('ids') ?? '').split(',').map((s) => s.trim()).filter(Boolean)
   const valor = Math.round(Number(String(formData.get('valor') ?? '').replace(/\./g, '').replace(',', '.')) * 100) / 100
   const fornecedorId = String(formData.get('fornecedor_id') ?? '').trim()
-  if (!ids.length) return { ok: false, erro: 'Marque ao menos uma peça.' }
+  if (ids.length === 0 && valor <= 0) return { ok: false, erro: 'Informe o valor que o fornecedor abateu.' }
   if (!(valor > 0)) return { ok: false, erro: 'Informe o valor total que o fornecedor abateu.' }
   if (!fornecedorId) return { ok: false, erro: 'Escolha o fornecedor que deu o abatimento.' }
-
-  const { data: linhas } = await supabase.from('trocas')
-    .select('id, produto_nome, quantidade, custo, status, loja_id')
-    .in('id', ids)
-  const pecas = (linhas ?? []).filter((t) => t.status === 'aberta' || t.status === 'enviada')
-  if (!pecas.length) return { ok: false, erro: 'Nenhuma das peças marcadas está em aberto.' }
 
   const { data: forn } = await supabase.from('pessoas').select('nome').eq('id', fornecedorId).maybeSingle()
   const fornecedorNome = (forn as { nome?: string } | null)?.nome ?? null
@@ -470,8 +464,45 @@ export async function abaterTrocasEmLote(formData: FormData): Promise<{ ok: bool
 
   const custoDe = (t: { custo: number | null; quantidade: number | null }) =>
     Math.round(Number(t.custo ?? 0) * Number(t.quantidade ?? 1) * 100) / 100
+
+  let pecas: { id: string; produto_nome: string | null; quantidade: number | null; custo: number | null; status: string; loja_id: string | null }[]
+
+  if (ids.length) {
+    // seleção manual (opcional): vale só pra peça em aberto
+    const { data: linhas } = await supabase.from('trocas')
+      .select('id, produto_nome, quantidade, custo, status, loja_id')
+      .in('id', ids)
+    pecas = (linhas ?? []).filter((t) => t.status === 'aberta' || t.status === 'enviada')
+    if (!pecas.length) return { ok: false, erro: 'Nenhuma das peças marcadas está em aberto.' }
+  } else {
+    // AUTOMÁTICO (regra do dono): quem manda é o valor. O app fecha as peças
+    // MAIS ANTIGAS desse fornecedor até o custo delas caber no valor abatido.
+    // Nada de escolher quantidade na mão.
+    const { data: abertas, error } = await supabase.from('trocas')
+      .select('id, produto_nome, quantidade, custo, status, loja_id, data_saida')
+      .eq('fornecedor_id', fornecedorId)
+      .in('status', ['aberta', 'enviada'])
+      .order('data_saida', { ascending: true })
+    if (error) return { ok: false, erro: error.message }
+    const lista = abertas ?? []
+    if (!lista.length) return { ok: false, erro: `Nenhuma peça em aberto desse fornecedor. Classifique o fornecedor nas peças primeiro.` }
+    const escolhidas: typeof lista = []
+    let acc = 0
+    for (const t of lista) {
+      const c = custoDe(t)
+      if (c <= 0) continue
+      if (Math.round((acc + c) * 100) / 100 > valor + 0.005) continue   // não cabe no valor
+      escolhidas.push(t)
+      acc = Math.round((acc + c) * 100) / 100
+    }
+    if (!escolhidas.length) {
+      return { ok: false, erro: `Nenhuma peça em aberto desse fornecedor cabe em ${valor.toFixed(2)}. O custo da peça mais barata é maior que o valor abatido — selecione as peças na mão.` }
+    }
+    pecas = escolhidas
+  }
+
   const custoTotal = Math.round(pecas.reduce((s, t) => s + custoDe(t), 0) * 100) / 100
-  if (custoTotal <= 0) return { ok: false, erro: 'As peças marcadas estão sem custo — confira o cadastro do produto.' }
+  if (custoTotal <= 0) return { ok: false, erro: 'As peças selecionadas estão sem custo — confira o cadastro do produto.' }
 
   // rateio proporcional ao custo; a última peça absorve a sobra de centavo
   const fatias: { id: string; lojaId: string | null; nome: string | null; custo: number; fatia: number }[] = []
