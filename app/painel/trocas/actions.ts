@@ -18,14 +18,27 @@ import { palavrasBusca, aplicaBusca } from '@/lib/busca-produtos'
 // O depósito de retorno é sempre o "PETRÓPOLIS ESTOQUE" (o fundo), nunca o
 // "PETRÓPOLIS LOJA" — decisão do dono, senão confunde vitrine com estoque.
 
-const DEPOSITO_RETORNO_NOME = 'PETRÓPOLIS ESTOQUE'
-const REVALIDAR = ['/painel/trocas', '/painel/estoque', '/painel/estoque/historico']
+const REVALIDAR = ['/painel/trocas', '/painel/estoque', '/painel/estoque/historico', '/painel/financeiro']
 
 type SB = Awaited<ReturnType<typeof createServiceClient>>
 
-async function depositoDeRetorno(supabase: SB): Promise<string | null> {
-  const { data } = await supabase.from('depositos').select('id, nome').ilike('nome', `%${DEPOSITO_RETORNO_NOME}%`).limit(1).maybeSingle()
-  return (data as { id?: string } | null)?.id ?? null
+/**
+ * Depósito de retorno da LOJA da peça: "PETRÓPOLIS ESTOQUE" ou "TERESÓPOLIS ESTOQUE".
+ *
+ * Antes voltava sempre pro PETRÓPOLIS ESTOQUE — peça de Teresópolis entrava no
+ * estoque da outra loja (40 peças hoje). Regra do dono (04/11): peça volta pro
+ * estoque da loja de onde saiu.
+ */
+async function depositoDeRetorno(supabase: SB, lojaId: string | null): Promise<string | null> {
+  const { data: deps } = await supabase
+    .from('depositos').select('id, nome, loja_id').ilike('nome', '%ESTOQUE%')
+  const lista = (deps ?? []) as { id: string; nome: string; loja_id: string | null }[]
+  if (lojaId) {
+    const daLoja = lista.find((d) => d.loja_id === lojaId)
+    if (daLoja) return daLoja.id
+  }
+  // sem loja na troca: usa o depósito de estoque de Petrópolis como antes
+  return lista.find((d) => /PETRÓPOLIS/i.test(d.nome))?.id ?? lista[0]?.id ?? null
 }
 
 /** Move o estoque de verdade, pelo RPC (atômico, com trava da linha). */
@@ -83,9 +96,9 @@ export async function marcarEnviada(formData: FormData): Promise<void> {
 }
 
 /**
- * 4 e 5) Check de retorno: volta a mesma peça ou uma substituta.
- * Entra no PETRÓPOLIS ESTOQUE e fecha a linha. Se a substituta custar menos,
- * grava a perda da diferença (o dono quer ver o prejuízo da troca).
+ * MOTIVO 2 do dono (04/11): o fornecedor trocou a peça. Volta a mesma ou uma
+ * substituta e entra no estoque DA LOJA DE ONDE SAIU (não mais sempre Petrópolis).
+ * Se a substituta custar menos, a diferença vira perda.
  */
 export async function confirmarRetorno(formData: FormData): Promise<{ ok: boolean; erro?: string }> {
   const usuario = await requirePermissao('estoque')
@@ -94,10 +107,10 @@ export async function confirmarRetorno(formData: FormData): Promise<{ ok: boolea
   if (!id) return { ok: false, erro: 'troca não identificada' }
 
   const { data: troca } = await supabase.from('trocas')
-    .select('id, produto_id, produto_nome, quantidade, custo, deposito_saida_id, status')
+    .select('id, produto_id, produto_nome, quantidade, custo, deposito_saida_id, status, loja_id')
     .eq('id', id).maybeSingle()
   if (!troca) return { ok: false, erro: 'troca não encontrada' }
-  if (troca.status === 'retornou' || troca.status === 'cancelada') return { ok: false, erro: 'esta troca já foi fechada' }
+  if (troca.status === 'retornou' || troca.status === 'cancelada' || troca.status === 'abatida') return { ok: false, erro: 'esta troca já foi fechada' }
 
   const substitutoId = String(formData.get('produto_substituto_id') ?? '').trim()
   const ehSubstituta = substitutoId !== '' && substitutoId !== troca.produto_id
@@ -116,8 +129,8 @@ export async function confirmarRetorno(formData: FormData): Promise<{ ok: boolea
     custoRetorno = Number(prod.preco_custo ?? 0)
   }
 
-  const deposito = await depositoDeRetorno(supabase)
-  if (!deposito) return { ok: false, erro: `depósito "${DEPOSITO_RETORNO_NOME}" não encontrado` }
+  const deposito = await depositoDeRetorno(supabase, troca.loja_id ?? null)
+  if (!deposito) return { ok: false, erro: 'depósito de ESTOQUE da loja não encontrado' }
 
   const obs = `Troca de fornecedor — retorno${ehSubstituta ? ' (peça substituta)' : ''}${troca.produto_nome ? ` — saiu: ${troca.produto_nome}` : ''}`
   const erroMov = await movimentar(supabase, produtoRetornoId, deposito, 'entrada', quantidade, obs, usuario?.id ?? null)
@@ -146,17 +159,63 @@ export async function confirmarRetorno(formData: FormData): Promise<{ ok: boolea
 }
 
 /** Fornecedor recusou / peça perdida: fecha como perda do mês. */
-export async function marcarPerdida(formData: FormData): Promise<void> {
+/**
+ * MOTIVO 1 do dono (04/11): o fornecedor não troca. A peça volta pra loja de
+ * origem e vai pra PERDA DO MÊS — não é vendável, então não entra no estoque:
+ * o custo vira despesa (categoria 'Perda') na loja de onde saiu.
+ */
+export async function marcarPerdida(formData: FormData): Promise<{ ok: boolean; erro?: string }> {
   const usuario = await requirePermissao('estoque')
   const supabase = await createServiceClient()
   const id = String(formData.get('id') ?? '')
-  if (!id) return
-  const motivo = String(formData.get('motivo') ?? '').trim() || 'fornecedor recusou a troca'
-  await supabase.from('trocas').update({
-    status: 'perdida', data_retorno: new Date().toISOString(), observacao: motivo, updated_at: new Date().toISOString(),
+  if (!id) return { ok: false, erro: 'troca não identificada' }
+  const motivo = String(formData.get('motivo') ?? '').trim() || 'fornecedor não trocou a peça'
+
+  const { data: troca } = await supabase.from('trocas')
+    .select('id, produto_nome, quantidade, custo, status, loja_id, fornecedor_nome')
+    .eq('id', id).maybeSingle()
+  if (!troca) return { ok: false, erro: 'troca não encontrada' }
+  if (troca.status === 'perdida' || troca.status === 'retornou' || troca.status === 'abatida') {
+    return { ok: false, erro: 'esta troca já foi fechada' }
+  }
+
+  const custoPerdido = Math.round(Number(troca.custo ?? 0) * Number(troca.quantidade ?? 1) * 100) / 100
+
+  const { error } = await supabase.from('trocas').update({
+    status: 'perdida',
+    data_retorno: new Date().toISOString(),
+    perda: custoPerdido > 0 ? custoPerdido : null,
+    observacao: motivo,
+    updated_at: new Date().toISOString(),
   }).eq('id', id)
-  await logAtividade('troca.perdida', { troca_id: id, motivo }, usuario, '/painel/trocas')
+  if (error) return { ok: false, erro: error.message }
+
+  // PERDA DO MÊS: sem lançamento, o custo da peça sumia do resultado (a peça saiu
+  // do estoque e nunca virou CMV). Categoria 'Perda' já é despesa no fechamento.
+  if (custoPerdido > 0.005) {
+    const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+    const { error: erroPerda } = await supabase.from('lancamentos').insert({
+      descricao: `Perda de troca — ${troca.produto_nome ?? 'peça'} (${troca.fornecedor_nome ?? 'fornecedor não trocou'})`,
+      valor: custoPerdido,
+      tipo: 'pagar',
+      status: 'pago',
+      categoria: 'Perda',
+      pessoa_nome: troca.fornecedor_nome ?? null,
+      loja_id: troca.loja_id ?? null,
+      conta_id: null,        // não sai dinheiro: é reconhecimento de perda
+      forma_pagamento: 'Troca',
+      valor_pago: custoPerdido,
+      data_pagamento: new Date().toISOString(),
+      data_competencia: hoje,
+      data_vencimento: hoje,
+      updated_at: new Date().toISOString(),
+    })
+    if (erroPerda) return { ok: false, erro: `Troca fechada, mas a perda de ${custoPerdido.toFixed(2)} não gravou: ${erroPerda.message}` }
+  }
+
+  await logAtividade('troca.perdida', { troca_id: id, motivo, perda: custoPerdido }, usuario, '/painel/trocas')
   for (const r of REVALIDAR) revalidatePath(r)
+  return { ok: true }
 }
 
 /**
@@ -174,6 +233,11 @@ export async function excluirTroca(formData: FormData): Promise<{ ok: boolean; e
     .eq('id', id).maybeSingle()
   if (!troca) return { ok: false, erro: 'troca não encontrada' }
   if (troca.status === 'retornou') return { ok: false, erro: 'esta troca já retornou ao estoque — excluir deixaria a peça contada duas vezes' }
+  // Perda e abatimento já gravaram lançamento no financeiro: excluir a linha
+  // deixaria a despesa (ou o crédito) sem origem. Estorna no Financeiro primeiro.
+  if (troca.status === 'perdida' || troca.status === 'abatida') {
+    return { ok: false, erro: 'esta troca já foi fechada e gerou lançamento no financeiro. Estorne por lá primeiro (Contas a Pagar).' }
+  }
 
   // devolve a peça ao depósito de origem (só se a saída tinha depósito)
   if (troca.deposito_saida_id) {
@@ -232,11 +296,14 @@ export async function abaterTrocaNoFornecedor(formData: FormData): Promise<{ ok:
   const fornecedorNome = (forn as { nome?: string } | null)?.nome ?? null
   if (!fornecedorNome) return { ok: false, erro: 'fornecedor não encontrado no cadastro' }
 
-  // contas a pagar pendentes desse fornecedor (o formulário grava o nome, não o id)
-  const { data: pendentes, error: erroPend } = await supabase.from('lancamentos')
+  // contas a pagar pendentes desse fornecedor (o formulário grava o nome, não o id).
+  // MOTIVO 3 do dono: o abatimento cai na dívida DA LOJA que deve ao fornecedor
+  // dono da peça — então filtra pela loja da troca.
+  let qPend = supabase.from('lancamentos')
     .select('id, valor, valor_pago, descricao, data_vencimento')
     .eq('tipo', 'pagar').eq('status', 'pendente').eq('pessoa_nome', fornecedorNome)
-    .order('data_vencimento', { ascending: true })
+  if (troca.loja_id) qPend = qPend.eq('loja_id', troca.loja_id)
+  const { data: pendentes, error: erroPend } = await qPend.order('data_vencimento', { ascending: true })
   if (erroPend) return { ok: false, erro: erroPend.message }
 
   let falta = valor

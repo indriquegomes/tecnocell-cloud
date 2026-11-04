@@ -20,8 +20,8 @@ const CORES: Record<string, string> = {
   cancelada: 'bg-gray-100 text-gray-500',
 }
 const ROTULO: Record<string, string> = {
-  aberta: 'Aberta', enviada: 'No fornecedor', retornou: 'Retornou',
-  perdida: 'Perdeu', abatida: 'Abatida na dívida', cancelada: 'Cancelada',
+  aberta: 'Aberta', enviada: 'No fornecedor', retornou: 'Voltou trocada',
+  perdida: 'Virou perda', abatida: 'Abatida na dívida', cancelada: 'Cancelada',
 }
 
 export function TrocasClient({
@@ -203,17 +203,17 @@ export function TrocasClient({
                           disabled={pendente}
                           onClick={() => rodar(() => { const fd = new FormData(); fd.set('id', l.id); return confirmarRetorno(fd) })}
                           className="rounded bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700"
-                          title="Voltou a mesma peça — entra no PETRÓPOLIS ESTOQUE"
+                          title="O fornecedor trocou: entra no estoque DA LOJA de onde saiu (mesma peça ou substituta)"
                         >
-                          ✓ Chegou
+                          ✓ Voltou trocada
                         </button>
                         <button
                           disabled={pendente}
                           onClick={() => rodar(() => { const fd = new FormData(); fd.set('id', l.id); return marcarPerdida(fd) })}
                           className="rounded border border-rose-200 px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50"
-                          title="Fornecedor recusou sem dar crédito: fecha como perda"
+                          title="O fornecedor não trocou: a peça vira perda do mês (não entra no estoque)"
                         >
-                          Perdeu
+                          Virou perda
                         </button>
                       </>
                     )}
