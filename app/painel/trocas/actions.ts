@@ -275,6 +275,100 @@ export async function excluirTroca(formData: FormData): Promise<{ ok: boolean; e
  * Nada disso mexe em estoque (a peça já saiu como 'troca') nem em saldo de conta
  * (abatimento não é dinheiro saindo).
  */
+/**
+ * Abate `valor` na dívida pendente do fornecedor DA LOJA informada, da nota mais
+ * antiga para a mais nova. O que sobrar sem dívida vira crédito (linha negativa).
+ * Usado pelo abatimento de uma peça e pelo abatimento em grupo.
+ */
+async function abaterNaDivida(
+  supabase: SB,
+  fornecedorNome: string,
+  lojaId: string | null,
+  valor: number,
+  descricaoCredito: string,
+): Promise<{ ok: boolean; erro?: string; credito: number }> {
+  let qPend = supabase.from('lancamentos')
+    .select('id, valor, valor_pago, descricao, data_vencimento')
+    .eq('tipo', 'pagar').eq('status', 'pendente').eq('pessoa_nome', fornecedorNome)
+  if (lojaId) qPend = qPend.eq('loja_id', lojaId)
+  const { data: pendentes, error: erroPend } = await qPend.order('data_vencimento', { ascending: true })
+  if (erroPend) return { ok: false, erro: erroPend.message, credito: 0 }
+
+  let falta = valor
+  for (const p of pendentes ?? []) {
+    if (falta <= 0.005) break
+    const valorNota = Number(p.valor ?? 0)
+    if (valorNota <= 0) continue              // linha de crédito já existente
+    const restante = Math.round((valorNota - Number(p.valor_pago ?? 0)) * 100) / 100
+    if (restante <= 0.005) continue
+    const abater = Math.min(restante, falta)
+    const novoValor = Math.round((valorNota - abater) * 100) / 100
+    const { error } = await supabase.from('lancamentos').update({
+      valor: novoValor,
+      // zerou a nota: sai da lista de pendentes sem inventar pagamento
+      status: novoValor <= 0.005 ? 'cancelado' : 'pendente',
+      descricao: `${p.descricao ?? 'Mercadoria'} (abateu ${abater.toFixed(2).replace('.', ',')} de troca)`,
+      updated_at: new Date().toISOString(),
+    }).eq('id', p.id)
+    if (error) return { ok: false, erro: `Não deu pra abater em ${p.descricao ?? 'nota'}: ${error.message}`, credito: 0 }
+    falta = Math.round((falta - abater) * 100) / 100
+  }
+
+  let credito = 0
+  if (falta > 0.005) {
+    credito = falta
+    const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+    const { error } = await supabase.from('lancamentos').insert({
+      descricao: descricaoCredito,
+      valor: -credito,
+      tipo: 'pagar',
+      status: 'pendente',
+      categoria: 'Mercadoria',
+      pessoa_nome: fornecedorNome,
+      loja_id: lojaId,
+      conta_id: null,
+      data_competencia: hoje,
+      data_vencimento: hoje,
+      updated_at: new Date().toISOString(),
+    })
+    if (error) return { ok: false, erro: `Abatimento aplicado, mas o crédito de ${credito.toFixed(2)} não gravou: ${error.message}`, credito: 0 }
+  }
+  return { ok: true, credito }
+}
+
+/**
+ * Perda vira despesa de verdade (categoria 'Perda'). Sem isso o custo da peça
+ * sumia do resultado: saiu do estoque e nunca virou CMV.
+ * conta_id nulo de propósito — não sai dinheiro, é reconhecimento de perda.
+ */
+async function lancarPerdaDaTroca(
+  supabase: SB,
+  fornecedorNome: string | null,
+  lojaId: string | null,
+  valor: number,
+  descricao: string,
+): Promise<string | null> {
+  if (!(valor > 0.005)) return null
+  const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  const { error } = await supabase.from('lancamentos').insert({
+    descricao,
+    valor,
+    tipo: 'pagar',
+    status: 'pago',
+    categoria: 'Perda',
+    pessoa_nome: fornecedorNome,
+    loja_id: lojaId,
+    conta_id: null,
+    forma_pagamento: 'Troca',
+    valor_pago: valor,
+    data_pagamento: new Date().toISOString(),
+    data_competencia: hoje,
+    data_vencimento: hoje,
+    updated_at: new Date().toISOString(),
+  })
+  return error?.message ?? null
+}
+
 export async function abaterTrocaNoFornecedor(formData: FormData): Promise<{ ok: boolean; erro?: string; abatido?: number; credito?: number; perda?: number }> {
   const usuario = await requirePermissao('estoque')
   const supabase = await createServiceClient()
@@ -296,57 +390,13 @@ export async function abaterTrocaNoFornecedor(formData: FormData): Promise<{ ok:
   const fornecedorNome = (forn as { nome?: string } | null)?.nome ?? null
   if (!fornecedorNome) return { ok: false, erro: 'fornecedor não encontrado no cadastro' }
 
-  // contas a pagar pendentes desse fornecedor (o formulário grava o nome, não o id).
-  // MOTIVO 3 do dono: o abatimento cai na dívida DA LOJA que deve ao fornecedor
-  // dono da peça — então filtra pela loja da troca.
-  let qPend = supabase.from('lancamentos')
-    .select('id, valor, valor_pago, descricao, data_vencimento')
-    .eq('tipo', 'pagar').eq('status', 'pendente').eq('pessoa_nome', fornecedorNome)
-  if (troca.loja_id) qPend = qPend.eq('loja_id', troca.loja_id)
-  const { data: pendentes, error: erroPend } = await qPend.order('data_vencimento', { ascending: true })
-  if (erroPend) return { ok: false, erro: erroPend.message }
-
-  let falta = valor
-  let abatidoEmNotas = 0
-  for (const p of pendentes ?? []) {
-    if (falta <= 0.005) break
-    const valorNota = Number(p.valor ?? 0)
-    const restante = Math.round((valorNota - Number(p.valor_pago ?? 0)) * 100) / 100
-    if (restante <= 0.005) continue
-    const abater = Math.min(restante, falta)
-    const novoValor = Math.round((valorNota - abater) * 100) / 100
-    const { error } = await supabase.from('lancamentos').update({
-      valor: novoValor,
-      // zerou a nota: sai da lista de pendentes sem inventar pagamento
-      status: novoValor <= 0.005 ? 'cancelado' : 'pendente',
-      descricao: `${p.descricao ?? 'Mercadoria'} (abateu ${abater.toFixed(2).replace('.', ',')} de troca)`,
-      updated_at: new Date().toISOString(),
-    }).eq('id', p.id)
-    if (error) return { ok: false, erro: `Não deu pra abater na nota ${p.descricao ?? ''}: ${error.message}` }
-    falta = Math.round((falta - abater) * 100) / 100
-    abatidoEmNotas = Math.round((abatidoEmNotas + abater) * 100) / 100
-  }
-
-  // Sobrou abatimento sem dívida pra consumir: vira crédito com o fornecedor.
-  let credito = 0
-  if (falta > 0.005) {
-    credito = falta
-    const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-    const { error } = await supabase.from('lancamentos').insert({
-      descricao: `Crédito de troca — ${troca.produto_nome ?? 'peça'} (fornecedor abateu, sem nota pendente)`,
-      valor: -credito,
-      tipo: 'pagar',
-      status: 'pendente',
-      categoria: 'Mercadoria',
-      pessoa_nome: fornecedorNome,
-      loja_id: troca.loja_id ?? null,
-      conta_id: null,
-      data_competencia: hoje,
-      data_vencimento: hoje,
-      updated_at: new Date().toISOString(),
-    })
-    if (error) return { ok: false, erro: `Abatimento aplicado, mas o crédito de ${credito.toFixed(2)} não gravou: ${error.message}` }
-  }
+  const abatimento = await abaterNaDivida(
+    supabase, fornecedorNome, troca.loja_id ?? null, valor,
+    `Crédito de troca — ${troca.produto_nome ?? 'peça'} (abateu ${valor.toFixed(2).replace('.', ',')}, sem nota pendente)`,
+  )
+  if (!abatimento.ok) return { ok: false, erro: abatimento.erro }
+  const credito = abatimento.credito
+  const abatidoEmNotas = Math.round((valor - credito) * 100) / 100
 
   // Perda SÓ quando o crédito é menor que o custo da peça que saiu.
   const custoTotal = Math.round(Number(troca.custo ?? 0) * Number(troca.quantidade ?? 1) * 100) / 100
@@ -367,26 +417,11 @@ export async function abaterTrocaNoFornecedor(formData: FormData): Promise<{ ok:
   if (erroTroca) return { ok: false, erro: erroTroca.message }
 
   // A DIFERENÇA a menor é despesa de verdade (categoria Perda já é despesa no fechamento).
-  if (perda > 0.005) {
-    const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-    const { error } = await supabase.from('lancamentos').insert({
-      descricao: `Troca sem retorno — diferença a menor (${troca.produto_nome ?? 'peça'} · ${fornecedorNome})`,
-      valor: perda,
-      tipo: 'pagar',
-      status: 'pago',
-      categoria: 'Perda',
-      pessoa_nome: fornecedorNome,
-      loja_id: troca.loja_id ?? null,
-      conta_id: null,           // não sai dinheiro: é reconhecimento de perda
-      forma_pagamento: 'Troca',
-      valor_pago: perda,
-      data_pagamento: new Date().toISOString(),
-      data_competencia: hoje,
-      data_vencimento: hoje,
-      updated_at: new Date().toISOString(),
-    })
-    if (error) return { ok: false, erro: `Troca fechada, mas a perda de ${perda.toFixed(2)} não gravou: ${error.message}` }
-  }
+  const erroPerda = await lancarPerdaDaTroca(
+    supabase, fornecedorNome, troca.loja_id ?? null, perda,
+    `Troca sem retorno — diferença a menor (${troca.produto_nome ?? 'peça'} · ${fornecedorNome})`,
+  )
+  if (erroPerda) return { ok: false, erro: `Troca fechada, mas a perda de ${perda.toFixed(2)} não gravou: ${erroPerda}` }
 
   await logAtividade('troca.abatida', {
     troca_id: id,
@@ -401,6 +436,106 @@ export async function abaterTrocaNoFornecedor(formData: FormData): Promise<{ ok:
 
   for (const r of [...REVALIDAR, '/painel/financeiro', '/painel/contas']) revalidatePath(r)
   return { ok: true, abatido: valor, credito, perda }
+}
+
+/**
+ * ABATIMENTO EM GRUPO — o caso real do dono: manda 10 peças e o fornecedor abate
+ * um valor único (ex.: 910,00) na dívida. O botão da linha abate uma peça por
+ * vez e não serve pra isso.
+ *
+ * O valor é RATEADO entre as peças escolhidas, proporcional ao custo de cada uma.
+ * A dívida do fornecedor cai pelo valor cheio; cada peça guarda a sua fatia em
+ * valor_abatido e a perda dela é (custo − fatia), só quando positiva. O total da
+ * perda é lançado uma vez como despesa.
+ */
+export async function abaterTrocasEmLote(formData: FormData): Promise<{ ok: boolean; erro?: string; abatido?: number; credito?: number; perda?: number; pecas?: number }> {
+  const usuario = await requirePermissao('estoque')
+  const supabase = await createServiceClient()
+  const ids = String(formData.get('ids') ?? '').split(',').map((s) => s.trim()).filter(Boolean)
+  const valor = Math.round(Number(String(formData.get('valor') ?? '').replace(/\./g, '').replace(',', '.')) * 100) / 100
+  const fornecedorId = String(formData.get('fornecedor_id') ?? '').trim()
+  if (!ids.length) return { ok: false, erro: 'Marque ao menos uma peça.' }
+  if (!(valor > 0)) return { ok: false, erro: 'Informe o valor total que o fornecedor abateu.' }
+  if (!fornecedorId) return { ok: false, erro: 'Escolha o fornecedor que deu o abatimento.' }
+
+  const { data: linhas } = await supabase.from('trocas')
+    .select('id, produto_nome, quantidade, custo, status, loja_id')
+    .in('id', ids)
+  const pecas = (linhas ?? []).filter((t) => t.status === 'aberta' || t.status === 'enviada')
+  if (!pecas.length) return { ok: false, erro: 'Nenhuma das peças marcadas está em aberto.' }
+
+  const { data: forn } = await supabase.from('pessoas').select('nome').eq('id', fornecedorId).maybeSingle()
+  const fornecedorNome = (forn as { nome?: string } | null)?.nome ?? null
+  if (!fornecedorNome) return { ok: false, erro: 'fornecedor não encontrado no cadastro' }
+
+  const custoDe = (t: { custo: number | null; quantidade: number | null }) =>
+    Math.round(Number(t.custo ?? 0) * Number(t.quantidade ?? 1) * 100) / 100
+  const custoTotal = Math.round(pecas.reduce((s, t) => s + custoDe(t), 0) * 100) / 100
+  if (custoTotal <= 0) return { ok: false, erro: 'As peças marcadas estão sem custo — confira o cadastro do produto.' }
+
+  // rateio proporcional ao custo; a última peça absorve a sobra de centavo
+  const fatias: { id: string; lojaId: string | null; nome: string | null; custo: number; fatia: number }[] = []
+  let acumulado = 0
+  pecas.forEach((t, i) => {
+    const custo = custoDe(t)
+    const ultima = i === pecas.length - 1
+    const fatia = ultima
+      ? Math.round((valor - acumulado) * 100) / 100
+      : Math.round((valor * (custo / custoTotal)) * 100) / 100
+    acumulado = Math.round((acumulado + fatia) * 100) / 100
+    fatias.push({ id: t.id, lojaId: (t.loja_id as string | null) ?? null, nome: (t.produto_nome as string | null) ?? null, custo, fatia })
+  })
+
+  // abate a dívida por loja (cada loja tem a sua conta a pagar com o fornecedor)
+  const porLoja = new Map<string, number>()
+  for (const f of fatias) {
+    const chave = f.lojaId ?? ''
+    porLoja.set(chave, Math.round(((porLoja.get(chave) ?? 0) + f.fatia) * 100) / 100)
+  }
+  let credito = 0
+  let abatidoTotal = 0
+  for (const [lojaId, valorLoja] of porLoja) {
+    if (valorLoja <= 0.005) continue
+    const r = await abaterNaDivida(
+      supabase, fornecedorNome, lojaId || null, valorLoja,
+      `Crédito de troca — remessa (${pecas.length} peças, abateu ${valorLoja.toFixed(2).replace('.', ',')}, sem nota pendente)`,
+    )
+    if (!r.ok) return { ok: false, erro: r.erro }
+    credito = Math.round((credito + r.credito) * 100) / 100
+    abatidoTotal = Math.round((abatidoTotal + valorLoja - r.credito) * 100) / 100
+  }
+
+  const perdaTotal = Math.max(0, Math.round((custoTotal - valor) * 100) / 100)
+
+  for (const f of fatias) {
+    const perdaPeca = Math.max(0, Math.round((f.custo - f.fatia) * 100) / 100)
+    const { error } = await supabase.from('trocas').update({
+      status: 'abatida',
+      valor_abatido: f.fatia,
+      abatido_em: new Date().toISOString(),
+      fornecedor_id: fornecedorId,
+      fornecedor_nome: fornecedorNome,
+      perda: perdaPeca > 0 ? perdaPeca : null,
+      observacao: `Abatido em grupo: ${f.fatia.toFixed(2).replace('.', ',')} de ${valor.toFixed(2).replace('.', ',')} (${pecas.length} peças)`,
+      updated_at: new Date().toISOString(),
+    }).eq('id', f.id)
+    if (error) return { ok: false, erro: error.message }
+  }
+
+  const lojaPerda = fatias[0]?.lojaId ?? null
+  const erroPerda = await lancarPerdaDaTroca(
+    supabase, fornecedorNome, lojaPerda, perdaTotal,
+    `Troca sem retorno — diferença a menor em remessa de ${pecas.length} peças (${fornecedorNome})`,
+  )
+  if (erroPerda) return { ok: false, erro: `Abatimento aplicado, mas a perda de ${perdaTotal.toFixed(2)} não gravou: ${erroPerda}` }
+
+  await logAtividade('troca.abatida_lote', {
+    trocas: pecas.map((p) => p.id), fornecedor: fornecedorNome, abatido: valor,
+    abatido_em_notas: abatidoTotal, credito_gerado: credito, custo_total: custoTotal, perda: perdaTotal,
+  }, usuario, '/painel/trocas')
+
+  for (const r of [...REVALIDAR, '/painel/financeiro', '/painel/contas']) revalidatePath(r)
+  return { ok: true, abatido: valor, credito, perda: perdaTotal, pecas: pecas.length }
 }
 
 /**
