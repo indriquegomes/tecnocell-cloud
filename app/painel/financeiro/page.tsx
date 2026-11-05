@@ -107,8 +107,18 @@ export default async function FinanceiroPage({
       .select('descricao, pessoa_nome, data_vencimento, data_competencia, valor, tipo, status, forma_pagamento, categoria, subcategoria, loja_id'))
       .range(from, to)
   )
-  const fReceber = filtrados.filter((l) => l.tipo === 'receber').reduce((s, l) => s + (l.valor ?? 0), 0)
-  const fPagar = filtrados.filter((l) => l.tipo === 'pagar').reduce((s, l) => s + (l.valor ?? 0), 0)
+  // Total do filtro: o dono leu "Pagar 55.043,28" como "estou devendo" quando o
+  // número somava pago + pendente (17.737,17 de PIX já pagos entravam na conta).
+  // Agora o rodapé mostra os dois separados — pendente é a dívida, pago é histórico.
+  const restanteLinha = (l: { valor: number | null; valor_pago?: number | null }) =>
+    (l.valor ?? 0) - (l.valor_pago ?? 0)
+  const ehPendente = (l: { status: string | null }) => l.status === 'pendente'
+  const fReceberPend = filtrados.filter((l) => l.tipo === 'receber' && ehPendente(l)).reduce((s, l) => s + restanteLinha(l), 0)
+  const fReceberPago = filtrados.filter((l) => l.tipo === 'receber' && l.status === 'pago').reduce((s, l) => s + (l.valor ?? 0), 0)
+  const fPagarPend = filtrados.filter((l) => l.tipo === 'pagar' && ehPendente(l)).reduce((s, l) => s + restanteLinha(l), 0)
+  const fPagarPago = filtrados.filter((l) => l.tipo === 'pagar' && l.status === 'pago').reduce((s, l) => s + (l.valor ?? 0), 0)
+  const fReceber = fReceberPend + fReceberPago
+  const fPagar = fPagarPend + fPagarPago
   const fCount = filtrados.length
   const labelCampo: Record<string, string> = { data_vencimento: 'Vencimento', data_competencia: 'Competência', data_pagamento: 'Pagamento' }
 
@@ -273,9 +283,11 @@ export default async function FinanceiroPage({
 
       {/* ✨ Totais do que está filtrado (não só o global) + exportar */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-gray-100 bg-gray-50/60 px-5 py-3 text-sm">
-        <span className="font-semibold text-gray-500">Total no filtro (pago + pendente):</span>
-        <span>Receber <b className="text-green-600">{formatBRL(fReceber)}</b></span>
-        <span>Pagar <b className="text-red-500">{formatBRL(fPagar)}</b></span>
+        <span className="font-semibold text-gray-500">Total no filtro:</span>
+        <span>Receber pendente <b className="text-green-600">{formatBRL(fReceberPend)}</b>
+          <span className="text-gray-400"> · já recebido {formatBRL(fReceberPago)}</span></span>
+        <span>A Pagar pendente <b className="text-red-500">{formatBRL(fPagarPend)}</b>
+          <span className="text-gray-400"> · já pago {formatBRL(fPagarPago)}</span></span>
         <span className="text-gray-400">{fCount} lançamento(s)</span>
         <div className="ml-auto">
           <a href={`/painel/financeiro/exportar?${querystringDoFiltro(params)}`}
