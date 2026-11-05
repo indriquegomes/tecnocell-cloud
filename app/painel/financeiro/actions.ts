@@ -37,6 +37,11 @@ export async function criarLancamento(formData: FormData) {
   const hoje = hojeSP()
   const descricao = formData.get('descricao') as string
   const tipo = formData.get('tipo') as string
+  // Valor zero não vira lançamento: criava linha de R$ 0,00 na lista de A Pagar
+  // (achado no QA de 05/11 — o formulário deixa salvar com o campo vazio).
+  if (!(valorTotal > 0)) {
+    redirect(`/painel/financeiro/novo?tipo=${tipo === 'receber' ? 'receber' : 'pagar'}&erro=${encodeURIComponent('Digite o valor do lançamento.')}`)
+  }
   const competencia = (formData.get('data_competencia') as string) || null
   const vencimento = (formData.get('data_vencimento') as string) || hoje
   const contaId = (formData.get('conta_id') as string) || null
@@ -92,9 +97,14 @@ export async function editarLancamento(id: string, formData: FormData) {
     ?? (await travarSeMesFechado(supabase, vencimentoAtual, 'editar este lançamento'))
   if (erroTrava) redirect(`/painel/financeiro/${id}/editar?erro=${encodeURIComponent(erroTrava)}`)
 
+  const valorEditado = Math.max(0, parseFloat((formData.get('valor') as string) || '0'))
+  // mesma trava do criar: editar para 0,00 não faz sentido e suja o A Pagar
+  if (!(valorEditado > 0)) {
+    redirect(`/painel/financeiro/${id}/editar?erro=${encodeURIComponent('Digite o valor do lançamento.')}`)
+  }
   const { error } = await supabase.from('lancamentos').update({
     descricao: formData.get('descricao') as string,
-    valor: Math.max(0, parseFloat((formData.get('valor') as string) || '0')),
+    valor: valorEditado,
     tipo: formData.get('tipo') as string,
     data_competencia: (formData.get('data_competencia') as string) || null,
     data_vencimento: (formData.get('data_vencimento') as string) || null,

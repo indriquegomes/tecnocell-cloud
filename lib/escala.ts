@@ -198,13 +198,19 @@ const fmtDataSP = new Intl.DateTimeFormat('en-CA', {
 
 /** Minuto do dia (fuso da loja) de um timestamp. */
 function minutoSP(iso: string): number {
-  const [h, m] = fmtMinutoSP.format(new Date(iso)).split(':').map(Number)
+  const d = new Date(iso)
+  // Data inválida ('lixo', campo vazio, reserva do SIGE) fazia `format` estourar
+  // RangeError e derrubava a tela de escala inteira. Ponto sem data legível vale 0.
+  if (Number.isNaN(d.getTime())) return 0
+  const [h, m] = fmtMinutoSP.format(d).split(':').map(Number)
   return (h || 0) * 60 + (m || 0)
 }
 
-/** Data (YYYY-MM-DD) de um timestamp, no fuso da loja. */
+/** Data (YYYY-MM-DD) de um timestamp, no fuso da loja. Data inválida vira ''. */
 function dataSP(iso: string): string {
-  return fmtDataSP.format(new Date(iso))
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return fmtDataSP.format(d)
 }
 
 /**
