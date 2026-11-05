@@ -26,7 +26,6 @@ const ICONS: Record<string, IconComp> = {
   '/painel/painel-vendedor': IconChart,
   '/painel/metas': IconTarget,
   '/painel/promocoes': IconTag,
-  '/painel/promocao-halloween': IconTag,
   '/painel/tabelas-preco': IconTag,
   '/painel/os': IconWrench,
   '/painel/produtos': IconPackage,
@@ -92,7 +91,6 @@ const navCompleto: NavGroup[] = [
       { href: '/painel/painel-vendedor', label: 'Painel Vendedor',      permissao: 'master' },
       { href: '/painel/metas',          label: 'Metas',                 permissao: 'metas' },
       { href: '/painel/promocoes',      label: 'Promoções',             permissao: 'produtos' },
-      { href: '/painel/promocao-halloween', label: 'Promoção Halloween' },
       { href: '/painel/tabelas-preco',  label: 'Tabelas de Preço',      permissao: 'produtos' },
     ],
   },
@@ -276,15 +274,14 @@ export function Sidebar({
             ) : (
               resultados.map((item) => {
                 const Ic = ICONS[item.href]
-                const halloween = item.href === '/painel/promocao-halloween'
                 return (
                   <Link key={item.href} href={item.href}
                     className={cn(
                       'flex items-center gap-2.5 px-4 py-2 text-sm font-medium transition-colors',
-                      halloween ? 'border-l-2 border-orange-400 bg-purple-950 text-orange-100 hover:bg-purple-900' : isActive(item.href) ? 'tc-ativo bg-blue-50 text-blue-700' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900',
+                      isActive(item.href) ? 'tc-ativo bg-blue-50 text-blue-700' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900',
                     )}>
                     {Ic
-                      ? <Ic className={cn('h-[18px] w-[18px] shrink-0', halloween ? 'text-orange-300' : isActive(item.href) ? 'text-[#1B6CA8]' : COR_GRUPO[item.group] ?? 'text-gray-400')} />
+                      ? <Ic className={cn('h-[18px] w-[18px] shrink-0', isActive(item.href) ? 'text-[#1B6CA8]' : COR_GRUPO[item.group] ?? 'text-gray-400')} />
                       : <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />}
                     <span className="min-w-0 flex-1 truncate">{item.label}</span>
                     <span className="shrink-0 text-[9px] uppercase tracking-wide text-gray-300">{item.group}</span>
@@ -314,21 +311,20 @@ export function Sidebar({
               </summary>
               {itensVisiveis.map((item) => {
                 const Ic = ICONS[item.href]
-                const halloween = item.href === '/painel/promocao-halloween'
                 return (
                   <Link key={item.href} href={item.href}
                     className={cn(
                       // 'tc-ativo' cria a barrinha laranja que cresce no item onde você está:
                       // responde "onde eu estou?" de relance, sem precisar ler o menu inteiro.
                       'group flex items-center gap-2.5 px-4 py-2 text-sm font-medium transition-colors',
-                      halloween ? 'border-l-2 border-orange-400 bg-purple-950 text-orange-100 hover:bg-purple-900' : isActive(item.href)
+                      isActive(item.href)
                         ? 'tc-ativo bg-blue-50 text-blue-700'
                         : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
                     )}>
                     {Ic
                       ? <Ic className={cn(
                           'h-[18px] w-[18px] shrink-0 transition-transform duration-200',
-                          halloween ? 'text-orange-300 group-hover:scale-110' : isActive(item.href)
+                          isActive(item.href)
                             ? 'text-[#1B6CA8] scale-110'          // o ativo cresce um tico
                             : cn(COR_GRUPO[section.group] ?? 'text-gray-400', 'group-hover:scale-110'),  // cor da seção; o que você mira cresce
                         )} />
