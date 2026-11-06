@@ -346,19 +346,13 @@ export async function desfazerPagamento(id: string) {
     cliente: lanc.pessoa_nome ?? null,
   }, usuario, '/painel/financeiro')
 
-  if (lista.length > 0) {
-    const { error: erroDel } = await supabase.from('movimentos_caixa').delete().eq('lancamento_id', id).in('tipo', ['recebimento', 'retirada']).eq('origem', 'financeiro')
-    if (erroDel) redirect(`/painel/financeiro?erro=${encodeURIComponent(erroDel.message)}`)
-  }
-
-  const { error } = await supabase.from('lancamentos').update({
-    status: 'pendente',
-    valor_pago: novoPago,
-    data_pagamento: null,
-    forma_pagamento: null,
-    comprovante_url: null,
-    updated_at: new Date().toISOString(),
-  }).eq('id', id)
+  // Atômico no banco: apaga o movimento + volta o lançamento pra pendente numa
+  // transação só. Antes eram 2 comandos separados — falha no meio deixava a
+  // gaveta e a dívida inconsistentes.
+  const { error } = await supabase.rpc('desfazer_pagamento_atomico', {
+    p_lancamento_id: id,
+    p_novo_pago: novoPago,
+  })
   if (error) redirect(`/painel/financeiro?erro=${encodeURIComponent(error.message)}`)
 
   revalidatePath('/painel/financeiro')
