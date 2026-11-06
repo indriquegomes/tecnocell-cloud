@@ -1,0 +1,16 @@
+[
+ {
+  "id": "9dc52ddd-24e2-41a6-a498-5caf720149c2",
+  "abriu": "08:04",
+  "fechou": "18:42",
+  "valor_abertura": "200.00",
+  "valor_fechamento": "1501.00"
+ },
+ {
+  "id": "3d4af590-ffc6-4a80-bd4e-3dd6141d7a15",
+  "abriu": "18:46",
+  "fechou": "18:49",
+  "valor_abertura": "200.00",
+  "valor_fechamento": "200.00"
+ }
+]

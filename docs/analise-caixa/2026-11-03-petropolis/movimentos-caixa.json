@@ -1,0 +1,410 @@
+[
+ {
+  "hora": "08:06",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "495.00",
+  "motivo": "Fiado recebido — MISTER CELL",
+  "lancamento_id": null
+ },
+ {
+  "hora": "08:07",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "648.00",
+  "motivo": "Fiado recebido — SERRA IMPORTS",
+  "lancamento_id": "50582dad-8a62-44f4-9acf-b0dd7cad35f8"
+ },
+ {
+  "hora": "09:44",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "1123.00",
+  "motivo": "Fiado recebido — FORCELL CENTRO",
+  "lancamento_id": null
+ },
+ {
+  "hora": "10:12",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "635.00",
+  "motivo": "Fiado recebido — RODRIGO BALTER",
+  "lancamento_id": null
+ },
+ {
+  "hora": "10:20",
+  "tipo": "recebimento",
+  "forma_pagamento": "Dinheiro",
+  "valor": "45.00",
+  "motivo": "Fiado recebido — AUGUSTO E-CELL",
+  "lancamento_id": null
+ },
+ {
+  "hora": "10:32",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "199.00",
+  "motivo": "Fiado recebido — ALBERT RONCK STORCK",
+  "lancamento_id": null
+ },
+ {
+  "hora": "11:48",
+  "tipo": "recebimento",
+  "forma_pagamento": "Dinheiro",
+  "valor": "62.00",
+  "motivo": "Fiado recebido — AUGUSTO E-CELL",
+  "lancamento_id": null
+ },
+ {
+  "hora": "11:50",
+  "tipo": "recebimento",
+  "forma_pagamento": "Dinheiro",
+  "valor": "148.00",
+  "motivo": "Fiado recebido — DAVID DOS SANTOS MORTES",
+  "lancamento_id": null
+ },
+ {
+  "hora": "12:32",
+  "tipo": "recebimento",
+  "forma_pagamento": "Dinheiro",
+  "valor": "55.00",
+  "motivo": "Fiado recebido — PRIMOS CELL",
+  "lancamento_id": null
+ },
+ {
+  "hora": "12:41",
+  "tipo": "recebimento",
+  "forma_pagamento": "Débito PagBank",
+  "valor": "21.50",
+  "motivo": "Fiado recebido — VITOR JOSE LIMA CORREA",
+  "lancamento_id": null
+ },
+ {
+  "hora": "13:17",
+  "tipo": "recebimento",
+  "forma_pagamento": "Débito PagBank",
+  "valor": "229.00",
+  "motivo": "Fiado recebido — KATHELYN MUSSEL DOS SANTOS",
+  "lancamento_id": null
+ },
+ {
+  "hora": "13:25",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "121.00",
+  "motivo": "Fiado recebido — JHONATAN OLIVEIRA",
+  "lancamento_id": "130c727a-636d-41cf-9624-d083ee6e0405"
+ },
+ {
+  "hora": "13:25",
+  "tipo": "reforco",
+  "forma_pagamento": "PIX",
+  "valor": "15.00",
+  "motivo": "taxa jhonatan",
+  "lancamento_id": null
+ },
+ {
+  "hora": "13:26",
+  "tipo": "retirada",
+  "forma_pagamento": "Dinheiro",
+  "valor": "15.00",
+  "motivo": "taxa jhonatan",
+  "lancamento_id": null
+ },
+ {
+  "hora": "13:48",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "103.00",
+  "motivo": "Fiado recebido — SUPERCELL ASSISTÊNCIA TÉCNICA E ACESSÓRIOS",
+  "lancamento_id": null
+ },
+ {
+  "hora": "13:52",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "9.00",
+  "motivo": "Fiado recebido — Maria Julia de Souza Ferreira Carvalho",
+  "lancamento_id": null
+ },
+ {
+  "hora": "14:02",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "54.00",
+  "motivo": "Fiado recebido — KLEBER CLAYTON DA COSTA MESQUITA",
+  "lancamento_id": null
+ },
+ {
+  "hora": "14:09",
+  "tipo": "retirada",
+  "forma_pagamento": "Dinheiro",
+  "valor": "60.00",
+  "motivo": "felipe motoboy ( erro loja)",
+  "lancamento_id": null
+ },
+ {
+  "hora": "14:31",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "23.00",
+  "motivo": "Fiado recebido — JOHNATHAN LIBONATI JORGE",
+  "lancamento_id": null
+ },
+ {
+  "hora": "14:40",
+  "tipo": "recebimento",
+  "forma_pagamento": "Dinheiro",
+  "valor": "160.00",
+  "motivo": "Fiado recebido — ADRIANO ESTEVES NUNES",
+  "lancamento_id": null
+ },
+ {
+  "hora": "14:40",
+  "tipo": "recebimento",
+  "forma_pagamento": "Dinheiro",
+  "valor": "30.00",
+  "motivo": "Fiado recebido — SMART CHEFE",
+  "lancamento_id": null
+ },
+ {
+  "hora": "14:48",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "93.63",
+  "motivo": "Fiado recebido — REGINALDO SANTANNA DOS SANTOS",
+  "lancamento_id": null
+ },
+ {
+  "hora": "15:01",
+  "tipo": "recebimento",
+  "forma_pagamento": "Dinheiro",
+  "valor": "50.00",
+  "motivo": "Fiado recebido — VIRTUALL INTERNET",
+  "lancamento_id": null
+ },
+ {
+  "hora": "15:02",
+  "tipo": "recebimento",
+  "forma_pagamento": "Dinheiro",
+  "valor": "100.00",
+  "motivo": "Fiado recebido — CONEXAO CELL",
+  "lancamento_id": null
+ },
+ {
+  "hora": "15:06",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "97.00",
+  "motivo": "Fiado recebido — VIRTUALL INTERNET",
+  "lancamento_id": null
+ },
+ {
+  "hora": "15:06",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "9.80",
+  "motivo": "Fiado recebido — CONEXAO CELL",
+  "lancamento_id": null
+ },
+ {
+  "hora": "15:08",
+  "tipo": "recebimento",
+  "forma_pagamento": "Dinheiro",
+  "valor": "30.00",
+  "motivo": "Fiado recebido — ROMULO MACIEL DE OLIVEIRA",
+  "lancamento_id": null
+ },
+ {
+  "hora": "15:08",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "172.00",
+  "motivo": "Fiado recebido — ROMULO MACIEL DE OLIVEIRA",
+  "lancamento_id": null
+ },
+ {
+  "hora": "15:19",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "169.00",
+  "motivo": "Fiado recebido — EZEQUIEL GUIMARAES DOS SANTOS",
+  "lancamento_id": null
+ },
+ {
+  "hora": "15:30",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "229.00",
+  "motivo": "Fiado recebido — LK CELL",
+  "lancamento_id": null
+ },
+ {
+  "hora": "15:36",
+  "tipo": "reforco",
+  "forma_pagamento": "PIX",
+  "valor": "0.30",
+  "motivo": "correção",
+  "lancamento_id": null
+ },
+ {
+  "hora": "15:48",
+  "tipo": "retirada",
+  "forma_pagamento": "PIX",
+  "valor": "0.10",
+  "motivo": "conexao",
+  "lancamento_id": null
+ },
+ {
+  "hora": "15:55",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "62.00",
+  "motivo": "Fiado recebido — WM CELULARES",
+  "lancamento_id": "31af6b77-faef-43c1-8a47-48a3975b2e73"
+ },
+ {
+  "hora": "16:01",
+  "tipo": "retirada",
+  "forma_pagamento": "PIX",
+  "valor": "350.00",
+  "motivo": "venda fabiano",
+  "lancamento_id": null
+ },
+ {
+  "hora": "16:01",
+  "tipo": "retirada",
+  "forma_pagamento": "PIX",
+  "valor": "62.00",
+  "motivo": "venda wm",
+  "lancamento_id": null
+ },
+ {
+  "hora": "16:12",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "62.00",
+  "motivo": "Fiado recebido — WM CELULARES",
+  "lancamento_id": "1fc09148-26d3-425c-bcf2-66c0c4ce8dca"
+ },
+ {
+  "hora": "16:13",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "15.00",
+  "motivo": "Fiado recebido — CENTRAL TECH / UP CELL / PAC TEC",
+  "lancamento_id": "4ff0a45e-821a-4c40-823f-6c02b7cd9631"
+ },
+ {
+  "hora": "16:14",
+  "tipo": "reforco",
+  "forma_pagamento": "PIX",
+  "valor": "1.00",
+  "motivo": "erro",
+  "lancamento_id": null
+ },
+ {
+  "hora": "16:15",
+  "tipo": "recebimento",
+  "forma_pagamento": "Dinheiro",
+  "valor": "117.00",
+  "motivo": "Fiado recebido — DAVID DOS SANTOS MORTES",
+  "lancamento_id": null
+ },
+ {
+  "hora": "16:15",
+  "tipo": "recebimento",
+  "forma_pagamento": "Dinheiro",
+  "valor": "235.00",
+  "motivo": "Fiado recebido — BRUNA ALVES",
+  "lancamento_id": "3ec6ea75-8fd7-40e0-931e-c529638758c8"
+ },
+ {
+  "hora": "16:20",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "110.00",
+  "motivo": "Fiado recebido — JOSE DA GUIA DE OLIVEIRA",
+  "lancamento_id": null
+ },
+ {
+  "hora": "16:26",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "52.00",
+  "motivo": "Fiado recebido — SERRA CELULARES",
+  "lancamento_id": null
+ },
+ {
+  "hora": "16:44",
+  "tipo": "retirada",
+  "forma_pagamento": "PIX",
+  "valor": "196.00",
+  "motivo": "pagou no cartão e quitaram no pix",
+  "lancamento_id": null
+ },
+ {
+  "hora": "16:44",
+  "tipo": "recebimento",
+  "forma_pagamento": "Dinheiro",
+  "valor": "45.00",
+  "motivo": "Fiado recebido — FELIPE GOMES ARAUJO",
+  "lancamento_id": null
+ },
+ {
+  "hora": "17:03",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "57.00",
+  "motivo": "Fiado recebido — ARTHUR GOMES QUEIROZ",
+  "lancamento_id": null
+ },
+ {
+  "hora": "17:08",
+  "tipo": "recebimento",
+  "forma_pagamento": "Dinheiro",
+  "valor": "25.00",
+  "motivo": "Fiado recebido — TECH STORY",
+  "lancamento_id": null
+ },
+ {
+  "hora": "17:27",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "35.00",
+  "motivo": "Fiado recebido — EXPERT SOLUTIONS",
+  "lancamento_id": null
+ },
+ {
+  "hora": "17:35",
+  "tipo": "recebimento",
+  "forma_pagamento": "Dinheiro",
+  "valor": "200.00",
+  "motivo": "Fiado recebido — DAVID DOS SANTOS MORTES",
+  "lancamento_id": null
+ },
+ {
+  "hora": "17:58",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "51.90",
+  "motivo": "Fiado recebido — RODRIGO PEREIRA (SEMPRE INCLUIR PEL R$ 1,80)",
+  "lancamento_id": null
+ },
+ {
+  "hora": "18:09",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "56.00",
+  "motivo": "Fiado recebido — LARISSA HELEN VALENTIN ALVES",
+  "lancamento_id": null
+ },
+ {
+  "hora": "18:16",
+  "tipo": "recebimento",
+  "forma_pagamento": "PIX",
+  "valor": "229.00",
+  "motivo": "Fiado recebido — JOHNATAN GONÇALVES LOPES",
+  "lancamento_id": "24262a82-4c36-429f-ac62-d4ecad0e0910"
+ }
+]

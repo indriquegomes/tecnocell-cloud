@@ -1,0 +1,58 @@
+[
+ {
+  "valor": "1123.00",
+  "destinatario": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+  "pagador": "EDMAR MEDEIROS DA SILVA",
+  "status": "extraido",
+  "telegram_chat_id": -5388974048
+ },
+ {
+  "valor": "635.00",
+  "destinatario": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+  "pagador": "MARLENE AMANCIO TEIXEIRA FERREIRA",
+  "status": "extraido",
+  "telegram_chat_id": -5388974048
+ },
+ {
+  "valor": "124.00",
+  "destinatario": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+  "pagador": "53.853.565 ELMO TELLES MACHADO",
+  "status": "extraido",
+  "telegram_chat_id": -5518480222
+ },
+ {
+  "valor": "85.00",
+  "destinatario": "Joao Vitor Maximiano Franca",
+  "pagador": "Rodrigo de Freitas Abrahao",
+  "status": "extraido",
+  "telegram_chat_id": -5388974048
+ },
+ {
+  "valor": "80.00",
+  "destinatario": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+  "pagador": "Nathalia Werneck de Andrade",
+  "status": "extraido",
+  "telegram_chat_id": -5518480222
+ },
+ {
+  "valor": "69.00",
+  "destinatario": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+  "pagador": "OZIEL DE JESUS AMARAL",
+  "status": "extraido",
+  "telegram_chat_id": -5518480222
+ },
+ {
+  "valor": "59.00",
+  "destinatario": "38.216.415 Joao Vitor Maximiano Fran",
+  "pagador": "Jaqueline da Silva Moraes",
+  "status": "extraido",
+  "telegram_chat_id": -5518480222
+ },
+ {
+  "valor": "9.00",
+  "destinatario": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+  "pagador": "Maria Júlia de Souza Ferreira Carvalho",
+  "status": "extraido",
+  "telegram_chat_id": -5388974048
+ }
+]
