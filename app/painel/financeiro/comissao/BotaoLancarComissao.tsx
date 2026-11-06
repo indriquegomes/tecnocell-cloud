@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { formatBRL } from '@/lib/utils'
 
 // Botão que lança meta + comissão da loja como contas a pagar.
 // Mostra o que vai fazer antes de fazer: valor por pessoa e a data de cada um.
@@ -29,7 +30,7 @@ export function BotaoLancarComissao({
   }
   if (vendedoras.length === 0 || (metaCada <= 0 && comissaoCada <= 0)) return null
 
-  const fmt = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const fmt = (v: number) => formatBRL(v)
 
   async function lancar() {
     const ok = confirm(

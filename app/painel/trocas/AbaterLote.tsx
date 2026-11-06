@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { abaterTrocasEmLote } from './actions'
+import { formatBRL } from '@/lib/utils'
 
-const fmt = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const fmt = (v: number) => formatBRL(v)
 
 type Linha = {
   id: string

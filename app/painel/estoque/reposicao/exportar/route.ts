@@ -36,8 +36,8 @@ export async function GET(req: NextRequest) {
     .from('itens_venda')
     .select('produto_id, quantidade, venda:vendas!inner ( created_at, status, deposito_id )')
     .eq('venda.status', 'concluida')
-    .gte('venda.created_at', de + 'T00:00:00')
-    .lte('venda.created_at', ate + 'T23:59:59')
+    .gte('venda.created_at', de + 'T00:00:00-03:00')
+    .lte('venda.created_at', ate + 'T23:59:59-03:00')
   if (deposito) vq = vq.eq('venda.deposito_id', deposito)
   const itens = await fetchAll<{ produto_id: string; quantidade: number }>(
     (from, to) => vq.range(from, to) as unknown as PromiseLike<{ data: { produto_id: string; quantidade: number }[] | null }>,

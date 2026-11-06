@@ -75,7 +75,7 @@ export default async function EncomendasPage({ searchParams }: { searchParams: P
                   <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900 tabular-nums">{e.valor_venda ? formatBRL(e.valor_venda) : '—'}</td>
                   <td className="px-4 py-3 text-right text-sm text-gray-600 tabular-nums">{e.sinal > 0 ? formatBRL(e.sinal) : '—'}</td>
                   <td className="px-4 py-3 text-center"><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_CLS[e.status] ?? 'bg-gray-100 text-gray-500'}`}>{STATUS_LABEL[e.status] ?? e.status}</span></td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{formatDate(e.created_at.slice(0, 10))}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500">{formatDate(e.created_at)}</td>
                   <td className="px-4 py-3 text-right">{e.status === 'aberta' ? <BotaoCancelar id={e.id} /> : null}</td>
                 </tr>
               ))}

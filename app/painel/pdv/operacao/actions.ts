@@ -4,11 +4,12 @@ import { createServiceClient, requirePermissao, podeAcessarLoja } from '@/lib/su
 import { logAtividade } from '@/lib/log-atividade'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { formatBRL } from '@/lib/utils'
 
 export type ActionState = { ok: boolean; message: string } | null
 
 // Dinheiro em reais legível ("1.234,56") — a mensagem da baixa é lida no balcão.
-const brl = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const brl = (v: number) => formatBRL(v)
 
 export async function abrirCaixa(
   _prev: ActionState,

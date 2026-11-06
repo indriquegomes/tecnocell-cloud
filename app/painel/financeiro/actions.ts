@@ -61,7 +61,7 @@ export async function criarLancamento(formData: FormData) {
   const linhas = Array.from({ length: vezes }, (_, i) => ({
     id: crypto.randomUUID(),
     descricao: vezes > 1 ? `${descricao} (${i + 1}/${vezes})` : descricao,
-    valor: valorParcela,
+    valor: repeticao === 'parcelar' && i === vezes - 1 ? Math.round((valorTotal - valorParcela * (vezes - 1)) * 100) / 100 : valorParcela,
     tipo,
     categoria: (formData.get('categoria') as string) || null,
     subcategoria: (formData.get('subcategoria') as string) || null,
@@ -81,6 +81,19 @@ export async function criarLancamento(formData: FormData) {
   // redirect (não throw): mesmo motivo do editarLancamento — throw num <form
   // action> sem error boundary derruba a tela inteira.
   if (error) redirect(`/painel/financeiro/novo?erro=${encodeURIComponent(error.message)}`)
+  // Receber já quitado ao criar: o dinheiro precisa cair na gaveta, igual ao
+  // botão "Pago". (pagar quitado NÃO mexe na gaveta — refletido via saldos-contas.)
+  if (quitado && tipo === 'receber') {
+    await registrarNoCaixa(
+      supabase,
+      lojaId,
+      Math.round(valorParcela * 100) / 100,
+      (formData.get('forma_pagamento') as string) || '',
+      `Recebido — ${descricao}`,
+      linhas[0].id,
+      'financeiro',
+    )
+  }
   revalidatePath('/painel/financeiro')
   redirect('/painel/financeiro')
 }
@@ -91,7 +104,7 @@ export async function editarLancamento(id: string, formData: FormData) {
   // Trava de mês fechado: não deixa editar um lançamento que mora (ou que vai
   // morar) num mês já fechado — mudaria o resultado do passado auditado.
   const vencimentoNovo = (formData.get('data_vencimento') as string) || null
-  const { data: atual } = await supabase.from('lancamentos').select('data_vencimento').eq('id', id).maybeSingle()
+  const { data: atual } = await supabase.from('lancamentos').select('data_vencimento, valor, tipo, status').eq('id', id).maybeSingle()
   const vencimentoAtual = (atual as { data_vencimento?: string | null } | null)?.data_vencimento?.slice(0, 10) ?? null
   const erroTrava = (await travarSeMesFechado(supabase, vencimentoNovo, 'editar este lançamento'))
     ?? (await travarSeMesFechado(supabase, vencimentoAtual, 'editar este lançamento'))
@@ -101,6 +114,12 @@ export async function editarLancamento(id: string, formData: FormData) {
   // mesma trava do criar: editar para 0,00 não faz sentido e suja o A Pagar
   if (!(valorEditado > 0)) {
     redirect(`/painel/financeiro/${id}/editar?erro=${encodeURIComponent('Digite o valor do lançamento.')}`)
+  }
+  // Lançamento já pago: não deixa mudar valor/tipo — o valor_pago e o movimento
+  // de caixa já foram gravados; mexer aqui deixaria o saldo devedor errado.
+  const st = atual as { status?: string; valor?: number; tipo?: string } | null
+  if (st?.status === 'pago' && (Math.abs(valorEditado - Number(st.valor ?? 0)) > 0.001 || (formData.get('tipo') as string) !== st.tipo)) {
+    redirect(`/painel/financeiro/${id}/editar?erro=${encodeURIComponent('Este lançamento já está pago. Para mudar valor ou tipo, desfaça o pagamento primeiro.')}`)
   }
   const { error } = await supabase.from('lancamentos').update({
     descricao: formData.get('descricao') as string,
@@ -187,7 +206,7 @@ export async function marcarPago(id: string, formData?: FormData) {
   // (valor - valor_pago). Marcar 'pago' deixando valor_pago em 0 fazia a nota sumir
   // da cobrança mas continuar contando como saldo devedor em quem lê a diferença.
   const valor = Number(antes?.valor ?? 0)
-  const { error } = await supabase.from('lancamentos').update({
+  const { data: linhaAtualizada, error } = await supabase.from('lancamentos').update({
     status: 'pago',
     data_pagamento: new Date().toISOString(),
     valor_pago: valor,
@@ -196,8 +215,13 @@ export async function marcarPago(id: string, formData?: FormData) {
     ...(forma ? { forma_pagamento: forma } : {}),
     ...(comprovanteUrl ? { comprovante_url: comprovanteUrl } : {}),
     updated_at: new Date().toISOString(),
-  }).eq('id', id)
+  }).eq('id', id).eq('status', 'pendente').select('id')
   if (error) redirect(`/painel/financeiro?erro=${encodeURIComponent(error.message)}`)
+  // Duplo clique: se já estava pago, o filtro 'pendente' não achou linha pra
+  // atualizar — para aqui (senão registraria o recebimento 2x na gaveta).
+  if (!(linhaAtualizada?.length)) {
+    redirect('/painel/financeiro?erro=' + encodeURIComponent('Este lançamento já estava pago (talvez outro clique). Recarregue a tela.'))
+  }
 
   // O dinheiro precisa aparecer na gaveta — mas só quando é RECEBER (fiado sendo
   // pago = dinheiro entrando). Pra PAGAR (fornecedor, aluguel...) é dinheiro

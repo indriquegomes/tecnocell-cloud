@@ -4,6 +4,7 @@ import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { retirarDoCaixa } from '@/lib/caixa'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { formatBRL } from '@/lib/utils'
 
 export async function emitirCredito(formData: FormData) {
   await requirePermissao('financeiro')
@@ -84,7 +85,7 @@ export async function estornarCredito(id: string, formData?: FormData) {
     let msg = m
     if (m.startsWith('SALDO_INSUFICIENTE:')) {
       const [, s, v] = m.split(':')
-      msg = `Não dá pra estornar: o cliente só tem ${Math.max(0, +s).toFixed(2).replace('.', ',')} de saldo, e esse crédito valia ${(+v).toFixed(2).replace('.', ',')} — parte dele já foi usada. Estornar deixaria o saldo negativo.`
+      msg = `Não dá pra estornar: o cliente só tem ${formatBRL(Math.max(0, +s))} de saldo, e esse crédito valia ${formatBRL(+v)} — parte dele já foi usada. Estornar deixaria o saldo negativo.`
     } else if (error.code === '23505' || m.includes('creditos_clientes_estorno_unico')) {
       msg = 'Este crédito já foi estornado.'
     }

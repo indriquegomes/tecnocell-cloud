@@ -26,8 +26,8 @@ export default async function DevolucoesPage({
         tipo_credito, motivo, motivo_tipo, valor_total, created_at,
         itens_devolucao ( id, nome, quantidade, preco_unitario, total_item, status_produto )
       `)
-      .gte('created_at', dataInicio + 'T00:00:00')
-      .lte('created_at', dataFim + 'T23:59:59')
+      .gte('created_at', dataInicio + 'T00:00:00-03:00')
+      .lte('created_at', dataFim + 'T23:59:59-03:00')
       .order('created_at', { ascending: false })
       .range(from, to))
 

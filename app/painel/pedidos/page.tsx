@@ -104,8 +104,8 @@ export default async function PedidosPage({
     else query = query.is('loja', null)
   }
   if (loja) query = query.eq('loja', loja)
-  if (de) query = query.gte('created_at', de)
-  if (ate) query = query.lte('created_at', ate + 'T23:59:59')
+  if (de) query = query.gte('created_at', de + 'T00:00:00-03:00')
+  if (ate) query = query.lte('created_at', ate + 'T23:59:59-03:00')
   if (buscaRaw) {
     const buscaSafe = buscaRaw.replace(/[,%*]/g, '')
     query = query.or(`cliente.ilike.%${buscaSafe}%,numero_text.ilike.%${buscaSafe}%`)

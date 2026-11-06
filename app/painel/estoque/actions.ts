@@ -224,16 +224,20 @@ export async function registrarMovimentos(formData: FormData) {
 
   for (const item of itens) {
     const nomeBusca = item.produto_busca.replace(/\s*\([^)]*\)$/, '').trim()
+    // Escapa % e _: sem isso o nome vira curinga no ILIKE e acha o produto errado
+    // (mesmo bug que apagou produto real em 27/08). Exige 1 resultado exato —
+    // recusa quando há 0 ou mais de 1, em vez de pegar um arbitrário.
+    const padrao = nomeBusca.replace(/([%_\\])/g, '\\$1')
 
     let produtoId: string | null = null
-    const { data: exato } = await supabase
-      .from('produtos').select('id').ilike('nome', nomeBusca).limit(1).maybeSingle()
-    if (exato) {
-      produtoId = exato.id
-    } else {
-      const { data: prefixo } = await supabase
-        .from('produtos').select('id').ilike('nome', `${nomeBusca}%`).limit(1).maybeSingle()
-      produtoId = prefixo?.id ?? null
+    const { data: exatos } = await supabase
+      .from('produtos').select('id').ilike('nome', padrao).limit(2)
+    if (exatos?.length === 1) {
+      produtoId = exatos[0].id
+    } else if (!exatos?.length) {
+      const { data: prefixos } = await supabase
+        .from('produtos').select('id').ilike('nome', `${padrao}%`).limit(2)
+      if (prefixos?.length === 1) produtoId = prefixos[0].id
     }
 
     if (!produtoId) { naoEncontrados.push(nomeBusca); continue }
@@ -252,7 +256,7 @@ export async function registrarMovimentos(formData: FormData) {
       p_produto_id: produtoId,
       p_deposito_id: deposito_id,
       p_operacao: item.operacao,
-      p_quantidade: Math.round(item.quantidade),
+      p_quantidade: Math.max(0, Math.round(item.quantidade)),
       p_series: imeis.map((serie) => ({ serie })),
       p_observacao: observacao,
       p_user: user.id,

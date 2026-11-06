@@ -56,7 +56,7 @@ export default async function RelatoriosPage({
   const supabase = await createServiceClient()
 
   const hoje = hojeSP()
-  const inicioMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+  const inicioMes = hojeSP().slice(0, 8) + '01'
   const dataInicio = de ?? inicioMes
   const dataFim = ate ?? hoje
   const periodo = { inicio: dataInicio + 'T00:00:00', fim: dataFim + 'T23:59:59' }

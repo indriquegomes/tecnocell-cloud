@@ -8,8 +8,9 @@ import {
   definirFornecedor, marcarEnviada, confirmarRetorno, marcarPerdida, excluirTroca,
   lancarTrocaManual, buscarProdutosParaTroca, abaterTrocaNoFornecedor, abaterTrocasEmLote, ajustarCustoTroca,
 } from './actions'
+import { formatBRL } from '@/lib/utils'
 
-const fmt = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const fmt = (v: number) => formatBRL(v)
 const dataBR = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '—')
 
 const CORES: Record<string, string> = {

@@ -3,6 +3,7 @@
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { travarSeMesFechado } from '@/lib/fechamento'
 import { revalidatePath } from 'next/cache'
+import { formatBRL } from '@/lib/utils'
 
 export type PagamentoDetalhe = {
   forma_nome: string
@@ -199,7 +200,7 @@ export async function cancelarVenda(
     const lista = comDinheiro
       .map((p) => {
         const v = Number((p as { valor: number | null }).valor ?? 0)
-        return `${daForma(p)?.nome ?? 'forma desconhecida'} R$ ${v.toFixed(2).replace('.', ',')}`
+        return `${daForma(p)?.nome ?? 'forma desconhecida'} ${formatBRL(v)}`
       })
       .join(' + ')
     return {
@@ -235,7 +236,7 @@ export async function cancelarVenda(
     const detalhe = formas.length ? ` (${[...new Set(formas)].join(', ')})` : ''
     return {
       ok: false,
-      erro: `O cliente já pagou R$ ${jaPago.toFixed(2).replace('.', ',')} desta venda${detalhe}. Cancelar apagaria a dívida e esse pagamento junto, sem devolver nada pra ele. Use Devolução, que abate o que ele deve e devolve o resto.`,
+      erro: `O cliente já pagou ${formatBRL(jaPago)} desta venda${detalhe}. Cancelar apagaria a dívida e esse pagamento junto, sem devolver nada pra ele. Use Devolução, que abate o que ele deve e devolve o resto.`,
     }
   }
 

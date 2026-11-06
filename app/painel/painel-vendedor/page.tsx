@@ -1,5 +1,5 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
-import { hojeSP } from '@/lib/utils'
+import { hojeSP, diaSP } from '@/lib/utils'
 import { PainelVendedorClient } from './PainelVendedorClient'
 
 export default async function PainelVendedorPage({
@@ -11,7 +11,7 @@ export default async function PainelVendedorPage({
   const supabase = await createServiceClient()
 
   const hoje = hojeSP()
-  const inicioMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+  const inicioMes = hojeSP().slice(0, 8) + '01'
   const dataInicio = de ?? inicioMes
   const dataFim = ate ?? hoje
 
@@ -25,15 +25,15 @@ export default async function PainelVendedorPage({
         .from('vendas')
         .select('id, total, desconto, vendedor_nome, created_at')
         .eq('status', 'concluida')
-        .gte('created_at', dataInicio + 'T00:00:00')
-        .lte('created_at', dataFim + 'T23:59:59')
+        .gte('created_at', dataInicio + 'T00:00:00-03:00')
+        .lte('created_at', dataFim + 'T23:59:59-03:00')
         .range(from, to)),
     fetchAll<VPedido>((from, to) =>
       supabase
         .from('pedidos')
         .select('id, tipo, status')
-        .gte('created_at', dataInicio + 'T00:00:00')
-        .lte('created_at', dataFim + 'T23:59:59')
+        .gte('created_at', dataInicio + 'T00:00:00-03:00')
+        .lte('created_at', dataFim + 'T23:59:59-03:00')
         .range(from, to)),
     supabase.from('configuracoes').select('valor').eq('chave', 'pdv').maybeSingle(),
   ])
@@ -74,7 +74,7 @@ export default async function PainelVendedorPage({
   // Vendas diárias para o gráfico
   const mapaDia: Record<string, number> = {}
   for (const v of todasVendas) {
-    const dia = v.created_at.slice(0, 10)
+    const dia = diaSP(v.created_at)
     mapaDia[dia] = (mapaDia[dia] ?? 0) + (v.total ?? 0)
   }
   const vendasDiarias = Object.entries(mapaDia)

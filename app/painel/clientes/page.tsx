@@ -95,8 +95,8 @@ export default async function ClientesPage({
   }
   if (params.tipo) query = query.eq('tipo', params.tipo)
   // Período de cadastro (Isa 29/07): filtrar clientes cadastrados dentro do período
-  if (params.de)  query = query.gte('created_at', params.de + 'T00:00:00')
-  if (params.ate) query = query.lte('created_at', params.ate + 'T23:59:59')
+  if (params.de)  query = query.gte('created_at', params.de + 'T00:00:00-03:00')
+  if (params.ate) query = query.lte('created_at', params.ate + 'T23:59:59-03:00')
   // Filtros "mais detalhes" (Isa): cidade, tabela de preço, física/jurídica
   if (params.cidade) query = query.eq('cidade', params.cidade)
   if (params.tabela === 'sem') query = query.is('tabela_preco_id', null)

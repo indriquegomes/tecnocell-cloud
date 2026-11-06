@@ -2,6 +2,7 @@
 
 import { createServiceClient } from '@/lib/supabase/server'
 import { headers } from 'next/headers'
+import { hojeSP } from '@/lib/utils'
 
 // Total VENDIDO da funcionária logada no mês — a régua do velocímetro
 // individual (Percentual = vendido / meta). Re-deriva o usuário do header
@@ -10,7 +11,7 @@ export async function buscarMinhaVenda(): Promise<number> {
   const supabase = await createServiceClient()
   const userId = (await headers()).get('x-user-id')
   if (!userId) return 0
-  const inicioMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+  const inicioMes = hojeSP().slice(0, 8) + '01'
   const { data } = await supabase.from('vendas')
     .select('total')
     .eq('vendedor_id', userId).eq('status', 'concluida').eq('uso_interno', false)
