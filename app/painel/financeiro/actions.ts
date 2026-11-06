@@ -148,7 +148,7 @@ export async function marcarPago(id: string, formData?: FormData) {
   const supabase = await createServiceClient()
   const { data: antes, error: erroAntes } = await supabase
     .from('lancamentos')
-    .select('valor, valor_pago, forma_pagamento, pessoa_nome, tipo, data_vencimento')
+    .select('valor, valor_pago, forma_pagamento, pessoa_nome, tipo, data_vencimento, conta_id, loja_id')
     .eq('id', id)
     .maybeSingle()
   // Sem essa checagem, uma falha na consulta virava "antes = undefined" e o
@@ -197,10 +197,32 @@ export async function marcarPago(id: string, formData?: FormData) {
     comprovanteUrl = path
   }
 
+  // CONTA DA SAÍDA: pagamento a fornecedor feito com PIX do cliente não descontava
+  // de conta nenhuma, então o PagBank ficava cheio de dinheiro que nunca passou por
+  // lá (achado no dia 03/11 de Petrópolis: 8.096,23 de PIX creditados no banco e só
+  // 2.184,00 que realmente entraram). Se o lançamento não tem conta, resolve pela
+  // FORMA: PIX/cartão → banco (PagBank) · dinheiro → cofre da loja.
+  let contaDaBaixa = (antes as { conta_id?: string | null } | null)?.conta_id ?? null
+  if (!contaDaBaixa && antes?.tipo === 'pagar') {
+    const alvo = forma.toLowerCase().includes('pix')
+      ? 'banco'
+      : forma.toLowerCase().includes('dinheiro') ? 'cofre' : null
+    if (alvo) {
+      const lojaId = (antes as { loja_id?: string | null } | null)?.loja_id ?? (await lojaDoLancamento(supabase, id))
+      const { data: contasAlvo } = await supabase
+        .from('contas').select('id, nome, loja_id, tipo').eq('ativa', true).eq('tipo', alvo)
+      const daLoja = (contasAlvo ?? []).find((c) => (c as { loja_id?: string | null }).loja_id === lojaId)
+      const escolhida = daLoja ?? ((contasAlvo ?? []).length === 1 ? contasAlvo![0] : null)
+      contaDaBaixa = (escolhida as { id?: string } | null)?.id ?? null
+    }
+  }
+
   await logAtividade('pagamento.marcar_pago', {
     lancamento_id: id,
     valor: antes?.valor ?? null,
     cliente: antes?.pessoa_nome ?? null,
+    conta: contaDaBaixa,
+    forma,
   }, usuario, '/painel/financeiro')
   // valor_pago junto do status: os relatórios de fiado medem o que falta por
   // (valor - valor_pago). Marcar 'pago' deixando valor_pago em 0 fazia a nota sumir
@@ -214,6 +236,7 @@ export async function marcarPago(id: string, formData?: FormData) {
     // relatório por forma de pagamento ficava cego justamente pro fiado quitado.
     ...(forma ? { forma_pagamento: forma } : {}),
     ...(comprovanteUrl ? { comprovante_url: comprovanteUrl } : {}),
+    ...(contaDaBaixa ? { conta_id: contaDaBaixa } : {}),
     updated_at: new Date().toISOString(),
   }).eq('id', id).eq('status', 'pendente').select('id')
   if (error) redirect(`/painel/financeiro?erro=${encodeURIComponent(error.message)}`)
