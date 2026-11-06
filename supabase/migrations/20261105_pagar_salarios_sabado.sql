@@ -1,9 +1,9 @@
 -- Paga automaticamente os salários semanais no sábado (vencimento = hoje).
 -- Decisão do dono (05/11/2026): os fixos são pagos todo sábado, sem falta.
--- Roda sábado 20:00 UTC (= 17:00 São Paulo, horário de fechar).
+-- Roda sábado 22:00 UTC (= 19:00 São Paulo).
 SELECT cron.schedule(
   'pagar-salarios-sabado',
-  '0 20 * * 6',
+  '0 22 * * 6',
   $cron$
   UPDATE lancamentos
   SET status='pago',
