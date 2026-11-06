@@ -84,6 +84,31 @@ export async function fecharCaixa(
       return { ok: false, message: 'Você não tem acesso ao caixa desta loja.' }
     }
 
+    // DINHEIRO QUE SAIU SEM DESTINO trava o fechamento (regra do dono, 06/11):
+    // retirada do caixa precisa ter lançamento (despesa paga ou transferência).
+    // Sem isso o dinheiro sai da gaveta e o sistema não sabe pra onde foi — o
+    // fechamento fecha certinho e ninguém enxerga (achado no caixa de 03/11:
+    // 15,00 "taxa jhonatan" + 60,00 "motoboy" saíram sem lançamento nenhum).
+    const { data: semDestino } = await supabase
+      .from('movimentos_caixa')
+      .select('valor, motivo, tipo')
+      .eq('caixa_id', id)
+      .is('lancamento_id', null)
+      .in('tipo', ['retirada', 'sangria'])
+    const totalSemDestino = (semDestino ?? []).reduce((s, m) => s + Number((m as { valor?: number }).valor ?? 0), 0)
+    if (totalSemDestino > 0.005) {
+      const detalhe = (semDestino ?? [])
+        .slice(0, 6)
+        .map((m) => `R$ ${Number((m as { valor?: number }).valor ?? 0).toFixed(2)} (${(m as { motivo?: string }).motivo ?? 'sem motivo'})`)
+        .join(' · ')
+      return {
+        ok: false,
+        message:
+          `Saíram R$ ${totalSemDestino.toFixed(2)} do caixa sem destino: ${detalhe}. ` +
+          'Lance a despesa (ou a transferência pro cofre/banco) antes de fechar o caixa — senão esse dinheiro fica sem rastro.',
+      }
+    }
+
     // Verifica limite de divergência configurado.
     // O "esperado" agora é calculado NO SERVIDOR (RPC) — não confia no valor do
     // navegador, que dava pra editar e esconder falta de dinheiro na gaveta.
