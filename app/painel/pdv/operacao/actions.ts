@@ -84,8 +84,12 @@ export async function fecharCaixa(
       return { ok: false, message: 'Você não tem acesso ao caixa desta loja.' }
     }
 
-    // Verifica limite de divergência configurado
-    const valorEsperado = parseFloat(formData.get('valor_esperado') as string) || 0
+    // Verifica limite de divergência configurado.
+    // O "esperado" agora é calculado NO SERVIDOR (RPC) — não confia no valor do
+    // navegador, que dava pra editar e esconder falta de dinheiro na gaveta.
+    const { data: esperadoRpc, error: erroEsperado } = await supabase.rpc('calcular_valor_esperado', { p_caixa_id: id })
+    if (erroEsperado) return { ok: false, message: `Não consegui calcular o esperado do caixa: ${erroEsperado.message}` }
+    const valorEsperado = Number(esperadoRpc) || 0
     const divergencia = valorFechamento - valorEsperado
     const { data: cfgPdv } = await supabase
       .from('configuracoes')
