@@ -5,6 +5,7 @@ import { BuscaLista } from '@/components/BuscaLista'
 import { SubmitButton } from '@/components/SubmitButton'
 import { toggleCatalogo, salvarDescricaoCatalogo } from './actions'
 import Link from 'next/link'
+import { formatBRL } from '@/lib/utils'
 
 export default async function CatalogoPage({
   searchParams,
@@ -48,7 +49,7 @@ export default async function CatalogoPage({
 
   const total = count ?? 0
   const totalPaginas = Math.max(1, Math.ceil(total / porPagina))
-  const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  const fmt = formatBRL
   const editarProduto = (editRes as { data: { id: string; nome: string; descricao: string | null; imagem_url: string | null } | null }).data
 
   const baseParams: Record<string, string> = {}

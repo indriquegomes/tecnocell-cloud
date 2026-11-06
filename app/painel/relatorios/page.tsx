@@ -14,7 +14,7 @@ import { BuscaAvancada } from '@/components/BuscaAvancada'
 
 const AMOSTRA = 200  // abas pesadas mostram só as primeiras N linhas; CSV sai completo
 
-const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmt = formatBRL
 const dtBR = (s: string) => new Date(s).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 const tipoLabel = (tipo: string | null): string => {
   if (!tipo) return 'Outro'

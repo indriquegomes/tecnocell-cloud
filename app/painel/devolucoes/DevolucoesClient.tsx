@@ -12,9 +12,10 @@ import {
   buscarVendasRecentes, buscarVendaParaDevolucao, registrarDevolucao, buscarItensDevolucao,
   type VendaParaDevolucao, type VendaResumo,
 } from './actions'
+import { formatBRL } from '@/lib/utils'
 
 const supabaseBrowser = createClient()
-const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmt = formatBRL
 const fmtDt = (s: string) => {
   const d = new Date(s)
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'America/Sao_Paulo' })

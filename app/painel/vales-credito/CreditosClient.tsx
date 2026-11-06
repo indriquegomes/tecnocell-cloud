@@ -7,6 +7,7 @@ import { ConfirmButton } from '@/components/ConfirmButton'
 import { SubmitButton } from '@/components/SubmitButton'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
 import { createClient } from '@/lib/supabase/client'
+import { formatBRL } from '@/lib/utils'
 
 const supabaseBrowser = createClient()
 async function authToken(): Promise<string> {
@@ -14,7 +15,7 @@ async function authToken(): Promise<string> {
   return data.session?.access_token ?? ''
 }
 
-const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmt = formatBRL
 const fmtData = (d: string) => new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
 const semAcento = (s: string) =>
   s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()

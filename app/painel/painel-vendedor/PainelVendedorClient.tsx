@@ -2,10 +2,10 @@
 
 import { IconChart } from '@/components/icons'
 import { useState, useTransition } from 'react'
-import { hojeSP } from '@/lib/utils'
+import { formatBRL, hojeSP } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 
-const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmt = formatBRL
 const fmtData = (s: string) => new Date(s).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
 const fmtDia = (s: string) => {
   const [, m, d] = s.split('-')

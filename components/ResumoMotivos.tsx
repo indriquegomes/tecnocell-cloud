@@ -1,6 +1,7 @@
 'use client'
 
 import type { Motivo } from '@/lib/motivos'
+import { formatBRL } from '@/lib/utils'
 
 // A resposta pra "por que as peças voltam?".
 //
@@ -28,7 +29,7 @@ export function ResumoMotivos({
 
   if (total === 0) return null
 
-  const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  const fmt = formatBRL
 
   const linhas = motivos
     .map((m) => ({ m, ...(contagem[m.id] ?? { n: 0, valor: 0 }) }))

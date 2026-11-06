@@ -9,6 +9,7 @@ import { SeriesItemNota } from './SeriesItemNota'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { controlaSerie } from '@/lib/imei'
+import { formatBRL } from '@/lib/utils'
 
 export default async function NotaEntradaDetalhe({
   params,
@@ -40,7 +41,7 @@ export default async function NotaEntradaDetalhe({
 
   if (!nota) notFound()
 
-  const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  const fmt = formatBRL
   const fmtDate = (d: string | null) => d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR') : '—'
 
   const fornecedor = nota.pessoas as { nome: string } | null

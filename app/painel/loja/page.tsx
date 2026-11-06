@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import { formatBRL } from '@/lib/utils'
 
 export default async function LojaGestaoPage() {
   const supabase = await createClient()
@@ -29,7 +30,7 @@ export default async function LojaGestaoPage() {
   ])
 
   const empresa = (config?.valor ?? {}) as Record<string, string>
-  const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  const fmt = formatBRL
 
   const lojaUrl = typeof window === 'undefined' ? '/loja' : `${process.env.NEXT_PUBLIC_BASE_URL ?? ''}/loja`
 

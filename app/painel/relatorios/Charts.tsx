@@ -1,9 +1,11 @@
 'use client'
 
+import { formatBRL } from '@/lib/utils'
+
 // Gráficos SVG leves (sem dependência externa — CSP-safe).
 // Paleta: azul #1B6CA8, laranja #F47920, verde/vermelho pra dinheiro.
 
-const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const brl = formatBRL
 const fmtK = (v: number) => Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(Math.round(v))
 
 // ---------- Fluxo de Caixa: barras entrada/saída + linha do acumulado ----------

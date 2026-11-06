@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { deletarPedido, carregarPedidosImpressao, carregarVendasImpressao } from './actions'
 import { ConfirmButton } from '@/components/ConfirmButton'
 import { DocumentoPedido, resumoPedidoTexto, cssImpressao, type PedidoImpr } from '@/components/DocumentoPedido'
+import { formatBRL } from '@/lib/utils'
 
 const supabaseBrowser = createClient()
 async function authToken(): Promise<string> {
@@ -21,7 +22,7 @@ const STATUS_COLOR: Record<string, string> = {
   rascunho: 'text-gray-400', aprovado: 'text-yellow-600 font-medium', faturado: 'text-green-600 font-medium',
   cancelado: 'text-red-500', concluida: 'text-green-600 font-medium', cancelada: 'text-red-500',
 }
-const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmt = formatBRL
 const fmtDt = (d: string) => new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
 
 export type Linha = {

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useCallback, useEffect } from 'react'
-import { hojeSP } from '@/lib/utils'
+import { formatBRL, hojeSP } from '@/lib/utils'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { buscarDetalheVendaPublic, cancelarVenda, type DetalheVendaCompleto } from './actions'
@@ -24,7 +24,7 @@ type Venda = {
   observacoes?: string | null
 }
 
-const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmt = formatBRL
 const fmtData = (s: string) => new Date(s).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
 
 const STATUS: Record<string, { label: string; cor: string }> = {

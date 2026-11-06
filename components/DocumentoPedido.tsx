@@ -1,9 +1,9 @@
 // Documento imprimível de um Pedido/Orçamento — usado no detalhe e na lista.
 // Dois formatos: 'a4' (folha) e 'cupom' (bobina 80mm). Render puro (sem estado);
 // quem usa controla o formato e chama window.print().
-import { formatDate } from '@/lib/utils'
+import { formatBRL, formatDate } from '@/lib/utils'
 
-const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmt = formatBRL
 const fmtDate = (d: string) => new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
 
 export type ItemImpr = { id: string; quantidade: number; preco_unitario: number; total_item: number; nome: string }

@@ -5,8 +5,9 @@ import { Spinner } from '@/components/Spinner'
 import { useRouter } from 'next/navigation'
 import { adicionarItemNota } from '../actions'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
+import { formatBRL } from '@/lib/utils'
 
-const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmt = formatBRL
 
 // Busca inteligente (igual PDV): sem acento, multi-palavra. Nome+marca por
 // substring, código por PREFIXO (evita "14" pegar código "11148" no meio).

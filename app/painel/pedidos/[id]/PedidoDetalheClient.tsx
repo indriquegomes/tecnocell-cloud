@@ -5,11 +5,11 @@ import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { adicionarItemPedido, removerItemPedido, atualizarStatusPedido, atualizarInfoPedido, atualizarDescontoFrete, atualizarObservacoesTermos, cancelarComMotivo, faturarPedido } from '../actions'
 import { gerarOSDePedido } from '@/app/painel/os/actions'
-import { formatDate } from '@/lib/utils'
+import { formatBRL, formatDate } from '@/lib/utils'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
 import { DocumentoPedido, resumoPedidoTexto, cssImpressao, type PedidoImpr } from '@/components/DocumentoPedido'
 
-const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmt = formatBRL
 const fmtDate = (d: string) => new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
 
 const ORIGEM_LABEL: Record<string, string> = {

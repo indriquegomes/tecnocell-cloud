@@ -3,12 +3,12 @@
 import { IconCard } from '@/components/icons'
 import { BuscaAvancada } from '@/components/BuscaAvancada'
 import { montarMensagemCobranca } from '@/lib/cobranca-fiado'
-import { hojeSP } from '@/lib/utils'
+import { formatBRL, hojeSP } from '@/lib/utils'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { atualizarChavePix, salvarObsCobranca } from './actions'
 
-const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmt = formatBRL
 const semAcento = (s: string) =>
   s.normalize('NFD').split('').filter((c) => { const n = c.charCodeAt(0); return n < 768 || n > 879 }).join('').toLowerCase()
 

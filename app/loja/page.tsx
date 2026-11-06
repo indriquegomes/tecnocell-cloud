@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import { formatBRL } from '@/lib/utils'
 
 export const revalidate = 60 // revalida a cada 60 segundos
 
@@ -23,7 +24,7 @@ export default async function LojaPage({
   ])
 
   const empresa = (config?.valor ?? {}) as Record<string, string>
-  const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  const fmt = formatBRL
 
   // Map hierarquia code → display name
   const catNomeMap = Object.fromEntries((categoriasDb ?? []).map((c) => [c.hierarquia, c.nome]))

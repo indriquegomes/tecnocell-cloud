@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { hojeSP } from '@/lib/utils'
+import { formatBRL, hojeSP } from '@/lib/utils'
 import { Spinner } from '@/components/Spinner'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -16,7 +16,7 @@ import { CampoDinheiro } from '@/components/CampoDinheiro'
 
 const supabaseBrowser = createClient()
 
-const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmt = formatBRL
 
 type ProdutoCat = { id: string; nome: string; codigo: string | null; marca: string | null; preco: number; preco_custo: number }
 

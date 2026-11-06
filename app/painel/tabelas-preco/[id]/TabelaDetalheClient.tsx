@@ -14,10 +14,11 @@ import {
   toggleTabela,
   buscarProdutosParaTabela,
 } from '../actions'
+import { formatBRL } from '@/lib/utils'
 
 const supabaseBrowser = createClient()
 
-const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmt = formatBRL
 
 // margem sobre o preço de venda: (venda − custo) / venda
 const margemPct = (venda: number, custo: number) => (venda > 0 ? ((venda - custo) / venda) * 100 : 0)

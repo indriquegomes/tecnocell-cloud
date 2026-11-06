@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { salvarMeta } from './actions'
 import { SubmitButton } from '@/components/SubmitButton'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
+import { formatBRL } from '@/lib/utils'
 
 type Loja = { id: string; nome: string }
 type FaixaEdit = { nome: string; valor: string; premio: string }
@@ -29,7 +30,7 @@ export function MetasForm({ lojas, editando }: { lojas: Loja[]; editando?: MetaE
 
   const set = (i: number, campo: keyof FaixaEdit, v: string) =>
     setFaixas((prev) => prev.map((f, j) => (j === i ? { ...f, [campo]: v } : f)))
-  const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  const fmtBRL = formatBRL
   const porPessoa = (valorStr: string) => {
     const v = parseFloat(valorStr) || 0
     return pessoas > 0 && v > 0 ? fmtBRL(v / pessoas) : '—'

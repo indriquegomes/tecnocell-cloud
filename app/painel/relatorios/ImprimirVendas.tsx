@@ -1,5 +1,7 @@
 'use client'
 
+import { formatBRL } from '@/lib/utils'
+
 // Botão "Imprimir (PDF)" do relatório de Vendas: abre uma janela limpa
 // com as vendas + devoluções e dispara o print (o dono salva como PDF).
 
@@ -14,7 +16,7 @@ export type VendaImpressao = {
   devolvido: number
 }
 
-const money = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const money = formatBRL
 
 export function ImprimirVendas({ vendas, de, ate }: { vendas: VendaImpressao[]; de: string; ate: string }) {
   const imprimir = () => {

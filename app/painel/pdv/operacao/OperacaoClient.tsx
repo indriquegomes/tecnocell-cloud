@@ -17,6 +17,7 @@ import {
 } from './actions'
 import type { DestinoNaTela, PixAvisos } from '@/lib/pix-destinos'
 import { avisosDeFechamento, precisaCiencia, type AvisoCaixa } from '@/lib/avisos-caixa'
+import { formatBRL } from '@/lib/utils'
 
 // Token de auth lido do navegador e injetado no submit dos forms — cookies()
 // vem vazio em server actions na Vercel, então o servidor valida este token.
@@ -37,7 +38,7 @@ function withToken(action: (fd: FormData) => void) {
 }
 
 // ─── Utilitários (módulo-level, não recriados a cada render) ────────────────
-const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmt = formatBRL
 const fmtDate = (d: string) => new Date(d).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 const fmtHora = (d: string) =>
   new Date(d).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })

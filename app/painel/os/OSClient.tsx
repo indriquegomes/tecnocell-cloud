@@ -5,8 +5,9 @@ import { useState, useMemo, useEffect } from 'react'
 import { Spinner } from '@/components/Spinner'
 import { useRouter } from 'next/navigation'
 import { criarOS, atualizarStatusOS, buscarClientesOS, criarClienteRapidoOS, atualizarValoresOS, receberOS, listarChecklistsOS, aplicarChecklistOS, salvarChecklistOS, removerChecklistOS, type OrdemServico, type StatusOS, type ChecklistOS } from './actions'
+import { formatBRL } from '@/lib/utils'
 
-const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmt = formatBRL
 const fmtDt = (s: string) => new Date(s).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'America/Sao_Paulo' })
 
 const STATUS_MAP: Record<StatusOS, { label: string; cor: string }> = {

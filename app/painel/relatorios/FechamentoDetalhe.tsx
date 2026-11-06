@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { formatBRL } from '@/lib/utils'
 
 export type MovDetalhe = {
   data: string
@@ -13,7 +14,7 @@ export type MovDetalhe = {
   valor: number          // + entra, − sai
 }
 
-const money = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const money = formatBRL
 const dtBR = (s: string) => new Date(s).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 
 export function FechamentoDetalhe({
