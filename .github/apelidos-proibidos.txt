@@ -1,7 +1,8 @@
 # Apelidos proibidos de pessoas — um por linha. Palavra inteira, exata.
 # Fonte: docs/mapa/glossario.md (seção Pessoas). Só muda com confirmação do dono.
-Isa
-Duda
-Mari
+Bia
 Bruna
+Duda
+Isa
+Mari
 Vitor
