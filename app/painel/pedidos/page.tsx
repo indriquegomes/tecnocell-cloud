@@ -10,7 +10,7 @@ import { Dica } from '@/components/Dica'
 // ═══════════════════════════════════════════════════════════════════
 // PEDIDOS E ORÇAMENTOS — inclui as VENDAS do PDV.
 //
-// Isa: "Pedidos e orçamentos deveria mostrar todo o relatório de pedidos que
+// equipe: "Pedidos e orçamentos deveria mostrar todo o relatório de pedidos que
 // fazemos no PDV. Não está sendo exibido."
 //
 // Causa: esta tela lia só a tabela `pedidos` (1 registro), enquanto o PDV grava
@@ -59,7 +59,7 @@ export default async function PedidosPage({
   const supabase = await createServiceClient()
 
   const ordemAtual = ordem ?? 'cliente'
-  // Padrão = ALFABÉTICO por cliente (A→Z) — pedido da Isa (26/07). A lista continua
+  // Padrão = ALFABÉTICO por cliente (A→Z) — pedido de (26/07). A lista continua
   // ordenável por qualquer coluna; pra ver o dia de hoje é só clicar em DATA (aí vai
   // "mais recente primeiro"). Sem dir explícito, DATA ordena desc (recente) e as
   // demais colunas ordenam asc (A→Z), que é o que se espera de cada uma.
@@ -85,7 +85,7 @@ export default async function PedidosPage({
   const from = (paginaNum - 1) * POR_PAGINA
   const to = from + POR_PAGINA - 1
 
-  // Loja/empresa: gerente vê todas; atendente só a(s) permitida(s). Adendo Isa 29/07.
+  // Loja/empresa: gerente vê todas; atendente só a(s) permitida(s). Adendo de 29/07.
   const { permitidas, todas: vemTodas } = await lojasDoUsuario()
   const nomesPermitidos = permitidas.map((l) => l.nome)
 

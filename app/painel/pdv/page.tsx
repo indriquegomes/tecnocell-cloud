@@ -76,7 +76,7 @@ export default async function PDVPage({ searchParams }: { searchParams?: Promise
   const precosPorTabela: Record<string, Record<string, { qtd_min: number; preco: number }[]>> = {}
 
   // Quais tabelas os clientes REALMENTE usam. O PDV pré-carrega só essas em segundo
-  // plano (Isa: "trocar de tabela demora") — sem isso ele baixaria as 7 tabelas
+  // plano (equipe: "trocar de tabela demora") — sem isso ele baixaria as 7 tabelas
   // (45 mil linhas), sendo que metade não é usada por ninguém.
   const pessoasComTabela = await fetchAll<{ tabela_preco_id: string | null }>(
     (from, to) => supabase.from('pessoas').select('tabela_preco_id').not('tabela_preco_id', 'is', null).range(from, to),

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 
 // Botão "Colunas" que liga/desliga a coluna de estoque de cada depósito na lista
-// de Produtos. O Vitor: "sistema de coluna — eu seleciono a coluna que quero
+// de Produtos. O João Vítor Maximiano França: "sistema de coluna — eu seleciono a coluna que quero
 // colocar ou não". A escolha fica salva no navegador dele (localStorage).
 //
 // Como funciona sem "piscar": o servidor já renderiza TODAS as colunas de depósito

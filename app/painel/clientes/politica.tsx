@@ -1,6 +1,6 @@
 // TEXTO DA POLÍTICA DE CADASTRO — mostrado na criação de cliente (no /clientes e no PDV).
 //
-// 🔴 PLACEHOLDER — o Vitor vai mandar o texto oficial. Trocar SÓ esta constante.
+// 🔴 PLACEHOLDER — o João Vítor Maximiano França vai mandar o texto oficial. Trocar SÓ esta constante.
 // (nada mais depende do conteúdo; é uma string só.)
 export const POLITICA_CADASTRO = `Ao efetuar o cadastro, o cliente declara que os dados informados são verdadeiros e autoriza seu uso para fins comerciais, de cobrança e de concessão de crédito (fiado).
 

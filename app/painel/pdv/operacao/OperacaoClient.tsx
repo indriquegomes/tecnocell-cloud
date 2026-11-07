@@ -179,12 +179,12 @@ function listaPorForma(porForma: Record<string, number>, abertura: number): [str
 }
 
 // ─── "Em Caixa" — o saldo separado POR TIPO, porque cada um se confere num lugar ──
-// Processo da loja (Vitor): dinheiro conta na gaveta · PIX bate nos comprovantes do
+// Processo da loja (João Vítor Maximiano França): dinheiro conta na gaveta · PIX bate nos comprovantes do
 // WhatsApp · cartão bate na maquininha (automático) · Crédito Loja é DÍVIDA, não é
 // dinheiro em lugar nenhum. Só a linha Dinheiro é o saldo esperado da contagem.
 //
 // Cada linha ABRE a lista das VENDAS daquela forma. É assim que se confere de verdade:
-// a Duda pega comprovante de PIX por comprovante e bate com a venda que o gerou. Lista
+// a Maria Eduarda Kappler da Silva pega comprovante de PIX por comprovante e bate com a venda que o gerou. Lista
 // de produto vendido não serve pra isso — o comprovante é da VENDA, não do produto.
 function EmCaixaCard({
   abertura,
@@ -1522,7 +1522,7 @@ export function OperacaoClient({
 
   // Dinheiro PRIMEIRO — reforço/sangria é quase sempre em espécie, e o <select> usa o 1º
   // como padrão. Antes ficava "Crédito PagBank" (as formas vêm ordenadas por nome), então
-  // a operadora fazia um reforço/retirada em cartão sem querer e não mexia na gaveta (Isa 29/07).
+  // a operadora fazia um reforço/retirada em cartão sem querer e não mexia na gaveta (29/07).
   const formasFisicas = formas
     .filter((f) => !FORMAS_INVALIDAS.some((inv) => f.includes(inv)))
     .sort((a, b) => (/dinheiro/i.test(a) ? -1 : /dinheiro/i.test(b) ? 1 : 0))
@@ -1539,7 +1539,7 @@ export function OperacaoClient({
     totalDevolucoes
   // Tudo que o turno produziu (vendas de todas as formas, incl. fiado) — visão gerencial.
   // Reforço/sangria contam SÓ em dinheiro (igual à gaveta e à devolução): reforço/sangria
-  // em cartão/PIX não é dinheiro que o turno produziu — antes inflava este total (Isa 29/07).
+  // em cartão/PIX não é dinheiro que o turno produziu — antes inflava este total (29/07).
   const saldoTotal =
     (caixaAberto?.valor_abertura ?? 0) + totalVendas + reforcosDinheiro - retiradasDinheiro - totalDevolucoes
   // Caixa aberto num dia e ainda aberto no seguinte = bagunça na conferência.
@@ -1834,7 +1834,7 @@ export function OperacaoClient({
                   <tbody className="divide-y divide-gray-50">
                     {vendasDetalhe.slice(paginaVendas * VENDAS_POR_PAGINA, (paginaVendas + 1) * VENDAS_POR_PAGINA).map((v) => (
                       // A venda inteira leva pro Painel de Vendas com ela ABERTA (deep-link
-                      // ?venda=). O Vitor confere o PIX aqui e clica pra ver os itens/comprovante.
+                      // ?venda=). O João Vítor Maximiano França confere o PIX aqui e clica pra ver os itens/comprovante.
                       <tr
                         key={v.id}
                         onClick={() => router.push(`/painel/vendas?venda=${v.id}`)}

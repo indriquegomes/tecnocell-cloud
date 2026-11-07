@@ -47,7 +47,7 @@ export default async function ProdutosPage({
   const precisaTudo = ordemEstoque || !!params.com_estoque
 
   // Com o filtro de depósito, TODA a tela (número, ordenação, "somente com estoque")
-  // passa a olhar só aquele depósito — pedido do Vitor: "mostra só o de Petrópolis"
+  // passa a olhar só aquele depósito — pedido de João Vítor Maximiano França: "mostra só o de Petrópolis"
   const getEstoque = (p: Record<string, unknown>) =>
     ((p.estoque as { quantidade: number; deposito_id: string }[]) ?? [])
       .filter((e) => !params.deposito || e.deposito_id === params.deposito)

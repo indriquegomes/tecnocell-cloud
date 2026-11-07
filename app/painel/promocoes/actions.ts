@@ -58,7 +58,7 @@ export async function criarPromocao(formData: FormData) {
 }
 
 // ===== Faixas de quantidade (promoção "progressivo") =====
-// Renomear / ajustar a promoção (Vitor: "tem uma promoção chamada Teste, quero
+// Renomear / ajustar a promoção (João Vítor Maximiano França: "tem uma promoção chamada Teste, quero
 // trocar o nome"). Só mexe nos campos editáveis — tipo/valor não mudam aqui pra
 // não bagunçar o cálculo do desconto já aplicado nos itens.
 export async function editarPromocao(id: string, formData: FormData) {
@@ -107,7 +107,7 @@ export async function togglePromocao(id: string, ativa: boolean) {
   revalidatePath(`/painel/promocoes/${id}`)
 }
 
-// Isa: promoção só valer em certas tabelas de preço. Lista vazia = vale em todas.
+// equipe: promoção só valer em certas tabelas de preço. Lista vazia = vale em todas.
 export async function salvarTabelasPromo(promocaoId: string, tabelaIds: string[]): Promise<{ ok: boolean; erro?: string }> {
   await requirePermissao('produtos')
   const supabase = await createServiceClient()
@@ -196,7 +196,7 @@ export async function adicionarItensLotePromocao(
 
 // ===== PROMOÇÃO POR CATEGORIA =====
 //
-// Pedido da Isa: promoção de PELÍCULA sem ter que catar as 327 películas na mão.
+// Pedido de: promoção de PELÍCULA sem ter que catar as 327 películas na mão.
 //
 // A promoção continua guardando PRODUTO A PRODUTO (itens_promocao) — a lógica de preço
 // do PDV não muda em nada. Isso é dinheiro; não mexo nela por conveniência de cadastro.

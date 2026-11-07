@@ -38,13 +38,13 @@ export function FechamentoDetalhe({
   const entrou = filtrados.filter((m) => m.valor > 0).reduce((s, m) => s + m.valor, 0)
   const saiu = filtrados.filter((m) => m.valor < 0).reduce((s, m) => s + m.valor, 0)
 
-  // Saldo líquido por forma de pagamento (como o "Saldos no Fechamento" do SIGE). Isa 29/07.
+  // Saldo líquido por forma de pagamento (como o "Saldos no Fechamento" do SIGE). 29/07.
   const porForma = Object.entries(
     filtrados.reduce<Record<string, number>>((acc, m) => { acc[m.forma] = (acc[m.forma] ?? 0) + m.valor; return acc }, {}),
   ).map(([forma, valor]) => ({ forma, valor })).sort((a, b) => b.valor - a.valor)
 
   // Resumo por tipo de operação (blocos do PDF do SIGE: vendas / recebimentos /
-  // reforços / devoluções / retiradas). Isa 29/07 — espelhar o fechamento do SIGE.
+  // reforços / devoluções / retiradas). 29/07 — espelhar o fechamento do SIGE.
   const ordemOp = ['Venda', 'Recebimento', 'Reforço', 'Devolução', 'Retirada']
   const porOperacao = Object.entries(
     filtrados.reduce<Record<string, { qtd: number; total: number }>>((acc, m) => {

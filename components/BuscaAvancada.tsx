@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-// Painel de Busca Avançada reutilizável (Isa 29/07). Casca colapsável padrão:
+// Painel de Busca Avançada reutilizável (29/07). Casca colapsável padrão:
 // resumo "🔎 Busca Avançada" + badge quando há filtro ativo + conteúdo (form ou
 // controles). Cada tela põe seus próprios campos dentro. Nativo (<details>), sem JS.
 // Usado em: Financeiro, Clientes, Fiados. Reaproveitar em qualquer lista nova.

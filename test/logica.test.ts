@@ -50,7 +50,7 @@ test('horasTexto(490) = "8h10"', () => assert.equal(horasTexto(490), '8h10'))
 // ── turnosDoDia ────────────────────────────────────────────────────
 const escBase: Escala[] = [{ id: 'e1', perfil_id: 'p1', dia: 1, entrada: '08:00:00', saida: '16:20:00', pausa_inicio: null, pausa_fim: null, ativo: true }]
 test('rotina normal vira turno 08:00-16:20', () => {
-  const t = turnosDoDia('2026-10-12', 1, escBase, [], { p1: 'Duda' })
+  const t = turnosDoDia('2026-10-12', 1, escBase, [], { p1: 'Maria Eduarda Kappler da Silva' })
   assert.equal(t.length, 1)
   assert.equal(t[0].entrada, 480)
   assert.equal(t[0].saida, 980)
@@ -58,27 +58,27 @@ test('rotina normal vira turno 08:00-16:20', () => {
 })
 test('exceção folga marca folga=true', () => {
   const ex: Excecao[] = [{ id: 'x1', perfil_id: 'p1', data: '2026-10-12', folga: true, entrada: null, saida: null, motivo: 'folga' }]
-  const t = turnosDoDia('2026-10-12', 1, escBase, ex, { p1: 'Duda' })
+  const t = turnosDoDia('2026-10-12', 1, escBase, ex, { p1: 'Maria Eduarda Kappler da Silva' })
   assert.equal(t[0].folga, true)
 })
 test('exceção de horário sobrescreve rotina', () => {
   const ex: Excecao[] = [{ id: 'x1', perfil_id: 'p1', data: '2026-10-12', folga: false, entrada: '09:00', saida: '18:00', motivo: null }]
-  const t = turnosDoDia('2026-10-12', 1, escBase, ex, { p1: 'Duda' })
+  const t = turnosDoDia('2026-10-12', 1, escBase, ex, { p1: 'Maria Eduarda Kappler da Silva' })
   assert.equal(t[0].entrada, 540)
   assert.equal(t[0].saida, 1080)
   assert.equal(t[0].alterado, true)
 })
 test('exceção de quem NÃO tem rotina cria turno', () => {
   const ex: Excecao[] = [{ id: 'x2', perfil_id: 'p2', data: '2026-10-12', folga: false, entrada: '10:00', saida: '14:00', motivo: 'extra' }]
-  const t = turnosDoDia('2026-10-12', 1, escBase, ex, { p1: 'Duda', p2: 'Mari' })
+  const t = turnosDoDia('2026-10-12', 1, escBase, ex, { p1: 'Maria Eduarda Kappler da Silva', p2: 'Mariana Vila Real Castelli' })
   assert.equal(t.some((x) => x.perfilId === 'p2' && x.alterado), true)
 })
 test('escala inativa é ignorada', () => {
   const esc: Escala[] = [{ ...escBase[0], ativo: false }]
-  assert.equal(turnosDoDia('2026-10-12', 1, esc, [], { p1: 'Duda' }).length, 0)
+  assert.equal(turnosDoDia('2026-10-12', 1, esc, [], { p1: 'Maria Eduarda Kappler da Silva' }).length, 0)
 })
 test('escala de outro dia é ignorada', () => {
-  assert.equal(turnosDoDia('2026-10-12', 2, escBase, [], { p1: 'Duda' }).length, 0)
+  assert.equal(turnosDoDia('2026-10-12', 2, escBase, [], { p1: 'Maria Eduarda Kappler da Silva' }).length, 0)
 })
 
 // ── trabalhadoDoDia ────────────────────────────────────────────────
@@ -122,7 +122,7 @@ test('ninguém escalado = furo do expediente inteiro', () => {
   assert.equal(f[0].ate, 1140)
 })
 test('turno 08-16:20 deixa furo das 16:20 às 19:00 (loja fecha 19h)', () => {
-  const turnos = turnosDoDia('2026-10-12', 1, escBase, [], { p1: 'Duda' })
+  const turnos = turnosDoDia('2026-10-12', 1, escBase, [], { p1: 'Maria Eduarda Kappler da Silva' })
   const f = furosDoDia(turnos, 1)
   assert.equal(f.length, 1)
   assert.equal(f[0].de, 980)
@@ -130,7 +130,7 @@ test('turno 08-16:20 deixa furo das 16:20 às 19:00 (loja fecha 19h)', () => {
 })
 test('pausa gera furo no meio + depois da saída', () => {
   const esc: Escala[] = [{ id: 'e1', perfil_id: 'p1', dia: 1, entrada: '08:00:00', saida: '18:00:00', pausa_inicio: '12:00', pausa_fim: '13:00', ativo: true }]
-  const turnos = turnosDoDia('2026-10-12', 1, esc, [], { p1: 'Duda' })
+  const turnos = turnosDoDia('2026-10-12', 1, esc, [], { p1: 'Maria Eduarda Kappler da Silva' })
   const f = furosDoDia(turnos, 1)
   // pausa 12:00-13:00 (720-780) e após saída 18:00-19:00 (1080-1140)
   assert.equal(f.length, 2)

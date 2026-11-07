@@ -11,7 +11,7 @@ export default async function NovaNotaPage({ searchParams }: { searchParams: Pro
   // só fornecedores (97), filtrado no servidor — antes pegava 500 pessoas e perdia o resto
   const { data: fornecedoresRaw } = await supabase.from('pessoas').select('id, nome').in('tipo', ['fornecedor', 'ambos']).order('nome')
   const fornecedores = fornecedoresRaw ?? []
-  // Número automático pela contagem das notas anteriores (Isa 29/07) — editável.
+  // Número automático pela contagem das notas anteriores (29/07) — editável.
   const { count } = await supabase.from('notas_entrada').select('id', { count: 'exact', head: true })
   const proximoNumero = String((count ?? 0) + 1)
 

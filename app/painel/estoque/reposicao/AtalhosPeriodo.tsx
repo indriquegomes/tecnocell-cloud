@@ -1,6 +1,6 @@
 'use client'
 
-// Atalhos rápidos de período — clicou, JÁ recalcula (o Vitor: "clico em 7 e 15 e
+// Atalhos rápidos de período — clicou, JÁ recalcula (o João Vítor Maximiano França: "clico em 7 e 15 e
 // não vai nada"). Antes o botão só mudava as datas e ficava esperando o "Calcular";
 // agora ele preenche as datas E submete o form na hora.
 export function AtalhosPeriodo() {

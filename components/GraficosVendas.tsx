@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { formatBRL } from '@/lib/utils'
 
-// Dois gráficos que o Vitor pediu (existiam no SIGE e faltavam aqui).
+// Dois gráficos que o João Vítor Maximiano França pediu (existiam no SIGE e faltavam aqui).
 // SVG/HTML puro, sem biblioteca de gráfico: zero dependência nova, zero peso no
 // bundle — e o PDV/painel continua leve, que é o que importa pra loja.
 //
@@ -17,7 +17,7 @@ const CINZA = '#cbd5e1'
 
 // ───────────────────────────────────────────────────────────────
 // 1. FLUXO DIÁRIO DE VENDAS — barras, uma por dia do mês.
-// Pedido da Isa: barras por dia e, ao passar o mouse, um box com o valor
+// Pedido de: barras por dia e, ao passar o mouse, um box com o valor
 // vendido naquele dia (referência: o gráfico de vendas do SIGE). Antes era
 // linha com tooltip nativo do navegador (lento e só nos pontos).
 // ───────────────────────────────────────────────────────────────

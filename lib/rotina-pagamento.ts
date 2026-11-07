@@ -1,6 +1,6 @@
 // Rotina de pagamento do fiado — o COMBINADO com o cliente (quase sempre lojista).
 //
-// Vitor: "normalmente temos rotina das pessoas que pagam em certa hora — as que pagam
+// João Vítor Maximiano França: "normalmente temos rotina das pessoas que pagam em certa hora — as que pagam
 // no final do dia, colocar como padrão no cadastro dela". Serve pro balcão saber que
 // aquele saldo devedor é NORMAL (o cara acumula de manhã e acerta 18h) e não virar
 // cobrança constrangedora — e, ao contrário, destacar quem fugiu da própria rotina.

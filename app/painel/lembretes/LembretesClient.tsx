@@ -95,7 +95,7 @@ export function LembretesClient({
           <p className="mx-auto mt-1 max-w-md text-sm text-gray-400">
             {somenteTipo === 'pagamento'
               ? 'Ex: PIX fixo do motoboy toda segunda às 09:00. No horário aparece um aviso: ao marcar ✓ Pago, o valor é lançado no financeiro com a data do dia. Se quiser guardar o comprovante, use o 📎.'
-              : 'Ex: “Conferir o caixa” pra Duda às 18:30, de segunda a sábado. No horário, aparece um aviso no painel dela — e você vê quando ela marcar como feito.'}
+              : 'Ex: “Conferir o caixa” pra Maria Eduarda Kappler da Silva às 18:30, de segunda a sábado. No horário, aparece um aviso no painel dela — e você vê quando ela marcar como feito.'}
           </p>
         </div>
       ) : (

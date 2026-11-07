@@ -15,7 +15,7 @@ const supabaseBrowser = createClient()
 //
 //  CAIXA  — o sistema descobre sozinho (status='aberto' passou da hora). Não tem
 //           "Feito": ele some quando o caixa fecha de verdade.
-//  ROTINA — o que a Isa cadastrou ("Duda conferir caixa 18:30"). Só some quando a
+//  ROTINA — o que a equipe cadastrou ("Maria Eduarda Kappler da Silva conferir caixa 18:30"). Só some quando a
 //           pessoa clica em FEITO — é o que separa isto de um alarme que se ignora.
 export function BarraAvisos({
   caixas = [],

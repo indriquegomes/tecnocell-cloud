@@ -1,4 +1,4 @@
-// Rotinas da equipe que o sistema cobra: "Duda conferir caixa 18:30", "Mari limpar
+// Rotinas da equipe que o sistema cobra: "Maria Eduarda Kappler da Silva conferir caixa 18:30", "Mariana Vila Real Castelli limpar
 // a loja 09:00". Não é agenda — é a mesma coisa todo dia, e a pessoa marca como FEITO.
 //
 // O "feito" é o que separa isto de um alarme: sem ele ninguém sabe se a loja foi limpa.

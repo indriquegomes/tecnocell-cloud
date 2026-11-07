@@ -65,7 +65,7 @@ export default async function ClientesPage({
 
   // nomes das tabelas de preço — pra pintar o badge (🟢 Atacado 1 / 🟠 Atacado 2)
   const { data: tabelas } = await supabase.from('tabelas_preco').select('id, nome')
-  // Cidades cadastradas (dropdown do filtro "mais detalhes" da Isa) — cache
+  // Cidades cadastradas (dropdown do filtro "mais detalhes" da equipe) — cache
   // de 5 min (getCidadesCache): antes varria a tabela inteira de pessoas a cada load.
   const cidadesOpc = await getCidadesCache()
 
@@ -94,10 +94,10 @@ export default async function ClientesPage({
     }
   }
   if (params.tipo) query = query.eq('tipo', params.tipo)
-  // Período de cadastro (Isa 29/07): filtrar clientes cadastrados dentro do período
+  // Período de cadastro (29/07): filtrar clientes cadastrados dentro do período
   if (params.de)  query = query.gte('created_at', params.de + 'T00:00:00-03:00')
   if (params.ate) query = query.lte('created_at', params.ate + 'T23:59:59-03:00')
-  // Filtros "mais detalhes" (Isa): cidade, tabela de preço, física/jurídica
+  // Filtros "mais detalhes" (equipe): cidade, tabela de preço, física/jurídica
   if (params.cidade) query = query.eq('cidade', params.cidade)
   if (params.tabela === 'sem') query = query.is('tabela_preco_id', null)
   else if (params.tabela) query = query.eq('tabela_preco_id', params.tabela)
@@ -166,7 +166,7 @@ export default async function ClientesPage({
         <span className="ml-auto self-center text-sm text-gray-400">{total} registro{total === 1 ? '' : 's'}</span>
       </div>
 
-      {/* 🔎 Busca Avançada (Isa 29/07): cidade, tabela, física/jurídica, período */}
+      {/* 🔎 Busca Avançada (29/07): cidade, tabela, física/jurídica, período */}
       <BuscaAvancada ativo={!!(params.cidade || params.tabela || params.pf || params.de || params.ate)}>
         <form method="GET" className="flex flex-wrap items-center gap-2 text-sm">
           {params.busca && <input type="hidden" name="busca" value={params.busca} />}

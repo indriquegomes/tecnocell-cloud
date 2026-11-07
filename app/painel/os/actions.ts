@@ -6,7 +6,7 @@ import { hojeSP } from '@/lib/utils'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-// Status de reparo (originais) + os do fluxo da Isa (orçamento/finalizada/não
+// Status de reparo (originais) + os do fluxo da equipe (orçamento/finalizada/não
 // finalizada). 'vencida' NÃO é status guardado — é derivado da previsão vencida.
 export type StatusOS = 'aguardando' | 'em_reparo' | 'aguardando_peca' | 'pronto' | 'entregue' | 'cancelado'
   | 'orcamento' | 'finalizada' | 'nao_finalizada'
@@ -79,7 +79,7 @@ export async function criarOS(formData: FormData) {
     pessoaNome = (formData.get('pessoa_nome') as string) || null
   }
 
-  // técnico escolhido no form (senão o usuário logado). Isa 29/07.
+  // técnico escolhido no form (senão o usuário logado). 29/07.
   const tecnicoId = (formData.get('tecnico_id') as string) || usuario.id
   const { data: perfil } = await supabase.from('perfis').select('nome').eq('id', tecnicoId).maybeSingle()
   const tecnicoNome = (perfil as { nome?: string } | null)?.nome ?? usuario.email ?? ''

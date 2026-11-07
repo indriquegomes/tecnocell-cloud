@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react'
 
-// Fornecedor com barra de busca (Isa 29/07: o <select> de 97 fornecedores dificultava).
+// Fornecedor com barra de busca (29/07: o <select> de 97 fornecedores dificultava).
 // Filtra em memória (a lista já vem do servidor) e envia o id em name="fornecedor_id".
 export function FornecedorSelect({
   fornecedores,

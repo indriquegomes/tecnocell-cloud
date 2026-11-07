@@ -31,7 +31,7 @@ export function BuscaEstoque() {
     <input
       value={v}
       onChange={(e) => setV(e.target.value)}
-      // Enter busca NA HORA (sem esperar o debounce e sem clicar em Filtrar) — pedido do Vitor
+      // Enter busca NA HORA (sem esperar o debounce e sem clicar em Filtrar) — pedido de João Vítor Maximiano França
       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); buscar(v) } }}
       placeholder="Buscar produto... (Enter)"
       autoFocus

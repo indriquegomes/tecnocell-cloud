@@ -30,7 +30,7 @@ export default async function CategoriasPage({
     total: produtos.filter((p) => p.categoria === c.hierarquia).length,
   }))
 
-  // Produtos sem categoria (nula, vazia ou órfã) — Isa 29/07: "mostrar produtos sem categoria também"
+  // Produtos sem categoria (nula, vazia ou órfã) — 29/07: "mostrar produtos sem categoria também"
   const hierSet = new Set((categorias ?? []).map((c) => c.hierarquia))
   const semCategoria = produtos.filter((p) => !p.categoria || !hierSet.has(p.categoria)).length
 

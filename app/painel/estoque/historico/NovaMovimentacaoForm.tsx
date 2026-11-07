@@ -17,7 +17,7 @@ const OP_CLS: Record<string, string> = {
   saida:   'text-red-700 bg-red-50 border-red-200',
   ajuste:  'text-blue-700 bg-blue-50 border-blue-200',
   // perda (quebra/sumiço/avaria): baixa o estoque igual à saída, mas fica separada
-  // no livro-razão pra somar no fim do mês (pedido da Isa).
+  // no livro-razão pra somar no fim do mês (pedido de).
   perda:   'text-orange-700 bg-orange-50 border-orange-200',
   uso_interno: 'text-purple-700 bg-purple-50 border-purple-200',
 }

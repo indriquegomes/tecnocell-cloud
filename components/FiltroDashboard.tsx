@@ -6,7 +6,7 @@ import { beginNav, endNav } from '@/components/NavProgress'
 
 // Filtro do dashboard: período + loja.
 //
-// Pedido da Isa: "mostrar por mês, ano e selecionar a loja ali em 'todas as empresas'".
+// Pedido de: "mostrar por mês, ano e selecionar a loja ali em 'todas as empresas'".
 // O motivo real: o ranking de vendedores mostra "ATENDIMENTO PETRÓPOLIS 01" no topo
 // porque 30 dias contêm ~27 dias de SIGE (login por LOJA) contra ~3 de TecnoCell.
 // Escolhendo "Esta semana", ela vê MARIANA / MARIA EDUARDA / ISABELA / BRUNNA.
@@ -28,7 +28,7 @@ export function FiltroDashboard({
 
   // Navega mostrando a barra de carregamento do topo. O filtro só troca a QUERY
   // (mesmo pathname), então a barra não fecharia sozinha — beginNav/endNav a
-  // controlam pelo estado da transição. (Reclamação da Isa: "clica e não acontece
+  // controlam pelo estado da transição. (Reclamação de: "clica e não acontece
   // nada visível enquanto carrega".)
   // router.refresh() força buscar de novo no servidor — sem isso o Router Cache do
   // Next as vezes servia a pagina antiga (Este mes) depois de trocar pra Hoje/Semana,
@@ -94,7 +94,7 @@ export function FiltroDashboard({
       className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/60 px-3 py-2 transition-opacity"
       style={pending ? { opacity: 0.55, pointerEvents: 'none' } : undefined}
     >
-      {/* "Hoje" é o atalho que a Isa mais usa. O histórico importado que poluía o
+      {/* "Hoje" é o atalho que a equipe mais usa. O histórico importado que poluía o
           ranking de vendedoras (login por LOJA, não por pessoa) foi removido em
           13/08/2026 — agora qualquer janela mostra vendedora de verdade. */}
       <button type="button" onClick={() => atalho(1)} className={btn(ativoHoje)}>Hoje</button>

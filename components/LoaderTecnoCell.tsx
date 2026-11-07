@@ -1,5 +1,5 @@
 // Tela de carregamento da marca — o ícone da TecnoCell quica pela caixa (estilo
-// "DVD" que o Vitor gostou no Uiverse), com um brilho que vai do azul pro laranja
+// "DVD" que o João Vítor Maximiano França gostou no Uiverse), com um brilho que vai do azul pro laranja
 // da marca. Pra ele (e a equipe) saberem que está carregando, com a nossa cara.
 // CSS puro, sem lib. Respeita quem pede menos movimento (prefers-reduced-motion).
 export function LoaderTecnoCell({ texto = 'Carregando' }: { texto?: string }) {

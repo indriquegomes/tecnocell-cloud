@@ -413,7 +413,7 @@ export async function finalizarVenda(
     return { erro: 'Erro ao conectar ao banco: ' + String(e) }
   }
 
-  // TRAVA (Isa): o caixa DESTA LOJA precisa estar aberto pra vender. Escopo por
+  // TRAVA (equipe): o caixa DESTA LOJA precisa estar aberto pra vender. Escopo por
   // loja (do depósito da venda); se a migração caixa-por-loja ainda não rodou,
   // cai numa checagem global (qualquer caixa aberto).
   let caixaId: string | null = null

@@ -17,7 +17,7 @@ function Secao({ titulo, desc, children }: { titulo: string; desc?: string; chil
   )
 }
 
-// Botão de CTA com a seta que desliza — a que o Vitor gostou, adaptada ao brand e
+// Botão de CTA com a seta que desliza — a que o João Vítor Maximiano França gostou, adaptada ao brand e
 // ligada ao TOQUE (:active), não só hover, pra funcionar no tablet.
 function BotaoSeta({ children, cor = '#1B6CA8' }: { children: React.ReactNode; cor?: string }) {
   return (
@@ -39,7 +39,7 @@ export function ComponentesClient() {
   return (
     <div className="space-y-6">
       <style>{`
-        /* CTA com seta — o efeito que o Vitor gostou (Uiverse), no brand e no TOQUE.
+        /* CTA com seta — o efeito que o João Vítor Maximiano França gostou (Uiverse), no brand e no TOQUE.
            A seta esconde a ponta e revela ao apertar/passar. transform no :active
            funciona no dedo do tablet; :hover é so bonus no desktop. */
         .tc-cta {

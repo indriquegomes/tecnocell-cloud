@@ -2,10 +2,10 @@
 //
 // A loja abre 08:00 e fecha 19:00 (sábado 17:00). Domingo não abre.
 //
-// A escala é a ROTINA (a Duda entra 08h toda segunda). Como ela varia, existem
+// A escala é a ROTINA (a Maria Eduarda Kappler da Silva entra 08h toda segunda). Como ela varia, existem
 // ALTERAÇÕES: um dia específico sobrescreve a rotina (folga, ou entrar mais tarde).
 //
-// O que o Vitor quer enxergar: o FURO — loja aberta e ninguém escalado. Mínimo é
+// O que o João Vítor Maximiano França quer enxergar: o FURO — loja aberta e ninguém escalado. Mínimo é
 // UMA pessoa; com uma já está coberto.
 
 export const HORARIO_LOJA = {
@@ -69,7 +69,7 @@ export function horarioDoDia(diaSemana: number) {
   return diaSemana === 6 ? HORARIO_LOJA.sabado : HORARIO_LOJA.semana
 }
 
-// A RÉGUA vai de 00:00 a 24:00 (pedido do Vitor: "não contar somente quando a loja
+// A RÉGUA vai de 00:00 a 24:00 (pedido de João Vítor Maximiano França: "não contar somente quando a loja
 // está aberta, mas o dia todo"). Sem isto não dava pra escalar quem chega 06h pra
 // abrir, ou quem fica depois das 19h fechando o caixa — a régua parava no horário
 // comercial. O FURO continua sendo só dentro do expediente: loja fechada não tem furo.
@@ -111,7 +111,7 @@ export function turnosDoDia(
     })
   }
 
-  // Alteração de quem NÃO tem rotina nesse dia (ex: chamaram a Mari num sábado que
+  // Alteração de quem NÃO tem rotina nesse dia (ex: chamaram a Mariana Vila Real Castelli num sábado que
   // ela normalmente não trabalha). Sem isso, ela cobriria a loja e o sistema não veria.
   for (const ex of doDia) {
     if (turnos.some((t) => t.perfilId === ex.perfil_id)) continue
@@ -166,11 +166,11 @@ export function furosDoDia(turnos: Turno[], diaSemana: number): { de: number; at
 
 // ── PONTO: o que REALMENTE aconteceu ────────────────────────────────────────
 //
-// A escala é o PLANO. O ponto é o REAL. A Bruna aperta "Pausa" quando vai lanchar
+// A escala é o PLANO. O ponto é o REAL. A Brunna Furtado Gonçalves aperta "Pausa" quando vai lanchar
 // (10 minutinhos) e "Retornar" quando volta — e isso vira uma barra ao lado da barra
 // planejada, na mesma linha do tempo.
 //
-// Vitor foi explícito: é pra ENXERGAR, não pra julgar. Nada de "atrasado", nada de
+// O João Vítor Maximiano França foi explícito: é pra ENXERGAR, não pra julgar. Nada de "atrasado", nada de
 // limite de pausa. Só o tempo trabalhado. Se as meninas sentirem vigilância, param de
 // apertar o botão — e aí o dado morre e o esforço foi jogado fora.
 

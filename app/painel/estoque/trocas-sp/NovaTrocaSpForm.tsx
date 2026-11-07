@@ -6,7 +6,7 @@ import { criarTrocaSp } from './actions'
 
 // Form simples de troca SP: peça + fornecedor + quantidade + valor. O status nasce
 // 'enviado' e muda pelos botões da lista (voltou/abatido). Loja vem de um select —
-// cada loja acompanha as PRÓPRIAS trocas (pedido do Vitor: separar por loja).
+// cada loja acompanha as PRÓPRIAS trocas (pedido de João Vítor Maximiano França: separar por loja).
 export function NovaTrocaSpForm({ lojas }: { lojas: { id: string; nome: string }[] }) {
   return (
     <form action={criarTrocaSp} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">

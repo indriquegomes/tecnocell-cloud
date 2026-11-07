@@ -36,7 +36,7 @@ export default async function FiadosPage() {
   }
 
   // PEÇAS de cada fiado: puxa os itens das vendas ligadas às notas, pra a cobrança
-  // sair com o produto ("2x Frontal iPhone") em vez de "Fiado #152" (pedido da Isa).
+  // sair com o produto ("2x Frontal iPhone") em vez de "Fiado #152" (pedido de).
   // Em LOTES de 100 ids — .in() com muitos ids estoura a URL do PostgREST ([[bug-in-muitos-ids-url-limit]]).
   const vendaIds = [...new Set(lancamentos.map((l) => l.venda_id).filter(Boolean))] as string[]
   const pecasPorVenda = new Map<string, { nome: string; quantidade: number; valor: number }[] | null>()

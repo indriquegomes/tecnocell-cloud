@@ -338,7 +338,7 @@ export function PromoDetalheClient({
         </div>
       )}
 
-      {/* Categoria inteira — pedido da Isa (não catar 327 películas na mão) */}
+      {/* Categoria inteira — pedido da equipe (não catar 327 películas na mão) */}
       {!expirada && categorias.length > 0 && (
         <CategoriaPromo
           promocaoId={promocao.id}

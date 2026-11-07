@@ -19,7 +19,7 @@ const INICIO_CONTAS = '2026-11-01'
 //   + lançamentos manuais pagos com conta_id (receber +, pagar −)
 //   + transferências (destino +, origem −)
 //
-// Roteamento da venda (o pulo do gato da reclamação da Isa):
+// Roteamento da venda (o pulo do gato da reclamação de):
 //   DINHEIRO  → cai no CAIXA da LOJA da venda (a gaveta é por loja: loja_id)
 //   resto     → forma.conta_destino_id (cartão/pix vão pro banco/maquininha)
 //   fiado     → não entra (conta_destino null)
@@ -60,7 +60,7 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
     ])
     const formaById = Object.fromEntries((formas ?? []).map((f) => [f.id, f as { tipo: string | null; conta_destino_id: string | null }]))
 
-    // Roteamento por loja (Isa): forma + loja da venda → conta daquela loja.
+    // Roteamento por loja (equipe): forma + loja da venda → conta daquela loja.
     // Vazio = cai no conta_destino_id (comportamento atual). Backward-compatible.
     const rota: Record<string, Record<string, string>> = {}
     for (const r of (rotaRows ?? []) as { forma_id: string; loja_id: string; conta_id: string }[]) {
@@ -125,7 +125,7 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
         const destino = antesDoCofre ? (loja ? caixaDaLoja[loja] : null) : contaDoDinheiro(loja)
         if (destino) conta = destino
       } else if (loja && p.forma_pagamento_id && rota[p.forma_pagamento_id]?.[loja]) {
-        conta = rota[p.forma_pagamento_id][loja]                    // cartão/PIX → conta da loja (Isa)
+        conta = rota[p.forma_pagamento_id][loja]                    // cartão/PIX → conta da loja (equipe)
       }
       // pagamentos_venda.valor JÁ é o valor líquido do produto — a taxa é
       // cobrada A MAIS do cliente (confirmado com o dono: quem paga R$100 no

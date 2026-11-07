@@ -127,7 +127,7 @@ export async function buscarVendaParaDevolucao(
   const vRaw = vendaRes.data as any
   const pessoaNome = (vRaw.pessoas?.nome ?? vRaw.vendedor_nome ?? null) as string | null
   // Taxa de cartão embutida no total (repasse do custo da maquininha). NÃO é valor de
-  // produto → não reembolsa na devolução (pedido Isa 28/07): a base do reembolso é
+  // produto → não reembolsa na devolução (pedido de 28/07): a base do reembolso é
   // `total − taxa`. Cartão TON etc. gravam taxa em pagamentos_venda; dinheiro/fiado = 0.
   const taxaCartao = ((pagRes.data ?? []) as { taxa: number | null }[]).reduce((s, p) => s + (p.taxa ?? 0), 0)
 

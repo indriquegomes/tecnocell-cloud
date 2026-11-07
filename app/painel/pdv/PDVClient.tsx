@@ -14,7 +14,7 @@ import { rotulaRotina } from '@/lib/rotina-pagamento'
 import { badgeTabela } from '@/lib/badge-tabela'
 import { mensagemPagamentoCrediario } from '@/lib/mensagem-crediario'
 
-// "Desconto" aparece junto das formas de recebimento porque é ali que a Duda procura,
+// "Desconto" aparece junto das formas de recebimento porque é ali que a Maria Eduarda Kappler da Silva procura,
 // mas NÃO é forma de pagamento: não entra dinheiro, ele abate a dívida. Id falso pra
 // não colidir com nenhuma forma real do banco.
 const DESCONTO_ID = '__desconto__'
@@ -319,7 +319,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   // Mensagem pronta pra copiar pro cliente após quitar (F9) + feedback de cópia
   const [mensagemCrediario, setMensagemCrediario] = useState<string | null>(null)
   const [mensagemCopiada, setMensagemCopiada] = useState(false)
-  // forma escolhida pra quitar VÁRIAS notas de uma vez (Isa: "quitar todas de uma vez só")
+  // forma escolhida pra quitar VÁRIAS notas de uma vez (equipe: "quitar todas de uma vez só")
   const [formaQuitar, setFormaQuitar] = useState('')
   const [valoresQuitar, setValoresQuitar] = useState<Record<string, number>>({})
   const [totalQuitar, setTotalQuitar] = useState('')
@@ -345,7 +345,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [modoMistoReceb, setModoMistoReceb] = useState(false)
   const [linhasMisto, setLinhasMisto] = useState<{ formaId: string; valor: string }[]>([])
   // Visão do crediário: por venda (lista de fiados) ou POR PESSOA (quem deve, quanto,
-  // limite e o combinado de pagamento) — pedido do Vitor
+  // limite e o combinado de pagamento) — pedido de João Vítor Maximiano França
   const [visaoCrediario, setVisaoCrediario] = useState<'vendas' | 'pessoas'>('vendas')
   const [infoPessoas, setInfoPessoas] = useState<Record<string, { limite: number; rotina: string | null }>>({})
   // F3 — Busca Orçamento/Pedido
@@ -604,7 +604,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     receberNaEntrega?: boolean
   } | null>(null)
   const [mostrarConfirmacao, setMostrarConfirmacao] = useState(false)
-  // PDV em 2 etapas (pedido da Isa): 'venda' = monta o carrinho/cliente/tabela;
+  // PDV em 2 etapas (pedido de): 'venda' = monta o carrinho/cliente/tabela;
   // 'pagamento' = tela cheia com os botões de forma (a forma sai da 1ª tela).
   const [etapa, setEtapa] = useState<'venda' | 'pagamento'>('venda')
   const [salvandoOrc, setSalvandoOrc] = useState(false)
@@ -639,7 +639,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [enderecoCustom, setEnderecoCustom] = useState('')
   const [depositoId, setDepositoId] = useState(depoDefaultDaLoja(lojas[0]?.id ?? ''))
   // Formas mostradas no PDV: sem loja aparecem sempre; com loja, só na loja delas.
-  // (Isa 29/07 — evita escolher "PIX Teresópolis" no caixa de Petrópolis.)
+  // (29/07 — evita escolher "PIX Teresópolis" no caixa de Petrópolis.)
   //
   // O Vale Crédito (FP_VALE) entra aqui como forma normal — no grid E no dropdown das
   // linhas — mas SÓ quando o cliente tem saldo: sem saldo é um botão morto que só gera
@@ -670,7 +670,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   }, [])
   useEffect(() => { if (lojaId) localStorage.setItem('pdv_loja', lojaId) }, [lojaId])
   useEffect(() => { if (depositoId) localStorage.setItem('pdv_deposito', depositoId) }, [depositoId])
-  // Caixa da loja aberto? (Isa: só vender com caixa aberto) — re-checa ao trocar de loja
+  // Caixa da loja aberto? (equipe: só vender com caixa aberto) — re-checa ao trocar de loja
   const [caixaAberto, setCaixaAberto] = useState(true)   // true até checar (evita piscar bloqueio)
   useEffect(() => {
     if (!lojaId) return
@@ -688,7 +688,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const corLoja = CORES_LOJA[Math.max(0, lojas.findIndex((l) => l.id === lojaId)) % CORES_LOJA.length]
   const depositosDaLoja = depositos.filter((d) => d.loja_id === lojaId)
   // depósitos reais de todas as lojas (exclui órfãos tipo Estoque Geral) — pra mostrar
-  // o estoque em TODAS as lojas no resultado da busca (Isa)
+  // o estoque em TODAS as lojas no resultado da busca (equipe)
   const depositosReais = depositos.filter((d) => d.loja_id)
   // Tabela padrão só vale se o usuário pode vê-la (tabelas vem filtrada do servidor); senão Preço Padrão
   function tabelaVisivel(id: string | null | undefined): string {
@@ -889,7 +889,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     return palavras.every((w) => nm.includes(w) || (/^\d+$/.test(w) ? cod.startsWith(w) : cod.includes(w)))
   }
 
-  // Prioridade de estoque na busca (pedido da Isa): 1º tem na loja atual,
+  // Prioridade de estoque na busca (pedido de): 1º tem na loja atual,
   // 2º não tem aqui mas tem na outra loja, 3º sem estoque em lugar nenhum.
   const idsDepLojaAtual = depositosDaLoja.map((d) => d.id)
   const saldoNaLojaAtual = (p: Produto) => idsDepLojaAtual.reduce((s, id) => s + (p.estoquePorDeposito[id] ?? 0), 0)
@@ -1179,7 +1179,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Pré-carrega as OUTRAS tabelas em segundo plano (Isa: "trocar de tabela demora").
+  // Pré-carrega as OUTRAS tabelas em segundo plano (equipe: "trocar de tabela demora").
   // A troca travava porque só ia buscar os itens da tabela na hora do clique — e uma
   // tabela tem milhares de itens. Carregando antes, escolher o cliente vira instantâneo.
   // Sequencial e sem bloquear a tela; não muda a lógica de preço, só antecipa o fetch.
@@ -1355,7 +1355,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
   const novoPagamento = (): PagamentoItem => ({
     uid: String(Date.now() + Math.random()),
-    // sem forma pré-marcada: a atendente ESCOLHE (pedido da Isa — antes vinha PIX
+    // sem forma pré-marcada: a atendente ESCOLHE (pedido de — antes vinha PIX
     // e ela finalizava sem conferir se foi pix mesmo)
     forma_id: '',
     valor: '',
@@ -1448,7 +1448,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const sobraPg = !temDinheiro && excessoPg > 0.005 ? excessoPg : 0
   const temFiado = pagamentos.some((p) => isFiadoForma(p.forma_id))
 
-  // Auto-preenche o valor do pagamento com o total do carrinho (Isa 15:44): enquanto for
+  // Auto-preenche o valor do pagamento com o total do carrinho (15:44): enquanto for
   // 1 forma só (fora o vale) e o operador não digitou nada, o valor segue o total menos o
   // vale. É isto que faz "aplicou vale de R$10 numa venda de R$15 → a outra linha vira
   // R$5" e que reajusta a outra linha quando o vale é editado.
@@ -2258,7 +2258,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
     // Item em BLOCO (bonito no 58mm): nome na linha inteira + "qtd x preço ... total".
     // A prateleira vai encostada à direita, na MESMA linha do nome (aproveita o espaço
-    // que sobrava ali) — é o que a Isa lê pra saber onde pegar a peça.
+    // que sobrava ali) — é o que a equipe lê pra saber onde pegar a peça.
     const rowItem = (i: typeof snap.itens[0]) => {
       const desc = i.codigo ? `${i.codigo} - ${i.nome}` : i.nome
       const prat = (i as { prateleira?: string | null }).prateleira?.trim()
@@ -2561,7 +2561,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       </div>}
       {/* Coluna esquerda — busca + carrinho */}
       <div className="space-y-4 min-w-0">
-        {/* Aviso: caixa da loja fechado — bloqueia a venda (Isa) */}
+        {/* Aviso: caixa da loja fechado — bloqueia a venda (equipe) */}
         {!caixaAberto && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
             <span className="text-sm font-medium text-amber-800">🔒 O caixa desta loja está fechado — abra o caixa pra registrar vendas.</span>
@@ -2642,7 +2642,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 <button type="button" disabled={comercialTravado} onClick={() => { setPessoaId(''); setBuscaCliente(''); trocarTabela('') }}
                   className="ml-auto text-xs font-medium text-red-400 hover:text-red-600">✕</button>
               </div>
-              {/* Cliente problemático — AVISA, não bloqueia (decisão do Vitor) */}
+              {/* Cliente problemático — AVISA, não bloqueia (decisão de João Vítor Maximiano França) */}
               {clienteSelecionado.nao_vender && (
                 <div className="flex flex-wrap items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-2.5 py-1.5">
                   <span className="text-xs font-bold text-red-700">🚫 NÃO VENDER</span>
@@ -3162,7 +3162,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           </div>
 
           {/* ABA 1 → botão que leva pra tela de pagamento. A forma saiu da 1ª tela
-              (pedido da Isa): primeiro monta a venda, depois escolhe como pagou. */}
+              (pedido da equipe): primeiro monta a venda, depois escolhe como pagou. */}
           {etapa === 'venda' && (
             <button
               type="button"
@@ -3278,7 +3278,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                     <div className="flex items-center gap-2">
                       {/* O dropdown de forma só aparece na DIVISÃO (2+ formas), pra escolher
                           a outra. Na venda de 1 forma o grid de botões acima já escolheu —
-                          senão seria a mesma coisa duas vezes (a Isa reparou).
+                          senão seria a mesma coisa duas vezes (a equipe reparou).
                           Com VALE aplicado também aparece: a linha que sobra é a "outra
                           forma" da divisão e precisa ser escolhida em algum lugar. */}
                       {pagamentos.length > 1 || creditoAplicado > 0 ? (
@@ -3719,7 +3719,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             )}
 
             {/* Barra de quitação em lote — a seleção já existia e somava, mas não havia
-                botão nenhum pra cobrar o selecionado (Isa: "quitar todas de uma vez só"). */}
+                botão nenhum pra cobrar o selecionado (equipe: "quitar todas de uma vez só"). */}
             {selecionados.size > 0 && (
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-blue-100 bg-blue-50 px-5 py-3">
                 <p className="text-sm font-semibold text-blue-900">

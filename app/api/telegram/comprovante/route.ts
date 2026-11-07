@@ -378,7 +378,7 @@ async function deduplica(loja: Loja) {
   }
 
   // CROSS-GROUP: o MESMO Pix (mesmo ID) postado nos DOIS grupos (lojas diferentes) —
-  // contaria em dobro. O robô AVISA (não escolhe qual vale — pedido do Vitor); as
+  // contaria em dobro. O robô AVISA (não escolhe qual vale — pedido de João Vítor Maximiano França); as
   // atendentes conferem de qual loja é e apagam do grupo errado (a planilha é espelho).
   const outro = GRUPOS.find((g) => g !== loja.grupo)
   const txs = [...new Set((cs || []).filter((c) => (c as Comp).status !== 'apagado').map((c) => (c as Comp).transacao_id).filter(Boolean))] as string[]

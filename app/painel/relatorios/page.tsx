@@ -65,7 +65,7 @@ export default async function RelatoriosPage({
   const precisaClientes = ['produtos', 'abc', 'rankclientes'].includes(aba)
 
   // Loja selecionada → filtra vendas pelo CAIXA daquela loja (a venda não tem loja
-  // direto; vem do caixa). Isa 29/07: relatórios por loja. Ver caixa-por-loja-gate-venda.
+  // direto; vem do caixa). 29/07: relatórios por loja. Ver caixa-por-loja-gate-venda.
   const { data: lojasAll } = await supabase.from('lojas').select('id, nome').order('nome')
   // Loja ativa do usuário rege o default: relatório mostra UMA loja por vez, nunca
   // mistura. Atendente restrita não consegue trocar pra loja que não opera (o
@@ -199,7 +199,7 @@ export default async function RelatoriosPage({
         .eq('vendas.status', 'concluida')
         .gte('vendas.created_at', periodo.inicio).lte('vendas.created_at', periodo.fim)
       if (caixasDaLoja) q = q.in('vendas.caixa_id', caixasDaLoja)
-      if (catprod) q = q.eq('produtos.categoria', catprod)   // Condensado (Isa): filtro por categoria
+      if (catprod) q = q.eq('produtos.categoria', catprod)   // Condensado (equipe): filtro por categoria
       return q.range(from, to)
     })
     for (const it of (data ?? []) as unknown as ItemVenda[]) {
@@ -275,7 +275,7 @@ export default async function RelatoriosPage({
   const rankQtd = ordenaProd(Object.values(porProduto))
   const rankValorProd = ordenaProd(Object.values(porProduto))
 
-  // ---------- Condensado (Isa): por produto + marca/fornecedor/categoria + estoque por depósito ----------
+  // ---------- Condensado (equipe): por produto + marca/fornecedor/categoria + estoque por depósito ----------
   type CondRow = { nome: string; codigo: string | null; marca: string | null; fornecedor: string | null; qtd: number; precoCusto: number; custo: number; faturado: number; lucro: number; margem: number; estoquePorDep: Record<string, number>; estoqueTotal: number; valorEstoque: number }
   let condensado: CondRow[] = []
   let depositosCond: { id: string; nome: string }[] = []
@@ -671,7 +671,7 @@ export default async function RelatoriosPage({
     }
     const nomeP = Object.fromEntries((ps ?? []).map((p) => [p.id, p.nome]))
     const agora = Date.now()
-    // Isa: filtrar por PERÍODO = clientes cuja ÚLTIMA compra caiu dentro do intervalo
+    // equipe: filtrar por PERÍODO = clientes cuja ÚLTIMA compra caiu dentro do intervalo
     // escolhido (candidatos a reativar). Antes usava dias>=60 fixo sobre TODA a história
     // importada do SIGE → poluía com quem "nunca comprou de verdade". Loja já filtra via caixa.
     const ini = new Date(periodo.inicio).getTime(), fim = new Date(periodo.fim).getTime()
@@ -1098,10 +1098,10 @@ export default async function RelatoriosPage({
     tiposAcaoOpc = [...new Set((todasAtiv ?? []).map((a) => a.tipo_acao).filter(Boolean))].sort() as string[]
     let qReg = supabase.from('logs_atividade').select('created_at, usuario_email, tipo_acao, contexto')
       .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
-    if (usuario) qReg = qReg.ilike('usuario_email', `%${usuario}%`)  // Isa 29/07: filtrar por usuário
+    if (usuario) qReg = qReg.ilike('usuario_email', `%${usuario}%`)  // 29/07: filtrar por usuário
     if (tipoacao) qReg = qReg.eq('tipo_acao', tipoacao)
     registros = (await qReg.order('created_at', { ascending: false }).limit(300)).data ?? []
-    // total por usuário (quem fez quantas) — Isa: "quem fez e o total"
+    // total por usuário (quem fez quantas) — equipe: "quem fez e o total"
     const uMap: Record<string, number> = {}
     for (const r of registros) uMap[r.usuario_email || '—'] = (uMap[r.usuario_email || '—'] ?? 0) + 1
     registroPorUsuario = Object.entries(uMap).map(([usuario, n]) => ({ usuario, n })).sort((a, b) => b.n - a.n)
@@ -1221,7 +1221,7 @@ export default async function RelatoriosPage({
         })}
       </div>
 
-      {/* Filtros do relatório — painel Busca Avançada colapsável (Isa/SIGE) */}
+      {/* Filtros do relatório — painel Busca Avançada colapsável (equipe/SIGE) */}
       <BuscaAvancada ativo={!!((loja && loja !== 'todas') || vendedor || forma || cliente || vstatus || vnum || vmin || vmax || usuario || caixa)}>
       <form method="GET" className="flex flex-wrap gap-3 items-end">
         <input type="hidden" name="aba" value={aba} />
@@ -1655,7 +1655,7 @@ export default async function RelatoriosPage({
             <Card label="Lucro" valor={fmt(condTotais.lucro)} cor={condTotais.lucro >= 0 ? 'text-green-600' : 'text-red-500'} />
             <Card label="Margem" valor={`${condTotais.faturado > 0 ? (condTotais.lucro / condTotais.faturado * 100).toFixed(1) : '0'}%`} cor="text-gray-800" />
           </div>
-          <p className="text-[11px] text-gray-400">Condensado por produto (Isa): faturamento, custo, lucro e estoque por depósito. Filtre por loja, categoria e período. Custo = preço de custo atual × qtd vendida.</p>
+          <p className="text-[11px] text-gray-400">Condensado por produto (equipe): faturamento, custo, lucro e estoque por depósito. Filtre por loja, categoria e período. Custo = preço de custo atual × qtd vendida.</p>
           <div className="flex justify-end">
             <ExportCsv filename={`condensado_${dataInicio}_${dataFim}.csv`}
               cols={[{ key: 'nome', label: 'Produto' }, { key: 'codigo', label: 'Código' }, { key: 'marca', label: 'Marca' }, { key: 'fornecedor', label: 'Fornecedor' }, { key: 'qtd', label: 'Qtd Vendida' }, { key: 'precoCusto', label: 'Preço Custo', money: true }, { key: 'custo', label: 'Custo das Vendas', money: true }, { key: 'faturado', label: 'Faturado', money: true }, { key: 'lucro', label: 'Lucro', money: true }, { key: 'margem', label: 'Lucro %' }, ...depositosCond.map((d) => ({ key: `dep_${d.id}`, label: d.nome })), { key: 'estoqueTotal', label: 'Estoque Total' }, { key: 'valorEstoque', label: 'Valor em Estoque', money: true }]}

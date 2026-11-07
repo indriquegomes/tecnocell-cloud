@@ -74,7 +74,7 @@ export function PainelShell({
         <SessionGuard />
         <div className="flex h-10 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4">
           <div className="flex items-center gap-2.5">
-            {/* Logo clicável → Dashboard, também no PDV em tela cheia (pedido Isa) */}
+            {/* Logo clicável → Dashboard, também no PDV em tela cheia (pedido da equipe) */}
             <Link href="/painel" title="Ir para o Dashboard" className="flex items-center rounded-md px-1 py-0.5 hover:bg-gray-100 transition">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/tecnocell-icon.png" alt="TecnoCell" className="h-6 w-6 shrink-0 object-contain" />
@@ -151,7 +151,7 @@ export function PainelShell({
             ) : null}
             {/* Logo = atalho pro Dashboard. Aparece SÓ com a sidebar recolhida (ou no
                 celular): aberta, o logo do topo dela já é o atalho — sem logo em dobro.
-                Pedido Isa: voltar fácil pro Dashboard de qualquer janela. */}
+                Pedido da equipe: voltar fácil pro Dashboard de qualquer janela. */}
             {!aberta && (
               <Link href="/painel" title="Ir para o Dashboard"
                 className="flex items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-gray-100 transition">

@@ -9,7 +9,7 @@ import { getDepositosCache, getCategoriasCache } from '@/lib/cache-catalogo'
 // ═══════════════════════════════════════════════════════════════════
 // REPOSIÇÃO — "o que preciso pedir?"
 //
-// Vitor descreveu a lógica de ponto de reposição: quantos vendeu num período,
+// O João Vítor Maximiano França descreveu a lógica de ponto de reposição: quantos vendeu num período,
 // quantos tem em estoque, a média de venda por dia, projeta quanto vai vender
 // e sugere quanto comprar pra manter X dias de estoque de cada produto.
 //
@@ -41,11 +41,11 @@ export default async function ReposicaoPage({
   const hoje = hojeSP()
   const ate = params.ate || hoje
   const de = params.de || (() => { const d = new Date(ate + 'T00:00:00'); d.setDate(d.getDate() - 29); return d.toISOString().slice(0, 10) })()
-  // UM campo só (Vitor tirou o "prazo" + "cobrir" e juntou): quantos dias de estoque quer ter.
+  // UM campo só (João Vítor Maximiano França tirou o "prazo" + "cobrir" e juntou): quantos dias de estoque quer ter.
   const cobrir = Math.max(1, parseInt(params.cobrir ?? '30', 10) || 30)
   // prazo de reposição FIXO (interno) só pra o alerta 🔥: se o estoque dura menos que
   // o tempo típico de um pedido chegar, é urgente. Não é campo — é constante.
-  // 12 dias: prazo real que o Vitor mediu do pedido chegar (16/07).
+  // 12 dias: prazo real que o João Vítor Maximiano França mediu do pedido chegar (16/07).
   const PRAZO_REPOSICAO = 12
   const dias = diasEntre(de, ate)
 

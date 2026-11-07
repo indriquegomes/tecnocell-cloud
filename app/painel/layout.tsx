@@ -66,7 +66,7 @@ export default async function PainelLayout({ children }: { children: React.React
     redirect('/painel?acesso=negado')
   }
 
-  // ── Avisos da barra: caixa aberto fora de hora + rotinas da equipe ("Duda conferir
+  // ── Avisos da barra: caixa aberto fora de hora + rotinas da equipe ("Maria Eduarda Kappler da Silva conferir
   //    caixa 18:30"). Um caixa passou a noite aberto em 13/07 — o sistema sabia e não
   //    avisava ninguém.
   let avisosCaixa: AvisoCaixa[] = []

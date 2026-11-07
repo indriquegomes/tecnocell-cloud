@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Spinner } from '@/components/Spinner'
 import { salvarTabelasPromo } from '../actions'
 
-// Isa: promoção só valer em certas tabelas de preço (ex.: ATACADO1/ATACADO2).
+// equipe: promoção só valer em certas tabelas de preço (ex.: ATACADO1/ATACADO2).
 // NENHUMA marcada = vale em TODAS as tabelas (inclusive Preço Padrão).
 export function TabelasPromo({
   promocaoId,

@@ -52,8 +52,8 @@ export default async function DashboardPage({
   const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
   const inicioMes = hoje.slice(0, 7) + '-01'   // 1º dia do mês corrente, no fuso SP
 
-  // Filtro de período + loja (Isa: "mostrar por mês, ano e selecionar a loja").
-  // Default = ESTE MÊS (mês corrente) — pedido do Vitor: 30 dias misturava mês passado,
+  // Filtro de período + loja (equipe: "mostrar por mês, ano e selecionar a loja").
+  // Default = ESTE MÊS (mês corrente) — pedido de João Vítor Maximiano França: 30 dias misturava mês passado,
   // o relevante é o mês atual. Mês passado continua acessível pelos selects de mês/ano.
   const inicioMesSP = hoje.slice(0, 7) + '-01'   // 1º dia do mês corrente, no fuso SP
   const filtroDe = params.de || inicioMesSP

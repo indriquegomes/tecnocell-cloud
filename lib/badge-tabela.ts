@@ -1,12 +1,12 @@
 // Cor da tabela de preço do cliente — usada no PDV e na lista de Clientes.
 //
-// Vitor (16/07): a menina precisa VER que preço está pegando, sem abrir nada.
+// O João Vítor Maximiano França (16/07): a menina precisa VER que preço está pegando, sem abrir nada.
 //   🟢 ATACADO 1 → preço melhor (R$4 na película) — clientes premium
 //   🟠 ATACADO 2 → mais caro (R$19 na mesma película)
 // Varejo e "sem tabela" não ganham destaque: é o caso normal, badge só faria ruído.
 //
 // Casa por NOME da tabela (não por id) porque os ids mudam entre ambientes e o
-// nome é o que o Vitor mantém ("ATACADO1", "ATACADO2").
+// nome é o que o João Vítor Maximiano França mantém ("ATACADO1", "ATACADO2").
 export function badgeTabela(
   id: string | null | undefined,
   tabelas: { id: string; nome: string }[] = [],

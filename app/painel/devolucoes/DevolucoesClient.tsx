@@ -42,7 +42,7 @@ export interface ItemDevolucaoLinha {
 }
 
 // ── Constantes ────────────────────────────────────────────────────────────────
-// Rótulo enxuto e claro do destino da peça (pedido Isa: "OK-VENDA / TROCA-SAÍDA").
+// Rótulo enxuto e claro do destino da peça (pedido de: "OK-VENDA / TROCA-SAÍDA").
 // A explicação completa fica no texto de ajuda logo abaixo da tabela.
 const STATUS_PRODUTO = [
   { key: 'ok',    label: 'OK · Venda',    cor: 'bg-green-50 text-green-700 border-green-200' },
@@ -232,7 +232,7 @@ export function DevolucoesClient({
   // Busca da venda: DEBOUNCE (350ms) + "último venceu" (ignora resposta velha) + loading
   // fica ligado até a busca CERTA voltar. Antes disparava a cada tecla (o Next serializa
   // server actions → fila) e o loading desligava na 1ª resposta, mostrando "Nenhuma venda
-  // encontrada" antes do resultado certo chegar (reclamação da Isa 28/07).
+  // encontrada" antes do resultado certo chegar (reclamação de 28/07).
   const seqBusca = useRef(0)
   useEffect(() => {
     if (!open || step !== 'buscar') return
@@ -284,7 +284,7 @@ export function DevolucoesClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vendaInicial])
 
-  // O desconto da venda é ABATIMENTO DO PEDIDO, não dinheiro que o cliente pagou (Isa, 17/07).
+  // O desconto da venda é ABATIMENTO DO PEDIDO, não dinheiro que o cliente pagou (17/07).
   // Os itens guardam o preço de tabela; o desconto vive só no total da venda. Devolver pelo
   // preço cheio fazia o desconto virar "reembolso": venda de R$66 com R$18 de desconto e fiado
   // de R$48 devolvia R$48 de abate + R$18 em dinheiro pra quem nunca pagou nada.
@@ -1172,7 +1172,7 @@ export function DevolucoesClient({
                             </button>
                           ))}
                         </div>
-                        {/* De ONDE sai o dinheiro — o Vitor pediu clareza: dinheiro é gaveta,
+                        {/* De ONDE sai o dinheiro — o João Vítor Maximiano França pediu clareza: dinheiro é gaveta,
                             cartão/PIX é estorno (não mexe na gaveta). */}
                         <p className="mt-2 text-xs text-gray-500">
                           {tipoCredito === 'dinheiro'

@@ -178,7 +178,7 @@ export default async function OperacaoPDVPage({
           .in('id', [...new Set(vendasRaw.map((v) => v.pessoa_id).filter(Boolean))] as string[]),
         // Fiado DEVOLVIDO/cancelado não é mais dívida → não pode somar no caixa. O
         // lançamento é a verdade (a devolução cancela ele), mas o pagamentos_venda fica
-        // — por isso o fiado cancelado "voltava" como fantasma no total (Isa 29/07).
+        // — por isso o fiado cancelado "voltava" como fantasma no total (29/07).
         supabase
           .from('lancamentos')
           .select('venda_id, valor')
@@ -208,7 +208,7 @@ export default async function OperacaoPDVPage({
         fiadoAbatido[l.venda_id] = (fiadoAbatido[l.venda_id] ?? 0) + Number(l.valor_pago ?? 0)
       }
       // ...e o fiado cancelado também sai do TOTAL de vendas / total do turno — não só do
-      // "por forma". Senão o R$ do fiado devolvido ficava fantasma no total (Isa 29/07).
+      // "por forma". Senão o R$ do fiado devolvido ficava fantasma no total (29/07).
       totalVendas -= (fiadoCancRes.data ?? []).reduce((s, l) => s + Number((l as { valor: number | null }).valor ?? 0), 0)
       const nomePessoa: Record<string, string> = Object.fromEntries((pessoasRes.data ?? []).map((p) => [p.id, p.nome]))
       const vendaPorId = Object.fromEntries(vendasRaw.map((v) => [v.id, v]))
@@ -285,7 +285,7 @@ export default async function OperacaoPDVPage({
         porTipo[tipo] = (porTipo[tipo] ?? 0) + paraTotal
         if (tipo === 'cartao_credito' || tipo === 'cartao_debito') totalTaxaCartao += (pg as { taxa: number | null }).taxa ?? 0
 
-        // Lista de CONFERÊNCIA: a Duda bate comprovante por comprovante. Pra isso ela
+        // Lista de CONFERÊNCIA: a Maria Eduarda Kappler da Silva bate comprovante por comprovante. Pra isso ela
         // precisa da VENDA (nº, hora, cliente) e de quanto DAQUELA forma entrou nela —
         // numa venda mista só o pedaço do PIX bate com o comprovante do PIX.
         const v = vendaPorId[pg.venda_id]

@@ -35,7 +35,7 @@ const PROXIMOS: Record<StatusOS, { status: StatusOS; label: string }[]> = {
 }
 
 // OS "vencida": previsão de entrega já passou e ainda está aberta (não finalizada/
-// entregue/pronta/cancelada). Derivado — não é status guardado. Isa 29/07.
+// entregue/pronta/cancelada). Derivado — não é status guardado. 29/07.
 const ABERTAS = ['aguardando', 'em_reparo', 'aguardando_peca', 'orcamento', 'nao_finalizada']
 function estaVencida(o: { previsao_entrega: string | null; status: string }): boolean {
   return !!o.previsao_entrega && new Date(o.previsao_entrega) < new Date() && ABERTAS.includes(o.status)
@@ -454,7 +454,7 @@ export function OSClient({ ordens, tecnicos = [], modelosChecklist = [], lojas =
                   className="field w-full resize-none" />
               </div>
 
-              {/* Técnico + previsão de entrega (Isa 29/07) */}
+              {/* Técnico + previsão de entrega (29/07) */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold uppercase text-gray-500 mb-1.5">Técnico responsável</label>
@@ -517,7 +517,7 @@ export function OSClient({ ordens, tecnicos = [], modelosChecklist = [], lojas =
                 <p className="text-sm text-gray-700">{osDetalhe.problema}</p>
               </div>
 
-              {/* Valores: valor cobrado + custo → lucro (Isa 29/07) */}
+              {/* Valores: valor cobrado + custo → lucro (29/07) */}
               <div>
                 <p className="text-xs font-semibold uppercase text-gray-400 mb-2">Valores</p>
                 <div className="grid grid-cols-2 gap-3">

@@ -9,7 +9,7 @@ import { buscarProdutosEstoque } from '@/app/painel/estoque/actions'
 // Por que existe: várias telas montavam um <datalist> com uma lista de produtos
 // CAPADA (.limit(500) / .limit(1000)) vinda do servidor. Como são 8.034 produtos,
 // o que não estava nos primeiros N em ordem alfabética simplesmente NÃO APARECIA —
-// digitar "pelicula" ou "frontal" não achava nada (bug real relatado pela Isa).
+// digitar "pelicula" ou "frontal" não achava nada (bug real relatado pela equipe).
 //
 // Aqui a busca vai ao servidor conforme digita: casa PALAVRA A PALAVRA, em qualquer
 // ordem, sem acento (produtos.busca_norm). "pel a15" acha "PELICULA 3D SAMSUNG A15".

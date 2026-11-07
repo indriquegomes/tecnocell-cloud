@@ -3,7 +3,7 @@
 // Hoje o campo "motivo" da devolução é texto livre — e as 6 devoluções existentes têm
 // motivo NULL. Texto livre ninguém preenche, e o que é preenchido não dá pra somar.
 //
-// Os motivos abaixo saíram do Vitor, não da minha cabeça. Fechados e obrigatórios,
+// Os motivos abaixo saíram de João Vítor Maximiano França, não da minha cabeça. Fechados e obrigatórios,
 // porque a pergunta que importa ("por que as peças voltam?") só tem resposta se der
 // pra CONTAR.
 
@@ -28,7 +28,7 @@ export const MOTIVOS_DEVOLUCAO: Motivo[] = [
   },
   {
     id: 'defeito_alegado',
-    // O Vitor foi explícito: "não tem como ter certeza". Chamar de "peça com defeito"
+    // O João Vítor Maximiano França foi explícito: "não tem como ter certeza". Chamar de "peça com defeito"
     // seco viraria uma estatística de qualidade que não é verdade — é o que o cliente
     // DIZ. O rótulo carrega essa dúvida de propósito.
     label: 'Defeito alegado',

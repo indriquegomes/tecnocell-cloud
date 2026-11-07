@@ -194,7 +194,7 @@ export function VendasClient({
           </div>
           <div className="flex flex-col gap-1 flex-1 min-w-[160px]">
             <label className="text-xs font-semibold text-gray-400 uppercase">Busca (cliente, vendedor, nº)</label>
-            <input type="text" placeholder="Ex: João, Vitor, 42..." value={busca}
+            <input type="text" placeholder="Ex: nome do cliente, 42..." value={busca}
               onChange={e => setBusca(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && aplicarFiltros()}
               className="field" />

@@ -2,7 +2,7 @@ import { Carregando } from '@/components/Carregando'
 
 // Esqueleto genérico de tela-lista (cards de resumo + tabela). Aparece na HORA ao
 // navegar, enquanto o server component busca os dados — dá a sensação de instantâneo
-// que o Vitor quer. Reaproveitado pelos loading.tsx das telas de lista.
+// que o João Vítor Maximiano França quer. Reaproveitado pelos loading.tsx das telas de lista.
 export function SkeletonLista({ cards = 3, linhas = 10 }: { cards?: number; linhas?: number }) {
   return (
     <div className="space-y-6">

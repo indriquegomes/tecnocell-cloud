@@ -101,7 +101,7 @@ export default async function FinanceiroPage({
   const idsDesfazer = new Set(((movsLigados ?? []) as { lancamento_id: string }[]).map((m) => m.lancamento_id))
 
   // ✨ Totais DO FILTRO (não só os globais): soma exatamente o que está filtrado,
-  // sem o cap de 200 da lista. Isa: "quanto tenho a receber em PIX vencendo em agosto".
+  // sem o cap de 200 da lista. equipe: "quanto tenho a receber em PIX vencendo em agosto".
   const filtrados = await fetchAll<Record<string, unknown> & { valor: number | null; tipo: string; status: string | null }>(
     (from, to) => aplica(supabase.from('lancamentos')
       .select('descricao, pessoa_nome, data_vencimento, data_competencia, valor, tipo, status, forma_pagamento, categoria, subcategoria, loja_id'))

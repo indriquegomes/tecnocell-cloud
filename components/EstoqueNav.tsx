@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 // Barra de abas do módulo Estoque — fica em TODAS as telas do estoque (via
 // layout), então dá pra navegar e sempre voltar. Antes eram botões soltos no
 // canto que só apareciam na tela Estoque: quem entrava em "Entre Depósitos"
-// ficava sem volta (reclamação do Vitor).
+// ficava sem volta (reclamação de João Vítor Maximiano França).
 //
 // Dois grupos pra ficar organizado: ANALISAR (o dia a dia da estoquista) e
 // GERIR (as ferramentas). A ação principal "+ Entrada/Saída" fica destacada.

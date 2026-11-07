@@ -76,7 +76,7 @@ export function FiadosClient({
   const [lojaSel, setLojaSel] = useState(lojas[0] ?? '')  // abre na 1ª loja (não mistura)
   const [copiado, setCopiado] = useState<string | null>(null)
   const [aberto, setAberto] = useState<string | null>(null)
-  const [ordem, setOrdem] = useState<'nome' | 'total'>('nome')   // Isa: padrão alfabético
+  const [ordem, setOrdem] = useState<'nome' | 'total'>('nome')   // equipe: padrão alfabético
 
   // Edição rápida da chave Pix (sem sair da tela de Fiados)
   const router = useRouter()
@@ -123,7 +123,7 @@ export function FiadosClient({
     ? clientesVend.filter((c) => semAcento(c.nome).includes(semAcento(busca)))
     : clientesVend
 
-  // Ordenação (Isa 26/07): alfabética por padrão; toggle pra "maior dívida".
+  // Ordenação (26/07): alfabética por padrão; toggle pra "maior dívida".
   // localeCompare pt-BR ignora acento e maiúsc/minúsc — A→Z de verdade.
   const ordenados = [...filtrados].sort((a, b) =>
     ordem === 'nome'
@@ -258,7 +258,7 @@ export function FiadosClient({
               {lojas.map((l) => <option key={l} value={l}>{l}</option>)}
             </select>
           )}
-          {/* Ordenação — alfabética por padrão (Isa) */}
+          {/* Ordenação — alfabética por padrão (equipe) */}
           <div className="flex shrink-0 rounded-xl border border-gray-200 bg-white p-1">
             {([['nome', 'A→Z'], ['total', 'Maior dívida']] as const).map(([k, label]) => (
               <button key={k} type="button" onClick={() => setOrdem(k)}

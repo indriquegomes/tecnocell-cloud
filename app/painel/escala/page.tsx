@@ -23,7 +23,7 @@ export default async function EscalaPage({
     supabase.from('escalas').select('*').eq('ativo', true),
     supabase.from('escala_excecoes').select('*').gte('data', primeiro).lte('data', ultimo),
     supabase.from('lojas').select('id, nome').eq('ativa', true).order('nome'),
-    // o PONTO — o que aconteceu de verdade (a Bruna apertando "pausa" pra lanchar)
+    // o PONTO — o que aconteceu de verdade (a Brunna Furtado Gonçalves apertando "pausa" pra lanchar)
     supabase.from('pontos').select('usuario_id, tipo, criado_em')
       .gte('criado_em', primeiro + 'T00:00:00-03:00')
       .lte('criado_em', ultimo + 'T23:59:59-03:00')

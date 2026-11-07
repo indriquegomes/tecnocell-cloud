@@ -12,6 +12,12 @@ export type ChatRole = 'user' | 'assistant'
 export interface ChatMessage { role: ChatRole; content: string }
 
 // Apelidos carinhosos das funcionárias (trecho do nome no cadastro -> apelido).
+//
+// ⚠️ EXCEÇÃO CONSCIENTE da regra "pessoa sempre pelo nome completo" (AGENTS.md
+// seção 1.3): aqui o apelido NÃO é comunicação — é o dicionário que traduz o
+// apelido antigo para o nome completo, para o chat entender quem a pessoa quer
+// dizer. Por isso este arquivo está na lista de exceções da checagem do CI
+// (.github/workflows/type-check.yml). Em qualquer OUTRO lugar, nome completo.
 const APELIDOS: Array<{ chave: string; apelido: string }> = [
   { chave: 'indrique', apelido: 'El Mestre' },
   { chave: 'brunna', apelido: 'Tia Buna' },

@@ -44,13 +44,13 @@ test('A. hhmm(1439) = "23:59"', () => assert.equal(hhmm(1439), '23:59'))
 // --- turnosDoDia: pausa parcial, exceção sem saída ---
 test('A. turno com pausa só início (sem fim) não conta pausa', () => {
   const esc: Escala = { ...ESC, pausa_inicio: '12:00', pausa_fim: null }
-  const t = turnosDoDia('2026-10-12', 1, [esc], [], { p1: 'Duda' })[0]
+  const t = turnosDoDia('2026-10-12', 1, [esc], [], { p1: 'Maria Eduarda Kappler da Silva' })[0]
   assert.equal(t.pausaIni, 720)
   assert.equal(t.pausaFim, null)
 })
 test('A. exceção com entrada mas sem saída mantém rotina de saída', () => {
   const ex: Excecao[] = [{ id: 'x', perfil_id: 'p1', data: '2026-10-12', folga: false, entrada: '09:00', saida: null, motivo: null }]
-  const t = turnosDoDia('2026-10-12', 1, [ESC], ex, { p1: 'Duda' })[0]
+  const t = turnosDoDia('2026-10-12', 1, [ESC], ex, { p1: 'Maria Eduarda Kappler da Silva' })[0]
   assert.equal(t.entrada, 540)
   assert.equal(t.saida, 980) // cai na rotina
 })
@@ -104,14 +104,14 @@ test('A. pausa no fim do dia não subtrai negativo', () => {
 // --- furosDoDia: cobertura parcial, sábado ---
 test('A. turno cobre só até 12h → furo de 12h às 19h', () => {
   const esc: Escala[] = [{ ...ESC, saida: '12:00:00' }]
-  const t = turnosDoDia('2026-10-12', 1, esc, [], { p1: 'Duda' })
+  const t = turnosDoDia('2026-10-12', 1, esc, [], { p1: 'Maria Eduarda Kappler da Silva' })
   const f = furosDoDia(t, 1)
   assert.equal(f.length, 1)
   assert.equal(f[0].de, 720)
   assert.equal(f[0].ate, 1140)
 })
 test('A. sábado fecha 17h (furo vai até 17h)', () => {
-  const t = turnosDoDia('2026-10-17', 6, [{ ...ESC, dia: 6, saida: '12:00:00' }], [], { p1: 'Duda' })
+  const t = turnosDoDia('2026-10-17', 6, [{ ...ESC, dia: 6, saida: '12:00:00' }], [], { p1: 'Maria Eduarda Kappler da Silva' })
   const f = furosDoDia(t, 6)
   assert.equal(f[0].ate, 1020) // 17:00
 })
@@ -134,14 +134,14 @@ test('A. horasPorPessoa soma e pula folga', () => {
     { data: '2026-10-12', diaSemana: 1 },
     { data: '2026-10-13', diaSemana: 2 },
   ]
-  const r = horasPorPessoa(dias, esc, ex, { p1: 'Duda' })
+  const r = horasPorPessoa(dias, esc, ex, { p1: 'Maria Eduarda Kappler da Silva' })
   assert.equal(r.length, 1)
   assert.equal(r[0].minutos, 500) // 8h20 de UM dia só (folga no outro)
   assert.equal(r[0].dias, 1)
 })
 test('A. horasPorPessoa desconta pausa', () => {
   const esc: Escala[] = [{ ...ESC, pausa_inicio: '12:00', pausa_fim: '13:00' }]
-  const r = horasPorPessoa([{ data: '2026-10-12', diaSemana: 1 }], esc, [], { p1: 'Duda' })
+  const r = horasPorPessoa([{ data: '2026-10-12', diaSemana: 1 }], esc, [], { p1: 'Maria Eduarda Kappler da Silva' })
   assert.equal(r[0].minutos, 440) // 8h20 - 1h pausa
 })
 
@@ -238,12 +238,12 @@ test('B. turnosDoDia escalas vazio → []', () => {
 })
 test('B. turnosDoDia exceção data diferente não interfere', () => {
   const ex: Excecao[] = [{ id: 'x', perfil_id: 'p1', data: '2026-10-13', folga: true, entrada: null, saida: null, motivo: null }]
-  const t = turnosDoDia('2026-10-12', 1, [ESC], ex, { p1: 'Duda' })
+  const t = turnosDoDia('2026-10-12', 1, [ESC], ex, { p1: 'Maria Eduarda Kappler da Silva' })
   assert.equal(t[0].folga, false)
 })
 test('B. turnosDoDia entrada > saida (invertida) não derruba', () => {
   const esc: Escala[] = [{ ...ESC, entrada: '18:00:00', saida: '08:00:00' }]
-  const t = turnosDoDia('2026-10-12', 1, esc, [], { p1: 'Duda' })
+  const t = turnosDoDia('2026-10-12', 1, esc, [], { p1: 'Maria Eduarda Kappler da Silva' })
   assert.equal(t[0].entrada, 1080)
   assert.equal(t[0].saida, 480)
 })

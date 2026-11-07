@@ -4,7 +4,7 @@ type SB = Awaited<ReturnType<typeof createServiceClient>>
 
 // FIADO RECEBIDO ENTRA NO CAIXA.
 //
-// Buraco que existia: a Duda cobrava R$50 de fiado em espécie, o dinheiro ia pra
+// Buraco que existia: a Maria Eduarda Kappler da Silva cobrava R$50 de fiado em espécie, o dinheiro ia pra
 // gaveta, e o caixa não sabia de nada. No fechamento a contagem dava R$50 a MAIS que o
 // esperado e o sistema acusava SOBRA — culpando quem tinha feito tudo certo.
 //

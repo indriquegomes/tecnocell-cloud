@@ -9,7 +9,7 @@ test('junta as variações do mesmo recebedor (caixa, acento, CNPJ na frente)', 
     { valor: 100, destinatario: 'STOR ONE LTDA' },
     { valor: 50, destinatario: 'Stor One Ltda' },
     { valor: 25, destinatario: '38.216.415 JOAO VITOR MAXIMIANO FRANCA' },
-    { valor: 10, destinatario: 'Joao Vitor Maximiano Franca' },
+    { valor: 10, destinatario: 'João Vítor Maximiano França' },
   ])
   assert.equal(d.length, 2)
   const stor = d.find((x) => x.nome.includes('STOR'))!

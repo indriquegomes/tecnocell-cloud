@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 
 export type ActionState = { ok: boolean; message: string } | null
 
-// ── ESCALA PADRÃO (a rotina: a Duda entra 08h toda segunda) ────────────────
+// ── ESCALA PADRÃO (a rotina: a Maria Eduarda Kappler da Silva entra 08h toda segunda) ────────────────
 // Salva o dia inteiro de uma pessoa: os turnos que existem, apaga os que sumiram.
 export async function salvarEscalaDia(_prev: ActionState, fd: FormData): Promise<ActionState> {
   try {
@@ -83,7 +83,7 @@ export async function salvarExcecao(_prev: ActionState, fd: FormData): Promise<A
   }
 }
 
-// ── RÉGUA — edição direta na linha do tempo (pedido do Vitor) ────────────────
+// ── RÉGUA — edição direta na linha do tempo (pedido de João Vítor Maximiano França) ────────────────
 // Escolhe a pessoa, arrasta as pontas (entrada/saída) e a régua do almoço, salva.
 // escopo 'padrao' = vira a rotina daquele dia da semana · 'dia' = só aquela data.
 export async function salvarRegua(_prev: ActionState, fd: FormData): Promise<ActionState> {
@@ -108,10 +108,10 @@ export async function salvarRegua(_prev: ActionState, fd: FormData): Promise<Act
       return { ok: false, message: 'O almoço tem que caber dentro do turno.' }
     }
 
-    // a cor é da PESSOA (a Bruna é rosinha em todos os dias)
+    // a cor é da PESSOA (a Brunna Furtado Gonçalves é rosinha em todos os dias)
     if (cor) await supabase.from('perfis').update({ cor_escala: cor }).eq('id', perfilId)
 
-    // NÃO TRABALHA nesse dia (pergunta do Vitor: "e se ela não for trabalhar no dia?").
+    // NÃO TRABALHA nesse dia (pergunta de João Vítor Maximiano França: "e se ela não for trabalhar no dia?").
     // Na rotina: remove o turno. Num dia só: vira folga (a rotina continua valendo
     // nos outros dias, e a folga aparece na lista de alterações).
     if (escopo === 'folga_padrao') {

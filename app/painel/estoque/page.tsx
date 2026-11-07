@@ -126,7 +126,7 @@ export default async function EstoquePage({
         </div>
       </div>
 
-      {/* Depósitos como ABAS — o que a estoquista mais troca fica na cara (pedido do Vitor) */}
+      {/* Depósitos como ABAS — o que a estoquista mais troca fica na cara (pedido de João Vítor Maximiano França) */}
       <div className="flex flex-wrap items-center gap-2">
         {[{ id: '', nome: 'Todos os depósitos' }, ...depsBotao].map((d) => {
           const ativo = (params.deposito ?? '') === d.id

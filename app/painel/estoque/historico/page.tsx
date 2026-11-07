@@ -22,7 +22,7 @@ const TIPO: Record<Tipo, { label: string; cls: string; sinal: string }> = {
   // Uso interno: item tirado pra uso da própria loja (baixa estoque, sem mexer em caixa).
   uso_interno: { label: 'Uso interno', cls: 'text-purple-700 bg-purple-50 border-purple-200', sinal: '−' },
   // Troca/Defeito/Avaria numa devolução: o item NÃO volta ao estoque vendável (vai
-  // pro fornecedor). Sinal neutro pra não dobrar a saída (a venda já baixou). Isa 29/07.
+  // pro fornecedor). Sinal neutro pra não dobrar a saída (a venda já baixou). 29/07.
   troca:     { label: 'Troca · Saída', cls: 'text-orange-700 bg-orange-50 border-orange-200', sinal: '' },
 }
 
@@ -218,7 +218,7 @@ export default async function MovimentacoesPage({
     itensDev = idv
   }
 
-  // 3. Nomes + CUSTO de produtos (manuais + venda + devolução) e pessoas (vendas). Isa 29/07: custo no relatório.
+  // 3. Nomes + CUSTO de produtos (manuais + venda + devolução) e pessoas (vendas). 29/07: custo no relatório.
   const prodIds = [...new Set([
     ...(manuais ?? []).map((m) => m.produto_id),
     ...(itensVenda ?? []).map((it) => it.produto_id as string),
@@ -322,7 +322,7 @@ export default async function MovimentacoesPage({
 
   const ordemAtual = params.ordem ?? 'data'
   const ordemDesc = (params.dir ?? 'desc') === 'desc'
-  // PERDAS do período (pedido da Isa: "para somarmos no fim do mês").
+  // PERDAS do período (pedido de: "para somarmos no fim do mês").
   // Soma sobre as linhas JÁ FILTRADAS, então respeita o período/depósito escolhidos.
   const perdas = rows.filter((r) => r.tipo === 'perda')
   const perdasQtd = perdas.reduce((s, r) => s + (Number(r.qtd) || 0), 0)

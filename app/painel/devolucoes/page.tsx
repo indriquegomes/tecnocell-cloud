@@ -32,7 +32,7 @@ export default async function DevolucoesPage({
       .range(from, to))
 
   // Loja da devolução = loja da VENDA original (venda→caixa→loja). O depósito tem
-  // loja NULL em alguns, então vem do caixa. Regra por permissão. Adendo Isa 29/07.
+  // loja NULL em alguns, então vem do caixa. Regra por permissão. Adendo de 29/07.
   const { todasLojas, permitidas, todas: vemTodas } = await lojasDoUsuario()
   const nomesPermitidos = permitidas.map(l => l.nome)
   const vendaIds = [...new Set((devRaw as { venda_id?: string | null }[]).map(d => d.venda_id).filter(Boolean))] as string[]

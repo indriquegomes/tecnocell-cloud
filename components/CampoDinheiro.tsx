@@ -4,7 +4,7 @@ import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 
 // CAMPO DE DINHEIRO — formata sozinho, como calculadora de PDV.
 //
-// Vitor: "em áreas que têm parte financeira, dinheiro e coisa assim, já tenta incluir
+// João Vítor Maximiano França: "em áreas que têm parte financeira, dinheiro e coisa assim, já tenta incluir
 // dinheiro de forma automática. Quero um sistema fácil de fluir, entendível e já meio
 // automático."
 //

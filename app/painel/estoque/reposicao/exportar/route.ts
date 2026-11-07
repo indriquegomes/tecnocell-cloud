@@ -3,7 +3,7 @@ import { hojeSP } from '@/lib/utils'
 import ExcelJS from 'exceljs'
 import type { NextRequest } from 'next/server'
 
-// Baixa a Reposição como planilha — o Vitor pediu Excel pra a estoquista fazer o
+// Baixa a Reposição como planilha — o João Vítor Maximiano França pediu Excel pra a estoquista fazer o
 // pedido. Mesmíssimo cálculo da tela (vendeu ÷ dias × dias-de-estoque − estoque),
 // respeitando os filtros que vieram na URL (de/até/categoria/depósito/cobrir).
 export async function GET(req: NextRequest) {
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   // Vercel (UTC) com o fuso de SP (UTC-3), virava o dia anterior depois das 21h.
   const de = sp.get('de') || (() => { const [y, m, d] = ate.split('-').map(Number); const dt = new Date(Date.UTC(y, m - 1, d)); dt.setUTCDate(dt.getUTCDate() - 29); return dt.toISOString().slice(0, 10) })()
   const cobrir = Math.max(1, parseInt(sp.get('cobrir') ?? '30', 10) || 30)
-  const PRAZO_REPOSICAO = 12   // prazo real do pedido chegar (Vitor, 16/07) — igual à tela
+  const PRAZO_REPOSICAO = 12   // prazo real do pedido chegar (João Vítor Maximiano França, 16/07) — igual à tela
   const categoria = sp.get('categoria') || ''
   const deposito = sp.get('deposito') || ''
   const dias = (() => {

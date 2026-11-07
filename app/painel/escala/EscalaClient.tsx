@@ -25,7 +25,7 @@ interface DiaGrade {
   trabalhado: Trabalhado[]   // o REAL — o que bateram no ponto
 }
 
-// paleta estável por pessoa — mas a cor SALVA no cadastro ("a Bruna é rosinha")
+// paleta estável por pessoa — mas a cor SALVA no cadastro ("a Brunna Furtado Gonçalves é rosinha")
 // vence a paleta. cores vem de perfis.cor_escala.
 const CORES = ['#1B6CA8', '#F47920', '#16a34a', '#9333ea', '#0891b2', '#db2777', '#ca8a04', '#4f46e5']
 const corDe = (id: string, perfis: Pessoa[], cores?: Record<string, string | null>) =>
@@ -421,7 +421,7 @@ function AlteracaoForm({ perfis, excecoes, nomes }: { perfis: Pessoa[]; excecoes
   )
 }
 
-// ── RÉGUA — edita a escala ARRASTANDO na linha do tempo (pedido do Vitor) ─────
+// ── RÉGUA — edita a escala ARRASTANDO na linha do tempo (pedido de João Vítor Maximiano França) ─────
 // Escolhe a pessoa (chip com a cor dela), arrasta as duas pontas do turno e as duas
 // do almoço, salva como rotina ("toda Seg") ou só naquele dia. Pointer events puros:
 // funciona com mouse E com o dedo no tablet. Passo de 15 minutos.
@@ -505,7 +505,7 @@ function ReguaEditor({
 
   return (
     <div className="mt-3 space-y-3 rounded-xl border border-blue-200 bg-blue-50/40 p-4">
-      {/* pessoa (chip com a cor dela) + cor editável — "a Bruna é rosinha" */}
+      {/* pessoa (chip com a cor dela) + cor editável — "a Brunna Furtado Gonçalves é rosinha" */}
       <div className="flex flex-wrap items-center gap-2">
         {perfis.map((pf) => {
           const c = pf.id === pessoa ? cor : corDe(pf.id, perfis, cores)
@@ -562,7 +562,7 @@ function ReguaEditor({
               <input type="checkbox" checked={comAlmoco} onChange={(e) => setComAlmoco(e.target.checked)} className="rounded" />
               almoço/lanche {comAlmoco && <b className="tabular-nums text-gray-700">{hhmm(p1)}–{hhmm(p2)}</b>}
             </label>
-            {/* não trabalha = folga (a pergunta do Vitor) */}
+            {/* não trabalha = folga (a pergunta de João Vítor Maximiano França) */}
             <label className="flex items-center gap-1.5 font-semibold text-purple-700">
               <input type="checkbox" checked={folga} onChange={(e) => setFolga(e.target.checked)} className="rounded accent-purple-600" />
               🌴 não trabalha

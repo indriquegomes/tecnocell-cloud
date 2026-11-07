@@ -50,7 +50,7 @@ export default async function PromoDetalhe({ params }: { params: Promise<{ id: s
     .eq('promocao_id', id)
     .order('quantidade_minima')
 
-  // ── Categorias, pra "adicionar categoria inteira" (pedido da Isa: não catar as 327
+  // ── Categorias, pra "adicionar categoria inteira" (pedido de: não catar as 327
   //    películas na mão). Conta quantos produtos ATIVOS cada uma tem.
   //    fetchAll: COMPONENTE sozinha tem 2.886 e o PostgREST capa em 1000.
   const [{ data: catsRaw }, todosProdutos] = await Promise.all([
@@ -70,7 +70,7 @@ export default async function PromoDetalhe({ params }: { params: Promise<{ id: s
 
   // A promoção é uma FOTO: produto novo na categoria não entra sozinho. Conta quantos
   // ficaram de fora pra tela poder avisar.
-  // Tabelas de preço em que a promoção vale (Isa). Tolerante à migration ainda não
+  // Tabelas de preço em que a promoção vale (equipe). Tolerante à migration ainda não
   // aplicada: se promocao_tabelas não existe, selecionadas fica vazia (= todas).
   const [{ data: tabelasPreco }, { data: vincTabelas }] = await Promise.all([
     supabase.from('tabelas_preco').select('id, nome').eq('ativa', true).eq('usa_preco_custo', false).order('nome'),

@@ -45,7 +45,7 @@ export default async function PainelVendasPage({
   const formas = (formasData ?? []) as { id: string; nome: string }[]
   const formaMap = Object.fromEntries(formas.map(f => [f.id, f.nome]))
 
-  // Loja de cada venda — via CAIXA (o depósito tem loja NULL em alguns). Isa 29/07.
+  // Loja de cada venda — via CAIXA (o depósito tem loja NULL em alguns). 29/07.
   // Respeita a permissão: gerente/master vê todas; atendente só a(s) permitida(s).
   const { todasLojas, permitidas, todas: vemTodas } = await lojasDoUsuario()
   const caixaIds = [...new Set((vendasRaw ?? []).map(v => v.caixa_id).filter(Boolean))] as string[]
@@ -116,7 +116,7 @@ export default async function PainelVendasPage({
   })
 
   // Vendedores da leva visível (pro filtro). Aplica o filtro de vendedor por último,
-  // pra a lista do dropdown não sumir quando ela escolhe um. Pedido da Isa 29/07.
+  // pra a lista do dropdown não sumir quando ela escolhe um. Pedido de 29/07.
   const vendedores = [...new Set(vendasBase.map(v => v.vendedor_nome).filter(Boolean))].sort() as string[]
   const vendas = vendedor ? vendasBase.filter(v => v.vendedor_nome === vendedor) : vendasBase
 

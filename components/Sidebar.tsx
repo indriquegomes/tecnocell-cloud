@@ -239,7 +239,7 @@ export function Sidebar({
 
   return (
     <aside className="flex h-full w-60 flex-col border-r border-gray-200 bg-white">
-      {/* Logo — marca no topo, clicável → Dashboard (pedido Isa) */}
+      {/* Logo — marca no topo, clicável → Dashboard (pedido da equipe) */}
       <Link href="/painel" title="Ir para o Dashboard"
         className="flex h-[72px] items-center gap-2.5 border-b border-gray-200 px-4 transition hover:bg-gray-50">
         {/* eslint-disable-next-line @next/next/no-img-element */}

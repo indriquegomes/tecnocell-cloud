@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Spinner } from '@/components/Spinner'
 import { adicionarCategoriaPromocao } from '../actions'
 
-// Pedido da Isa: promoção de PELÍCULA sem catar as 327 películas na mão.
+// Pedido de: promoção de PELÍCULA sem catar as 327 películas na mão.
 //
 // A promoção continua guardando produto a produto — a lógica de preço do PDV não muda
 // (é dinheiro; não mexo nela por conveniência de cadastro). O que muda é o CADASTRO.
