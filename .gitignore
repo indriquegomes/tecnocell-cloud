@@ -36,6 +36,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 dev-log.txt
+# logs que o `npm run dev` escreve em scripts/ (não versionar)
+scripts/_dev*.log
+*.log
 
 # env files (can opt-in for committing if needed)
 .env*
