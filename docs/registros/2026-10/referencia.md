@@ -1,0 +1,292 @@
+# Referência do app — 2026-10
+
+> Somente leitura. Gerado por `scripts/referencia-fechamento.mjs`.
+
+## Depósitos por loja
+
+- **Petrópolis**: PETRÓPOLIS ESTOQUE · PETRÓPOLIS LOJA
+- **Teresópolis**: TERESÓPOLIS ESTOQUE · TERESÓPOLIS LOJA
+
+## Fornecedores cadastrados (151)
+
+Use estes nomes na planilha quando der — nome diferente vira divergência.
+
+- ACESSORIOS FABIO
+- ACESSORIOS INDRIQUE
+- AD CELL SP
+- ADL FORNECEDOR _(cliente e fornecedor)_
+- ADRIANO PELICULAS
+- Aguia Branca
+- AIRTON S. MOREIRA _(cliente e fornecedor)_
+- ALANCELL IMPORTS _(cliente e fornecedor)_
+- ALIEXPRESS
+- AMIN PELÍCULAS
+- ANNE MERCADORIAS
+- Arnaldo Ribeiro Tavares Filho
+- ARQPLAST
+- BH SMART _(cliente e fornecedor)_
+- CABRAL ASSISTENCIA _(cliente e fornecedor)_
+- CENTRO CELL FORNECEDOR _(cliente e fornecedor)_
+- Cereais Bramil Ltda
+- CNN _(cliente e fornecedor)_
+- CNN DA SEMANA QUE VEM
+- COMPONENTES DESCOBERTOS
+- COMPONENTES SP
+- CONTRATO MEI _(cliente e fornecedor)_
+- DANIEL TARGINO DE SOUZA _(cliente e fornecedor)_
+- DeepSeek
+- DIAMONDS
+- DIEL MULLER _(cliente e fornecedor)_
+- DIRECT CELL FORNECEDOR
+- Douglas De Souza _(cliente e fornecedor)_
+- DRAGÃO CELL FORNECEDOR
+- Edson Canedo
+- EG CEDEU TERE _(cliente e fornecedor)_
+- ELIVAN DE JESUS ARAÚJO FILHO _(cliente e fornecedor)_
+- Enel Distribuicao Rio
+- ERICK MELLO DE OLIVEIRA _(cliente e fornecedor)_
+- ESPECIAIS SAO PAULO
+- ESTACIONAMENTO _(cliente e fornecedor)_
+- Estilo & Cosmeticos Ltda
+- ESTOQUE GERAL
+- ESTORNO _(cliente e fornecedor)_
+- FELIPE PIZZI REPRESENTAÇÕES _(cliente e fornecedor)_
+- FERRAMENTAS LOJA
+- FORNECEDOR 313
+- FORNECEDOR DIAMONDS
+- FORNECEDOR TV BOX _(cliente e fornecedor)_
+- FORNECEDOR X CELL
+- GABRIELLA NONATO CIRIACO DA SILVA _(cliente e fornecedor)_
+- GHR FERRAMENTAS
+- GLEYTON ARAUJO MARCIANO _(cliente e fornecedor)_
+- GUILHERME PEREIRA BECK DE ANDRADE _(cliente e fornecedor)_
+- H2
+- H2O _(cliente e fornecedor)_
+- H2O _(cliente e fornecedor)_
+- H2O FORNECEDOR _(cliente e fornecedor)_
+- HONYAN FORNECEDOR
+- HU100 ESPECIAIS
+- HUSSEN
+- INFOPEL _(cliente e fornecedor)_
+- INFORTUDOCELL - MARCOS AURÉLIO MOREIRA _(cliente e fornecedor)_
+- inova _(cliente e fornecedor)_
+- INOVA MERCADORIAS
+- IORI PEREIRA PINHEIRO _(cliente e fornecedor)_
+- ITAIPAVA SMART _(cliente e fornecedor)_
+- JOAO PEDRO AQUINO _(cliente e fornecedor)_
+- JOHNNI LEVI SOUZA RODRIGUES DOS SANTOS _(cliente e fornecedor)_
+- JULIO MANOEL BARROS _(cliente e fornecedor)_
+- KAUA CARDOSO BANHOS _(cliente e fornecedor)_
+- KAUA DA SILVA ROCHA VALENTE REIS _(cliente e fornecedor)_
+- KBS CELULARES _(cliente e fornecedor)_
+- KOKYTOS
+- KW2 MERCADORIAS
+- LEO VIEIRA _(cliente e fornecedor)_
+- LEOMIR RAPOSO PAULINO ESTEVES _(cliente e fornecedor)_
+- LYGIA ACESSORIOS
+- MARCOS VINICIUS DIAS PAVAO _(cliente e fornecedor)_
+- Medmaster - Assessoria Medico-ocupacional Ltda
+- MERCADO LIVRE _(cliente e fornecedor)_
+- MERCADORIAS
+- METAGALMICA
+- MICHEL MERCADORIAS
+- MOHAMAD FORNECEDOR FERRAMENTAS
+- Monteverde & Miller Sociedade De Advogados
+- MOVIMENTAÇÃO SEM FUNCIONAR
+- NATHAN LEMOS _(cliente e fornecedor)_
+- NERD CLUB _(cliente e fornecedor)_
+- O PROFESSOR
+- OUTRAS DESPESAS _(cliente e fornecedor)_
+- PAGBANK _(cliente e fornecedor)_
+- PAPO RETO PETRÓPOLIS
+- PC GAMES _(cliente e fornecedor)_
+- PEÇAS DE PROMOÇÃO
+- Petro Oleo
+- Pix Marketplace
+- PLANETA CELL _(cliente e fornecedor)_
+- PLAY CELL _(cliente e fornecedor)_
+- PONTO DIGITAL _(cliente e fornecedor)_
+- Ponto K3 Embalagens Ltda
+- Posto Barra
+- POSTO DOS COMPONENTES _(cliente e fornecedor)_
+- RAAH MERCADORIAS
+- RAFAEL WENDELING _(cliente e fornecedor)_
+- RENAN RODRIGUES E SILVA _(cliente e fornecedor)_
+- Rodolfo Ventura Amaro
+- ROX CASA DAS BATERIAS
+- SERGIO CELULARES _(cliente e fornecedor)_
+- SHOPEE TECNOCELL _(cliente e fornecedor)_
+- SUN MERCADORIAS
+- TAMPAS SP
+- TAYYAR CELL FORNECEDOR
+- TECNOCELL MACAE _(cliente e fornecedor)_
+- TECNOCELL PETROPOLIS _(cliente e fornecedor)_
+- TECNOCELL TERESOPOLIS _(cliente e fornecedor)_
+- Tere Pao
+- TIOCELL FORNECEDOR
+- TOK FORNECEDOR
+- TOP CELULARES FORNECEDOR
+- TOP CELULARES TERESÓPOLIS _(cliente e fornecedor)_
+- TPLINK FORNECEDOR _(cliente e fornecedor)_
+- TROCA ACESSORIOS
+- TROCA FERRAMENTAS
+- TROCA MERCADORIAS
+- TROCA TOP CELULARES
+- TROCA TV BOX
+- TROCA ZL CELL FORNECEDOR
+- TROCAS 313
+- TROCAS ADL
+- TROCAS CNN
+- TROCAS DRAGÃO CELL FORNECEDOR
+- TROCAS GERAL
+- TROCAS H²0
+- TROCAS KOKYTOS
+- TROCAS MERCADORIAS
+- TROCAS O PROFESSOR
+- TROCAS PLANETA CELL
+- TROCAS ROX CASA DE BATERIAS
+- TROCAS SOBRESALENTES
+- TROCAS TOP CELULARES
+- TROCAS VIBE CEL
+- TROCAS VIVI CELL
+- TUBARÃO PELICULAS
+- TURBO CELL FORNECEDOR _(cliente e fornecedor)_
+- VANDERLEI MARQUES SILVA _(cliente e fornecedor)_
+- VIBE CELL
+- VIDEO SAT S/C LTDA _(cliente e fornecedor)_
+- VINI PHONE _(cliente e fornecedor)_
+- VIRTUALL INTERNET _(cliente e fornecedor)_
+- VIVI ESPECIAIS SP
+- WILLIAM DALIS / ALFA DESBLOQUEIO PETROPOLIS _(cliente e fornecedor)_
+- WILLIANS DA CONCEIÇÃO BORGES _(cliente e fornecedor)_
+- XINABICELL
+- ZAKARIAS CELL
+- ZL CELL FORNECEDOR
+
+## Categorias de despesa já usadas no app
+
+- pagar | (sem categoria)
+- pagar | Alimentação
+- pagar | Aluguel
+- pagar | Bônus
+- pagar | Combustível
+- pagar | Confraternização
+- pagar | Contabilidade
+- pagar | Devolução ao cliente
+- pagar | Dívida parcelada
+- pagar | Energia/Luz
+- pagar | Estorno
+- pagar | Estorno de crédito
+- pagar | Fornecedor / Mercadoria
+- pagar | Freelancer
+- pagar | Frete / Entrega
+- pagar | Gastos em São Paulo
+- pagar | Impostos
+- pagar | Limpeza
+- pagar | Manutenção
+- pagar | Mercadoria
+- pagar | Outras despesas
+- pagar | Perda
+- pagar | Retirada do sócio
+- pagar | Salários
+- pagar | Saúde
+- pagar | Serviços
+- pagar | Transporte
+- pagar | Uso interno
+- pagar | Vale crédito usado
+- pagar | Vale transporte
+- pagar | Vendas
+- pagar | despesas loja
+- pagar | motoboy
+- receber | Combinado na entrega
+- receber | Fiado (a receber)
+- receber | Fornecedor / Mercadoria
+- receber | Vendas
+
+## Caixas de 2026-10 (85) — 2 ainda ABERTOS
+
+- Teresópolis · abriu 01/10/2026, 08:10:31 · fechou 01/10/2026, 19:21:18 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 01/10/2026, 08:49:53 · fechou 01/10/2026, 16:32:32 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 01/10/2026, 16:32:40 · fechou 02/10/2026, 08:42:24 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 02/10/2026, 08:19:23 · fechou 02/10/2026, 19:00:13 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 02/10/2026, 08:42:58 · fechou 02/10/2026, 18:45:31 · abertura R$ 155.00 · fechado
+- Petrópolis · abriu 03/10/2026, 07:50:32 · fechou 03/10/2026, 16:39:49 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 03/10/2026, 07:56:17 · fechou 03/10/2026, 17:41:34 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 05/10/2026, 08:00:39 · fechou 05/10/2026, 18:59:26 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 05/10/2026, 08:15:29 · fechou 05/10/2026, 18:59:36 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 06/10/2026, 08:02:50 · fechou 06/10/2026, 22:49:00 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 06/10/2026, 08:03:57 · fechou 06/10/2026, 17:41:33 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 06/10/2026, 17:41:45 · fechou 06/10/2026, 22:49:01 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 07/10/2026, 08:10:20 · fechou 07/10/2026, 15:50:22 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 07/10/2026, 08:22:57 · fechou 07/10/2026, 16:32:18 · abertura R$ 197.00 · fechado
+- Teresópolis · abriu 07/10/2026, 15:51:53 · fechou 07/10/2026, 19:37:37 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 07/10/2026, 16:32:28 · fechou 07/10/2026, 18:44:42 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 08/10/2026, 07:56:54 · fechou 08/10/2026, 14:25:49 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 08/10/2026, 08:03:21 · fechou 08/10/2026, 18:50:06 · abertura R$ 210.00 · fechado
+- Teresópolis · abriu 08/10/2026, 14:26:32 · fechou 08/10/2026, 16:02:02 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 08/10/2026, 16:02:26 · fechou 08/10/2026, 18:33:31 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 08/10/2026, 18:34:49 · fechou 08/10/2026, 18:56:36 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 09/10/2026, 07:54:16 · fechou 09/10/2026, 18:20:41 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 09/10/2026, 07:57:56 · fechou 09/10/2026, 18:27:09 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 09/10/2026, 18:25:09 · fechou 09/10/2026, 18:54:20 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 09/10/2026, 18:28:09 · fechou 09/10/2026, 19:07:31 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 10/10/2026, 07:51:48 · fechou 10/10/2026, 16:14:26 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 10/10/2026, 07:54:24 · fechou 10/10/2026, 16:38:13 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 10/10/2026, 16:20:03 · fechou 10/10/2026, 16:58:12 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 12/10/2026, 08:08:01 · fechou 12/10/2026, 12:32:39 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 12/10/2026, 12:42:51 · fechou 12/10/2026, 12:48:28 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 13/10/2026, 08:00:36 · fechou 13/10/2026, 16:28:33 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 13/10/2026, 08:06:14 · fechou 13/10/2026, 18:53:45 · abertura R$ 137.00 · fechado
+- Teresópolis · abriu 13/10/2026, 16:29:00 · fechou 13/10/2026, 18:49:52 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 14/10/2026, 07:56:48 · fechou 14/10/2026, 16:03:23 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 14/10/2026, 08:03:51 · fechou 14/10/2026, 16:54:32 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 14/10/2026, 16:03:38 · fechou 14/10/2026, 19:07:15 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 14/10/2026, 16:54:40 · fechou 14/10/2026, 18:31:06 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 15/10/2026, 08:01:21 · fechou 15/10/2026, 16:19:37 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 15/10/2026, 16:22:05 · fechou 15/10/2026, 18:46:17 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 16/10/2026, 07:58:25 · fechou 16/10/2026, 15:49:56 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 16/10/2026, 08:00:49 · fechou 16/10/2026, 18:56:48 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 16/10/2026, 15:51:23 · fechou 16/10/2026, 18:50:12 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 17/10/2026, 08:00:59 · fechou 17/10/2026, 16:54:02 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 17/10/2026, 08:01:16 · fechou 17/10/2026, 17:07:33 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 19/10/2026, 07:58:17 · fechou 19/10/2026, 15:48:20 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 19/10/2026, 15:48:33 · fechou 19/10/2026, 18:46:21 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 20/10/2026, 08:02:59 · fechou 20/10/2026, 17:03:58 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 20/10/2026, 08:03:21 · fechou 20/10/2026, 16:31:50 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 20/10/2026, 16:32:04 · fechou 20/10/2026, 19:03:26 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 20/10/2026, 17:04:12 · fechou 20/10/2026, 18:56:46 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 21/10/2026, 07:57:31 · fechou 21/10/2026, 15:55:08 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 21/10/2026, 08:06:19 · fechou 21/10/2026, 18:11:35 · abertura R$ 257.00 · fechado
+- Teresópolis · abriu 21/10/2026, 15:55:22 · fechou 21/10/2026, 19:01:20 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 21/10/2026, 18:11:44 · fechou 22/10/2026, 07:58:17 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 22/10/2026, 07:55:05 · fechou 22/10/2026, 15:58:29 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 22/10/2026, 07:58:29 · fechou 22/10/2026, 16:47:28 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 22/10/2026, 15:58:46 · fechou 22/10/2026, 18:44:47 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 22/10/2026, 16:47:42 · fechou 22/10/2026, 18:32:29 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 23/10/2026, 07:59:47 · fechou 23/10/2026, 15:57:45 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 23/10/2026, 08:00:51 · fechou 23/10/2026, 18:53:05 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 23/10/2026, 16:00:22 · fechou 23/10/2026, 18:51:18 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 24/10/2026, 07:59:27 · fechou 24/10/2026, 17:30:36 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 24/10/2026, 08:06:08 · fechou 24/10/2026, 16:24:58 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 24/10/2026, 16:37:47 · fechou 24/10/2026, 17:02:45 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 26/10/2026, 07:56:18 · fechou 26/10/2026, 17:12:39 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 26/10/2026, 08:09:16 · fechou 26/10/2026, 13:35:08 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 26/10/2026, 13:35:16 · fechou 27/10/2026, 08:25:27 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 26/10/2026, 17:13:08 · fechou 26/10/2026, 19:00:15 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 27/10/2026, 07:58:48 · fechou 27/10/2026, 08:25:47 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 27/10/2026, 08:26:01 · fechou 27/10/2026, 17:10:43 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 27/10/2026, 08:26:45 · fechou 27/10/2026, 18:28:41 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 27/10/2026, 17:12:42 · fechou 27/10/2026, 18:57:38 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 28/10/2026, 07:56:08 · fechou 28/10/2026, 16:12:22 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 28/10/2026, 07:57:26 · fechou 28/10/2026, 17:58:11 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 28/10/2026, 16:12:36 · fechou 28/10/2026, 18:49:19 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 28/10/2026, 18:01:52 · fechou 28/10/2026, 18:54:07 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 29/10/2026, 07:56:33 · fechou 29/10/2026, 16:30:19 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 29/10/2026, 08:01:00 · fechou 29/10/2026, 16:41:02 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 29/10/2026, 16:30:32 · fechou 29/10/2026, 18:53:43 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 29/10/2026, 16:41:12 · fechou 29/10/2026, 18:57:09 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 30/10/2026, 07:57:13 · fechou 30/10/2026, 16:05:31 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 30/10/2026, 08:03:00 · fechou 30/10/2026, 18:53:14 · abertura R$ 200.00 · fechado
+- Teresópolis · abriu 30/10/2026, 16:05:41 · fechou 30/10/2026, 18:53:42 · abertura R$ 200.00 · fechado
+- Petrópolis · abriu 31/10/2026, 07:53:13 · fechou — · abertura R$ 200.00 · aberto
+- Teresópolis · abriu 31/10/2026, 07:59:50 · fechou — · abertura R$ 200.00 · aberto

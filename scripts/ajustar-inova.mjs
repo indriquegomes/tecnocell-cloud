@@ -51,7 +51,7 @@ console.log('  falta pagar ................', brl(FALTA))
 
 if (!GRAVAR) { console.log('\n(DRY-RUN — nada gravado)'); process.exit(0) }
 
-const dir = 'docs/fechamento/2026-10/backups'
+const dir = 'docs/registros-banco/2026-10'
 fs.mkdirSync(dir, { recursive: true })
 const carimbo = new Date().toISOString().replace(/[:.]/g, '-')
 fs.writeFileSync(`${dir}/inova-antes-${carimbo}.json`, JSON.stringify({ quando: new Date().toISOString(), pendentes, pagosOutros, pagosOut }, null, 2), 'utf8')

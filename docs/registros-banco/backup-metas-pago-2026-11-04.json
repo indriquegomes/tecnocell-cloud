@@ -1,0 +1,55 @@
+{
+  "data": "2026-11-04",
+  "motivo": "Marcar como pago as metas (prêmio) de outubro + bônus da Brunna. Reversível.",
+  "lancamentos_before": [
+    {
+      "id": "a6d47cd8-99b3-429e-a71d-8b9caf71773e",
+      "pessoa": "Brunna Furtado Gonçalves",
+      "valor": "260.00",
+      "desc": "Bônus — outubro/2026",
+      "status": "pendente"
+    },
+    {
+      "id": "8df8b93f-9fd6-4652-9a8d-ec0937105980",
+      "pessoa": "Brunna Furtado Gonçalves",
+      "valor": "260.00",
+      "desc": "Meta Esmeralda — outubro/2026",
+      "status": "pendente"
+    },
+    {
+      "id": "f3f6a185-73f8-40e2-9f07-e6785cf9cb02",
+      "pessoa": "Leticia de Oliveira Amaro",
+      "valor": "350.00",
+      "desc": "Meta Diamante — outubro/2026",
+      "status": "pendente"
+    },
+    {
+      "id": "22f1b01b-c7cc-4e27-82cd-f5b2d099c81e",
+      "pessoa": "Maria Eduarda Kappler da Silva",
+      "valor": "260.00",
+      "desc": "Meta Esmeralda — outubro/2026",
+      "status": "pendente"
+    },
+    {
+      "id": "9b7d0d97-3796-4e2b-b789-9707b9aae585",
+      "pessoa": "Mariana Vila Real Castelli",
+      "valor": "260.00",
+      "desc": "Meta Esmeralda — outubro/2026",
+      "status": "pendente"
+    },
+    {
+      "id": "69952ac6-a0be-4a54-830f-ca1d088ed635",
+      "pessoa": "Rodrigo Carvalho de Rezende Junior",
+      "valor": "350.00",
+      "desc": "Meta Diamante — outubro/2026",
+      "status": "pendente"
+    },
+    {
+      "id": "815346b2-cb8d-43a2-960b-e0abcd41b69d",
+      "pessoa": "Vitória Ranyelle de Paiva Silva",
+      "valor": "350.00",
+      "desc": "Meta Diamante — outubro/2026",
+      "status": "pendente"
+    }
+  ]
+}

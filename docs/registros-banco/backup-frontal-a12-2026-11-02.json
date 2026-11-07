@@ -1,0 +1,70 @@
+{
+  "data": "2026-11-02",
+  "motivo": "zero estoque -8 da duplicata VERSÃO A127F (preco 150) e desativar as duas VERSÃO A127F. Reversível.",
+  "produtos_before": [
+    {
+      "id": "652993de6f415ffe03bd2326",
+      "nome": "FRONTAL SAMSUNG A12 A127/M12 M125/M127 LCD PREMIUM COM ARO VIVID",
+      "ativo": true,
+      "preco": "129.00",
+      "preco_custo": "50.00"
+    },
+    {
+      "id": "69c676509800df0efa00cb91",
+      "nome": "FRONTAL SAMSUNG A12 A127/M12 M125/M127 LCD PREMIUM COM ARO (VERSÃO A127F)",
+      "ativo": true,
+      "preco": "150.00",
+      "preco_custo": "86.99"
+    },
+    {
+      "id": "b7134f3a-d82f-4f08-8ecf-eaf5937d8ff5",
+      "nome": "FRONTAL SAMSUNG A12 A127/M12 M125/M127 LCD PREMIUM COM ARO (VERSÃO A127F)",
+      "ativo": true,
+      "preco": "120.00",
+      "preco_custo": "86.99"
+    }
+  ],
+  "estoque_before": [
+    {
+      "id": "c05cce09-11fc-5d75-84d9-db2f81b5e91e",
+      "produto_id": "652993de6f415ffe03bd2326",
+      "deposito_id": "63d9054d59a9c829747233d4",
+      "quantidade": "4.000"
+    },
+    {
+      "id": "7bacf468-a29b-4b97-b91b-b3916fe051d0",
+      "produto_id": "652993de6f415ffe03bd2326",
+      "deposito_id": "63e4dc8ede713ef765366d69",
+      "quantidade": "5.000"
+    },
+    {
+      "id": "ba909625-a315-5b8e-89a2-bce635847a43",
+      "produto_id": "652993de6f415ffe03bd2326",
+      "deposito_id": "d25c7649-0f96-4c80-a7d2-f7e9f5203506",
+      "quantidade": "0.000"
+    },
+    {
+      "id": "246ccd7d-180b-5966-88b3-6c67758081b3",
+      "produto_id": "69c676509800df0efa00cb91",
+      "deposito_id": "63d9054d59a9c829747233d4",
+      "quantidade": "-8.000"
+    },
+    {
+      "id": "c467159a-b9ad-51a9-8c4f-08d529625d40",
+      "produto_id": "69c676509800df0efa00cb91",
+      "deposito_id": "d25c7649-0f96-4c80-a7d2-f7e9f5203506",
+      "quantidade": "0.000"
+    },
+    {
+      "id": "717babcf-49e5-474f-bc92-3c45a97f21da",
+      "produto_id": "b7134f3a-d82f-4f08-8ecf-eaf5937d8ff5",
+      "deposito_id": "63d9054d59a9c829747233d4",
+      "quantidade": "0.000"
+    }
+  ],
+  "depositos": {
+    "63d9054d59a9c829747233d4": "PETRÓPOLIS LOJA",
+    "63e4dc8ede713ef765366d69": "TERESÓPOLIS LOJA",
+    "d25c7649-0f96-4c80-a7d2-f7e9f5203506": "PETRÓPOLIS ESTOQUE"
+  }
+}

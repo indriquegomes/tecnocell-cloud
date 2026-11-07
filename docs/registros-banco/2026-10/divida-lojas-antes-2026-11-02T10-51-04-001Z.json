@@ -1,0 +1,293 @@
+{
+  "quando": "2026-11-02T10:51:04.002Z",
+  "apagados": [
+    {
+      "id": "0abe1817-a2d1-4ed1-b62a-ccf860ee6a05",
+      "valor": 349.8,
+      "valor_pago": 0,
+      "pessoa_nome": "H2O FORNECEDOR",
+      "descricao": "PAGAMENTO DE MERCADORIA",
+      "data_vencimento": "2026-09-12T00:00:00+00:00",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946"
+    },
+    {
+      "id": "0f568179-5a38-42ee-8c14-e0d5a473b299",
+      "valor": 149,
+      "valor_pago": 0,
+      "pessoa_nome": "ZL CELL FORNECEDOR",
+      "descricao": "PAGAMENTO MERCADORIA",
+      "data_vencimento": "2026-09-23T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "186633e0-cc21-457a-832c-18723b91a462",
+      "valor": 12138.79,
+      "valor_pago": 790.4,
+      "pessoa_nome": "ADL FORNECEDOR",
+      "descricao": "Dívida ADL FORNECEDOR",
+      "data_vencimento": "2026-10-05T00:00:00+00:00",
+      "loja_id": null
+    },
+    {
+      "id": "1a47c33e-2a9e-4c8a-a815-8fa5aa97cc04",
+      "valor": 7206.04,
+      "valor_pago": 0,
+      "pessoa_nome": "H2O FORNECEDOR",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "data_vencimento": "2026-10-05T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "205ce320-c1d6-49eb-a20d-d812284bbec3",
+      "valor": 1708.9,
+      "valor_pago": 0,
+      "pessoa_nome": "ADL FORNECEDOR",
+      "descricao": "PAGAMENTO MERCADORIA",
+      "data_vencimento": "2026-09-24T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "2064c8d0-b5cb-4da6-be2e-c3644664c65a",
+      "valor": 4639.6,
+      "valor_pago": 0,
+      "pessoa_nome": "H2O FORNECEDOR",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "data_vencimento": "2026-10-03T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "2375dfec-7629-4430-868f-8b8ad63f5fe0",
+      "valor": 3989.9,
+      "valor_pago": 0,
+      "pessoa_nome": "PLAY CELL",
+      "descricao": "PAGAMENTO MERCADORIA",
+      "data_vencimento": "2026-09-21T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "2a1a3a49-d005-4340-8418-b9d49491cb2c",
+      "valor": 7,
+      "valor_pago": 0,
+      "pessoa_nome": "ADL FORNECEDOR",
+      "descricao": "PAGAMENTO MERCADORIA",
+      "data_vencimento": "2026-09-29T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "2cac6906-443a-4b9a-a8bd-683a0faf2c6f",
+      "valor": 552,
+      "valor_pago": 0,
+      "pessoa_nome": "PLAY CELL",
+      "descricao": "PAGAMENTO MERCADORIA",
+      "data_vencimento": "2026-09-21T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "2f8ce7e2-e2d8-4426-b2b2-37968b109394",
+      "valor": 556,
+      "valor_pago": 0,
+      "pessoa_nome": "H2O FORNECEDOR",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "data_vencimento": "2026-10-23T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "306776c8-7563-465c-8f0d-245f1ff8b641",
+      "valor": 684.1,
+      "valor_pago": 0,
+      "pessoa_nome": "H2O FORNECEDOR",
+      "descricao": "PAGAMENTO DE MERCADORIA",
+      "data_vencimento": "2026-10-07T00:00:00+00:00",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946"
+    },
+    {
+      "id": "308d5df2-4942-4eb1-849e-e601e0a4eab8",
+      "valor": 99,
+      "valor_pago": 0,
+      "pessoa_nome": "PLANETA CELL",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "data_vencimento": "2026-10-28T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "34227a00-4e99-49d8-9b7d-272b4e584935",
+      "valor": 3842.87,
+      "valor_pago": 0,
+      "pessoa_nome": "H2O FORNECEDOR",
+      "descricao": "PAGAMENTO DE MERCADORIA",
+      "data_vencimento": "2026-10-27T00:00:00+00:00",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946"
+    },
+    {
+      "id": "562eed16-aa53-4d2c-ae67-811ab329f84b",
+      "valor": 4039.36,
+      "valor_pago": 0,
+      "pessoa_nome": "ADL FORNECEDOR",
+      "descricao": "PAGAMENTO MERCADORIA",
+      "data_vencimento": "2026-09-28T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "5d82e503-5a23-4fac-a8bb-17a87a392cce",
+      "valor": 222,
+      "valor_pago": 0,
+      "pessoa_nome": "H2O FORNECEDOR",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "data_vencimento": "2026-10-19T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "659b8128-07fe-4ec2-8fe1-57abb05ceb3a",
+      "valor": 1768,
+      "valor_pago": 0,
+      "pessoa_nome": "ZL CELL FORNECEDOR",
+      "descricao": "PAGAMENTO MERCADORIA",
+      "data_vencimento": "2026-09-24T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "70ce604c-a79d-44e8-b6e0-6b0dff01ff0f",
+      "valor": 3548.5,
+      "valor_pago": 0,
+      "pessoa_nome": "H2O FORNECEDOR",
+      "descricao": "PAGAMENTO DE MERCADORIA",
+      "data_vencimento": "2026-09-15T00:00:00+00:00",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946"
+    },
+    {
+      "id": "75ed0286-dc52-4a0d-aab3-2bf444856fef",
+      "valor": 1232,
+      "valor_pago": 0,
+      "pessoa_nome": "ADL FORNECEDOR",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "data_vencimento": "2026-10-28T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "77056f93-b538-43c2-9aa2-eb20a2b9ef10",
+      "valor": 1597,
+      "valor_pago": 0,
+      "pessoa_nome": "H2O FORNECEDOR",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "data_vencimento": "2026-10-21T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "7e55eb2a-c898-4fe3-86d6-ece1acc72b45",
+      "valor": 4472.8,
+      "valor_pago": 0,
+      "pessoa_nome": "H2O FORNECEDOR",
+      "descricao": "PAGAMENTO MERCADORIA",
+      "data_vencimento": "2026-09-17T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "84a9df52-794b-4504-9fe0-d122267c16b4",
+      "valor": 5734.4,
+      "valor_pago": 1768,
+      "pessoa_nome": "ZL CELL FORNECEDOR",
+      "descricao": "Dívida ZL CELL FORNECEDOR",
+      "data_vencimento": "2026-10-05T00:00:00+00:00",
+      "loja_id": null
+    },
+    {
+      "id": "90079ab7-4013-479d-af02-2812fd46f378",
+      "valor": 43960.42,
+      "valor_pago": 2714.99,
+      "pessoa_nome": "H2O FORNECEDOR",
+      "descricao": "Dívida H2O FORNECEDOR",
+      "data_vencimento": "2026-10-05T00:00:00+00:00",
+      "loja_id": null
+    },
+    {
+      "id": "900c81b0-1ce5-490c-bac0-f71dc6c3c695",
+      "valor": 266.7,
+      "valor_pago": 0,
+      "pessoa_nome": "H2O FORNECEDOR",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "data_vencimento": "2026-10-16T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "9c996070-fdb1-4220-aa3a-d5e1950b9be4",
+      "valor": 4505.9,
+      "valor_pago": 0,
+      "pessoa_nome": "ADL FORNECEDOR",
+      "descricao": "PAGAMENTO MERCADORIA",
+      "data_vencimento": "2026-09-25T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "a45f7b19-9b79-4af8-843b-a57b8231c03c",
+      "valor": 2130.51,
+      "valor_pago": 0,
+      "pessoa_nome": "H2O FORNECEDOR",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "data_vencimento": "2026-10-02T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "b1274c48-5528-449d-b0d2-1bb7853debcf",
+      "valor": 1241.49,
+      "valor_pago": 0,
+      "pessoa_nome": "H2O FORNECEDOR",
+      "descricao": "PAGAMENTO MERCADORIA",
+      "data_vencimento": "2026-09-21T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "b3abca79-68e9-4f26-bdee-8fce03d7afca",
+      "valor": 112,
+      "valor_pago": 0,
+      "pessoa_nome": "H2O FORNECEDOR",
+      "descricao": "PAGAMENTO MERCADORIA",
+      "data_vencimento": "2026-09-22T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "d696f16b-3fca-4b8f-aea1-0451c493d246",
+      "valor": 1060.9,
+      "valor_pago": 0,
+      "pessoa_nome": "H2O FORNECEDOR",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "data_vencimento": "2026-10-17T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "ee000843-7a28-4aea-aa00-af10bd7cc145",
+      "valor": 349,
+      "valor_pago": 0,
+      "pessoa_nome": "ZL CELL FORNECEDOR",
+      "descricao": "PAGAMENTO MERCADORIA",
+      "data_vencimento": "2026-09-21T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "f0796195-2524-46ee-8d55-f5f2f38c0e7f",
+      "valor": 1514.4,
+      "valor_pago": 0,
+      "pessoa_nome": "ADL FORNECEDOR",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "data_vencimento": "2026-10-27T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "f524678c-5195-4abf-be2c-a536ebdfb860",
+      "valor": 6467.04,
+      "valor_pago": 0,
+      "pessoa_nome": "PLANETA CELL",
+      "descricao": "Dívida PLANETA CELL",
+      "data_vencimento": "2026-10-05T00:00:00+00:00",
+      "loja_id": null
+    },
+    {
+      "id": "fee74605-0e25-4992-95a9-5046e09f1145",
+      "valor": 1540.9,
+      "valor_pago": 0,
+      "pessoa_nome": "ADL FORNECEDOR",
+      "descricao": "PAGAMENTO MERCADORIA",
+      "data_vencimento": "2026-09-23T00:00:00+00:00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    }
+  ]
+}

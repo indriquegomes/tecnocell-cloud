@@ -1,0 +1,390 @@
+{
+  "quando": "2026-11-02T09:16:21.174Z",
+  "motivo": "Lançamento dos pagamentos de fornecedores fora da lista (autorizado pelo dono 26/10)",
+  "total_lancamentos_antes": 11033,
+  "soma_antes": 1573265.9499999988,
+  "notas_usadas": [
+    {
+      "nota": "48",
+      "fornecedor": "ESPECIAIS SAO PAULO",
+      "valor": 2914,
+      "data": "2026-10-01"
+    },
+    {
+      "nota": "47",
+      "fornecedor": "ESPECIAIS SAO PAULO",
+      "valor": 1023,
+      "data": "2026-10-01"
+    },
+    {
+      "nota": "64",
+      "fornecedor": "AMIN PELÍCULAS",
+      "valor": 1433.5,
+      "data": "2026-10-14"
+    },
+    {
+      "nota": "65",
+      "fornecedor": "AMIN PELÍCULAS",
+      "valor": 849.5,
+      "data": "2026-10-14"
+    },
+    {
+      "nota": "63",
+      "fornecedor": "GHR FERRAMENTAS",
+      "valor": 319.5,
+      "data": "2026-10-14"
+    },
+    {
+      "nota": "66",
+      "fornecedor": "ACESSORIOS FABIO",
+      "valor": 4045,
+      "data": "2026-10-14"
+    },
+    {
+      "nota": "62",
+      "fornecedor": "GHR FERRAMENTAS",
+      "valor": 287,
+      "data": "2026-10-14"
+    },
+    {
+      "nota": "67",
+      "fornecedor": "ACESSORIOS FABIO",
+      "valor": 6306,
+      "data": "2026-10-14"
+    },
+    {
+      "nota": "74",
+      "fornecedor": "ESPECIAIS SAO PAULO",
+      "valor": 475,
+      "data": "2026-10-15"
+    },
+    {
+      "nota": "73",
+      "fornecedor": "ESPECIAIS SAO PAULO",
+      "valor": 1523,
+      "data": "2026-10-15"
+    },
+    {
+      "nota": "79",
+      "fornecedor": "ACESSORIOS FABIO",
+      "valor": 959.86,
+      "data": "2026-10-20"
+    },
+    {
+      "nota": "87",
+      "fornecedor": "AMIN PELÍCULAS",
+      "valor": 759.5,
+      "data": "2026-10-29"
+    },
+    {
+      "nota": "84",
+      "fornecedor": "GHR FERRAMENTAS",
+      "valor": 169,
+      "data": "2026-10-29"
+    },
+    {
+      "nota": "86",
+      "fornecedor": "ACESSORIOS FABIO",
+      "valor": 2710,
+      "data": "2026-10-29"
+    },
+    {
+      "nota": "89",
+      "fornecedor": "ESPECIAIS SAO PAULO",
+      "valor": 2523,
+      "data": "2026-10-29"
+    },
+    {
+      "nota": "83",
+      "fornecedor": "GHR FERRAMENTAS",
+      "valor": 201.5,
+      "data": "2026-10-29"
+    },
+    {
+      "nota": "85",
+      "fornecedor": "ACESSORIOS FABIO",
+      "valor": 1815,
+      "data": "2026-10-29"
+    },
+    {
+      "nota": "88",
+      "fornecedor": "AMIN PELÍCULAS",
+      "valor": 204,
+      "data": "2026-10-29"
+    },
+    {
+      "nota": "90",
+      "fornecedor": "ESPECIAIS SAO PAULO",
+      "valor": 1539,
+      "data": "2026-10-29"
+    }
+  ],
+  "linhas_a_criar": [
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 2914,
+      "valor_pago": 2914,
+      "data_competencia": "2026-10-01",
+      "data_vencimento": "2026-10-01",
+      "data_pagamento": "2026-10-01T12:00:00-03:00",
+      "forma_pagamento": "Dinheiro",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "64a962b59d3ac1a8f1953ced",
+      "pessoa_nome": "ESPECIAIS SAO PAULO",
+      "descricao": "CONF FECHAMENTO OUT/2026 — nota de entrada nº 48"
+    },
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 1023,
+      "valor_pago": 1023,
+      "data_competencia": "2026-10-01",
+      "data_vencimento": "2026-10-01",
+      "data_pagamento": "2026-10-01T12:00:00-03:00",
+      "forma_pagamento": "Dinheiro",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "64a962b59d3ac1a8f1953ced",
+      "pessoa_nome": "ESPECIAIS SAO PAULO",
+      "descricao": "CONF FECHAMENTO OUT/2026 — nota de entrada nº 47"
+    },
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 1433.5,
+      "valor_pago": 1433.5,
+      "data_competencia": "2026-10-14",
+      "data_vencimento": "2026-10-14",
+      "data_pagamento": "2026-10-14T12:00:00-03:00",
+      "forma_pagamento": "Dinheiro",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "6a184c444f535f99fecfec07",
+      "pessoa_nome": "AMIN PELÍCULAS",
+      "descricao": "CONF FECHAMENTO OUT/2026 — nota de entrada nº 64"
+    },
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 849.5,
+      "valor_pago": 849.5,
+      "data_competencia": "2026-10-14",
+      "data_vencimento": "2026-10-14",
+      "data_pagamento": "2026-10-14T12:00:00-03:00",
+      "forma_pagamento": "Dinheiro",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "6a184c444f535f99fecfec07",
+      "pessoa_nome": "AMIN PELÍCULAS",
+      "descricao": "CONF FECHAMENTO OUT/2026 — nota de entrada nº 65"
+    },
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 319.5,
+      "valor_pago": 319.5,
+      "data_competencia": "2026-10-14",
+      "data_vencimento": "2026-10-14",
+      "data_pagamento": "2026-10-14T12:00:00-03:00",
+      "forma_pagamento": "Dinheiro",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "642ac3d6777d683f5ff08561",
+      "pessoa_nome": "GHR FERRAMENTAS",
+      "descricao": "CONF FECHAMENTO OUT/2026 — nota de entrada nº 63"
+    },
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 4045,
+      "valor_pago": 4045,
+      "data_competencia": "2026-10-14",
+      "data_vencimento": "2026-10-14",
+      "data_pagamento": "2026-10-14T12:00:00-03:00",
+      "forma_pagamento": "Dinheiro",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "6a57bd81944a25f33f1b46a0",
+      "pessoa_nome": "ACESSORIOS FABIO",
+      "descricao": "CONF FECHAMENTO OUT/2026 — nota de entrada nº 66"
+    },
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 287,
+      "valor_pago": 287,
+      "data_competencia": "2026-10-14",
+      "data_vencimento": "2026-10-14",
+      "data_pagamento": "2026-10-14T12:00:00-03:00",
+      "forma_pagamento": "Dinheiro",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "642ac3d6777d683f5ff08561",
+      "pessoa_nome": "GHR FERRAMENTAS",
+      "descricao": "CONF FECHAMENTO OUT/2026 — nota de entrada nº 62"
+    },
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 6306,
+      "valor_pago": 6306,
+      "data_competencia": "2026-10-14",
+      "data_vencimento": "2026-10-14",
+      "data_pagamento": "2026-10-14T12:00:00-03:00",
+      "forma_pagamento": "Dinheiro",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "6a57bd81944a25f33f1b46a0",
+      "pessoa_nome": "ACESSORIOS FABIO",
+      "descricao": "CONF FECHAMENTO OUT/2026 — nota de entrada nº 67"
+    },
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 475,
+      "valor_pago": 475,
+      "data_competencia": "2026-10-15",
+      "data_vencimento": "2026-10-15",
+      "data_pagamento": "2026-10-15T12:00:00-03:00",
+      "forma_pagamento": "Dinheiro",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "64a962b59d3ac1a8f1953ced",
+      "pessoa_nome": "ESPECIAIS SAO PAULO",
+      "descricao": "CONF FECHAMENTO OUT/2026 — nota de entrada nº 74"
+    },
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 1523,
+      "valor_pago": 1523,
+      "data_competencia": "2026-10-15",
+      "data_vencimento": "2026-10-15",
+      "data_pagamento": "2026-10-15T12:00:00-03:00",
+      "forma_pagamento": "Dinheiro",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "64a962b59d3ac1a8f1953ced",
+      "pessoa_nome": "ESPECIAIS SAO PAULO",
+      "descricao": "CONF FECHAMENTO OUT/2026 — nota de entrada nº 73"
+    },
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 959.86,
+      "valor_pago": 959.86,
+      "data_competencia": "2026-10-20",
+      "data_vencimento": "2026-10-20",
+      "data_pagamento": "2026-10-20T12:00:00-03:00",
+      "forma_pagamento": "Dinheiro",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "6a57bd81944a25f33f1b46a0",
+      "pessoa_nome": "ACESSORIOS FABIO",
+      "descricao": "CONF FECHAMENTO OUT/2026 — nota de entrada nº 79"
+    },
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 759.5,
+      "valor_pago": 759.5,
+      "data_competencia": "2026-10-29",
+      "data_vencimento": "2026-10-29",
+      "data_pagamento": "2026-10-29T12:00:00-03:00",
+      "forma_pagamento": "Dinheiro",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "6a184c444f535f99fecfec07",
+      "pessoa_nome": "AMIN PELÍCULAS",
+      "descricao": "CONF FECHAMENTO OUT/2026 — nota de entrada nº 87"
+    },
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 169,
+      "valor_pago": 169,
+      "data_competencia": "2026-10-29",
+      "data_vencimento": "2026-10-29",
+      "data_pagamento": "2026-10-29T12:00:00-03:00",
+      "forma_pagamento": "Dinheiro",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "642ac3d6777d683f5ff08561",
+      "pessoa_nome": "GHR FERRAMENTAS",
+      "descricao": "CONF FECHAMENTO OUT/2026 — nota de entrada nº 84"
+    },
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 2710,
+      "valor_pago": 2710,
+      "data_competencia": "2026-10-29",
+      "data_vencimento": "2026-10-29",
+      "data_pagamento": "2026-10-29T12:00:00-03:00",
+      "forma_pagamento": "Dinheiro",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "6a57bd81944a25f33f1b46a0",
+      "pessoa_nome": "ACESSORIOS FABIO",
+      "descricao": "CONF FECHAMENTO OUT/2026 — nota de entrada nº 86"
+    },
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 2523,
+      "valor_pago": 2523,
+      "data_competencia": "2026-10-29",
+      "data_vencimento": "2026-10-29",
+      "data_pagamento": "2026-10-29T12:00:00-03:00",
+      "forma_pagamento": "Dinheiro",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "64a962b59d3ac1a8f1953ced",
+      "pessoa_nome": "ESPECIAIS SAO PAULO",
+      "descricao": "CONF FECHAMENTO OUT/2026 — nota de entrada nº 89"
+    },
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 201.5,
+      "valor_pago": 201.5,
+      "data_competencia": "2026-10-29",
+      "data_vencimento": "2026-10-29",
+      "data_pagamento": "2026-10-29T12:00:00-03:00",
+      "forma_pagamento": "Dinheiro",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "642ac3d6777d683f5ff08561",
+      "pessoa_nome": "GHR FERRAMENTAS",
+      "descricao": "CONF FECHAMENTO OUT/2026 — nota de entrada nº 83"
+    },
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 1815,
+      "valor_pago": 1815,
+      "data_competencia": "2026-10-29",
+      "data_vencimento": "2026-10-29",
+      "data_pagamento": "2026-10-29T12:00:00-03:00",
+      "forma_pagamento": "Dinheiro",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "6a57bd81944a25f33f1b46a0",
+      "pessoa_nome": "ACESSORIOS FABIO",
+      "descricao": "CONF FECHAMENTO OUT/2026 — nota de entrada nº 85"
+    },
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 204,
+      "valor_pago": 204,
+      "data_competencia": "2026-10-29",
+      "data_vencimento": "2026-10-29",
+      "data_pagamento": "2026-10-29T12:00:00-03:00",
+      "forma_pagamento": "Dinheiro",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "6a184c444f535f99fecfec07",
+      "pessoa_nome": "AMIN PELÍCULAS",
+      "descricao": "CONF FECHAMENTO OUT/2026 — nota de entrada nº 88"
+    },
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 1539,
+      "valor_pago": 1539,
+      "data_competencia": "2026-10-29",
+      "data_vencimento": "2026-10-29",
+      "data_pagamento": "2026-10-29T12:00:00-03:00",
+      "forma_pagamento": "Dinheiro",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "64a962b59d3ac1a8f1953ced",
+      "pessoa_nome": "ESPECIAIS SAO PAULO",
+      "descricao": "CONF FECHAMENTO OUT/2026 — nota de entrada nº 90"
+    }
+  ]
+}

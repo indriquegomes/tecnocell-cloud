@@ -1,7 +1,7 @@
 // Repara a tabela do registro.md que perdeu as barras "|" numa substituição anterior.
 // Só formatação: o texto das células é preservado. Uso: node scripts/reparar-registro.mjs [--gravar]
 import fs from 'node:fs'
-const arq = 'docs/fechamento/2026-10/registro.md'
+const arq = 'docs/registros/2026-10/registro.md'
 const GRAVAR = process.argv.includes('--gravar')
 const linhas = fs.readFileSync(arq, 'utf8').split(/\r?\n/)
 const CABECALHO = '| ID | Camada | App diz | Realidade diz | Diferença | Hipótese | Pergunta | Status |'

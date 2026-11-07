@@ -36,7 +36,7 @@ console.log('  total estoque :', brl(270128.74 + 185000.40))
 
 if (!GRAVAR) { console.log('\n(DRY-RUN — nada gravado. Use --gravar)'); process.exit(0) }
 
-const dir = 'docs/fechamento/2026-10/backups'
+const dir = 'docs/registros-banco/2026-10'
 fs.mkdirSync(dir, { recursive: true })
 fs.writeFileSync(`${dir}/fechamento-setembro-antes-${new Date().toISOString().replace(/[:.]/g, '-')}.json`, JSON.stringify({ quando: new Date().toISOString(), antes: atual }, null, 2), 'utf8')
 

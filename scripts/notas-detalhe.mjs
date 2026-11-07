@@ -109,5 +109,5 @@ out('Top categorias:')
 out()
 for (const [k, v] of Object.entries(porCategoria).sort((a, b) => b[1] - a[1]).slice(0, 12)) out(`- ${brl(v).padStart(14)} ${k}`)
 
-fs.writeFileSync('docs/fechamento/2026-10/notas-detalhe-e-resultado.md', L.join('\n') + '\n', 'utf8')
-console.log('\nok: docs/fechamento/2026-10/notas-detalhe-e-resultado.md')
+fs.writeFileSync('docs/registros/2026-10/notas-detalhe-e-resultado.md', L.join('\n') + '\n', 'utf8')
+console.log('\nok: docs/registros/2026-10/notas-detalhe-e-resultado.md')

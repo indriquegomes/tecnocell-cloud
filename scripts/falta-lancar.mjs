@@ -128,5 +128,5 @@ out('| Fornecedor | Dia | Valor faltando |')
 out('|---|---|---|')
 for (const f of faltando.sort((a, b) => b.dif - a.dif).slice(0, 20)) out(`| ${f.g} | ${f.dia.slice(8, 10)}/${f.dia.slice(5, 7)} | ${brl(f.dif)} |`)
 
-fs.writeFileSync('docs/fechamento/2026-10/falta-lancar-fornecedor.md', L.join('\n') + '\n', 'utf8')
-console.log('\nok: docs/fechamento/2026-10/falta-lancar-fornecedor.md')
+fs.writeFileSync('docs/registros/2026-10/falta-lancar-fornecedor.md', L.join('\n') + '\n', 'utf8')
+console.log('\nok: docs/registros/2026-10/falta-lancar-fornecedor.md')

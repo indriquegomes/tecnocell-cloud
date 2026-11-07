@@ -1,0 +1,75 @@
+{
+  "quando": "2026-11-02T11:37:01.853Z",
+  "linhas": [
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 20934.02,
+      "valor_pago": 20934.02,
+      "data_competencia": "2026-10-28",
+      "data_vencimento": "2026-10-28",
+      "data_pagamento": "2026-10-28T12:00:00-03:00",
+      "forma_pagamento": "PIX",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "698ca68bab433fc39fef7b75",
+      "pessoa_nome": "H2O FORNECEDOR",
+      "descricao": "CONF FECHAMENTO OUT/2026 — saldo de pagamentos do mês — H2O FORNECEDOR"
+    },
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 6209.9,
+      "valor_pago": 6209.9,
+      "data_competencia": "2026-10-28",
+      "data_vencimento": "2026-10-28",
+      "data_pagamento": "2026-10-28T12:00:00-03:00",
+      "forma_pagamento": "PIX",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "69d6bb5139449d9509f24978",
+      "pessoa_nome": "ADL FORNECEDOR",
+      "descricao": "CONF FECHAMENTO OUT/2026 — saldo de pagamentos do mês — ADL FORNECEDOR"
+    },
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 1331.3,
+      "valor_pago": 1331.3,
+      "data_competencia": "2026-10-28",
+      "data_vencimento": "2026-10-28",
+      "data_pagamento": "2026-10-28T12:00:00-03:00",
+      "forma_pagamento": "PIX",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "6537e9a5252e1067daf498a3",
+      "pessoa_nome": "ZL CELL FORNECEDOR",
+      "descricao": "CONF FECHAMENTO OUT/2026 — saldo de pagamentos do mês — ZL CELL FORNECEDOR"
+    },
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 5236.8,
+      "valor_pago": 5236.8,
+      "data_competencia": "2026-10-28",
+      "data_vencimento": "2026-10-28",
+      "data_pagamento": "2026-10-28T12:00:00-03:00",
+      "forma_pagamento": "PIX",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "63fcac1fb418e8b1b3a3471e",
+      "pessoa_nome": "INOVA MERCADORIAS",
+      "descricao": "CONF FECHAMENTO OUT/2026 — saldo de pagamentos do mês — INOVA MERCADORIAS"
+    },
+    {
+      "tipo": "pagar",
+      "status": "pago",
+      "valor": 99,
+      "valor_pago": 99,
+      "data_competencia": "2026-10-28",
+      "data_vencimento": "2026-10-28",
+      "data_pagamento": "2026-10-28T12:00:00-03:00",
+      "forma_pagamento": "PIX",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_id": "63e6375b0a7df67f3f2d1d29",
+      "pessoa_nome": "PLANETA CELL",
+      "descricao": "CONF FECHAMENTO OUT/2026 — saldo de pagamentos do mês — PLANETA CELL"
+    }
+  ]
+}

@@ -71,7 +71,7 @@ if (!GRAVAR) {
 if (!linhas.length) { console.log('\nNada a fazer.'); process.exit(0) }
 
 // ── backup antes ────────────────────────────────────────────────────
-const dir = 'docs/fechamento/2026-10/backups'
+const dir = 'docs/registros-banco/2026-10'
 fs.mkdirSync(dir, { recursive: true })
 const carimbo = new Date().toISOString().replace(/[:.]/g, '-')
 const antes = await pagina('lancamentos', 'id, valor, descricao')

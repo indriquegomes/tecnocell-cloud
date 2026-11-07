@@ -1,0 +1,794 @@
+[2023-06-12, 10:23:59] Estoque Imobilizado - Controle Diário 📦📈: ‎As mensagens e chamadas são encriptadas ponto a ponto. Só as pessoas nesta conversa as podem ler, ouvir ou partilhar.
+[2023-06-12, 10:23:59] isabela Porciano: ‎isabela Porciano criou este grupo
+[2023-06-12, 10:23:59] Estoque Imobilizado - Controle Diário 📦📈: ‎Foi adicionado/a a este grupo
+[2026-07-30, 10:05:52] Isa - Escritorio PT: Pra hoje:
+* última relação de trocas 
+* ⁠última relação de perdas
+* ⁠última relação do imobilizado antes da chegada das novas peças
+[2026-07-30, 10:06:06] Estoque Geral: Beleza!
+[2026-07-30, 10:06:12] Estoque Geral: O imobilizado irei fazer amanhã cedo
+[2026-07-30, 10:06:38] Estoque Geral: As trocas tbm farei amanhã e as perdas tb, pq vai chegar troca amanhã e vou adicionar as perdas na lista
+[2026-07-30, 10:06:44] Estoque Geral: Tudo bem?
+[2026-07-30, 10:06:54] Estoque Geral: Mas já tenho a lista das perdas atuais do que tem até agora
+‎[2026-07-30, 10:07:18] Estoque Geral: ‎<anexo: 00000210-PHOTO-2026-07-30-10-07-18.jpg>
+[2026-07-30, 10:08:00] Estoque Geral: Só q deve entrar mais itens amanhã
+[2026-07-30, 10:08:08] Estoque Geral: Por isso o valor certo irei enviar amanhã pra ficar mais certinho ‎<Esta mensagem foi editada>
+[2026-07-30, 10:10:09] Isa - Escritorio PT: Top
+[2026-07-31, 08:17:02] Estoque Geral: IMOBILIZADO GERAL 
+Filial: *Petropolis*
+
+> *R$ 225.886,70*
+Frontal: R$ 97.373,71
+Bateria: R$ 19.929,99
+Acessórios: R$ 20.050,96
+Parte Traseira: R$ 18.750,82
+Ferramentas: R$ 11.562,70
+Películas: R$ 1.694,69
+Celular: R$ 0,00
+Componentes: R$ 54.195,84
+Touch: R$ 1.347,24
+LCD: R$ 303,89
+Capa: R$ 547,50 ‎<Esta mensagem foi editada>
+[2026-07-31, 08:21:38] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Teresópolis*
+
+> *R$ 182.379,24*
+Frontal: R$ 75.107,67
+Bateria: R$ 16.790,66
+Acessórios: R$ 28.347,67
+Parte Traseira: R$ 13.039,27
+Ferramentas: R$ 8.931,77
+Películas: R$ 1.911,88
+Celular: R$ 0,00
+Componentes: R$ 35.663,51
+Touch: R$ 1.654,54
+LCD: R$ 85,00
+Capa: R$ 475,48
+‎[2026-07-31, 09:01:38] Isa - Escritorio PT: ‎<anexo: 00000216-STICKER-2026-07-31-09-01-38.webp>
+‎[2026-07-31, 11:45:30] Estoque Geral: PERDAS PETROPOLIS
+*1676,28* ‎<anexo: 00000217-PHOTO-2026-07-31-11-45-30.jpg>
+‎[2026-07-31, 11:57:35] Estoque Geral: PERDAS TERESOPOLIS
+*R$1697,06* ‎<anexo: 00000218-PHOTO-2026-07-31-11-57-35.jpg>
+[2026-07-31, 11:58:20] Estoque Geral: *1676,28*+*1697,06*= 3.373,34 TOTAL
+‎[2026-07-31, 11:58:47] Estoque Geral: TODAS ESSAS PEÇAS VIERAM A MAIS DO FORNECEDOR, SOMANDO: *R$4.366,72* ‎<anexo: 00000220-PHOTO-2026-07-31-11-58-47.jpg>
+[2026-07-31, 12:19:31] Isa - Escritorio PT: As trocas já vão entrar no sistema então?
+[2026-07-31, 12:19:40] Isa - Escritorio PT: Me manda um valor só meu bem? De tdo
+[2026-07-31, 12:20:06] Isa - Escritorio PT: Tipo:
+
+Trocas que entraram no sistema PT - xxx
+Trocasa que entrada no sistema TR - xxx
+
+Trocas pendentes em sp PT - xxx
+Trocas pendentes em sp TR - xxx
+[2026-07-31, 12:21:28] Estoque Geral: Não entendi Isa, como assim troca que entraram?
+[2026-07-31, 12:22:04] Estoque Geral: E não sei se vou conseguir fazer as trocas hoje mo
+[2026-07-31, 12:36:35] Estoque Geral: *TROCAS QUE ENTRARAM TERESOPOLIS:*
+TROCA ACESSORIOS	01/07/2026 - 11:52	-  R$ 525,00
+*R$ 525,00*
+
+*TROCAS QUE ENTRARAM PET:*
+PETRÓPOLIS LOJA	TROCA ZL CELL FORNECEDOR	06/07/2026 - 11:54	- R$ 464,66
+PETRÓPOLIS LOJA	TROCAS ADL	06/07/2026 - 13:38	- R$ 2.914,27
+PETRÓPOLIS LOJA	TROCAS ADL	11/07/2026 - 11:57	- R$ 2.233,27
+PETRÓPOLIS LOJA	TROCA ZL CELL FORNECEDOR	14/07/2026 - 09:10	- R$ 1.163,14
+PETRÓPOLIS LOJA	TROCA ACESSORIOS	14/07/2026 - 09:13	- R$ 75,00
+PETRÓPOLIS LOJA	TROCAS H²0	14/07/2026 - 11:11	- R$ 2.827,96
+PETRÓPOLIS LOJA	TROCA ACESSORIOS	22/07/2026 - 13:43	- R$ 150,00
+PETRÓPOLIS ESTOQUE	TROCA ZL CELL FORNECEDOR	22/07/2026 - 13:48	- R$ 395,00
+PETRÓPOLIS ESTOQUE	TROCAS PLANETA CELL	22/07/2026 - 13:50	- R$ 252,00
+PETRÓPOLIS ESTOQUE	TROCAS H²0	22/07/2026 - 14:06	- R$ 330,07	
+PETRÓPOLIS LOJA	TROCAS H²0	22/07/2026 - 14:08	- R$ 620,36	
+PETRÓPOLIS LOJA	TROCAS H²0	22/07/2026 - 16:01	- R$ 557,84	
+PETRÓPOLIS LOJA	TROCAS GERAL	22/07/2026 - 16:34	- R$ 1.331,15
+PETRÓPOLIS ESTOQUE	TROCAS GERAL	24/07/2026 - 08:44	- R$ 3.760,04
+*17.074,76*
+
+TROCAS PENDENTES EM SP/AINDA PARA FAZER:
+TERESOPOLIS
+*ADL 2.469,26* 	
+*ZL CELL R$ 490,00*
+*H²O R$ 1.751,92*			
+
+PETROPOLIS
+*ADL 2.901,48*
+*PC 360,00*
+*ZL CELL 543,33*
+*H²O 3.072,03*
+[2026-07-31, 12:36:46] Estoque Geral: ACHO Q É ISSO NE?
+[2026-07-31, 12:36:51] Estoque Geral: feito✅
+[2026-08-04, 08:33:14] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Teresópolis*
+
+> *R$ 199.925,53*
+Frontal: R$ 87.065,29
+Bateria: R$ 20.336,45
+Acessórios: R$ 27.402,52
+Parte Traseira: R$ 13.474,20
+Ferramentas: R$ 9.261,31
+Películas: R$ 2.028,40
+Celular: R$ 0,00
+Componentes: R$ 37.556,55
+Touch: R$ 1.654,54
+LCD: R$ 85,00
+Capa: R$ 549,48 ‎<Esta mensagem foi editada>
+[2026-08-04, 08:39:50] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Petrópolis*
+
+> *R$ 258.178,91*
+Frontal: R$ 118.007,44
+Bateria: R$ 21.251,73
+Acessórios: R$ 24.690,78
+Parte Traseira: R$ 20.828,77
+Ferramentas: R$ 11.725,67
+Películas: R$ 1.684,99
+Celular: R$ 0,00
+Componentes: R$ 57.461,18
+Touch: R$ 1.301,02
+LCD: R$ 303,89
+Capa: R$ 591,00 ‎<Esta mensagem foi editada>
+[2026-08-05, 09:56:20] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Petrópolis*
+
+> *R$ 251.745,84*
+Frontal: R$ 111.971,33
+Bateria: R$ 20.761,23
+Acessórios: R$ 25.285,68
+Parte Traseira: R$ 20.751,35
+Ferramentas: R$ 11.689,60
+Películas: R$ 1.519,05
+Celular: R$ 0,00
+Componentes: R$ 57.354,83
+Touch: R$ 1.301,02
+LCD: R$ 303,89
+Capa: R$ 591,00
+[2026-08-05, 09:59:41] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Teresópolis*
+
+> *R$ 192.124,36*
+Frontal: R$ 82.787,46
+Bateria: R$ 19.435,96
+Acessórios: R$ 25.094,17
+Parte Traseira: R$ 13.418,42
+Ferramentas: R$ 9.248,01
+Películas: R$ 1.853,14
+Celular: R$ 0,00
+Componentes: R$ 37.449,42
+Touch: R$ 1.654,54
+LCD: R$ 85,00
+Capa: R$ 549,48
+[2026-08-11, 17:00:55] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Petrópolis*
+
+> *R$ 258.123,12*
+Frontal: R$ 115.537,71
+Bateria: R$ 22.732,10
+Acessórios: R$ 23.172,28
+Parte Traseira: R$ 20.813,05
+Ferramentas: R$ 11.803,85
+Películas: R$ 2.139,78
+Celular: R$ 0,00
+Componentes: R$ 57.978,34
+Touch: R$ 1.312,24
+LCD: R$ 303,89
+Capa: R$ 653,60
+[2026-08-12, 11:58:25] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Teresópolis*
+
+> *R$ 199.819,91*
+Frontal: R$ 86.852,74
+Bateria: R$ 21.122,77
+Acessórios: R$ 27.441,88
+Parte Traseira: R$ 13.344,24
+Ferramentas: R$ 8.930,48
+Películas: R$ 1.853,14
+Celular: R$ 0,00
+Componentes: R$ 37.449,42
+Touch: R$ 1.654,54
+LCD: R$ 85,00
+Capa: R$ 549,48
+[2026-08-14, 09:22:32] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Teresópolis*
+
+> *R$ 188.047,84*
+Frontal: R$ 78.139,24
+Bateria: R$ 20.079,39
+Acessórios: R$ 25.907,00
+Parte Traseira: R$ 13.306,01
+Ferramentas: R$ 8.809,57
+Películas: R$ 1.572,35
+Celular: R$ 0,00
+Componentes: R$ 37.539,34
+Touch: R$ 1.654,54
+LCD: R$ 85,00
+Capa: R$ 549,48
+[2026-08-14, 09:28:05] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Petrópolis*
+
+> *R$ 247.607,40*
+Frontal: R$ 109.875,27
+Bateria: R$ 21.024,04
+Acessórios: R$ 21.245,75
+Parte Traseira: R$ 20.544,71
+Ferramentas: R$ 11.761,16
+Películas: R$ 1.987,08
+Celular: R$ 0,00
+Componentes: R$ 57.570,55
+Touch: R$ 1.312,24
+LCD: R$ 303,89
+Capa: R$ 653,60
+[2026-08-18, 17:13:59] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Petrópolis*
+
+> *R$ 220.106,66*
+Frontal: R$ 90.444,97
+Bateria: R$ 20.230,58
+Acessórios: R$ 15.281,63
+Parte Traseira: R$ 20.429,33
+Ferramentas: R$ 11.089,64
+Películas: R$ 1.808,43
+Celular: R$ 0,00
+Componentes: R$ 57.223,13
+Touch: R$ 1.312,24
+LCD: R$ 303,89
+Capa: R$ 653,60
+[2026-08-18, 17:18:46] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Teresópolis*
+
+> *R$ 173.475,00*
+Frontal: R$ 67.698,49
+Bateria: R$ 19.130,97
+Acessórios: R$ 23.611,84
+Parte Traseira: R$ 13.190,31
+Ferramentas: R$ 8.733,15
+Películas: R$ 1.461,84
+Celular: R$ 0,00
+Componentes: R$ 36.953,46
+Touch: R$ 1.654,54
+LCD: R$ 85,00
+Capa: R$ 549,48
+[2026-08-19, 12:26:35] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Teresópolis*
+
+> *R$ 172.037,92*
+Frontal: R$ 66.450,45
+Bateria: R$ 19.039,34
+Acessórios: R$ 23.687,92
+Parte Traseira: R$ 13.121,53
+Ferramentas: R$ 8.711,62
+Películas: R$ 1.454,39
+Celular: R$ 0,00
+Componentes: R$ 36.947,73
+Touch: R$ 1.654,54
+LCD: R$ 85,00
+Capa: R$ 549,48
+[2026-08-19, 12:31:42] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Petrópolis*
+
+> *R$ 216.190,39*
+Frontal: R$ 88.179,89
+Bateria: R$ 19.671,08
+Acessórios: R$ 14.450,96
+Parte Traseira: R$ 20.429,33
+Ferramentas: R$ 11.080,39
+Películas: R$ 1.762,40
+Celular: R$ 0,00
+Componentes: R$ 57.201,16
+Touch: R$ 1.312,24
+LCD: R$ 303,89
+Capa: R$ 653,60
+[2026-08-21, 08:36:45] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Petrópolis*
+
+> *R$ 210.002,00*
+Frontal: R$ 83.025,50
+Bateria: R$ 19.104,65
+Acessórios: R$ 14.643,07
+Parte Traseira: R$ 20.429,96
+Ferramentas: R$ 11.058,86
+Películas: R$ 1.654,03
+Celular: R$ 0,00
+Componentes: R$ 56.881,32
+Touch: R$ 1.312,24
+LCD: R$ 303,89
+Capa: R$ 653,60
+[2026-08-21, 08:40:52] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Teresópolis*
+
+> *R$ 164.977,38*
+Frontal: R$ 61.169,10
+Bateria: R$ 18.524,50
+Acessórios: R$ 22.735,47
+Parte Traseira: R$ 13.080,52
+Ferramentas: R$ 8.724,49
+Películas: R$ 1.454,39
+Celular: R$ 0,00
+Componentes: R$ 36.759,46
+Touch: R$ 1.654,54
+LCD: R$ 85,00
+Capa: R$ 549,48
+[2026-08-21, 16:29:24] Estoque Geral: COM AS COMPRAS
+
+IMOBILIZADO GERAL
+Filial: *Petrópolis*
+
+> *R$ 252.892,83*
+Frontal: R$ 116.682,06
+Bateria: R$ 21.829,31
+Acessórios: R$ 17.295,18
+Parte Traseira: R$ 20.979,00
+Ferramentas: R$ 11.873,85
+Películas: R$ 2.071,43
+Celular: R$ 0,00
+Componentes: R$ 58.478,28
+Touch: R$ 1.312,24
+LCD: R$ 303,89
+Capa: R$ 653,60
+[2026-08-24, 09:29:14] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Petrópolis*
+
+> *R$ 245.845,62*
+Frontal: R$ 112.366,85
+Bateria: R$ 21.114,32
+Acessórios: R$ 16.540,68
+Parte Traseira: R$ 20.829,35
+Ferramentas: R$ 11.603,26
+Películas: R$ 1.947,61
+Celular: R$ 0,00
+Componentes: R$ 58.138,77
+Touch: R$ 1.312,24
+LCD: R$ 303,89
+Capa: R$ 653,60
+[2026-08-24, 09:34:02] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Teresópolis*
+
+> *R$ 193.941,53*
+Frontal: R$ 86.655,08
+Bateria: R$ 20.410,73
+Acessórios: R$ 22.480,46
+Parte Traseira: R$ 13.381,00
+Ferramentas: R$ 9.033,37
+Películas: R$ 1.762,24
+Celular: R$ 0,00
+Componentes: R$ 36.787,96
+Touch: R$ 1.654,54
+LCD: R$ 85,00
+Capa: R$ 549,48
+[2026-08-25, 08:59:03] Estoque Geral: *Temos em estoque de acessórios de INOVA antigos:*
+PET: 10.084,58
+TERE:18.562,16
+[2026-08-25, 09:04:39] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Petrópolis*
+
+> *R$ 243.906,17*
+Frontal: R$ 111.790,93
+Bateria: R$ 20.924,24
+Acessórios: R$ 16.154,25
+Parte Traseira: R$ 20.829,35
+Ferramentas: R$ 11.584,09
+Películas: R$ 1.833,22
+Celular: R$ 0,00
+Componentes: R$ 57.574,81
+Touch: R$ 1.312,24
+LCD: R$ 303,89
+Capa: R$ 653,60
+[2026-08-25, 09:10:32] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Teresópolis*
+
+> *R$ 189.059,13*
+Frontal: R$ 82.842,43
+Bateria: R$ 19.893,42
+Acessórios: R$ 21.997,65
+Parte Traseira: R$ 13.374,55
+Ferramentas: R$ 9.030,47
+Películas: R$ 1.688,47
+Celular: R$ 0,00
+Componentes: R$ 36.787,96
+Touch: R$ 1.654,54
+LCD: R$ 85,00
+Capa: R$ 549,48
+[2026-09-02, 10:18:35] Isa - Escritorio PT: FINALIZAÇÃO 30/08
+
+IMOBILIZADO GERAL
+Filial: Petrópolis
+
+R$ 227.074,10
+
+Frontal: R$ 97.766,95
+Bateria: R$ 19.061,70
+Acessórios: R$ 16.154,25
+Parte Traseira: R$ 20.829,35
+Ferramentas: R$ 11.584,09
+Películas: R$ 1.833,22
+Celular: R$ 0,00
+Componentes: R$ 57.574,81
+Touch: R$ 1.312,24
+LCD: R$ 303,89
+Capa: R$ 653,60
+
+IMOBILIZADO GERAL
+Filial: Teresópolis
+
+R$ 174.417,45
+
+Frontal: R$ 70.890,21
+Bateria: R$ 18.359,12
+Acessórios: R$ 21.997,65
+Parte Traseira: R$ 13.374,55
+Ferramentas: R$ 9.030,47
+Películas: R$ 1.688,47
+Celular: R$ 0,00
+Componentes: R$ 36.787,96
+Touch: R$ 1.654,54
+LCD: R$ 85,00
+Capa: R$ 549,48
+[2026-09-08, 08:37:13] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Teresópolis*
+
+> *R$ 206.689,14*
+Frontal: R$ 78.920,56
+Bateria: R$ 20.482,48
+Acessórios: R$ 43.669,59
+Parte Traseira: R$ 13.550,25
+Ferramentas: R$ 7.723,78
+Películas: R$ 1.426,01
+Celular: R$ 0,00
+Componentes: R$ 37.397,91
+Touch: R$ 1.614,54
+LCD: R$ 85,00
+Capa: R$ 462,49
+[2026-09-08, 08:40:44] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Petrópolis*
+
+> *R$ 279.296,19*
+Frontal: R$ 104.481,06
+Bateria: R$ 21.314,70
+Acessórios: R$ 58.518,80
+Parte Traseira: R$ 20.676,09
+Ferramentas: R$ 11.427,58
+Películas: R$ 1.322,46
+Celular: R$ 0,00
+Componentes: R$ 58.246,40
+Touch: R$ 1.312,24
+LCD: R$ 303,89
+Capa: R$ 439,92
+[2026-09-10, 09:22:52] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Petrópolis*
+ 
+Preciso de ajuda em como faz para filtrar isso no TEC CLOUD, perguntei a IA, mas ela não soube responder.
+[2026-09-10, 09:35:09] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Teresópolis*
+
+> *R$ 191.610,73*
+Frontal: R$ 66.285,00
+Bateria: R$ 20.142,61
+Acessórios: R$ 42.353,05
+Parte Traseira: R$ 13.409,80
+Ferramentas: R$ 7.545,39
+Películas: R$ 1.226,90
+Celular: R$ 0,00
+Componentes: R$ 37.095,42
+Touch: R$ 1.614,54
+LCD: R$ 85,00
+Capa: R$ 462,49
+[2026-09-15, 08:47:46] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Teresópolis*
+
+> *R$ 207.755,57*
+Frontal: R$ 82.285,72
+Bateria: R$ 21.299,60
+Acessórios: R$ 42.311,34
+Parte Traseira: R$ 13.220,42
+Ferramentas: R$ 7.103,64
+Películas: R$ 1.602,34
+Celular: R$ 0,00
+Componentes: R$ 36.526,31
+Touch: R$ 1.614,54
+LCD: R$ 85,00
+Capa: R$ 462,49
+[2026-09-15, 08:52:03] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Petrópolis*
+
+> R$ 280.444,99
+Frontal: R$ R$ 107.650,72	
+Bateria: R$ 21.407,13	
+Acessórios: R$ 55.881,54
+Parte Traseira: R$ 20.479,33	
+Ferramentas: R$ 11.638,84	
+Películas: R$ 1.725,40	
+Celular: R$ 0,00
+Componentes: R$ 57.333,97	
+Touch: R$ 1.311,85	
+LCD: R$ 303,50	
+Capa: R$ 397,48	
+Outros: R$ 2.315,23.
+[2026-09-24, 14:21:30] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Petrópolis*
+
+> R$ 290.273,64
+Frontal: R$ R$ 119.173,45
+Bateria: R$ 22.050,14
+Acessórios: R$ 51.343,24
+Parte Traseira: R$ 21.211,98
+Ferramentas: R$ 10.490,92
+Películas: R$ 1.565,43
+Celular: R$ 0,00
+Componentes: R$ 60.371,28
+Touch: R$ 1.311,85
+LCD: R$ 303,50	
+Capa: R$ 397,48
+[2026-09-24, 14:22:37] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Teresópolis*
+
+> *R$ 205.843,73*
+Frontal: R$ 80.710,94
+Bateria: R$ 22.264,33
+Acessórios: R$ 40.527,35
+Parte Traseira: R$ 13.574,86
+Ferramentas: R$ 7.094,72
+Películas: R$ 1.447,06
+Celular: R$ 0,00
+Componentes: R$ 36.566,54
+Touch: R$ 1.614,54
+LCD: R$ 85,00
+Capa: R$ 462,49
+[2026-09-29, 08:37:45] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Petrópolis*
+
+> R$ 276.693,38
+Frontal: R$ R$ 108.985,37
+Bateria: R$ 21.058,87
+Acessórios: R$ 50.504,71
+Parte Traseira: R$ 21.025,22
+Ferramentas: R$ 10.353,96
+Películas: R$ 1.565,43
+Celular: R$ 0,00
+Componentes: R$ 59.556,90
+Touch: R$ 1.311,85
+LCD: R$ 303,50	
+Capa: R$ 397,48
+[2026-09-29, 08:38:40] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Teresópolis*
+
+> *R$ 188.775,48*
+Frontal: R$ 67.453,68
+Bateria: R$ 21.168,91
+Acessórios: R$ 38.763,99
+Parte Traseira: R$ 13.372,30
+Ferramentas: R$ 7.018,20
+Películas: R$ 1.280,49
+Celular: R$ 0,00
+Componentes: R$ 36.072,58
+Touch: R$ 1.614,54
+LCD: R$ 85,00
+Capa: R$ 462,49
+[2026-09-30, 08:18:10] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Petrópolis*
+
+FRONTAL	R$ 104.632,20
+COMPONENTE	R$ 59.417,52
+ACESSÓRIOS	R$ 50.604,95	
+PARTE TRASEIRA	R$ 20.946,28
+BATERIA	R$ 20.364,88
+FERRAMENTA	R$ 10.329,96
+TOUCH	R$ 1.311,85
+PELICULA	R$ 1.231,62
+BISCOITOS	R$ 912,60
+COMPONENTE|VIDEOGAME	R$ 486,75
+CAPA CASE	R$ 327,38
+VIDEOGAME|PARTE TRASEIRA	R$ 206,83
+LCD	R$ 193,50	R$ 1.033,00
+CHOCOLATES	R$ 71,70
+VIDEOGAME|COMPONENTE	R$ 46,08
+BATERIA|VIDEOGAME	R$ 28,94
+
+*TOTAL	R$ 271.113,04*
+[2026-09-30, 08:19:07] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Teresópolis*
+
+FRONTAL	R$ 64.229,10
+ACESSÓRIOS	R$ 39.295,77
+COMPONENTE	R$ 36.201,69
+BATERIA	R$ 20.553,79
+PARTE TRASEIRA	R$ 13.360,19
+FERRAMENTA	R$ 6.976,20
+TOUCH	R$ 1.614,54
+PELICULA	R$ 1.213,25
+COMPONENTE|VIDEOGAME	R$ 820,37
+CAPA CASE	R$ 395,28
+VIDEOGAME|COMPONENTE	R$ 180,48
+LCD	R$ 85,00
+ALTO-FALANTES INTERNOS	R$ 45,80
+BATERIA|VIDEOGAME	R$ 28,94
+
+*TOTAL	R$ 185.000,40*
+[2026-10-08, 09:30:06] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Teresópolis*
+
+* FRONTAL - R$ 63.041,70
+* ACESSÓRIOS - R$ 38.810,14
+* COMPONENTE - R$ 35.509,60
+* BATERIA - R$ 19.657,42
+* PARTE TRASEIRA - R$ 13.108,20
+* FERRAMENTA - R$ 6.789,34
+* TOUCH - R$ 1.614,54
+* PELICULA - R$ 1.171,17
+* COMPONENTE|VIDEOGAME - R$ 820,37
+* CAPA CASE - R$ 404,79
+* VIDEOGAME|COMPONENTE  - R$ 180,48
+* LCD - R$ 85,00
+* ALTO-FALANTES INTERNOS - R$ 45,80
+* BATERIA|VIDEOGAME - R$ 28,94
+*R$ 181.267,49*
+[2026-10-08, 09:31:53] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Petrópolis*
+
+* FRONTAL - R$ 100.285,79
+* COMPONENTE - R$ 58.803,79
+* ACESSÓRIOS - R$ 49.333,65
+* BATERIA - R$ 20.526,57
+* PARTE TRASEIRA - R$ 20.474,53
+* FERRAMENTA - R$ 10.891,17
+* PELICULA - R$ 1.566,41
+* TOUCH - R$ 1.311,85
+* COMPONENTE|VIDEOGAME - R$ 486,75
+* CAPA CASE - R$ 397,50
+* VIDEOGAME|PARTE TRASEIRA - R$ 206,83
+* LCD - R$ 193,50
+* VIDEOGAME|COMPONENTE - R$ 46,08
+* BATERIA|VIDEOGAME - R$ 28,94
+
+*R$ 264.553,36*
+[2026-10-09, 13:50:51] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Petrópolis*
+
+* FRONTAL - R$ 95.646,91
+* COMPONENTE - R$ 58.542,13
+* ACESSÓRIOS - R$ 48.411,71
+* BATERIA - R$ 20.452,40
+* PARTE TRASEIRA - R$ 20.181,46
+* FERRAMENTA - R$ 10.830,31
+* PELICULA - R$ 1.431,65
+* TOUCH - R$ 1.311,85
+* COMPONENTE|VIDEOGAME - R$ 486,75
+* CAPA CASE - R$ 397,50
+* VIDEOGAME|PARTE TRASEIRA - R$ 206,83
+* LCD - R$ 193,50
+* VIDEOGAME|COMPONENTE - R$ 46,08
+* BATERIA|VIDEOGAME - R$ 28,94
+* SEM CATEGORIA - R$ 180,00
+
+*R$ 258.348,02*
+[2026-10-09, 13:52:21] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Teresópolis*
+
+* FRONTAL - R$ 56.288,41
+* ACESSÓRIOS - R$ 36.639,74
+* COMPONENTE - R$ 35.258,50
+* BATERIA - R$ 18.975,39
+* PARTE TRASEIRA - R$ 13.011,62
+* FERRAMENTA - R$ 6.742,08
+* TOUCH - R$ 1.603,32
+* PELICULA - R$ 1.116,23
+* COMPONENTE|VIDEOGAME - R$ 820,37
+* CAPA CASE - R$ 404,79
+* VIDEOGAME|COMPONENTE  - R$ 180,48
+* LCD - R$ 85,00
+* ALTO-FALANTES INTERNOS - R$ 45,80
+* BATERIA|VIDEOGAME - R$ 28,94
+
+*R$ 171.200,67*
+[2026-10-14, 08:52:02] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Petrópolis*
+
+* FRONTAL - R$ 84.637,97
+* COMPONENTE - R$ 58.122,39
+* ACESSÓRIOS - R$ 47.104,44
+* BATERIA - R$ 18.279,28
+* PARTE TRASEIRA - R$ 20.402,88
+* FERRAMENTA - R$ 10.721,13
+* PELICULA - R$ 1.105,33
+* TOUCH - R$ 1.311,85
+* COMPONENTE|VIDEOGAME - R$ 486,75
+* CAPA CASE - R$ 369,93
+* VIDEOGAME|PARTE TRASEIRA - R$ 206,83
+* LCD - R$ 193,50
+* SEM CATEGORIA - R$ 180,00
+* VIDEOGAME|COMPONENTE - R$ 46,08
+* BATERIA|VIDEOGAME - R$ 28,94
+
+*R$ 243.197,30*
+[2026-10-14, 08:53:41] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Teresópolis*
+
+* FRONTAL - R$ 48.375,44
+* ACESSÓRIOS - R$ 35.599,84
+* COMPONENTE - R$ 35.044,30
+* BATERIA - R$ 18.104,19
+* PARTE TRASEIRA - R$ 12.946,50
+* FERRAMENTA - R$ 6.701,23
+* TOUCH - R$ 1.603,32
+* PELICULA - R$ 1.039,82
+* COMPONENTE|VIDEOGAME - R$ 820,37
+* CAPA CASE - R$ 396,61
+* VIDEOGAME|COMPONENTE  - R$ 180,48
+* LCD - R$ 85,00
+* ALTO-FALANTES INTERNOS - R$ 45,80
+* BATERIA|VIDEOGAME - R$ 28,94
+
+*R$ 160.971,84*
+[2026-10-21, 15:39:38] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Petrópolis*
+
+* FRONTAL - R$ 110.260,10
+* COMPONENTE - R$ 58.762,45
+* ACESSÓRIOS - R$ 50.064,79
+* BATERIA - R$ 22.699,62
+* PARTE TRASEIRA - R$ 20.137,66
+* FERRAMENTA - R$ 10.795,40
+* PELICULA - R$ 1.806,07
+* TOUCH - R$ 1.300,63
+* COMPONENTE|VIDEOGAME - R$ 486,75
+* CAPA CASE - R$ 330,94
+* VIDEOGAME|PARTE TRASEIRA - R$ 206,83
+* LCD - R$ 193,50
+* VIDEOGAME|COMPONENTE - R$ 46,08
+* BATERIA|VIDEOGAME - R$ 28,94
+
+*R$ 277.119,76*
+[2026-10-21, 15:49:42] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Teresópolis*
+
+* FRONTAL - R$ 75.964,23
+* ACESSÓRIOS - R$ 36.311,11
+* COMPONENTE - R$ 34.514,17
+* BATERIA - R$ 18.291,71
+* PARTE TRASEIRA - R$ 12.790,07
+* FERRAMENTA - R$ 6.940,16
+* TOUCH - R$ 1.603,32
+* PELICULA - R$ 1.620,89
+* COMPONENTE|VIDEOGAME - R$ 820,37
+* CAPA CASE - R$ 392,59
+* VIDEOGAME|COMPONENTE  - R$ 180,48
+* LCD - R$ 85,00
+* ALTO-FALANTES INTERNOS - R$ 45,80
+* BATERIA|VIDEOGAME - R$ 28,94
+
+*R$ 189.588,84*
+[2026-10-23, 08:13:21] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Petrópolis*
+
+* FRONTAL - R$ 104.507,28
+* COMPONENTE - R$ 58.488,07
+* ACESSÓRIOS - R$ 48.993,97
+* BATERIA - R$ 21.891,56
+* PARTE TRASEIRA - R$ 20.040,33
+* FERRAMENTA - R$ 10.384,51
+* PELICULA - R$ 1.648,70
+* TOUCH - R$ 1.300,63
+* COMPONENTE|VIDEOGAME - R$ 486,75
+* CAPA CASE - R$ 322,94
+* VIDEOGAME|PARTE TRASEIRA - R$ 206,83
+* LCD - R$ 193,50
+* VIDEOGAME|COMPONENTE - R$ 46,08
+* BATERIA|VIDEOGAME - R$ 28,94
+
+*R$ 268.540,09*
+[2026-10-23, 08:14:23] Estoque Geral: IMOBILIZADO GERAL
+Filial: *Teresópolis*
+
+* FRONTAL - R$ 70.275,97
+* ACESSÓRIOS - R$ 35.232,60
+* COMPONENTE - R$ 34.361,60
+* BATERIA - R$ 18.003,06
+* PARTE TRASEIRA - R$ 12.739,81
+* FERRAMENTA - R$ 6.931,24
+* TOUCH - R$ 1.603,32
+* PELICULA - R$ 1.596,33
+* COMPONENTE|VIDEOGAME - R$ 820,37
+* CAPA CASE - R$ 392,59
+* VIDEOGAME|COMPONENTE  - R$ 180,48
+* LCD - R$ 85,00
+* ALTO-FALANTES INTERNOS - R$ 45,80
+* BATERIA|VIDEOGAME - R$ 28,94
+
+*R$ 182.297,11*

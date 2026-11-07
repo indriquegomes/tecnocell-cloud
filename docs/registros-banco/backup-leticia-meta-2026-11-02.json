@@ -1,0 +1,9 @@
+{
+  "data": "2026-11-02",
+  "motivo": "Corrigir meta individual da Leticia: era 270 (R$ 270,00, erro de digitação). Zerado pra ela usar a meta derivada da loja (faixa ÷ pessoas). Não é financeiro. Reversível.",
+  "perfil_before": {
+    "id": "4b7685d1-dc1b-4e78-ad7c-2f44a8bcdd80",
+    "nome": "Leticia de Oliveira Amaro",
+    "meta_venda_mensal": "270"
+  }
+}

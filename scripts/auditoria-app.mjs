@@ -1,5 +1,5 @@
 // Auditoria READ-ONLY de outubro/2026 no app — procura erro e falha nos dados.
-// Não grava nada. Saída: docs/fechamento/2026-10/auditoria-app.md
+// Não grava nada. Saída: docs/registros/2026-10/auditoria-app.md
 import fs from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
 
@@ -136,7 +136,7 @@ out(`- **sem forma de pagamento: ${semForma.length} · ${brl(semForma.reduce((t,
 const valePag = desp.filter((d) => /vale/i.test(d.forma_pagamento ?? ''))
 out(`- pagos com "Vale Crédito": ${valePag.length} · ${brl(valePag.reduce((t, d) => t + Number(d.valor ?? 0), 0))} — despesa paga com crédito de cliente é suspeita`)
 
-const dir = 'docs/fechamento/2026-10'
+const dir = 'docs/registros/2026-10'
 fs.mkdirSync(dir, { recursive: true })
 fs.writeFileSync(`${dir}/auditoria-app.md`, '# Auditoria do app — outubro/2026 (read-only)\n\n' + L.join('\n') + '\n', 'utf8')
 console.log(`\nok: ${dir}/auditoria-app.md`)

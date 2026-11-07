@@ -109,5 +109,5 @@ out(`Se **${casadas} de ${notas.length}** notas têm valor idêntico a um PIX de
 out('está registrando **o pagamento**, não a compra. Nesse caso o "comprado" do app é uma cópia do "pago" e a')
 out('mercadoria que entrou de verdade não está medida pelo valor — só pela quantidade que foi para o estoque.')
 
-fs.writeFileSync('docs/fechamento/2026-10/notas-vs-pix.md', L.join('\n') + '\n', 'utf8')
-console.log('\nok: docs/fechamento/2026-10/notas-vs-pix.md')
+fs.writeFileSync('docs/registros/2026-10/notas-vs-pix.md', L.join('\n') + '\n', 'utf8')
+console.log('\nok: docs/registros/2026-10/notas-vs-pix.md')

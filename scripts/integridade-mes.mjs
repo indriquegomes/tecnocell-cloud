@@ -116,5 +116,5 @@ for (const m of movMes) { porOp[m.operacao] = (porOp[m.operacao] ?? 0) + Number(
 out(`- movimentos do mês por operação (unidades): ${Object.entries(porOp).map(([k, v]) => `${k} ${v}`).join(' · ')}`)
 out()
 
-fs.writeFileSync('docs/fechamento/2026-10/integridade.md', L.join('\n') + '\n', 'utf8')
-console.log('\nok: docs/fechamento/2026-10/integridade.md')
+fs.writeFileSync('docs/registros/2026-10/integridade.md', L.join('\n') + '\n', 'utf8')
+console.log('\nok: docs/registros/2026-10/integridade.md')

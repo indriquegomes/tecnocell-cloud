@@ -12,7 +12,7 @@ const s = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_K
 const P = 1000
 async function tudo(q) { const o = []; for (let i = 0; i < 900000; i += P) { const { data, error } = await q(i, i + P - 1); if (error) throw new Error(error.message); o.push(...data); if (data.length < P) break } return o }
 
-const txt = fs.readFileSync('docs/fechamento/2026-10/entrada/05-pagbank-30-09-a-01-11.csv', 'utf8').replace(/^\uFEFF/, '')
+const txt = fs.readFileSync('docs/registros/2026-10/entrada/05-pagbank-30-09-a-01-11.csv', 'utf8').replace(/^\uFEFF/, '')
 const linhas = txt.split(/\r?\n/).filter(Boolean)
 linhas.shift()
 const rows = linhas.map((l) => {

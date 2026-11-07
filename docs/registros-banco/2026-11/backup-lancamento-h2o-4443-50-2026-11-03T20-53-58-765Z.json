@@ -1,0 +1,27 @@
+[
+ {
+  "id": "f9f8ff03-6741-4671-8091-67361c9a2762",
+  "codigo": null,
+  "descricao": "PAGAMENTO DE MERCADORIA ",
+  "valor": 4443.5,
+  "data_competencia": "2026-11-03T00:00:00+00:00",
+  "data_vencimento": "2026-11-03T00:00:00+00:00",
+  "data_pagamento": "2026-11-03T20:32:06.444+00:00",
+  "tipo": "pagar",
+  "status": "pago",
+  "forma_pagamento": "PIX",
+  "pessoa_nome": "H2O FORNECEDOR",
+  "created_at": "2026-11-03T20:32:06.487496+00:00",
+  "updated_at": "2026-11-03T20:32:06.444+00:00",
+  "venda_id": null,
+  "valor_pago": 4443.5,
+  "historico_pagamentos": [],
+  "conta_id": "91c4c7c0-5e59-4fcd-985b-05da0293fd40",
+  "categoria": "Vendas",
+  "pessoa_id": null,
+  "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c",
+  "comprovante_url": null,
+  "devolucao_id": null,
+  "subcategoria": null
+ }
+]

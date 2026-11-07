@@ -1,0 +1,5 @@
+[
+ {
+  "b": "{\n    \"id\": \"FP_OUTROS\",\n    \"nome\": \"Outros\",\n    \"tipo\": \"outros\",\n    \"ativo\": true,\n    \"loja_id\": null,\n    \"maquina_id\": null,\n    \"conta_destino_id\": null,\n    \"prazo_recebimento\": \"a_vista\"\n}"
+ }
+]

@@ -91,7 +91,7 @@ for (const p of plano) {
 
 if (!GRAVAR) { console.log('\n(DRY-RUN — nada gravado)'); process.exit(0) }
 
-const dir = 'docs/fechamento/2026-10/backups'
+const dir = 'docs/registros-banco/2026-10'
 fs.mkdirSync(dir, { recursive: true })
 fs.writeFileSync(`${dir}/loja-lancamentos-antes-${new Date().toISOString().replace(/[:.]/g, '-')}.json`, JSON.stringify({ quando: new Date().toISOString(), alvo }, null, 2), 'utf8')
 

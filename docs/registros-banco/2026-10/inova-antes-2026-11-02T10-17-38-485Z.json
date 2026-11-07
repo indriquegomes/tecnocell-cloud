@@ -1,0 +1,209 @@
+{
+  "quando": "2026-11-02T10:17:38.487Z",
+  "pendentes": [
+    {
+      "id": "236972f7-52ec-4955-93e7-d6e7f05976e4",
+      "valor": 0,
+      "valor_pago": 0,
+      "status": "pendente",
+      "data_pagamento": null,
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "pessoa_nome": "INOVA MERCADORIAS",
+      "categoria": "Fornecedor / Mercadoria"
+    },
+    {
+      "id": "7cbe17c8-4157-4250-bbe0-b8d3aa2014b1",
+      "valor": 1239,
+      "valor_pago": 0,
+      "status": "pendente",
+      "data_pagamento": null,
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "pessoa_nome": "INOVA MERCADORIAS",
+      "categoria": "Fornecedor / Mercadoria"
+    },
+    {
+      "id": "943d8918-083b-41a3-8183-36c0765cf388",
+      "valor": 59901.7,
+      "valor_pago": 0,
+      "status": "pendente",
+      "data_pagamento": null,
+      "descricao": "Dívida INOVA MERCADORIAS",
+      "pessoa_nome": "INOVA MERCADORIAS",
+      "categoria": "Mercadoria"
+    },
+    {
+      "id": "e8a80b87-5340-4eb9-ad75-087754bddb4b",
+      "valor": 948,
+      "valor_pago": 0,
+      "status": "pendente",
+      "data_pagamento": null,
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "pessoa_nome": "INOVA MERCADORIAS",
+      "categoria": "Fornecedor / Mercadoria"
+    },
+    {
+      "id": "e96fb327-bc9c-4522-bb57-8f5b313460ff",
+      "valor": 2674.8,
+      "valor_pago": 0,
+      "status": "pendente",
+      "data_pagamento": null,
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "pessoa_nome": "INOVA MERCADORIAS",
+      "categoria": "Fornecedor / Mercadoria"
+    }
+  ],
+  "pagosOutros": [
+    {
+      "id": "026e75a6-b0f1-49df-95a9-d5d61c786350",
+      "valor": 6000,
+      "valor_pago": 6000,
+      "status": "pago",
+      "data_pagamento": "2026-09-30T15:00:00+00:00",
+      "descricao": "INOVA",
+      "pessoa_nome": "INOVA MERCADORIAS",
+      "categoria": "Mercadoria"
+    },
+    {
+      "id": "3fb8c965-4909-4732-abc1-147d0752e0a8",
+      "valor": 5700,
+      "valor_pago": 5700,
+      "status": "pago",
+      "data_pagamento": "2026-09-30T15:00:00+00:00",
+      "descricao": "INOVA",
+      "pessoa_nome": "INOVA MERCADORIAS",
+      "categoria": "Mercadoria"
+    },
+    {
+      "id": "499fd379-6d55-4070-b7ee-1a5222bb2dd1",
+      "valor": 3600,
+      "valor_pago": 3600,
+      "status": "pago",
+      "data_pagamento": "2026-09-30T15:00:00+00:00",
+      "descricao": "INOVA",
+      "pessoa_nome": "INOVA MERCADORIAS",
+      "categoria": "Mercadoria"
+    },
+    {
+      "id": "b59d20a2-7502-4759-8046-ce3c045d69fe",
+      "valor": 6000,
+      "valor_pago": 6000,
+      "status": "pago",
+      "data_pagamento": "2026-09-14T15:00:00+00:00",
+      "descricao": "Pagamento de Mercadorias INOVA",
+      "pessoa_nome": "INOVA MERCADORIAS",
+      "categoria": "Mercadoria"
+    },
+    {
+      "id": "dce7044c-052f-47ce-b5ed-1b16e2003f94",
+      "valor": 5650,
+      "valor_pago": 5650,
+      "status": "pago",
+      "data_pagamento": "2026-09-30T15:00:00+00:00",
+      "descricao": "INOVA",
+      "pessoa_nome": "INOVA MERCADORIAS",
+      "categoria": "Mercadoria"
+    }
+  ],
+  "pagosOut": [
+    {
+      "id": "06fffda9-ebff-4ed0-870a-2ecd62ea1113",
+      "valor": 769.9,
+      "valor_pago": 782.9,
+      "status": "pago",
+      "data_pagamento": "2026-10-20T15:00:00+00:00",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "pessoa_nome": "INOVA MERCADORIAS",
+      "categoria": "Fornecedor / Mercadoria"
+    },
+    {
+      "id": "0fc66d81-cb9a-4bfe-84d0-80bbf98b5f96",
+      "valor": 300,
+      "valor_pago": 300,
+      "status": "pago",
+      "data_pagamento": "2026-10-15T15:00:00+00:00",
+      "descricao": "PAGAMENTO DE MERCADORIA",
+      "pessoa_nome": "INOVA MERCADORIAS",
+      "categoria": "Mercadoria"
+    },
+    {
+      "id": "23e683f8-0178-4781-a164-c710e36bdf8f",
+      "valor": 1011,
+      "valor_pago": 1011,
+      "status": "pago",
+      "data_pagamento": "2026-10-16T15:00:00+00:00",
+      "descricao": "PAGAMENTO DE MERCADORIA",
+      "pessoa_nome": "INOVA MERCADORIAS",
+      "categoria": "Fornecedor / Mercadoria"
+    },
+    {
+      "id": "60a3897b-57dc-4532-acb0-602150b45fc9",
+      "valor": 847,
+      "valor_pago": 847,
+      "status": "pago",
+      "data_pagamento": "2026-10-16T15:00:00+00:00",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "pessoa_nome": "INOVA MERCADORIAS",
+      "categoria": "Fornecedor / Mercadoria"
+    },
+    {
+      "id": "6201d6a5-d7e6-4f2a-8a1f-1aad4cff72ad",
+      "valor": 1005,
+      "valor_pago": 1005,
+      "status": "pago",
+      "data_pagamento": "2026-10-14T15:00:00+00:00",
+      "descricao": "PAGAMENTO DE MERCADORIA",
+      "pessoa_nome": "INOVA MERCADORIAS",
+      "categoria": "Fornecedor / Mercadoria"
+    },
+    {
+      "id": "6c758d35-f43d-409c-8f39-a83a37fdae72",
+      "valor": 3211.5,
+      "valor_pago": 3211.5,
+      "status": "pago",
+      "data_pagamento": "2026-10-19T15:00:00+00:00",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "pessoa_nome": "INOVA MERCADORIAS",
+      "categoria": "Fornecedor / Mercadoria"
+    },
+    {
+      "id": "8b8f88e8-b2ad-4b2a-94d9-85a902e231f7",
+      "valor": 125,
+      "valor_pago": 125,
+      "status": "pago",
+      "data_pagamento": "2026-10-20T15:00:00+00:00",
+      "descricao": "PAGAMENTO DE MERCADORIA",
+      "pessoa_nome": "INOVA MERCADORIAS",
+      "categoria": "Fornecedor / Mercadoria"
+    },
+    {
+      "id": "933ee962-6382-4501-a006-bb81ffe4e2dc",
+      "valor": 2446.2,
+      "valor_pago": 2446.2,
+      "status": "pago",
+      "data_pagamento": "2026-10-17T15:00:00+00:00",
+      "descricao": "PAGAMENTO DE MERCADORIA",
+      "pessoa_nome": "INOVA MERCADORIAS",
+      "categoria": "Fornecedor / Mercadoria"
+    },
+    {
+      "id": "c2e6ec60-f9f4-4c98-a47c-502fab2637a7",
+      "valor": 105,
+      "valor_pago": 105,
+      "status": "pago",
+      "data_pagamento": "2026-10-15T15:00:00+00:00",
+      "descricao": "PAGAMENTO DE MERCADORIA",
+      "pessoa_nome": "INOVA MERCADORIAS",
+      "categoria": "Fornecedor / Mercadoria"
+    },
+    {
+      "id": "e5bf5742-5996-4dba-b61c-c940839fb398",
+      "valor": 88,
+      "valor_pago": 88,
+      "status": "pago",
+      "data_pagamento": "2026-10-20T15:00:00+00:00",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "pessoa_nome": "INOVA MERCADORIAS",
+      "categoria": "Fornecedor / Mercadoria"
+    }
+  ]
+}

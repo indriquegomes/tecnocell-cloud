@@ -41,7 +41,19 @@ Envelope: 1.301,00 · troco na gaveta: 200,00.
 
 Os 8 PIX que entraram na conta (chave 38.216.415, João Vítor): 1.123 Edmar · 635 Marlene · 124 Elmo · 85 Rodrigo · 80 Nathalia · 69 Oziel · 59 Jaqueline · 9 Maria Júlia = **2.184,00** — confere com a lista do dono.
 
-**Erro 1:** 3 desses comprovantes (Jaqueline 59, Oziel 69, Elmo 124) foram postados no grupo de **Teresópolis**, não no de Petrópolis.
+**Revisto em 06/11 — o "erro 1" não existia.** Os comprovantes do grupo de Teresópolis conferem com
+recebimentos de fiado de Teresópolis, não com vendas de Petrópolis:
+
+| Comprovante (grupo Tere) | Registro no app | Bate? |
+|---|---|---|
+| 69,00 Nathalia Werneck (cliente "Felipa cell") | Fiado recebido — FELIPE CELL CAMELO, 69,00 | sim |
+| 69,00 Oziel de Jesus Amaral ("oziel monte") | Fiado recebido — OZIEL MONTE, 69,00 | sim |
+| 124,00 Elmo Telles Machado | Fiado recebido — ELMO TELLES MACHADO AMMCELL, 124,00 | sim |
+| 59,00 Jaqueline da Silva Moraes | Fiado recebido — JAQUELINE DA SILVA MORAES, **55,00** (mesmo minuto, 15:12) | **diferença de 4,00** |
+
+Só o comprovante da Jaqueline tem divergência, e ela é de Teresópolis: o comprovante é de 59,00 e o
+recebimento foi registrado como 55,00 (nota A Receber — Fiado #10709, valor 55,00). Não é atribuição
+de loja errada; é 4,00 a mais no comprovante do que no lançamento. Fora do dia-base de Petrópolis.
 
 **Erro 2:** os 5.912,23 de PIX pagos direto ao fornecedor não descontam de conta nenhuma — o banco fica inflado.
 
@@ -53,7 +65,19 @@ Os 8 PIX que entraram na conta (chave 38.216.415, João Vítor): 1.123 Edmar · 
 | Sem reembolso | 2 | 412,00 |
 | Crédito na conta | 6 | 201,00 |
 
-**Erro 3:** **24 de 24 sem motivo escrito** (só o motivo fechado preenchido). O texto livre ficou vazio em todas.
+**Revisto em 06/11 — o "erro 3" também não procede.** A tela de devolução exige escolher um motivo
+fechado e o campo de texto é **"Detalhe (opcional)"** — só é obrigatório quando o motivo é "Outro".
+No dia, os 24 registros têm motivo escolhido e **nenhum** é "Outro":
+
+| Motivo fechado | Devoluções | Valor |
+|---|---|---|
+| Pediu pra testar | 16 | 2.144,78 |
+| Cliente dele desistiu do serviço | 7 | 503,50 |
+| Peça errada / não serviu | 1 | 15,00 |
+| Outro (exigiria texto) | 0 | — |
+
+Nenhuma devolução ficou sem explicação de categoria. O texto livre vazio é o comportamento previsto
+da tela, não falha de operação.
 
 ## 5. Créditos de cliente no dia
 
@@ -81,7 +105,7 @@ Saídas 35 (59 un) · Entradas 33 (60 un) · Trocas 2 (2 un) · **estoque negati
 
 | # | Erro | Impacto | Status |
 |---|---|---|---|
-| 1 | Comprovante postado no grupo errado (3 PIX) | atribuição errada de loja | a corrigir |
+| 1 | ~~Comprovante postado no grupo errado (3 PIX)~~ | **não era erro** — os 3 são fiado de Teresópolis; sobra 1 comprovante de 59,00 contra 55,00 registrado (Teresópolis) | conferido em 06/11 |
 | 2 | PIX pago direto ao fornecedor não desconta do banco | PagBank inflado em 5.912,23 só neste dia | a corrigir |
-| 3 | Devolução sem motivo escrito (24 de 24) | perde o "por quê" | a corrigir |
+| 3 | ~~Devolução sem motivo escrito (24 de 24)~~ | **não era erro** — 24 de 24 com motivo fechado, nenhum "Outro"; o texto é opcional por regra da tela | conferido em 06/11 |
 | 4 | Retirada de dinheiro sem destino (683,10) | dinheiro sem rastro | **corrigido** |

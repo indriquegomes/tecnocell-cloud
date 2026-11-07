@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TecnoCell Cloud
 
-## Getting Started
+Sistema de gestão (ERP) das lojas TecnoCell — Petrópolis e Teresópolis.
+Vendas no balcão (PDV), estoque com IMEI, financeiro, fiado, vale-crédito,
+ordens de serviço, compras, integrações e relatórios.
 
-First, run the development server:
+- **No ar:** https://tecnocell-cloud.vercel.app
+- **Código:** Next.js + TypeScript + Supabase (banco e login) + Vercel
+- **Repositório:** https://github.com/indriquegomes/tecnocell-cloud (branch `main`)
+
+## Rodar na sua máquina
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev          # abre em http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Precisa do arquivo `.env.local` (só existe no PC da loja). Sem ele o app sobe,
+mas não conversa com o banco.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Antes de mexer
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Leia **`AGENTS.md`** — é o único lugar das regras (autorização, dado real,
+trava de deploy, padrão de código, armadilhas conhecidas).
 
-## Learn More
+## Onde fica cada assunto
 
-To learn more about Next.js, take a look at the following resources:
+| Assunto | Arquivo/pasta |
+|---|---|
+| Regras do projeto | `AGENTS.md` |
+| Como o sistema funciona | `docs/mapa/` |
+| Nomes oficiais dos processos | `docs/mapa/glossario.md` |
+| O que está pendente agora | `docs/passagem-de-turno.md` |
+| Receitas (checkup, performance, design, debug) | `docs/receitas/` |
+| Fechamentos e auditorias por mês | `docs/registros/` |
+| Backups de dados antes de mexer | `docs/registros-banco/` |
+| Assunto encerrado | `docs/arquivo/` |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Verificação
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npx tsc --noEmit                                  # tipos
+node --import ./test/alias.mjs test/logica.test.ts # testes de lógica
+npx playwright test                               # testes de tela
+```

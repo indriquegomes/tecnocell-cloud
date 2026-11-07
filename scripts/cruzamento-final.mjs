@@ -1,5 +1,5 @@
 // Cruzamento final READ-ONLY: app × Papel × PIX × PagBank × dinheiro.
-// Gera docs/fechamento/2026-10/cruzamento-final.md
+// Gera docs/registros/2026-10/cruzamento-final.md
 import fs from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
 
@@ -127,5 +127,5 @@ out(`- PagBank: Pix recebido no extrato = **${brl(76407.59)}** (outubro)`)
 out(`- Cora: **sem extrato de outubro** → ${brl(appPixVendas + appPixFiado - 76407.59)} de PIX recebido não tem banco pra conferir`)
 out()
 
-fs.writeFileSync('docs/fechamento/2026-10/cruzamento-final.md', L.join('\n') + '\n', 'utf8')
-console.log('\nok: docs/fechamento/2026-10/cruzamento-final.md')
+fs.writeFileSync('docs/registros/2026-10/cruzamento-final.md', L.join('\n') + '\n', 'utf8')
+console.log('\nok: docs/registros/2026-10/cruzamento-final.md')

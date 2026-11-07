@@ -92,5 +92,5 @@ out()
 out('> Efeito: a dívida sai do fiado em aberto sem que nenhum pagamento apareça no caixa nem no relatório de recebimento.')
 out('> Se essas baixas fossem reais, o dinheiro entrou em algum lugar (PIX, dinheiro, vale) e não foi registrado; se não foram reais, a dívida foi perdida.')
 
-fs.writeFileSync('docs/fechamento/2026-10/quebra-e-fiado.md', L.join('\n') + '\n', 'utf8')
-console.log('\nok: docs/fechamento/2026-10/quebra-e-fiado.md')
+fs.writeFileSync('docs/registros/2026-10/quebra-e-fiado.md', L.join('\n') + '\n', 'utf8')
+console.log('\nok: docs/registros/2026-10/quebra-e-fiado.md')

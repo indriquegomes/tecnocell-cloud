@@ -3,7 +3,7 @@
 Responde automaticamente perguntas de preço/disponibilidade de produto no
 WhatsApp das lojas. Qualquer outro assunto é ignorado — a pessoa continua
 respondendo na mão, normalmente. Detalhe completo em
-`docs/superpowers/specs/2026-08-20-whatsapp-ia-atendimento-design.md`.
+`docs/arquivo/superpowers/specs/2026-08-20-whatsapp-ia-atendimento-design.md`.
 
 Precisa de `DEEPSEEK_API_KEY` configurada no `.env.local` — sem ela o
 processo falha na inicialização com erro claro (não sobe silencioso sem

@@ -104,4 +104,4 @@ console.log('- pagamentos lançados (todas as linhas):', brl(somaPagos), '·', p
 console.log('- pagamentos de OUTUBRO (1/10-20/10):', brl(outubro))
 console.log('- pagamentos programados (23/10 em diante):', brl(programado))
 console.log('- saldo simples (compras − pagamentos totais):', brl(somaCompras - somaPagos))
-fs.writeFileSync('docs/fechamento/2026-10/resultado-corrigido-e-inova.md', '# Resultado corrigido e INOVA\n\nver console\n', 'utf8')
+fs.writeFileSync('docs/registros/2026-10/resultado-corrigido-e-inova.md', '# Resultado corrigido e INOVA\n\nver console\n', 'utf8')

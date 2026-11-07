@@ -1,0 +1,20 @@
+{
+  "data": "2026-11-02",
+  "motivo": "Acertar horários de Petrópolis (dono passou a lista). 2 divergências corrigidas. Reversível.",
+  "escalas_before": [
+    {
+      "id": "50579e5f-bb6c-4455-9cd6-a0202ac118f6",
+      "perfil": "Isabella Beatriz Ferreira de Assumpcao",
+      "dia": 6,
+      "entrada": "10:00:00",
+      "saida": "14:00:00"
+    },
+    {
+      "id": "3504f310-1d43-43f7-b01a-1a649fc6e883",
+      "perfil": "Maria Julia de Souza Ferreira Carvalho",
+      "dia": 3,
+      "entrada": "10:00:00",
+      "saida": "19:00:00"
+    }
+  ]
+}

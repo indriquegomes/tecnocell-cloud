@@ -1,0 +1,114 @@
+{
+  "data": "2026-11-02",
+  "motivo": "Conferência física (dono): LENTE S9 = 5 peças todas Petrópolis (custo 5,25); GAVETA REDMI 9A = 1 peça Petrópolis (custo 2,00). Desativa cadastro duplicado. Reversível.",
+  "produtos_before": [
+    {
+      "id": "63e11c5359a9c815ccd5893d",
+      "nome": "LENTE CAMERA SAMSUNG S9 G960",
+      "ativo": true,
+      "preco": "47.00",
+      "preco_custo": "5.25",
+      "servico": false,
+      "permite_estoque_negativo": false
+    },
+    {
+      "id": "63e11c5359a9c815ccd589eb",
+      "nome": "LENTE CAMERA SAMSUNG S9 G960",
+      "ativo": true,
+      "preco": "19.80",
+      "preco_custo": "2.30",
+      "servico": false,
+      "permite_estoque_negativo": false
+    },
+    {
+      "id": "653d4b9e821b054fa90c2dfc",
+      "nome": "GAVETA XIAOMI REDMI 9A AZUL",
+      "ativo": true,
+      "preco": "27.90",
+      "preco_custo": "2.00",
+      "servico": false,
+      "permite_estoque_negativo": false
+    },
+    {
+      "id": "6675ce5e0a6e2f72b4dc40c2",
+      "nome": "GAVETA XIAOMI REDMI 9A AZUL",
+      "ativo": true,
+      "preco": "27.90",
+      "preco_custo": "6.00",
+      "servico": false,
+      "permite_estoque_negativo": false
+    }
+  ],
+  "estoque_before": [
+    {
+      "id": "0b2289e8-c964-5249-875d-f77e5c2970cc",
+      "produto_id": "63e11c5359a9c815ccd5893d",
+      "deposito_id": "63d9054d59a9c829747233d4",
+      "quantidade": "3.000",
+      "updated_at": "2026-11-03 13:04:18.208847+00"
+    },
+    {
+      "id": "7a3ac1f6-dd8e-4b58-8871-80b815f14cc8",
+      "produto_id": "63e11c5359a9c815ccd5893d",
+      "deposito_id": "63e4dc8ede713ef765366d69",
+      "quantidade": "1.000",
+      "updated_at": "2026-09-15 03:06:53.941828+00"
+    },
+    {
+      "id": "76d608af-ea2d-5cab-8049-9b5ab2afc58f",
+      "produto_id": "63e11c5359a9c815ccd5893d",
+      "deposito_id": "d25c7649-0f96-4c80-a7d2-f7e9f5203506",
+      "quantidade": "0.000",
+      "updated_at": "2026-09-05 03:58:27.406+00"
+    },
+    {
+      "id": "8f8e32dd-77e3-5b4f-8356-5afa67417335",
+      "produto_id": "63e11c5359a9c815ccd589eb",
+      "deposito_id": "63d9054d59a9c829747233d4",
+      "quantidade": "2.000",
+      "updated_at": "2026-09-05 03:58:17.856+00"
+    },
+    {
+      "id": "3bd68811-40cf-433b-8b05-81ff99b57e52",
+      "produto_id": "63e11c5359a9c815ccd589eb",
+      "deposito_id": "63e4dc8ede713ef765366d69",
+      "quantidade": "1.000",
+      "updated_at": "2026-09-15 03:06:53.941828+00"
+    },
+    {
+      "id": "65694448-30f8-5b3a-8891-28a95fb971d2",
+      "produto_id": "63e11c5359a9c815ccd589eb",
+      "deposito_id": "d25c7649-0f96-4c80-a7d2-f7e9f5203506",
+      "quantidade": "0.000",
+      "updated_at": "2026-09-05 03:58:27.406+00"
+    },
+    {
+      "id": "776d0674-df0a-5cfb-8a40-1c7ffacef4cd",
+      "produto_id": "653d4b9e821b054fa90c2dfc",
+      "deposito_id": "63d9054d59a9c829747233d4",
+      "quantidade": "2.000",
+      "updated_at": "2026-09-05 03:58:17.856+00"
+    },
+    {
+      "id": "ff86df1f-0ed2-5c25-82db-0a753bb1e752",
+      "produto_id": "653d4b9e821b054fa90c2dfc",
+      "deposito_id": "d25c7649-0f96-4c80-a7d2-f7e9f5203506",
+      "quantidade": "0.000",
+      "updated_at": "2026-09-05 03:58:27.406+00"
+    },
+    {
+      "id": "579b414a-425d-502b-8281-213cb7006bb1",
+      "produto_id": "6675ce5e0a6e2f72b4dc40c2",
+      "deposito_id": "63d9054d59a9c829747233d4",
+      "quantidade": "1.000",
+      "updated_at": "2026-09-05 03:58:17.856+00"
+    },
+    {
+      "id": "7c350093-51e7-5cab-84e7-e78a2dd91a5d",
+      "produto_id": "6675ce5e0a6e2f72b4dc40c2",
+      "deposito_id": "d25c7649-0f96-4c80-a7d2-f7e9f5203506",
+      "quantidade": "0.000",
+      "updated_at": "2026-09-05 03:58:27.406+00"
+    }
+  ]
+}

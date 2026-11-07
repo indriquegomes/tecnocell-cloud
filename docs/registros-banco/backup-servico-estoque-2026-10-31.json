@@ -1,0 +1,108 @@
+{
+  "produtos": [
+    {
+      "id": "68f13c585252ef12f20e1660",
+      "nome": "TAXA DE ENTREGA CIDADE R$10,00",
+      "servico": false,
+      "permite_estoque_negativo": false
+    },
+    {
+      "id": "69f3ac3e52591296cfae9268",
+      "nome": "TAXA DE ENTREGA INTERIOR OU GUAPI R$15,00",
+      "servico": false,
+      "permite_estoque_negativo": false
+    },
+    {
+      "id": "6a63770b190c2cd0af409ef2",
+      "nome": "TAXA DE APLICAÇÃO DE PELÍCULA",
+      "servico": false,
+      "permite_estoque_negativo": false
+    },
+    {
+      "id": "67f42a2cf35dc69471a1399a",
+      "nome": "ENTREGA EXPRESSA",
+      "servico": false,
+      "permite_estoque_negativo": false
+    },
+    {
+      "id": "646689a5b824ccb5529eb181",
+      "nome": "RECUPERAÇÃO PERDA",
+      "servico": false,
+      "permite_estoque_negativo": false
+    }
+  ],
+  "estoque": [
+    {
+      "id": "3f7e6921-2799-50b9-8cd5-68c130274241",
+      "produto_id": "646689a5b824ccb5529eb181",
+      "deposito_id": "63d9054d59a9c829747233d4",
+      "quantidade": "-23.000"
+    },
+    {
+      "id": "ad56ab11-939d-526f-8dd3-d8c18fbc9551",
+      "produto_id": "646689a5b824ccb5529eb181",
+      "deposito_id": "d25c7649-0f96-4c80-a7d2-f7e9f5203506",
+      "quantidade": "0.000"
+    },
+    {
+      "id": "3c03e627-1796-59cd-85b2-5f1335c75d1d",
+      "produto_id": "67f42a2cf35dc69471a1399a",
+      "deposito_id": "63d9054d59a9c829747233d4",
+      "quantidade": "-14.000"
+    },
+    {
+      "id": "fce86e4e-9a5f-51dc-8702-ea72a2cc5fbc",
+      "produto_id": "67f42a2cf35dc69471a1399a",
+      "deposito_id": "d25c7649-0f96-4c80-a7d2-f7e9f5203506",
+      "quantidade": "0.000"
+    },
+    {
+      "id": "65c2572f-c6d5-549d-890d-e7a409a138c0",
+      "produto_id": "68f13c585252ef12f20e1660",
+      "deposito_id": "63d9054d59a9c829747233d4",
+      "quantidade": "-10.000"
+    },
+    {
+      "id": "03387eea-14d8-4b9d-9435-6c8afa43a779",
+      "produto_id": "68f13c585252ef12f20e1660",
+      "deposito_id": "63e4dc8ede713ef765366d69",
+      "quantidade": "11.000"
+    },
+    {
+      "id": "ea05b56f-bcdf-59f3-8d24-cc61ce8b5860",
+      "produto_id": "68f13c585252ef12f20e1660",
+      "deposito_id": "d25c7649-0f96-4c80-a7d2-f7e9f5203506",
+      "quantidade": "0.000"
+    },
+    {
+      "id": "9ada6f7e-2fc2-5b21-8c5f-a646a19989ae",
+      "produto_id": "69f3ac3e52591296cfae9268",
+      "deposito_id": "63d9054d59a9c829747233d4",
+      "quantidade": "-3.000"
+    },
+    {
+      "id": "4c22e75d-b272-4db1-8173-70748587a539",
+      "produto_id": "69f3ac3e52591296cfae9268",
+      "deposito_id": "63e4dc8ede713ef765366d69",
+      "quantidade": "7.000"
+    },
+    {
+      "id": "7a8590fe-2d5e-5b48-8856-25093bd993cb",
+      "produto_id": "69f3ac3e52591296cfae9268",
+      "deposito_id": "d25c7649-0f96-4c80-a7d2-f7e9f5203506",
+      "quantidade": "0.000"
+    },
+    {
+      "id": "d13211e6-4eac-546d-8af4-b2ab2e3d83aa",
+      "produto_id": "6a63770b190c2cd0af409ef2",
+      "deposito_id": "63d9054d59a9c829747233d4",
+      "quantidade": "-3.000"
+    },
+    {
+      "id": "0518727e-81cb-5c39-8125-85817bb8b2f2",
+      "produto_id": "6a63770b190c2cd0af409ef2",
+      "deposito_id": "d25c7649-0f96-4c80-a7d2-f7e9f5203506",
+      "quantidade": "0.000"
+    }
+  ]
+}

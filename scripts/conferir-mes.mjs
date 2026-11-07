@@ -2,7 +2,7 @@
 // com o que está fora do app (contagem de dinheiro, contagem de estoque,
 // planilha de fornecedor, planilha de caixa mensal).
 //
-// Nada é gravado no banco. Só lê e escreve um JSON em docs/fechamento/<mes>/.
+// Nada é gravado no banco. Só lê e escreve um JSON em docs/registros/<mes>/.
 //
 // Uso:  node scripts/conferir-mes.mjs 2026-10
 import fs from 'node:fs'

@@ -1,0 +1,20 @@
+{
+  "data": "2026-11-02",
+  "motivo": "Dono: CHIP VIVO não existe mais, remover da lista. 0 vendas, 0 movimentos. Desativado (não apagado) por segurança. Reversível.",
+  "produtos_before": [
+    {
+      "id": "640a4a06a311ff6d8d637722",
+      "nome": "CHIP VIVO",
+      "ativo": true,
+      "preco": "56.00",
+      "preco_custo": "7.77"
+    },
+    {
+      "id": "64639a5e166a10019c3ef1c8",
+      "nome": "CHIP VIVO",
+      "ativo": true,
+      "preco": "63.00",
+      "preco_custo": "25.00"
+    }
+  ]
+}

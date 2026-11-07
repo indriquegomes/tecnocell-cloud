@@ -1,0 +1,20 @@
+[
+ {
+  "id": "09563abd-cf56-4dc5-8d9d-00da59d3dfd6",
+  "dia": "2026-11-03",
+  "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+  "valor": "3361.88",
+  "valor_pago": "3361.88",
+  "descricao": "Dívida de fornecedor — outubro/2026 (compras até 28/10) — Petrópolis",
+  "conta_id": "b7720f9d-8a58-4226-9ff0-1bb2e8ddca6c"
+ },
+ {
+  "id": "b3a55240-1490-48db-a7dc-f696f6dcbfe3",
+  "dia": "2026-11-03",
+  "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c",
+  "valor": "11158.22",
+  "valor_pago": "11158.22",
+  "descricao": "Dívida de fornecedor — outubro/2026 (compras até 28/10) — Teresópolis",
+  "conta_id": "f56081a9-c5b9-4e29-80b8-d56359ed9a7b"
+ }
+]
