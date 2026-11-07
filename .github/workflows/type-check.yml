@@ -20,3 +20,26 @@ jobs:
       - run: npm ci
       - run: npx next typegen
       - run: npx tsc --noEmit
+      - name: Checa apelidos proibidos de pessoas
+        run: |
+          # Palavra inteira e exata (case-sensitive). "Isa" não pega "precisa" nem "análise".
+          #
+          # Exceções (documentadas, uma a uma):
+          #   glossario.md ............ é o de/para oficial (apelido -> nome completo)
+          #   apelidos-proibidos.txt .. é a própria lista
+          #   chat-ia.ts ............. dicionário que traduz apelido antigo no chat (ver o comentário no arquivo)
+          #   supabase/migrations/ ... histórico do banco: SQL commitado não se reescreve
+          #   docs/arquivo/ .......... assunto encerrado, guardado como registro
+          #   docs/registros/ ........ fechamentos e auditorias datados (número fechado não se edita)
+          failing=0
+          while IFS= read -r nome; do
+            case "$nome" in ''|'#'*) continue;; esac
+            if grep -rnE "\b${nome}\b" --include='*.ts' --include='*.tsx' --include='*.sql' --include='*.md' --include='*.mjs' --include='*.cjs' \
+                 --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.git \
+                 --exclude-dir=migrations --exclude-dir=arquivo --exclude-dir=registros \
+                 --exclude='glossario.md' --exclude='apelidos-proibidos.txt' --exclude='chat-ia.ts' .; then
+              echo "::error::Apelido '${nome}' — use o NOME COMPLETO (docs/mapa/glossario.md)."
+              failing=1
+            fi
+          done < .github/apelidos-proibidos.txt
+          exit $failing

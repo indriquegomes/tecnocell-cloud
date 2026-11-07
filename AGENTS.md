@@ -39,6 +39,11 @@ descontinuação.
    houver dúvida): mostrar ao dono o que muda, onde aparece e qual o risco —
    ele autoriza ANTES. Nunca renomear, remover ou mudar cálculo sem autorização.
    Mudança isolada e segura: pode tocar, avisando no fim o que mudou e onde.
+3. **Pessoas sempre pelo NOME COMPLETO.** Proibido apelido ou abreviação de
+   nome de pessoa em qualquer lugar: respostas, documentos, comentários de
+   código, textos de tela. Só isso — outras abreviações e nomes internos do
+   código/banco NÃO entram nessa regra. A lista de apelidos e os nomes
+   completos fica em `docs/mapa/glossario.md`, seção "Pessoas".
 
 ## 2. Dado é real: autorização e trava de deploy
 
@@ -294,3 +299,53 @@ bater com o total, senão a venda inteira é recusada.
 
 **Regra de ouro da documentação:** cada tipo de informação mora em **um** lugar.
 Se você precisar repetir algo, coloque um link — não copie o texto.
+
+## 13. Número de dinheiro — como falar de dinheiro sem erro
+
+Nasceu de um erro real (07/11/2026): o dinheiro físico de Petrópolis foi
+informado como R$ 8.307,10 quando o certo era R$ 8.861,00. O dinheiro estava
+certo; **a comunicação estava errada** — o número era só uma parte da conta.
+
+**A causa:** o dinheiro que entra na gaveta é gravado em **três lugares**:
+
+| Entra | Onde fica |
+|---|---|
+| Venda paga em dinheiro | `pagamentos_venda` (forma `tipo = 'dinheiro'`) — **não** vira movimento de gaveta |
+| Fiado recebido, sinal de encomenda | `movimentos_caixa` (`tipo = 'recebimento'`) |
+| Reforço e retirada | `movimentos_caixa` (`reforco` / `retirada`) |
+| Troco inicial | `caixas.valor_abertura` |
+
+Quem soma **um** desses lugares informa um número menor e inventa um "dinheiro
+que sumiu" que não existe.
+
+### As 4 regras
+
+1. **Um número de dinheiro só existe se vier do Fechamento de Caixa** (ou do RPC
+   `calcular_valor_esperado`, que é a mesma conta). Nunca somar "extrato do
+   caixa", nunca somar "recebimentos", nunca somar só pagamentos de venda.
+2. **Todo número de dinheiro sai com quatro informações:** loja · período · **o
+   que está dentro** (inclui troco? inclui venda em dinheiro? inclui fiado
+   recebido?) · e, quando for fechamento, **quanto foi contado**. Faltou uma? O
+   número não vale.
+3. **Se dois números não batem, a diferença é explicada ao centavo antes de
+   seguir.** Enquanto a diferença não tiver nome (venda em dinheiro, troco,
+   retirada, contagem errada), a conversa não terminou.
+4. **Ninguém cita apelido nem nome curto de pessoa.** Para nomear quem pediu ou
+   decidiu, use o **nome completo** (tabela "Pessoas" em
+   `docs/mapa/glossario.md`). Quando o que importa é a função, descreva a função:
+   "a atendente", "quem fecha o caixa".
+
+### Fórmula oficial do dinheiro em espécie no período
+
+```
+troco inicial (soma de valor_abertura dos caixas do período)
++ vendas pagas em dinheiro (pagamentos_venda, status 'pago', forma tipo 'dinheiro', pela venda)
++ fiado recebido e sinal (movimentos_caixa tipo 'recebimento', forma dinheiro)
++ reforços (movimentos_caixa tipo 'reforco', forma dinheiro)
+- retiradas (movimentos_caixa tipo 'retirada', forma dinheiro)
+- devoluções em dinheiro (movimentos_caixa tipo 'devolucao', forma dinheiro)
+= deveria ter (esperado)   →   compare com a soma de valor_fechamento
+```
+
+Script pronto para rodar isso: `scripts/conferencia-caixa.mjs`
+(`node scripts/conferencia-caixa.mjs 2026-11-03 2026-11-06`). Só lê.

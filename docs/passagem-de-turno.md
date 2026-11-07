@@ -6,18 +6,46 @@
 >
 > Regras do projeto: `AGENTS.md`. Como o sistema funciona: `docs/mapa/`.
 
-**Última atualização:** 07/11/2026, ~10:20 (manhã, depois do deploy).
+**Última atualização:** 07/11/2026, depois do meio-dia (apelidos + regra do dinheiro).
+
+## Rodada atual — não commitada ainda
+
+Feita depois do deploy, **no disco e sem commit** (aguardando o dono):
+
+1. **Apelidos de pessoas eliminados do projeto** (regra nova do `AGENTS.md` 1.3,
+   que também ganhou porteiro no CI). 71 arquivos tocados, **só comentário e
+   texto de tela**: apelido de ex-funcionária virou "equipe" (ou só a data), o
+   apelido do coordenador virou o nome completo, e os três apelidos da equipe
+   atual viraram os nomes completos. **O de/para está em
+   `docs/mapa/glossario.md`, seção Pessoas** (este arquivo não repete apelido).
+   `lib/chat-ia.ts` ficou como **exceção documentada** (é o dicionário que
+   traduz apelido no chat).
+2. **CI:** a checagem de apelidos (`type-check.yml`) passou a excluir
+   `supabase/migrations/`, `docs/arquivo/`, `docs/registros/` e `chat-ia.ts` —
+   histórico e dicionário, cada um com o motivo escrito no próprio workflow.
+   Simulei a checagem aqui: **passa**.
+3. **`AGENTS.md` seção 13 — Número de dinheiro:** as 4 regras de como falar de
+   dinheiro e a fórmula oficial do dinheiro em espécie.
+4. **`scripts/conferencia-caixa.mjs`** (novo, só leitura): confere o dinheiro em
+   espécie por loja e período, caixa por caixa, com o "devia ter" x "contado".
+   Rodado em Petrópolis 03–06/11: contado R$ 10.461,00 · devia ter R$ 10.464,70 ·
+   −R$ 3,70 no caixa de 06/11 (o dono mandou ignorar). Nas duas lojas de
+   01–07/11: +R$ 1,30 de sobra.
+
+Verificado nesta rodada: `tsc` = 0 · **186 testes passando** · varredura UTF-8
+(921 arquivos, zero quebrado) · telas Lembretes, Vendas, Relatórios, Contas e
+Painel abrindo sem erro de console.
 
 ## Estado do Git
 
-- Branch `main` **publicada**. Commits desta rodada: `ffb2f84` (docs/organização),
-  `d07b549` (perf + correções), `7e7df07` (para de versionar log de dev).
+- Branch `main` **publicada**. Commits da rodada anterior: `ffb2f84` (docs/organização),
+  `d07b549` (perf + correções), `7e7df07` (para de versionar log de dev),
+  `345b3e0` (passagem de turno).
 - **Produção está com o código novo** (deploy da Vercel confirmado: o 404 em
   português responde em `/endereco-que-nao-existe` com status 404).
-- Árvore limpa. Só ficou de fora um arquivo de outra sessão:
-  `e2e/contas-saldos.spec.ts` (não versionado, não é importado pelo app).
+- **A rodada atual está no disco, sem commit** (ver acima).
 - `docs/mapa/` continua no disco e **fora do Git** por decisão do dono
-  (`.git/info/exclude`).
+  (`.git/info/exclude`) — inclusive o glossário com a seção Pessoas.
 
 ## Pendências reais (por prioridade)
 
