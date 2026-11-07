@@ -6,28 +6,29 @@
 >
 > Regras do projeto: `AGENTS.md`. Como o sistema funciona: `docs/mapa/`.
 
-**Última atualização:** 07/11/2026, ~07:30 (madrugada).
+**Última atualização:** 07/11/2026, ~10:20 (manhã, depois do deploy).
 
 ## Estado do Git
 
-- Branch `main`, HEAD = `f366a47 fix(salarios): muda horário do pagamento automático de sábado pra 19h`.
-- **Produção roda `f366a47`.** Desde `c724bc7` entraram, entre outros:
-  relatórios paginados em 200 linhas (`5d14a6d`), IMEI desligado (`fbb13c3`),
-  OS/Serviços fora do menu (`6984802`), Halloween removido (`703adda`),
-  `calcular_valor_esperado` (`06411fe`), trava de retirada sem destino
-  (`6267e2b`), baixa de conta resolvendo a conta pela forma (`3d33514`),
-  salários semanais automáticos no sábado via `pg_cron` (`56e35a0`).
-- **Working tree desta rodada** (não commitado): reorganização da documentação,
-  `lib/saldos-contas.ts`, `lib/saude-financeiro.ts`, `app/painel/contas/page.tsx`,
-  `app/not-found.tsx`, `app/painel/not-found.tsx`, `app/painel/error.tsx`.
-- Nada foi commitado nem publicado nesta rodada (sem a palavra-chave do dono).
+- Branch `main` **publicada**. Commits desta rodada: `ffb2f84` (docs/organização),
+  `d07b549` (perf + correções), `7e7df07` (para de versionar log de dev).
+- **Produção está com o código novo** (deploy da Vercel confirmado: o 404 em
+  português responde em `/endereco-que-nao-existe` com status 404).
+- Árvore limpa. Só ficou de fora um arquivo de outra sessão:
+  `e2e/contas-saldos.spec.ts` (não versionado, não é importado pelo app).
+- `docs/mapa/` continua no disco e **fora do Git** por decisão do dono
+  (`.git/info/exclude`).
 
 ## Pendências reais (por prioridade)
 
-1. **Revisar e commitar a rodada de 07/11** (esta). Ver "Nesta rodada" abaixo.
-   O único arquivo de lógica tocado é `lib/saldos-contas.ts` (tela Contas) —
-   entra na regra de revisão independente porque é financeiro, apesar de os
-   números terem sido conferidos (ver prova).
+1. **Revisão independente da rodada `d07b549`** (regra do projeto para
+   financeiro). O que mudou nesses arquivos foi só *como* as consultas são
+   feitas — nenhum cálculo —, e os números foram conferidos tela contra tela
+   antes do deploy:
+   `lib/saldos-contas.ts` e `app/painel/contas/page.tsx` (Contas 4,0 s → 2,1 s
+   no dev; em produção 2,9 s → 1,1 s), `lib/saude-financeiro.ts` (4,4 s → 3,9 s
+   no dev; 1,6 s → 1,1 s em produção), `app/painel/fiados/page.tsx`,
+   `app/painel/fechamento-mes/page.tsx`.
 2. **Next.js 16.2.6 em faixa com falha crítica** (bypass de proxy/middleware em
    App Router com Turbopack e um único locale; faixa afetada
    `>=16.0.0 <16.2.11`). Subir para `16.2.11+`, refazer build e conferir as
@@ -124,9 +125,16 @@ comprovante, continua mandando). O teste do bot provou: 22h de São Paulo →
 passando** (12 + 67 + 4 + 22 + 81) · varredura de UTF-8 em 917 arquivos: zero
 arquivo quebrado e zero mojibake · smoke local em Contas, Saúde, PDV, Estoque e
 Relatórios sem erro de console · **suíte e2e: 101 de 103 testes passando**
-(os 2 restantes são de ambiente, ver abaixo). **Nada foi commitado, nada foi
-publicado, nenhuma venda/caixa/estoque de produção foi alterado** (conferido:
-zero venda, zero movimentação e zero registro `__QA__` deixados pelos testes).
+(os 2 restantes são de ambiente, ver abaixo). **Nenhuma venda/caixa/estoque de
+produção foi alterado pelos testes** (conferido: zero venda, zero movimentação
+e zero registro `__QA__` deixados por eles).
+
+**Depois do deploy, conferido em produção:** `/painel/contas` abrindo em 1,1 s
+(era 2,2–2,9 s), `/painel/saude` em 1,1 s (era 1,4–1,6 s) e a Saúde continua
+marcando **4 erros, 8 atenções e 5 de 17 conferidos** — os mesmos de antes. O
+saldo das contas subiu em relação à leitura da madrugada (R$ 85.388,15 →
+R$ 88.032,65) **porque a loja vendeu durante a manhã** (vendas #12025 a #12034
+nos caixas de Petrópolis e Teresópolis), não por causa do código.
 
 **⚠️ Cuidado ao rodar `npx playwright test`:** a suíte roda contra o MESMO banco
 de produção e o teste `pdv.spec.ts` **abre caixa** (`valor_abertura: 0`) quando
