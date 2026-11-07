@@ -42,12 +42,21 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
     const contaDoDinheiro = (loja: string | null | undefined): string | null =>
       (loja ? (cofreDaLoja[loja] ?? caixaDaLoja[loja] ?? null) : null)
 
-    const [{ data: formas }, { data: rotaRows }, pv, tr, lc] = await Promise.all([
+    const [{ data: formas }, { data: rotaRows }, pv, tr, lc, movDev, lancDev] = await Promise.all([
       supabase.from('formas_pagamento').select('id, tipo, conta_destino_id'),
       supabase.from('forma_conta_loja').select('forma_id, loja_id, conta_id'),   // vazio/inexistente = fallback p/ conta_destino_id
       fetchAll<{ valor: number; taxa: number | null; forma_pagamento_id: string | null; venda_id: string | null }>((from, to) => supabase.from('pagamentos_venda').select('valor, taxa, forma_pagamento_id, venda_id').eq('status', 'pago').range(from, to)),
       fetchAll<{ conta_origem_id: string; conta_destino_id: string; valor: number }>((from, to) => supabase.from('transferencias').select('conta_origem_id, conta_destino_id, valor').range(from, to)),
       fetchAll<{ tipo: string; valor: number; conta_id: string }>((from, to) => supabase.from('lancamentos').select('tipo, valor, conta_id, status, data_pagamento').eq('status', 'pago').not('conta_id', 'is', null).gte('data_pagamento', INICIO_COFRE).range(from, to)),
+      // Devoluções (as duas leituras) não dependem de nada acima: entram no mesmo
+      // lote paralelo em vez de esperar a vez depois das vendas. Antes eram 2 idas
+      // ao banco em série no fim da função — ~0,4 s a mais na tela Contas.
+      fetchAll<{ caixa_id: string; valor: number; created_at: string }>((from, to) =>
+        supabase.from('movimentos_caixa').select('caixa_id, valor, created_at').eq('tipo', 'devolucao').range(from, to)),
+      fetchAll<{ valor: number; forma_pagamento: string | null; loja_id: string | null }>((from, to) =>
+        supabase.from('lancamentos').select('valor, forma_pagamento, loja_id')
+          .eq('tipo', 'pagar').eq('status', 'pago').is('conta_id', null)
+          .ilike('descricao', 'Devolução —%').range(from, to)),
     ])
     const formaById = Object.fromEntries((formas ?? []).map((f) => [f.id, f as { tipo: string | null; conta_destino_id: string | null }]))
 
@@ -73,8 +82,14 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
     const vendaIds = [...new Set((pv ?? []).map((p) => p.venda_id).filter(Boolean))] as string[]
     if (vendaIds.length) {
       const depDaVenda: Record<string, string | null> = {}
-      for (let i = 0; i < vendaIds.length; i += 300) {
-        const { data } = await supabase.from('vendas').select('id, deposito_id, status, data').in('id', vendaIds.slice(i, i + 300))
+      // Lotes em PARALELO: eram ~1 ida ao banco por 300 vendas, uma atrás da outra.
+      // O resultado é idêntico (mesmos ids, mesma atribuição) — só não espera a vez.
+      const lotes: string[][] = []
+      for (let i = 0; i < vendaIds.length; i += 300) lotes.push(vendaIds.slice(i, i + 300))
+      const respostas = await Promise.all(
+        lotes.map((lote) => supabase.from('vendas').select('id, deposito_id, status, data').in('id', lote)),
+      )
+      for (const { data } of respostas) {
         for (const v of data ?? []) {
           depDaVenda[v.id] = (v as { deposito_id: string | null }).deposito_id
           statusDaVenda[v.id] = (v as { status: string | null }).status
@@ -137,8 +152,7 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
     // da venda original, sem nunca descontar o reembolso.
     //
     // DINHEIRO: sem ambiguidade — sempre a gaveta da loja do caixa, igual venda.
-    const movDev = await fetchAll<{ caixa_id: string; valor: number; created_at: string }>((from, to) =>
-      supabase.from('movimentos_caixa').select('caixa_id, valor, created_at').eq('tipo', 'devolucao').range(from, to))
+    // (a leitura de `movDev` já veio no lote paralelo lá em cima)
     if (movDev.length) {
       const caixaIds = [...new Set(movDev.map((m) => m.caixa_id))]
       const { data: caixasRows } = await supabase.from('caixas').select('id, loja_id').in('id', caixaIds)
@@ -155,10 +169,7 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
 
     // Reembolsos legados sem conta: aplicar a mesma rota forma/loja da entrada.
     // Só resolver destino único; não escolher a primeira conta de outra unidade.
-    const lancDev = await fetchAll<{ valor: number; forma_pagamento: string | null; loja_id: string | null }>((from, to) =>
-      supabase.from('lancamentos').select('valor, forma_pagamento, loja_id')
-        .eq('tipo', 'pagar').eq('status', 'pago').is('conta_id', null)
-        .ilike('descricao', 'Devolução —%').range(from, to))
+    // (a leitura de `lancDev` também já veio no lote paralelo)
     if (lancDev.length) {
       const tipoPorTextoCredito: Record<string, string> = { pix: 'pix', debito: 'cartao_debito', credito: 'cartao_credito' }
       for (const l of lancDev) {

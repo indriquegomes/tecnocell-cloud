@@ -1,4 +1,4 @@
-import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server'
 import { hojeSP, formatBRL } from '@/lib/utils'
 import { dinheiroNaGaveta, ehDinheiro, faltaPagarOuReceber, pagoReal, type Lancamento } from '@/lib/financeiro-regras'
 
@@ -56,7 +56,12 @@ function achado(
 export async function auditarFinanceiro(supabase: SB): Promise<Achado[]> {
   const desde = hojeSP(-JANELA_DIAS)
 
-  const [lancamentos, perfis, vendas, caixas, devolucoes, estoque, produtos] = await Promise.all([
+  // As 10 leituras são independentes: vão todas na MESMA rodada. Antes eram dois
+  // lotes em série (7 e depois 3) e a tela pagava uma ida inteira ao banco de
+  // espera só porque o código estava escrito em dois blocos.
+  // Pagamentos e movimentos vêm pela janela de created_at, não por lista de ids:
+  // .in() com milhares de ids virava dezenas de requisições e a tela demorava.
+  const [lancamentos, perfis, vendas, caixas, devolucoes, estoque, pagamentos, movimentos, formas] = await Promise.all([
     fetchAll<Lancamento & { id: string; loja_id: string | null; pessoa_nome: string | null; pessoa_id: string | null; venda_id: string | null; descricao: string | null }>(
       (from, to) => supabase.from('lancamentos')
         .select('id, tipo, status, valor, valor_pago, data_pagamento, data_vencimento, loja_id, pessoa_nome, pessoa_id, venda_id, descricao')
@@ -78,13 +83,6 @@ export async function auditarFinanceiro(supabase: SB): Promise<Achado[]> {
     // já filtrado no banco: só o que está negativo interessa (19.553 linhas de estoque não vêm todas)
     fetchAll<{ produto_id: string; quantidade: number | null }>(
       (from, to) => supabase.from('estoque').select('produto_id, quantidade').lt('quantidade', 0).order('id').range(from, to)),
-    fetchAll<{ id: string; nome: string | null; permite_estoque_negativo: boolean | null; servico: boolean | null }>(
-      (from, to) => supabase.from('produtos').select('id, nome, permite_estoque_negativo, servico').order('id').range(from, to)),
-  ])
-
-  // Pagamentos e movimentos vêm pela janela de created_at, não por lista de ids:
-  // .in() com milhares de ids virava dezenas de requisições e a tela demorava.
-  const [pagamentos, movimentos, formas] = await Promise.all([
     fetchAll<{ venda_id: string; valor: number | null; status: string | null; forma_pagamento_id: string | null }>(
       (from, to) => supabase.from('pagamentos_venda')
         .select('venda_id, valor, status, forma_pagamento_id')
@@ -97,6 +95,19 @@ export async function auditarFinanceiro(supabase: SB): Promise<Achado[]> {
       (from, to) => supabase.from('formas_pagamento').select('id, nome, tipo').order('id').range(from, to)),
   ])
   const tipoDaForma = new Map(formas.map((f) => [f.id, (f.tipo || '').toLowerCase()]))
+
+  // Produtos: só os que aparecem com estoque negativo (usados no achado de estoque).
+  // Antes vinham os 8,2 mil produtos, 1000 por vez (9 idas ao banco em fila) para
+  // montar três mapas consultados só nesses poucos ids. Mesmos números, 1 ida.
+  const idsNegativos = [...new Set(estoque.map((e) => e.produto_id).filter(Boolean))]
+  const produtos = idsNegativos.length
+    ? await fetchAllIn<{ id: string; nome: string | null; permite_estoque_negativo: boolean | null; servico: boolean | null }>(
+        idsNegativos,
+        (chunk, from, to) => supabase.from('produtos')
+          .select('id, nome, permite_estoque_negativo, servico')
+          .in('id', chunk).order('id').range(from, to),
+      )
+    : []
 
   const out: Achado[] = []
   const nome = (l: { pessoa_nome: string | null; descricao: string | null }) =>

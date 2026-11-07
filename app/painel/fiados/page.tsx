@@ -49,8 +49,15 @@ export default async function FiadosPage() {
   const numeroPorVenda = new Map<string, number>()
   const caixaPorVenda = new Map<string, string>()
   const pessoaPorVenda = new Map<string, string | null>()
-  for (let i = 0; i < vendaIds.length; i += 100) {
-    const lote = vendaIds.slice(i, i + 100)
+
+  // As lojas do usuário não dependem das vendas: sobe junto com os lotes em vez de
+  // esperar a vez (era mais uma ida ao banco depois de todo o loop).
+  const lojasPromise = lojasDoUsuario()
+  // Lotes em PARALELO: antes cada lote de 100 vendas esperava o anterior terminar.
+  // O resultado é o mesmo (cada lote grava ids diferentes nos mesmos mapas).
+  const lotesVenda: string[][] = []
+  for (let i = 0; i < vendaIds.length; i += 100) lotesVenda.push(vendaIds.slice(i, i + 100))
+  await Promise.all(lotesVenda.map(async (lote) => {
     const [{ data: itens }, { data: vendas }, { data: devolucoes, error: erroDevolucoes }] = await Promise.all([
       supabase.from('itens_venda').select('venda_id, produto_id, quantidade, total_item, produtos(nome)').in('venda_id', lote),
       supabase.from('vendas').select('id, numero, vendedor_nome, caixa_id, pessoa_id').in('id', lote),
@@ -81,11 +88,11 @@ export default async function FiadosPage() {
       if (v.caixa_id) caixaPorVenda.set(v.id, v.caixa_id)
       pessoaPorVenda.set(v.id, v.pessoa_id ?? null)
     }
-  }
+  }))
 
   // Loja de cada fiado = loja da venda ligada (venda→caixa→loja; o depósito tem loja
   // NULL em alguns). Regra por permissão: gerente vê todas, atendente só a(s) dela.
-  const { todasLojas, permitidas, todas: vemTodas } = await lojasDoUsuario()
+  const { todasLojas, permitidas, todas: vemTodas } = await lojasPromise
   const idsPermitidos = new Set(permitidas.map((l) => l.id))
   const nomesPermitidos = permitidas.map((l) => l.nome)
   const caixaIds = [...new Set(caixaPorVenda.values())]

@@ -48,7 +48,15 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
 
   const supabase = await createServiceClient()
 
-  const [{ data: lojas }, deps, cxs, perfis, aberturaRow, fechadoRow, anteriorRow, antAntRow] = await Promise.all([
+  // ─── Avisos antes de fechar ─────────────────────────────────────────────────
+  // "Fechar mês" congela o estoque do MOMENTO do clique. Se o mês está sendo
+  // fechado com atraso e já houve venda depois dele, o custo dessa venda entra no
+  // resultado do mês errado. E caixa aberto faz o caixa final sair sem o dia.
+  // Estas duas leituras dependem só do `mes` (calculado acima), então entram no
+  // MESMO lote das outras — antes era uma segunda rodada de banco só de espera.
+  const inicioSeguinte = `${mesSeguinte}-01T00:00:00-03:00`
+
+  const [{ data: lojas }, deps, cxs, perfis, aberturaRow, fechadoRow, anteriorRow, antAntRow, { count: vendasDepois }, { data: caixasAbertos }] = await Promise.all([
     supabase.from('lojas').select('id, nome').order('nome'),
     fetchAll<any>((from, to) => supabase.from('depositos').select('id, loja_id').range(from, to)),
     fetchAll<any>((from, to) => supabase.from('caixas').select('id, loja_id').range(from, to)),
@@ -57,19 +65,11 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     supabase.from('configuracoes').select('valor').eq('chave', `fechamento_mes:${mes}`).maybeSingle(),
     supabase.from('configuracoes').select('valor').eq('chave', `fechamento_mes:${mesAnterior}`).maybeSingle(),
     supabase.from('configuracoes').select('valor').eq('chave', `fechamento_mes:${mesAntAnt}`).maybeSingle(),
-  ])
-
-  const lojasList = (lojas ?? []) as { id: string; nome: string }[]
-
-  // ─── Avisos antes de fechar ─────────────────────────────────────────────────
-  // "Fechar mês" congela o estoque do MOMENTO do clique. Se o mês está sendo
-  // fechado com atraso e já houve venda depois dele, o custo dessa venda entra no
-  // resultado do mês errado. E caixa aberto faz o caixa final sair sem o dia.
-  const inicioSeguinte = `${mesSeguinte}-01T00:00:00-03:00`
-  const [{ count: vendasDepois }, { data: caixasAbertos }] = await Promise.all([
     supabase.from('vendas').select('id', { count: 'exact', head: true }).gte('data', inicioSeguinte).eq('status', 'concluida'),
     supabase.from('caixas').select('id, loja_id').eq('status', 'aberto'),
   ])
+
+  const lojasList = (lojas ?? []) as { id: string; nome: string }[]
   const abertoPorLoja = lojasList.filter((l) => (caixasAbertos ?? []).some((c) => c.loja_id === l.id)).map((l) => l.nome)
   const avisosFechamento: string[] = []
   if ((vendasDepois ?? 0) > 0) {

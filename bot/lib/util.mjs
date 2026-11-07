@@ -1,5 +1,8 @@
 export const money = (v) => Number(v || 0).toFixed(2).replace('.', ',')
 export const agora = () => new Date().toISOString()
+// Dia (AAAA-MM-DD) no fuso da loja. NUNCA usar slice(0,10) num ISO: isso pega o dia
+// em UTC e, depois das 21h em São Paulo, vira o dia seguinte.
+export const diaSP = (iso) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
 export const dorme = (ms) => new Promise((r) => setTimeout(r, ms))
 
 export function parseValor(t) {
@@ -27,7 +30,7 @@ export function dataDoId(id) {
 export const diaDiff = (a, b) => (!a || !b ? 999 : Math.abs((+new Date(a + 'T12:00:00') - +new Date(b + 'T12:00:00')) / 86400000))
 
 export function resolveData(dataID, dataOCR, recebidoISO) {
-  const rec = recebidoISO ? String(recebidoISO).slice(0, 10) : null
+  const rec = recebidoISO ? (/^\d{4}-\d{2}-\d{2}$/.test(recebidoISO) ? String(recebidoISO).slice(0, 10) : diaSP(recebidoISO)) : null
   const cands = [dataID, dataOCR].filter(Boolean)
   if (!cands.length) return rec
   let best = cands[0]

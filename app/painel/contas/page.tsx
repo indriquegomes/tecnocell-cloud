@@ -41,11 +41,15 @@ export default async function ContasPage({
     const { data } = await supabase.from('contas').select('id, nome, tipo, ativa, saldo_inicial, chave_pix, titular').order('created_at')
     contas = (data ?? []) as Conta[]
   }
-  const { data: lojas } = await supabase.from('lojas').select('id, nome').order('nome')
+  // Lojas, transferências e saldos não dependem um do outro — vão juntos (era
+  // uma fila de 3 idas ao banco; agora é 1 rodada).
+  const [{ data: lojas }, transferencias, saldos] = await Promise.all([
+    supabase.from('lojas').select('id, nome').order('nome'),
+    lerTransferencias(supabase),
+    calcularSaldosContas(supabase, contas),
+  ])
   const nomeLoja = (id?: string | null) => (lojas ?? []).find((l) => l.id === id)?.nome ?? null
   const editando = editar ? contas.find((c) => c.id === editar) : undefined
-  const transferencias = await lerTransferencias(supabase)
-  const saldos = await calcularSaldosContas(supabase, contas)
   const saldoTotal = contas.filter((c) => c.ativa).reduce((s, c) => s + (saldos[c.id] ?? 0), 0)
   const contasAtivas = contas.filter((c) => c.ativa)
   const caixaTotal = contasAtivas.filter((c) => c.tipo === 'caixa').reduce((s, c) => s + (saldos[c.id] ?? 0), 0)

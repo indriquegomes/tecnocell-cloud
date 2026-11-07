@@ -323,7 +323,7 @@ export async function buscarVendasML(conexaoId?: string): Promise<{ vendas: Vend
   }
 }
 
-// ── Publicar anúncio novo (ver docs/superpowers/specs/2026-08-21-publicar-anuncio-mercado-livre-design.md) ──
+// ── Publicar anúncio novo (ver docs/arquivo/superpowers/specs/2026-08-21-publicar-anuncio-mercado-livre-design.md) ──
 
 export type CategoriaML = { id: string; nome: string }
 

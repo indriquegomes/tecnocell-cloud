@@ -3,14 +3,14 @@ import { leComprovante, apiPausada, saude } from './ia.mjs'
 import { enviaTexto, enviaFoto, enviaDoc, tipoDaMensagem } from './tg.mjs'
 import { agendaEscrita, escreveJa } from './sheets.mjs'
 import { atualizaAbasNovas } from './abas.mjs'
-import { agrupaPorDestino, dataDoId, resolveData, diaDiff, money, fmtDataBR, dorme, agora, normNome } from './util.mjs'
+import { agrupaPorDestino, dataDoId, resolveData, diaDiff, money, fmtDataBR, dorme, agora, normNome, diaSP } from './util.mjs'
 import { pixPendentesDoPeriodo } from './pix.mjs'
 
 const LIDOS = ['extraido', 'data_divergente']
 
 function decideStatus({ destinatario, data_pix, recebido_em }) {
   if (!destinatario || !String(destinatario).trim()) return 'incompleto'
-  const rec = recebido_em ? String(recebido_em).slice(0, 10) : null
+  const rec = recebido_em ? diaSP(recebido_em) : null
   if (data_pix && rec && diaDiff(data_pix, rec) > 2) return 'data_divergente'
   return 'extraido'
 }
@@ -96,7 +96,7 @@ export async function deduplica(loja) {
       && c.recebido_em >= desde15 && c.valor != null
       && normNome(c.destinatario) && normNome(c.pagador)
   )
-  const chaveFuzzy = (c) => [normNome(c.destinatario), Number(c.valor), String(c.recebido_em).slice(0, 10), normNome(c.pagador)].join('|')
+  const chaveFuzzy = (c) => [normNome(c.destinatario), Number(c.valor), diaSP(c.recebido_em), normNome(c.pagador)].join('|')
   const porChave = {}
   for (const c of semTx) (porChave[chaveFuzzy(c)] = porChave[chaveFuzzy(c)] || []).push(c)
   for (const k of Object.keys(porChave)) {

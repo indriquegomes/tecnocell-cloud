@@ -7,7 +7,7 @@ import { ehFeriadoNacional } from '@/lib/acesso'
 import { min, hhmm, turnosDoDia, trabalhadoDoDia, furosDoDia, horasTexto, type Escala, type Excecao, type Ponto } from '@/lib/escala'
 import { mesFechado, dataEmMesFechado, travarSeMesFechado } from '@/lib/fechamento'
 import { ultimoDiaUtil, ehUltimoDiaUtil } from '@/lib/dia-util'
-import { formatBRL, formatDate, slugify, normalizarUsuario } from '@/lib/utils'
+import { formatBRL, formatDate, slugify, normalizarUsuario, diaSP, hojeSP } from '@/lib/utils'
 
 // mock do supabase: só o que as helpers de fechamento usam (.from().select().eq().maybeSingle())
 function sbMock(chaveExiste: boolean, erro: unknown = null) {
@@ -211,3 +211,22 @@ test('formatDate vazio → ""', () => assert.equal(formatDate(''), ''))
 test('slugify remove acento e espaço', () => assert.equal(slugify('Célula Frontal'), 'celula-frontal'))
 test('normalizarUsuario("Letícia") → "leticia"', () => assert.equal(normalizarUsuario('Letícia'), 'leticia'))
 test('normalizarUsuario("Isabela Ponciano") → "isabela.ponciano"', () => assert.equal(normalizarUsuario('Isabela Ponciano'), 'isabela.ponciano'))
+
+// ── Fuso horário: o dia é o de SÃO PAULO, não o de UTC (bug clássico das 21h) ──
+// 22h de São Paulo = 01h UTC do dia seguinte. `slice(0, 10)` num ISO pega o dia
+// de UTC e joga o registro para o dia seguinte; `diaSP` acerta.
+test('diaSP: 22h de São Paulo ainda é o MESMO dia (UTC já virou)', () =>
+  assert.equal(diaSP('2026-11-08T01:00:00.000Z'), '2026-11-07'))
+test('diaSP: 21h30 de São Paulo ainda é o mesmo dia', () =>
+  assert.equal(diaSP('2026-11-08T00:30:00.000Z'), '2026-11-07'))
+test('diaSP: meio-dia de São Paulo é o mesmo dia', () =>
+  assert.equal(diaSP('2026-11-07T15:00:00.000Z'), '2026-11-07'))
+test('diaSP: madrugada de São Paulo (02h) é o mesmo dia', () =>
+  assert.equal(diaSP('2026-11-07T05:00:00.000Z'), '2026-11-07'))
+test('diaSP: prova de que slice(0,10) erra depois das 21h', () =>
+  assert.notEqual('2026-11-08T01:00:00.000Z'.slice(0, 10), diaSP('2026-11-08T01:00:00.000Z')))
+test('hojeSP devolve AAAA-MM-DD', () => assert.match(hojeSP(), /^\d{4}-\d{2}-\d{2}$/))
+test('hojeSP(-1) é um dia antes de hojeSP()', () => {
+  const ontem = new Date(new Date(hojeSP() + 'T12:00:00').getTime() - 86400000).toISOString().slice(0, 10)
+  assert.equal(hojeSP(-1), ontem)
+})

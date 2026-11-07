@@ -2,6 +2,7 @@ import { NextResponse, after } from 'next/server'
 import crypto from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import { nomeDaChave } from '@/lib/pix-chaves'
+import { diaSP } from '@/lib/utils'
 
 // ============================================================================
 // Webhook do bot de comprovantes Pix — roda na Vercel (sem depender de PC ligado).
@@ -54,7 +55,11 @@ function dataDoId(id: string | null): string | null {
 }
 const diaDiff = (a: string | null, b: string | null) => (!a || !b ? 999 : Math.abs((+new Date(a + 'T12:00:00') - +new Date(b + 'T12:00:00')) / 86400000))
 function resolveData(dataID: string | null, dataOCR: string | null, recebido: string | null): string | null {
-  const rec = recebido ? String(recebido).slice(0, 10) : null
+  // `recebido` pode chegar como timestamp completo (ISO) ou já como dia.
+  // Timestamp → dia de São Paulo (diaSP): `.slice(0,10)` pegava o dia em UTC e,
+  // depois das 21h, jogava o comprovante para o dia seguinte. Já no formato
+  // AAAA-MM-DD, fica como está (diaSP de data-só também cairia pro dia anterior).
+  const rec = recebido ? (/^\d{4}-\d{2}-\d{2}$/.test(recebido) ? recebido.slice(0, 10) : diaSP(recebido)) : null
   const cands = [dataID, dataOCR].filter(Boolean) as string[]
   if (!cands.length) return rec
   let best = cands[0]
@@ -316,7 +321,7 @@ async function extraiUm(loja: Loja, c: Comp) {
     }
   } catch { /* best-effort */ }
   const semDest = !j.destinatario || !String(j.destinatario).trim()
-  const rec = c.recebido_em ? String(c.recebido_em).slice(0, 10) : null
+  const rec = c.recebido_em ? diaSP(String(c.recebido_em)) : null
   const dataFinal = resolveData(dataDoId(j.transacao_id), j.data, rec)
   const status = semDest ? 'incompleto' : (dataFinal && rec && diaDiff(dataFinal, rec) > 2 ? 'data_divergente' : 'extraido')
   await supa.from('comprovantes_pix').update({ valor: j.valor, data_pix: dataFinal, pagador: j.cliente || null, destinatario: j.destinatario || null, transacao_id: j.transacao_id || null, status, extraido_raw: j }).eq('id', c.id)
@@ -348,7 +353,7 @@ async function deduplica(loja: Loja) {
       const c = arr[i]
       if ((c.extraido_raw as { forcado?: boolean } | null)?.forcado) continue // usuário forçou via /corrigir — não re-marca
       const semDest = !c.destinatario || !String(c.destinatario).trim()
-      const rec = c.recebido_em ? String(c.recebido_em).slice(0, 10) : null
+      const rec = c.recebido_em ? diaSP(String(c.recebido_em)) : null
       const dataFinal = resolveData(dataDoId(c.transacao_id!), (c.extraido_raw as { data?: string } | null)?.data || null, rec)
       const deveria = i > 0 ? 'duplicado' : (semDest ? 'incompleto' : (dataFinal && rec && diaDiff(dataFinal, rec) > 2 ? 'data_divergente' : 'extraido'))
       if (c.status !== deveria || c.data_pix !== dataFinal) {
