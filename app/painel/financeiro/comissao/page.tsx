@@ -66,15 +66,18 @@ export default async function ComissaoPage({ searchParams }: { searchParams: Pro
   const datas = datasDePagamento(mes)
 
   const supabase = await createServiceClient()
-  const [{ data: lojas }, { data: cfgMetas }, { data: cfgTime }, { data: cfgPdv }] = await Promise.all([
+  const [{ data: lojas }, { data: cfgMetas }, { data: cfgTimeMes }, { data: cfgTime }, { data: cfgPdv }] = await Promise.all([
     supabase.from('lojas').select('id, nome').eq('ativa', true).order('nome'),
     supabase.from('configuracoes').select('valor').eq('chave', `metas_comissao:${mes}`).maybeSingle(),
+    // Time do MÊS (quem entrou ou saiu no meio do ano não pode mudar mês já fechado)
+    supabase.from('configuracoes').select('valor').eq('chave', `time_comissao:${mes}`).maybeSingle(),
     supabase.from('configuracoes').select('valor').eq('chave', 'time_comissao').maybeSingle(),
     // % única da comissão (tela Configurações). 0,5 digitado = meio por cento.
     supabase.from('configuracoes').select('valor').eq('chave', 'pdv').maybeSingle(),
   ])
   const metas = (cfgMetas?.valor ?? null) as Metas | null
-  const time = (cfgTime?.valor ?? {}) as Record<string, string[]>
+  // Time do mês quando existir; senão o time geral (vale para mês sem lista própria).
+  const time = ((cfgTimeMes?.valor ?? cfgTime?.valor ?? {}) as Record<string, string[]>)
   const pctConfig = Number((cfgPdv?.valor as { comissao_percentual?: number } | null)?.comissao_percentual ?? 0)
   // Fração usada na conta: a de Configurações quando existir; senão a do JSON de metas.
   const comissaoFracao = pctConfig > 0 ? pctConfig / 100 : Number(metas?.comissao ?? 0)

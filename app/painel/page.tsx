@@ -297,17 +297,14 @@ export default async function DashboardPage({
 
   // ============ VENDEDORA ============
   if (role === 'vendedora') {
-    // Meta efetiva: a pessoal (meta_venda_mensal) se houver; senão deriva da
-    // próxima faixa da loja ÷ pessoas (a "sua parte" que já aparece no widget).
-    const derivada = (() => {
-      if (meta > 0 || !minhaMeta) return 0
-      const fs = [...minhaMeta.faixas].sort((a, b) => a.valor - b.valor)
-      const prox = fs.find((f) => f.valor > minhaMeta.faturamento) ?? fs[fs.length - 1]
-      const pes = minhaMeta.pessoas ?? 1
-      return prox && pes > 0 ? prox.valor / pes : 0
-    })()
-    const metaEfetiva = meta > 0 ? meta : derivada
-    const metaEfetivaPct = metaEfetiva > 0 ? Math.min(100, Math.round((meuFatMes / metaEfetiva) * 100)) : 0
+    // A META É DA LOJA, não da pessoa: o mesmo número para todas as vendedoras.
+    // Mede o faturamento da loja contra a faixa mais alta do mês — a mesma régua do
+    // card do master, para as duas telas contarem a mesma história.
+    // (Antes cada uma via a meta pessoal — que está zerada para todo mundo — ou a
+    // próxima faixa ÷ pessoas, então cada vendedora tinha um alvo diferente e ele
+    // subia sozinho quando a loja batia uma faixa.)
+    const metaDaLoja = metaTopoValor
+    const vendidoDaLoja = metaTopoFat
     return (
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -326,7 +323,7 @@ export default async function DashboardPage({
           </div>
         </div>
 
-        <MetaVelocimetro meta={metaEfetiva} vendido={meuFatMes} rotulo="META DE VENDAS" />
+        <MetaVelocimetro meta={metaDaLoja} vendido={vendidoDaLoja} rotulo="META DA LOJA NO MÊS" />
 
         <Link href="/painel/pdv" className="flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 p-5 text-lg font-bold text-white shadow-sm shadow-emerald-600/25 transition hover:from-emerald-700 hover:to-emerald-600">
           🛒 Abrir o PDV
