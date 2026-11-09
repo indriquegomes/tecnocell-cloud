@@ -92,3 +92,9 @@ Vales-*.json
 
 # arquivo morto: mudanças que não serão usadas (guardadas fora do git)
 arquivo-nao-usado/
+
+# backup de DADO REAL antes de mexer no banco (cliente, dívida, salário).
+# Fica no PC: o repositório é público e dado de pessoa não se publica. Se algum
+# dia for versionar, é num repositório privado — não aqui.
+docs/registros-banco/backup-*.json
+
