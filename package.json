@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:dinheiro": "node test/dinheiro.test.mjs",
+    "test:logica": "node --import ./test/alias.mjs test/logica.test.ts && node --import ./test/alias.mjs test/robustez.test.ts && node --import ./test/alias.mjs test/avisos-caixa.test.ts && node --import ./test/alias.mjs test/pix-destinos.test.ts && node --import ./test/alias.mjs test/pix-conciliacao.test.ts && node --import ./test/alias.mjs test/cobranca-fiado.test.mts && node --import ./test/alias.mjs test/formas-pagamento.test.mts && node --import ./test/alias.mjs test/mensagem-crediario.test.mts && node --import ./test/alias.mjs test/mensagem-devolucao.test.mts",
+    "test": "npm run test:logica && npm run test:dinheiro"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",

@@ -578,14 +578,20 @@ export async function buscarCrediario(
 ): Promise<{ itens: CrediarioItem[]; infoPessoas: Record<string, { limite: number; rotina: string | null }> }> {
   await requirePermissao('pdv', accessToken)
   const supabase = await createServiceClient()
-  const { data, error } = await supabase
+  // PAGINADO. Esta consulta não tinha `fetchAll` e o PostgREST corta em 1.000
+  // linhas: passando disso, o crediário do PDV mostrava MENOS dívidas que a tela
+  // Fiados (que pagina) — fiado pendente sumia da cobrança dentro da loja.
+  // A query é construída DENTRO do callback porque `.range()` muta o builder.
+  // `venda_numero` não vem daqui (não há FK lancamentos→vendas): é preenchido
+  // logo abaixo pelo lote de vendas, por isso o tipo de leitura não o exige.
+  const todos = (await fetchAll<Omit<CrediarioItem, 'venda_numero'>>((from, to) => supabase
     .from('lancamentos')
     .select('id, descricao, valor, valor_pago, pessoa_nome, pessoa_id, data_vencimento, created_at, codigo, venda_id, loja_id, historico_pagamentos')
     .eq('tipo', 'receber')
     .eq('status', 'pendente')
     .order('data_vencimento', { ascending: true })
-  if (error) throw new Error(error.message)
-  const todos = (data ?? []) as CrediarioItem[]
+    .order('id')
+    .range(from, to))) as CrediarioItem[]
 
   // Número amigável da venda (#500) — coluna `vendas.numero`. Sem isso o código do
   // crediário cai no fatiado do UUID (#FF275D) e não bate com o número dos Pedidos.

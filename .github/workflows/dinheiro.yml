@@ -1,0 +1,29 @@
+name: Dinheiro
+
+# O alarme do dinheiro: monta um banco de treino (PGlite, em memória), faz as
+# operações de baixa e confere se as telas concordam entre si.
+#
+# Por que só em pull_request: o push na main é o caminho do deploy da Vercel.
+# Este teste ainda guarda o comportamento ERRADO de hoje de propósito (é a foto
+# do problema). Se ele rodasse na main, uma correção de dinheiro — que é
+# justamente o que ele espera que aconteça — derrubaria o deploy.
+# Em PR ele serve como aviso; quando os consertos entrarem, a foto é atualizada
+# junto e o teste vira trava.
+#
+# Não usa segredo, não fala com o Supabase e não toca em dado real.
+
+on:
+  pull_request:
+
+jobs:
+  dinheiro:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Contas do dinheiro conferem entre as telas
+        run: npm run test:dinheiro
