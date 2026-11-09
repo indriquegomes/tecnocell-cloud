@@ -33,7 +33,7 @@ export const SETORES: Setor[] = [
     chave: 'fornecedores',
     label: 'Fornecedores',
     emoji: '🏭',
-    categorias: ['Mercadoria', 'Fornecedor / Mercadoria'],
+    categorias: ['Mercadoria'],
   },
   {
     chave: 'estrutura',
@@ -108,7 +108,6 @@ export const SUBCATEGORIAS: Record<string, string[]> = {
   'Estorno': ['Cartão', 'PIX', 'Dinheiro', 'Crédito'],
   // mercadoria
   'Mercadoria': ['Aparelho', 'Peça', 'Acessório', 'Perfume / importado'],
-  'Fornecedor / Mercadoria': ['Aparelho', 'Peça', 'Acessório', 'Frete'],
   // gente
   // Subcategoria responde O QUE É, nunca QUANDO é. "Mensal" saiu: periodicidade é
   // tempo, e tempo se lê nas datas (uma linha por semana, uma por mês) e no filtro
@@ -143,10 +142,10 @@ export const subcategoriasDe = (categoria: string | null | undefined): string[] 
 // Compra de mercadoria NÃO é despesa: é estoque. O custo só vira despesa quando a
 // peça é vendida (CMV). Contar as duas coisas derruba o resultado do mês em dobro.
 //
-// O fechamento excluía só 'Fornecedor / Mercadoria' e 'Fornecedor ZL' — mas existem
-// 'Mercadoria' (outra grafia da mesma coisa) e 'fonecedor' (erro de digitação antigo)
-// na base. Lançamento com essas categorias entrava como despesa EM CIMA do CMV. Em
-// 04/11 isso inflava novembro em 4.443,50 e outubro em 53.969,35.
+// A lista é tolerante de propósito: 'Fornecedor / Mercadoria', 'Fornecedor ZL' e
+// 'fonecedor' não são mais oferecidos no cadastro — os lançamentos antigos é que
+// carregam esses textos, e tirá-los daqui faria compra de estoque virar despesa no
+// fechamento de meses já conferidos. Hoje só 'Mercadoria' é oferecida.
 const CATEGORIAS_MERCADORIA = ['fornecedor / mercadoria', 'fornecedor zl', 'fonecedor', 'mercadoria']
 
 export const ehCompraDeMercadoria = (categoria: string | null | undefined): boolean =>
