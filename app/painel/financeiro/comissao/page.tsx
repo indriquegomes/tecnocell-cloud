@@ -11,6 +11,13 @@ import { BotaoLancarComissao } from './BotaoLancarComissao'
 // Cada loja divide com as vendedoras dela, em partes iguais.
 // As escadas ficam em `configuracoes`, chave `metas_comissao:<AAAA-MM>`.
 // O time de cada loja fica em `configuracoes`, chave `time_comissao`.
+//
+// O PERCENTUAL DA COMISSÃO é UM SÓ, e mora em Configurações (`pdv.comissao_percentual`,
+// digitado como 0,5 = meio por cento). Ele já era usado pelo Painel do vendedor e pelo
+// relatório de comissão; aqui ele passou a valer também. Antes esta tela lia um
+// `comissao` próprio dentro do JSON de metas (0.005), então mudar em Configurações não
+// mudava a comissão — dois lugares com o mesmo número. O JSON fica só como reserva,
+// para mês antigo gravado antes desta unificação.
 
 type Escada = { granada: number; esmeralda: number; diamante: number; joalheria: number }
 type Metas = { percentuais: Record<string, number>; comissao: number; lojas: Record<string, Escada> }
@@ -59,13 +66,18 @@ export default async function ComissaoPage({ searchParams }: { searchParams: Pro
   const datas = datasDePagamento(mes)
 
   const supabase = await createServiceClient()
-  const [{ data: lojas }, { data: cfgMetas }, { data: cfgTime }] = await Promise.all([
+  const [{ data: lojas }, { data: cfgMetas }, { data: cfgTime }, { data: cfgPdv }] = await Promise.all([
     supabase.from('lojas').select('id, nome').eq('ativa', true).order('nome'),
     supabase.from('configuracoes').select('valor').eq('chave', `metas_comissao:${mes}`).maybeSingle(),
     supabase.from('configuracoes').select('valor').eq('chave', 'time_comissao').maybeSingle(),
+    // % única da comissão (tela Configurações). 0,5 digitado = meio por cento.
+    supabase.from('configuracoes').select('valor').eq('chave', 'pdv').maybeSingle(),
   ])
   const metas = (cfgMetas?.valor ?? null) as Metas | null
   const time = (cfgTime?.valor ?? {}) as Record<string, string[]>
+  const pctConfig = Number((cfgPdv?.valor as { comissao_percentual?: number } | null)?.comissao_percentual ?? 0)
+  // Fração usada na conta: a de Configurações quando existir; senão a do JSON de metas.
+  const comissaoFracao = pctConfig > 0 ? pctConfig / 100 : Number(metas?.comissao ?? 0)
   const lojasList = (lojas ?? []) as { id: string; nome: string }[]
 
   if (!metas) {
@@ -116,7 +128,7 @@ export default async function ComissaoPage({ searchParams }: { searchParams: Pro
     const batida = faixas.filter(([, alvo]) => vendaBruta >= alvo).pop()
     const proxima = faixas.find(([, alvo]) => vendaBruta < alvo)
     const valorMeta = batida ? Math.round(batida[1] * (metas.percentuais[batida[0].toLowerCase()] ?? 0) * 100) / 100 : 0
-    const valorComissao = Math.round((vendaBruta - (devolvido[loja.id] ?? 0)) * metas.comissao * 100) / 100
+    const valorComissao = Math.round((vendaBruta - (devolvido[loja.id] ?? 0)) * comissaoFracao * 100) / 100
     const vendedoras = (time[loja.id] ?? []).filter(Boolean)
     const metaCada = vendedoras.length ? Math.round((valorMeta / vendedoras.length) * 100) / 100 : 0
     const comissaoCada = vendedoras.length ? Math.round((valorComissao / vendedoras.length) * 100) / 100 : 0
@@ -241,7 +253,7 @@ export default async function ComissaoPage({ searchParams }: { searchParams: Pro
       ))}
 
       <p className="text-xs text-gray-400">
-        Fórmula: meta = percentual da faixa batida × valor da faixa. Comissão = 0,5% × (venda bruta − devoluções das vendas do mês).
+        Fórmula: meta = percentual da faixa batida × valor da faixa. Comissão = {String(Math.round(comissaoFracao * 10000) / 100).replace('.', ',')}% × (venda bruta − devoluções das vendas do mês).
         Divisão igual entre as vendedoras da loja. As escadas do mês estão em <code>metas_comissao:{mes}</code>.
       </p>
     </div>
