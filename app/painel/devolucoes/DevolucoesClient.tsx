@@ -12,7 +12,7 @@ import {
   buscarVendasRecentes, buscarVendaParaDevolucao, registrarDevolucao, buscarItensDevolucao,
   type VendaParaDevolucao, type VendaResumo,
 } from './actions'
-import { formatBRL } from '@/lib/utils'
+import { formatBRL, diaSP, hojeSP } from '@/lib/utils'
 
 const supabaseBrowser = createClient()
 const fmt = formatBRL
@@ -266,8 +266,13 @@ export function DevolucoesClient({
       // serializado começa sem nada marcado (operador escolhe os IMEIs); demais, quantidade cheia
       v.itens.forEach((i) => { m.set(i.produto_id, i.series.length > 0 ? 0 : i.quantidade); sp.set(i.produto_id, 'ok') })
       setItens(m); setStatusProduto(sp); setSeriesSel(new Map())
-      // reembolso (parte paga) usa forma real; se for só fiado, o confirmar troca p/ cancelamento_fiado
-      setTipoCredito('dinheiro')
+      // Forma do reembolso já vem na regra certa: venda 100% em DINHEIRO de OUTRO dia
+      // devolve por PIX (a gaveta daquele dia já foi contada; paga o PagBank). No mesmo
+      // dia o padrão continua dinheiro. Antes abria em "dinheiro" e o servidor recusava.
+      const pagosDaVenda = v.pagamentos ?? []
+      const soDinheiroNaVenda = pagosDaVenda.length > 0 && pagosDaVenda.every((p) => p.tipo === 'dinheiro')
+      const vendaEhDeHoje = diaSP(v.created_at) === hojeSP()
+      setTipoCredito(soDinheiroNaVenda && !vendaEhDeHoje ? 'pix' : 'dinheiro')
       setStep('itens')
     } catch (e) { setErro(e instanceof Error ? e.message : 'Erro ao carregar venda.') }
     finally { setCarregandoVenda(false) }

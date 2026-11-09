@@ -529,16 +529,17 @@ async function registrarDevolucaoInterno(
     )
   }
 
-  // REGRA 3: venda em DINHEIRO devolve em DINHEIRO.
-  // O valor entrou na GAVETA; devolver por PIX paga com dinheiro do banco e deixa a
-  // gaveta com a venda na mão (aconteceu de verdade na venda #9049 em 22/10).
-  if (soDinheiro && vaiSairPix) {
+  // REGRA 3: venda em DINHEIRO no MESMO dia devolve em dinheiro (ou crédito).
+  // O valor entrou na GAVETA naquele dia: devolver por PIX no mesmo dia paga com
+  // dinheiro do banco e deixa a gaveta com a venda na mão (aconteceu na venda #9049
+  // em 22/10). Em OUTRO dia o PIX é permitido: a gaveta daquele dia já foi contada e
+  // quem paga passa a ser o PagBank — mesma política da devolução em dinheiro, que
+  // também só vale no mesmo dia.
+  if (soDinheiro && vaiSairPix && mesmoDia) {
     await barrar(
-      'REGRA 3 (dinheiro devolve em dinheiro)',
-      'esta venda foi paga em DINHEIRO — o valor está na gaveta, não no banco.',
-      mesmoDia
-        ? 'devolver em dinheiro (a venda é de hoje) ou como crédito.'
-        : `devolver como crédito (a venda é de ${ddVenda}, e o dinheiro daquele dia já foi contado).`,
+      'REGRA 3 (dinheiro devolve em dinheiro no mesmo dia)',
+      `esta venda foi paga em DINHEIRO hoje — o valor está na gaveta, não no banco.`,
+      'devolver em dinheiro (a venda é de hoje) ou como crédito.',
     )
   }
 
