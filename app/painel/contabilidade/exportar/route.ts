@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   ]
   resumo.addRows([
     { item: 'Faturamento bruto', valor: d.faturamento },
-    { item: 'Descontos', valor: d.descontos },
+    { item: 'Descontos (já incluídos no faturamento)', valor: d.descontos },
     { item: 'Compras (notas de entrada)', valor: d.compras },
     { item: 'Despesas pagas', valor: d.despesasTotal },
     { item: 'Folha (salários)', valor: d.folha },

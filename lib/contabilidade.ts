@@ -1,6 +1,7 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { custoMensalCLT } from '@/lib/folha'
 import { ehCompraDeMercadoria } from '@/lib/financeiro-setores'
+import { normalizarUsuario } from '@/lib/utils'
 
 // Fonte única dos dados da Contabilidade (tela + exportação). A contadora precisa
 // do DRE simplificado: faturamento, compras, despesas, folha (com encargos) e
@@ -53,9 +54,9 @@ export async function buscarDadosContabilidade(mes: string, lojaId?: string): Pr
     .gte('notas_entrada.data_entrada', inicio).lt('notas_entrada.data_entrada', proxMes)
   if (depositosDaLoja) comprasQ = comprasQ.in('deposito_id', depositosDaLoja)
 
-  // despesas (por loja_id)
+  // despesas (por loja_id) — pessoa_nome entra porque salário é conferido por pessoa
   let despesasQ = supabase.from('lancamentos')
-    .select('valor, categoria, descricao, data_pagamento, loja_id').eq('tipo', 'pagar').eq('status', 'pago')
+    .select('valor, categoria, descricao, data_pagamento, loja_id, pessoa_nome').eq('tipo', 'pagar').eq('status', 'pago')
     .gte('data_pagamento', inicioTs).lt('data_pagamento', proxTs)
   if (lojaId) despesasQ = despesasQ.eq('loja_id', lojaId)
 
@@ -93,8 +94,7 @@ export async function buscarDadosContabilidade(mes: string, lojaId?: string): Pr
 
   // Despesas pagas — MENOS compra de mercadoria: essa é estoque e já entra em
   // `compras` (abaixo). Somar as duas contava a compra duas vezes no resultado.
-  const despesasList = (despesas ?? []).filter((d) => !ehCompraDeMercadoria(d.categoria))
-  const despesasTotal = despesasList.reduce((s, d) => s + Number(d.valor ?? 0), 0)
+  const despesasSemMercadoria = (despesas ?? []).filter((d) => !ehCompraDeMercadoria(d.categoria))
 
   // folha: filtra por loja (quem pode trabalhar nela); encargos só pra CLT
   const perfisFiltrados = lojaId
@@ -118,7 +118,41 @@ export async function buscarDadosContabilidade(mes: string, lojaId?: string): Pr
   const folha = folhaLista.reduce((s, f) => s + f.salario, 0)
   const folhaEncargos = folhaLista.reduce((s, f) => s + f.encargos, 0)
 
-  const resultado = faturamento - descontos - compras - despesasTotal - folha - folhaEncargos
+  // SALÁRIO NÃO PODE CONTAR DUAS VEZES — mas também não pode sumir.
+  // Cada pessoa entra por UM caminho:
+  //   tem salário no cadastro → o salário dela está na FOLHA (acima), então o
+  //   lançamento pago que corresponde a esse mesmo salário sai de "despesas";
+  //   não tem salário no cadastro (diarista/freelancer pago por semana) → entra
+  //   pelos LANÇAMENTOS pagos, e não aparece na folha.
+  //
+  // O abatimento é LIMITADO ao salário da pessoa. Categoria 'Salários' também
+  // carrega adiantamento, rescisão, hora extra e comissão — custo que a folha não
+  // cobre. Tudo que passar do salário do cadastro continua contando como despesa.
+  // Sem essa divisão, o mês que pagava o salário era descontado duas vezes (em
+  // outubro/2026, 8.897,33 contados em dobro).
+  const temSalarioNoCadastro = new Map<string, number>()
+  for (const f of folhaLista) {
+    const chave = normalizarUsuario(f.nome)
+    if (f.salario > 0) temSalarioNoCadastro.set(chave, f.salario)
+  }
+  const despesasList: typeof despesasSemMercadoria = []
+  for (const d of despesasSemMercadoria) {
+    const chave = normalizarUsuario((d as { pessoa_nome?: string | null }).pessoa_nome ?? '')
+    const salarioDaPessoa = chave ? temSalarioNoCadastro.get(chave) ?? 0 : 0
+    const ehSalario = normalizarUsuario(d.categoria ?? '') === 'salarios'
+    if (!ehSalario || salarioDaPessoa <= 0) { despesasList.push(d); continue }
+    const valor = Number(d.valor ?? 0)
+    const coberto = Math.min(valor, salarioDaPessoa)
+    const sobra = Math.round((valor - coberto) * 100) / 100
+    temSalarioNoCadastro.set(chave, Math.round((salarioDaPessoa - coberto) * 100) / 100)
+    // o que passou do salário do cadastro (rescisão, hora extra, comissão) segue despesa
+    if (sobra > 0.004) despesasList.push({ ...d, valor: sobra })
+  }
+  const despesasTotal = despesasList.reduce((s, d) => s + Number(d.valor ?? 0), 0)
+
+  // O desconto NÃO é subtraído de novo: `vendas.total` já é o valor líquido
+  // (soma dos itens − desconto). A tela mostra o desconto como informação.
+  const resultado = faturamento - compras - despesasTotal - folha - folhaEncargos
 
   // despesas agrupadas por categoria (sem mercadoria — ela é compra/estoque)
   const catMap: Record<string, number> = {}

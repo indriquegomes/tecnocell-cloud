@@ -19,7 +19,7 @@ export default async function ContabilidadePage({ searchParams }: { searchParams
   const params = await searchParams
   const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
   const pedido = params.mes ?? hoje.slice(0, 7)
-  const mes = /^d{4}-d{2}$/.test(pedido) ? pedido : hoje.slice(0, 7)
+  const mes = /^\d{4}-\d{2}$/.test(pedido) ? pedido : hoje.slice(0, 7)
   const [ano, m] = mes.split('-').map(Number)
   const mesAnterior = m === 1 ? (ano - 1) + '-12' : ano + '-' + String(m - 1).padStart(2, '0')
   const mesSeguinte = m === 12 ? (ano + 1) + '-01' : ano + '-' + String(m + 1).padStart(2, '0')
@@ -61,9 +61,9 @@ export default async function ContabilidadePage({ searchParams }: { searchParams
       {/* DRE simplificado */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div className="rounded-2xl bg-emerald-50 p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase text-emerald-700">Faturamento bruto</p>
+          <p className="text-xs font-semibold uppercase text-emerald-700">Faturamento (líquido)</p>
           <p className="mt-1 text-2xl font-bold text-emerald-700">{fmt(d.faturamento)}</p>
-          <p className="text-[11px] text-emerald-600">vendas do mês · descontos {fmt(d.descontos)}</p>
+          <p className="text-[11px] text-emerald-600">vendas do mês já com os descontos aplicados · descontos {fmt(d.descontos)}</p>
         </div>
         <div className="rounded-2xl bg-red-50 p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase text-red-700">Compras</p>
@@ -73,7 +73,7 @@ export default async function ContabilidadePage({ searchParams }: { searchParams
         <div className="rounded-2xl bg-orange-50 p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase text-orange-700">Despesas pagas</p>
           <p className="mt-1 text-2xl font-bold text-orange-700">{fmt(d.despesasTotal)}</p>
-          <p className="text-[11px] text-orange-600">pagar quitado no mês</p>
+          <p className="text-[11px] text-orange-600">pagar quitado no mês, já sem o salário de quem está na folha</p>
         </div>
         <div className="rounded-2xl bg-purple-50 p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase text-purple-700">Folha + encargos</p>
@@ -83,7 +83,7 @@ export default async function ContabilidadePage({ searchParams }: { searchParams
         <div className={'rounded-2xl p-4 shadow-sm ' + (d.resultado >= 0 ? 'bg-emerald-100' : 'bg-amber-100')}>
           <p className="text-xs font-semibold uppercase text-gray-600">Resultado</p>
           <p className={'mt-1 text-2xl font-bold ' + (d.resultado >= 0 ? 'text-emerald-700' : 'text-amber-700')}>{fmt(d.resultado)}</p>
-          <p className="text-[11px] text-gray-500">bruto − descontos − compras − despesas − folha</p>
+          <p className="text-[11px] text-gray-500">bruto − compras − despesas − folha (desconto já está no bruto)</p>
         </div>
       </div>
 
