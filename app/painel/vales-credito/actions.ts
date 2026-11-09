@@ -2,6 +2,7 @@
 
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { retirarDoCaixa } from '@/lib/caixa'
+import { contaDaForma } from '@/lib/conta-da-forma'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { formatBRL } from '@/lib/utils'
@@ -105,11 +106,17 @@ export async function estornarCredito(id: string, formData?: FormData) {
     const valor = Number(lanc?.valor ?? 0)
     const agora = new Date().toISOString()
     const hist = Array.isArray(lanc?.historico_pagamentos) ? (lanc!.historico_pagamentos as unknown[]) : []
+    const lojaDoLanc = (lanc as { loja_id?: string | null } | null)?.loja_id ?? null
+    // A conta da forma: sem ela o dinheiro que saiu do PagBank não descontava de
+    // conta nenhuma e o banco ficava com o valor do cliente dentro. Dinheiro devolve
+    // null de propósito — a cédula é registrada na gaveta logo abaixo.
+    const contaId = await contaDaForma(supabase, origem, lojaDoLanc)
     const { error: erroBaixa } = await supabase.from('lancamentos').update({
       status: 'pago',
       valor_pago: valor,
       data_pagamento: agora,
       forma_pagamento: origem,
+      ...(contaId ? { conta_id: contaId } : {}),
       historico_pagamentos: [...hist, { valor, forma: origem, data: agora }],
       updated_at: agora,
     }).eq('id', lancId)
