@@ -8,6 +8,7 @@ import { min, hhmm, turnosDoDia, trabalhadoDoDia, furosDoDia, horasTexto, type E
 import { mesFechado, dataEmMesFechado, travarSeMesFechado } from '@/lib/fechamento'
 import { ultimoDiaUtil, ehUltimoDiaUtil } from '@/lib/dia-util'
 import { formatBRL, formatDate, slugify, normalizarUsuario, diaSP, hojeSP } from '@/lib/utils'
+import { pendentesDeHoje } from '@/lib/lembretes'
 
 // mock do supabase: só o que as helpers de fechamento usam (.from().select().eq().maybeSingle())
 function sbMock(chaveExiste: boolean, erro: unknown = null) {
@@ -229,4 +230,38 @@ test('hojeSP devolve AAAA-MM-DD', () => assert.match(hojeSP(), /^\d{4}-\d{2}-\d{
 test('hojeSP(-1) é um dia antes de hojeSP()', () => {
   const ontem = new Date(new Date(hojeSP() + 'T12:00:00').getTime() - 86400000).toISOString().slice(0, 10)
   assert.equal(hojeSP(-1), ontem)
+})
+
+// ── lembretes: PAGAMENTO é do master e não some no dia seguinte ─────────────
+// 06/11/2026 é sexta (dia 5); 07/11 é sábado (dia 6).
+const LEM = (over: Record<string, unknown> = {}) => ({
+  id: 'L1', titulo: 'Pagamento: Fulano de Tal', descricao: null, perfil_id: 'p1', cargo_id: null,
+  hora: '09:00:00', dias: [5], ativo: true, tipo: 'pagamento', valor: 100, chave_pix: null, ...over,
+}) as never
+const sexta10h = new Date('2026-11-06T13:00:00Z')   // 10:00 em São Paulo
+const sexta8h = new Date('2026-11-06T11:00:00Z')    // 08:00 em São Paulo
+const sabado10h = new Date('2026-11-07T13:00:00Z')
+
+test('pagamento aparece para o master na sexta depois da hora', () => {
+  assert.equal(pendentesDeHoje([LEM()], [], 'p1', null, sexta10h, true).length, 1)
+})
+test('pagamento não aparece antes da hora', () => {
+  assert.equal(pendentesDeHoje([LEM()], [], 'p1', null, sexta8h, true).length, 0)
+})
+test('pagamento continua pendente no sábado se ninguém marcou', () => {
+  const p = pendentesDeHoje([LEM()], [], 'p1', null, sabado10h, true)
+  assert.equal(p.length, 1)
+  assert.equal(p[0].tipo, 'pagamento')
+  assert.equal(p[0].atrasado, true)
+})
+test('pagamento some quando marcado na semana', () => {
+  const feito = [{ lembrete_id: 'L1', perfil_id: 'p1', feito_em: '2026-11-06T12:00:00Z', data: '2026-11-06' }]
+  assert.equal(pendentesDeHoje([LEM()], feito, 'p1', null, sabado10h, true).length, 0)
+})
+test('pagamento não aparece para quem não é master', () => {
+  assert.equal(pendentesDeHoje([LEM()], [], 'p1', null, sexta10h, false).length, 0)
+})
+test('rotina do dia anterior não reaparece (comportamento antigo)', () => {
+  const rotina = LEM({ tipo: 'rotina', valor: null })
+  assert.equal(pendentesDeHoje([rotina], [], 'p1', null, sabado10h, true).length, 0)
 })

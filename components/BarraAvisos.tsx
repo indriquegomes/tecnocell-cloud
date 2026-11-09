@@ -26,6 +26,10 @@ export function BarraAvisos({
 }) {
   const [dispensados, setDispensados] = useState<Set<string>>(new Set())
   const [subindo, setSubindo] = useState<string | null>(null)
+  // Lembrete de pagamento SEM valor fixo (salário que varia por semana): o valor é
+  // digitado na hora de marcar pago. Sem isso o pagamento entrava com valor zero e
+  // nunca aparecia no financeiro.
+  const [valores, setValores] = useState<Record<string, string>>({})
   const [pendente, startTransition] = useTransition()
   const router = useRouter()
 
@@ -49,12 +53,12 @@ export function BarraAvisos({
     })
   }
 
-  const pagar = (id: string, file: File | null) => {
+  const pagar = (id: string, file: File | null, valor?: number | null) => {
     startTransition(async () => {
       setSubindo(id)
       try {
         const { data } = await supabaseBrowser.auth.getSession()
-        await marcarPagamentoFeito(data.session?.access_token ?? '', id, file)
+        await marcarPagamentoFeito(data.session?.access_token ?? '', id, file, valor ?? null)
         dispensar(id)
         router.refresh()
       } catch (e) {
@@ -63,6 +67,15 @@ export function BarraAvisos({
         setSubindo(null)
       }
     })
+  }
+
+  /** "1.234,56" ou "1234.56" → 1234.56 */
+  const numero = (txt: string | undefined): number => {
+    const t = (txt ?? '').trim()
+    if (!t) return 0
+    const limpo = t.replace(/\./g, '').replace(',', '.')
+    const n = Number(limpo)
+    return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0
   }
 
   const grave = cx.some((c) => c.urgencia === 'ontem')
@@ -121,12 +134,23 @@ export function BarraAvisos({
           </p>
           {r.tipo === 'pagamento' ? (
             <div className="flex shrink-0 items-center gap-1">
+              {/* Sem valor fixo: o valor da semana é digitado aqui. */}
+              {r.valor == null && (
+                <input
+                  inputMode="decimal"
+                  value={valores[r.id] ?? ''}
+                  onChange={(e) => setValores((s) => ({ ...s, [r.id]: e.target.value }))}
+                  placeholder="valor"
+                  title="Quanto foi pago nesta semana"
+                  className="w-20 rounded-lg border border-emerald-300 bg-white px-1.5 py-1 text-xs text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                />
+              )}
               {/* Pagamento entra no financeiro sozinho; o comprovante é opcional. */}
               <button
                 type="button"
-                disabled={pendente || subindo === r.id}
-                onClick={() => pagar(r.id, null)}
-                title="Marcar como pago (lança no financeiro)"
+                disabled={pendente || subindo === r.id || (r.valor == null && numero(valores[r.id]) <= 0)}
+                onClick={() => pagar(r.id, null, r.valor == null ? numero(valores[r.id]) : null)}
+                title={r.valor == null ? 'Digite o valor pago para lançar no financeiro' : 'Marcar como pago (lança no financeiro)'}
                 className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700 transition disabled:opacity-50"
               >
                 {subindo === r.id ? '...' : '✓ Pago'}
@@ -135,7 +159,7 @@ export function BarraAvisos({
                 title="Pagar anexando o comprovante">
                 📎
                 <input type="file" accept="image/*" className="hidden" disabled={subindo === r.id}
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) pagar(r.id, f); e.target.value = '' }} />
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) pagar(r.id, f, r.valor == null ? numero(valores[r.id]) : null); e.target.value = '' }} />
               </label>
             </div>
           ) : (
@@ -149,9 +173,13 @@ export function BarraAvisos({
             </button>
           )}
           {/* dispensar só tira da tela; o lembrete volta na próxima navegação até
-              alguém marcar FEITO — que é o ponto */}
-          <button type="button" onClick={() => dispensar(r.id)} aria-label="Dispensar aviso"
-            className="shrink-0 text-lg leading-none opacity-40 hover:opacity-70 transition">✕</button>
+              alguém marcar FEITO — que é o ponto.
+              PAGAMENTO não tem ✕: só sai da tela quando o master marcar Pago,
+              senão o salário some da vista sem nunca entrar no financeiro. */}
+          {r.tipo !== 'pagamento' && (
+            <button type="button" onClick={() => dispensar(r.id)} aria-label="Dispensar aviso"
+              className="shrink-0 text-lg leading-none opacity-40 hover:opacity-70 transition">✕</button>
+          )}
         </div>
       ))}
     </div>

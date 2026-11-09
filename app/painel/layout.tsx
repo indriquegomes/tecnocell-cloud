@@ -9,7 +9,7 @@ import { permissaoPorRota, temPermissao, temAlgumaPermissao } from '@/lib/permis
 import { acessoBloqueado } from '@/lib/acesso'
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { lembretesDeCaixa, HORARIOS_PADRAO, type HorariosCaixa, type Lembrete as AvisoCaixa } from '@/lib/lembrete-caixa'
-import { pendentesDeHoje, hojeSP, type Lembrete, type LembretePendente } from '@/lib/lembretes'
+import { pendentesDeHoje, hojeSP, diasAtras, type Lembrete, type LembretePendente } from '@/lib/lembretes'
 
 export default async function PainelLayout({ children }: { children: React.ReactNode }) {
   const h = await headers()
@@ -88,7 +88,9 @@ export default async function PainelLayout({ children }: { children: React.React
         podePdv ? supabase.from('configuracoes').select('valor').eq('chave', 'pdv').maybeSingle() : Promise.resolve({ data: null }),
         podePdv ? supabase.from('lojas').select('id, nome') : Promise.resolve({ data: [] }),
         supabase.from('lembretes').select('id, titulo, descricao, perfil_id, cargo_id, hora, dias, ativo, tipo, valor, chave_pix').eq('ativo', true),
-        supabase.from('lembretes_feitos').select('lembrete_id, perfil_id, feito_em').eq('data', hoje),
+        // 7 dias: o lembrete de PAGAMENTO fica pendente até ser marcado, então o
+        // "feito" pode ser de ontem (salário de sexta marcado no sábado).
+        supabase.from('lembretes_feitos').select('lembrete_id, perfil_id, feito_em, data').gte('data', diasAtras(hoje, 7)),
         supabase.from('integracoes_mercado_livre_perguntas').select('*', { count: 'exact', head: true }).eq('respondida', false),
         supabase.from('integracoes_mercado_livre_mensagens').select('*', { count: 'exact', head: true }).eq('lida', false).eq('autor', 'comprador'),
       ])
@@ -115,6 +117,8 @@ export default async function PainelLayout({ children }: { children: React.React
         feitosRes.data ?? [],
         userId,
         cargoId,
+        new Date(),
+        isMaster,
       )
 
       if (perguntasRes.count) {

@@ -333,7 +333,8 @@ que sumiu" que não existe.
 4. **Ninguém cita apelido nem nome curto de pessoa.** Para nomear quem pediu ou
    decidiu, use o **nome completo** (tabela "Pessoas" em
    `docs/mapa/glossario.md`). Quando o que importa é a função, descreva a função:
-   "a atendente", "quem fecha o caixa".
+   "a atendente", "quem fecha o caixa". **"O dono" = Indrique Gomes França
+   (master)** — em documento e comentário, "o dono" sempre significa ele.
 
 ### Fórmula oficial do dinheiro em espécie no período
 
@@ -349,3 +350,28 @@ troco inicial (soma de valor_abertura dos caixas do período)
 
 Script pronto para rodar isso: `scripts/conferencia-caixa.mjs`
 (`node scripts/conferencia-caixa.mjs 2026-11-03 2026-11-06`). Só lê.
+
+## 14. Antes de qualquer mudança: é DADO, REGRA ou HISTÓRIA?
+
+> Regra confirmada pelo dono (07/11/2026). Vale para todo pedido, de qualquer
+> pessoa e de qualquer agente. Classificar ANTES de mexer.
+
+Classifique o pedido:
+
+- **DADO** (nomes, valores, casos específicos): vai para o **banco**, lançado
+  pela tela do app. **Não muda código.**
+- **REGRA** (como o app funciona): vai para o **código**, sempre **GERAL** — sem
+  nome de pessoa, sem valor fixo, sem caso específico.
+- **HISTÓRIA** (por que, quem pediu, contexto): vai para **`docs/`**. **NUNCA**
+  em comentário de código.
+
+Se o pedido for um **caso específico**, primeiro verifique se o app já tem uma
+função geral que resolve (ex.: conta parcelada no Financeiro). Se tiver, **não
+mexa no código**: indique como lançar pela tela.
+
+Se não souber classificar, **pergunte ao dono** antes de fazer.
+
+Consequência prática para comentário de código: comentário explica **o que o
+código faz e por que aquele jeito é o certo** (armadilha, invariante, cálculo) —
+nunca "quem pediu", "quem reclamou" ou a data do pedido. Isso tudo é HISTÓRIA e
+mora em `docs/`.

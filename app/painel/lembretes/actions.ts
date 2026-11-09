@@ -95,6 +95,7 @@ async function lancarPagamentoRecorrente(
   supabase: Awaited<ReturnType<typeof createServiceClient>>,
   lembreteId: string,
   data: string,
+  valorInformado?: number | null,
 ): Promise<void> {
   const { data: lembrete } = await supabase
     .from('lembretes')
@@ -103,7 +104,10 @@ async function lancarPagamentoRecorrente(
     .maybeSingle()
   const l = lembrete as { titulo?: string; valor?: number | null; tipo?: string | null } | null
   if (!l || (l.tipo ?? 'rotina') !== 'pagamento') return
-  const valor = Number(l.valor ?? 0)
+  // Valor FIXO quando o lembrete tem valor; quando não tem (salário que varia por
+  // semana), vale o valor digitado na hora de marcar pago. Sem os dois, não lança —
+  // lançar zero esconderia o pagamento no financeiro.
+  const valor = Number(l.valor ?? 0) > 0 ? Number(l.valor) : Number(valorInformado ?? 0)
   if (!(valor > 0)) return
   if (await dataEmMesFechado(supabase, data)) return
 
@@ -116,6 +120,33 @@ async function lancarPagamentoRecorrente(
     .maybeSingle()
   const p = perfil as { nome?: string; pdv_loja_id?: string | null } | null
   const ddmm = data.slice(8, 10) + '/' + data.slice(5, 7)
+  const pessoa = p?.nome ?? nome
+
+  // TRAVA DE DUPLICATA: esta rotina já gerou duas linhas para a MESMA semana (uma pela
+  // geração em lote, outra por este lembrete), e o mês fechou com o salário pago duas
+  // vezes. Antes de inserir, procura a linha da mesma pessoa na mesma semana: se
+  // existir, ela é a verdade — completa em vez de criar a segunda.
+  const { data: jaTem } = await supabase
+    .from('lancamentos')
+    .select('id, status, valor')
+    .eq('tipo', 'pagar')
+    .eq('categoria', 'Salários')
+    .eq('pessoa_nome', pessoa)
+    .ilike('descricao', '%semana de ' + ddmm + '%')
+    .maybeSingle()
+  const existente = jaTem as { id: string; status: string | null; valor: number | null } | null
+  if (existente) {
+    if (existente.status === 'pago') return   // já lançado: nada a fazer
+    const { error: erroUp } = await supabase.from('lancamentos').update({
+      status: 'pago',
+      valor_pago: Number(existente.valor ?? 0) || valor,
+      data_pagamento: data,
+      forma_pagamento: 'PIX',
+      updated_at: new Date().toISOString(),
+    }).eq('id', existente.id)
+    if (erroUp) console.error('lancarPagamentoRecorrente: baixa do lançamento existente:', erroUp.message)
+    return
+  }
 
   const { error } = await supabase.from('lancamentos').insert({
     id: 'pagamento-' + lembreteId + '-' + data,
@@ -123,7 +154,7 @@ async function lancarPagamentoRecorrente(
     valor,
     tipo: 'pagar',
     categoria: 'Salários',
-    pessoa_nome: p?.nome ?? nome,
+    pessoa_nome: pessoa,
     loja_id: p?.pdv_loja_id ?? null,
     data_competencia: data,
     data_vencimento: data,
@@ -139,9 +170,14 @@ async function lancarPagamentoRecorrente(
 
 // Marcar como FEITO — qualquer um que veja o lembrete pode marcar o seu.
 // A trava de duplicata é no banco (unique lembrete_id+data), não aqui.
+// EXCEÇÃO: lembrete de PAGAMENTO é do master. Ele lança despesa no financeiro, então
+// quem recebe não pode marcar — o funcionário marcaria "pago" sem ter recebido.
 export async function marcarFeito(accessToken: string, lembreteId: string): Promise<void> {
   const usuario = await requireAuth(accessToken)
   const supabase = await createServiceClient()
+  const { data: lembrete } = await supabase.from('lembretes').select('tipo').eq('id', lembreteId).maybeSingle()
+  const ehPagamento = ((lembrete as { tipo?: string | null } | null)?.tipo ?? 'rotina') === 'pagamento'
+  if (ehPagamento) await requirePermissao('master', accessToken)
   const { error } = await supabase.rpc('marcar_lembrete_feito', {
     p_lembrete_id: lembreteId,
     p_perfil_id: usuario.id,
@@ -161,8 +197,9 @@ const EXT_COMPROVANTE: Record<string, string> = {
   'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif',
 }
 
-export async function marcarPagamentoFeito(accessToken: string, lembreteId: string, file: File | null): Promise<void> {
-  const usuario = await requireAuth(accessToken)
+export async function marcarPagamentoFeito(accessToken: string, lembreteId: string, file: File | null, valorInformado?: number | null): Promise<void> {
+  // Pagamento é dinheiro do dono: só o master marca (ver marcarFeito).
+  const usuario = await requirePermissao('master', accessToken)
   const supabase = await createServiceClient()
 
   // Comprovante é opcional: se vier, sobe; se não vier, marca pago do mesmo jeito.
@@ -186,7 +223,7 @@ export async function marcarPagamentoFeito(accessToken: string, lembreteId: stri
     ...(path ? { p_comprovante_url: path } : {}),
   })
   if (error) throw new Error(error.message)
-  await lancarPagamentoRecorrente(supabase, lembreteId, hojeSP().data)
+  await lancarPagamentoRecorrente(supabase, lembreteId, hojeSP().data, valorInformado)
   revalidatePath('/painel', 'layout')
   revalidatePath('/painel/lembretes')
   revalidatePath('/painel/financeiro')
