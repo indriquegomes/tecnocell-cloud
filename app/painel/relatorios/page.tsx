@@ -695,27 +695,60 @@ export default async function RelatoriosPage({
       .sort((a, b) => a.dia - b.dia)
   }
 
-  // ---------- Comissões (por vendedor, % global) ----------
-  let comissoes: { nome: string; vendido: number; comissao: number }[] = []
-  let comissaoPctG = 0, totalComissao = 0
+  // ---------- Comissões (por LOJA — a venda é da loja, não do vendedor) ----------
+  // A comissão é 0,5% de (venda bruta − devoluções das vendas do período), dividida
+  // igualmente entre o time da loja. Não existe comissão por vendedor: o nome na venda
+  // é histórico. Quem quiser "quanto cada um atendeu" usa o relatório de vendas.
+  let comissoesLoja: { loja: string; bruto: number; devolvido: number; comissao: number; time: number; porPessoa: number }[] = []
+  let comissaoPctG = 0, totalComissao = 0, totalTime = 0
   if (aba === 'comissoes') {
-    const [{ data: cfg }, vs] = await Promise.all([
+    const [{ data: cfg }, { data: cfgTime }, { data: deps }, { data: lojasCom }, vs, devs] = await Promise.all([
       supabase.from('configuracoes').select('valor').eq('chave', 'pdv').maybeSingle(),
-      fetchAll<{ total: number; vendedor_nome: string | null }>((from, to) => {
-        let q = supabase.from('vendas').select('total, vendedor_nome').eq('status', 'concluida').eq('uso_interno', false)
+      supabase.from('configuracoes').select('valor').eq('chave', 'time_comissao').maybeSingle(),
+      supabase.from('depositos').select('id, loja_id'),
+      supabase.from('lojas').select('id, nome'),
+      fetchAll<{ id: string; total: number; deposito_id: string | null }>((from, to) => {
+        let q = supabase.from('vendas').select('id, total, deposito_id').eq('status', 'concluida').eq('uso_interno', false)
           .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
         if (caixasDaLoja) q = q.in('caixa_id', caixasDaLoja)
         return q.range(from, to)
       }),
+      fetchAll<{ venda_id: string | null; valor_total: number | null }>((from, to) =>
+        supabase.from('devolucoes').select('venda_id, valor_total').range(from, to)),
     ])
     comissaoPctG = Number((cfg?.valor as Record<string, number> | null)?.comissao_percentual ?? 0)
-    const mapa: Record<string, number> = {}
-    for (const v of (vs ?? []) as { total: number; vendedor_nome: string | null }[]) {
-      const nome = v.vendedor_nome || 'Sem vendedor'
-      mapa[nome] = (mapa[nome] ?? 0) + (v.total ?? 0)
+    const nomeDaLojaCom = Object.fromEntries(((lojasCom ?? []) as { id: string; nome: string }[]).map((l) => [l.id, l.nome]))
+    const time = ((cfgTime?.valor ?? {}) as Record<string, string[]>)
+    const lojaDoDep = new Map(((deps ?? []) as { id: string; loja_id: string | null }[]).map((d) => [d.id, d.loja_id]))
+    const lojaDaVenda = new Map<string, string | null>()
+    const bruto: Record<string, number> = {}
+    for (const v of vs) {
+      const loja = v.deposito_id ? lojaDoDep.get(v.deposito_id) ?? null : null
+      lojaDaVenda.set(v.id, loja)
+      if (!loja) continue
+      bruto[loja] = (bruto[loja] ?? 0) + Number(v.total ?? 0)
     }
-    comissoes = Object.entries(mapa).map(([nome, vendido]) => ({ nome, vendido, comissao: vendido * comissaoPctG / 100 })).sort((a, b) => b.comissao - a.comissao)
-    totalComissao = comissoes.reduce((s, c) => s + c.comissao, 0)
+    const devolvido: Record<string, number> = {}
+    for (const d of devs) {
+      const loja = d.venda_id ? lojaDaVenda.get(d.venda_id) : null
+      if (!loja) continue
+      devolvido[loja] = (devolvido[loja] ?? 0) + Number(d.valor_total ?? 0)
+    }
+    comissoesLoja = Object.entries(bruto).map(([loja, b]) => {
+      const dev = devolvido[loja] ?? 0
+      const comissao = Math.round((b - dev) * (comissaoPctG / 100) * 100) / 100
+      const pessoas = (time[loja] ?? []).filter(Boolean).length
+      return {
+        loja: nomeDaLojaCom[loja] ?? 'Sem loja',
+        bruto: b,
+        devolvido: dev,
+        comissao,
+        time: pessoas,
+        porPessoa: pessoas > 0 ? Math.round((comissao / pessoas) * 100) / 100 : 0,
+      }
+    }).sort((a, b) => b.comissao - a.comissao)
+    totalComissao = comissoesLoja.reduce((s, c) => s + c.comissao, 0)
+    totalTime = comissoesLoja.reduce((s, c) => s + c.time, 0)
   }
 
   // ---------- Previsão de Caixa (lançamentos futuros pendentes) ----------
@@ -2021,22 +2054,30 @@ export default async function RelatoriosPage({
       {/* ---------------- Comissões ---------------- */}
       {aba === 'comissoes' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <Card label="Comissão a pagar" valor={fmt(totalComissao)} cor="text-green-600" />
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <Card label="Comissão no período" valor={fmt(totalComissao)} cor="text-green-600" />
             <Card label="% aplicado" valor={`${comissaoPctG}%`} cor="text-gray-800" />
-            <Card label="Vendedores" valor={String(comissoes.length)} cor="text-gray-800" />
+            <Card label="Pessoas no time" valor={String(totalTime)} cor="text-gray-800" />
+            <Card label="Lojas" valor={String(comissoesLoja.length)} cor="text-gray-800" />
           </div>
           {comissaoPctG === 0 && <p className="text-[11px] text-orange-500">Defina a % de comissão em Configurações pra calcular.</p>}
+          <p className="text-[11px] text-gray-400">
+            A venda é da loja, não do vendedor: a comissão é da loja e o valor dividido é o mesmo para cada pessoa do time.
+            Para ver quanto cada pessoa atendeu, use o relatório de vendas por vendedor.
+          </p>
           <div className="flex justify-end">
             <ExportCsv filename={`comissoes_${dataInicio}_${dataFim}.csv`}
-              cols={[{ key: 'nome', label: 'Vendedor' }, { key: 'vendido', label: 'Vendido', money: true }, { key: 'comissao', label: 'Comissão', money: true }]} rows={asRows(comissoes)} />
+              cols={[{ key: 'loja', label: 'Loja' }, { key: 'bruto', label: 'Venda bruta', money: true }, { key: 'devolvido', label: 'Devoluções', money: true }, { key: 'comissao', label: 'Comissão', money: true }, { key: 'time', label: 'Pessoas' }, { key: 'porPessoa', label: 'Por pessoa', money: true }]} rows={asRows(comissoesLoja)} />
           </div>
-          <Tabela vazio={comissoes.length === 0} vazioMsg="Sem vendas no período." head={['Vendedor', 'Vendido', 'Comissão']} alinhas={['l', 'r', 'r']}>
-            {comissoes.map((c, i) => (
+          <Tabela vazio={comissoesLoja.length === 0} vazioMsg="Sem vendas no período." head={['Loja', 'Venda bruta', 'Devoluções', 'Comissão', 'Pessoas', 'Por pessoa']} alinhas={['l', 'r', 'r', 'r', 'r', 'r']}>
+            {comissoesLoja.map((c, i) => (
               <tr key={i} className="hover:bg-blue-50/60">
-                <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.nome}</td>
-                <td className="px-4 py-3 text-sm text-right text-gray-700">{fmt(c.vendido)}</td>
+                <td className="px-4 py-3 text-sm font-medium text-gray-800">{c.loja}</td>
+                <td className="px-4 py-3 text-sm text-right text-gray-700">{fmt(c.bruto)}</td>
+                <td className="px-4 py-3 text-sm text-right text-red-600">−{fmt(c.devolvido)}</td>
                 <td className="px-4 py-3 text-sm text-right font-semibold text-green-600">{fmt(c.comissao)}</td>
+                <td className="px-4 py-3 text-sm text-right text-gray-700">{c.time}</td>
+                <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800">{fmt(c.porPessoa)}</td>
               </tr>
             ))}
           </Tabela>

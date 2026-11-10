@@ -12,7 +12,7 @@ const fmtDia = (s: string) => {
   return `${d}/${m}`
 }
 
-type VendedorRow = { nome: string; qtd: number; total: number; desconto: number; meta?: number }
+type VendedorRow = { nome: string; qtd: number; total: number; desconto: number }
 type VendaRow = { id: string; total: number; desconto: number; vendedor_nome: string | null; created_at: string }
 type DiaRow = { dia: string; total: number }
 
@@ -96,6 +96,7 @@ export function PainelVendedorClient({
   vendasDiarias,
   resumoPedidos,
   comissaoPct = 0,
+  comissoesLoja = [],
 }: {
   ranking: VendedorRow[]
   totalGeral: number
@@ -105,6 +106,7 @@ export function PainelVendedorClient({
   vendasDiarias: DiaRow[]
   resumoPedidos: { orcamentos: number; finalizados: number; cancelados: number }
   comissaoPct?: number
+  comissoesLoja?: { loja: string; comissao: number; time: number; porPessoa: number }[]
 }) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -180,6 +182,23 @@ export function PainelVendedorClient({
         ))}
       </div>
 
+      {/* Comissão é da LOJA, dividida igualmente pelo time — nunca por vendedor. */}
+      {comissaoPct > 0 && comissoesLoja.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {comissoesLoja.map((c) => (
+            <div key={c.loja} className="rounded-2xl border border-green-200 bg-green-50 p-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-green-700">
+                Comissão {c.loja} · {comissaoPct}%
+              </p>
+              <p className="mt-1 text-xl font-bold text-green-800">{fmt(c.comissao)}</p>
+              <p className="mt-0.5 text-xs text-green-700">
+                dividida entre {c.time} pessoa{c.time === 1 ? '' : 's'} = <b>{fmt(c.porPessoa)}</b> cada
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Gráfico + resumo pedidos */}
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Gráfico */}
@@ -230,20 +249,16 @@ export function PainelVendedorClient({
               <th className="px-5 py-3 text-right">Descontos</th>
               <th className="px-5 py-3 text-right">Ticket Médio</th>
               <th className="px-5 py-3 text-right">Total</th>
-              {comissaoPct > 0 && <th className="px-5 py-3 text-right">Comissão ({comissaoPct}%)</th>}
-              <th className="px-5 py-3 text-right">Meta</th>
               <th className="px-5 py-3 text-right">% do período</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {ranking.length === 0 && (
-              <tr><td colSpan={comissaoPct > 0 ? 9 : 8} className="px-5 py-10 text-center text-sm text-gray-400">Nenhuma venda no período.</td></tr>
+              <tr><td colSpan={7} className="px-5 py-10 text-center text-sm text-gray-400">Nenhuma venda no período.</td></tr>
             )}
             {ranking.map((v, idx) => {
               const ticket = v.qtd > 0 ? v.total / v.qtd : 0
               const pct = totalGeral > 0 ? (v.total / totalGeral) * 100 : 0
-              const meta = v.meta ?? 0
-              const pctMeta = meta > 0 ? Math.min((v.total / meta) * 100, 999) : 0
               const ativo = vendedorSelecionado === v.nome
               return (
                 <tr key={v.nome} onClick={() => abrirVendedor(v.nome)}
@@ -268,21 +283,6 @@ export function PainelVendedorClient({
                   </td>
                   <td className="px-5 py-3 text-right text-gray-600">{fmt(ticket)}</td>
                   <td className="px-5 py-3 text-right font-bold text-gray-900">{fmt(v.total)}</td>
-                  {comissaoPct > 0 && (
-                    <td className="px-5 py-3 text-right font-semibold text-green-600">{fmt(v.total * comissaoPct / 100)}</td>
-                  )}
-                  <td className="px-5 py-3 text-right">
-                    {meta > 0 ? (
-                      <div className="flex items-center justify-end gap-2">
-                        <div className="h-1.5 w-14 overflow-hidden rounded-full bg-gray-100">
-                          <div className={`h-full rounded-full ${pctMeta >= 100 ? 'bg-green-500' : 'bg-orange-400'}`} style={{ width: `${Math.min(pctMeta, 100)}%` }} />
-                        </div>
-                        <span className={`text-xs w-9 text-right ${pctMeta >= 100 ? 'text-green-600 font-semibold' : 'text-gray-500'}`}>{pctMeta.toFixed(0)}%</span>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-gray-300">—</span>
-                    )}
-                  </td>
                   <td className="px-5 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <div className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-100">
