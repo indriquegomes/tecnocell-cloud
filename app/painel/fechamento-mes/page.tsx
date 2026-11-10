@@ -251,6 +251,24 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     supabase.from('lancamentos').select('valor').eq('tipo', 'pagar').eq('categoria', 'Comissão')
       .gte('data_vencimento', `${mesSeguinte}-01`).lt('data_vencimento', fimDoSeguinte).range(from, to))
   const totalComissaoProximo = comissaoProximoMes.reduce((s, l) => s + Number(l.valor ?? 0), 0)
+  // CRÉDITO DE CLIENTE EM ABERTO — dinheiro que a loja deve em peça.
+  //
+  // É mercadoria que vai sair sem entrar dinheiro: a venda já foi contada, o caixa não
+  // recebeu. Não é despesa (a despesa é lançada quando o crédito é usado), mas também não
+  // é lucro livre: se você retirar esse valor, quando o cliente vier buscar a peça o
+  // dinheiro não está mais lá. Por isso ele aparece no fechamento como reserva — o lucro
+  // disponível para retirar é o resultado menos este saldo.
+  // Reserva é sempre em REAIS, nunca em estoque: o cliente escolhe a peça, o crédito está
+  // em reais, e o estoque precisa continuar batendo com a prateleira.
+  const creditosAbertos = await fetchAll<{ loja_id: string | null; tipo: string; valor: number | null }>((from, to) =>
+    supabase.from('creditos_clientes').select('loja_id, tipo, valor').range(from, to))
+  const creditoAbertoPorLoja: Record<string, number> = {}
+  for (const c of creditosAbertos) {
+    if (!c.loja_id) continue
+    const v = c.tipo === 'uso' || c.tipo === 'estorno' ? -Number(c.valor ?? 0) : Number(c.valor ?? 0)
+    creditoAbertoPorLoja[c.loja_id] = (creditoAbertoPorLoja[c.loja_id] ?? 0) + v
+  }
+  const totalCreditoAberto = Object.values(creditoAbertoPorLoja).reduce((s, v) => s + v, 0)
   // venda BRUTA do mês por loja (a mesma régua da meta e da comissão)
   const vendasMes = await fetchAll<{ total: number | null; deposito_id: string }>((from, to) =>
     supabase.from('vendas').select('total, deposito_id')
@@ -307,6 +325,9 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
       // com um caixa negativo que virava a abertura de novembro.
       caixaCalculado: Math.max(0, Math.round((caixaInicial + dinheiroEmMaos) * 100) / 100),
       resultado: entradas - saidas,
+      // Reserva: crédito que a loja deve em peça. Não sai do caixa, mas não é lucro livre.
+      creditoAberto: Math.round((creditoAbertoPorLoja[l.id] ?? 0) * 100) / 100,
+      resultadoDisponivel: Math.round((entradas - saidas - (creditoAbertoPorLoja[l.id] ?? 0)) * 100) / 100,
     }
   })
 
@@ -404,6 +425,16 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
               <p className="text-xs font-semibold uppercase text-gray-600">{linha.resultado >= 0 ? 'Lucro' : 'Prejuízo'}</p>
               <p className={`mt-1 text-2xl font-bold ${linha.resultado >= 0 ? 'text-emerald-700' : 'text-amber-700'}`}>{fmt(Math.abs(linha.resultado))}</p>
               <p className="text-[11px] text-gray-500">entrou − saiu</p>
+            </div>
+            <div className="rounded-2xl bg-sky-100 p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase text-sky-700">Livre para retirar</p>
+              <p className={`mt-1 text-2xl font-bold ${linha.resultadoDisponivel >= 0 ? 'text-sky-800' : 'text-red-700'}`}>{fmt(linha.resultadoDisponivel)}</p>
+              <p className="text-[11px] text-sky-700">lucro − crédito de cliente em aberto</p>
+            </div>
+            <div className="rounded-2xl bg-violet-50 p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase text-violet-700">🎟️ Crédito de cliente</p>
+              <p className="mt-1 text-2xl font-bold text-violet-700">{fmt(linha.creditoAberto)}</p>
+              <p className="text-[11px] text-violet-600">a loja deve em peça — não é despesa, é reserva</p>
             </div>
           </div>
 
