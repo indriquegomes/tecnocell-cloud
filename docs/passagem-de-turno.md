@@ -81,21 +81,37 @@ Painel abrindo sem erro de console.
 7. **Telas ainda pesadas** (medido em 07/11, produção): Saúde 1,4–3,6 s (faz 10
    leituras grandes), Fechamento do Mês 1,5 s. Relatórios e Vendas já foram
    paginados (`5d14a6d`) e estão em 0,8 s.
-8. **Limpar o cadastro de pessoas do que não é nome** (levantado em 10/11/2026).
-   De 2.153 pessoas, **9 têm lembrete dentro do nome** e **18 passam de 45
-   caracteres**. O nome deve ser só o nome; aviso, pendência, instrução e valor
-   devendo vão para `observacoes` ou `nao_vender_motivo`, que já existem.
+8. **PRÓXIMA ETAPA — Cadastros gerais: revisão de nomes.** Não começar sem o
+   dono abrir a etapa: ele parou o assunto em 10/11/2026 ("ta grande demais")
+   porque a revisão esbarra em **dívidas de pessoas que não pagaram** e em
+   **fornecedores com bilhete** — não é só tirar sufixo do nome, é decidir caso a
+   caso o que é dívida real, o que é anotação velha e o que vira observação.
 
-   | O que está gravado | Deveria ser |
-   |---|---|
-   | CNN DA SEMANA QUE VEM | CNN |
-   | TATIANA DA SILVA COELHO (NÃO VENDER) | TATIANA DA SILVA COELHO |
-   | LUIZ GUSTAVO DA SILVA ANDRADE (CLIENTE INADIMPLENTE - R$ 100,00) | LUIZ GUSTAVO DA SILVA ANDRADE |
-   | MATHEUS MATTOS DE SOUZA DUARTE (DEVENDO R$654,50) | MATHEUS MATTOS DE SOUZA DUARTE |
-   | CADASTRO INATIVADO / ARTHUR RODRIGUES VAILLANT | ARTHUR RODRIGUES VAILLANT |
-   | J N MANUTENCAO CWB LTDA J N MANUTENCAO CWB LTDA | J N MANUTENCAO CWB LTDA |
-   | CSM CELL (SOMENTE RETIRADA E CONFERÊNCIA OBRIGATÓRIA) | CSM CELL |
-   | TRICELL MR - MR CELL (ENTREGAR NA TRICELL CURSO) | TRICELL MR - MR CELL |
+   Números levantados em 10/11/2026, para dimensionar quando a etapa abrir: de
+   2.153 pessoas, **9 têm lembrete dentro do nome** e **18 passam de 45
+   caracteres**. Nos três casos conferidos (CNN DA SEMANA QUE VEM, TATIANA DA
+   SILVA COELHO (NÃO VENDER), MATHEUS MATTOS DE SOUZA DUARTE (DEVENDO
+   R$654,50)), `observacoes` estava vazio, `nao_vender` falso e
+   `nao_vender_motivo` vazio — o aviso existe **só** no nome, e o PDV não lê nome.
+
+   A regra a aplicar: `nome` é só o nome; aviso, pendência, instrução e valor
+   devendo vão para `observacoes` ou `nao_vender_motivo`. Com o **Não vender**
+   marcado, o PDV mostra a tarja vermelha "🚫 NÃO VENDER" ao escolher o cliente
+   (`app/painel/pdv/PDVClient.tsx`), que hoje nunca aparece por esse motivo.
+
+   Candidatos já listados (o de/para é ponto de partida, **não** decisão tomada —
+   cada linha com valor devido precisa saber antes se a dívida é real):
+
+   | O que está gravado | Deveria ser | Observação |
+   |---|---|---|
+   | CNN DA SEMANA QUE VEM | CNN | o resto é lembrete de compra |
+   | TATIANA DA SILVA COELHO (NÃO VENDER) | TATIANA DA SILVA COELHO | vira `nao_vender` + motivo |
+   | LUIZ GUSTAVO DA SILVA ANDRADE (CLIENTE INADIMPLENTE - R$ 100,00) | LUIZ GUSTAVO DA SILVA ANDRADE | conferir se os 100,00 estão no A Receber |
+   | MATHEUS MATTOS DE SOUZA DUARTE (DEVENDO R$654,50) | MATHEUS MATTOS DE SOUZA DUARTE | conferir se os 654,50 estão no A Receber |
+   | CADASTRO INATIVADO / ARTHUR RODRIGUES VAILLANT | ARTHUR RODRIGUES VAILLANT | o "inativado" é o campo `ativo` |
+   | J N MANUTENCAO CWB LTDA J N MANUTENCAO CWB LTDA | J N MANUTENCAO CWB LTDA | nome repetido duas vezes |
+   | CSM CELL (SOMENTE RETIRADA E CONFERÊNCIA OBRIGATÓRIA) | CSM CELL | instrução → observações |
+   | TRICELL MR - MR CELL (ENTREGAR NA TRICELL CURSO) | TRICELL MR - MR CELL | instrução → observações |
 
    Por que importa além da bagunça: o nome é o que casa o comprovante do PIX com o
    fornecedor no bloco "PIX do dia" e o que aparece na cobrança do cliente. Nome com
