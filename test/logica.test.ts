@@ -9,6 +9,7 @@ import { mesFechado, dataEmMesFechado, travarSeMesFechado } from '@/lib/fechamen
 import { ultimoDiaUtil, ehUltimoDiaUtil } from '@/lib/dia-util'
 import { formatBRL, formatDate, slugify, normalizarUsuario, diaSP, hojeSP } from '@/lib/utils'
 import { pendentesDeHoje } from '@/lib/lembretes'
+import { ehCompraDeMercadoria, setorDaCategoria, categoriasDoSetor } from '@/lib/financeiro-setores'
 
 // mock do supabase: só o que as helpers de fechamento usam (.from().select().eq().maybeSingle())
 function sbMock(chaveExiste: boolean, erro: unknown = null) {
@@ -264,4 +265,38 @@ test('pagamento não aparece para quem não é master', () => {
 test('rotina do dia anterior não reaparece (comportamento antigo)', () => {
   const rotina = LEM({ tipo: 'rotina', valor: null })
   assert.equal(pendentesDeHoje([rotina], [], 'p1', null, sabado10h, true).length, 0)
+})
+
+// ── mercadoria: compra de estoque não é despesa ────────────────────────────
+// Esta regra decide se o lançamento entra como DESPESA (derruba o resultado) ou
+// como ESTOQUE (o custo só aparece na venda). Errar dobra a conta do mês.
+test('mercadoria: as grafias de compra de estoque contam como compra', () => {
+  assert.equal(ehCompraDeMercadoria('Mercadoria'), true)
+  assert.equal(ehCompraDeMercadoria('Fornecedor / Mercadoria'), true)
+  assert.equal(ehCompraDeMercadoria('Fornecedor ZL'), true)
+  assert.equal(ehCompraDeMercadoria('fonecedor'), true)
+  assert.equal(ehCompraDeMercadoria('  mercadoria  '), true)
+  assert.equal(ehCompraDeMercadoria('MERCADORIA'), true)
+})
+test('mercadoria: despesa de verdade NÃO é compra de estoque', () => {
+  assert.equal(ehCompraDeMercadoria('Salários'), false)
+  assert.equal(ehCompraDeMercadoria('Comissão'), false)
+  assert.equal(ehCompraDeMercadoria('Devolução ao cliente'), false)
+  assert.equal(ehCompraDeMercadoria('Vale crédito usado'), false)
+  assert.equal(ehCompraDeMercadoria(null), false)
+  assert.equal(ehCompraDeMercadoria(''), false)
+})
+test('mercadoria: uma categoria só é oferecida no cadastro', () => {
+  assert.deepEqual(categoriasDoSetor('fornecedores'), ['Mercadoria'])
+})
+test('setor: categoria conhecida cai no setor certo', () => {
+  assert.equal(setorDaCategoria('Salários').chave, 'funcionarios')
+  assert.equal(setorDaCategoria('Mercadoria').chave, 'fornecedores')
+  assert.equal(setorDaCategoria('Aluguel').chave, 'estrutura')
+})
+test('setor: categoria fora do cadastro cai em "sem categoria"', () => {
+  // 'Comissão' é usada pelo lançamento de comissão mas não está no catálogo —
+  // por isso o Financeiro mostra comissão em "Sem categoria".
+  assert.equal(setorDaCategoria('Comissão').chave, 'sem_categoria')
+  assert.equal(setorDaCategoria(null).chave, 'sem_categoria')
 })

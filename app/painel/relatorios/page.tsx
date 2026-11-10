@@ -1538,7 +1538,7 @@ export default async function RelatoriosPage({
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="space-y-1 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             <LinhaDRE label="Receita de vendas" valor={dreReceita} cor="text-gray-800" />
-            <LinhaDRE label="(−) Custo dos produtos (CMV)" valor={-dreCmv} cor="text-orange-500" />
+            <LinhaDRE label="(−) Custo das peças vendidas" valor={-dreCmv} cor="text-orange-500" />
             <div className="my-1 border-t border-gray-100" />
             <LinhaDRE label="(=) Lucro bruto" valor={dreLucroBruto} cor={dreLucroBruto >= 0 ? 'text-green-600' : 'text-red-500'} bold />
             <LinhaDRE label="(−) Despesas (contas a pagar)" valor={-dreDespesas} cor="text-red-500" />
@@ -1547,10 +1547,10 @@ export default async function RelatoriosPage({
             {dreComprasMercadoria > 0 && (
               <p className="pt-3 text-[11px] text-gray-500">
                 Fora do resultado: <b>{formatBRL(dreComprasMercadoria)}</b> de compra de mercadoria paga no período — é
-                estoque, já contado no CMV quando a peça é vendida.
+                estoque, já contado no custo das peças vendidas.
               </p>
             )}
-            <p className="pt-2 text-[11px] text-gray-400">Receita e CMV pela data da venda; despesas pelo vencimento no período. CMV usa o custo atual do produto.</p>
+            <p className="pt-2 text-[11px] text-gray-400">Receita e custo das peças pela data da venda; despesas pelo vencimento no período. O custo usa o preço de custo atual do produto.</p>
           </div>
           <div className="flex items-center justify-center rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             {dreReceita > 0 ? (
@@ -1558,7 +1558,7 @@ export default async function RelatoriosPage({
                 centro={`${((dreResultado / dreReceita) * 100).toFixed(0)}%`}
                 centroLabel="resultado"
                 slices={[
-                  { label: 'Custo (CMV)', valor: dreCmv, cor: '#F47920' },
+                  { label: 'Custo das peças', valor: dreCmv, cor: '#F47920' },
                   { label: 'Despesas', valor: dreDespesas, cor: '#ef4444' },
                   { label: dreResultado >= 0 ? 'Resultado' : 'Prejuízo', valor: dreResultado, cor: dreResultado >= 0 ? '#1B6CA8' : '#dc2626' },
                 ]}

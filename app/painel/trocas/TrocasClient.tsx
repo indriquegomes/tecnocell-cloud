@@ -174,8 +174,8 @@ export function TrocasClient({
                         // Padrão = só esta troca: não reavalia estoque nem CMV.
                         const tambemCadastro = window.confirm(
                           'Ajustar TAMBÉM o cadastro do produto?\n\n' +
-                          'OK  = cadastro também (muda a avaliação do estoque e o CMV das próximas vendas)\n' +
-                          'Cancelar = SOMENTE esta troca (não mexe em estoque nem CMV)',
+                          'OK  = cadastro também (muda a avaliação do estoque e o custo das próximas vendas)\n' +
+                          'Cancelar = SOMENTE esta troca (não mexe em estoque nem no custo)',
                         )
                         const fd = new FormData()
                         fd.set('id', l.id)

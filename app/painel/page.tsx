@@ -483,13 +483,13 @@ export default async function DashboardPage({
               <>
                 <p className="relative text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Meta {metaTopo.rotulo ? `· ${metaTopo.rotulo}` : ''} · {metaTopo.loja}</p>
                 <p className="relative mt-3 text-[64px] font-extrabold leading-none tabular-nums">{metaTopoPct}%</p>
-                <p className="relative mt-1 text-sm text-white/75">da meta do mês</p>
+                <p className="relative mt-1 text-sm text-white/75">da meta do topo</p>
                 <div className="relative mt-5 h-4 overflow-hidden rounded-full bg-white/15">
                   <div className="h-full rounded-full bg-gradient-to-r from-white to-white/70 transition-all" style={{ width: `${metaTopoPct}%` }} />
                 </div>
                 <p className="relative mt-3 text-sm text-white/85">
                   {metaTopoProx
-                    ? <>Faltam <b className="font-semibold text-white">{Math.max(0, 100 - metaTopoPct)}%</b> pra bater <b className="font-semibold text-white">{metaTopoProx.nome}</b> 💪</>
+                    ? <>Faltam <b className="font-semibold text-white">{formatBRL(metaTopoFaltam)}</b> pra bater <b className="font-semibold text-white">{metaTopoProx.nome}</b> 💪</>
                     : <>🏆 Meta batida! Todas as faixas conquistadas.</>}
                 </p>
               </>

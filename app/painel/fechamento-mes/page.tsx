@@ -607,7 +607,7 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
                 <th className="py-2 pr-3 text-right">Saiu do caixa</th>
                 <th className="py-2 pr-3 text-right">Dinheiro em mãos</th>
                 <th className="py-2 pr-3 text-right">Estoque final</th>
-                <th className="py-2 text-right">Estoque consumido (CMV)</th>
+                <th className="py-2 text-right">Custo das peças vendidas</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
