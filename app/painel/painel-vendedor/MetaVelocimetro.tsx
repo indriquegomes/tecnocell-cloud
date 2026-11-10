@@ -12,11 +12,13 @@ export function MetaVelocimetro({
   vendido,
   rotulo,
   faixas = [],
+  diasRestantes = 0,
 }: {
   meta: number
   vendido: number
   rotulo: string
   faixas?: { nome: string; valor: number; premio?: number }[]
+  diasRestantes?: number
 }) {
   const [real, setReal] = useState(vendido)
 
@@ -54,5 +56,14 @@ export function MetaVelocimetro({
     return 100
   })()
 
-  return <VelocimetroMeta pct={pctNivel} pctReal={pctReal} rotulo={rotulo} faixas={faixas} vendido={real} />
+  return (
+    <VelocimetroMeta
+      pct={pctNivel}
+      pctReal={pctReal}
+      rotulo={rotulo}
+      faixas={faixas}
+      vendido={real}
+      diasRestantes={diasRestantes}
+    />
+  )
 }

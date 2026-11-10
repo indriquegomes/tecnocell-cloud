@@ -14,6 +14,8 @@ type Props = {
   faixas?: Faixa[];
   /** Venda bruta da loja no mês — serve para dizer quanto falta para a próxima meta. */
   vendido?: number;
+  /** Dias de trabalho que faltam no mês — divisor da meta diária de cada etapa. */
+  diasRestantes?: number;
 };
 
 const clamp = (value: number) => Math.min(100, Math.max(0, value));
@@ -100,6 +102,7 @@ export default function VelocimetroMeta({
   rotulo = "META DA EQUIPE",
   faixas = [],
   vendido = 0,
+  diasRestantes = 0,
 }: Props) {
   const [valor, setValor] = useState(0);
   const valorAtual = useRef(0);
@@ -332,6 +335,51 @@ export default function VelocimetroMeta({
           )}
         </p>
       </div>
+
+      {/* Meta diária de cada etapa: (valor da etapa − vendido) ÷ dias que faltam.
+          Recalcula todo dia — é o ritmo necessário, não um número fixo. */}
+      {degraus.length > 0 && (
+        <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-bold tracking-[0.2em] text-gray-500">META DIÁRIA POR ETAPA</p>
+            <p className="text-[10px] font-semibold text-gray-500">
+              {diasRestantes > 0 ? `${diasRestantes} dia${diasRestantes === 1 ? "" : "s"} de trabalho` : "sem dias restantes"}
+            </p>
+          </div>
+
+          <div className="mt-2 space-y-1.5">
+            {degraus.map((f, i) => {
+              const alcancada = vendido >= f.valor;
+              const falta = Math.max(0, f.valor - vendido);
+              const porDia = diasRestantes > 0 ? falta / diasRestantes : 0;
+              const estilo = estiloDoSimbolo(f.nome);
+              return (
+                <div key={`${f.nome}-${i}`} className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span
+                      className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
+                      style={{ backgroundColor: alcancada ? estilo.cor : estilo.corFraca }}
+                    />
+                    <span className={`truncate text-xs ${alcancada ? "font-semibold text-white" : "text-gray-300"}`}>
+                      {f.nome}
+                    </span>
+                  </div>
+                  <span className="shrink-0 text-right text-xs tabular-nums">
+                    {alcancada ? (
+                      <span className="font-semibold text-emerald-400">conquistada</span>
+                    ) : (
+                      <>
+                        <span className="font-semibold text-white">{fmtBRL(porDia)}</span>
+                        <span className="text-gray-500"> /dia</span>
+                      </>
+                    )}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

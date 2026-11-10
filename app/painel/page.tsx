@@ -328,6 +328,7 @@ export default async function DashboardPage({
           vendido={vendidoDaLoja}
           rotulo="META DA LOJA NO MÊS"
           faixas={metaTopoFaixas.map((f) => ({ nome: f.nome, valor: f.valor }))}
+          diasRestantes={metaTopo ? Math.max(0, (metaTopo.diasUteis ?? 0) - (metaTopo.diasDecorridos ?? 0)) : 0}
         />
 
         <Link href="/painel/pdv" className="flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 p-5 text-lg font-bold text-white shadow-sm shadow-emerald-600/25 transition hover:from-emerald-700 hover:to-emerald-600">
