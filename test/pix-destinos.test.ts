@@ -54,6 +54,10 @@ test('dinheiro que caiu na conta da loja é reconhecido como conta própria', ()
   assert.equal(ehContaPropria(pagbank[0], ['38216415000170'], ['38.216.415 JOAO VITOR MAXIMIANO FRANCA']), true)
   const fornecedor = agruparPorDestino([{ valor: 500, destinatario: 'STOR ONE LTDA', doc: '67262680000192' }])
   assert.equal(ehContaPropria(fornecedor[0], ['38216415000170'], ['38.216.415 JOAO VITOR MAXIMIANO FRANCA']), false)
+  // comprovante que traz SÓ o nome (sem o CNPJ na frente): o titular cadastrado tem o
+  // CNPJ colado, e comparar o texto cru deixava esses 12 mil caírem em "não identificado"
+  const soNome = agruparPorDestino([{ valor: 500, destinatario: 'JOAO VITOR MAXIMIANO FRANCA' }])
+  assert.equal(ehContaPropria(soNome[0], [], ['38.216.415 JOAO VITOR MAXIMIANO FRANCA']), true)
 })
 
 test('casa o destinatário com o fornecedor do cadastro por CNPJ, chave Pix e nome', () => {

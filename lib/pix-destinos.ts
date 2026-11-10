@@ -45,10 +45,13 @@ export function ehContaPropria(
 ): boolean {
   const docs = documentosProprios.map(soDigitos).filter((d) => d.length === 14 || d.length === 11)
   if (destino.doc && docs.includes(destino.doc)) return true
-  const alvo = normNome(destino.nome)
+  // O titular cadastrado costuma vir com o CNPJ na frente
+  // ("38.216.415 JOAO VITOR MAXIMIANO FRANCA") e o comprovante traz só o nome:
+  // comparar sem tirar o documento da frente nunca casava.
+  const alvo = semDocNaFrente(destino.nome)
   if (!alvo) return false
   return nomesProprios
-    .map(normNome)
+    .map((x) => semDocNaFrente(x))
     .filter((x) => x.length >= 10)
     .some((x) => x === alvo || x.startsWith(alvo) || alvo.startsWith(x))
 }

@@ -419,8 +419,11 @@ export default async function OperacaoPDVPage({
             .gte('recebido_em', caixaAberto.aberto_em)
             .order('recebido_em')
         : Promise.resolve({ data: [] as { valor: number | null; destinatario: string | null; extraido_raw: unknown; transacao_id: string | null; status: string | null; pagador: string | null; data_pix: string | null }[] }),
+      // `ambos` também é fornecedor: 43 dos cadastros estão marcados assim (H2O e ADL
+      // entre eles) e filtrar só por 'fornecedor' escondia a dívida deles — o
+      // comprovante caía em "não identificado" e a baixa não acontecia.
       fetchAll<FornecedorRef>((from, to) =>
-        supabase.from('pessoas').select('id, nome, nome_fantasia, cpf_cnpj, chave_pix').eq('tipo', 'fornecedor').order('nome').range(from, to)),
+        supabase.from('pessoas').select('id, nome, nome_fantasia, cpf_cnpj, chave_pix').in('tipo', ['fornecedor', 'ambos']).order('nome').range(from, to)),
       fetchAll<ChavePixRef>((from, to) =>
         supabase.from('pessoa_chaves_pix').select('pessoa_id, chave, favorecido').eq('ativo', true).range(from, to)),
       fetchAll<{ pessoa_id: string | null; valor: number | null; valor_pago: number | null }>((from, to) =>

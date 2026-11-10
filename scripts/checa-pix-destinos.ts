@@ -23,7 +23,7 @@ async function all<T>(q: () => any): Promise<T[]> {
 
 const { data: lojas } = await sb.from('lojas').select('id, nome, cnpj').eq('ativa', true).order('nome')
 const fornecedores = await all<FornecedorRef>(() =>
-  sb.from('pessoas').select('id, nome, nome_fantasia, cpf_cnpj, chave_pix').eq('tipo', 'fornecedor').order('nome'))
+  sb.from('pessoas').select('id, nome, nome_fantasia, cpf_cnpj, chave_pix').in('tipo', ['fornecedor', 'ambos']).order('nome'))
 const abertos = await all<{ pessoa_id: string | null; valor: number | null; valor_pago: number | null }>(() =>
   sb.from('lancamentos').select('pessoa_id, valor, valor_pago').eq('tipo', 'pagar').neq('status', 'cancelado').not('pessoa_id', 'is', null))
 const { data: contas } = await sb.from('contas').select('chave_pix, titular').not('chave_pix', 'is', null)
