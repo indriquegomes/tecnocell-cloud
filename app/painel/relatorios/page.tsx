@@ -407,7 +407,7 @@ export default async function RelatoriosPage({
       fetchAll<{ total: number | null }>((from, to) => fcaixa(supabase.from('vendas').select('total').eq('status', 'concluida').eq('uso_interno', false)
         .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)).range(from, to)),
       fetchAll<{ valor: number; categoria: string | null }>((from, to) => flanc(supabase.from('lancamentos').select('valor, categoria')
-        .eq('tipo', 'pagar').gte('data_vencimento', dataInicio).lte('data_vencimento', dataFim + 'T23:59:59')).range(from, to)),
+        .eq('tipo', 'pagar').neq('status', 'cancelado').gte('data_vencimento', dataInicio).lte('data_vencimento', dataFim + 'T23:59:59')).range(from, to)),
     ])
     dreReceita = (vs ?? []).reduce((s, v) => s + (v.total ?? 0), 0)
     const catMap: Record<string, number> = {}

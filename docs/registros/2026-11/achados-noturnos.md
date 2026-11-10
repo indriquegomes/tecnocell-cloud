@@ -180,17 +180,17 @@ inúteis por abertura.
 
 ## Correções que esperam autorização (com impacto)
 
-| # | O que | Impacto | Risco |
+| # | O que | Impacto | Estado |
 |---|---|---|---|
-| 1 | Filtrar produto ativo em `estoque-custo.ts` | estoque final do fechamento cai 55,00 e passa a bater com o painel | baixo — muda número de relatório |
-| 2 | Marcar origem das vendas importadas em coluna própria | relatórios de uso interno ficam legíveis | alto — 42 mil linhas |
-| 3 | Corrigir a venda com data 1899 | tira 1 linha absurda da base | baixo |
-| 4 | Alinhar data de pagamento de comissão e bônus com o extrato (03/11 → 04 e 05/11) | o pagamento cai no dia certo | baixo |
-| 5 | Dar baixa nos estornos de Igor (349,00) e Samira (4,00) | dívida com cliente sai do pendente | médio — é dinheiro de cliente |
-| 6 | Categorizar como Mercadoria os dois H2O sem categoria de 09/11 (928,50 e 3.916,50) | deixa de contar como despesa | baixo |
-| 7 | `'/painel/trocas': 'estoque'` na tabela de permissões | a tela deixa de abrir para quem não tem a permissão | baixo — muda acesso |
-| 8 | `.neq('status','cancelado')` no DRE | conta cancelada deixa de derrubar o resultado | baixo — hoje só 1 cancelada de 0,00 |
-| 9 | `.gte('created_at', INICIO_COFRE)` na consulta de pagamentos do saldo | tela Contas baixa 184 linhas em vez de 7.905 | médio — é a função do saldo |
+| 1 | Filtrar produto ativo em `estoque-custo.ts` | estoque final do fechamento cai 55,00 e passa a bater com o painel | **APLICADO** 10/11 |
+| 2 | Origem da venda em coluna própria | relatórios de uso interno ficam legíveis | **APLICADO** 10/11 — coluna `origem`: 42.328 sige · 11.551 app |
+| 3 | Corrigir a venda com data 1899 | tira 1 linha absurda da base | **APLICADO** 10/11 — vizinhas 249620 a 249640 são todas de 10/09/2026 |
+| 4 | Alinhar data de comissão e bônus com o extrato | o pagamento cai no dia certo | **APLICADO** 10/11 — 6 comissões em 04/11, bônus em 05/11 |
+| 5 | Dar baixa nos estornos de Igor (349,00) e Samira (4,00) | dívida com cliente sai do pendente | **APLICADO** 10/11 — Igor 06/11, Samira 03/11, conta PagBank |
+| 6 | Categorizar os dois H2O sem categoria de 09/11 | deixa de contar como despesa | **APLICADO** 10/11 |
+| 7 | `'/painel/trocas': 'estoque'` na tabela de permissões | a tela deixa de abrir para quem não tem a permissão | **pendente — depende do dono** |
+| 8 | `.neq('status','cancelado')` no DRE | conta cancelada deixa de derrubar o resultado | **APLICADO** 10/11 |
+| 9 | `.gte('created_at', INICIO_COFRE)` no saldo | tela Contas baixa 184 linhas em vez de 7.905 | **APLICADO** 10/11 — saldos recalculados: idênticos |
 
 ## Achado 8 — a regra de mercadoria não tinha teste (ADICIONADO)
 

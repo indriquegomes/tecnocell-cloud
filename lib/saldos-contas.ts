@@ -45,7 +45,9 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
     const [{ data: formas }, { data: rotaRows }, pv, tr, lc, movDev, lancDev] = await Promise.all([
       supabase.from('formas_pagamento').select('id, tipo, conta_destino_id'),
       supabase.from('forma_conta_loja').select('forma_id, loja_id, conta_id'),   // vazio/inexistente = fallback p/ conta_destino_id
-      fetchAll<{ valor: number; taxa: number | null; forma_pagamento_id: string | null; venda_id: string | null }>((from, to) => supabase.from('pagamentos_venda').select('valor, taxa, forma_pagamento_id, venda_id').eq('status', 'pago').range(from, to)),
+      // Só pagamento de venda a partir do corte: o resto está no saldo inicial de cada
+      // conta e era descartado logo abaixo, depois de baixar 7.900 linhas à toa.
+      fetchAll<{ valor: number; taxa: number | null; forma_pagamento_id: string | null; venda_id: string | null }>((from, to) => supabase.from('pagamentos_venda').select('valor, taxa, forma_pagamento_id, venda_id').eq('status', 'pago').gte('created_at', INICIO_COFRE).range(from, to)),
       fetchAll<{ conta_origem_id: string; conta_destino_id: string; valor: number }>((from, to) => supabase.from('transferencias').select('conta_origem_id, conta_destino_id, valor').range(from, to)),
       fetchAll<{ tipo: string; valor: number; conta_id: string }>((from, to) => supabase.from('lancamentos').select('tipo, valor, conta_id, status, data_pagamento').eq('status', 'pago').not('conta_id', 'is', null).gte('data_pagamento', INICIO_COFRE).range(from, to)),
       // Devoluções (as duas leituras) não dependem de nada acima: entram no mesmo
