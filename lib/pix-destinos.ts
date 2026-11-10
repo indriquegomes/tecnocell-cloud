@@ -242,6 +242,9 @@ export function separarComprovantes(
 
 export type FornecedorRef = { id: string; nome: string; cpf_cnpj?: string | null; nome_fantasia?: string | null; chave_pix?: string | null }
 
+/** Uma chave Pix a mais do cadastro (`pessoa_chaves_pix`): o mesmo fornecedor recebe por várias. */
+export type ChavePixRef = { pessoa_id: string; chave: string; favorecido?: string | null }
+
 /** O que ficou FORA da conta por erro humano — a tela mostra isso em avisos. */
 export type PixAvisos = {
   repetidos: number
@@ -267,17 +270,38 @@ export type DestinoNaTela = DestinoPix & {
 
 /**
  * Acha o fornecedor do cadastro que corresponde ao destinatário.
- * Ordem: CNPJ do cadastro → chave Pix que é CNPJ → nome igual → nome é começo do outro.
+ * Ordem: chave/documento cadastrado → nome do favorecido da chave → CNPJ do cadastro
+ * → nome igual → nome é começo do outro.
  * Sem match devolve null (a tela mostra "não identificado" e o dono aponta uma vez).
+ *
+ * `chaves` são as chaves extras de `pessoa_chaves_pix`. O comprovante traz o nome do
+ * FAVORECIDO da chave ("MAIS BARATO IMPORTAÇÃO E EXPORTAÇÃO LTDA"), que quase nunca é
+ * o nome do cadastro ("ADL FORNECEDOR") — sem olhar o favorecido da chave, um PIX de
+ * 3 mil para a mesma fornecedora aparecia como não identificado e a dívida não baixava.
  */
-export function casarFornecedor(destino: DestinoPix, fornecedores: FornecedorRef[]): FornecedorRef | null {
+export function casarFornecedor(
+  destino: DestinoPix,
+  fornecedores: FornecedorRef[],
+  chaves: ChavePixRef[] = [],
+): FornecedorRef | null {
+  const porId = new Map(fornecedores.map((f) => [f.id, f]))
+  const daChave = (pessoaId: string) => porId.get(pessoaId) ?? null
+
   if (destino.doc) {
     const doc = destino.doc
+    const chaveComDoc = chaves.find((c) => soDigitos(c.chave) === doc)
+    if (chaveComDoc) { const f = daChave(chaveComDoc.pessoa_id); if (f) return f }
     const porDoc = fornecedores.find((f) => soDigitos(f.cpf_cnpj) === doc || soDigitos(f.chave_pix) === doc)
     if (porDoc) return porDoc
   }
   const alvo = normNome(destino.nome)
   if (!alvo) return null
+  // nome que aparece no comprovante = nome do favorecido da chave
+  const chaveComNome = chaves.find((c) => {
+    const fav = normNome(c.favorecido)
+    return fav.length >= 6 && (fav === alvo || fav.startsWith(alvo) || alvo.startsWith(fav))
+  })
+  if (chaveComNome) { const f = daChave(chaveComNome.pessoa_id); if (f) return f }
   const exato = fornecedores.find((f) => normNome(f.nome) === alvo || normNome(f.nome_fantasia) === alvo)
   if (exato) return exato
   if (alvo.length >= 10) {

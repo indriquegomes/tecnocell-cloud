@@ -16,6 +16,10 @@ function campos(formData: FormData) {
     // null pra não gravar string em branco e a cobrança conseguir só omitir.
     chave_pix: ((formData.get('chave_pix') as string) || '').trim() || null,
     titular:   ((formData.get('titular')   as string) || '').trim() || null,
+    // Identificação bancária: é o que permite amarrar o saldo ao extrato.
+    banco:        ((formData.get('banco')        as string) || '').trim() || null,
+    agencia:      ((formData.get('agencia')      as string) || '').trim() || null,
+    numero_conta: ((formData.get('numero_conta') as string) || '').trim() || null,
   }
 }
 

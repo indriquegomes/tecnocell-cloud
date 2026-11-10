@@ -76,6 +76,27 @@ test('casa o destinatário com o fornecedor do cadastro por CNPJ, chave Pix e no
   assert.equal(casarFornecedor(semPar[0], forn), null)
 })
 
+// O mesmo fornecedor recebe por mais de uma chave, e o comprovante traz o nome do
+// FAVORECIDO da chave — que quase nunca é o nome do cadastro. Sem olhar as chaves
+// extras, um PIX para a ADL aparecia como "não identificado" e a dívida não baixava.
+test('casa pela chave Pix extra e pelo nome do favorecido da chave', () => {
+  const forn: FornecedorRef[] = [{ id: 'adl', nome: 'ADL FORNECEDOR', cpf_cnpj: null, chave_pix: '11959507410' }]
+  const chaves = [
+    { pessoa_id: 'adl', chave: '11959507410', favorecido: 'ARMACAO LONGITUDE COMERCIO LTDA' },
+    { pessoa_id: 'adl', chave: '11985205334', favorecido: 'MAIS BARATO IMPORTAÇÃO E EXPORTAÇÃO LTDA' },
+  ]
+  // nome do favorecido da SEGUNDA chave
+  const porFavorecido = agruparPorDestino([{ valor: 500, destinatario: 'MAIS BARATO IMPORTAÇÃO E EXPORTAÇÃO LTDA' }])
+  assert.equal(casarFornecedor(porFavorecido[0], forn, chaves)?.id, 'adl')
+  // chave de celular tem 11 dígitos e o agrupamento só carrega documento de 14 —
+  // por isso o casamento por telefone é pelo NOME do favorecido, não pelo número.
+  const porChaveCnpj = agruparPorDestino([{ valor: 500, destinatario: 'OUTRO NOME', doc: '11959507000110' }])
+  const chavesCnpj = [{ pessoa_id: 'adl', chave: '11959507000110', favorecido: 'ARMACAO LONGITUDE' }]
+  assert.equal(casarFornecedor(porChaveCnpj[0], forn, chavesCnpj)?.id, 'adl')
+  // sem as chaves extras o mesmo comprovante fica sem par: é o bug que isso corrige
+  assert.equal(casarFornecedor(porFavorecido[0], forn), null)
+})
+
 test('nome curto não casa por prefixo (evita juntar fornecedor errado)', () => {
   const forn: FornecedorRef[] = [{ id: 'zl', nome: 'ZL' }, { id: 'outro', nome: 'ZL CELL FORNECEDOR' }]
   assert.equal(casarFornecedor({ nome: 'ZL', doc: null, comprovantes: 1, total: 0, semValor: 0 }, forn)?.id, 'zl')

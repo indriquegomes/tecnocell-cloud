@@ -12,7 +12,7 @@ import { formatBRL, formatDate } from '@/lib/utils'
 import Link from 'next/link'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
 
-type Conta = { id: string; nome: string; tipo: string; ativa: boolean; saldo_inicial?: number | null; loja_id?: string | null; chave_pix?: string | null; titular?: string | null }
+type Conta = { id: string; nome: string; tipo: string; ativa: boolean; saldo_inicial?: number | null; loja_id?: string | null; chave_pix?: string | null; titular?: string | null; banco?: string | null; agencia?: string | null; numero_conta?: string | null }
 type Transf = { id: string; conta_origem_id: string; conta_destino_id: string; valor: number; data: string; observacao: string | null }
 
 // Leitura tolerante — não quebra se a migration 2026-07-31 ainda não rodou.
@@ -34,11 +34,11 @@ export default async function ContasPage({
   // leitura tolerante: se a migration do loja_id ainda não rodou, cai no select sem ela
   let contas: Conta[] = []
   try {
-    const { data, error } = await supabase.from('contas').select('id, nome, tipo, ativa, saldo_inicial, loja_id, chave_pix, titular').order('created_at')
+    const { data, error } = await supabase.from('contas').select('id, nome, tipo, ativa, saldo_inicial, loja_id, chave_pix, titular, banco, agencia, numero_conta').order('created_at')
     if (error) throw error
     contas = (data ?? []) as Conta[]
   } catch {
-    const { data } = await supabase.from('contas').select('id, nome, tipo, ativa, saldo_inicial, chave_pix, titular').order('created_at')
+    const { data } = await supabase.from('contas').select('id, nome, tipo, ativa, saldo_inicial, chave_pix, titular, banco, agencia, numero_conta').order('created_at')
     contas = (data ?? []) as Conta[]
   }
   // Lojas, transferências e saldos não dependem um do outro — vão juntos (era
@@ -143,6 +143,19 @@ export default async function ContasPage({
             <label className="mb-1.5 block text-xs font-medium text-gray-600">Titular do Pix</label>
             <input name="titular" defaultValue={editando?.titular ?? ''} className="field" placeholder="Nome que o cliente vê ao pagar" />
           </div>
+          {/* Dados bancários: é o que amarra o saldo do app ao extrato do banco. */}
+          <div className="flex-1 min-w-52">
+            <label className="mb-1.5 block text-xs font-medium text-gray-600">Banco</label>
+            <input name="banco" defaultValue={editando?.banco ?? ''} className="field" placeholder="Ex.: 290 - PagSeguro" />
+          </div>
+          <div className="w-28">
+            <label className="mb-1.5 block text-xs font-medium text-gray-600">Agência</label>
+            <input name="agencia" defaultValue={editando?.agencia ?? ''} className="field" placeholder="0001" />
+          </div>
+          <div className="w-40">
+            <label className="mb-1.5 block text-xs font-medium text-gray-600">Conta</label>
+            <input name="numero_conta" defaultValue={editando?.numero_conta ?? ''} className="field" placeholder="74488464-4" />
+          </div>
           {editando && (
             <div>
               <label className="mb-1.5 block text-xs font-medium text-gray-600">Status</label>
@@ -181,8 +194,13 @@ export default async function ContasPage({
                   {c.tipo === 'caixa' ? '💵' : '🏦'} {c.nome}
                   {nomeLoja(c.loja_id) && <span className="ml-2 text-xs font-normal text-gray-400">· {nomeLoja(c.loja_id)}</span>}
                   {c.chave_pix && <div className="text-[11px] font-normal text-gray-400">Pix {c.chave_pix}{c.titular ? ` · ${c.titular}` : ''}</div>}
+                  {(c.banco || c.numero_conta) && (
+                    <div className="text-[11px] font-normal text-gray-400">
+                      {c.banco ?? 'Banco'}{c.agencia ? ` · ag. ${c.agencia}` : ''}{c.numero_conta ? ` · conta ${c.numero_conta}` : ''}
+                    </div>
+                  )}
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-500">{c.tipo === 'caixa' ? 'Caixa' : 'Banco'}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{c.tipo === 'caixa' ? 'Caixa' : c.tipo === 'cofre' ? 'Cofre' : 'Banco'}</td>
                 <td className={`px-4 py-3 text-right text-sm font-bold tabular-nums ${(saldos[c.id] ?? 0) >= 0 ? 'text-gray-900' : 'text-red-600'}`}>{formatBRL(saldos[c.id] ?? 0)}</td>
                 <td className="px-4 py-3 text-center">
                   <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${c.ativa ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>

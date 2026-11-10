@@ -81,6 +81,26 @@ Painel abrindo sem erro de console.
 7. **Telas ainda pesadas** (medido em 07/11, produção): Saúde 1,4–3,6 s (faz 10
    leituras grandes), Fechamento do Mês 1,5 s. Relatórios e Vendas já foram
    paginados (`5d14a6d`) e estão em 0,8 s.
+8. **Limpar o cadastro de pessoas do que não é nome** (levantado em 10/11/2026).
+   De 2.153 pessoas, **9 têm lembrete dentro do nome** e **18 passam de 45
+   caracteres**. O nome deve ser só o nome; aviso, pendência, instrução e valor
+   devendo vão para `observacoes` ou `nao_vender_motivo`, que já existem.
+
+   | O que está gravado | Deveria ser |
+   |---|---|
+   | CNN DA SEMANA QUE VEM | CNN |
+   | TATIANA DA SILVA COELHO (NÃO VENDER) | TATIANA DA SILVA COELHO |
+   | LUIZ GUSTAVO DA SILVA ANDRADE (CLIENTE INADIMPLENTE - R$ 100,00) | LUIZ GUSTAVO DA SILVA ANDRADE |
+   | MATHEUS MATTOS DE SOUZA DUARTE (DEVENDO R$654,50) | MATHEUS MATTOS DE SOUZA DUARTE |
+   | CADASTRO INATIVADO / ARTHUR RODRIGUES VAILLANT | ARTHUR RODRIGUES VAILLANT |
+   | J N MANUTENCAO CWB LTDA J N MANUTENCAO CWB LTDA | J N MANUTENCAO CWB LTDA |
+   | CSM CELL (SOMENTE RETIRADA E CONFERÊNCIA OBRIGATÓRIA) | CSM CELL |
+   | TRICELL MR - MR CELL (ENTREGAR NA TRICELL CURSO) | TRICELL MR - MR CELL |
+
+   Por que importa além da bagunça: o nome é o que casa o comprovante do PIX com o
+   fornecedor no bloco "PIX do dia" e o que aparece na cobrança do cliente. Nome com
+   lembrete colado atrapalha os dois. É **dado**, não código: corrigir pelo cadastro,
+   com a lista na mão, um por um.
 
 ## Nesta rodada (07/11/2026 — madrugada)
 

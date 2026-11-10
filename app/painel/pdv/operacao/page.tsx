@@ -2,7 +2,7 @@ import { createServiceClient, requireAuth, fetchAll } from '@/lib/supabase/serve
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { hojeSP } from '@/lib/utils'
 import { pixSemComprovante } from '@/lib/pix-pendentes'
-import { agruparPorDestino, casarFornecedor, ehContaPropria, normNome, separarComprovantes, type DestinoNaTela, type FornecedorRef, type PixAvisos } from '@/lib/pix-destinos'
+import { agruparPorDestino, casarFornecedor, ehContaPropria, normNome, separarComprovantes, type ChavePixRef, type DestinoNaTela, type FornecedorRef, type PixAvisos } from '@/lib/pix-destinos'
 import { carregarDevolucoesCaixa, aplicarEstornosPix } from '@/lib/devolucoes-caixa'
 import { OperacaoClient } from './OperacaoClient'
 
@@ -409,7 +409,7 @@ export default async function OperacaoPDVPage({
   if (caixaAberto) {
     const nomeLojaAtual = lojas.find((l) => l.id === lojaAtual)?.nome ?? ''
     const chat = await grupoDoTelegram(supabase, nomeLojaAtual)
-    const [compsRes, fornecedores, abertos, contasProprias] = await Promise.all([
+    const [compsRes, fornecedores, chavesPix, abertos, contasProprias] = await Promise.all([
       chat
         ? supabase
             .from('comprovantes_pix')
@@ -421,6 +421,8 @@ export default async function OperacaoPDVPage({
         : Promise.resolve({ data: [] as { valor: number | null; destinatario: string | null; extraido_raw: unknown; transacao_id: string | null; status: string | null; pagador: string | null; data_pix: string | null }[] }),
       fetchAll<FornecedorRef>((from, to) =>
         supabase.from('pessoas').select('id, nome, nome_fantasia, cpf_cnpj, chave_pix').eq('tipo', 'fornecedor').order('nome').range(from, to)),
+      fetchAll<ChavePixRef>((from, to) =>
+        supabase.from('pessoa_chaves_pix').select('pessoa_id, chave, favorecido').eq('ativo', true).range(from, to)),
       fetchAll<{ pessoa_id: string | null; valor: number | null; valor_pago: number | null }>((from, to) =>
         supabase.from('lancamentos').select('pessoa_id, valor, valor_pago').eq('tipo', 'pagar').neq('status', 'cancelado').not('pessoa_id', 'is', null).range(from, to)),
       supabase.from('contas').select('chave_pix, titular').not('chave_pix', 'is', null),
@@ -490,7 +492,7 @@ export default async function OperacaoPDVPage({
       pixAvisos.daSessaoAnterior = count ?? 0
     }
     pixDestinos = agruparPorDestino(sep.validos).map((d) => {
-      const f = casarFornecedor(d, fornecedores)
+      const f = casarFornecedor(d, fornecedores, chavesPix)
       return {
         ...d,
         fornecedorId: f?.id ?? null,

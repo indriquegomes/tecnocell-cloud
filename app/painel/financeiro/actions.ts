@@ -5,6 +5,7 @@ import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { logAtividade } from '@/lib/log-atividade'
 import { registrarNoCaixa, retirarDoCaixa, lojaDoLancamento } from '@/lib/caixa'
+import { contaDaForma } from '@/lib/conta-da-forma'
 import { travarSeMesFechado } from '@/lib/fechamento'
 import { hojeSP } from '@/lib/utils'
 import { SETORES } from '@/lib/financeiro-setores'
@@ -58,6 +59,16 @@ export async function criarLancamento(formData: FormData) {
   const erroTravaCriar = await travarSeMesFechado(supabase, vencimento, 'criar lançamento')
   if (erroTravaCriar) redirect(`/painel/financeiro/novo?erro=${encodeURIComponent(erroTravaCriar)}`)
 
+  // PAGAMENTO QUE NASCE QUITADO PRECISA DIZER DE ONDE SAIU O DINHEIRO.
+  // Sem conta, o lançamento fica pago e nenhum saldo se mexe: foi assim que 31.414,50
+  // de mercadoria pago em PIX em novembro ficou sem origem rastreável. O caso "foi o
+  // CLIENTE que pagou o fornecedor" é caminho separado — bloco "PIX do dia" do
+  // fechamento de caixa, que grava a forma "PIX do cliente ao fornecedor" e não mexe
+  // em conta nenhuma, porque essa chave não existe no extrato da loja.
+  const contaDoPrimeiro = quitado && tipo === 'pagar' && !contaId
+    ? await contaDaForma(supabase, (formData.get('forma_pagamento') as string) || null, lojaId)
+    : contaId
+
   const linhas = Array.from({ length: vezes }, (_, i) => ({
     id: crypto.randomUUID(),
     descricao: vezes > 1 ? `${descricao} (${i + 1}/${vezes})` : descricao,
@@ -69,7 +80,7 @@ export async function criarLancamento(formData: FormData) {
     data_vencimento: i === 0 ? vencimento : somaMeses(vencimento, i),
     forma_pagamento: (formData.get('forma_pagamento') as string) || null,
     pessoa_nome: (formData.get('pessoa_nome') as string) || null,
-    conta_id: contaId,
+    conta_id: i === 0 ? contaDoPrimeiro : contaId,
     loja_id: lojaId,
     // só a 1ª pode nascer quitada; as futuras ficam pendentes
     status: quitado && i === 0 ? 'pago' : 'pendente',

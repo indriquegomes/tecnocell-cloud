@@ -42,7 +42,7 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
     const contaDoDinheiro = (loja: string | null | undefined): string | null =>
       (loja ? (cofreDaLoja[loja] ?? caixaDaLoja[loja] ?? null) : null)
 
-    const [{ data: formas }, { data: rotaRows }, pv, tr, lc, movDev, lancDev] = await Promise.all([
+    const [{ data: formas }, { data: rotaRows }, pv, tr, lc, movDev, lancDev, pixAoFornecedor] = await Promise.all([
       supabase.from('formas_pagamento').select('id, tipo, conta_destino_id'),
       supabase.from('forma_conta_loja').select('forma_id, loja_id, conta_id'),   // vazio/inexistente = fallback p/ conta_destino_id
       // Só pagamento de venda a partir do corte: o resto está no saldo inicial de cada
@@ -59,6 +59,16 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
         supabase.from('lancamentos').select('valor, forma_pagamento, loja_id')
           .eq('tipo', 'pagar').eq('status', 'pago').is('conta_id', null)
           .ilike('descricao', 'Devolução —%').range(from, to)),
+      // PIX que o CLIENTE mandou direto ao fornecedor. A venda em PIX credita o banco e
+      // o pagamento ao fornecedor nasce sem conta (o dinheiro nunca passou pelo banco),
+      // então esse valor ficava dentro do saldo para sempre — é o que fez o PagBank do
+      // app aparecer com 44 mil contra 59,23 no extrato. Aqui ele sai do MESMO banco que
+      // recebeu o PIX da venda: entra e sai, sobra só o que a loja guardou de verdade.
+      fetchAll<{ valor: number; forma_pagamento: string | null; loja_id: string | null }>((from, to) =>
+        supabase.from('lancamentos').select('valor, forma_pagamento, loja_id')
+          .eq('tipo', 'pagar').eq('status', 'pago').is('conta_id', null)
+          .eq('categoria', 'Mercadoria')
+          .gte('data_pagamento', INICIO_COFRE).range(from, to)),
     ])
     const formaById = Object.fromEntries((formas ?? []).map((f) => [f.id, f as { tipo: string | null; conta_destino_id: string | null }]))
 
@@ -145,6 +155,18 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
     for (const l of (lc ?? [])) {
       if (!(l.conta_id in saldo)) continue
       saldo[l.conta_id] += l.tipo === 'receber' ? (l.valor ?? 0) : -(l.valor ?? 0)
+    }
+
+    // PIX do cliente que pagou o fornecedor — sai do banco que recebeu o PIX da venda.
+    // Se o pagamento já tem conta, o desconto aconteceu na soma de `lc` acima; aqui
+    // entra só o que ficou sem conta, então nada é descontado duas vezes. Pagamento em
+    // DINHEIRO sem conta fica de fora: cédula vive no cofre/gaveta, não no banco.
+    const formaPix = (formas ?? []).find((f) => (f as { tipo?: string | null }).tipo === 'pix') as
+      { id: string; conta_destino_id: string | null } | undefined
+    for (const p of (pixAoFornecedor ?? [])) {
+      if ((p.forma_pagamento ?? '').toLowerCase().includes('dinheiro')) continue
+      const conta = (p.loja_id && formaPix ? rota[formaPix.id]?.[p.loja_id] : null) ?? formaPix?.conta_destino_id ?? null
+      if (conta && conta in saldo) saldo[conta] -= Number(p.valor ?? 0)
     }
 
     // Reembolso de devolução: registrar_devolucao grava o reembolso SEM
