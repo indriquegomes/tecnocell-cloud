@@ -58,6 +58,9 @@ test('dinheiro que caiu na conta da loja é reconhecido como conta própria', ()
   // CNPJ colado, e comparar o texto cru deixava esses 12 mil caírem em "não identificado"
   const soNome = agruparPorDestino([{ valor: 500, destinatario: 'JOAO VITOR MAXIMIANO FRANCA' }])
   assert.equal(ehContaPropria(soNome[0], [], ['38.216.415 JOAO VITOR MAXIMIANO FRANCA']), true)
+  // comprovante que mostra só o começo do CNPJ: continua sendo a nossa conta
+  const cnpjCortado = agruparPorDestino([{ valor: 47, destinatario: '38 216 415' }])
+  assert.equal(ehContaPropria(cnpjCortado[0], ['38216415000170'], []), true)
 })
 
 test('casa o destinatário com o fornecedor do cadastro por CNPJ, chave Pix e nome', () => {

@@ -45,6 +45,9 @@ export function ehContaPropria(
 ): boolean {
   const docs = documentosProprios.map(soDigitos).filter((d) => d.length === 14 || d.length === 11)
   if (destino.doc && docs.includes(destino.doc)) return true
+  // comprovante que mostra só o começo do CNPJ ("38 216 415"): é a nossa conta
+  const digitos = soDigitos(destino.nome)
+  if (digitos.length >= 6 && digitos.length < 14 && docs.some((d) => d.startsWith(digitos))) return true
   // O titular cadastrado costuma vir com o CNPJ na frente
   // ("38.216.415 JOAO VITOR MAXIMIANO FRANCA") e o comprovante traz só o nome:
   // comparar sem tirar o documento da frente nunca casava.
@@ -245,8 +248,9 @@ export function separarComprovantes(
 
 export type FornecedorRef = { id: string; nome: string; cpf_cnpj?: string | null; nome_fantasia?: string | null; chave_pix?: string | null }
 
-/** Uma chave Pix a mais do cadastro (`pessoa_chaves_pix`): o mesmo fornecedor recebe por várias. */
-export type ChavePixRef = { pessoa_id: string; chave: string; favorecido?: string | null }
+/** Uma chave Pix a mais do cadastro (`pessoa_chaves_pix`): o mesmo fornecedor recebe por várias.
+ *  `chave` pode vir nula quando o comprovante só traz o NOME do favorecido — aí casa pelo nome. */
+export type ChavePixRef = { pessoa_id: string; chave?: string | null; favorecido?: string | null }
 
 /** O que ficou FORA da conta por erro humano — a tela mostra isso em avisos. */
 export type PixAvisos = {
@@ -292,14 +296,14 @@ export function casarFornecedor(
 
   if (destino.doc) {
     const doc = destino.doc
-    const chaveComDoc = chaves.find((c) => soDigitos(c.chave) === doc)
+    const chaveComDoc = chaves.find((c) => c.chave && soDigitos(c.chave) === doc)
     if (chaveComDoc) { const f = daChave(chaveComDoc.pessoa_id); if (f) return f }
     const porDoc = fornecedores.find((f) => soDigitos(f.cpf_cnpj) === doc || soDigitos(f.chave_pix) === doc)
     if (porDoc) return porDoc
   }
   const alvo = normNome(destino.nome)
   if (!alvo) return null
-  // nome que aparece no comprovante = nome do favorecido da chave
+  // nome que aparece no comprovante = nome do favorecido da chave (com ou sem chave)
   const chaveComNome = chaves.find((c) => {
     const fav = normNome(c.favorecido)
     return fav.length >= 6 && (fav === alvo || fav.startsWith(alvo) || alvo.startsWith(fav))
