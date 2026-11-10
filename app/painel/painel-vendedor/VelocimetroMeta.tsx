@@ -2,10 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 
+type Faixa = { nome: string; valor: number; premio?: number };
+
 type Props = {
+  /** Posição do ponteiro na escada (0-100): cada degrau ocupa um quarto do arco. */
   pct: number;
+  /** Percentual real da meta do topo — é o número grande no centro. */
+  pctReal?: number;
   rotulo?: string;
-  falta?: string;
+  /** Degraus da meta do mês, em ordem crescente. Cada um vira um símbolo no arco. */
+  faixas?: Faixa[];
+  /** Venda bruta da loja no mês — serve para dizer quanto falta para a próxima meta. */
+  vendido?: number;
 };
 
 const clamp = (value: number) => Math.min(100, Math.max(0, value));
@@ -31,10 +39,67 @@ function arcPath(radius: number, pct: number) {
   return `M ${start.x} ${start.y} A ${radius} ${radius} 0 0 1 ${end.x} ${end.y}`;
 }
 
+// Cada degrau tem um símbolo próprio: pedra colorida e, no último, a coroa.
+const SIMBOLOS: Record<string, { cor: string; corFraca: string }> = {
+  granada: { cor: "#ef4444", corFraca: "#7f1d1d" },
+  esmeralda: { cor: "#22c55e", corFraca: "#14532d" },
+  diamante: { cor: "#38bdf8", corFraca: "#0c4a6e" },
+  joalheria: { cor: "#fbbf24", corFraca: "#78350f" },
+};
+const estiloDoSimbolo = (nome: string | undefined) =>
+  SIMBOLOS[(nome ?? "").trim().toLowerCase()] ?? { cor: "#94a3b8", corFraca: "#334155" };
+
+// Posição de cada símbolo no arco: degraus IGUAIS (25%, 50%, 75%, 100%).
+// A escada real é densa (uma meta fica a 6-8% da outra), então posição
+// proporcional empilharia as quatro na ponta e o ponteiro não "caminharia".
+const passoDoDegrau = (indice: number, total: number) => ((indice + 1) / total) * 100;
+
+function Simbolo({
+  nome,
+  x,
+  y,
+  conquistado,
+}: {
+  nome: string;
+  x: number;
+  y: number;
+  conquistado: boolean;
+}) {
+  const { cor } = estiloDoSimbolo(nome);
+  const chave = (nome ?? "").trim().toLowerCase();
+  const ehCoroa = chave === "joalheria";
+
+  return (
+    <g opacity={conquistado ? 1 : 0.32}>
+      <circle
+        cx={x}
+        cy={y}
+        r="15"
+        fill="#0d1117"
+        stroke={cor}
+        strokeWidth={conquistado ? 2.5 : 1.5}
+      />
+      {ehCoroa ? (
+        <path
+          d={`M ${x - 8} ${y + 5} L ${x - 8} ${y - 3} L ${x - 3} ${y + 1} L ${x} ${y - 6} L ${x + 3} ${y + 1} L ${x + 8} ${y - 3} L ${x + 8} ${y + 5} Z`}
+          fill={cor}
+        />
+      ) : (
+        <path
+          d={`M ${x} ${y - 8} L ${x + 7} ${y - 1} L ${x + 4} ${y + 7} L ${x - 4} ${y + 7} L ${x - 7} ${y - 1} Z`}
+          fill={cor}
+        />
+      )}
+    </g>
+  );
+}
+
 export default function VelocimetroMeta({
   pct,
+  pctReal,
   rotulo = "META DA EQUIPE",
-  falta,
+  faixas = [],
+  vendido = 0,
 }: Props) {
   const [valor, setValor] = useState(0);
   const valorAtual = useRef(0);
@@ -101,12 +166,17 @@ export default function VelocimetroMeta({
   }, [pct]);
 
   const percentual = Math.round(valor);
+  const percentualReal = Math.round(pctReal ?? pct);
   const angulo = 180 - valor * 1.8;
 
   const ponteiro = polarToCartesian(180, 180, 128, angulo);
   const etiqueta = polarToCartesian(180, 180, 148, angulo);
 
-  const marcacoes = [0, 20, 40, 60, 80, 100];
+  const degraus = [...faixas].sort((a, b) => a.valor - b.valor);
+  const proxima = degraus.find((f) => f.valor > vendido) ?? null;
+  const faltaProxima = proxima ? Math.max(0, proxima.valor - vendido) : 0;
+  const fmtBRL = (v: number) =>
+    v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
     <div className="w-full max-w-[480px] rounded-3xl border border-white/10 bg-[#0d1117] p-5 text-white shadow-2xl">
@@ -163,37 +233,19 @@ export default function VelocimetroMeta({
             strokeLinecap="round"
           />
 
-          {/* Marcações e números */}
-          {marcacoes.map((numero) => {
-            const angle = 180 - numero * 1.8;
-            const externo = polarToCartesian(180, 180, 157, angle);
-            const interno = polarToCartesian(180, 180, 146, angle);
-            const texto = polarToCartesian(180, 180, 177, angle);
-
+          {/* Símbolos das metas, em degraus iguais */}
+          {degraus.map((f, i) => {
+            const posicao = passoDoDegrau(i, degraus.length);
+            const angle = 180 - posicao * 1.8;
+            const p = polarToCartesian(180, 180, 135, angle);
             return (
-              <g key={numero}>
-                <line
-                  x1={interno.x}
-                  y1={interno.y}
-                  x2={externo.x}
-                  y2={externo.y}
-                  stroke="#aab3c0"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                />
-
-                <text
-                  x={texto.x}
-                  y={texto.y}
-                  fill="#f3f4f6"
-                  fontSize="12"
-                  fontWeight="800"
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                >
-                  {numero}
-                </text>
-              </g>
+              <Simbolo
+                key={`${f.nome}-${i}`}
+                nome={f.nome}
+                x={p.x}
+                y={p.y}
+                conquistado={valor >= posicao - 0.5}
+              />
             );
           })}
 
@@ -206,6 +258,7 @@ export default function VelocimetroMeta({
             stroke="#ffffff"
             strokeWidth="5"
             strokeLinecap="round"
+            filter="url(#needleGlow)"
           />
 
           {/* Ponta do ponteiro */}
@@ -234,7 +287,7 @@ export default function VelocimetroMeta({
               fontWeight="900"
               textAnchor="middle"
             >
-              {percentual}%
+              {percentualReal}%
             </text>
           </g>
 
@@ -247,7 +300,7 @@ export default function VelocimetroMeta({
         <div className="flex flex-col items-center">
           <div className="flex items-baseline">
             <span className="text-5xl font-black tracking-tighter tabular-nums text-white drop-shadow-lg">
-              {percentual}
+              {percentualReal}
             </span>
             <span className="ml-1 text-xl font-bold text-gray-400">
               %
@@ -255,7 +308,7 @@ export default function VelocimetroMeta({
           </div>
 
           <span className="mt-0.5 text-xs font-bold tracking-[0.35em] text-gray-500">
-            DA META
+            DA META DO TOPO
           </span>
         </div>
       </div>
@@ -263,11 +316,20 @@ export default function VelocimetroMeta({
       {/* Informação inferior */}
       <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-center">
         <p className="text-[10px] font-bold tracking-[0.2em] text-gray-500">
-          {percentual >= 100 ? "META ALCANÇADA!" : "FALTA PARA A META"}
+          {proxima ? "PRÓXIMA META" : "TODAS AS METAS CONQUISTADAS"}
         </p>
 
         <p className="mt-1 text-lg font-extrabold text-white">
-          {percentual >= 100 ? "Parabéns! 🎉" : falta || "Continue acelerando!"}
+          {proxima ? (
+            <>
+              {proxima.nome}
+              <span className="ml-1 text-sm font-semibold text-gray-400">
+                — faltam {fmtBRL(faltaProxima)}
+              </span>
+            </>
+          ) : (
+            "Parabéns! 🎉"
+          )}
         </p>
       </div>
     </div>
