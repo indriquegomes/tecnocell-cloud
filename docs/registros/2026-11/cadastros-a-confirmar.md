@@ -44,7 +44,7 @@ para o nome do processo (ou desligar depois que as notas antigas prescreverem)?
 | DIAMONDS × FORNECEDOR DIAMONDS | **resolvido** em 10/11: nota 39 movida, ficha vazia apagada |
 | ELETROCELL × ELETROCELL MERCADORIAS | **resolvido** em 10/11: 7 vendas (2.957,50) movidas, ficha vazia apagada |
 | H2O × 3 fichas vazias | **resolvido** em 10/11: as três apagadas, a real virou H2O |
-| BH SMART × BH SMART | **em aberto**: uma ficha `ambos` ativa (42 lançamentos, 274 vendas) e uma `cliente` inativa (2 vendas). Juntar as 2 vendas e apagar a inativa? |
+| BH SMART × BH SMART | **resolvido** em 10/11: as 2 vendas (469,70) foram para a ficha `ambos` ativa, a inativa foi apagada. Ficou uma só, com 276 vendas |
 
 ## O que já foi consertado no nome (não precisa confirmar)
 
