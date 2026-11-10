@@ -246,7 +246,7 @@ export function separarComprovantes(
   return r
 }
 
-export type FornecedorRef = { id: string; nome: string; cpf_cnpj?: string | null; nome_fantasia?: string | null; chave_pix?: string | null }
+export type FornecedorRef = { id: string; nome: string; cpf_cnpj?: string | null; nome_fantasia?: string | null; chave_pix?: string | null; ativo?: boolean | null }
 
 /** Uma chave Pix a mais do cadastro (`pessoa_chaves_pix`): o mesmo fornecedor recebe por várias.
  *  `chave` pode vir nula quando o comprovante só traz o NOME do favorecido — aí casa pelo nome. */

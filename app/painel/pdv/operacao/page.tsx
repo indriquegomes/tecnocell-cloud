@@ -422,8 +422,11 @@ export default async function OperacaoPDVPage({
       // `ambos` também é fornecedor: 43 dos cadastros estão marcados assim (H2O e ADL
       // entre eles) e filtrar só por 'fornecedor' escondia a dívida deles — o
       // comprovante caía em "não identificado" e a baixa não acontecia.
+      // Cadastro INATIVO fica fora: casar o comprovante com um cadastro desligado
+      // abriria baixa numa ficha que ninguém mais usa.
       fetchAll<FornecedorRef>((from, to) =>
-        supabase.from('pessoas').select('id, nome, nome_fantasia, cpf_cnpj, chave_pix').in('tipo', ['fornecedor', 'ambos']).order('nome').range(from, to)),
+        supabase.from('pessoas').select('id, nome, nome_fantasia, cpf_cnpj, chave_pix, ativo')
+          .in('tipo', ['fornecedor', 'ambos']).order('nome').range(from, to)),
       fetchAll<ChavePixRef>((from, to) =>
         supabase.from('pessoa_chaves_pix').select('pessoa_id, chave, favorecido').eq('ativo', true).range(from, to)),
       fetchAll<{ pessoa_id: string | null; valor: number | null; valor_pago: number | null }>((from, to) =>
@@ -436,6 +439,9 @@ export default async function OperacaoPDVPage({
       const falta = Number(l.valor ?? 0) - Number(l.valor_pago ?? 0)
       if (falta > 0.005) emAberto[l.pessoa_id] = (emAberto[l.pessoa_id] ?? 0) + falta
     }
+    // cadastro desligado não casa comprovante (só some quem está explicitamente inativo;
+    // `ativo` nulo continua valendo, porque é como a base antiga ficou)
+    const fornecedoresAtivos = fornecedores.filter((f) => f.ativo !== false)
     const docsProprios = [...lojas.map((l) => l.cnpj), ...((contasProprias.data ?? []).map((c) => c.chave_pix))]
     const nomesProprios = (contasProprias.data ?? []).map((c) => c.titular)
 
@@ -495,7 +501,7 @@ export default async function OperacaoPDVPage({
       pixAvisos.daSessaoAnterior = count ?? 0
     }
     pixDestinos = agruparPorDestino(sep.validos).map((d) => {
-      const f = casarFornecedor(d, fornecedores, chavesPix)
+      const f = casarFornecedor(d, fornecedoresAtivos, chavesPix)
       return {
         ...d,
         fornecedorId: f?.id ?? null,

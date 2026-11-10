@@ -23,7 +23,7 @@ async function all<T>(q: () => any): Promise<T[]> {
 
 const { data: lojas } = await sb.from('lojas').select('id, nome, cnpj').eq('ativa', true).order('nome')
 const fornecedores = await all<FornecedorRef>(() =>
-  sb.from('pessoas').select('id, nome, nome_fantasia, cpf_cnpj, chave_pix').in('tipo', ['fornecedor', 'ambos']).order('nome'))
+  sb.from('pessoas').select('id, nome, nome_fantasia, cpf_cnpj, chave_pix, ativo').in('tipo', ['fornecedor', 'ambos']).order('nome'))
 const abertos = await all<{ pessoa_id: string | null; valor: number | null; valor_pago: number | null }>(() =>
   sb.from('lancamentos').select('pessoa_id, valor, valor_pago').eq('tipo', 'pagar').neq('status', 'cancelado').not('pessoa_id', 'is', null))
 const { data: contas } = await sb.from('contas').select('chave_pix, titular').not('chave_pix', 'is', null)
@@ -85,7 +85,7 @@ for (const loja of lojas ?? []) {
   console.log(`  ${sep.validos.length} válidos de ${(comps ?? []).length} linhas · repetidos ${sep.repetidos} (${money(sep.valorRepetido)}) · ilegíveis/não lidos ${sep.naoLidos} · sem destino ${sep.semDestino} (${money(sep.valorSemDestino)}) · nao_comprovante ${sep.naoComprovante} · nos dois grupos ${sep.cruzados.length} (${money(sep.valorCruzado)}) · apagados ${sep.apagados}`)
 
   const destinos = agruparPorDestino(sep.validos).map((d) => {
-    const f = casarFornecedor(d, fornecedores)
+    const f = casarFornecedor(d, fornecedores.filter((f) => f.ativo !== false))
     return { ...d, fornecedor: f?.nome ?? null, fornecedorId: f?.id ?? null, propria: ehContaPropria(d, docsProprios, nomesProprios), divida: f ? (emAberto[f.id] ?? 0) : 0 }
   })
 
