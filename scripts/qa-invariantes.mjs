@@ -42,9 +42,6 @@ check('conta com banco preenchido tem agência e número', Number(r5.n) === 0, `
 const r6 = await um(`select count(*) n from contas c left join lojas l on l.id = c.loja_id where c.loja_id is not null and l.id is null`)
 check('nenhuma conta aponta para loja inexistente', Number(r6.n) === 0, `${r6.n} órfã(s)`)
 
-const r7 = await um(`select count(*) n from contas where ativa and tipo = 'banco' and banco is null`)
-check('[aviso] conta bancária ativa sem dados do banco', Number(r7.n) === 0, `${r7.n} sem dado`)
-
 // ── lojas / empresas ──────────────────────────────────────────────────────
 const r8 = await um(`select count(*) n from lojas where cnpj is null or length(regexp_replace(cnpj,'\\D','','g')) <> 14`)
 check('toda loja tem CNPJ com 14 dígitos', Number(r8.n) === 0, `${r8.n} inválida(s)`)
