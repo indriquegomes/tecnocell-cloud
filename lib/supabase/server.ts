@@ -6,35 +6,9 @@ export type Efetivas = { permissoes: string[]; isMaster: boolean; ativo: boolean
 
 // Busca TODAS as linhas driblando o limite fixo de 1000 do PostgREST (pagina de 1000 em 1000).
 // Uso: fetchAll((from, to) => supabase.from('produtos').select('...').order('nome').range(from, to))
-export async function fetchAll<T>(
-  make: (from: number, to: number) => PromiseLike<{ data: T[] | null }>,
-): Promise<T[]> {
-  const out: T[] = []
-  for (let from = 0; from < 500000; from += 1000) {
-    const { data } = await make(from, from + 999)
-    if (!data || data.length === 0) break
-    out.push(...data)
-    if (data.length < 1000) break
-  }
-  return out
-}
-
-// Como fetchAll, mas fatiando uma lista grande de ids passada a um filtro .in()
-// — evita estourar o limite de URL do PostgREST quando são muitos ids (ex: milhares
-// de venda_id). Cada lote ainda é paginado por fetchAll. chunkSize conservador p/ UUID.
-export async function fetchAllIn<T>(
-  ids: string[],
-  make: (chunk: string[], from: number, to: number) => PromiseLike<{ data: T[] | null }>,
-  chunkSize = 200,
-): Promise<T[]> {
-  const out: T[] = []
-  for (let i = 0; i < ids.length; i += chunkSize) {
-    const chunk = ids.slice(i, i + chunkSize)
-    const rows = await fetchAll<T>((from, to) => make(chunk, from, to))
-    out.push(...rows)
-  }
-  return out
-}
+// A paginação mora em lib/paginar.ts (sem dependência do Next, para rodar também em
+// script). Aqui só reexporta, então quem importa de '@/lib/supabase/server' segue igual.
+export { fetchAll, fetchAllIn } from '@/lib/paginar'
 
 export async function createClient() {
   const cookieStore = await cookies()

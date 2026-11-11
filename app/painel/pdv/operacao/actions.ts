@@ -3,6 +3,7 @@
 import { createServiceClient, requirePermissao, podeAcessarLoja } from '@/lib/supabase/server'
 import { logAtividade } from '@/lib/log-atividade'
 import { abaterNaDivida } from '@/lib/abater-divida'
+import { resolverPixDoDia } from '@/lib/pix-do-dia'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { formatBRL } from '@/lib/utils'
@@ -142,6 +143,13 @@ export async function fecharCaixa(
       .eq('status', 'aberto')
     if (error) return { ok: false, message: error.message }
 
+    // BAIXA AUTOMÁTICA DOS PIX QUE FORAM AO FORNECEDOR (decisão do dono, 11/11/2026).
+    // Ao fechar o caixa, o que os clientes mandaram direto na chave do fornecedor vira
+    // baixa na dívida, sem ninguém precisar clicar. O que impede contar duas vezes: só
+    // baixa o que ainda não foi abatido hoje — o histórico de cada nota guarda o que já
+    // entrou naquele dia.
+    await baixarPixDoDiaAutomatico(supabase, id, (caixa as { loja_id?: string | null }).loja_id ?? null, (caixa as { aberto_em?: string | null }).aberto_em ?? null)
+
     await logAtividade('caixa.fechar', {
       caixa_id: id,
       valor_esperado: valorEsperado,
@@ -155,6 +163,55 @@ export async function fecharCaixa(
   } catch (e: unknown) {
     if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e
     return { ok: false, message: 'Erro ao fechar caixa.' }
+  }
+}
+
+// Baixa automática do "PIX do dia" ao fechar o caixa: para cada fornecedor que recebeu
+// PIX de cliente, abate na dívida o que ainda NÃO foi abatido hoje.
+// Falha aqui não impede o fechamento (o caixa já fechou): fica no log do servidor.
+async function baixarPixDoDiaAutomatico(
+  supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  caixaId: string,
+  lojaId: string | null,
+  abertoEm: string | null,
+) {
+  if (!lojaId || !abertoEm) return
+  try {
+    const destinos = await resolverPixDoDia(supabase, lojaId, abertoEm)
+    const fornecedores = destinos.filter((d) => !d.propria && d.fornecedorId && d.total > 0.005)
+    if (!fornecedores.length) return
+
+    const hojeSP = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+    for (const d of fornecedores) {
+      // quanto já foi abatido hoje para esse fornecedor (o histórico das notas guarda)
+      const { data: notasHoje } = await supabase.from('lancamentos')
+        .select('historico_pagamentos')
+        .eq('tipo', 'pagar').eq('pessoa_id', d.fornecedorId!).gte('data_vencimento', hojeSP.slice(0, 7) + '-01')
+      const jaAbatido = (notasHoje ?? []).reduce((t, n) => {
+        const hist = Array.isArray(n.historico_pagamentos) ? (n.historico_pagamentos as { valor: number; forma: string; data: string }[]) : []
+        return t + hist
+          .filter((h) => h.forma === 'PIX do cliente ao fornecedor' && String(h.data).slice(0, 10) === hojeSP)
+          .reduce((s, h) => s + Number(h.valor ?? 0), 0)
+      }, 0)
+      const falta = Math.round((d.total - jaAbatido) * 100) / 100
+      if (falta <= 0.005) continue
+
+      const r = await abaterNaDivida(
+        supabase,
+        d.fornecedorNome ?? d.nome,
+        lojaId,
+        falta,
+        `Crédito de PIX do cliente — ${d.fornecedorNome ?? d.nome} (fechamento de caixa)`,
+        'PIX do cliente ao fornecedor',
+        d.fornecedorId,
+      )
+      if (!r.ok) console.error('fecharCaixa: baixa automática do PIX do dia falhou para', d.fornecedorNome, r.erro)
+    }
+    // A tela do Financeiro mostra a dívida: precisa saber que ela mudou.
+    revalidatePath('/painel/financeiro')
+    revalidatePath('/painel/contas')
+  } catch (e) {
+    console.error('fecharCaixa: baixa automática do PIX do dia', e instanceof Error ? e.message : e)
   }
 }
 
