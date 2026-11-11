@@ -50,9 +50,18 @@ export default async function FinanceiroPage({
   const { mesIni, mesFim, verTudo } = periodoDe(params)
   // Nome do cadastro que casa com o filtro: serve para o filtro achar também o que foi
   // lançado DEPOIS de uma renomeação (o nome fica gravado como texto no lançamento).
+  // O link antigo traz o nome velho ("ADL FORNECEDOR"), e o cadastro hoje se chama "ADL"
+  // — por isso o texto é limpo da palavra de tipo/segmento antes de resolver o cadastro.
   const paramsFiltro = params as typeof params & { pessoa_ids?: string[] }
   if (params.pessoa) {
-    const { data: casam } = await supabase.from('pessoas').select('id').ilike('nome', `%${params.pessoa}%`).limit(50)
+    const limpo = params.pessoa
+      .replace(/\b(FORNECEDOR|FORNECEDORA|MERCADORIAS|MERCADORIA|CELL)\b/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim() || params.pessoa
+    const { data: casam } = await supabase
+      .from('pessoas').select('id, nome')
+      .or(`nome.ilike.${limpo},nome.ilike.${limpo} %`)
+      .limit(50)
     paramsFiltro.pessoa_ids = ((casam ?? []) as { id: string }[]).map((p) => p.id)
   }
   const aplica = (q: unknown) => aplicarFiltros(q, paramsFiltro, { lojaEfetiva })
