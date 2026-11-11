@@ -29,10 +29,13 @@ export async function abaterNaDivida(
   valor: number,
   descricaoCredito: string,
   rotulo = 'troca',
+  /** quando vem o id do cadastro, filtra por ele (o nome no lançamento pode estar velho) */
+  pessoaId: string | null = null,
 ): Promise<{ ok: boolean; erro?: string; credito: number }> {
   let qPend = supabase.from('lancamentos')
-    .select('id, valor, valor_pago, descricao, data_vencimento')
-    .eq('tipo', 'pagar').eq('status', 'pendente').eq('pessoa_nome', fornecedorNome)
+    .select('id, valor, valor_pago, descricao, data_vencimento, historico_pagamentos')
+    .eq('tipo', 'pagar').eq('status', 'pendente')
+  qPend = pessoaId ? qPend.eq('pessoa_id', pessoaId) : qPend.eq('pessoa_nome', fornecedorNome)
   if (lojaId) qPend = qPend.eq('loja_id', lojaId)
   const { data: pendentes, error: erroPend } = await qPend.order('data_vencimento', { ascending: true })
   if (erroPend) return { ok: false, erro: erroPend.message, credito: 0 }
@@ -46,11 +49,17 @@ export async function abaterNaDivida(
     if (restante <= 0.005) continue
     const abater = Math.min(restante, falta)
     const novoValor = Math.round((valorNota - abater) * 100) / 100
+    // histórico do pagamento fica registrado na própria nota (é o que a tela mostra
+    // quando alguém abre o lançamento para saber como aquela dívida foi baixada)
+    const historico = Array.isArray(p.historico_pagamentos)
+      ? (p.historico_pagamentos as { valor: number; forma: string; data: string }[])
+      : []
     const { error } = await supabase.from('lancamentos').update({
       valor: novoValor,
       // zerou a nota: sai da lista de pendentes sem inventar pagamento
       status: novoValor <= 0.005 ? 'cancelado' : 'pendente',
       descricao: `${p.descricao ?? 'Mercadoria'} (abateu ${abater.toFixed(2).replace('.', ',')} de ${rotulo})`,
+      historico_pagamentos: [...historico, { valor: abater, forma: rotulo, data: new Date().toISOString() }],
       updated_at: new Date().toISOString(),
     }).eq('id', p.id)
     if (error) return { ok: false, erro: `Não deu pra abater em ${p.descricao ?? 'nota'}: ${error.message}`, credito: 0 }

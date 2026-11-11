@@ -2,6 +2,7 @@
 
 import { createServiceClient, requirePermissao, podeAcessarLoja } from '@/lib/supabase/server'
 import { logAtividade } from '@/lib/log-atividade'
+import { abaterNaDivida } from '@/lib/abater-divida'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { formatBRL } from '@/lib/utils'
@@ -293,30 +294,25 @@ export async function baixarPixDoFornecedor(
     }
 
     const agora = new Date().toISOString()
-    let restante = valor
     let baixado = 0
-    for (const l of lista) {
-      if (restante <= 0.005) break
-      const falta = Math.round((l.valor - l.pago) * 100) / 100
-      const pago = Math.min(falta, restante)
-      const novoPago = Math.round((l.pago + pago) * 100) / 100
-      const quitado = novoPago >= l.valor - 0.005
-      const { error } = await supabase
-        .from('lancamentos')
-        .update({
-          valor_pago: novoPago,
-          status: quitado ? 'pago' : 'pendente',
-          data_pagamento: quitado ? agora : null,
-          // registra COMO foi pago: sem conta e sem caixa, é o cliente que pagou
-          forma_pagamento: 'PIX do cliente ao fornecedor',
-          historico_pagamentos: [...l.historico, { valor: pago, forma: 'PIX do cliente ao fornecedor', data: agora }],
-          updated_at: agora,
-        })
-        .eq('id', l.id)
-      if (error) return { ok: false, message: error.message }
-      restante = Math.round((restante - pago) * 100) / 100
-      baixado += pago
-    }
+    // Baixa o valor na dívida do fornecedor pela MESMA função que o Financeiro e a troca
+    // usam (lib/abater-divida.ts): a nota encolhe e, quando zera, sai dos pendentes.
+    // Antes este caminho gravava `valor_pago` e marcava a nota como 'paga', o que fazia
+    // a tela contar o mesmo dinheiro em "pendente" e em "já pago" — e a dívida do
+    // fornecedor não batia com a planilha do dono.
+    // Sem filtro de loja de propósito: o bloco "PIX do dia" calcula a dívida do
+    // fornecedor somando as duas lojas, então a baixa tem que seguir a mesma régua.
+    const r = await abaterNaDivida(
+      supabase,
+      pessoa.nome,
+      null,
+      valor,
+      `Crédito de PIX do cliente — ${pessoa.nome}`,
+      'PIX do cliente ao fornecedor',
+      pessoaId,
+    )
+    if (!r.ok) return { ok: false, message: r.erro ?? 'Não deu pra abater na dívida do fornecedor.' }
+    baixado = Math.round((valor - r.credito) * 100) / 100
 
     await logAtividade('fornecedor.baixa_pix_cliente', {
       pessoa_id: pessoaId,
