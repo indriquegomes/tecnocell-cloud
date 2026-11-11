@@ -102,9 +102,12 @@ export default async function FinanceiroPage({
 
   // ✨ Totais DO FILTRO (não só os globais): soma exatamente o que está filtrado,
   // sem o cap de 200 da lista. equipe: "quanto tenho a receber em PIX vencendo em agosto".
-  const filtrados = await fetchAll<Record<string, unknown> & { valor: number | null; tipo: string; status: string | null }>(
+  const filtrados = await fetchAll<Record<string, unknown> & { valor: number | null; valor_pago: number | null; tipo: string; status: string | null }>(
     (from, to) => aplica(supabase.from('lancamentos')
-      .select('descricao, pessoa_nome, data_vencimento, data_competencia, valor, tipo, status, forma_pagamento, categoria, subcategoria, loja_id'))
+      // `valor_pago` TEM que vir: sem ele o total do filtro somava o valor cheio da nota
+      // e ignorava a baixa parcial — a dívida do fornecedor aparecia sempre inteira, mesmo
+      // com metade paga. Era o "o valor está errado de novo" que só acontecia filtrando.
+      .select('descricao, pessoa_nome, data_vencimento, data_competencia, valor, valor_pago, tipo, status, forma_pagamento, categoria, subcategoria, loja_id'))
       .range(from, to)
   )
   // Total do filtro: o dono leu "Pagar 55.043,28" como "estou devendo" quando o
@@ -113,10 +116,13 @@ export default async function FinanceiroPage({
   const restanteLinha = (l: { valor: number | null; valor_pago?: number | null }) =>
     (l.valor ?? 0) - (l.valor_pago ?? 0)
   const ehPendente = (l: { status: string | null }) => l.status === 'pendente'
+  // pago = quanto saiu de fato. `?? valor` cobre os caminhos antigos que marcam pago
+  // sem gravar valor_pago (OS e encomenda), onde o valor cheio é a melhor leitura.
+  const pagoLinha = (l: { valor: number | null; valor_pago?: number | null }) => l.valor_pago ?? l.valor ?? 0
   const fReceberPend = filtrados.filter((l) => l.tipo === 'receber' && ehPendente(l)).reduce((s, l) => s + restanteLinha(l), 0)
-  const fReceberPago = filtrados.filter((l) => l.tipo === 'receber' && l.status === 'pago').reduce((s, l) => s + (l.valor ?? 0), 0)
+  const fReceberPago = filtrados.filter((l) => l.tipo === 'receber' && l.status === 'pago').reduce((s, l) => s + pagoLinha(l), 0)
   const fPagarPend = filtrados.filter((l) => l.tipo === 'pagar' && ehPendente(l)).reduce((s, l) => s + restanteLinha(l), 0)
-  const fPagarPago = filtrados.filter((l) => l.tipo === 'pagar' && l.status === 'pago').reduce((s, l) => s + (l.valor ?? 0), 0)
+  const fPagarPago = filtrados.filter((l) => l.tipo === 'pagar' && l.status === 'pago').reduce((s, l) => s + pagoLinha(l), 0)
   const fReceber = fReceberPend + fReceberPago
   const fPagar = fPagarPend + fPagarPago
   const fCount = filtrados.length
