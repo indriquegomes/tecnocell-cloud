@@ -4,6 +4,7 @@ import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { logAtividade } from '@/lib/log-atividade'
 import { palavrasBusca, aplicaBusca } from '@/lib/busca-produtos'
+import { abaterNaDivida } from '@/lib/abater-divida'
 
 // TROCAS COM FORNECEDOR (garantia / RMA)
 //
@@ -275,66 +276,7 @@ export async function excluirTroca(formData: FormData): Promise<{ ok: boolean; e
  * Nada disso mexe em estoque (a peça já saiu como 'troca') nem em saldo de conta
  * (abatimento não é dinheiro saindo).
  */
-/**
- * Abate `valor` na dívida pendente do fornecedor DA LOJA informada, da nota mais
- * antiga para a mais nova. O que sobrar sem dívida vira crédito (linha negativa).
- * Usado pelo abatimento de uma peça e pelo abatimento em grupo.
- */
-async function abaterNaDivida(
-  supabase: SB,
-  fornecedorNome: string,
-  lojaId: string | null,
-  valor: number,
-  descricaoCredito: string,
-): Promise<{ ok: boolean; erro?: string; credito: number }> {
-  let qPend = supabase.from('lancamentos')
-    .select('id, valor, valor_pago, descricao, data_vencimento')
-    .eq('tipo', 'pagar').eq('status', 'pendente').eq('pessoa_nome', fornecedorNome)
-  if (lojaId) qPend = qPend.eq('loja_id', lojaId)
-  const { data: pendentes, error: erroPend } = await qPend.order('data_vencimento', { ascending: true })
-  if (erroPend) return { ok: false, erro: erroPend.message, credito: 0 }
 
-  let falta = valor
-  for (const p of pendentes ?? []) {
-    if (falta <= 0.005) break
-    const valorNota = Number(p.valor ?? 0)
-    if (valorNota <= 0) continue              // linha de crédito já existente
-    const restante = Math.round((valorNota - Number(p.valor_pago ?? 0)) * 100) / 100
-    if (restante <= 0.005) continue
-    const abater = Math.min(restante, falta)
-    const novoValor = Math.round((valorNota - abater) * 100) / 100
-    const { error } = await supabase.from('lancamentos').update({
-      valor: novoValor,
-      // zerou a nota: sai da lista de pendentes sem inventar pagamento
-      status: novoValor <= 0.005 ? 'cancelado' : 'pendente',
-      descricao: `${p.descricao ?? 'Mercadoria'} (abateu ${abater.toFixed(2).replace('.', ',')} de troca)`,
-      updated_at: new Date().toISOString(),
-    }).eq('id', p.id)
-    if (error) return { ok: false, erro: `Não deu pra abater em ${p.descricao ?? 'nota'}: ${error.message}`, credito: 0 }
-    falta = Math.round((falta - abater) * 100) / 100
-  }
-
-  let credito = 0
-  if (falta > 0.005) {
-    credito = falta
-    const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-    const { error } = await supabase.from('lancamentos').insert({
-      descricao: descricaoCredito,
-      valor: -credito,
-      tipo: 'pagar',
-      status: 'pendente',
-      categoria: 'Mercadoria',
-      pessoa_nome: fornecedorNome,
-      loja_id: lojaId,
-      conta_id: null,
-      data_competencia: hoje,
-      data_vencimento: hoje,
-      updated_at: new Date().toISOString(),
-    })
-    if (error) return { ok: false, erro: `Abatimento aplicado, mas o crédito de ${credito.toFixed(2)} não gravou: ${error.message}`, credito: 0 }
-  }
-  return { ok: true, credito }
-}
 
 /**
  * Perda vira despesa de verdade (categoria 'Perda'). Sem isso o custo da peça

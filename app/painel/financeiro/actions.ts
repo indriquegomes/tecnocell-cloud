@@ -6,6 +6,7 @@ import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { logAtividade } from '@/lib/log-atividade'
 import { registrarNoCaixa, retirarDoCaixa, lojaDoLancamento } from '@/lib/caixa'
 import { contaDaForma } from '@/lib/conta-da-forma'
+import { abaterNaDivida } from '@/lib/abater-divida'
 import { travarSeMesFechado } from '@/lib/fechamento'
 import { hojeSP } from '@/lib/utils'
 import { SETORES } from '@/lib/financeiro-setores'
@@ -159,7 +160,7 @@ export async function marcarPago(id: string, formData?: FormData) {
   const supabase = await createServiceClient()
   const { data: antes, error: erroAntes } = await supabase
     .from('lancamentos')
-    .select('valor, valor_pago, forma_pagamento, pessoa_nome, tipo, data_vencimento, conta_id, loja_id')
+    .select('valor, valor_pago, forma_pagamento, pessoa_nome, tipo, data_vencimento, conta_id, loja_id, descricao, categoria')
     .eq('id', id)
     .maybeSingle()
   // Sem essa checagem, uma falha na consulta virava "antes = undefined" e o
@@ -300,6 +301,32 @@ export async function marcarPago(id: string, formData?: FormData) {
     if (!ret.ok && ret.erro && ret.erro.startsWith('A gaveta tem')) {
       redirect(`/painel/financeiro?erro=${encodeURIComponent(ret.erro)}`)
     }
+  }
+
+  // PAGAMENTO DE MERCADORIA ABATE A NOTA DO FORNECEDOR.
+  // Pagar criava uma linha própria e deixava a nota pendente para sempre: a dívida do
+  // fornecedor não acompanhava o dinheiro que saiu (foi o caso da ADL, que aparecia com
+  // 26.812,48 quando já tinha 7.355,60 pago). Aqui o valor pago encolhe a nota mais
+  // antiga em aberto — a MESMA régua do abatimento de troca (lib/abater-divida.ts).
+  // Só para compra de mercadoria: pagar frete, aluguel ou salário não abate nota.
+  // A própria nota (linha "COMPRA MERCADORIA - NOTA n") fica de fora — marcar a nota
+  // como paga já a tira do pendente, abater de novo contaria duas vezes.
+  const linhaAntes = antes as { descricao?: string | null; categoria?: string | null; pessoa_nome?: string | null } | null
+  const ehNota = /COMPRA MERCADORIA/i.test(linhaAntes?.descricao ?? '')
+  const pessoaDoPagamento = linhaAntes?.pessoa_nome ?? null
+  if (faltava > 0 && antes?.tipo === 'pagar' && !ehNota && pessoaDoPagamento && (linhaAntes?.categoria ?? '') === 'Mercadoria') {
+    const lojaId = await lojaDoLancamento(supabase, id)
+    const r = await abaterNaDivida(
+      supabase,
+      pessoaDoPagamento,
+      lojaId,
+      Math.round(faltava * 100) / 100,
+      `Crédito de pagamento — ${linhaAntes?.descricao ?? 'mercadoria'}`,
+      'pagamento',
+    )
+    // Falha aqui não desfaz o pagamento (o dinheiro saiu de verdade). Avisa o operador
+    // para conferir a nota na mão, em vez de a dívida ficar errada em silêncio.
+    if (!r.ok) redirect(`/painel/financeiro?erro=${encodeURIComponent('Pagamento registrado, mas a baixa na nota não foi aplicada: ' + (r.erro ?? 'erro desconhecido'))}`)
   }
 
   revalidatePath('/painel/financeiro')
