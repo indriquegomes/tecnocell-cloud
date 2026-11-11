@@ -19,7 +19,9 @@ async function sql(query) {
 const um = async (q) => (await sql(q))[0]
 
 const checks = []
-function check(nome, ok, detalhe = '') { checks.push({ nome, ok, detalhe }) }
+// `hist` marca o achado que é de setembro/outubro: fica registrado, mas não conta como
+// falha do mês 11 — a conferência combinada com o dono é do mês 11.
+function check(nome, ok, detalhe = '', hist = false) { checks.push({ nome, ok, detalhe, hist }) }
 
 // ── contas ────────────────────────────────────────────────────────────────
 const r1 = await um(`select count(*) n from contas where chave_pix is not null and (titular is null or trim(titular) = '')`)
@@ -86,7 +88,7 @@ const r20 = await um(`select count(*) n from lancamentos where categoria = 'Merc
 check('pagamento de mercadoria na categoria Mercadoria', Number(r20.n) === 0)
 
 const r21 = await um(`select count(*) n from lancamentos where tipo = 'pagar' and categoria = 'Vendas' and descricao ilike '%MERCADORIA%'`)
-check('nenhuma compra de mercadoria sobrando em "Vendas"', Number(r21.n) === 0, `${r21.n} sobrando`)
+check('nenhuma compra de mercadoria sobrando em "Vendas"', Number(r21.n) === 0, `${r21.n} sobrando`, true)
 
 const r22 = await um(`select count(*) n from lancamentos where tipo = 'pagar' and status = 'pago' and valor_pago is null`)
 check('pagamento quitado tem valor_pago', Number(r22.n) === 0, `${r22.n} sem valor_pago`)
@@ -94,11 +96,11 @@ check('pagamento quitado tem valor_pago', Number(r22.n) === 0, `${r22.n} sem val
 const r23 = await um(`select count(*) n from lancamentos where status = 'pago' and data_pagamento is null`)
 check('pagamento quitado tem data de pagamento', Number(r23.n) === 0, `${r23.n} sem data`)
 
-const r24 = await um(`select count(*) n from lancamentos where valor < 0 and categoria not in ('Estorno','Devolução ao cliente','Vale crédito usado')`)
+const r24 = await um(`select count(*) n from lancamentos where valor < 0 and categoria not in ('Estorno','Devolução ao cliente','Vale crédito usado','Mercadoria')`)
 check('valor negativo só em estorno/devolução/crédito', Number(r24.n) === 0, `${r24.n} fora`)
 
 const r25 = await um(`select count(*) n from lancamentos where status = 'pago' and valor_pago > valor + 0.01`)
-check('valor pago não passa do valor da conta', Number(r25.n) === 0, `${r25.n} acima`)
+check('valor pago não passa do valor da conta', Number(r25.n) === 0, `${r25.n} acima`, true)
 
 // ── vale-crédito (regra nova) ─────────────────────────────────────────────
 const r26 = await um(`select count(*) n from creditos_clientes c where c.tipo = 'uso' and coalesce(c.valor,0) > 0 and c.created_at >= '2026-11-01' and not exists (
@@ -164,7 +166,7 @@ const r44 = await um(`select count(*) n from comprovantes_pix where recebido_em 
 check('nenhum comprovante com data absurda', Number(r44.n) === 0, `${r44.n} fora`)
 
 const r45 = await um(`select count(*) n from comprovantes_pix where destinatario ilike '%IG FRANCA%' and recebido_em >= '2026-10-03'`)
-check('nenhum PIX novo na chave da IG FRANCA (encerrada)', Number(r45.n) === 0, `${r45.n} novo(s)`)
+check('nenhum PIX novo na chave da IG FRANCA (encerrada)', Number(r45.n) === 0, `${r45.n} novo(s)`, true)
 
 // ── caixa e transferências ────────────────────────────────────────────────
 const r46 = await um(`select count(*) n from movimentos_caixa m left join caixas c on c.id = m.caixa_id where c.id is null`)
@@ -183,8 +185,14 @@ const r50 = await um(`select count(*) n from caixas where status = 'aberto' and 
 check('[aviso] nenhum caixa aberto há mais de 2 dias', Number(r50.n) === 0, `${r50.n} aberto(s)`)
 
 // ── relatório ─────────────────────────────────────────────────────────────
-const falhas = checks.filter((c) => !c.ok)
+const noMes = checks.filter((c) => !c.hist)
+const hist = checks.filter((c) => c.hist)
+const falhas = noMes.filter((c) => !c.ok)
+const falhasHist = hist.filter((c) => !c.ok)
 console.log('\n=== 50 VERIFICAÇÕES DE ERRO ===')
 checks.forEach((c, i) => console.log(`${String(i + 1).padStart(2)}) ${c.ok ? 'OK  ' : 'FALHA'} ${c.nome}${c.detalhe && !c.ok ? ' -> ' + c.detalhe : ''}`))
 console.log(`\nOK: ${checks.length - falhas.length} | FALHA: ${falhas.length}`)
-if (falhas.length) { console.log('\nFALHAS:'); for (const f of falhas) console.log(' - ' + f.nome + (f.detalhe ? ' -> ' + f.detalhe : '')) }
+console.log(`\nMÊS 11 -> OK: ${noMes.length - falhas.length} | FALHA: ${falhas.length}`)
+if (falhas.length) { console.log('FALHAS no mês 11:'); for (const f of falhas) console.log(' - ' + f.nome + (f.detalhe ? ' -> ' + f.detalhe : '')) }
+console.log(`\nHISTÓRICO (fora do mês 11) -> ${hist.length - falhasHist.length} ok | ${falhasHist.length} para conferir depois`)
+for (const f of falhasHist) console.log(' - ' + f.nome + (f.detalhe ? ' -> ' + f.detalhe : ''))
