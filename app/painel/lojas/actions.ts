@@ -11,6 +11,11 @@ function campos(formData: FormData) {
     nome: (formData.get('nome') as string)?.trim() || '',
     razao_social: txt('razao_social'),
     cnpj: txt('cnpj'),
+    // ficha da empresa: separa custo por CNPJ quando cada loja tem o seu
+    nome_fantasia: txt('nome_fantasia'),
+    natureza_juridica: txt('natureza_juridica'),
+    data_abertura: txt('data_abertura'),
+    cnae_principal: txt('cnae_principal'),
     inscricao_estadual: txt('inscricao_estadual'),
     inscricao_municipal: txt('inscricao_municipal'),
     matriz_id: txt('matriz_id'),

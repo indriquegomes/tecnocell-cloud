@@ -10,6 +10,7 @@ const UFS = ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','P
 type Opcao = { id: string; nome: string }
 export type LojaEdit = {
   id: string; nome: string; razao_social: string | null; cnpj: string | null; inscricao_estadual: string | null
+  nome_fantasia: string | null; natureza_juridica: string | null; data_abertura: string | null; cnae_principal: string | null
   inscricao_municipal: string | null; matriz_id: string | null
   telefone: string | null; whatsapp: string | null; email: string | null
   cep: string | null; endereco: string | null; numero: string | null; complemento: string | null
@@ -62,6 +63,22 @@ export function LojaForm({ editando, depositos = [], contas = [], tabelas = [], 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Razão Social</label>
             <input name="razao_social" defaultValue={editando?.razao_social ?? ''} className="field" placeholder="TecnoCell Comércio de Celulares LTDA" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Nome fantasia da empresa</label>
+            <input name="nome_fantasia" defaultValue={editando?.nome_fantasia ?? ''} className="field" placeholder="Nome comercial" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Natureza jurídica</label>
+            <input name="natureza_juridica" defaultValue={editando?.natureza_juridica ?? ''} className="field" placeholder="Ex.: 206-2 - Sociedade Empresária Limitada" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Data de abertura</label>
+            <input name="data_abertura" type="date" defaultValue={editando?.data_abertura ?? ''} className="field" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Atividade principal (CNAE)</label>
+            <input name="cnae_principal" defaultValue={editando?.cnae_principal ?? ''} className="field" placeholder="Ex.: 4752-1/00 - Comércio varejista de telefonia" />
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">CNPJ</label>
