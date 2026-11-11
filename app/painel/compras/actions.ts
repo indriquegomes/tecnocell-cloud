@@ -2,6 +2,7 @@
 
 import { createServiceClient, requirePermissaoAny } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
+import crypto from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { IMEI_ATIVO } from '@/lib/imei'
@@ -58,7 +59,14 @@ export async function receberNota(id: string) {
   }
 
   // fornecedor da nota — usado pra ligar cada produto ao fornecedor certo ao receber
-  const { data: notaEntrada } = await supabase.from('notas_entrada').select('fornecedor_id').eq('id', id).maybeSingle()
+  const { data: notaEntrada } = await supabase
+    .from('notas_entrada')
+    .select('numero, valor_total, fornecedor_id, data_emissao, data_entrada')
+    .eq('id', id).maybeSingle()
+
+  // Loja que recebeu: vem do depósito do primeiro item. É lida ANTES do RPC porque a
+  // entrada pode mexer nos itens; depois só sobraria chutar a loja.
+  const lojaRecebida = await lojaDaNota(supabase, id)
 
   // entrada atômica no estoque + IMEIs + atualiza custo do produto (tudo ou nada)
   const { error } = await supabase.rpc('receber_nota_entrada', { p_nota_id: id })
@@ -75,9 +83,73 @@ export async function receberNota(id: string) {
     }
   }
 
+  // A COMPRA VIROU DÍVIDA. Receber a mercadoria tem que criar a conta a pagar do
+  // fornecedor: sem isso o estoque sobe e a dívida não nasce, e o Financeiro passa a
+  // mostrar só o que alguém lembrou de digitar à mão.
+  await lancarDividaDaNota(supabase, notaEntrada, lojaRecebida)
+
   revalidatePath('/painel/compras')
   revalidatePath(`/painel/compras/${id}`)
   revalidatePath('/painel/estoque')
+  revalidatePath('/painel/financeiro')
+}
+
+// Loja dona do depósito que recebeu a nota (null quando a nota ainda não tem item).
+async function lojaDaNota(
+  supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  notaId: string,
+): Promise<string | null> {
+  const { data: item } = await supabase
+    .from('itens_nota_entrada').select('deposito_id').eq('nota_id', notaId).limit(1).maybeSingle()
+  const deposito = (item as { deposito_id?: string | null } | null)?.deposito_id
+  if (!deposito) return null
+  const { data: dep } = await supabase.from('depositos').select('loja_id').eq('id', deposito).maybeSingle()
+  return (dep as { loja_id?: string | null } | null)?.loja_id ?? null
+}
+
+// Cria a conta a pagar da nota recebida.
+// IDEMPOTENTE de propósito: se já existe lançamento a pagar com a mesma descrição para
+// o mesmo fornecedor, não cria outro. Receber a nota duas vezes não pode dobrar a
+// dívida — e nota que já foi lançada à mão também não ganha uma segunda linha.
+async function lancarDividaDaNota(
+  supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  nota: { numero: string | null; valor_total: number | null; fornecedor_id: string | null; data_emissao: string | null; data_entrada: string | null } | null,
+  lojaId: string | null,
+) {
+  if (!nota) return
+  const valor = Number(nota.valor_total ?? 0)
+  if (valor <= 0) return   // nota sem item lançado não gera dívida
+
+  const descricao = `COMPRA MERCADORIA - NOTA ${nota.numero}`
+  const busca = supabase.from('lancamentos').select('id').eq('tipo', 'pagar').eq('descricao', descricao)
+  const { data: ja } = nota.fornecedor_id
+    ? await busca.eq('pessoa_id', nota.fornecedor_id).maybeSingle()
+    : await busca.is('pessoa_id', null).maybeSingle()
+  if (ja) return
+
+  const { data: fornecedor } = nota.fornecedor_id
+    ? await supabase.from('pessoas').select('nome').eq('id', nota.fornecedor_id).maybeSingle()
+    : { data: null }
+
+  const dia = nota.data_emissao ?? nota.data_entrada ?? hojeSP()
+  const { error } = await supabase.from('lancamentos').insert({
+    id: crypto.randomUUID(),
+    descricao,
+    valor,
+    tipo: 'pagar',
+    categoria: 'Mercadoria',
+    pessoa_nome: (fornecedor as { nome?: string } | null)?.nome ?? null,
+    pessoa_id: nota.fornecedor_id ?? null,
+    loja_id: lojaId,
+    data_competencia: dia,
+    data_vencimento: dia,
+    status: 'pendente',
+    valor_pago: 0,
+    updated_at: new Date().toISOString(),
+  })
+  // Falha aqui não desfaz o estoque (já entrou) — então avisa no log do servidor,
+  // que é onde a equipe olha quando um número do Financeiro não aparece.
+  if (error) console.error('receberNota: conta a pagar da nota', nota.numero, 'não foi criada:', error.message)
 }
 
 // Salva a lista de IMEIs digitados/lidos pra um item da nota (produto
