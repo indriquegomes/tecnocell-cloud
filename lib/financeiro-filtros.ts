@@ -22,6 +22,8 @@ export type ParamsFinanceiro = {
   pessoa?: string; forma?: string; conta?: string; categoria?: string; subcategoria?: string
   setor?: string; valor_min?: string; valor_max?: string; origem?: string
   loja?: string; tudo?: string; pagina?: string; agrupar?: string
+  /** ids do cadastro que casam com `pessoa` — ver comentário no filtro de pessoa */
+  pessoa_ids?: string[]
 }
 
 export const CAMPOS_DATA = ['data_vencimento', 'data_competencia', 'data_pagamento']
@@ -62,7 +64,17 @@ export function aplicarFiltros(q: any, params: ParamsFinanceiro, ctx: { lojaEfet
       q = q.or(`descricao.ilike.%${padrao}%,pessoa_nome.ilike.%${padrao}%,categoria.ilike.%${padrao}%`)
     }
   }
-  if (params.pessoa) q = q.ilike('pessoa_nome', `%${params.pessoa}%`)
+  // Filtro de pessoa: o nome está gravado como TEXTO em cada lançamento, e o cadastro
+  // pode ter sido renomeado depois. Filtrar só pelo texto deixava de fora tudo que foi
+  // lançado depois da renomeação — o "A pagar pendente" do fornecedor aparecia menor do
+  // que é quando o link usava o nome antigo. Por isso casa pelo cadastro (pessoa_id)
+  // também: texto OU id.
+  if (params.pessoa) {
+    const partes = [`pessoa_nome.ilike.%${params.pessoa}%`]
+    const ids = (params.pessoa_ids ?? []).filter((x) => /^[0-9a-zA-Z-]+$/.test(x))
+    if (ids.length) partes.push(`pessoa_id.in.(${ids.join(',')})`)
+    q = q.or(partes.join(','))
+  }
   if (params.forma) q = q.eq('forma_pagamento', params.forma)
   if (params.conta) q = q.eq('conta_id', params.conta)
   if (params.categoria) q = q.eq('categoria', params.categoria)

@@ -48,7 +48,14 @@ export default async function FinanceiroPage({
   // Filtros completos e período vêm de lib/financeiro-filtros.ts (mesma regra usada
   // pela rota de exportação — filtro duplicado é filtro que divergiu).
   const { mesIni, mesFim, verTudo } = periodoDe(params)
-  const aplica = (q: unknown) => aplicarFiltros(q, params, { lojaEfetiva })
+  // Nome do cadastro que casa com o filtro: serve para o filtro achar também o que foi
+  // lançado DEPOIS de uma renomeação (o nome fica gravado como texto no lançamento).
+  const paramsFiltro = params as typeof params & { pessoa_ids?: string[] }
+  if (params.pessoa) {
+    const { data: casam } = await supabase.from('pessoas').select('id').ilike('nome', `%${params.pessoa}%`).limit(50)
+    paramsFiltro.pessoa_ids = ((casam ?? []) as { id: string }[]).map((p) => p.id)
+  }
+  const aplica = (q: unknown) => aplicarFiltros(q, paramsFiltro, { lojaEfetiva })
   const temFiltro = !!(params.busca || params.pessoa || params.forma || params.conta || params.categoria || params.subcategoria || params.setor || params.origem || params.vence || params.valor_min || params.valor_max || params.status || params.de || params.ate || params.tipo)
 
   const ordemAtual = params.ordem ?? 'data_vencimento'
