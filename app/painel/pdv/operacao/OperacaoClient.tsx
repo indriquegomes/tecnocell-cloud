@@ -4,6 +4,7 @@ import { Spinner } from '@/components/Spinner'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
 import { useActionState, useState, useEffect } from 'react'
 import Link from 'next/link'
+import { AjudaFechamento } from './AjudaFechamento'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { labelTipoPagamento } from '@/lib/formas-pagamento'
@@ -805,9 +806,12 @@ function FecharCaixaPanel({
   if (etapa === 'resumo') {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-        <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Fechamento de Caixa</p>
-          <p className="text-sm text-gray-500 mt-0.5">Cada forma se confere no seu lugar — a contagem da gaveta é só o dinheiro</p>
+        <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Fechamento de Caixa</p>
+            <p className="text-sm text-gray-500 mt-0.5">Cada forma se confere no seu lugar — a contagem da gaveta é só o dinheiro</p>
+          </div>
+          <AjudaFechamento />
         </div>
 
         {/* Dinheiro a separar no envelope: gaveta − troco que fica. Os outros
