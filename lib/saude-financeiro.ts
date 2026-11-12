@@ -1,5 +1,5 @@
 import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server'
-import { hojeSP, formatBRL } from '@/lib/utils'
+import { hojeSP, formatBRL, normalizarUsuario } from '@/lib/utils'
 import { dinheiroNaGaveta, ehDinheiro, faltaPagarOuReceber, pagoReal, type Lancamento } from '@/lib/financeiro-regras'
 
 // O CONFERENTE AUTOMÁTICO.
@@ -62,9 +62,9 @@ export async function auditarFinanceiro(supabase: SB): Promise<Achado[]> {
   // Pagamentos e movimentos vêm pela janela de created_at, não por lista de ids:
   // .in() com milhares de ids virava dezenas de requisições e a tela demorava.
   const [lancamentos, perfis, vendas, caixas, devolucoes, estoque, pagamentos, movimentos, formas] = await Promise.all([
-    fetchAll<Lancamento & { id: string; loja_id: string | null; pessoa_nome: string | null; pessoa_id: string | null; venda_id: string | null; descricao: string | null }>(
+    fetchAll<Lancamento & { id: string; loja_id: string | null; pessoa_nome: string | null; pessoa_id: string | null; venda_id: string | null; descricao: string | null; categoria: string | null }>(
       (from, to) => supabase.from('lancamentos')
-        .select('id, tipo, status, valor, valor_pago, data_pagamento, data_vencimento, loja_id, pessoa_nome, pessoa_id, venda_id, descricao')
+        .select('id, tipo, status, valor, valor_pago, data_pagamento, data_vencimento, loja_id, pessoa_nome, pessoa_id, venda_id, descricao, categoria')
         .order('id').range(from, to)),
     fetchAll<{ nome: string | null; pdv_loja_id: string | null }>(
       (from, to) => supabase.from('perfis').select('nome, pdv_loja_id').order('id').range(from, to)),
@@ -135,11 +135,21 @@ export async function auditarFinanceiro(supabase: SB): Promise<Achado[]> {
     lancamentos.filter((l) => l.status !== 'pago' && !!l.data_pagamento)
       .map((l) => ({ valor: Number(l.valor ?? 0), rotulo: nome(l) }))))
 
+  // Valor zero ou negativo tem DUAS exceções que são o padrão do próprio app, não
+  // erro: nota zerada pelo abatimento fica com valor 0 E status 'cancelado'
+  // (lib/abater-divida.ts), e crédito com fornecedor é uma linha de Mercadoria com
+  // valor negativo. Sem separar isso, a conferência acusava a convenção do sistema
+  // e escondia a anomalia de verdade: recebível "pago" com valor zero.
   out.push(achado('valor_zero', 'Lançamento com valor zero ou negativo',
-    'Lançamento de dinheiro tem valor maior que zero.',
-    'Linha sem valor não é dívida nem receita; não deveria existir.',
+    'Lançamento de dinheiro tem valor maior que zero — exceto nota quitada por abatimento e crédito de fornecedor.',
+    'Linha sem valor não é dívida nem receita. Zerada e cancelada é o abatimento que quitou a nota; negativa em Mercadoria é crédito com o fornecedor.',
     'erro',
-    lancamentos.filter((l) => Number(l.valor ?? 0) <= 0)
+    lancamentos.filter((l) => {
+      const v = Number(l.valor ?? 0)
+      if (v === 0) return l.status !== 'cancelado'
+      if (v < 0) return !normalizarUsuario(l.categoria ?? '').includes('mercadoria')
+      return false
+    })
       .map((l) => ({ valor: 0, rotulo: nome(l) }))))
 
   out.push(achado('pago_maior', 'Pagou mais do que devia',

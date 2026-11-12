@@ -44,6 +44,23 @@ MEI (item 9 das pendências, abaixo).
 (12 + 82 + 4 + 23 + 81) · `scripts/teste-ponto-sequencia.mjs` = 10/10 e limpeza
 confirmada · migration aplicada e conferida no banco.
 
+**Dívida de fornecedor x planilha do dono (12/11):** fecha em **111.442,26**
+(ADL 27.463,68 · PLANETA 12.555,96 · H2O 32.489,12 · ZL 3.689,80 · INOVA 35.243,70).
+Dois consertos no caminho: a categoria `fornecedor/mercadoria` (sem espaço) segurava
+abatimento de 1.260,50, e as 12 notas pendentes que ainda baixavam por `valor_pago`
+foram convertidas para a régua da nota encolhida. Registro completo em
+`docs/registros/2026-11/baixa-de-pagamento-em-nota.md`.
+
+**Auditoria do Saúde mais honesta (12/11):** a regra "lançamento com valor zero ou
+negativo" acusava a convenção do próprio app (nota zerada e cancelada pelo abatimento,
+e crédito de fornecedor em Mercadoria negativo). Passou a ignorar os dois casos e a
+acusar só o que é anomalia: **53 recebíveis marcados como pagos com valor zero**
+(51 de agosto–outubro, 2 de novembro — vendas #12266 e #12391, pagas cheias, com
+"a receber" de 0,00 criado junto).
+
+**Foco combinado com o dono:** outubro está fora do processo ("já foi pago, valor
+pequeno, irrelevante"); o alvo é **fechar novembro sem erro para o mês 12 não herdar**.
+
 ## Rodada de 07/11 — não commitada na época
 
 Feita depois do deploy, **no disco e sem commit** (aguardando o dono):
