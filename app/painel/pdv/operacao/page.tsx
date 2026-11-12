@@ -4,38 +4,14 @@ import { hojeSP } from '@/lib/utils'
 import { pixSemComprovante } from '@/lib/pix-pendentes'
 import { agruparPorDestino, casarFornecedor, ehContaPropria, normNome, separarComprovantes, type ChavePixRef, type DestinoNaTela, type FornecedorRef, type PixAvisos } from '@/lib/pix-destinos'
 import { carregarDevolucoesCaixa, aplicarEstornosPix } from '@/lib/devolucoes-caixa'
+import { grupoDoTelegram } from '@/lib/pix-do-dia'
 import { OperacaoClient } from './OperacaoClient'
 
 // PIX do dia agrupado por QUEM RECEBEU — a conferência que o dono faz no Telegram,
 // só que já somada e ligada ao cadastro. O app não fala com o Telegram: o bot grava
 // cada comprovante em `comprovantes_pix` e aqui a gente só lê e agrupa.
-// Grupo do Telegram por loja: o bot identifica a loja pelo nome de quem abriu o
-// caixa no grupo (`pix_periodos.aberto_por`). Sem migration, sem cadastro novo —
-// e se um dia a loja trocar de grupo, a tela acompanha sozinha.
-async function grupoDoTelegram(
-  supabase: Awaited<ReturnType<typeof createServiceClient>>,
-  nomeLoja: string,
-): Promise<number | null> {
-  const alvo = normNome(nomeLoja)
-  if (!alvo) return null
-  const { data } = await supabase
-    .from('pix_periodos')
-    .select('telegram_chat_id, aberto_por, aberto_em')
-    .order('aberto_em', { ascending: false })
-    .limit(120)
-  const conta = new Map<number, number>()
-  for (const p of data ?? []) {
-    const quem = normNome(p.aberto_por)
-    if (!quem) continue
-    if (alvo.length >= 6 && (quem.includes(alvo) || alvo.includes(quem.replace('TECNOCELL ', '')))) {
-      conta.set(p.telegram_chat_id as number, (conta.get(p.telegram_chat_id as number) ?? 0) + 1)
-    }
-  }
-  let melhor: number | null = null
-  let vistos = 0
-  for (const [chat, n] of conta) if (n > vistos) { vistos = n; melhor = chat }
-  return melhor
-}
+// O grupo por loja vem de lib/pix-do-dia.ts (mesma regra que o fechamento usa para dar
+// baixa automática): duas cópias da mesma busca já divergiram uma vez.
 
 
 export default async function OperacaoPDVPage({
