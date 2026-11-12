@@ -3,6 +3,7 @@
 import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
 import { TODAS_PERMISSOES } from '@/lib/permissoes'
 import { normalizarUsuario } from '@/lib/utils'
+import { vinculoEncerrado } from '@/lib/vinculo'
 import { revalidatePath } from 'next/cache'
 
 export type ActionResult = { ok: true; message: string } | { ok: false; message: string }
@@ -206,23 +207,43 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
     update.data_contrato_inicio = dataContratoInicio
   }
 
+  // ── DESLIGAMENTO ────────────────────────────────────────────────────────
+  // Data de demissão até hoje = desligado. Desligar não é apagar (o histórico
+  // de vendas, ponto e salário pago fica no nome da pessoa); é sair de tudo que
+  // é de gente trabalhando, num ato só. Sem isso, "desligar" era uma sequência
+  // de cliques que ninguém garantia — bastava esquecer de zerar o salário e o
+  // desligado continuava entrando na folha e na escala.
+  const hojeSP = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  const desligado = vinculoEncerrado(dataDemissao, hojeSP)
+  if (desligado) {
+    update.ativo = false
+    update.salario = 0
+    update.clt_vale_transporte = 0
+  }
+
   const { error } = await supabase.from('perfis').update(update).eq('id', userId)
 
   if (error) return { ok: false, message: error.message }
 
   // Horários (escala semanal) — salva na MESMA tabela da aba Escala, assim
   // ficam vinculados. seg=1 .. dom=0 (mesma convenção de escalas.dia).
-  for (const dia of [1, 2, 3, 4, 5, 6, 0]) {
-    const entrada = (fd.get('horario_' + dia + '_entrada') as string) || ''
-    const saida = (fd.get('horario_' + dia + '_saida') as string) || ''
-    const folga = fd.getAll('horario_' + dia + '_folga').includes('1')
-    if (folga || !entrada || !saida) {
-      await supabase.from('escalas').delete().eq('perfil_id', userId).eq('dia', dia)
-    } else {
-      await supabase.from('escalas').upsert(
-        { perfil_id: userId, loja_id: null, dia, entrada, saida, ativo: true },
-        { onConflict: 'perfil_id,dia' },
-      )
+  // Desligado não tem grade: desativa os turnos em vez de recriar. Recontratado
+  // é só limpar a data de demissão, marcar ativo e salvar a grade de novo.
+  if (desligado) {
+    await supabase.from('escalas').update({ ativo: false }).eq('perfil_id', userId)
+  } else {
+    for (const dia of [1, 2, 3, 4, 5, 6, 0]) {
+      const entrada = (fd.get('horario_' + dia + '_entrada') as string) || ''
+      const saida = (fd.get('horario_' + dia + '_saida') as string) || ''
+      const folga = fd.getAll('horario_' + dia + '_folga').includes('1')
+      if (folga || !entrada || !saida) {
+        await supabase.from('escalas').delete().eq('perfil_id', userId).eq('dia', dia)
+      } else {
+        await supabase.from('escalas').upsert(
+          { perfil_id: userId, loja_id: null, dia, entrada, saida, ativo: true },
+          { onConflict: 'perfil_id,dia' },
+        )
+      }
     }
   }
 

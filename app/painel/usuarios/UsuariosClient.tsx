@@ -394,6 +394,7 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario }: { lojas: Loja[];
                   <input type="date" name="data_demissao" defaultValue={usuario.dataDemissao ?? ''} className="field w-full text-sm" />
                 </div>
               </div>
+              <p className="text-[11px] text-gray-500">Preenchendo a data de demissão, o desligamento é feito sozinho ao salvar: a pessoa sai da folha, da escala e do login. O histórico dela (vendas, ponto, salários pagos) continua guardado.</p>
               <div className="w-44">
                 <label className="mb-1 block text-xs font-medium text-gray-600">Vale transporte (R$)</label>
                 <CampoDinheiro name="clt_vale_transporte" defaultValue={Number(usuario.cltValeTransporte || 0)} className="text-sm" />
@@ -420,6 +421,7 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario }: { lojas: Loja[];
                 <input type="date" name="data_demissao" defaultValue={usuario.dataDemissao ?? ''} className="field w-full text-sm" />
               </div>
             </div>
+            <p className="text-[11px] text-gray-500">Preenchendo a data de fim, o desligamento é feito sozinho ao salvar: sai da folha, da escala e do login. O histórico continua guardado.</p>
             <div className="w-44">
               <label className="mb-1 block text-xs font-medium text-gray-600">Vale transporte (R$)</label>
               <CampoDinheiro name="clt_vale_transporte" defaultValue={Number(usuario.cltValeTransporte || 0)} className="text-sm" />

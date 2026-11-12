@@ -8,6 +8,7 @@ import { registrarNoCaixa, retirarDoCaixa, lojaDoLancamento } from '@/lib/caixa'
 import { contaDaForma } from '@/lib/conta-da-forma'
 import { abaterNaDivida } from '@/lib/abater-divida'
 import { pessoaIdPorNome } from '@/lib/pessoa-por-nome'
+import { vinculoEncerrado } from '@/lib/vinculo'
 import { travarSeMesFechado } from '@/lib/fechamento'
 import { hojeSP } from '@/lib/utils'
 import { SETORES } from '@/lib/financeiro-setores'
@@ -525,15 +526,18 @@ export async function gerarFolha(formData: FormData) {
 
   const { data } = await supabase
     .from('perfis')
-    .select('nome, salario, is_master, pdv_loja_id, lojas_permitidas, vinculo')
+    .select('nome, salario, is_master, pdv_loja_id, lojas_permitidas, vinculo, data_demissao')
     .eq('ativo', true)
     .gt('salario', 0)
   // Perfil de TREINAMENTO/TESTE nunca entra na folha: ele existe para a pessoa
   // treinar no sistema (gente nova ou de outra loja), não é funcionário da casa.
+  // Demitido também nunca entra, mesmo que o cadastro tenha sido reativado por
+  // engano com salário: data de demissão vencida fecha a folha dele.
+  const hojeFolha = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
   const perfis = ((data ?? []) as {
     nome: string; salario: number | null; is_master: boolean | null; pdv_loja_id: string | null
-    lojas_permitidas: string[] | null; vinculo: string | null
-  }[]).filter((p) => !p.is_master && p.vinculo !== 'treinamento')
+    lojas_permitidas: string[] | null; vinculo: string | null; data_demissao: string | null
+  }[]).filter((p) => !p.is_master && p.vinculo !== 'treinamento' && !vinculoEncerrado(p.data_demissao, hojeFolha))
 
   // Evita duplicar se clicar 2x no mesmo vencimento: pula quem já tem salário
   // naquela data (pago ou pendente).

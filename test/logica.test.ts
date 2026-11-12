@@ -4,6 +4,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import { ehFeriadoNacional } from '@/lib/acesso'
+import { vinculoEncerrado } from '@/lib/vinculo'
 import { min, hhmm, turnosDoDia, trabalhadoDoDia, furosDoDia, horasTexto, type Escala, type Excecao, type Ponto } from '@/lib/escala'
 import { mesFechado, dataEmMesFechado, travarSeMesFechado } from '@/lib/fechamento'
 import { ultimoDiaUtil, ehUltimoDiaUtil } from '@/lib/dia-util'
@@ -299,4 +300,27 @@ test('setor: categoria fora do cadastro cai em "sem categoria"', () => {
   // por isso o Financeiro mostra comissão em "Sem categoria".
   assert.equal(setorDaCategoria('Comissão').chave, 'sem_categoria')
   assert.equal(setorDaCategoria(null).chave, 'sem_categoria')
+})
+// ── Desligamento ───────────────────────────────────────────────────────────
+// Desligar não apaga: a data de demissão é o que tira a pessoa da folha, da
+// escala e do ponto, e o histórico fica.
+
+test('vinculo: sem data de demissão continua ativo', () => {
+  assert.equal(vinculoEncerrado(null, '2026-11-12'), false)
+  assert.equal(vinculoEncerrado(undefined, '2026-11-12'), false)
+  assert.equal(vinculoEncerrado('', '2026-11-12'), false)
+})
+
+test('vinculo: demissão até hoje encerra', () => {
+  assert.equal(vinculoEncerrado('2026-10-21', '2026-11-12'), true)
+  assert.equal(vinculoEncerrado('2026-11-12', '2026-11-12'), true, 'no dia da demissão já está fora')
+})
+
+test('vinculo: demissão futura não encerra (aviso prévio)', () => {
+  assert.equal(vinculoEncerrado('2026-11-30', '2026-11-12'), false)
+})
+
+test('vinculo: aceita timestamptz do banco e compara só a data', () => {
+  assert.equal(vinculoEncerrado('2026-10-21T00:00:00+00:00', '2026-11-12'), true)
+  assert.equal(vinculoEncerrado('2026-12-01T03:00:00+00:00', '2026-11-12'), false)
 })

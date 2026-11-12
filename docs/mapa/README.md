@@ -21,6 +21,8 @@
   documento novo.
 - `metas-e-comissao.md` — as quatro fontes de configuração de meta e comissão,
   como a tela Financeiro → Comissão calcula e as fragilidades conhecidas.
+- `funcionarios-desligamento.md` — desligar não apaga: o que o app desliga
+  sozinho quando a data de demissão é preenchida, e o que continua guardado.
 
 ## Fila de escrita (sugestão de ordem)
 

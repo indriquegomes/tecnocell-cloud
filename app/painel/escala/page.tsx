@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { EscalaClient } from './EscalaClient'
 import { semanaDe, turnosDoDia, furosDoDia, horasPorPessoa, trabalhadoDoDia, type Escala, type Excecao, type Ponto } from '@/lib/escala'
+import { vinculoEncerrado } from '@/lib/vinculo'
 
 export default async function EscalaPage({
   searchParams,
@@ -19,7 +20,7 @@ export default async function EscalaPage({
   const ultimo = dias[dias.length - 1].data
 
   const [perfisRes, escalasRes, excecoesRes, lojasRes, pontosRes] = await Promise.all([
-    supabase.from('perfis').select('id, nome, cargo_id, cor_escala, lojas_permitidas').eq('ativo', true).order('nome'),
+    supabase.from('perfis').select('id, nome, cargo_id, cor_escala, lojas_permitidas, data_demissao').eq('ativo', true).order('nome'),
     supabase.from('escalas').select('*').eq('ativo', true),
     supabase.from('escala_excecoes').select('*').gte('data', primeiro).lte('data', ultimo),
     supabase.from('lojas').select('id, nome').eq('ativa', true).order('nome'),
@@ -35,7 +36,11 @@ export default async function EscalaPage({
   const lojaAtivaId = (loja && lojas.some((l) => l.id === loja) ? loja : lojas[0]?.id) ?? null
 
   // separa por loja: perfil pertence à loja (lojas_permitidas vazio = dono/master = vê todas)
-  const todosPerfis = (perfisRes.data ?? []) as { id: string; nome: string; cargo_id: string | null; cor_escala: string | null; lojas_permitidas: string[] | null }[]
+  // data de demissão vencida = fora da escala, mesmo que ninguém tenha salvado o
+  // perfil como inativo (o login já barra; a escala também precisa barrar).
+  const hojeEscala = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  const todosPerfis = ((perfisRes.data ?? []) as { id: string; nome: string; cargo_id: string | null; cor_escala: string | null; lojas_permitidas: string[] | null; data_demissao: string | null }[])
+    .filter((p) => !vinculoEncerrado(p.data_demissao, hojeEscala))
   const perfis = lojaAtivaId ? todosPerfis.filter((p) => { const ls = p.lojas_permitidas ?? []; return ls.length === 0 || ls.includes(lojaAtivaId) }) : todosPerfis
   const todasEscalas = (escalasRes.data ?? []) as Escala[]
   const escalas = lojaAtivaId ? todasEscalas.filter((e) => e.loja_id === lojaAtivaId) : todasEscalas

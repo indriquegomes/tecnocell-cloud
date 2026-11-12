@@ -9,6 +9,7 @@ import { BatidasPonto } from './BatidasPonto'
 import { confirmarDobra, abonarFalta, confirmarFalta } from './actions'
 import { ExtratoBancoHoras } from './ExtratoBancoHoras'
 import { detectarFaltas } from '@/lib/faltas'
+import { vinculoEncerrado } from '@/lib/vinculo'
 
 const LIMITE_EXTRA = 8
 const fmtH = (h: number) => {
@@ -63,7 +64,7 @@ export default async function RhPage({
   const diaSel = dia && /^\d{4}-\d{2}-\d{2}$/.test(dia) ? dia : hoje
   const ehHoje = diaSel === hoje
   const [{ data: perfisRaw }, { data: pontos }, banco] = await Promise.all([
-    supabase.from('perfis').select('id, nome, cargo, pdv_loja_id, lojas_permitidas').eq('ativo', true).order('nome'),
+    supabase.from('perfis').select('id, nome, cargo, pdv_loja_id, lojas_permitidas, data_demissao').eq('ativo', true).order('nome'),
     supabase.from('pontos').select('id, usuario_id, tipo, criado_em').gte('criado_em', `${diaSel}T00:00:00-03:00`).lte('criado_em', `${diaSel}T23:59:59-03:00`).order('criado_em'),
     fetchAll<{ id: string; usuario_id: string; horas: number; data: string; motivo: string | null; obs: string | null; confirmado: boolean | null }>(
       (from, to) => supabase.from('banco_horas').select('id, usuario_id, horas, data, motivo, obs, confirmado').order('data', { ascending: false }).range(from, to)),
@@ -71,7 +72,10 @@ export default async function RhPage({
   // Equipe separada por loja. Funcionário pertence às lojas em lojas_permitidas
   // (vazio = sem loja definida). pdv_loja_id é só o padrão do PDV, não define a lista.
   const lojasDe = (p: { lojas_permitidas?: string[] | null } | null) => ((p?.lojas_permitidas) ?? []).filter(Boolean) as string[]
-  const perfis = (perfisRaw ?? []) // todos os ativos — agrupados por loja abaixo
+  // Desligado não é equipe: data de demissão vencida tira da lista mesmo que o
+  // perfil ainda esteja marcado ativo (demissão com data futura que venceu).
+  type PerfilRH = { id: string; nome: string; cargo: string | null; pdv_loja_id: string | null; lojas_permitidas: string[] | null; data_demissao: string | null }
+  const perfis = ((perfisRaw ?? []) as PerfilRH[]).filter((p) => !vinculoEncerrado(p.data_demissao, hoje))
   const porUser: Record<string, Ponto[]> = {}
   for (const p of (pontos ?? []) as Ponto[]) (porUser[p.usuario_id] ??= []).push(p)
 
@@ -98,7 +102,9 @@ export default async function RhPage({
   const faltasPendentes = bancoItens.filter((b) => b.motivo === 'falta' && b.confirmado === false)
   const saldoPorUser: Record<string, number> = {}
   for (const b of bancoItens) if (b.confirmado !== false) saldoPorUser[b.usuario_id] = (saldoPorUser[b.usuario_id] ?? 0) + Number(b.horas)
-  const nomePorUser: Record<string, string> = Object.fromEntries((perfis ?? []).map((u) => [u.id, u.nome]))
+  // Nomes do extrato saem de TODOS os perfis, não só da equipe do dia: linha de
+  // banco de horas de quem foi desligado continua com nome, nunca "—".
+  const nomePorUser: Record<string, string> = Object.fromEntries(((perfisRaw ?? []) as { id: string; nome: string }[]).map((u) => [u.id, u.nome]))
   // arredonda pro minuto: soma de decimais pode dar -0.003h (fração de segundo) e virar vermelho
 const saldos = (perfis ?? []).map((u) => ({ id: u.id, nome: u.nome, saldo: Math.round((saldoPorUser[u.id] ?? 0) * 60) / 60 })).sort((a, b) => b.saldo - a.saldo)
   const corSaldo = (h: number) => (h < 0 ? 'text-rose-600' : h >= LIMITE_EXTRA ? 'text-amber-600' : 'text-emerald-600')
