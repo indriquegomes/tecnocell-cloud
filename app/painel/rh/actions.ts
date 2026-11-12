@@ -111,14 +111,17 @@ async function requireMaster() {
   return usuario
 }
 
-// 'HH:MM' → criado_em de HOJE no fuso de São Paulo (timestamptz). null se inválida.
-function pontoDeHoje(hora: string): string | null {
+// 'HH:MM' + dia (YYYY-MM-DD, opcional) → criado_em no fuso de São Paulo
+// (timestamptz). null se inválida. Sem dia, cai em hoje — a espelho do RH abre
+// em hoje por padrão e o dia escolhido tem que ser respeitado, senão corrigir a
+// batida de ontem jogava ela pra hoje.
+function pontoDeHoje(hora: string, dia?: string | null): string | null {
   const m = /^(\d{2}):(\d{2})(?::\d{2})?$/.exec(hora)
   if (!m) return null
   const hh = Number(m[1]), mm = Number(m[2])
   if (hh > 23 || mm > 59) return null
-  const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-  return `${hoje}T${m[1]}:${m[2]}:00-03:00`
+  const d = dia && /^\d{4}-\d{2}-\d{2}$/.test(dia) ? dia : new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  return `${d}T${m[1]}:${m[2]}:00-03:00`
 }
 
 // data (YYYY-MM-DD) no fuso de São Paulo de um criado_em (timestamptz)
@@ -131,7 +134,7 @@ export async function ajustarPonto(formData: FormData) {
   const s = await createServiceClient()
   const ponto_id = formData.get('ponto_id') as string
   const tipo = formData.get('tipo') as string
-  const criado_em = pontoDeHoje((formData.get('hora') as string) || '')
+  const criado_em = pontoDeHoje((formData.get('hora') as string) || '', formData.get('dia') as string | null)
   if (!ponto_id || !TIPOS_PONTO.includes(tipo) || !criado_em) throw new Error('Dados inválidos.')
   const { data: antes } = await s.from('pontos').select('usuario_id, criado_em').eq('id', ponto_id).maybeSingle()
   await s.from('pontos').update({ tipo, criado_em }).eq('id', ponto_id)
@@ -140,7 +143,9 @@ export async function ajustarPonto(formData: FormData) {
   if (uid) {
     const dataOriginal = (antes as { criado_em?: string | null } | null)?.criado_em ? dataDeCriadoEm((antes as { criado_em: string }).criado_em) : null
     if (dataOriginal) await recalcularBancoDia(s, uid, dataOriginal)
-    await recalcularBancoDia(s, uid, new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }))
+    // o dia NOVO da batida pode ser outro (corrigiu ontem pela tela de ontem)
+    const dataNova = dataDeCriadoEm(criado_em)
+    if (dataNova !== dataOriginal) await recalcularBancoDia(s, uid, dataNova)
   }
   revalidatePath('/painel/rh')
   revalidatePath('/painel/meu-perfil')
@@ -165,10 +170,11 @@ export async function incluirPonto(formData: FormData) {
   const s = await createServiceClient()
   const usuario_id = formData.get('usuario_id') as string
   const tipo = formData.get('tipo') as string
-  const criado_em = pontoDeHoje((formData.get('hora') as string) || '')
+  const dia = formData.get('dia') as string | null
+  const criado_em = pontoDeHoje((formData.get('hora') as string) || '', dia)
   if (!usuario_id || !TIPOS_PONTO.includes(tipo) || !criado_em) throw new Error('Dados inválidos.')
   await s.from('pontos').insert({ usuario_id, tipo, criado_em })
-  await recalcularBancoDia(s, usuario_id, new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }))
+  await recalcularBancoDia(s, usuario_id, dataDeCriadoEm(criado_em))
   revalidatePath('/painel/rh')
   revalidatePath('/painel/meu-perfil')
 }

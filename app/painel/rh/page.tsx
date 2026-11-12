@@ -20,7 +20,7 @@ const fmtH = (h: number) => {
 
 type Ponto = { id: string; usuario_id: string; tipo: string; criado_em: string }
 
-function statusEHoras(pontos: Ponto[]) {
+function statusEHoras(pontos: Ponto[], agoraMs: number | null) {
   const ultimo = pontos[pontos.length - 1]?.tipo ?? null
   const status = !ultimo ? 'fora' : ultimo === 'saida' ? 'encerrado' : ultimo === 'pausa' ? 'pausa' : 'trabalhando'
   let min = 0, aberto: number | null = null
@@ -29,22 +29,42 @@ function statusEHoras(pontos: Ponto[]) {
     if (p.tipo === 'entrada' || p.tipo === 'retorno') aberto = t
     else if ((p.tipo === 'pausa' || p.tipo === 'saida') && aberto != null) { min += (t - aberto) / 60000; aberto = null }
   }
-  if (aberto != null) min += (Date.now() - aberto) / 60000
+  // dia passado não soma "até agora": o turno que ficou aberto é dado a revisar,
+  // não hora trabalhada (senão a terça sem saída vira 40h de trabalho).
+  if (aberto != null && agoraMs != null) min += (agoraMs - aberto) / 60000
   const entrada = pontos.find((p) => p.tipo === 'entrada')?.criado_em ?? null
   return { status, horas: `${Math.floor(min / 60)}h ${String(Math.round(min % 60)).padStart(2, '0')}m`, entrada }
 }
 
 const fmtHora = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }) : '—')
 
-export default async function RhPage() {
+// 'YYYY-MM-DD' ± n dias, resolvido ao meio-dia de São Paulo (nunca toISOString:
+// depois das 21h o UTC vira o dia seguinte e a setinha pula dois dias).
+const mudarDia = (d: string, n: number) => {
+  const x = new Date(d + 'T12:00:00-03:00')
+  x.setDate(x.getDate() + n)
+  return x.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+}
+
+export default async function RhPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ dia?: string }>
+}) {
+  const { dia } = await searchParams
   const supabase = await createServiceClient()
   await detectarFaltas()
   const { isMaster } = await permissoesUsuarioAtual()
   const { todasLojas, operaveis } = await lojasDoUsuario().catch(() => ({ todasLojas: [] as { id: string; nome: string }[], operaveis: [] as { id: string; nome: string }[] }))
   const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  // A espelho mostra UM dia — o escolhido na setinha do topo, hoje por padrão.
+  // Mostrar só hoje fazia a tela parecer vazia ("ninguém bate ponto") quando o
+  // dono olhava de madrugada ou antes das 8h, com o dia ainda sem batida.
+  const diaSel = dia && /^\d{4}-\d{2}-\d{2}$/.test(dia) ? dia : hoje
+  const ehHoje = diaSel === hoje
   const [{ data: perfisRaw }, { data: pontos }, banco] = await Promise.all([
     supabase.from('perfis').select('id, nome, cargo, pdv_loja_id, lojas_permitidas').eq('ativo', true).order('nome'),
-    supabase.from('pontos').select('id, usuario_id, tipo, criado_em').gte('criado_em', `${hoje}T00:00:00-03:00`).order('criado_em'),
+    supabase.from('pontos').select('id, usuario_id, tipo, criado_em').gte('criado_em', `${diaSel}T00:00:00-03:00`).lte('criado_em', `${diaSel}T23:59:59-03:00`).order('criado_em'),
     fetchAll<{ id: string; usuario_id: string; horas: number; data: string; motivo: string | null; obs: string | null; confirmado: boolean | null }>(
       (from, to) => supabase.from('banco_horas').select('id, usuario_id, horas, data, motivo, obs, confirmado').order('data', { ascending: false }).range(from, to)),
   ])
@@ -55,7 +75,7 @@ export default async function RhPage() {
   const porUser: Record<string, Ponto[]> = {}
   for (const p of (pontos ?? []) as Ponto[]) (porUser[p.usuario_id] ??= []).push(p)
 
-  const linhas = (perfis ?? []).map((u) => ({ ...u, ...statusEHoras(porUser[u.id] ?? []), batidas: porUser[u.id] ?? [] }))
+  const linhas = (perfis ?? []).map((u) => ({ ...u, ...statusEHoras(porUser[u.id] ?? [], ehHoje ? Date.now() : null), batidas: porUser[u.id] ?? [] }))
   const lojasSecao = operaveis.length > 0 ? operaveis : todasLojas
   // Seções: uma por loja + "Ambas as lojas" + "Sem loja definida". Cada pessoa aparece UMA vez.
   const secoes = [
@@ -65,9 +85,12 @@ export default async function RhPage() {
   ].filter((s) => s.linhas.length > 0)
   const trabalhando = linhas.filter((l) => l.status === 'trabalhando' || l.status === 'pausa').length
 
+  // Num dia que já passou ninguém está "trabalhando agora": quem ficou sem saída
+  // ou sem retorno é ponto pra revisar (e é o que o master conserta na batida).
+  const statusVisto = (s: string) => (!ehHoje && s === 'trabalhando' ? 'sem-saida' : !ehHoje && s === 'pausa' ? 'sem-retorno' : s)
   const badge = (s: string) =>
-    s === 'trabalhando' ? 'bg-emerald-50 text-emerald-700' : s === 'pausa' ? 'bg-amber-50 text-amber-700' : s === 'encerrado' ? 'bg-gray-100 text-gray-500' : 'bg-gray-50 text-gray-400'
-  const label = (s: string) => (s === 'trabalhando' ? '🟢 Trabalhando' : s === 'pausa' ? '⏸ Pausa' : s === 'encerrado' ? '✓ Encerrado' : 'Fora')
+    s === 'trabalhando' ? 'bg-emerald-50 text-emerald-700' : s === 'pausa' ? 'bg-amber-50 text-amber-700' : s === 'encerrado' ? 'bg-gray-100 text-gray-500' : s === 'sem-saida' || s === 'sem-retorno' ? 'bg-rose-50 text-rose-600' : 'bg-gray-50 text-gray-400'
+  const label = (s: string) => (s === 'trabalhando' ? '🟢 Trabalhando' : s === 'pausa' ? '⏸ Pausa' : s === 'encerrado' ? '✓ Encerrado' : s === 'sem-saida' ? '⚠ Sem saída' : s === 'sem-retorno' ? '⚠ Sem retorno' : 'Fora')
 
   // ---- Banco de horas ----
   const bancoItens = (banco ?? []) as { id: string; usuario_id: string; horas: number; data: string; motivo: string | null; obs: string | null; confirmado: boolean | null }[]
@@ -82,27 +105,38 @@ const saldos = (perfis ?? []).map((u) => ({ id: u.id, nome: u.nome, saldo: Math.
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <IconUsers className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
         <h2 className="text-2xl font-bold text-gray-900">RH / Equipe</h2>
-        <Dica texto="Espelho de ponto do dia: quem está trabalhando, horas e batidas. As pessoas batem o ponto no Meu Perfil." />
-        <Link href="/painel/rh/feriados" className="ml-auto rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">🗓 Feriados</Link>
+        <Dica texto="Espelho de ponto do dia escolhido: quem trabalhou, quanto tempo e cada batida. As pessoas batem o ponto no Meu Perfil — a lista da direita já mostra o que aconteceu de verdade no dia." />
+        <div className="ml-auto flex items-center gap-2">
+          <Link href={`/painel/rh?dia=${mudarDia(diaSel, -1)}`} title="Dia anterior" className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">←</Link>
+          <form action="/painel/rh" className="flex items-center gap-1">
+            <input type="date" name="dia" defaultValue={diaSel} max={hoje} className="rounded-lg border border-gray-200 px-2 py-1.5 text-sm text-gray-700" />
+            <button type="submit" className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">Ver</button>
+          </form>
+          {diaSel < hoje && <Link href={`/painel/rh?dia=${mudarDia(diaSel, 1)}`} title="Dia seguinte" className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">→</Link>}
+          {!ehHoje && <Link href="/painel/rh" className="rounded-lg bg-[#1B6CA8] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#155a8c] transition">Voltar pra hoje</Link>}
+          <Link href="/painel/rh/feriados" className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">🗓 Feriados</Link>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
-          <p className="text-sm font-medium text-emerald-700">Trabalhando agora</p>
-          <p className="mt-1 text-3xl font-bold tabular-nums text-emerald-700">{trabalhando}</p>
+        <div className={`rounded-2xl border p-5 shadow-sm ${ehHoje ? 'border-emerald-200 bg-emerald-50' : 'border-gray-200 bg-white'}`}>
+          <p className={`text-sm font-medium ${ehHoje ? 'text-emerald-700' : 'text-gray-600'}`}>{ehHoje ? 'Trabalhando agora' : 'Fecharam o ponto no dia'}</p>
+          <p className={`mt-1 text-3xl font-bold tabular-nums ${ehHoje ? 'text-emerald-700' : 'text-gray-900'}`}>{ehHoje ? trabalhando : linhas.filter((l) => l.status === 'encerrado').length}</p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <p className="text-sm font-medium text-gray-600">Equipe ativa</p>
           <p className="mt-1 text-3xl font-bold tabular-nums text-gray-900">{linhas.length}</p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <p className="text-sm font-medium text-gray-600">Bateram ponto hoje</p>
+          <p className="text-sm font-medium text-gray-600">Bateram ponto {ehHoje ? 'hoje' : 'no dia'}</p>
           <p className="mt-1 text-3xl font-bold tabular-nums text-gray-900">{linhas.filter((l) => l.batidas.length > 0).length}</p>
         </div>
       </div>
+
+      <p className="text-sm font-medium text-gray-500">{ehHoje ? 'Hoje' : formatDate(diaSel)} <span className="text-gray-400">· {linhas.reduce((s, l) => s + l.batidas.length, 0)} batida(s) registrada(s) {ehHoje ? 'até agora' : 'no dia'}</span></p>
 
       {secoes.map((s) => (
         <div key={s.titulo} className="space-y-2">
@@ -125,11 +159,11 @@ const saldos = (perfis ?? []).map((u) => ({ id: u.id, nome: u.nome, saldo: Math.
                       <p className="text-sm font-medium text-gray-800">{l.nome}</p>
                       {l.cargo && <p className="text-xs text-gray-400">{l.cargo}</p>}
                     </td>
-                    <td className="px-4 py-3 text-center"><span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${badge(l.status)}`}>{label(l.status)}</span></td>
+                    <td className="px-4 py-3 text-center"><span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${badge(statusVisto(l.status))}`}>{label(statusVisto(l.status))}</span></td>
                     <td className="px-4 py-3 text-center text-sm tabular-nums text-gray-600">{fmtHora(l.entrada)}</td>
                     <td className="px-4 py-3 text-center text-sm font-semibold tabular-nums text-gray-800">{l.batidas.length ? l.horas : '—'}</td>
                     <td className="px-4 py-3">
-                      <BatidasPonto batidas={l.batidas} usuarioId={l.id} isMaster={isMaster} />
+                      <BatidasPonto batidas={l.batidas} usuarioId={l.id} isMaster={isMaster} dia={diaSel} />
                     </td>
                   </tr>
                 ))}

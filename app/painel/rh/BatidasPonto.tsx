@@ -14,10 +14,11 @@ const LABEL: Record<string, string> = { entrada: 'Entrada', retorno: 'Retorno', 
 
 // Batidas do dia de UMA pessoa. Master pode ajustar (editar hora/tipo, excluir) e
 // incluir batida que faltou — sem mexer no banco na mão.
-export function BatidasPonto({ batidas, usuarioId, isMaster }: {
+export function BatidasPonto({ batidas, usuarioId, isMaster, dia }: {
   batidas: Batida[]
   usuarioId: string
   isMaster: boolean
+  dia: string
 }) {
   const [editando, setEditando] = useState<string | null>(null)
   const [incluindo, setIncluindo] = useState(false)
@@ -48,6 +49,7 @@ export function BatidasPonto({ batidas, usuarioId, isMaster }: {
           <span key={p.id} className="inline-flex items-center gap-1 rounded border border-blue-200 bg-blue-50 p-1">
             <form action={ajustarPonto} className="inline-flex items-center gap-1">
               <input type="hidden" name="ponto_id" value={p.id} />
+              <input type="hidden" name="dia" value={dia} />
               <select name="tipo" defaultValue={p.tipo} className="rounded border border-gray-200 px-1 py-0.5 text-[11px]">
                 {TIPOS.map((t) => <option key={t} value={t}>{LABEL[t]}</option>)}
               </select>
@@ -65,6 +67,7 @@ export function BatidasPonto({ batidas, usuarioId, isMaster }: {
       {incluindo ? (
         <form action={incluirPonto} className="inline-flex items-center gap-1 rounded border border-emerald-200 bg-emerald-50 p-1">
           <input type="hidden" name="usuario_id" value={usuarioId} />
+          <input type="hidden" name="dia" value={dia} />
           <select name="tipo" className="rounded border border-gray-200 px-1 py-0.5 text-[11px]">
             {TIPOS.map((t) => <option key={t} value={t}>{LABEL[t]}</option>)}
           </select>
