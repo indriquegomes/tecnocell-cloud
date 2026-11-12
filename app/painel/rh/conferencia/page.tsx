@@ -174,7 +174,7 @@ export default async function ConferenciaHorasPage({
       </div>
 
       <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-xs text-gray-600 space-y-1">
-        <p><b>Previsto</b> é a soma dos turnos da escala no mês; <b>trabalhado</b> é a soma dos blocos batidos no ponto. O dia que ficou aberto (entrou e não saiu) não conta como trabalhado.</p>
+        <p><b>Previsto</b> é a soma dos turnos da escala no mês; <b>trabalhado</b> é a soma dos blocos batidos no ponto. Num dia passado que ficou aberto (entrou e não saiu), a parte sem saída não conta; o dia de hoje conta até agora.</p>
         <p><b>Saldo no banco</b> é a soma do banco de horas do mês: positivo é hora a mais, negativo é hora a menos. É o número que você usa para combinar a cobertura do mês seguinte.</p>
         <p>Estagiário não acumula hora extra (Lei 11.788/2008): o que passar do combinado aparece na coluna de diferença, mas não vira saldo no banco.</p>
       </div>

@@ -111,8 +111,8 @@ Uma linha por pessoa, por mês: **previsto** (soma da escala) · **trabalhado**
 Serve para combinar o valor do serviço e a cobertura do mês seguinte. Não paga,
 não desconta, não gera dívida.
 
-O dia que ficou aberto (entrou e não saiu) não conta como trabalhado — ele
-aparece como **⚠ Sem saída** no espelho do dia.
+O dia passado que ficou aberto (entrou e não saiu) não conta como trabalhado — ele
+aparece como **⚠ Sem saída** no espelho do dia. O dia de hoje conta até agora.
 
 ## O que muda por vínculo
 
