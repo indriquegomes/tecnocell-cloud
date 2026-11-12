@@ -3,6 +3,7 @@
 import { createServiceClient, requireAuth, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { pessoaIdPorNome } from '@/lib/pessoa-por-nome'
+import { vinculoEncerrado } from '@/lib/vinculo'
 import { hojeSP } from '@/lib/lembretes'
 import { dataEmMesFechado } from '@/lib/fechamento'
 
@@ -116,10 +117,13 @@ async function lancarPagamentoRecorrente(
   if (!nome) return
   const { data: perfil } = await supabase
     .from('perfis')
-    .select('nome, pdv_loja_id')
+    .select('nome, pdv_loja_id, data_demissao')
     .ilike('nome', nome)
     .maybeSingle()
-  const p = perfil as { nome?: string; pdv_loja_id?: string | null } | null
+  const p = perfil as { nome?: string; pdv_loja_id?: string | null; data_demissao?: string | null } | null
+  // Desligado não recebe pagamento recorrente: o lembrete dele pode ficar ativo
+  // (ninguém lembra de desativar) e seguiria lançando salário de quem já saiu.
+  if (vinculoEncerrado(p?.data_demissao, new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }))) return
   const ddmm = data.slice(8, 10) + '/' + data.slice(5, 7)
   const pessoa = p?.nome ?? nome
 

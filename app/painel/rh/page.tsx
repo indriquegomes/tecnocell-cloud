@@ -123,6 +123,7 @@ const saldos = (perfis ?? []).map((u) => ({ id: u.id, nome: u.nome, saldo: Math.
           </form>
           {diaSel < hoje && <Link href={`/painel/rh?dia=${mudarDia(diaSel, 1)}`} title="Dia seguinte" className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">→</Link>}
           {!ehHoje && <Link href="/painel/rh" className="rounded-lg bg-[#1B6CA8] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#155a8c] transition">Voltar pra hoje</Link>}
+          <Link href="/painel/rh/conferencia" className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">⏱ Conferência de horas</Link>
           <Link href="/painel/rh/feriados" className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">🗓 Feriados</Link>
         </div>
       </div>

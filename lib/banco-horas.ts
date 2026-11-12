@@ -14,16 +14,22 @@ export async function recalcularBancoDia(
   userId: string,
   data: string,
 ): Promise<{ horas: number; motivo: 'hora_extra' | 'atraso' } | null> {
-  // remove o automático antigo do dia (idempotente: recálculo não duplica)
-  await s.from('banco_horas').delete().eq('usuario_id', userId).eq('data', data).in('motivo', ['hora_extra', 'atraso'])
+  // Remove o automático antigo do dia (idempotente: recálculo não duplica).
+  // `criado_por is null` é a marca de origem: automático nasce sem autor; o que o
+  // master lançou à mão (RH → Lançar hora) tem autor e NÃO pode ser apagado aqui.
+  // Sem esse filtro, um "Atraso" lançado à mão pelo RH desaparecia na próxima
+  // batida de saída da mesma pessoa no mesmo dia.
+  await s.from('banco_horas').delete().eq('usuario_id', userId).eq('data', data)
+    .in('motivo', ['hora_extra', 'atraso']).is('criado_por', null)
 
   // folga/feriado: sem extra nem atraso (a dobra cobre)
   if (await ehFeriado(userId, data)) return null
   const diaSemana = new Date(data + 'T12:00:00-03:00').getDay()
-  const [{ data: esc }, { data: exc }, { data: pts }] = await Promise.all([
+  const [{ data: esc }, { data: exc }, { data: pts }, { data: perfil }] = await Promise.all([
     s.from('escalas').select('*').eq('perfil_id', userId).eq('ativo', true),
     s.from('escala_excecoes').select('*').eq('perfil_id', userId).eq('data', data),
     s.from('pontos').select('tipo, criado_em, usuario_id').eq('usuario_id', userId).gte('criado_em', data + 'T00:00:00-03:00').lte('criado_em', data + 'T23:59:59-03:00').order('criado_em'),
+    s.from('perfis').select('vinculo').eq('id', userId).maybeSingle(),
   ])
   const turno = turnosDoDia(data, diaSemana, (esc ?? []) as Escala[], (exc ?? []) as Excecao[], { [userId]: '' }).find((t) => t.perfilId === userId)
   if (!turno || turno.folga) return null
@@ -39,6 +45,11 @@ export async function recalcularBancoDia(
   if (extra === 0) return null
 
   const horas = Math.round((extra / 60) * 100) / 100
+  // Estagiário não faz hora extra (Lei 11.788/2008): trabalhar além do combinado
+  // não vira crédito no banco. Atraso continua valendo — controle de frequência de
+  // estágio é obrigatório.
+  const vinculo = (perfil as { vinculo?: string | null } | null)?.vinculo ?? null
+  if (extra > 0 && vinculo === 'estagio') return null
   const motivo: 'hora_extra' | 'atraso' = extra > 0 ? 'hora_extra' : 'atraso'
   await s.from('banco_horas').insert({
     usuario_id: userId,

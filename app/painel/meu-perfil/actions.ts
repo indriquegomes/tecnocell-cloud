@@ -2,8 +2,8 @@
 
 import { createServiceClient, requireAuth } from '@/lib/supabase/server'
 import { semanaDe, turnosDoDia, trabalhadoDoDia, type Escala, type Excecao, type Ponto as PontoEscala } from '@/lib/escala'
-import { ehFeriado } from '@/lib/feriados'
-import { recalcularBancoDia } from '@/lib/banco-horas'
+import { diaFolgaFeriado } from '@/lib/ponto-do-dia'
+import { baterPontoTipo } from '@/app/painel/ponto/actions'
 import { createServerClient } from '@supabase/ssr'
 import sharp from 'sharp'
 
@@ -68,49 +68,6 @@ export async function atualizarMeuPin(token: string, pin: string): Promise<Res> 
 
 export type Ponto = { id: string; tipo: string; criado_em: string }
 
-// Hoje é folga ou feriado pra pessoa? (escala semanal + exceção + feriados)
-async function diaFolgaFeriado(s: Awaited<ReturnType<typeof createServiceClient>>, userId: string, hoje: string): Promise<{ folga: boolean; feriado: boolean }> {
-  const feriado = await ehFeriado(userId, hoje)
-
-  const { data: exc } = await s.from('escala_excecoes').select('folga').eq('perfil_id', userId).eq('data', hoje).maybeSingle()
-  if (exc) return { folga: !!exc.folga, feriado }
-  // só é folga se a pessoa está numa escala semanal (tem ao menos uma linha) e hoje não tem
-  const { data: temEscala } = await s.from('escalas').select('id').eq('perfil_id', userId).eq('ativo', true).limit(1)
-  if (!temEscala || temEscala.length === 0) return { folga: false, feriado }
-  const dia = new Date(hoje + 'T12:00:00').getDay()
-  const { data: esc } = await s.from('escalas').select('id').eq('perfil_id', userId).eq('dia', dia).eq('ativo', true).limit(1)
-  return { folga: !(esc && esc.length > 0), feriado }
-}
-
-// No feriado (por lei): o trabalhado do dia entra em DOBRO (×2) no banco, automático.
-// Folga NÃO dobra — conta 1× e se resolve no cálculo semanal (trabalhado − escalado).
-async function aplicarDobra(s: Awaited<ReturnType<typeof createServiceClient>>, userId: string, hoje: string) {
-  const { feriado } = await diaFolgaFeriado(s, userId, hoje)
-  if (!feriado) return
-  const { data: ja } = await s.from('banco_horas').select('id').eq('usuario_id', userId).eq('data', hoje).eq('motivo', 'dobra').limit(1)
-  if (ja && ja.length > 0) return
-  const { data: pts } = await s.from('pontos')
-    .select('tipo, criado_em')
-    .eq('usuario_id', userId).gte('criado_em', hoje + 'T00:00:00-03:00').order('criado_em')
-  let min = 0, aberto: number | null = null
-  for (const p of (pts ?? [])) {
-    const t = new Date(p.criado_em).getTime()
-    if (p.tipo === 'entrada' || p.tipo === 'retorno') aberto = t
-    else if ((p.tipo === 'pausa' || p.tipo === 'saida') && aberto != null) { min += (t - aberto) / 60000; aberto = null }
-  }
-  const horas = min / 60
-  if (horas <= 0) return
-  const { error: errDobra } = await s.from('banco_horas').insert({ usuario_id: userId, horas: horas * 2, data: hoje, motivo: 'dobra', obs: 'Dobra (feriado)', confirmado: true })
-  // 23505 = dobra já existe (2 saídas simultâneas em feriado) — não duplica.
-  if (errDobra && (errDobra as { code?: string }).code !== '23505') console.error('aplicarDobra:', errDobra.message)
-}
-
-// Na saída: calcula a hora extra do dia (trabalhado − escalado) e, se POSITIVA,
-// lança direto no banco de horas. Folga/feriado pula (a dobra já cobre).
-async function aplicarHoraExtra(s: Awaited<ReturnType<typeof createServiceClient>>, userId: string, hoje: string) {
-  await recalcularBancoDia(s, userId, hoje)
-}
-
 // Hoje é folga/feriado? (pro Meu Perfil avisar na hora de bater a entrada)
 export async function verificarDiaFolga(token: string): Promise<{ folga: boolean; feriado: boolean }> {
   const user = await requireAuth(token)
@@ -120,38 +77,13 @@ export async function verificarDiaFolga(token: string): Promise<{ folga: boolean
 }
 
 // Registra uma batida de ponto (entrada/pausa/retorno/saida) do usuário logado.
-// dobraTipo/dobraData só valem na ENTRADA em dia de folga/feriado ('extra' ou 'troca').
-export async function baterPonto(token: string, tipo: string, dobraTipo?: string, dobraData?: string, pin?: string): Promise<{ ok: boolean; message?: string; ponto?: Ponto; saiu?: boolean }> {
-  const user = await requireAuth(token)
-  if (!['entrada', 'pausa', 'retorno', 'saida'].includes(tipo)) return { ok: false, message: 'Tipo inválido' }
-  const s = await createServiceClient()
-  // PIN de 4 dígitos: confirma que é a própria pessoa (evita bater no login errado).
-  // Tolerante: se a coluna pin_ponto ainda não existir (migration não rodou), usa '1234'.
-  const { data: perfil, error: errPerfil } = await s.from('perfis').select('pdv_loja_id, pin_ponto').eq('id', user.id).maybeSingle()
-  let pdvLojaId = (perfil as { pdv_loja_id?: string | null } | null)?.pdv_loja_id ?? null
-  let pinSalvo = (perfil as { pin_ponto?: string | null } | null)?.pin_ponto || '1234'
-  if (errPerfil) {
-    const { data: soLoja } = await s.from('perfis').select('pdv_loja_id').eq('id', user.id).maybeSingle()
-    pdvLojaId = (soLoja as { pdv_loja_id?: string | null } | null)?.pdv_loja_id ?? null
-    pinSalvo = '1234'
-  }
-  if ((pin ?? '').trim() !== pinSalvo) return { ok: false, message: 'PIN incorreto.' }
-  const { data, error } = await s.from('pontos')
-    .insert({
-      usuario_id: user.id,
-      tipo,
-      loja_id: pdvLojaId,
-      dobra_tipo: tipo === 'entrada' ? (dobraTipo || null) : null,
-      dobra_data: tipo === 'entrada' && dobraTipo === 'troca' ? (dobraData || null) : null,
-    })
-    .select('id, tipo, criado_em').single()
-  if (error) return { ok: false, message: error.message }
-  if (tipo === 'saida') {
-    const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-    await aplicarDobra(s, user.id, hoje)
-    await aplicarHoraExtra(s, user.id, hoje)
-  }
-  return { ok: true, ponto: data as Ponto, saiu: tipo === 'saida' }
+// A regra mora em UM lugar (`baterPontoTipo`, usado também pelo widget do painel):
+// valida a sequência, trava clique duplo e, na saída, fecha o banco do dia.
+export async function baterPonto(token: string, tipo: string, pin?: string): Promise<{ ok: boolean; message?: string; saiu?: boolean }> {
+  await requireAuth(token)
+  const r = await baterPontoTipo(tipo, pin)
+  if (!r.ok) return { ok: false, message: r.erro }
+  return { ok: true, saiu: r.saiu }
 }
 
 // Batidas de HOJE do usuário logado (fuso America/Sao_Paulo).

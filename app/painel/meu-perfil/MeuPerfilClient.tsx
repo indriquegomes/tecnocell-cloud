@@ -61,7 +61,7 @@ export function MeuPerfilClient() {
   }
   async function baterPontoDireto(tipo: string) {
     setBatendo(true); setMsgPonto(null)
-    const r = await baterPonto(await token(), tipo, undefined, undefined, pinPonto)
+    const r = await baterPonto(await token(), tipo, pinPonto)
     if (r.ok) {
       if (r.saiu) { window.location.href = '/api/auth/signout'; return }
       setPontos(await buscarMeuPontoHoje(await token()).catch(() => pontos))

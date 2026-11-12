@@ -48,8 +48,6 @@ export interface Usuario {
   motoboyAdicionalExtra: number
   motoboyTipo: string | null
   vinculo: string | null
-  meiValorServico: number
-  meiDiaPagamento: string | null
   meiFuncoes: string | null
   cltValeTransporte: number
   freelancer: boolean
@@ -327,20 +325,14 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario }: { lojas: Loja[];
               <label className="mb-1 block text-xs font-medium text-gray-600">Fim do contrato</label>
               <input type="date" name="data_contrato_fim" defaultValue={usuario.dataContratoFim ?? ''} className="field w-full text-sm" />
             </div>
-            <div className="w-44">
-              <label className="mb-1 block text-xs font-medium text-gray-600">Valor do serviço (R$)</label>
-              <CampoDinheiro name="mei_valor_servico" defaultValue={Number(usuario.meiValorServico || 0)} className="text-sm" />
-            </div>
-            <div className="w-44">
-              <label className="mb-1 block text-xs font-medium text-gray-600">Dia padrão de pagamento</label>
-              <select name="mei_dia_pagamento" defaultValue={usuario.meiDiaPagamento ?? 'segunda'} className="field w-full text-sm">
-                {['segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado', 'domingo'].map((d) => <option key={d} value={d}>{d}</option>)}
-              </select>
-            </div>
             <div className="col-span-2">
               <label className="mb-1 block text-xs font-medium text-gray-600">Funções a desempenhar</label>
               <input name="mei_funcoes" defaultValue={usuario.meiFuncoes ?? ''} className="field w-full text-sm" placeholder="Ex: balcão, estoque, caixa..." />
             </div>
+            <p className="col-span-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
+              O valor pago ao MEI entra pelo <b>lembrete de pagamento semanal</b> (Financeiro → Salários),
+              não pelo campo Salário mensal. As horas dele ficam em <b>RH → Conferência de horas</b>.
+            </p>
           </div>
         )}
 
@@ -362,12 +354,6 @@ function LojasPdvConfig({ lojas, depositos, tabelas, usuario }: { lojas: Loja[];
             <div className="w-44">
               <label className="mb-1 block text-xs font-medium text-gray-600">Início do combinado</label>
               <input type="date" name="data_contrato_inicio" defaultValue={usuario.dataContratoInicio ?? ''} className="field w-full text-sm" />
-            </div>
-            <div className="w-44">
-              <label className="mb-1 block text-xs font-medium text-gray-600">Dia padrão de pagamento</label>
-              <select name="mei_dia_pagamento" defaultValue={usuario.meiDiaPagamento ?? 'sexta'} className="field w-full text-sm">
-                {['segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado', 'domingo'].map((d) => <option key={d} value={d}>{d}</option>)}
-              </select>
             </div>
             <div className="col-span-2">
               <label className="mb-1 block text-xs font-medium text-gray-600">Funções a desempenhar</label>

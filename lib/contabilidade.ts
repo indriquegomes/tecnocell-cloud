@@ -2,6 +2,7 @@ import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { custoMensalCLT } from '@/lib/folha'
 import { ehCompraDeMercadoria } from '@/lib/financeiro-setores'
 import { normalizarUsuario } from '@/lib/utils'
+import { vinculoEncerrado } from '@/lib/vinculo'
 
 // Fonte única dos dados da Contabilidade (tela + exportação). A contadora precisa
 // do DRE simplificado: faturamento, compras, despesas, folha (com encargos) e
@@ -64,7 +65,7 @@ export async function buscarDadosContabilidade(mes: string, lojaId?: string): Pr
     fetchAll<any>((from, to) => vendasQ.order('data').range(from, to)),
     fetchAll<any>((from, to) => comprasQ.order('notas_entrada.data_entrada').range(from, to)),
     fetchAll<any>((from, to) => despesasQ.order('data_pagamento').range(from, to)),
-    fetchAll<any>((from, to) => supabase.from('perfis').select('id, nome, salario, cargo_id, vinculo, clt_vale_transporte, lojas_permitidas, pdv_loja_id').eq('ativo', true).order('nome').range(from, to)),
+    fetchAll<any>((from, to) => supabase.from('perfis').select('id, nome, salario, cargo_id, vinculo, clt_vale_transporte, lojas_permitidas, pdv_loja_id, data_demissao').eq('ativo', true).order('nome').range(from, to)),
     fetchAll<any>((from, to) => supabase.from('cargos').select('id, nome').eq('ativo', true).range(from, to)),
   ])
 
@@ -97,8 +98,12 @@ export async function buscarDadosContabilidade(mes: string, lojaId?: string): Pr
   const despesasSemMercadoria = (despesas ?? []).filter((d) => !ehCompraDeMercadoria(d.categoria))
 
   // folha: filtra por loja (quem pode trabalhar nela); encargos só pra CLT
+  // Desligado nunca entra na folha do mês — a mesma regra da tela Financeiro,
+  // senão o DRE da contadora carrega salário de quem já saiu.
+  const hojeContab = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  const perfisAtivos = (perfis ?? []).filter((p) => !vinculoEncerrado(p.data_demissao, hojeContab))
   const perfisFiltrados = lojaId
-    ? (perfis ?? []).filter((p) => {
+    ? perfisAtivos.filter((p) => {
         // Loja PRINCIPAL = pdv_loja_id (se definida); senão, a única loja permitida.
         // Assim quem trabalha nas duas lojas NÃO aparece em dobro — entra só na principal.
         const pdv = p.pdv_loja_id as string | null
@@ -106,7 +111,7 @@ export async function buscarDadosContabilidade(mes: string, lojaId?: string): Pr
         const ls = (p.lojas_permitidas ?? []) as string[]
         return ls.length === 1 && ls[0] === lojaId
       })
-    : (perfis ?? [])
+    : perfisAtivos
   const folhaLista = perfisFiltrados.map((p) => {
     const salario = Number(p.salario ?? 0)
     const vinculo = (p.vinculo ?? '') as string

@@ -140,11 +140,8 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
   const motoboyTipo = (fd.get('motoboy_tipo') as string) || 'variavel'
   // Vínculo (MEI/CLT) + campos
   const vinculo = ((fd.get('vinculo') as string) || '').trim() || null
-  const mvs = parseFloat((fd.get('mei_valor_servico') as string) || '0')
   const cvt = parseFloat((fd.get('clt_vale_transporte') as string) || '0')
-  const meiValorServico = isNaN(mvs) ? 0 : Math.max(0, mvs)
   const cltValeTransporte = isNaN(cvt) ? 0 : Math.max(0, cvt)
-  const meiDiaPagamento = (fd.get('mei_dia_pagamento') as string) || null
   const meiFuncoes = ((fd.get('mei_funcoes') as string) || '').trim() || null
   const dataDemissao = (fd.get('data_demissao') as string) || null
   const dataContratoInicio = (fd.get('data_contrato_inicio') as string) || null
@@ -186,8 +183,6 @@ export async function atualizarPerfil(_: ActionResult | null, fd: FormData): Pro
     motoboy_adicional_extra: motoboyAdicionalExtra,
     motoboy_tipo: motoboyTipo,
     vinculo,
-    mei_valor_servico: meiValorServico,
-    mei_dia_pagamento: meiDiaPagamento,
     mei_funcoes: meiFuncoes,
     clt_vale_transporte: cltValeTransporte,
     freelancer,

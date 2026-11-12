@@ -6,9 +6,45 @@
 >
 > Regras do projeto: `AGENTS.md`. Como o sistema funciona: `docs/mapa/`.
 
-**Última atualização:** 07/11/2026, depois do meio-dia (apelidos + regra do dinheiro).
+**Última atualização:** 12/11/2026 (RH: desligamento, ponto e conferência de horas).
 
-## Rodada atual — não commitada ainda
+## Nesta rodada (12/11/2026)
+
+**RH — desligamento virou um ato.** Preencher a data de demissão em Usuários e
+salvar já desliga a pessoa de tudo: sai da folha, da escala, do espelho do RH, do
+login; salário e vale-transporte zerados. O perfil **não** é apagado (vendas,
+ponto e salários pagos apontam pra ele). Regra única em `lib/vinculo.ts`, usada
+também por folha, escala, RH, lembrete de pagamento recorrente e Contabilidade.
+Documento: `docs/mapa/funcionarios-desligamento.md`.
+
+**RH — espelho de ponto por dia.** A tela só mostrava hoje; abrindo de madrugada
+aparecia zerada ("ninguém bate ponto") com 207 batidas no mês. Agora tem seletor
+de dia, e em dia passado quem não fechou o ponto aparece **⚠ Sem saída**.
+
+**RH — ponto com um caminho só.** Painel e Meu Perfil passam pelo mesmo RPC
+`bater_ponto` (4 tipos, sequência validada, trava de clique duplo) e a saída
+fecha o banco do dia nos dois. Migration `2026-11-12-ponto-um-caminho-so.sql`
+**aplicada** em produção em 12/11. Verificação:
+`node scripts/teste-ponto-sequencia.mjs`.
+
+**RH — Conferência de horas** (`/painel/rh/conferencia`): previsto (escala) ×
+trabalhado (ponto) × diferença × saldo do banco, por pessoa e por mês.
+
+**RH — correções de lógica.** Recálculo do banco não apaga mais lançamento manual
+(`criado_por is null`); estagiário não acumula hora extra nem dobrada
+(Lei 11.788); folha/Contabilidade/lembrete respeitam demissão; dois campos mortos
+do MEI saíram da tela (`mei_valor_servico`, `mei_dia_pagamento` — nada lia).
+
+**Decisão do dono sobre MEI (12/11/2026):** o MEI **continua** no banco de horas
+(atraso, falta, hora extra) neste ano — o risco trabalhista disso está escrito no
+`funcionarios-desligamento.md` e é decisão dele. Em 2027 entra a estrutura só de
+MEI (item 9 das pendências, abaixo).
+
+**Verificado nesta rodada:** `tsc` = 0 · 202 testes de lógica passando
+(12 + 82 + 4 + 23 + 81) · `scripts/teste-ponto-sequencia.mjs` = 10/10 e limpeza
+confirmada · migration aplicada e conferida no banco.
+
+## Rodada de 07/11 — não commitada na época
 
 Feita depois do deploy, **no disco e sem commit** (aguardando o dono):
 
@@ -44,8 +80,8 @@ Painel abrindo sem erro de console.
 - **Produção está com o código novo** (deploy da Vercel confirmado: o 404 em
   português responde em `/endereco-que-nao-existe` com status 404).
 - **A rodada atual está no disco, sem commit** (ver acima).
-- `docs/mapa/` continua no disco e **fora do Git** por decisão do dono
-  (`.git/info/exclude`) — inclusive o glossário com a seção Pessoas.
+- `docs/mapa/` **está versionado** no Git (conferido em 12/11/2026: glossário e README
+  são rastreados; a nota antiga dizendo que ficava fora estava errada).
 
 ## Pendências reais (por prioridade)
 
@@ -117,6 +153,28 @@ Painel abrindo sem erro de console.
    fornecedor no bloco "PIX do dia" e o que aparece na cobrança do cliente. Nome com
    lembrete colado atrapalha os dois. É **dado**, não código: corrigir pelo cadastro,
    com a lista na mão, um por um.
+
+9. **MEI — estrutura própria (2027).** Decisão do dono em 12/11/2026: **neste ano
+   fica como está** — o MEI continua no banco de horas (atraso, hora extra, falta)
+   e ganha uma conferência de horas por pessoa (RH → Conferência de horas). Em
+   **2027** montar estrutura só para MEI. O que ela precisa ter:
+
+   - **Contrato de prestação de serviço** por pessoa: escopo (hoje só existe texto
+     livre em `mei_funcoes`), valor mensal, vigência e reajuste.
+   - **Fechamento mensal do MEI**: valor combinado, horas dedicadas no mês,
+     diferença e o que foi combinado sobre ela. Sem vocabulário de CLT.
+   - **Controle de nota fiscal** do prestador (hoje o app não tem nenhum): número,
+     competência, valor e vínculo com o lançamento pago.
+   - **Relatório para o contador** separando folha CLT (com encargos) de serviço
+     MEI (sem encargos) — hoje a Contabilidade soma os dois no mesmo bloco.
+
+   O risco que essa estrutura existe para reduzir está escrito em
+   `docs/mapa/funcionarios-desligamento.md` (seção MEI). É decisão do dono, não do
+   agente: o app só registra o que ele mandar registrar.
+
+   Campos mortos removidos em 12/11/2026: `mei_valor_servico` e `mei_dia_pagamento`
+   saíram do formulário (nada no app lia os dois). As colunas continuam no banco,
+   sem uso.
 
 ## Nesta rodada (07/11/2026 — madrugada)
 

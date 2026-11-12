@@ -17,14 +17,14 @@ type CfgPerfil = {
   dataContratoFim: string | null
   chavePix: string | null
   motoboyValorFixo: number; motoboyAdicionalLoja: number; motoboyAdicionalExtra: number; motoboyTipo: string | null
-  vinculo: string | null; meiValorServico: number; meiDiaPagamento: string | null; meiFuncoes: string | null; cltValeTransporte: number
+  vinculo: string | null; meiFuncoes: string | null; cltValeTransporte: number
   freelancer: boolean; freelancerValorHora: number
 }
 async function configPdvPorPerfil(
   supabase: Awaited<ReturnType<typeof createServiceClient>>
 ): Promise<Record<string, CfgPerfil>> {
   try {
-    const { data } = await supabase.from('perfis').select('id, lojas_permitidas, tabelas_permitidas, pdv_loja_id, pdv_deposito_id, acesso_hora_inicio, acesso_hora_fim, acesso_bloqueia_sabado, acesso_bloqueia_domingo, acesso_bloqueia_feriado, meta_venda_mensal, salario, data_admissao, data_demissao, data_contrato_inicio, data_contrato_fim, chave_pix, motoboy_valor_fixo, motoboy_adicional_loja, motoboy_adicional_extra, motoboy_tipo, vinculo, mei_valor_servico, mei_dia_pagamento, mei_funcoes, clt_vale_transporte, freelancer, freelancer_valor_hora')
+    const { data } = await supabase.from('perfis').select('id, lojas_permitidas, tabelas_permitidas, pdv_loja_id, pdv_deposito_id, acesso_hora_inicio, acesso_hora_fim, acesso_bloqueia_sabado, acesso_bloqueia_domingo, acesso_bloqueia_feriado, meta_venda_mensal, salario, data_admissao, data_demissao, data_contrato_inicio, data_contrato_fim, chave_pix, motoboy_valor_fixo, motoboy_adicional_loja, motoboy_adicional_extra, motoboy_tipo, vinculo, mei_funcoes, clt_vale_transporte, freelancer, freelancer_valor_hora')
     return Object.fromEntries(
       (data ?? []).map((p) => [p.id, {
         lojasPermitidas: (p.lojas_permitidas ?? []) as string[],
@@ -48,8 +48,6 @@ async function configPdvPorPerfil(
         motoboyAdicionalExtra: Number(p.motoboy_adicional_extra ?? 0),
         motoboyTipo: p.motoboy_tipo ?? null,
         vinculo: p.vinculo ?? null,
-        meiValorServico: Number(p.mei_valor_servico ?? 0),
-        meiDiaPagamento: p.mei_dia_pagamento ?? null,
         meiFuncoes: p.mei_funcoes ?? null,
         cltValeTransporte: Number(p.clt_vale_transporte ?? 0),
         freelancer: p.freelancer === true,
@@ -129,8 +127,6 @@ export default async function UsuariosPage() {
       motoboyAdicionalExtra: cfgPdv[u.id]?.motoboyAdicionalExtra ?? 0,
       motoboyTipo: cfgPdv[u.id]?.motoboyTipo ?? null,
       vinculo: cfgPdv[u.id]?.vinculo ?? null,
-      meiValorServico: cfgPdv[u.id]?.meiValorServico ?? 0,
-      meiDiaPagamento: cfgPdv[u.id]?.meiDiaPagamento ?? null,
       meiFuncoes: cfgPdv[u.id]?.meiFuncoes ?? null,
       cltValeTransporte: cfgPdv[u.id]?.cltValeTransporte ?? 0,
       freelancer: cfgPdv[u.id]?.freelancer ?? false,
