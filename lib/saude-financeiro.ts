@@ -61,10 +61,20 @@ export async function auditarFinanceiro(supabase: SB): Promise<Achado[]> {
   // espera só porque o código estava escrito em dois blocos.
   // Pagamentos e movimentos vêm pela janela de created_at, não por lista de ids:
   // .in() com milhares de ids virava dezenas de requisições e a tela demorava.
-  const [lancamentos, perfis, vendas, caixas, devolucoes, estoque, pagamentos, movimentos, formas] = await Promise.all([
+  const [lancamentos, perdoados, perfis, vendas, caixas, devolucoes, estoque, pagamentos, movimentos, formas] = await Promise.all([
     fetchAll<Lancamento & { id: string; loja_id: string | null; pessoa_nome: string | null; pessoa_id: string | null; venda_id: string | null; descricao: string | null; categoria: string | null }>(
       (from, to) => supabase.from('lancamentos')
         .select('id, tipo, status, valor, valor_pago, data_pagamento, data_vencimento, loja_id, pessoa_nome, pessoa_id, venda_id, descricao, categoria')
+        .order('id').range(from, to)),
+    // Dívida PERDOADA por desconto: o app zera o `valor` e guarda o quanto foi
+    // perdoado no histórico (RPC aplicar_desconto_fiado). Vem como lista de ids,
+    // não a coluna inteira: histórico de milhares de lançamentos pesaria a tela.
+    // `filter('cs', ...)` com o JSON em texto: `.contains()` com array devolve
+    // "invalid input syntax for type json" (testado em 12/11/2026).
+    fetchAll<{ id: string }>(
+      (from, to) => supabase.from('lancamentos').select('id')
+        .eq('tipo', 'receber').eq('status', 'pago')
+        .filter('historico_pagamentos', 'cs', '[{"tipo":"desconto"}]')
         .order('id').range(from, to)),
     fetchAll<{ nome: string | null; pdv_loja_id: string | null }>(
       (from, to) => supabase.from('perfis').select('nome, pdv_loja_id').order('id').range(from, to)),
@@ -110,6 +120,7 @@ export async function auditarFinanceiro(supabase: SB): Promise<Achado[]> {
     : []
 
   const out: Achado[] = []
+  const idsPerdoados = new Set((perdoados ?? []).map((p) => p.id))
   const nome = (l: { pessoa_nome: string | null; descricao: string | null }) =>
     (l.pessoa_nome || l.descricao || 'sem nome').slice(0, 40)
 
@@ -141,12 +152,12 @@ export async function auditarFinanceiro(supabase: SB): Promise<Achado[]> {
   // valor negativo. Sem separar isso, a conferência acusava a convenção do sistema
   // e escondia a anomalia de verdade: recebível "pago" com valor zero.
   out.push(achado('valor_zero', 'Lançamento com valor zero ou negativo',
-    'Lançamento de dinheiro tem valor maior que zero — exceto nota quitada por abatimento e crédito de fornecedor.',
-    'Linha sem valor não é dívida nem receita. Zerada e cancelada é o abatimento que quitou a nota; negativa em Mercadoria é crédito com o fornecedor.',
+    'Lançamento de dinheiro tem valor maior que zero — exceto nota quitada por abatimento, crédito de fornecedor e dívida perdoada por desconto.',
+    'Linha sem valor não é dívida nem receita. Zerada E cancelada é o abatimento que quitou a nota; negativa em Mercadoria é crédito com o fornecedor; zero com desconto no histórico é dívida perdoada.',
     'erro',
     lancamentos.filter((l) => {
       const v = Number(l.valor ?? 0)
-      if (v === 0) return l.status !== 'cancelado'
+      if (v === 0) return l.status !== 'cancelado' && !idsPerdoados.has(l.id)
       if (v < 0) return !normalizarUsuario(l.categoria ?? '').includes('mercadoria')
       return false
     })
