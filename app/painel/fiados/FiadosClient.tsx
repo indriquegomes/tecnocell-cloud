@@ -158,6 +158,7 @@ export function FiadosClient({
         <div className="flex items-center gap-2">
           <IconCard className="h-6 w-6 shrink-0 text-[#1B6CA8]" />
           <h2 className="text-2xl font-bold text-gray-900">Fiados</h2>
+          <a href="/painel/fiados/descontos" className="ml-auto rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">🏷 Descontos concedidos</a>
         </div>
         <p className="text-sm text-gray-400 mt-0.5">Quanto cada cliente deve — com cobrança pronta pro WhatsApp</p>
       </div>
