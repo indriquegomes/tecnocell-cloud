@@ -83,9 +83,9 @@ export async function auditarFinanceiro(supabase: SB): Promise<Achado[]> {
     // já filtrado no banco: só o que está negativo interessa (19.553 linhas de estoque não vêm todas)
     fetchAll<{ produto_id: string; quantidade: number | null }>(
       (from, to) => supabase.from('estoque').select('produto_id, quantidade').lt('quantidade', 0).order('id').range(from, to)),
-    fetchAll<{ venda_id: string; valor: number | null; status: string | null; forma_pagamento_id: string | null }>(
+    fetchAll<{ venda_id: string; valor: number | null; taxa: number | null; status: string | null; forma_pagamento_id: string | null }>(
       (from, to) => supabase.from('pagamentos_venda')
-        .select('venda_id, valor, status, forma_pagamento_id')
+        .select('venda_id, valor, taxa, status, forma_pagamento_id')
         .gte('created_at', desde).order('id').range(from, to)),
     fetchAll<{ caixa_id: string; tipo: string; forma_pagamento: string | null; valor: number | null }>(
       (from, to) => supabase.from('movimentos_caixa')
@@ -213,10 +213,16 @@ export async function auditarFinanceiro(supabase: SB): Promise<Achado[]> {
       .map((d) => ({ valor: Number(d.valor_total ?? 0), rotulo: (d.pessoa_nome || d.id).slice(0, 40) }))))
 
   // ── Vendas × pagamentos ──────────────────────────────────────────────────
+  // A conta é `valor + taxa`: a taxa da máquina é cobrada DO CLIENTE junto com o
+  // produto (o total da venda é o que ele passou no cartão), e o app guarda o
+  // preço do produto em `valor` e a taxa em `taxa` (lib/saldos-contas.ts explica).
+  // Somar só `valor` acusava toda venda no cartão como "dinheiro sem registro":
+  // em 12/11/2026 eram 16 vendas e 39,78 em novembro — diferença que era
+  // exatamente 3% no débito e 5% no crédito. Com a taxa, o banco inteiro fecha.
   const somaPag = new Map<string, number>()
-  for (const p of pagamentos) somaPag.set(p.venda_id, (somaPag.get(p.venda_id) ?? 0) + Number(p.valor ?? 0))
+  for (const p of pagamentos) somaPag.set(p.venda_id, (somaPag.get(p.venda_id) ?? 0) + Number(p.valor ?? 0) + Number(p.taxa ?? 0))
   out.push(achado('venda_total_diferente', 'Venda cujo total não bate com a soma dos pagamentos',
-    'O que a venda diz que foi pago e o que os pagamentos dizem têm que bater.',
+    'O que a venda diz que foi pago e o que os pagamentos dizem têm que bater (preço + taxa da máquina).',
     'Diferença de centavo é arredondamento; diferença grande é dinheiro sem registro.',
     'erro',
     vendas
