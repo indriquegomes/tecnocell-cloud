@@ -1,0 +1,168 @@
+[
+  {
+    "id": "1ec2a00e-856b-4ae7-9663-f29d77036b23",
+    "pessoa_nome": "ADL",
+    "descricao": "COMPRA MERCADORIA - NOTA 115 (abateu 435,20 de PIX do cliente ao fornecedor)",
+    "valor": 3615.8,
+    "valor_pago": 3615.8,
+    "status": "pendente",
+    "data_vencimento": "2026-11-09T00:00:00+00:00",
+    "historico_pagamentos": [
+      {
+        "data": "2026-11-11T19:47:41.301Z",
+        "forma": "PIX do cliente ao fornecedor",
+        "valor": 3465.8
+      },
+      {
+        "data": "2026-11-11T19:47:44.130Z",
+        "forma": "PIX do cliente ao fornecedor",
+        "valor": 150
+      },
+      {
+        "data": "2026-11-12T11:02:03.205Z",
+        "forma": "PIX do cliente ao fornecedor",
+        "valor": 435.2
+      }
+    ],
+    "categoria": "Mercadoria"
+  },
+  {
+    "id": "c5dfbb22-10b6-4a16-a167-5359332d06a1",
+    "pessoa_nome": "ADL",
+    "descricao": "COMPRA MERCADORIA - NOTA 99",
+    "valor": 9897,
+    "valor_pago": 3341.12,
+    "status": "pendente",
+    "data_vencimento": "2026-11-10T00:00:00+00:00",
+    "historico_pagamentos": [],
+    "categoria": "Mercadoria"
+  },
+  {
+    "id": "bda7557f-cdb4-484c-a78f-4f5681ac7e6c",
+    "pessoa_nome": "ADL",
+    "descricao": "Trocas pendentes — peças enviadas e não devolvidas (novembro/2026)",
+    "valor": 4014.48,
+    "valor_pago": 4014.48,
+    "status": "pendente",
+    "data_vencimento": "2026-11-05T00:00:00+00:00",
+    "historico_pagamentos": [],
+    "categoria": "Mercadoria"
+  },
+  {
+    "id": "35c17d8f-3606-4812-be9c-bfe92cc059b7",
+    "pessoa_nome": "H2O",
+    "descricao": "NOTA ESPECIAIS H2O",
+    "valor": 362,
+    "valor_pago": 362,
+    "status": "pendente",
+    "data_vencimento": "2026-11-10T00:00:00+00:00",
+    "historico_pagamentos": [],
+    "categoria": "Mercadoria"
+  },
+  {
+    "id": "ce33a0bf-1906-412c-88ef-89ebcf271e18",
+    "pessoa_nome": "H2O",
+    "descricao": "COMPRA MERCADORIA - NOTA 97 (abateu 911,00 de troca de outubro) (abateu 8904,63 de pagamento) (abateu 827,00 de pagamento) (baixa PIX 05/11 6659,50) (baixa PIX 06-07/11 4109,40)",
+    "valor": 5775.47,
+    "valor_pago": 5775.47,
+    "status": "pendente",
+    "data_vencimento": "2026-11-10T00:00:00+00:00",
+    "historico_pagamentos": [],
+    "categoria": "Mercadoria"
+  },
+  {
+    "id": "50aa2c78-aab6-48c0-8a4d-39da61510889",
+    "pessoa_nome": "H2O",
+    "descricao": "COMPRA MERCADORIA - NOTA 95",
+    "valor": 4150,
+    "valor_pago": 4150,
+    "status": "pendente",
+    "data_vencimento": "2026-11-10T00:00:00+00:00",
+    "historico_pagamentos": [],
+    "categoria": "Mercadoria"
+  },
+  {
+    "id": "a6821036-a2ee-40e0-8beb-257875c9c2ca",
+    "pessoa_nome": "H2O",
+    "descricao": "COMPRA MERCADORIA - NOTA 98 (abateu 3663,54 de pagamento) (baixa PIX 05/11 3615,19) (baixa PIX 06-07/11 8943,00)",
+    "valor": 2586.27,
+    "valor_pago": 2586.27,
+    "status": "pendente",
+    "data_vencimento": "2026-11-10T00:00:00+00:00",
+    "historico_pagamentos": [],
+    "categoria": "Mercadoria"
+  },
+  {
+    "id": "44b5bb88-c6a0-4a3a-9f6d-cf4894cb44a1",
+    "pessoa_nome": "H2O",
+    "descricao": "COMPRA MERCADORIA - NOTA 111 (abateu 1366,50 de pagamento) (abateu 1260,50 de pagamento)",
+    "valor": 806,
+    "valor_pago": 75,
+    "status": "pendente",
+    "data_vencimento": "2026-11-09T00:00:00+00:00",
+    "historico_pagamentos": [
+      {
+        "data": "2026-11-12T11:53:12.658Z",
+        "forma": "pagamento",
+        "valor": 1260.5
+      }
+    ],
+    "categoria": "Mercadoria"
+  },
+  {
+    "id": "ad98426e-405c-4fea-ad2e-884811a5a7e1",
+    "pessoa_nome": "H2O",
+    "descricao": "Ajuste de conferência — diferença apurada com o dono em 05/11 (H2O)",
+    "valor": 78.9,
+    "valor_pago": 78.9,
+    "status": "pendente",
+    "data_vencimento": "2026-11-05T00:00:00+00:00",
+    "historico_pagamentos": [],
+    "categoria": "Mercadoria"
+  },
+  {
+    "id": "b24b315e-505f-46ca-8a07-5a7a65c0b3fd",
+    "pessoa_nome": "H2O",
+    "descricao": "NOTA ESPECIAIS H2O",
+    "valor": 380,
+    "valor_pago": 256.56,
+    "status": "pendente",
+    "data_vencimento": "2026-11-10T00:00:00+00:00",
+    "historico_pagamentos": [],
+    "categoria": "Mercadoria"
+  },
+  {
+    "id": "79954ed2-1308-4854-b74a-e6ebfae93b7a",
+    "pessoa_nome": "ZL",
+    "descricao": "COMPRA MERCADORIA - NOTA 91",
+    "valor": 3115,
+    "valor_pago": 3115,
+    "status": "pendente",
+    "data_vencimento": "2026-11-10T00:00:00+00:00",
+    "historico_pagamentos": [
+      {
+        "data": "2026-11-11T15:16:30.712Z",
+        "forma": "PIX",
+        "valor": 3115
+      }
+    ],
+    "categoria": "Mercadoria"
+  },
+  {
+    "id": "0dc29a4e-839e-402d-9371-580c90bf1b5b",
+    "pessoa_nome": "ZL",
+    "descricao": "COMPRA MERCADORIA - NOTA 92",
+    "valor": 2235,
+    "valor_pago": 1240.6,
+    "status": "pendente",
+    "data_vencimento": "2026-11-10T00:00:00+00:00",
+    "historico_pagamentos": [
+      {
+        "data": "2026-11-11T15:16:30.712Z",
+        "forma": "PIX",
+        "valor": 1240.6
+      }
+    ],
+    "categoria": "Mercadoria"
+  }
+]

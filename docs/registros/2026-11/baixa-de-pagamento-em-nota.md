@@ -125,3 +125,75 @@ Trocas não foram tocadas — ordem do dono em 12/11/2026.
 não têm cadastro de fornecedor nem dívida registrada no app. Não entram nos cinco
 saldos da planilha, então nada aqui muda; ficam registrados para o dono dizer de quem
 são.
+
+> **Resolvido no item 10:** os dois primeiros parágrafos acima estão superados. A
+> Fernandes da Silva é o próprio ZL, e os PIX não estavam perdidos — o app consolida o
+> dia por loja. Ver seção 10.
+
+---
+
+## 9. 12/11/2026 — as duas réguas viraram uma (histórico de outubro)
+
+Fechado o 1.260,50 e conferido o ZL, sobrou o histórico com **duas réguas** de baixa
+convivendo: notas 91/92 pagas por `valor_pago` (o jeito antigo) e notas 112/113 pagas
+por encolhimento (o jeito oficial). O total fechava, mas quem abrisse as notas de
+outubro via duas linguagens.
+
+**O que foi feito:** as **12 notas pendentes** de mercadoria que ainda tinham
+`valor_pago` foram convertidas para a régua oficial — o valor da nota encolheu, o
+`valor_pago` voltou a zero, o abatimento foi escrito na descrição e no histórico, e a
+nota que zerou saiu como `cancelado` (não inventa pagamento).
+
+| Fornecedor | Notas convertidas | valor_pago absorvido |
+|---|---|---|
+| ADL | 3 | 10.971,40 |
+| H2O | 6 | 13.284,20 |
+| ZL | 2 | 4.355,60 |
+| **Total** | **12** | **28.611,20** |
+
+**Nenhum centavo mudou.** Dívida por fornecedor antes e depois:
+
+| Fornecedor | Antes | Depois |
+|---|---|---|
+| ADL | 27.463,68 | 27.463,68 |
+| H2O | 32.489,12 | 32.489,12 |
+| INOVA | 35.243,70 | 35.243,70 |
+| PLANETA CELL | 12.555,96 | 12.555,96 |
+| ZL | 3.689,80 | 3.689,80 |
+| **Total** | **111.442,26** | **111.442,26** |
+
+Hoje não existe nenhuma nota pendente de mercadoria com `valor_pago` (`n = 0`).
+Backup das 12 linhas antes da conversão:
+`docs/registros-banco/2026-11/backup-baixa-valor-pago-2026-11-12T17-07-53-032Z.json`.
+
+**O que NÃO foi tocado:** as **208 notas de mercadoria já pagas** que carregam
+`valor_pago` (724.486,33). São história encerrada — a recomendação 1 deste documento
+continua valendo ("não reescrever o passado"). Duas delas têm `valor_pago` acima do
+`valor`, e a auditoria do Saúde já as aponta.
+
+---
+
+## 10. 12/11/2026 — a Fernandes da Silva é o ZL (não é fornecedor solto)
+
+O dono desconfiou que os PIX de cliente para **FERNANDES DA SILVA REPRESENTACAO
+COMERCIAL SJC LTDA** estavam amarrados a algum fornecedor. Estavam: é o **ZL**,
+cadastrado em `pessoa_chaves_pix` com `tipo_chave = 'Nome no comprovante'` (o
+comprovante não traz chave nem CNPJ, só o nome do favorecido). Há uma segunda chave
+igual: **PLANORH PLANEJAMENTO E ORGANIZACAO EMPRESARIAL**.
+
+**E os PIX não estavam perdidos.** O app consolida o dia inteiro numa linha só, por
+loja. Conferência dia a dia:
+
+| Dia | Loja | PIX de cliente | Lançado |
+|---|---|---|---|
+| 10/11 | Petrópolis | 2.148,00 | 2.148,00 |
+| 10/11 | Teresópolis | 2.207,60 | 2.207,60 |
+| 11/11 | Teresópolis | 241,00 | 100,00 lançado + 141,00 abatido na nota 113 |
+
+Um dos comprovantes de 10/11 traz o nome **mascarado**
+(`FERNANDES ** ***** ************* ********* *** ****`) e mesmo assim entrou na soma —
+o casamento por nome tolera máscara.
+
+**Lição para a próxima conferência:** procurar um lançamento por comprovante individual
+não acha nada; o lançamento é a soma do dia por loja. Foi o que fez a primeira análise
+deste dia parecer que faltavam 5.022,90.
