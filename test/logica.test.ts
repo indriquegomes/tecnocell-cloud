@@ -278,6 +278,11 @@ test('mercadoria: as grafias de compra de estoque contam como compra', () => {
   assert.equal(ehCompraDeMercadoria('fonecedor'), true)
   assert.equal(ehCompraDeMercadoria('  mercadoria  '), true)
   assert.equal(ehCompraDeMercadoria('MERCADORIA'), true)
+  // espaço em volta da barra não muda o significado — e já custou 1.260,50 de
+  // dívida que não abateu (pagamento de 11/11/2026 à H2O)
+  assert.equal(ehCompraDeMercadoria('fornecedor/mercadoria'), true)
+  assert.equal(ehCompraDeMercadoria('FORNECEDOR/MERCADORIA'), true)
+  assert.equal(ehCompraDeMercadoria('Fornecedor  /  Mercadoria'), true)
 })
 test('mercadoria: despesa de verdade NÃO é compra de estoque', () => {
   assert.equal(ehCompraDeMercadoria('Salários'), false)

@@ -71,3 +71,57 @@ já foi abatido — informação que hoje só existe escrita na descrição da n
 3. Um pagamento **maior** que a dívida: vira crédito para a próxima nota (como a troca faz)
    ou fica como adiantamento em linha separada?
 4. Nota que já foi paga **antes** desta regra existir: fica como está, sem retroativo?
+
+---
+
+## 8. 12/11/2026 — a dívida voltou a bater com a planilha (111.442,26)
+
+O dono mandou os cinco saldos da planilha: **ADL 27.463,68 · PLANETA CELL 12.555,96 ·
+H2O 32.489,12 · ZL 3.689,80 · INOVA 35.243,70 = 111.442,26**. O app estava em
+112.702,76 — 1.260,50 acima. Quatro fornecedores batiam ao centavo; só o H2O não.
+
+**A causa:** um pagamento de **1.260,50 em 11/11/2026** (PIX, lançado sem fornecedor)
+estava gravado com a categoria **`fornecedor/mercadoria`** — sem espaço em volta da
+barra. A lista tolerante de `ehCompraDeMercadoria` (`lib/financeiro-setores.ts`) só
+conhecia `fornecedor / mercadoria`, **com** espaço. E o abatimento em
+`app/painel/financeiro/actions.ts` comparava a categoria por **igualdade exata** com
+`'Mercadoria'`. Resultado: dois filtros independentes recusaram a mesma linha e a
+nota do H2O nunca encolheu — o dinheiro saiu, a dívida ficou.
+
+**O que foi corrigido:**
+
+1. `ehCompraDeMercadoria` normaliza espaço em volta da barra — grafia não muda mais
+   o significado (3 casos novos em `test/logica.test.ts`).
+2. `marcarPago` usa essa régua única em vez de comparar texto exato.
+3. `marcarPago` **avisa** quando um pagamento de mercadoria não tem fornecedor — antes
+   passava em silêncio e a dívida ficava maior que a planilha.
+4. O pagamento de 1.260,50 foi ligado ao cadastro do H2O e abatido pela
+   `abaterNaDivida` (a mesma função do Financeiro e da troca), com o rastro no
+   histórico da nota.
+5. O mesmo fornecedor aparecia com **dois nomes** nas notas (`ADL` / `ADL FORNECEDOR`,
+   `H2O` / `H2O FORNECEDOR`, `ZL` / `ZL CELL FORNECEDOR`). `pessoa_nome` foi alinhado
+   ao nome do cadastro — soma não muda, mas agrupar/filtrar por nome deixou de mostrar
+   o mesmo fornecedor duas vezes.
+
+**Conferido depois (liquido = `valor − valor_pago`, status pendente, categoria
+mercadoria, 31 linhas):**
+
+| Fornecedor | App | Planilha | |
+|---|---|---|---|
+| ADL | 27.463,68 | 27.463,68 | ok |
+| PLANETA CELL | 12.555,96 | 12.555,96 | ok |
+| H2O | 32.489,12 | 32.489,12 | ok |
+| ZL | 3.689,80 | 3.689,80 | ok |
+| INOVA | 35.243,70 | 35.243,70 | ok |
+| **Total** | **111.442,26** | **111.442,26** | **ok** |
+
+**INOVA:** o saldo de 35.495,30 em 30/10 estava certo, e o abatimento de **251,60 é de
+trocas ANTIGAS** (já lançado como linha negativa em 05/11). As trocas atuais da aba
+Trocas não foram tocadas — ordem do dono em 12/11/2026.
+
+**Aberto, não corrigido (falta informação):** existe um pagamento de **100,00 em
+11/11** sem fornecedor, com a mesma descrição "PAGAMENTO DE MERCADORIA", e três PIX de
+100,00 de clientes para **FERNANDES DA SILVA REPRESENTACAO COMERCIAL** (10 e 11/11) que
+não têm cadastro de fornecedor nem dívida registrada no app. Não entram nos cinco
+saldos da planilha, então nada aqui muda; ficam registrados para o dono dizer de quem
+são.

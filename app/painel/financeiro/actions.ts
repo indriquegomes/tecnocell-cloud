@@ -12,6 +12,7 @@ import { vinculoEncerrado } from '@/lib/vinculo'
 import { travarSeMesFechado } from '@/lib/fechamento'
 import { hojeSP } from '@/lib/utils'
 import { SETORES } from '@/lib/financeiro-setores'
+import { ehCompraDeMercadoria } from '@/lib/financeiro-setores'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -313,10 +314,20 @@ export async function marcarPago(id: string, formData?: FormData) {
   // Só para compra de mercadoria: pagar frete, aluguel ou salário não abate nota.
   // A própria nota (linha "COMPRA MERCADORIA - NOTA n") fica de fora — marcar a nota
   // como paga já a tira do pendente, abater de novo contaria duas vezes.
+  //
+  // A categoria vai pela régua única (`ehCompraDeMercadoria`), não por igualdade com
+  // 'Mercadoria': grafias antigas ('Fornecedor / Mercadoria', 'fornecedor/mercadoria')
+  // são a mesma coisa, e comparar texto exato deixava o abatimento passar batido.
   const linhaAntes = antes as { descricao?: string | null; categoria?: string | null; pessoa_nome?: string | null } | null
   const ehNota = /COMPRA MERCADORIA/i.test(linhaAntes?.descricao ?? '')
   const pessoaDoPagamento = linhaAntes?.pessoa_nome ?? null
-  if (faltava > 0 && antes?.tipo === 'pagar' && !ehNota && pessoaDoPagamento && (linhaAntes?.categoria ?? '') === 'Mercadoria') {
+  const ehMercadoria = ehCompraDeMercadoria(linhaAntes?.categoria)
+  if (faltava > 0 && antes?.tipo === 'pagar' && !ehNota && ehMercadoria) {
+    // Sem fornecedor não há nota para abater. Antes isso passava em silêncio e a
+    // dívida ficava maior do que a planilha; agora o operador é avisado na hora.
+    if (!pessoaDoPagamento) {
+      redirect(`/painel/financeiro?erro=${encodeURIComponent('Pagamento de mercadoria sem fornecedor: a dívida não foi abatida. Abra o lançamento, escolha o fornecedor e dê a baixa de novo.')}`)
+    }
     const lojaId = await lojaDoLancamento(supabase, id)
     const r = await abaterNaDivida(
       supabase,

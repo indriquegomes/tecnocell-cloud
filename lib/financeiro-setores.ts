@@ -148,7 +148,14 @@ export const subcategoriasDe = (categoria: string | null | undefined): string[] 
 // fechamento de meses já conferidos. Hoje só 'Mercadoria' é oferecida.
 const CATEGORIAS_MERCADORIA = ['fornecedor / mercadoria', 'fornecedor zl', 'fonecedor', 'mercadoria']
 
+// Espaço em volta da barra não muda o que a categoria significa, mas mudava o
+// resultado: 'fornecedor/mercadoria' (sem espaço) passava longe da lista, a compra
+// deixava de ser mercadoria e o pagamento não abatia a nota do fornecedor —
+// foi assim que 1.260,50 pagos à H2O em 11/11/2026 sumiram da dívida.
+const normalizaCategoria = (categoria: string | null | undefined) =>
+  (categoria ?? '').trim().toLowerCase().replace(/\s*\/\s*/g, '/')
+
 export const ehCompraDeMercadoria = (categoria: string | null | undefined): boolean =>
-  CATEGORIAS_MERCADORIA.includes((categoria ?? '').trim().toLowerCase())
+  CATEGORIAS_MERCADORIA.map(normalizaCategoria).includes(normalizaCategoria(categoria))
 
 export const TODAS_SUBCATEGORIAS: string[] = [...new Set(Object.values(SUBCATEGORIAS).flat())]
