@@ -98,6 +98,33 @@ sendo usada como cancelamento de venda?
 35.243,70 pendentes (35.495,30 de saldo devedor de 30/10 menos 251,60 de trocas). O dono pediu
 para conferir depois.
 
+**Estado em 11/11/2026 — não é conferível pelo app:** a nota foi dada no **sistema antigo
+(SIGE)**, então não existe nota de entrada da INOVA aqui. A dívida é uma **linha de saldo
+trazido em 30/10**, não o retrato das compras.
+
+| Linha no app | Valor | Situação |
+|---|---|---|
+| INOVA — histórico de pagamentos até 30/09/2026 | 230.894,98 | pago (histórico) |
+| Pagamentos de outubro (11 lançamentos) | 11.811,07 | pagos |
+| INOVA — saldo devedor em 30/10/2026 | 35.495,30 | pendente |
+| Trocas abatidas — peças devolvidas | −251,60 | pendente (crédito) |
+| **Dívida hoje** | **35.243,70** | |
+
+Verificado no banco: **zero PIX para a Atrativa/INOVA em novembro** e **três trocas** de fone
+(custo 150,39) enviadas em 04 e 05/11 — valor diferente dos 251,60 abatidos.
+
+**O dono já pagou alguns valores em outubro e vai conferir com a estoquista.** Perguntas para
+ela, cada uma com o número na mão:
+
+1. O saldo de **35.495,30** em 30/10 está certo?
+2. De 30/10 até hoje, quanto foi pago à INOVA e por onde (dinheiro do cofre, PIX do banco ou
+   PIX de cliente)?
+3. Os **251,60** de troca são as 3 peças (150,39 de custo) mais alguma coisa, ou o valor está
+   errado?
+
+Enquanto as três não voltarem respondidas, a INOVA **não entra** na régua automática dos outros
+quatro (nota → dívida e PIX do dia → baixa), porque não há nota no sistema para amarrar.
+
 ## Onde está cada apuração
 
 | Documento | Assunto |
