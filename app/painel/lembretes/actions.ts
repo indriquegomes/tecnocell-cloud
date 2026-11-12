@@ -2,6 +2,7 @@
 
 import { createServiceClient, requireAuth, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { pessoaIdPorNome } from '@/lib/pessoa-por-nome'
 import { hojeSP } from '@/lib/lembretes'
 import { dataEmMesFechado } from '@/lib/fechamento'
 
@@ -155,6 +156,8 @@ async function lancarPagamentoRecorrente(
     tipo: 'pagar',
     categoria: 'Salários',
     pessoa_nome: pessoa,
+    // vínculo com a ficha: sem ele o salário fica sem dono na tela da pessoa
+    pessoa_id: await pessoaIdPorNome(supabase, pessoa),
     loja_id: p?.pdv_loja_id ?? null,
     data_competencia: data,
     data_vencimento: data,

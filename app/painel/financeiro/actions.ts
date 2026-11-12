@@ -7,6 +7,7 @@ import { logAtividade } from '@/lib/log-atividade'
 import { registrarNoCaixa, retirarDoCaixa, lojaDoLancamento } from '@/lib/caixa'
 import { contaDaForma } from '@/lib/conta-da-forma'
 import { abaterNaDivida } from '@/lib/abater-divida'
+import { pessoaIdPorNome } from '@/lib/pessoa-por-nome'
 import { travarSeMesFechado } from '@/lib/fechamento'
 import { hojeSP } from '@/lib/utils'
 import { SETORES } from '@/lib/financeiro-setores'
@@ -558,6 +559,9 @@ export async function gerarFolha(formData: FormData) {
       tipo: 'pagar',
       categoria: 'Salários',
       pessoa_nome: p.nome,
+      // sem o vínculo o salário fica sem ficha: não aparece na tela da pessoa e o
+      // abatimento (que casa pelo cadastro) não enxerga a dívida
+      pessoa_id: await pessoaIdPorNome(supabase, p.nome),
       loja_id: lojaId,
       data_competencia: hojeSP(),
       data_vencimento: vencimento,
