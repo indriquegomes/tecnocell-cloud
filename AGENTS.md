@@ -235,6 +235,18 @@ bater com o total, senão a venda inteira é recusada.
   (`lib/permissoes.ts`) — senão ninguém além do master entra.
 - **Hidratação:** não aninhar `<button>` dentro de `<button>` (usar
   `<div role="button">`).
+- **JSONB "contém":** `.contains('coluna', [{...}])` **quebra** no PostgREST
+  (`invalid input syntax for type json`). O que funciona é
+  `.filter('coluna', 'cs', '[{"tipo":"desconto"}]')` — com o JSON em texto. Custou
+  um falso positivo na auditoria em 12/11/2026.
+- **Regra de auditoria não pode acusar a convenção do app.** O conferente do Saúde
+  acusava como erro três coisas que o sistema faz de propósito: nota zerada e
+  `cancelada` pelo abatimento, crédito de fornecedor (Mercadoria negativa) e dívida
+  perdoada por desconto (valor 0 com desconto no histórico). Antes de escrever uma
+  regra nova, checar se o "defeito" não é o padrão documentado em `docs/mapa/`.
+- **Regra de dinheiro não soma só uma coluna.** A regra "venda cujo total não bate
+  com os pagamentos" somava `valor` e esquecia `taxa` — toda venda no cartão virava
+  erro (16 vendas em novembro). O total da venda é **preço + taxa da máquina**.
 
 ## 10. Regras de negócio que o código sozinho não conta
 

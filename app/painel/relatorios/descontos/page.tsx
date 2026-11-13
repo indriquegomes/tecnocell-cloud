@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { buscarDescontosConcedidos } from '@/lib/descontos'
 import { formatBRL } from '@/lib/utils'
 import { Dica } from '@/components/Dica'
@@ -43,15 +43,20 @@ export default async function DescontoNaVendaPage({
 
   // desconto por PEÇA fica em itens_venda.desconto_item (por unidade) — a venda
   // guarda só o desconto geral em vendas.desconto.
-  const itens = await fetchAllIn<{ venda_id: string; desconto_item: number | null; quantidade: number | null }>(
-    vendas.map((v) => v.id),
-    (chunk, from, to) => supabase.from('itens_venda')
+  //
+  // UMA consulta, sem fatiar por venda: desconto por peça é raro (974 linhas na
+  // tabela inteira contra 77 mil itens, medido em 12/11/2026). Fatiar por venda_id
+  // custava uma ida ao banco a cada 200 vendas — 2,7s para trazer 34 linhas.
+  const itens = await fetchAll<{ venda_id: string; desconto_item: number | null; quantidade: number | null }>(
+    (from, to) => supabase.from('itens_venda')
       .select('venda_id, desconto_item, quantidade')
-      .in('venda_id', chunk).gt('desconto_item', 0)
+      .gt('desconto_item', 0)
       .order('id').range(from, to))
 
+  const vendasDoMes = new Set(vendas.map((v) => v.id))
   const pecaPorVenda = new Map<string, number>()
   for (const i of itens) {
+    if (!vendasDoMes.has(i.venda_id)) continue
     const v = Number(i.desconto_item ?? 0) * Number(i.quantidade ?? 0)
     pecaPorVenda.set(i.venda_id, (pecaPorVenda.get(i.venda_id) ?? 0) + v)
   }

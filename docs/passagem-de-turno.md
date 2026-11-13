@@ -58,6 +58,13 @@ acusar só o que é anomalia: **53 recebíveis marcados como pagos com valor zer
 (51 de agosto–outubro, 2 de novembro — vendas #12266 e #12391, pagas cheias, com
 "a receber" de 0,00 criado junto).
 
+**Check-up da madrugada de 12/11 (autônomo):** relatório em
+`docs/registros/2026-11/checkup-12-11.md`. 85 telas em produção, zero erro de
+console/exception/HTTP 500; as três telas novas abrem. Um achado médio em aberto:
+**ADL recebeu 5.462,10 de PIX de cliente hoje e só 3.599,00 abateu** (1.863,10 sem
+baixa) — a baixa automática só enxerga a janela do caixa. Não corrigido: é caminho de
+dinheiro. A tela de desconto na venda era a mais lenta do sistema (6,6s) e foi
+otimizada para uma consulta. Script reutilizável: `node scripts/checkup-telas.cjs`.
 **Foco combinado com o dono:** outubro está fora do processo ("já foi pago, valor
 pequeno, irrelevante"); o alvo é **fechar novembro sem erro para o mês 12 não herdar**.
 
