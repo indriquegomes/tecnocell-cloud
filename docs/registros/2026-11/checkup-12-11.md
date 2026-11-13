@@ -15,28 +15,37 @@ exceção de JS nas 85 telas.
 
 ## 🟡 MÉDIO
 
-### 1. ADL: 1.863,10 de PIX de cliente de hoje não abateu a dívida
+### 1. ADL: diferença de 234,40 a 288,00 — e duas hipóteses minhas que caíram
 
-**Prova:** hoje entraram **65 comprovantes "MAIS BARATO" (chave da ADL) somando
-5.462,10**, todos no mesmo grupo do Telegram. A nota 99 (Petrópolis) abateu
-**3.599,00**. Diferença: **1.863,10** que saiu do cliente e não reduziu a dívida.
+**O número que eu ia reportar estava errado.** Primeiro eu disse 1.863,10. Depois
+culpei a janela do caixa. Depois culpei a regra anti-duplicata. **As três estavam
+erradas** — e a correção importa porque ele ia agir em cima do número inflado.
 
-As outras duas contas fecham:
-- **ZL:** 903,30 de PIX hoje (805,00 + 98,30) e 903,30 abatidos na nota 113 — exato.
-- **H2O:** 3.344,80 abatidos (2.613,80 na nota 118 + 731,00 na 111) contra 3.267,80 de
-  PIX de hoje — os 77,00 de folga são PIX de dia anterior dentro da janela do caixa.
+O que acontece de verdade:
 
-**Causa provável:** a baixa automática (`baixarPixDoDiaAutomatico`, em
-`app/painel/pdv/operacao/actions.ts`) só enxerga os comprovantes **entre a abertura e o
-fechamento do caixa daquela loja**. PIX que chega fora dessa janela — ou que sobra de
-uma sessão que fechou antes — não é revisitado por nenhum fechamento seguinte.
+- Hoje chegaram **65 comprovantes** da chave da ADL somando **5.462,10** — mas muitos
+  são **o mesmo PIX reenviado ao grupo** (foto e PDF, ou encaminhado). Agrupando pelo
+  `transacao_id`, são **48 PIX únicos = 3.887,00**.
+- Abatido na nota 99: **3.599,00**.
+- Diferença real: **288,00** no dia inteiro, ou **234,40** dentro da janela do caixa
+  (08:03→18:21). Os 53,60 que chegaram às 18:33 ficam para o próximo fechamento.
 
-**Correção sugerida:** no fechamento, além da janela da sessão, varrer o que ficou sem
-abatimento no dia (o `jaAbatido` já existe; falta somar o que não entrou em janela
-nenhuma). Antes de mexer, conferir na tela "PIX do dia" do PDV quais comprovantes
-ficaram de fora — é a mesma resolução, com nome e valor.
+**A regra anti-duplicata está CORRETA.** Testei comprovante por comprovante: os
+"repetidos" têm o **mesmo `transacao_id`** — é o mesmo PIX, não dois pagamentos. Se o
+app contasse todos, abateria dívida duas vezes pelo mesmo dinheiro.
 
-**Não corrigido nesta madrugada** porque mexe em caminho de dinheiro: precisa do dono.
+**O que sobra de hipótese:** a regra só não consegue distinguir quando o comprovante
+**não traz id de transação**. Hoje foram **5 comprovantes sem id, 449,00** — e dois
+pares deles parecem o mesmo arquivo reenviado (Vitor Hugo Gomes da Silva 63,00 às
+10:33 e 14:50; Jose Carlos Guimaraes de Barros 120,00 às 08:29 e 14:50). Se a regra
+descartou um de cada par, são 183,00 — o que aproxima, mas não fecha os 234,40.
+
+**Próximo passo (10 minutos, com o dono):** abrir **PDV → Operação → "PIX do dia"** e
+conferir na tela a resolução comprovante por comprovante. Ela mostra o que o app casou
+e o que deixou de fora; é a única fonte que fecha isso sem suposição.
+
+**Conclusão para o fechamento:** não é buraco de 1.863,10. É diferença pequena
+(234,40–288,00) sem causa provada. Nada urgente.
 
 ### 2. A tela mais lenta do sistema é a que eu criei hoje
 
@@ -106,3 +115,7 @@ Criar/editar/apagar cadastro em produção de madrugada, sem ninguém olhando, �
 sem ganho: a receita manda limpar no `finally`, mas um erro no meio deixa lixo em dado
 real. O caminho de escrita coberto hoje foi o do ponto (com `__QA__` e limpeza) e o do
 desconto (aplicado pela função real, em dado real, conferido linha por linha).
+**As outras duas contas, conferidas pelo mesmo critério (PIX único):**
+- **ZL:** 3 comprovantes = 903,30 únicos, e 903,30 abatidos na nota 113 — exato.
+- **H2O:** 35 comprovantes = 3.267,80 únicos, contra 3.344,80 abatidos (2.613,80 na nota
+  118 + 731,00 na 111) — os 77,00 de folga são PIX de dia anterior dentro da janela.
