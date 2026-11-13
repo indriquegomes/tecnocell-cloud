@@ -1,0 +1,43 @@
+[
+  {
+    "id": "c5dfbb22-10b6-4a16-a167-5359332d06a1",
+    "descricao": "COMPRA MERCADORIA - NOTA 99 (abateu 3341,12 de baixa antiga — valor_pago) (abateu 3599,00 de PIX do cliente ao fornecedor)",
+    "valor": 2956.88,
+    "valor_pago": 0,
+    "status": "pendente",
+    "historico_pagamentos": [
+      {
+        "data": "2026-11-12T17:07:53.132Z",
+        "forma": "baixa antiga",
+        "valor": 3341.12
+      },
+      {
+        "data": "2026-11-12T21:21:56.316Z",
+        "forma": "PIX do cliente ao fornecedor",
+        "valor": 3599
+      }
+    ]
+  },
+  {
+    "id": "ede9059a-3930-479b-a3cc-0885a16a2003",
+    "descricao": "COMPRA MERCADORIA - NOTA 114 (abateu 502,00 de pagamento) (abateu 5,20 de PIX do cliente ao fornecedor)",
+    "valor": 8006.8,
+    "valor_pago": 0,
+    "status": "pendente",
+    "historico_pagamentos": [
+      {
+        "data": "2026-11-12T11:02:03.348Z",
+        "forma": "PIX do cliente ao fornecedor",
+        "valor": 5.2
+      }
+    ]
+  },
+  {
+    "id": "a1a5c4ba-f4b7-45a7-a723-7d4d24788d5d",
+    "descricao": "COMPRA MERCADORIA - NOTA 101",
+    "valor": 12901,
+    "valor_pago": 0,
+    "status": "pendente",
+    "historico_pagamentos": []
+  }
+]

@@ -240,3 +240,49 @@ valor que ela confirmou.
 o valor escorrega para "crédito" e a dívida cai por um caminho que ninguém vê. Não é
 motivo para cancelar: é motivo para **ratear a dívida por loja antes de dar baixa** (o
 que fizemos com a INOVA em 12/11).
+---
+
+## 12. 13/11/2026 — dívida de fornecedor fechada com a planilha (103.014,16)
+
+O dono mandou a planilha (atualizada 13/11 às 10h) e ela é a régua. Depois de ratear a
+INOVA por loja, cancelar os 0,90 de teste e abater os 581,00 que faltavam, os cinco
+fornecedores batem **ao centavo**:
+
+| Fornecedor | Planilha | App |
+|---|---|---|
+| ADL | 23.283,68 | 23.283,68 |
+| PLANETA CELL | 12.555,96 | 12.555,96 |
+| H2O | 29.144,32 | 29.144,32 |
+| ZL | 2.786,50 | 2.786,50 |
+| **subtotal (linha "ESTOQUE DEVE")** | **67.770,46** | **67.770,46** |
+| INOVA | 35.243,70 | 35.243,70 |
+| **Total** | **103.014,16** | **103.014,16** |
+
+### De onde vinham os 581,00 da ADL
+
+A planilha calcula `A pagar = Compras − Pagamentos`. Para a ADL:
+
+- **compras** = 39.377,48 (5 notas) — o app tinha os mesmos 39.377,48;
+- **pagamentos** = 16.093,80 — o app tinha 16.094,70 (0,90 a mais, de uma nota de teste);
+- logo a dívida devia ser 23.283,68, mas o app mostrava 23.864,68.
+
+A diferença era **581,00 de pagamento registrado como pago que nunca abateu nota**: o
+dinheiro estava no Financeiro, com fornecedor e categoria de mercadoria, mas ficou ao
+lado da dívida em vez de dentro dela. Abatido na nota 99 (a mais antiga em aberto), com
+o rótulo "conciliação com a planilha" no histórico. Backup em
+`docs/registros-banco/2026-11/backup-adl-conciliacao-*.json`.
+
+### O bug que deixava PIX sem baixa (corrigido no código)
+
+`baixarPixDoDiaAutomatico` (fechamento de caixa) perguntava "quanto já foi abatido
+**hoje**" e descontava do total da janela: quando a loja fechava o caixa **duas vezes no
+mesmo dia**, o segundo fechamento descontava o que o primeiro já tinha abatido e esse
+dinheiro nunca mais era abatido. Na ADL de 12/11: 4.222,40 de PIX na janela, 440,40
+abatidos de manhã e só 3.599,00 à noite. A comparação de data ainda era em **UTC**, então
+abatimento depois das 21h caía no dia seguinte e podia ser contado duas vezes. Agora
+compara com o instante de abertura do caixa (`abertoEm`), no fuso de São Paulo.
+
+### Nota de teste
+
+A linha de **0,90** da ADL era teste (dito pelo dono em 11/11) e foi cancelada, com o
+motivo na descrição.
