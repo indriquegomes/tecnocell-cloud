@@ -1084,7 +1084,7 @@ export async function aplicarDescontoCrediario(
 ): Promise<ResultadoReceb> {
   try {
     await requirePermissao('crediario_receber', accessToken)
-    await requirePermissao('venda_desconto', accessToken)   // perdoar dívida = dar desconto
+    const usuario = await requirePermissao('venda_desconto', accessToken)   // perdoar dívida = dar desconto
     if (!(valorDesconto > 0)) return { ok: false, erro: 'Valor do desconto inválido.' }
     // Motivo é obrigatório: é ele que diz se a venda rendeu menos (incentivo) ou se o
     // dinheiro não existe mais (perda). Sem motivo, as duas coisas viram pó no histórico.
@@ -1134,6 +1134,8 @@ export async function aplicarDescontoCrediario(
         loja_id: o?.loja_id ?? null,
         conta_id: null,
         forma_pagamento: 'Desconto',
+        // quem deu o desconto: o relatório do dono precisa saber a mão que abriu
+        criado_por: usuario.id,
         data_competencia: hoje,
         data_vencimento: hoje,
         data_pagamento: hoje,
