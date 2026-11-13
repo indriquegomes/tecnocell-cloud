@@ -282,6 +282,21 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
   const emAberto = await fetchAll<{ valor: number | null; valor_pago: number | null }>((from, to) =>
     supabase.from('lancamentos').select('valor, valor_pago').eq('tipo', 'pagar').neq('status', 'cancelado').range(from, to))
   const totalEmAberto = emAberto.reduce((s, l) => s + Math.max(0, Number(l.valor ?? 0) - Number(l.valor_pago ?? 0)), 0)
+
+  // DESCONTOS E PERDAS DO MÊS — o dinheiro que a loja deixou de receber.
+  //
+  // A venda no fiado entrou como receita no mês em que foi feita. Quando depois parte
+  // dela é perdoada, esse dinheiro nunca entra: sem uma linha, o resultado do mês fica
+  // acima da realidade. O PDV grava o desconto como despesa ("Desconto concedido" ou
+  // "Perda com fiado", conforme o motivo), então ele já entra na conta do mês — este
+  // bloco só mostra separado, para o dono ver o tamanho do que abriu mão.
+  const descontosMes = await fetchAll<{ valor: number | null; categoria: string | null; pessoa_nome: string | null }>((from, to) =>
+    supabase.from('lancamentos').select('valor, categoria, pessoa_nome')
+      .eq('tipo', 'pagar').eq('status', 'pago')
+      .in('categoria', ['Desconto concedido', 'Perda com fiado'])
+      .gte('data_pagamento', inicio + 'T00:00:00-03:00').lt('data_pagamento', proxMes + 'T00:00:00-03:00').range(from, to))
+  const descontoConcedidoMes = descontosMes.filter((d) => d.categoria === 'Desconto concedido').reduce((s, d) => s + Number(d.valor ?? 0), 0)
+  const perdaFiadoMes = descontosMes.filter((d) => d.categoria === 'Perda com fiado').reduce((s, d) => s + Number(d.valor ?? 0), 0)
   // o fechamento gravado guarda caixa_final/estoque_final por loja (tipo não declara)
   const gravado = fechamento as { caixa_final?: Record<string, number>; estoque_final?: Record<string, { vitrine: number; fundo: number }>; fechado_em?: string; fechado_por?: string } | null
 
@@ -466,6 +481,31 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
               <p className="text-[11px] text-sky-600">{linha.temEstoqueBase ? 'início − final' : '1º mês, sem base'}</p>
             </div>
           </div>
+
+          {/* DESCONTOS E PERDAS DO MÊS — o que a loja deixou de receber */}
+          {(descontoConcedidoMes > 0 || perdaFiadoMes > 0) && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+              <p className="text-sm font-bold text-amber-800">🏷 Descontos e perdas do mês</p>
+              <p className="mt-0.5 text-[11px] text-amber-700">dinheiro que a loja deixou de receber — já descontado do resultado</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border border-amber-200 bg-white p-3">
+                  <p className="text-xs font-semibold text-gray-500">Desconto concedido</p>
+                  <p className="mt-1 text-lg font-bold text-gray-800">{fmt(descontoConcedidoMes)}</p>
+                  <p className="text-[11px] text-gray-400">a venda rendeu menos</p>
+                </div>
+                <div className="rounded-xl border border-rose-200 bg-white p-3">
+                  <p className="text-xs font-semibold text-gray-500">Perda com fiado</p>
+                  <p className="mt-1 text-lg font-bold text-rose-700">{fmt(perdaFiadoMes)}</p>
+                  <p className="text-[11px] text-gray-400">não vai receber mais</p>
+                </div>
+                <div className="rounded-xl border border-amber-200 bg-white p-3">
+                  <p className="text-xs font-semibold text-gray-500">Total do mês</p>
+                  <p className="mt-1 text-lg font-bold text-gray-900">{fmt(descontoConcedidoMes + perdaFiadoMes)}</p>
+                  <p className="text-[11px] text-gray-400">{descontosMes.length} desconto(s)</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* comparação com o mês anterior */}
           <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">

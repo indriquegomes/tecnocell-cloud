@@ -1,6 +1,7 @@
 'use server'
 
 import { registrarNoCaixa } from '@/lib/caixa'
+import { categoriaDoDesconto, rotuloMotivoDesconto } from '@/lib/desconto-fiado'
 import { createServiceClient, fetchAll, requirePermissao, permissoesEfetivas } from '@/lib/supabase/server'
 import { temPermissao } from '@/lib/permissoes'
 import { logAtividade } from '@/lib/log-atividade'
@@ -1084,6 +1085,11 @@ export async function aplicarDescontoCrediario(
   try {
     await requirePermissao('crediario_receber', accessToken)
     await requirePermissao('venda_desconto', accessToken)   // perdoar dívida = dar desconto
+    if (!(valorDesconto > 0)) return { ok: false, erro: 'Valor do desconto inválido.' }
+    // Motivo é obrigatório: é ele que diz se a venda rendeu menos (incentivo) ou se o
+    // dinheiro não existe mais (perda). Sem motivo, as duas coisas viram pó no histórico.
+    const motivoLimpo = (motivo ?? '').trim()
+    if (!motivoLimpo) return { ok: false, erro: 'Escolha o motivo do desconto.' }
     const supabase = await createServiceClient()
 
     // RPC atômica: FOR UPDATE + abate o valor. Sem ela, duas abas descontando o
@@ -1091,7 +1097,7 @@ export async function aplicarDescontoCrediario(
     const { data, error } = await supabase.rpc('aplicar_desconto_fiado', {
       p_lancamento_id: id,
       p_desconto: valorDesconto,
-      p_motivo: motivo ?? '',
+      p_motivo: motivoLimpo,
     })
     if (error) throw new Error(error.message)
     const res = data as { quitado?: boolean; novo_valor?: number; desconto_aplicado?: number } | null
@@ -1102,9 +1108,11 @@ export async function aplicarDescontoCrediario(
     // contou o valor cheio como receita no mês da venda, o dinheiro perdoado nunca
     // entrou, e o resultado do mês ficava acima da realidade para sempre.
     //
-    // Vira uma despesa "Desconto concedido" com data de hoje, SEM conta e SEM caixa:
-    // é dinheiro que não entrou, não é dinheiro que saiu da gaveta. A conta do mês já
-    // desconta despesa paga, então o resultado passa a refletir o perdão.
+    // Vira despesa com data de hoje, SEM conta e SEM caixa: é dinheiro que não entrou,
+    // não é dinheiro que saiu da gaveta. A conta do mês já desconta despesa paga, então
+    // o resultado passa a refletir o perdão. A categoria segue o motivo
+    // (lib/desconto-fiado.ts): incentivo/arredondamento = "Desconto concedido";
+    // perdão de dívida = "Perda com fiado".
     const aplicado = Number(res?.desconto_aplicado ?? 0)
     if (res?.quitado !== undefined && aplicado > 0) {
       const { data: origem } = await supabase.from('lancamentos')
@@ -1112,14 +1120,15 @@ export async function aplicarDescontoCrediario(
         .eq('id', id).maybeSingle()
       const o = origem as { descricao?: string | null; pessoa_nome?: string | null; pessoa_id?: string | null; loja_id?: string | null } | null
       const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+      const categoria = categoriaDoDesconto(motivoLimpo)
       const { error: erroDesp } = await supabase.from('lancamentos').insert({
         id: crypto.randomUUID(),
-        descricao: `Desconto concedido — ${o?.descricao ?? 'fiado'}${motivo ? ` (${motivo})` : ''}`,
+        descricao: `${categoria} — ${o?.descricao ?? 'fiado'} (${rotuloMotivoDesconto(motivoLimpo)})`,
         valor: aplicado,
         valor_pago: aplicado,
         tipo: 'pagar',
         status: 'pago',
-        categoria: 'Desconto concedido',
+        categoria,
         pessoa_nome: o?.pessoa_nome ?? null,
         pessoa_id: o?.pessoa_id ?? null,
         loja_id: o?.loja_id ?? null,

@@ -27,6 +27,7 @@ import { buscarSaldoCredito } from '@/app/painel/creditos/actions'
 import type { PromoInfo } from './page'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
 import { aplicarDescontoItem, criarControleUltimaTroca, distribuirRecebimento, tabelaDoCliente, type TipoDescontoItem } from '@/lib/pdv-calculos'
+import { MOTIVOS_DESCONTO, ehPerdaoDeDivida } from '@/lib/desconto-fiado'
 
 // Preço unitário de uma faixa progressiva conforme a quantidade TOTAL do grupo.
 // Pega a maior faixa cujo mínimo já foi atingido. Nenhuma atingida = sem desconto.
@@ -1951,6 +1952,9 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
       // DESCONTO: não entra dinheiro. A dívida encolhe (valor cai), o valor_pago não mexe.
       if (formaRecebimento === DESCONTO_ID) {
+        // Motivo é obrigatório: sem ele o app não sabe separar incentivo de perda, e o
+        // resultado do mês fica sem saber o que aconteceu com esse dinheiro.
+        if (!motivoDesconto) { setErro('Escolha o motivo do desconto.'); return }
         const res = await aplicarDescontoCrediario(await authToken(), recebendoItem.id, valorNum, motivoDesconto)
         if (!res.ok) { setErro(res.erro); return }
         const { quitado, novoValor } = res
@@ -4102,19 +4106,34 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
                 {ehDesconto && (
                   <div className="mt-3 space-y-2">
-                    <input
-                      type="text"
-                      value={motivoDesconto}
-                      onChange={(e) => setMotivoDesconto(e.target.value)}
-                      placeholder="Motivo (ex: arredondamento, negociação)"
-                      className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    />
+                    <div className="grid gap-1.5 sm:grid-cols-3">
+                      {MOTIVOS_DESCONTO.map((m) => {
+                        const ativo = motivoDesconto === m.label
+                        return (
+                          <button
+                            key={m.valor}
+                            type="button"
+                            onClick={() => setMotivoDesconto(m.label)}
+                            title={m.dica}
+                            className={`rounded-xl border px-2 py-2 text-left text-xs font-semibold transition ${ativo ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 bg-white text-gray-600 hover:border-amber-300'}`}
+                          >
+                            {m.label}
+                            <span className="mt-0.5 block text-[10px] font-normal text-gray-400">{m.dica}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
                     <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
                       Desconto <b>não entra no caixa</b> — ele abate a dívida.
                       {' '}Em aberto: <b className="tabular-nums">{formatBRL(restanteReceb)}</b>
                       {descontoNum > 0 && <> → passa a <b className="tabular-nums">{formatBRL(Math.max(0, restanteReceb - descontoNum))}</b></>}
                       {descontoNum >= restanteReceb && restanteReceb > 0 && <span className="mt-0.5 block text-[11px] text-amber-600/80">Perdoa o restante e quita a dívida.</span>}
                     </p>
+                    {ehPerdaoDeDivida(motivoDesconto) && (
+                      <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                        Vai como <b>perda</b> no resultado do mês (crédito incobrável), não como desconto.
+                      </p>
+                    )}
                   </div>
                 )}
 

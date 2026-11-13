@@ -136,3 +136,58 @@ O recálculo do banco (`lib/banco-horas.ts`) apaga **só o que ele mesmo criou**
 `motivo in ('hora_extra','atraso')` **e** `criado_por is null`. O que o master
 lança à mão (RH → Lançar hora) tem autor gravado e é preservado — antes, um
 "Atraso" lançado à mão desaparecia na próxima saída da mesma pessoa no mesmo dia.
+---
+
+# Desconto no fiado: incentivo x perda
+
+Três coisas diferentes acontecem quando o cliente não paga o combinado, e cada uma
+pesa de um jeito no resultado:
+
+| O que | Significado | Categoria no resultado |
+|---|---|---|
+| **Desconto para pagar agora** | a venda rendeu menos, mas o dinheiro entrou | `Desconto concedido` |
+| **Arredondamento** | diferença de centavos para fechar a conta | `Desconto concedido` |
+| **Não vou receber mais** | dívida velha, devedor sumiu (crédito incobrável) | `Perda com fiado` |
+
+## Por que isso precisa existir
+
+A venda no fiado entra como **receita no mês em que foi feita**. Se depois parte dela
+é perdoada, esse dinheiro nunca entra — e sem uma linha no resultado, o lucro daquele
+mês fica acima da realidade para sempre. Antes o desconto abatia a dívida e sumia:
+não aparecia no Financeiro, não aparecia no fechamento, não aparecia em lugar nenhum.
+
+## Como funciona agora
+
+1. **PDV -> F9 (receber fiado) -> botão Desconto.** O motivo é **obrigatório**: três
+   opções fixas. Sem motivo o app não sabe separar as duas coisas.
+2. A dívida encolhe (se zerar, quita) e **nasce um lançamento** com a data do
+   desconto, categoria conforme o motivo, **sem conta e sem caixa** — é dinheiro que
+   não entrou, não dinheiro que saiu da gaveta.
+3. O fechamento do mês já desconta despesa paga, então o **resultado passa a
+   refletir o perdão**. O bloco "Descontos e perdas do mês" mostra o tamanho separado.
+4. **Fiados -> Descontos concedidos** lista por mês e por pessoa, com o tipo.
+
+## Diferença prática entre as duas categorias
+
+- `Desconto concedido` — a venda foi boa, só rendeu menos. É redução de receita.
+- `Perda com fiado` — o dinheiro não existe. É despesa (crédito incobrável) do mês em
+  que se desiste, não do mês da venda.
+
+## Onde mora no código
+
+- `lib/desconto-fiado.ts` — `categoriaDoDesconto`, `ehPerdaoDeDivida`,
+  `rotuloMotivoDesconto` e a lista das três opções. Regra única, testada em
+  `test/logica.test.ts` (casos "desconto:").
+- `app/painel/pdv/actions.ts` — `aplicarDescontoCrediario`: exige motivo, aplica a
+  RPC e cria o lançamento na categoria certa.
+- `app/painel/pdv/PDVClient.tsx` — os três botões de motivo no modal de recebimento.
+- `lib/descontos.ts` + `app/painel/fiados/descontos/page.tsx` — o relatório.
+- `app/painel/fechamento-mes/page.tsx` — o bloco "Descontos e perdas do mês".
+
+## Histórico (12/11/2026)
+
+Os descontos que já existiam não tinham motivo (252 de 252) e não geravam linha
+nenhuma. Os **46 de novembro (1.310,21)** foram registrados retroativamente como
+`Desconto concedido` — todos eram dívida de até 30 dias, ou seja, incentivo de
+balcão, não perda. Setembro (4.037,60) e outubro (2.026,29) ficaram como estavam:
+mês fora do processo por decisão do dono.

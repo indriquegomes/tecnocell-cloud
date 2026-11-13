@@ -11,6 +11,7 @@ import { ultimoDiaUtil, ehUltimoDiaUtil } from '@/lib/dia-util'
 import { formatBRL, formatDate, slugify, normalizarUsuario, diaSP, hojeSP } from '@/lib/utils'
 import { pendentesDeHoje } from '@/lib/lembretes'
 import { ehCompraDeMercadoria, setorDaCategoria, categoriasDoSetor } from '@/lib/financeiro-setores'
+import { categoriaDoDesconto, ehPerdaoDeDivida, rotuloMotivoDesconto } from '@/lib/desconto-fiado'
 
 // mock do supabase: só o que as helpers de fechamento usam (.from().select().eq().maybeSingle())
 function sbMock(chaveExiste: boolean, erro: unknown = null) {
@@ -328,4 +329,36 @@ test('vinculo: demissão futura não encerra (aviso prévio)', () => {
 test('vinculo: aceita timestamptz do banco e compara só a data', () => {
   assert.equal(vinculoEncerrado('2026-10-21T00:00:00+00:00', '2026-11-12'), true)
   assert.equal(vinculoEncerrado('2026-12-01T03:00:00+00:00', '2026-11-12'), false)
+})
+// ── Desconto no fiado: incentivo x perda ──────────────────────────────────
+// Desconto e perda NÃO são a mesma coisa: um rendeu menos, o outro não rendeu
+// nada. A categoria do lançamento no resultado sai daqui.
+
+test('desconto: incentivo e arredondamento viram "Desconto concedido"', () => {
+  assert.equal(categoriaDoDesconto('Desconto para pagar agora'), 'Desconto concedido')
+  assert.equal(categoriaDoDesconto('Arredondamento'), 'Desconto concedido')
+  assert.equal(categoriaDoDesconto('arredondamento'), 'Desconto concedido')
+  assert.equal(categoriaDoDesconto(''), 'Desconto concedido')
+  assert.equal(categoriaDoDesconto(null), 'Desconto concedido')
+})
+
+test('desconto: perdão de dívida vira "Perda com fiado"', () => {
+  assert.equal(categoriaDoDesconto('Não vou receber mais'), 'Perda com fiado')
+  assert.equal(categoriaDoDesconto('nao vou receber mais'), 'Perda com fiado')
+  assert.equal(categoriaDoDesconto('perda'), 'Perda com fiado')
+  assert.equal(categoriaDoDesconto('cliente sumiu'), 'Perda com fiado')
+  assert.equal(categoriaDoDesconto('incobrável'), 'Perda com fiado')
+})
+
+test('desconto: ehPerdaoDeDivida não confunde negociação com perda', () => {
+  assert.equal(ehPerdaoDeDivida('Negociação — pagou 80 de 100'), false)
+  assert.equal(ehPerdaoDeDivida('Desconto para pagar agora'), false)
+  assert.equal(ehPerdaoDeDivida('Não vou receber mais'), true)
+})
+
+test('desconto: rótulo do motivo é padronizado', () => {
+  assert.equal(rotuloMotivoDesconto('Não vou receber mais'), 'Não vou receber mais')
+  assert.equal(rotuloMotivoDesconto('perda'), 'Não vou receber mais')
+  assert.equal(rotuloMotivoDesconto('desconto para pagar agora'), 'Desconto para pagar agora')
+  assert.equal(rotuloMotivoDesconto(''), 'Sem motivo')
 })

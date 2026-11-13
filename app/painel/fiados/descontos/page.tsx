@@ -38,6 +38,9 @@ export default async function DescontosPage({
 
   const doMes = descontos.filter((d) => d.data.startsWith(mes))
   const total = doMes.reduce((s, d) => s + d.valor, 0)
+  // duas coisas diferentes: desconto (a venda rendeu menos) x perda (nao vai receber)
+  const totalDesconto = doMes.filter((d) => !d.ehPerda).reduce((s, d) => s + d.valor, 0)
+  const totalPerda = doMes.filter((d) => d.ehPerda).reduce((s, d) => s + d.valor, 0)
 
   // por pessoa
   const porPessoa = new Map<string, { valor: number; qtd: number }>()
@@ -58,7 +61,7 @@ export default async function DescontosPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-2xl font-bold text-gray-900">🏷 Descontos concedidos</h2>
-        <Dica texto="Dívida que foi perdoada (desconto no fiado). Não é pagamento e não entra como despesa: por isso só aparece aqui, com data e pessoa." />
+        <Dica texto="Dívida abatida ou perdoada na cobrança do fiado. Desconto = a venda rendeu menos; perda = não vai receber mais. Aparece no resultado do mês, por isso a tela separa os dois." />
         <Link href="/painel/fiados" className="ml-auto rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">← Fiados</Link>
       </div>
 
@@ -115,6 +118,7 @@ export default async function DescontosPage({
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Dia</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Pessoa</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Dívida</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Tipo</th>
               <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Loja</th>
               <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Perdoado</th>
             </tr>
@@ -125,12 +129,16 @@ export default async function DescontosPage({
                 <td className="px-4 py-3 text-sm tabular-nums text-gray-600">{d.data ? formatDate(d.data) : '—'}</td>
                 <td className="px-4 py-3 text-sm font-medium text-gray-800">{d.pessoa}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">{d.descricao}</td>
+                <td className="px-4 py-3 text-center">
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${d.ehPerda ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>{d.ehPerda ? 'Perda' : 'Desconto'}</span>
+                  <span className="mt-0.5 block text-[10px] text-gray-400">{d.motivo}</span>
+                </td>
                 <td className="px-4 py-3 text-center text-sm text-gray-500">{d.loja_id ? (nomeLoja.get(d.loja_id) ?? '—') : '—'}</td>
                 <td className="px-4 py-3 text-right text-sm font-semibold tabular-nums text-gray-800">{formatBRL(d.valor)}</td>
               </tr>
             ))}
             {doMes.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-400">Nenhum desconto concedido em {nomeMes}.</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-400">Nenhum desconto concedido em {nomeMes}.</td></tr>
             )}
           </tbody>
         </table>

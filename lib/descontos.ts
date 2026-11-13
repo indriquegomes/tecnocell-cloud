@@ -1,5 +1,6 @@
 import type { createServiceClient } from '@/lib/supabase/server'
 import { fetchAll } from '@/lib/paginar'
+import { ehPerdaoDeDivida, rotuloMotivoDesconto } from '@/lib/desconto-fiado'
 
 type SB = Awaited<ReturnType<typeof createServiceClient>>
 
@@ -21,9 +22,11 @@ export type DescontoConcedido = {
   descricao: string
   loja_id: string | null
   venda_id: string | null
+  motivo: string
+  ehPerda: boolean      // true = crédito incobrável; false = desconto/incentivo
 }
 
-type LinhaHistorico = { valor?: number | string; tipo?: string; data?: string }
+type LinhaHistorico = { valor?: number | string; tipo?: string; data?: string; forma?: string }
 type LinhaComDesconto = {
   id: string
   descricao: string | null
@@ -56,6 +59,8 @@ export async function buscarDescontosConcedidos(supabase: SB): Promise<DescontoC
       if (h?.tipo !== 'desconto') continue
       const valor = Number(h.valor ?? 0)
       if (!(valor > 0)) continue
+      // o motivo vem dentro do campo forma, como 'Desconto — <motivo>'
+      const motivoBruto = String(h.forma ?? '').replace(/^Desconto\s*—?\s*/i, '').trim()
       out.push({
         lancamento_id: l.id,
         data: diaSP(h.data),
@@ -64,6 +69,8 @@ export async function buscarDescontosConcedidos(supabase: SB): Promise<DescontoC
         descricao: l.descricao ?? '—',
         loja_id: l.loja_id,
         venda_id: l.venda_id,
+        motivo: rotuloMotivoDesconto(motivoBruto),
+        ehPerda: ehPerdaoDeDivida(motivoBruto),
       })
     }
   }
