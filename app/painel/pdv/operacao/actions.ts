@@ -181,16 +181,24 @@ async function baixarPixDoDiaAutomatico(
     const fornecedores = destinos.filter((d) => !d.propria && d.fornecedorId && d.total > 0.005)
     if (!fornecedores.length) return
 
-    const hojeSP = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+    // "já abatido" = o que ESTA sessão de caixa já abateu, não o dia todo.
+    //
+    // Antes comparava só a DATA (e ainda em UTC): quando a loja fechava o caixa duas
+    // vezes no mesmo dia, o segundo fechamento descontava do total do dia o que o
+    // primeiro já tinha abatido — e esse dinheiro nunca mais era abatido. Foi o caso da
+    // ADL em 12/11/2026: 4.222,40 de PIX na janela, 440,40 abatidos de manhã, e o
+    // fechamento da noite abateu só 3.599,00 — 440,40 de PIX de cliente ficaram sem
+    // baixa. O instante de abertura resolve os dois lados (sessão certa, fuso certo).
+    const desdeMs = new Date(abertoEm).getTime()
+    const mesDaSessao = new Date(abertoEm).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }).slice(0, 7) + '-01'
     for (const d of fornecedores) {
-      // quanto já foi abatido hoje para esse fornecedor (o histórico das notas guarda)
       const { data: notasHoje } = await supabase.from('lancamentos')
         .select('historico_pagamentos')
-        .eq('tipo', 'pagar').eq('pessoa_id', d.fornecedorId!).gte('data_vencimento', hojeSP.slice(0, 7) + '-01')
+        .eq('tipo', 'pagar').eq('pessoa_id', d.fornecedorId!).gte('data_vencimento', mesDaSessao)
       const jaAbatido = (notasHoje ?? []).reduce((t, n) => {
         const hist = Array.isArray(n.historico_pagamentos) ? (n.historico_pagamentos as { valor: number; forma: string; data: string }[]) : []
         return t + hist
-          .filter((h) => h.forma === 'PIX do cliente ao fornecedor' && String(h.data).slice(0, 10) === hojeSP)
+          .filter((h) => h.forma === 'PIX do cliente ao fornecedor' && new Date(h.data).getTime() >= desdeMs)
           .reduce((s, h) => s + Number(h.valor ?? 0), 0)
       }, 0)
       const falta = Math.round((d.total - jaAbatido) * 100) / 100
