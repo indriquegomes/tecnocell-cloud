@@ -56,7 +56,7 @@ export const SETORES: Setor[] = [
     // 'Devolução ao cliente' é o dinheiro que VOLTA para quem comprou (desistência,
     // defeito). Fica separada de 'Estorno', que é desfazer uma passada no cartão/PIX.
     // A forma de pagamento do reembolso vai na coluna Forma, não em subcategoria.
-    categorias: ['Combinado na entrega', 'Fiado (a receber)', 'Vale crédito usado', 'Estorno', 'Devolução ao cliente', 'Vendas'],
+    categorias: ['Combinado na entrega', 'Fiado (a receber)', 'Vale crédito usado', 'Estorno', 'Devolução ao cliente', 'Vendas', 'Desconto concedido'],
   },
   {
     chave: 'socio',

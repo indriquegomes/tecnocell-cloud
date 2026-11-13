@@ -1094,7 +1094,47 @@ export async function aplicarDescontoCrediario(
       p_motivo: motivo ?? '',
     })
     if (error) throw new Error(error.message)
-    const res = data as { quitado?: boolean; novo_valor?: number } | null
+    const res = data as { quitado?: boolean; novo_valor?: number; desconto_aplicado?: number } | null
+
+    // O DESCONTO ENTRA NO RESULTADO DO MÊS.
+    //
+    // Sem isso o desconto era invisível: abatia a dívida e sumia. Resultado: a venda
+    // contou o valor cheio como receita no mês da venda, o dinheiro perdoado nunca
+    // entrou, e o resultado do mês ficava acima da realidade para sempre.
+    //
+    // Vira uma despesa "Desconto concedido" com data de hoje, SEM conta e SEM caixa:
+    // é dinheiro que não entrou, não é dinheiro que saiu da gaveta. A conta do mês já
+    // desconta despesa paga, então o resultado passa a refletir o perdão.
+    const aplicado = Number(res?.desconto_aplicado ?? 0)
+    if (res?.quitado !== undefined && aplicado > 0) {
+      const { data: origem } = await supabase.from('lancamentos')
+        .select('descricao, pessoa_nome, pessoa_id, loja_id')
+        .eq('id', id).maybeSingle()
+      const o = origem as { descricao?: string | null; pessoa_nome?: string | null; pessoa_id?: string | null; loja_id?: string | null } | null
+      const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+      const { error: erroDesp } = await supabase.from('lancamentos').insert({
+        id: crypto.randomUUID(),
+        descricao: `Desconto concedido — ${o?.descricao ?? 'fiado'}${motivo ? ` (${motivo})` : ''}`,
+        valor: aplicado,
+        valor_pago: aplicado,
+        tipo: 'pagar',
+        status: 'pago',
+        categoria: 'Desconto concedido',
+        pessoa_nome: o?.pessoa_nome ?? null,
+        pessoa_id: o?.pessoa_id ?? null,
+        loja_id: o?.loja_id ?? null,
+        conta_id: null,
+        forma_pagamento: 'Desconto',
+        data_competencia: hoje,
+        data_vencimento: hoje,
+        data_pagamento: hoje,
+        updated_at: new Date().toISOString(),
+      })
+      // Não desfaz o desconto (ele já está aplicado): avisa para lançar na mão, em vez
+      // de o resultado do mês ficar errado em silêncio.
+      if (erroDesp) return { ok: false, erro: `Desconto aplicado, mas o lançamento no resultado falhou: ${erroDesp.message}` }
+    }
+
     return { ok: true, quitado: res?.quitado ?? false, novoValor: res?.novo_valor }
   } catch (e) {
     return { ok: false, erro: e instanceof Error && e.message ? e.message : 'Erro ao aplicar desconto.' }
