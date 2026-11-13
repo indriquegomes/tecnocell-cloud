@@ -462,7 +462,7 @@ export default async function RelatoriosPage({
       fetchAll<{ valor: number; created_at: string }>((from, to) => fcaixa(supabase
         .from('movimentos_caixa').select('valor, created_at').eq('tipo', 'devolucao')
         .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)).range(from, to)),
-      fetchAll<{ valor: number; data_pagamento: string | null }>((from, to) => flanc(supabase.from('lancamentos').select('valor, data_pagamento').eq('tipo', 'pagar').eq('status', 'pago')
+      fetchAll<{ valor: number; data_pagamento: string | null; categoria: string | null }>((from, to) => flanc(supabase.from('lancamentos').select('valor, data_pagamento, categoria').eq('tipo', 'pagar').eq('status', 'pago')
         .gte('data_pagamento', dataInicio).lte('data_pagamento', dataFim + 'T23:59:59')).range(from, to)),
     ])
     const dias: Record<string, { entrada: number; saida: number }> = {}
@@ -481,7 +481,9 @@ export default async function RelatoriosPage({
       const d = diaSP(dv.created_at)
       ;(dias[d] ??= { entrada: 0, saida: 0 }).saida += dv.valor ?? 0
     }
-    for (const p of (ps ?? []) as { valor: number; data_pagamento: string | null }[]) {
+    for (const p of (ps ?? []) as { valor: number; data_pagamento: string | null; categoria?: string | null }[]) {
+      // 'Desconto concedido' é dívida perdoada (sem conta/caixa): não é dinheiro que saiu.
+      if (p.categoria === 'Desconto concedido') continue
       const d = (p.data_pagamento ?? '').slice(0, 10)   // já é DATE, não timestamp
       if (!d) continue
       ;(dias[d] ??= { entrada: 0, saida: 0 }).saida += p.valor ?? 0
