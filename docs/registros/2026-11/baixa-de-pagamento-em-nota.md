@@ -197,3 +197,38 @@ o casamento por nome tolera máscara.
 **Lição para a próxima conferência:** procurar um lançamento por comprovante individual
 não acha nada; o lançamento é a soma do dia por loja. Foi o que fez a primeira análise
 deste dia parecer que faltavam 5.022,90.
+---
+
+## 11. 13/11/2026 — troca não gera crédito com o fornecedor
+
+**O caso:** a INOVA tinha uma linha de **−251,60** ("Trocas abatidas — peças devolvidas
+ao fornecedor") que **não era abatimento de nada**. Rastreando a ordem dos fatos:
+
+1. em 05/11 alguém lançou um abatimento de troca de 251,60 na INOVA;
+2. naquele momento a dívida da INOVA era **uma linha de 35.495,30 sem loja**;
+3. `abaterNaDivida` filtra a nota **por loja** — não achou nota nenhuma;
+4. quando não acha nota, ele transforma o valor em **crédito com o fornecedor** (linha
+   negativa). Foi o que virou o −251,60.
+
+Ou seja: o app **reduziu a dívida sem nada ter sido abatido**, porque a dívida não tinha
+loja. O dono não aprovou, a fornecedora não confirmou o valor, e as 3 trocas que existem
+na aba Trocas (150,39, Petrópolis) estão com status **`enviada`** — não abatidas.
+
+**O que foi feito:**
+
+- As duas linhas do crédito (original e a espelho do rateio) foram **canceladas**, com o
+  motivo escrito na descrição. A INOVA voltou para **35.495,30** — o saldo que a
+  estoquista confirmou como certo — rateado 20.362,94 (Petrópolis) e 15.132,36
+  (Teresópolis). Backup em `docs/registros-banco/2026-11/backup-inova-trocas-canceladas-*.json`.
+- **Trava no código** (`app/painel/trocas/actions.ts`): antes de abater, o app confere a
+  dívida em aberto com aquele fornecedor **naquela loja** (`dividaAberta`). Se o valor da
+  troca for maior, **recusa** e avisa para confirmar com a fornecedora. Vale para o
+  abatimento por peça e para o abatimento em lote.
+
+**Regra que fica:** a peça de troca só encosta na dívida quando o fornecedor confirma —
+é o clique em "abatida", onde se digita o valor que ele falou. Enquanto estiver
+`enviada`, nada muda no Financeiro.
+
+**Lição:** dívida **sem loja** é irreachável por qualquer abatimento filtrado por loja —
+o valor escorrega para "crédito" e a dívida cai sozinha. Sempre que aparecer dívida sem
+loja, tratar antes de qualquer baixa (foi o que fizemos com a INOVA em 12/11).

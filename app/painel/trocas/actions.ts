@@ -1,10 +1,31 @@
 'use server'
 
-import { createServiceClient, requirePermissao } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll, requirePermissao } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { logAtividade } from '@/lib/log-atividade'
 import { palavrasBusca, aplicaBusca } from '@/lib/busca-produtos'
 import { abaterNaDivida } from '@/lib/abater-divida'
+
+// Quanto o fornecedor tem em aberto NESTA loja. É a régua da trava abaixo.
+//
+// `abaterNaDivida` filtra a nota por loja. Quando a dívida não tem loja (ou a loja
+// não tem nota aberta), ele não acha nada e transforma o valor em CRÉDITO com o
+// fornecedor — uma linha negativa que reduz a dívida sem nota por trás. Foi assim
+// que nasceu o crédito de 251,60 da INOVA em 05/11/2026 (a dívida estava sem loja).
+// Troca não pode fazer isso: o valor só é abatido até o que existe de verdade.
+async function dividaAberta(
+  supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  fornecedorNome: string,
+  lojaId: string | null,
+): Promise<number> {
+  const linhas = await fetchAll<{ valor: number | null; valor_pago: number | null }>((from, to) => {
+    let q = supabase.from('lancamentos').select('valor, valor_pago')
+      .eq('tipo', 'pagar').eq('status', 'pendente').eq('pessoa_nome', fornecedorNome)
+    if (lojaId) q = q.eq('loja_id', lojaId)
+    return q.order('id').range(from, to)
+  })
+  return Math.round(linhas.reduce((s, l) => s + Math.max(0, Number(l.valor ?? 0) - Number(l.valor_pago ?? 0)), 0) * 100) / 100
+}
 
 // TROCAS COM FORNECEDOR (garantia / RMA)
 //
@@ -332,6 +353,16 @@ export async function abaterTrocaNoFornecedor(formData: FormData): Promise<{ ok:
   const fornecedorNome = (forn as { nome?: string } | null)?.nome ?? null
   if (!fornecedorNome) return { ok: false, erro: 'fornecedor não encontrado no cadastro' }
 
+  // TRAVA: abater mais do que existe vira crédito solto com o fornecedor. Troca só
+  // abate até a dívida em aberto desta loja — o resto o fornecedor tem que confirmar.
+  const aberto = await dividaAberta(supabase, fornecedorNome, troca.loja_id ?? null)
+  if (valor > aberto + 0.005) {
+    return {
+      ok: false,
+      erro: `A dívida em aberto com ${fornecedorNome} nesta loja é ${aberto.toFixed(2).replace('.', ',')}, menor que os ${valor.toFixed(2).replace('.', ',')} informados. Confirme o valor com a fornecedora antes de abater — troca não pode gerar crédito.`,
+    }
+  }
+
   const abatimento = await abaterNaDivida(
     supabase, fornecedorNome, troca.loja_id ?? null, valor,
     `Crédito de troca — ${troca.produto_nome ?? 'peça'} (abateu ${valor.toFixed(2).replace('.', ',')}, sem nota pendente)`,
@@ -467,6 +498,19 @@ export async function abaterTrocasEmLote(formData: FormData): Promise<{ ok: bool
   }
   let credito = 0
   let abatidoTotal = 0
+  // TRAVA (mesma do abatimento por peça): conferir ANTES de abater, senão o excedente
+  // vira crédito solto com o fornecedor. Aqui a trava é por loja, porque a dívida é
+  // por loja e o abatimento também.
+  for (const [lojaId, valorLoja] of porLoja) {
+    if (valorLoja <= 0.005) continue
+    const aberto = await dividaAberta(supabase, fornecedorNome, lojaId || null)
+    if (valorLoja > aberto + 0.005) {
+      return {
+        ok: false,
+        erro: `Nesta remessa, a loja ${lojaId ? '' : 'sem loja '}deveria abater ${valorLoja.toFixed(2).replace('.', ',')}, mas a dívida em aberto com ${fornecedorNome} é ${aberto.toFixed(2).replace('.', ',')}. Confirme o valor com a fornecedora antes de abater — troca não pode gerar crédito.`,
+      }
+    }
+  }
   for (const [lojaId, valorLoja] of porLoja) {
     if (valorLoja <= 0.005) continue
     const r = await abaterNaDivida(

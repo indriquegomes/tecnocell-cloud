@@ -1,0 +1,16 @@
+[
+  {
+    "id": "5bc20b8d-8872-4938-a810-4ec286c6ce91",
+    "descricao": "Trocas abatidas — peças devolvidas ao fornecedor (novembro/2026) (rateio por estoque ACESSÓRIOS: Petrópolis 57,37%)",
+    "valor": -144.34,
+    "status": "pendente",
+    "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946"
+  },
+  {
+    "id": "inova-rateio-ter-5bc20b8d-8872-4938-a810-4ec286c6ce91",
+    "descricao": "Trocas abatidas — peças devolvidas ao fornecedor (novembro/2026) (rateio por estoque ACESSÓRIOS: Teresópolis 42,63%)",
+    "valor": -107.26,
+    "status": "pendente",
+    "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+  }
+]
