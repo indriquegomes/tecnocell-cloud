@@ -73,3 +73,45 @@ mês. Só com o dono mandando.
 Não existe "desfazer" no painel. O caminho é avisar o responsável com o nome do
 cliente e o valor — ele corrige pelo Financeiro. Por isso o passo 6 (ler o valor que
 está na tela) é obrigatório antes de aplicar.
+---
+
+# Aviso para o grupo das vendedoras
+
+> Pode copiar e colar no grupo. Duas partes: a primeira explica o que mudou, a
+> segunda o que **não** mudou (desconto na hora da compra continua igual).
+
+## O que mudou
+
+Gente, mudou uma coisa só no desconto de **dívida** (quando o cliente já devia de
+antes e vem negociar):
+
+1. No PDV, F9 → escolhe o cliente e a dívida → botão **🏷 Desconto** (âmbar).
+2. Digita o valor e **escolhe o motivo** — agora é obrigatório, tem três:
+   - **Desconto para pagar agora** — ele vai fechar a conta hoje
+   - **Arredondamento** — centavos
+   - **Não vou receber mais** — só quando o dono mandar
+3. Antes de aplicar, olhem na tela: ela mostra quanto está em aberto e quanto vai
+   ficar depois.
+4. Clique em **Aplicar desconto**.
+
+Lembrando: desconto em dívida **não é dinheiro na gaveta**. Ele abate a dívida do
+cliente. Dinheiro que entra é outra etapa: recebe normal em dinheiro/PIX/cartão.
+
+## O que NÃO mudou (observação importante)
+
+**O desconto normal, na hora da compra, continua exatamente como era.**
+
+- Cliente pediu abatimento no preço da peça? Continua igual: desconto na linha do
+  produto, ou o campo "Desconto ao fechar" — em R$ ou %.
+- Isso **não** pede motivo e **não** passou a pedir nada novo.
+- A diferença é só o momento: **na compra** o desconto muda o preço (a venda já sai
+  menor). **Na dívida** o desconto perdoa dinheiro de uma venda que já aconteceu — e
+  é só esse que precisa de motivo.
+
+Resumindo: se o cliente está **comprando agora**, nada mudou. Se o cliente está
+**pagando o que devia**, agora tem que escolher o motivo.
+
+## Se travar
+
+Não insiste e não tenta de novo por outro caminho. Chama o responsável com o nome do
+cliente e o valor que estava na tela.

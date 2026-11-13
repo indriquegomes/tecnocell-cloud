@@ -62,7 +62,8 @@ export default async function DescontosPage({
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-2xl font-bold text-gray-900">🏷 Descontos concedidos</h2>
         <Dica texto="Dívida abatida ou perdoada na cobrança do fiado. Desconto = a venda rendeu menos; perda = não vai receber mais. Aparece no resultado do mês, por isso a tela separa os dois." />
-        <Link href="/painel/fiados" className="ml-auto rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">← Fiados</Link>
+        <Link href="/painel/relatorios/descontos" className="ml-auto rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">Desconto na venda →</Link>
+        <Link href="/painel/fiados" className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">← Fiados</Link>
       </div>
 
       <form action="/painel/fiados/descontos" className="flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
