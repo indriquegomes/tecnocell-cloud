@@ -1,0 +1,32 @@
+{
+  "estoquePet": 42788.9,
+  "estoqueTer": 31797.62,
+  "partePet": 0.57368,
+  "parteTer": 0.42632,
+  "linhas": [
+    {
+      "id": "8509ca27-4138-43b5-b21c-a76125a50b4c",
+      "descricao": "INOVA — saldo devedor em 30/10/2026 (dívida total R$ 276.298,88 − pago R$ 240.803,58)",
+      "valor": 35495.3,
+      "valor_pago": 0,
+      "status": "pendente",
+      "data_vencimento": "2026-11-30T00:00:00+00:00",
+      "pessoa_nome": "INOVA",
+      "pessoa_id": "63fcac1fb418e8b1b3a3471e",
+      "categoria": "Mercadoria",
+      "historico_pagamentos": []
+    },
+    {
+      "id": "5bc20b8d-8872-4938-a810-4ec286c6ce91",
+      "descricao": "Trocas abatidas — peças devolvidas ao fornecedor (novembro/2026)",
+      "valor": -251.6,
+      "valor_pago": 0,
+      "status": "pendente",
+      "data_vencimento": "2026-11-05T00:00:00+00:00",
+      "pessoa_nome": "INOVA",
+      "pessoa_id": "63fcac1fb418e8b1b3a3471e",
+      "categoria": "Mercadoria",
+      "historico_pagamentos": []
+    }
+  ]
+}

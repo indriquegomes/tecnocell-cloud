@@ -110,6 +110,32 @@ cliente. A planilha do dono precisa do mesmo ajuste; o app está à frente dela.
 | INOVA | 35.243,70 | 35.243,70 | — |
 | **Total** | **111.442,26** | **103.595,16** | **7.847,10** |
 
+## ✅ Resolvido em 13/11 — INOVA ganhou loja (rateio por estoque)
+
+O achado "35.243,70 de dívida sem loja" foi decidido pelo dono: ratear entre as lojas
+**na proporção do estoque da categoria ACESSÓRIOS em cada uma** (a INOVA é fornecedora
+de acessórios, e o cadastro de produto não guarda fornecedor — não havia outro critério).
+
+| Loja | Estoque ACESSÓRIOS (custo) | Peso | Dívida rateada |
+|---|---|---|---|
+| Petrópolis | 42.788,90 | 57,368% | **20.218,60** |
+| Teresópolis | 31.797,62 | 42,632% | **15.025,10** |
+| **Total** | **74.586,52** | 100% | **35.243,70** |
+
+As duas linhas que estavam sem loja (saldo de 35.495,30 e crédito de −251,60) foram
+rateadas pelas mesmas proporções: a original ficou em Petrópolis e nasceu a linha
+espelho em Teresópolis, cada uma com o percentual escrito na descrição.
+
+**Conferido:** total da dívida de fornecedor **não mudou** (103.595,16), nenhuma linha
+em aberto sem loja (`n = 0`), e a tela do Financeiro filtrada por loja passa a mostrar
+o que é de cada uma. Backup das linhas originais em
+`docs/registros-banco/2026-11/backup-inova-rateio-*.json`.
+
+> O app calcula o estoque de ACESSÓRIOS a custo como 41.951,64 (Petrópolis) e
+> 31.335,92 (Teresópolis) — ~1,8% abaixo dos números do dono, que vieram da planilha
+> dele. O rateio usou **os números do dono** (a régua dele manda); a diferença no
+> rateio seria de ~44,00.
+
 ## 🧹 Cleanup
 
 Nada de teste ficou no banco: as 5 batidas do teste de ponto foram apagadas na mesma
