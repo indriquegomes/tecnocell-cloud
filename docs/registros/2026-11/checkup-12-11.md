@@ -49,7 +49,10 @@ banco) e cada ida custa 120–180ms.
 
 **Corrigido hoje (código, sem mudança de número):** os itens com desconto por peça são
 raros — **974 linhas na tabela inteira** contra 77 mil itens — então virou **uma
-consulta só**, filtrando o mês em memória. Falta medir em produção no próximo check-up.
+consulta só**, filtrando o mês em memória.
+
+**Medido depois do deploy:** 6,6s → **1,6s** (3,1s na primeira visita, servidor frio).
+Mesma faixa das outras telas de leitura (1,2–1,5s).
 
 ## 🟢 PEQUENO
 
