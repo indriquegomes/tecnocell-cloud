@@ -15,37 +15,44 @@ exceção de JS nas 85 telas.
 
 ## 🟡 MÉDIO
 
-### 1. ADL: diferença de 234,40 a 288,00 — e duas hipóteses minhas que caíram
+### 1. Nada quebrado: os PIX do dia fecharam — mas o app não deixa isso provável
 
-**O número que eu ia reportar estava errado.** Primeiro eu disse 1.863,10. Depois
-culpei a janela do caixa. Depois culpei a regra anti-duplicata. **As três estavam
-erradas** — e a correção importa porque ele ia agir em cima do número inflado.
+**O achado que eu ia reportar não existe.** Tentei três versões — 1.863,10, depois
+234,40 — e as três estavam erradas. O dono desconfiou ("até onde sei todos os PIX
+fecharam corretos") e estava certo.
 
-O que acontece de verdade:
+**Como se prova, agora que achei o caminho:** rodar a **função do próprio app** para a
+janela real de cada caixa e comparar com o histórico de abatimentos.
 
-- Hoje chegaram **65 comprovantes** da chave da ADL somando **5.462,10** — mas muitos
-  são **o mesmo PIX reenviado ao grupo** (foto e PDF, ou encaminhado). Agrupando pelo
-  `transacao_id`, são **48 PIX únicos = 3.887,00**.
-- Abatido na nota 99: **3.599,00**.
-- Diferença real: **288,00** no dia inteiro, ou **234,40** dentro da janela do caixa
-  (08:03→18:21). Os 53,60 que chegaram às 18:33 ficam para o próximo fechamento.
+```bash
+# resolverPixDoDia(lib/pix-do-dia.ts) para cada loja, com o aberto_em do caixa
+node --import ./test/alias.mjs <script>   # precisa de .env.local
+```
 
-**A regra anti-duplicata está CORRETA.** Testei comprovante por comprovante: os
-"repetidos" têm o **mesmo `transacao_id`** — é o mesmo PIX, não dois pagamentos. Se o
-app contasse todos, abateria dívida duas vezes pelo mesmo dinheiro.
+| Loja / janela | Resolvido pelo app | Abatido | |
+|---|---|---|---|
+| Petrópolis · 08:03→18:21 (ADL) | 4.039,40 | 3.599,00 (noite) + 440,40 (manhã) | **fecha** |
+| Teresópolis · 07:59→18:42 (H2O) | 3.344,80 | 3.344,80 (2.613,80 + 731,00) | **fecha** |
+| Teresópolis · 07:59→18:42 (ZL) | 903,30 | 903,30 | **fecha** |
 
-**O que sobra de hipótese:** a regra só não consegue distinguir quando o comprovante
-**não traz id de transação**. Hoje foram **5 comprovantes sem id, 449,00** — e dois
-pares deles parecem o mesmo arquivo reenviado (Vitor Hugo Gomes da Silva 63,00 às
-10:33 e 14:50; Jose Carlos Guimaraes de Barros 120,00 às 08:29 e 14:50). Se a regra
-descartou um de cada par, são 183,00 — o que aproxima, mas não fecha os 234,40.
+O que sobra fora dessas contas é **53,60** da ADL recebidos às 18:33, **depois** do
+fechamento — vão para o próximo, como deve ser.
 
-**Próximo passo (10 minutos, com o dono):** abrir **PDV → Operação → "PIX do dia"** e
-conferir na tela a resolução comprovante por comprovante. Ela mostra o que o app casou
-e o que deixou de fora; é a única fonte que fecha isso sem suposição.
+**Onde eu errei (e por que vale registrar):**
 
-**Conclusão para o fechamento:** não é buraco de 1.863,10. É diferença pequena
-(234,40–288,00) sem causa provada. Nada urgente.
+1. Contei **comprovante** como pagamento. O mesmo PIX chega ao grupo duas vezes (foto e
+   PDF) e o app deduplica — 65 comprovantes são 43 PIX. Isso inflou tudo em ~8 vezes.
+2. Tentei reconstruir a resolução por fora (janela do caixa, depois a regra
+   anti-duplicata). Nenhuma das duas era o caminho: a única fonte é a função do app.
+3. O fechamento da manhã (08:02) abateu 440,40 da ADL — PIX do dia anterior. Sem esse
+   pedaço, a conta da noite nunca fecharia.
+
+**A melhoria que sobra (não é bug):** o app **não registra** o que ele resolveu no
+momento do fechamento. Como o fechamento é uma resolução instantânea e os comprovantes
+continuam chegando, auditar depois exige reconstruir — foi por isso que eu errei três
+vezes e o dono precisou me corrigir. Proposta: gravar no fechamento, por fornecedor, o
+valor resolvido, a quantidade de comprovantes e a janela usada. Aí "os PIX fecharam"
+vira prova, não reconstrução.
 
 ### 2. A tela mais lenta do sistema é a que eu criei hoje
 
@@ -115,7 +122,22 @@ Criar/editar/apagar cadastro em produção de madrugada, sem ninguém olhando, �
 sem ganho: a receita manda limpar no `finally`, mas um erro no meio deixa lixo em dado
 real. O caminho de escrita coberto hoje foi o do ponto (com `__QA__` e limpeza) e o do
 desconto (aplicado pela função real, em dado real, conferido linha por linha).
-**As outras duas contas, conferidas pelo mesmo critério (PIX único):**
-- **ZL:** 3 comprovantes = 903,30 únicos, e 903,30 abatidos na nota 113 — exato.
-- **H2O:** 35 comprovantes = 3.267,80 únicos, contra 3.344,80 abatidos (2.613,80 na nota
-  118 + 731,00 na 111) — os 77,00 de folga são PIX de dia anterior dentro da janela.
+
+## ✅ Correção de 13/11 (madrugada) — o achado 1 não existia
+
+Registro honesto: o relatório chegou a apontar **1.863,10** e depois **234,40** de PIX
+da ADL sem baixa. O dono contestou ("até onde sei todos os PIX fecharam corretos") e
+estava certo. As três tentativas de explicação caíram:
+
+1. "janela do caixa" — errado;
+2. "regra anti-duplicata jogando pagamento fora" — errado: os repetidos têm o MESMO
+   `transacao_id`, é o mesmo PIX reenviado;
+3. a conta certa só saiu rodando a **função do próprio app** (`resolverPixDoDia`).
+
+**Resultado conferido:** ADL 4.039,40 resolvidos = 3.599,00 (fechamento da noite) +
+440,40 (fechamento da manhã) · H2O 3.344,80 = 3.344,80 · ZL 903,30 = 903,30. Fora da
+conta só os **53,60** da ADL que chegaram 18:33, depois do fechamento — vão para o
+próximo.
+
+**Lição:** para auditar PIX do dia, rodar `resolverPixDoDia` com o `aberto_em` do caixa.
+Contar comprovante não é contar pagamento.
