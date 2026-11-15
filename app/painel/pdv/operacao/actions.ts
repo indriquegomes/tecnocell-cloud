@@ -167,8 +167,15 @@ export async function fecharCaixa(
 }
 
 // Baixa automática do "PIX do dia" ao fechar o caixa: para cada fornecedor que recebeu
-// PIX de cliente, abate na dívida o que ainda NÃO foi abatido hoje.
+// PIX de cliente, abate na dívida o que ainda NÃO foi abatido nesta sessão.
 // Falha aqui não impede o fechamento (o caixa já fechou): fica no log do servidor.
+//
+// O QUE ELE RESOLVEU FICA GRAVADO em `caixas.pix_resolucao` — janela usada, resolvido,
+// abatido e crédito por fornecedor, o que era a nossa conta e o que não foi
+// identificado. Sem esse registro, auditar "os PIX fecharam?" exige reconstruir a conta
+// a partir dos comprovantes — e reconstruir erra: em 12/11/2026 a conta foi refeita três
+// vezes (1.863,10, depois 234,40) porque comprovante reenviado ao grupo entrava como
+// pagamento. Com o registro, auditar é ler.
 async function baixarPixDoDiaAutomatico(
   supabase: Awaited<ReturnType<typeof createServiceClient>>,
   caixaId: string,
@@ -179,7 +186,30 @@ async function baixarPixDoDiaAutomatico(
   try {
     const destinos = await resolverPixDoDia(supabase, lojaId, abertoEm)
     const fornecedores = destinos.filter((d) => !d.propria && d.fornecedorId && d.total > 0.005)
-    if (!fornecedores.length) return
+
+    const registro: {
+      janela: { de: string; ate: string }
+      fornecedores: { nome: string; fornecedorId: string; resolvido: number; abatido: number; credito: number; comprovantes: number }[]
+      contaPropria: { nome: string; total: number; comprovantes: number }[]
+      naoIdentificado: { total: number; comprovantes: number }
+      naoAbatido: number
+    } = {
+      janela: { de: abertoEm, ate: new Date().toISOString() },
+      fornecedores: [],
+      contaPropria: [],
+      naoIdentificado: { total: 0, comprovantes: 0 },
+      naoAbatido: 0,
+    }
+    for (const d of destinos) {
+      if (d.propria) {
+        registro.contaPropria.push({ nome: d.nome, total: d.total, comprovantes: d.comprovantes })
+        continue
+      }
+      if (!d.fornecedorId) {
+        registro.naoIdentificado.total = Math.round((registro.naoIdentificado.total + d.total) * 100) / 100
+        registro.naoIdentificado.comprovantes += d.comprovantes
+      }
+    }
 
     // "já abatido" = o que ESTA sessão de caixa já abateu, não o dia todo.
     //
@@ -202,7 +232,11 @@ async function baixarPixDoDiaAutomatico(
           .reduce((s, h) => s + Number(h.valor ?? 0), 0)
       }, 0)
       const falta = Math.round((d.total - jaAbatido) * 100) / 100
-      if (falta <= 0.005) continue
+      if (falta <= 0.005) {
+        // já abatido nesta sessão: registra como resolvido e abatido (nada a fazer)
+        registro.fornecedores.push({ nome: d.fornecedorNome ?? d.nome, fornecedorId: d.fornecedorId!, resolvido: d.total, abatido: Math.round(jaAbatido * 100) / 100, credito: 0, comprovantes: d.comprovantes })
+        continue
+      }
 
       const r = await abaterNaDivida(
         supabase,
@@ -213,8 +247,28 @@ async function baixarPixDoDiaAutomatico(
         'PIX do cliente ao fornecedor',
         d.fornecedorId,
       )
-      if (!r.ok) console.error('fecharCaixa: baixa automática do PIX do dia falhou para', d.fornecedorNome, r.erro)
+      if (!r.ok) {
+        console.error('fecharCaixa: baixa automática do PIX do dia falhou para', d.fornecedorNome, r.erro)
+        registro.naoAbatido = Math.round((registro.naoAbatido + falta) * 100) / 100
+        continue
+      }
+      registro.fornecedores.push({
+        nome: d.fornecedorNome ?? d.nome,
+        fornecedorId: d.fornecedorId!,
+        resolvido: d.total,
+        abatido: Math.round((falta - r.credito) * 100) / 100,
+        credito: r.credito,
+        comprovantes: d.comprovantes,
+      })
     }
+
+    // grava o rastro mesmo quando só havia PIX da própria conta (antes saía cedo e
+    // não ficava registro nenhum)
+    const { error: erroRastro } = await supabase.from('caixas')
+      .update({ pix_resolucao: registro }).eq('id', caixaId)
+    if (erroRastro) console.error('fecharCaixa: rastro do PIX do dia não gravou:', erroRastro.message)
+
+    if (!fornecedores.length) return
     // A tela do Financeiro mostra a dívida: precisa saber que ela mudou.
     revalidatePath('/painel/financeiro')
     revalidatePath('/painel/contas')

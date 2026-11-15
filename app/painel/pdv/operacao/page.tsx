@@ -1,6 +1,6 @@
 import { createServiceClient, requireAuth, fetchAll } from '@/lib/supabase/server'
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
-import { hojeSP } from '@/lib/utils'
+import { hojeSP, formatBRL } from '@/lib/utils'
 import { pixSemComprovante } from '@/lib/pix-pendentes'
 import { agruparPorDestino, casarFornecedor, ehContaPropria, normNome, separarComprovantes, type ChavePixRef, type DestinoNaTela, type FornecedorRef, type PixAvisos } from '@/lib/pix-destinos'
 import { carregarDevolucoesCaixa, aplicarEstornosPix } from '@/lib/devolucoes-caixa'
@@ -41,7 +41,7 @@ export default async function OperacaoPDVPage({
       .maybeSingle(),
     supabase
       .from('caixas')
-      .select('id, aberto_em, fechado_em, valor_abertura, valor_fechamento, status')
+      .select('id, aberto_em, fechado_em, valor_abertura, valor_fechamento, status, pix_resolucao')
       .eq('loja_id', lojaAtual)
       .order('aberto_em', { ascending: false })
       .limit(20),
@@ -58,6 +58,22 @@ export default async function OperacaoPDVPage({
   const caixaAberto = caixaResult.data ?? null
   // Exclui o caixa aberto atual do histórico (evita exibir duplicado)
   const historico = (historicoResult.data ?? []).filter((c) => c.id !== caixaAberto?.id)
+
+  // RASTRO DO ÚLTIMO FECHAMENTO — o que o app resolveu do "PIX do dia" naquele
+  // instante (gravado em `caixas.pix_resolucao`). Serve para ler em vez de
+  // reconstruir: sem isso, auditar "os PIX fecharam?" obriga a refazer a conta a
+  // partir dos comprovantes — e refazer erra (o mesmo PIX chega ao grupo em foto e
+  // PDF, e contá-lo duas vezes inventa buraco).
+  type ResolucaoPix = {
+    janela?: { de?: string; ate?: string }
+    fornecedores?: { nome: string; resolvido: number; abatido: number; credito: number; comprovantes: number }[]
+    contaPropria?: { nome: string; total: number; comprovantes: number }[]
+    naoIdentificado?: { total: number; comprovantes: number }
+    naoAbatido?: number
+  }
+  const ultimoFechado = (historico as { id: string; fechado_em?: string | null; pix_resolucao?: ResolucaoPix | null }[])
+    .find((c) => c.pix_resolucao)
+  const resolucao = ultimoFechado?.pix_resolucao ?? null
   const formasData = formasResult.data ?? []
   const formas = formasData.filter((f) => f.ativo).map((f) => f.nome as string)
   const formasPorId: Record<string, string> = Object.fromEntries(formasData.map((f) => [f.id, f.nome]))
@@ -646,7 +662,41 @@ export default async function OperacaoPDVPage({
     }
   }
 
+  // bloco do rastro (renderizado antes da tela do caixa)
+  const blocoRastro = resolucao ? (
+    <div className="mb-4 rounded-2xl border border-sky-200 bg-sky-50 p-4 shadow-sm">
+      <p className="text-sm font-bold text-sky-900">🧾 PIX do dia no último fechamento</p>
+      <p className="mt-0.5 text-[11px] text-sky-700">
+        O que o app resolveu quando fechou o caixa{ultimoFechado?.fechado_em ? ` (${new Date(ultimoFechado.fechado_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })})` : ''}.
+        É leitura, não recálculo.
+      </p>
+      <div className="mt-3 space-y-1 text-xs text-gray-700">
+        {(resolucao.fornecedores ?? []).map((f) => (
+          <p key={f.nome}>
+            <b>{f.nome}</b> · resolvido {formatBRL(f.resolvido)} · abatido {formatBRL(f.abatido)}
+            {f.credito > 0 && <> · crédito {formatBRL(f.credito)}</>} · {f.comprovantes} comprovante(s)
+          </p>
+        ))}
+        {(resolucao.contaPropria ?? []).map((c) => (
+          <p key={c.nome} className="text-sky-800">
+            <b>{c.nome}</b> · caiu na nossa conta {formatBRL(c.total)} · {c.comprovantes} comprovante(s)
+          </p>
+        ))}
+        {!!resolucao.naoIdentificado?.total && (
+          <p className="text-rose-700">
+            <b>Não identificado</b> · {formatBRL(resolucao.naoIdentificado.total)} · {resolucao.naoIdentificado.comprovantes} comprovante(s)
+          </p>
+        )}
+        {!!resolucao.naoAbatido && <p className="text-rose-700"><b>Ficou sem abater</b> · {formatBRL(resolucao.naoAbatido)}</p>}
+        {!(resolucao.fornecedores ?? []).length && !(resolucao.contaPropria ?? []).length && (
+          <p className="text-gray-500">Nenhum comprovante na janela desse fechamento.</p>
+        )}
+      </div>
+    </div>
+  ) : null
   return (
+    <div>
+      {blocoRastro}
     <OperacaoClient
       lojas={lojas}
       lojaAtual={lojaAtual}
@@ -691,7 +741,8 @@ export default async function OperacaoPDVPage({
       erro={erro}
       fechado={fechado === '1'}
       aberto={aberto === '1'}
-      zReport={zReport}
-    />
+        zReport={zReport}
+      />
+    </div>
   )
 }
