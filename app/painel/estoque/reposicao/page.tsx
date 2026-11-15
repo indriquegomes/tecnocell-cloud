@@ -1,5 +1,6 @@
 import { IconPackage } from '@/components/icons'
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { Paginacao } from '@/components/Paginacao'
 import { hojeSP } from '@/lib/utils'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
@@ -33,7 +34,7 @@ const diasEntre = (de: string, ate: string) => {
 export default async function ReposicaoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ de?: string; ate?: string; categoria?: string; deposito?: string; cobrir?: string; tudo?: string }>
+  searchParams: Promise<{ de?: string; ate?: string; categoria?: string; deposito?: string; cobrir?: string; tudo?: string; pagina?: string }>
 }) {
   const params = await searchParams
   const supabase = await createServiceClient()
@@ -121,7 +122,22 @@ export default async function ReposicaoPage({
   const linhasMostradas = verTudo ? linhas : precisaPedir
   const semNecessidade = linhas.length - precisaPedir.length
 
+  // Paginação: o cálculo agrega tudo (é barato no servidor), mas o HTML só leva a
+  // página. Sem isso a tela mandava 1,2 MB (529 linhas) / 2,9 MB com "ver todos".
+  const porPagina = 100
+  const paginaInventada = Math.max(1, parseInt(params.pagina ?? '1', 10) || 1)
+  const totalPaginas = Math.max(1, Math.ceil(linhasMostradas.length / porPagina))
+  const pagina = Math.min(paginaInventada, totalPaginas)
+  const linhasPagina = linhasMostradas.slice((pagina - 1) * porPagina, pagina * porPagina)
+  const baseParams: Record<string, string> = { de, ate, cobrir: String(cobrir) }
+  if (params.categoria) baseParams.categoria = params.categoria
+  if (params.deposito) baseParams.deposito = params.deposito
+  if (verTudo) baseParams.tudo = '1'
+
   const fmtDias = (d: number) => d === Infinity ? '∞' : d < 1 ? '<1d' : Math.round(d) + 'd'
+  const faixa = linhasMostradas.length <= porPagina
+    ? String(linhasMostradas.length)
+    : `${(pagina - 1) * porPagina + 1}–${(pagina - 1) * porPagina + linhasPagina.length}`
   const baseQS = (extra: Record<string, string>) => {
     const q = new URLSearchParams()
     q.set('de', de); q.set('ate', ate); q.set('cobrir', String(cobrir))
@@ -217,8 +233,8 @@ export default async function ReposicaoPage({
         <div className="flex flex-wrap items-center justify-between gap-2 -mb-2">
           <p className="text-sm text-gray-500">
             {verTudo
-              ? <>Mostrando <b>todos os {linhas.length}</b> produtos vendidos no período.</>
-              : <>Mostrando os <b>{precisaPedir.length}</b> que precisam de pedido.{semNecessidade > 0 && <span className="text-gray-400"> {semNecessidade} já abastecidos ocultos.</span>}</>}
+              ? <>Mostrando <b>{faixa}</b> de <b>{linhasMostradas.length}</b> produtos vendidos no período.</>
+              : <>Mostrando <b>{faixa}</b> de <b>{linhasMostradas.length}</b> que precisam de pedido.{semNecessidade > 0 && <span className="text-gray-400"> {semNecessidade} já abastecidos ocultos.</span>}</>}
           </p>
           {semNecessidade > 0 && (
             <Link href={`/painel/estoque/reposicao?${baseQS(verTudo ? { tudo: '' } : { tudo: '1' })}`}
@@ -252,7 +268,7 @@ export default async function ReposicaoPage({
                 🎉 Nada a pedir — todo o estoque cobre o período desejado.
               </td></tr>
             ) : (
-              linhasMostradas.map((l) => (
+              linhasPagina.map((l) => (
                 <tr key={l.id} className={`hover:bg-blue-50/60 transition ${l.urgente ? 'bg-red-50/40' : ''}`}>
                   <td className="px-4 py-3">
                     <p className="text-sm font-medium text-gray-800">{l.nome}</p>
@@ -278,6 +294,7 @@ export default async function ReposicaoPage({
             )}
           </tbody>
         </table>
+        <Paginacao pagina={pagina} totalPaginas={totalPaginas} total={linhasMostradas.length} params={baseParams} basePath="/painel/estoque/reposicao" />
       </div>
     </div>
   )
