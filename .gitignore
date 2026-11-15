@@ -98,3 +98,6 @@ arquivo-nao-usado/
 # dia for versionar, é num repositório privado — não aqui.
 docs/registros-banco/backup-*.json
 
+# screenshots e saidas do check-up de telas (scripts/checkup-telas.cjs)
+/tmp-checkup/
+/tmp-*
