@@ -60,4 +60,12 @@ mesmo atualiza.
    repetia a versão errada do primeiro checkup — a correção `7f8d23e` já havia
    registrado que o achado não existia.
 2. **56 fiados em aberto sem cadastro** — 4.595,00 (55 Petrópolis, 1 Teresópolis).
-3. **Reposição** ainda em 5,4s — melhoria de performance pendente.
+3. **Reposição — resolvido no mesmo dia (`9c17b00`).** Medição em produção
+   (warm): a tela era 1,24 MB / 2,36s com 529 linhas, e 2,87 MB com
+   `?tudo=1` (1.362 linhas). O gargalo era payload, não servidor (dc 1,7s).
+   Corte: tabela paginada em 100 por página com o componente `Paginacao` do
+   sistema. Depois: **0,33 MB nas duas visões (−73% e −88%), warm ~1,9s**.
+   Verificado: página 1 mostra "1–100 de 529", página 2 "101–200", `tudo=1`
+   "1–100 de 1.362", filtro de depósito preservado, contagem de linhas 100.
+   As outras telas "pesadas" medidas hoje eram cold start do Vercel, não tela
+   lenta: Contas 8,4s→1,3s, Promoções 5,4s→0,8s, Descontos 10s→0,95s (warm).
