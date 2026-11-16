@@ -40,18 +40,24 @@ sem entrada de estoque** e **peça que entrou fora do fundo**.
 
 **Achados no dado (o que falta arrumar):**
 
-- **Fornecedor duplicado no cadastro**, e a troca guarda o nome: `H2O` (65 peças,
-  R$ 4.762,53) x `H2O FORNECEDOR` (59, R$ 4.115,14) · `ADL FORNECEDOR` (32,
-  R$ 2.690,05) x `ADL` (24, R$ 1.497,17) · `INOVA MERCADORIAS` x `INOVA`.
-  Enquanto existir, nenhum relatório de troca fecha por fornecedor e o abatimento
-  cai no nome errado. **É DADO** — unificar no cadastro.
-- **27 peças (R$ 2.015,40) sem fornecedor definido** — não dá para cobrar.
-- **0 de 222 trocas abatidas** na dívida: o recurso existe e ninguém usa.
-- **2 peças para mover** (entraram em Teresópolis estoque e devem ir para o fundo
-  de Petrópolis): FRONTAL SAMSUNG A36 PREMIUM (12/11) e FRONTAL IPHONE 15 PRO MAX
-  OLED DD (16/11). **Pendente:** a conexão do PC com o Supabase oscilou em
-  16/11; rodar pela tela (Estoque → Transferências) ou pelo script
-  `corrige-retornos` quando estabilizar.
+- **O cadastro de fornecedor NÃO está duplicado** (conferido por id em 16/11):
+  H2O, ADL, ZL e INOVA têm **um id cada**. O que está duplicado é o **texto
+  gravado em `trocas.fornecedor_nome`**, congelado no dia da classificação, antes
+  de o cadastro ser renomeado. Corrigido no código: dívida/abatimento filtram por
+  `pessoa_id`, e o painel e o script agrupam por id (mostram aviso quando o nome
+  gravado difere do cadastro) — commit `ab4da13`.
+- **Cadastro "TROCAS ADL" juntado no ADL (16/11, autorizado pelo dono):** ele
+  tinha 2 notas de entrada de verdade (#35 R$ 4.441,81 de 23/09 e #82
+  R$ 2.050,32 de 21/10) e não era só cadastro de troca. As notas passaram para o
+  ADL (`69d6bb51…`) e o cadastro foi desativado. Compras do ADL: R$ 95.945,81
+  (15 notas) → **R$ 102.437,94 (17 notas)**. Backup e desfazer em
+  `docs/registros-banco/junta-trocas-adl-no-adl-2026-11-16.json`.
+- **28 peças (R$ 1.946,57) sem fornecedor definido** — não dá para cobrar.
+- **0 de 225 trocas abatidas** na dívida: o recurso existe e ninguém usa.
+- **2 peças para mover** — resolvido: FRONTAL IPHONE 15 PRO MAX voltou para o
+  fundo (Teresópolis estoque 0 → Petrópolis estoque 1). FRONTAL SAMSUNG A36 e A16
+  entraram em Teresópolis estoque, mas hoje estão **0 lá** (já saíram por venda ou
+  transferência) — nada a mover.
 
 **Última atualização anterior:** 15/11/2026 (dívida de fornecedor fechando o mês 11, rastro de PIX no fechamento e Reposição paginada).
 
