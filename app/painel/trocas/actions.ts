@@ -27,19 +27,19 @@ async function toleranciaDiferenca(supabase: Awaited<ReturnType<typeof createSer
 
 // Quanto o fornecedor tem em aberto NESTA loja. É a régua da trava abaixo.
 //
-// `abaterNaDivida` filtra a nota por loja. Quando a dívida não tem loja (ou a loja
-// não tem nota aberta), ele não acha nada e transforma o valor em CRÉDITO com o
-// fornecedor — uma linha negativa que reduz a dívida sem nota por trás. Foi assim
-// que nasceu o crédito de 251,60 da INOVA em 05/11/2026 (a dívida estava sem loja).
-// Troca não pode fazer isso: o valor só é abatido até o que existe de verdade.
+// Filtra pelo ID do cadastro quando ele existe: o `pessoa_nome` do lançamento é
+// texto copiado e pode estar velho (o cadastro foi renomeado depois). Procurar
+// pelo nome erra a dívida — e dívida errada é crédito inventado.
 async function dividaAberta(
   supabase: Awaited<ReturnType<typeof createServiceClient>>,
   fornecedorNome: string,
   lojaId: string | null,
+  fornecedorId: string | null = null,
 ): Promise<number> {
   const linhas = await fetchAll<{ valor: number | null; valor_pago: number | null }>((from, to) => {
     let q = supabase.from('lancamentos').select('valor, valor_pago')
-      .eq('tipo', 'pagar').eq('status', 'pendente').eq('pessoa_nome', fornecedorNome)
+      .eq('tipo', 'pagar').eq('status', 'pendente')
+    q = fornecedorId ? q.eq('pessoa_id', fornecedorId) : q.eq('pessoa_nome', fornecedorNome)
     if (lojaId) q = q.eq('loja_id', lojaId)
     return q.order('id').range(from, to)
   })
@@ -390,7 +390,7 @@ export async function abaterTrocaNoFornecedor(formData: FormData): Promise<{ ok:
 
   // TRAVA: abater mais do que existe vira crédito solto com o fornecedor. Troca só
   // abate até a dívida em aberto desta loja — o resto o fornecedor tem que confirmar.
-  const aberto = await dividaAberta(supabase, fornecedorNome, troca.loja_id ?? null)
+  const aberto = await dividaAberta(supabase, fornecedorNome, troca.loja_id ?? null, fornecedorId)
   if (valor > aberto + 0.005) {
     return {
       ok: false,
@@ -401,6 +401,7 @@ export async function abaterTrocaNoFornecedor(formData: FormData): Promise<{ ok:
   const abatimento = await abaterNaDivida(
     supabase, fornecedorNome, troca.loja_id ?? null, valor,
     `Crédito de troca — ${troca.produto_nome ?? 'peça'} (abateu ${valor.toFixed(2).replace('.', ',')}, sem nota pendente)`,
+    'troca', fornecedorId,
   )
   if (!abatimento.ok) return { ok: false, erro: abatimento.erro }
   const credito = abatimento.credito
@@ -538,7 +539,7 @@ export async function abaterTrocasEmLote(formData: FormData): Promise<{ ok: bool
   // por loja e o abatimento também.
   for (const [lojaId, valorLoja] of porLoja) {
     if (valorLoja <= 0.005) continue
-    const aberto = await dividaAberta(supabase, fornecedorNome, lojaId || null)
+    const aberto = await dividaAberta(supabase, fornecedorNome, lojaId || null, fornecedorId)
     if (valorLoja > aberto + 0.005) {
       return {
         ok: false,
@@ -551,6 +552,7 @@ export async function abaterTrocasEmLote(formData: FormData): Promise<{ ok: bool
     const r = await abaterNaDivida(
       supabase, fornecedorNome, lojaId || null, valorLoja,
       `Crédito de troca — remessa (${pecas.length} peças, abateu ${valorLoja.toFixed(2).replace('.', ',')}, sem nota pendente)`,
+      'troca', fornecedorId,
     )
     if (!r.ok) return { ok: false, erro: r.erro }
     credito = Math.round((credito + r.credito) * 100) / 100

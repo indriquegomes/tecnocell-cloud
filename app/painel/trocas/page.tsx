@@ -112,17 +112,25 @@ export default async function TrocasPage({ searchParams }: { searchParams: Promi
 
   // Painel "onde está o meu dinheiro": quanto cada fornecedor segura e há quantos
   // dias a peça mais antiga dele está fora. É a fila de cobrança.
-  const porFornecedor = new Map<string, { pecas: number; valor: number; dias: number }>()
+  //
+  // Agrupa pelo ID do cadastro, não pelo nome gravado na troca: `fornecedor_nome`
+  // é texto copiado no dia da classificação e continua velho depois que o cadastro
+  // é renomeado — agrupando por texto, o mesmo fornecedor vira duas linhas.
+  const nomeAtual = new Map(fornecedores.map((f) => [f.id, f.nome]))
+  const porFornecedor = new Map<string, { nome: string; pecas: number; valor: number; dias: number }>()
   for (const l of emGarantia) {
-    const chave = l.fornecedor_nome ?? '(sem fornecedor definido)'
-    const atual = porFornecedor.get(chave) ?? { pecas: 0, valor: 0, dias: 0 }
+    const chave = l.fornecedor_id ?? '__sem_fornecedor__'
+    const atual = porFornecedor.get(chave) ?? {
+      nome: l.fornecedor_id ? (nomeAtual.get(l.fornecedor_id) ?? l.fornecedor_nome ?? '(fornecedor fora do cadastro)') : '(sem fornecedor definido)',
+      pecas: 0, valor: 0, dias: 0,
+    }
     atual.pecas += l.quantidade
     atual.valor += l.custo * l.quantidade
     atual.dias = Math.max(atual.dias, l.dias)
     porFornecedor.set(chave, atual)
   }
   const resumoFornecedor = [...porFornecedor.entries()]
-    .map(([fornecedor, g]) => ({ fornecedor, pecas: g.pecas, valor: Math.round(g.valor * 100) / 100, dias: g.dias }))
+    .map(([id, g]) => ({ id, fornecedor: g.nome, pecas: g.pecas, valor: Math.round(g.valor * 100) / 100, dias: g.dias }))
     .sort((a, b) => b.valor - a.valor)
   const semFornecedor = emGarantia.filter((l) => !l.fornecedor_id)
   const resumo = {

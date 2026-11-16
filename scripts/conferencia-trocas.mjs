@@ -51,6 +51,8 @@ const LIMITE = Math.max(1, parseInt(process.argv[2] ?? '30', 10) || 30)
   const trocas = await tudo(sb, 'trocas', '*', (q) => q.order('data_saida'))
   const lojas = await tudo(sb, 'lojas', 'id, nome', (q) => q.order('id'))
   const nomeLoja = new Map(lojas.map((l) => [l.id, l.nome]))
+  const pessoas = await tudo(sb, 'pessoas', 'id, nome', (q) => q.order('id'))
+  const nomePessoa = new Map(pessoas.map((p) => [p.id, p.nome]))
   const deps = await tudo(sb, 'depositos', 'id, nome, loja_id', (q) => q.order('id'))
   const depEstoquePet = deps.find((d) => /PETR[ÓO]POLIS/i.test(d.nome) && /ESTOQUE/i.test(d.nome))
   const movs = await tudo(sb, 'movimentacoes_estoque', 'produto_id, deposito_id, operacao, quantidade, created_at', (q) => q.order('created_at'))
@@ -71,14 +73,20 @@ const LIMITE = Math.max(1, parseInt(process.argv[2] ?? '30', 10) || 30)
 
   const porForn = {}
   for (const t of ativas) {
-    const k = t.fornecedor_nome || '(SEM FORNECEDOR DEFINIDO)'
-    const g = porForn[k] ??= { n: 0, v: 0, maisAntiga: t.data_saida }
+    // Agrupa pelo ID do cadastro: `fornecedor_nome` é texto copiado e continua
+    // velho depois que o cadastro é renomeado (mesmo fornecedor virava 2 linhas).
+    const chave = t.fornecedor_id ?? '__sem__'
+    const nome = t.fornecedor_id ? (nomePessoa.get(t.fornecedor_id) ?? `${t.fornecedor_nome ?? '?'} (fora do cadastro)`) : '(SEM FORNECEDOR DEFINIDO)'
+    const g = porForn[chave] ??= { nome, n: 0, v: 0, maisAntiga: t.data_saida, nomes: new Set() }
     g.n += Number(t.quantidade ?? 1); g.v += valor(t)
+    if (t.fornecedor_nome) g.nomes.add(t.fornecedor_nome)
     if (String(t.data_saida) < String(g.maisAntiga)) g.maisAntiga = t.data_saida
   }
   console.log('\n  por fornecedor (fila de cobrança):')
-  for (const [k, g] of Object.entries(porForn).sort((a, b) => b[1].v - a[1].v)) {
-    console.log(`    ${k}: ${g.n} peça(s) · ${brl(g.v)} · a mais antiga há ${dias(g.maisAntiga)} dia(s) (${dia(g.maisAntiga)})`)
+  for (const g of Object.values(porForn).sort((a, b) => b.v - a.v)) {
+    const nomes = [...g.nomes]
+    const divergente = nomes.length > 1 || (nomes.length === 1 && nomes[0] !== g.nome)
+    console.log(`    ${g.nome}: ${g.n} peça(s) · ${brl(g.v)} · a mais antiga há ${dias(g.maisAntiga)} dia(s) (${dia(g.maisAntiga)})${divergente ? `  ⚠ nome gravado: ${nomes.join(' / ')}` : ''}`)
   }
 
   const velhas = ativas.filter((t) => dias(t.data_saida) > LIMITE)
