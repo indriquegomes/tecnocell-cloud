@@ -1,0 +1,18 @@
+{
+  "quando": "2026-11-16T03:00:54.350Z",
+  "QA": "__QA__CHECKUP_F9",
+  "estoque_antes": {
+    "id": "4ef4f5dd-b6f7-5995-8623-4e674fbacc8f",
+    "quantidade": "57.000"
+  },
+  "venda_id": "99cf6117-3c31-4750-9762-abd4024266f7",
+  "venda_numero": 13499,
+  "lancamento": {
+    "id": "5c7baaf2-2636-4c2f-ab33-9863255f91a4",
+    "status": "pendente",
+    "valor": "2.30",
+    "valor_pago": "0.00",
+    "pessoa_id": "2bc2ce1d-7578-45af-b7f4-38362cb154f1"
+  },
+  "movimento": null
+}

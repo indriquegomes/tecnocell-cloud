@@ -177,14 +177,26 @@ Painel abrindo sem erro de console.
    lista padrão 1,24 MB → **0,33 MB**, "ver todos" 2,87 MB → **0,33 MB**, warm
    ~1,9s. (Nota histórica: o diagnóstico anterior — `fetchAll` em série e
    builder reusado — continua valendo como referência; o corte foi a paginação.)
-4. **F9 (quitação de fiado) com venda real nunca foi homologado** — só em teste
-   local (PGlite).
+4. **✅ F9 HOMOLOGADO em 15/11 — produção, com reversão total.** Venda real com
+   fiado (venda #13501, R$ 2,30, cliente `__QA__`) → quitação pelo F9 na tela →
+   banco confere tudo (lançamento `pago`, `valor_pago` 2,30, forma "Dinheiro",
+   histórico com 1 linha, movimento de caixa "Fiado recebido — __QA__CHECKUP_F9")
+   → reversão: movimento e operação idempotente apagados, venda cancelada pela
+   RPC `cancelar_venda`, estoque de volta a 57, **0 resíduos** (lançamentos 0,
+   movimentos 0, cliente 0). Backup:
+   `docs/registros-banco/2026-11/backup-f9-homologacao-*.json`.
 5. **Conferir `conta_id` nulo** nos lançamentos de venda (o commit `3d33514`
    mexeu na baixa de conta; conferir se o nulo ainda acontece).
-6. **Cron de salários** (`pagar-salarios-sabado`, `pg_cron` no Supabase): a
-   regra marca como **pago** tudo que tem "semana de" na descrição e vence no
-   sábado. Vale o dono conferir se é isso mesmo que ele quer — é dinheiro saindo
-   sem ninguém olhar.
+6. **Cron de salários — conferido em 15/11.** Job `pagar-salarios-sabado`
+   (pg_cron, `0 22 * * 6` = sábado 19h de São Paulo) marca `pago`, com
+   `data_pagamento` do dia, todo lançamento `pagar` pendente com descrição
+   "semana de" e vencimento naquele dia. No sábado 14/11 pagou exatamente as 6
+   folhas que venciam (Erick Alves de Mattos, Isaac Bento Morelli, Maria Eduarda
+   Kappler da Silva, Mariana Vila Real Castelli, Nikollas Bernardo Leocadio,
+   Brunna Furtado Gonçalves — R$ 4.160,62). É registro contábil, não movimento
+   de dinheiro: o risco é marcar pago sem a transferência ter saído. **Decisão
+   do dono:** manter (é o processo dele) ou desligar — nenhuma ação do agente
+   sem ordem.
 7. **Telas pesadas — medidas de novo em 15/11 (produção, warm):** Saúde 1,7s ·
    Fechamento do Mês 1,7s · Contas 1,3s · Promoções 0,8s · Descontos 0,95s ·
    Relatórios 1,0s. As leituras lentas do smoke (8–11s) eram **cold start do

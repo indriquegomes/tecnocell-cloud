@@ -50,6 +50,16 @@ mesmo atualiza.
 - Descontos de novembro: 46 lançamentos / 1.310,21, nenhum colado a caixa ou conta.
 - Zero lançamento sem loja; nenhuma nota pendente com `valor_pago`.
 
+## ✅ F9 homologado com venda real (produto, não teste unitário)
+
+Venda real com fiado (venda #13501, R$ 2,30, cliente `__QA__`) → quitação pelo **F9
+na tela** → banco conferido: lançamento `pago`, `valor_pago` 2,30, forma "Dinheiro",
+histórico com 1 linha e movimento de caixa "Fiado recebido — __QA__CHECKUP_F9".
+Reversão total: movimento e operação idempotente apagados, venda cancelada pela RPC
+`cancelar_venda`, estoque de volta a 57, **0 resíduos** (lançamentos 0, movimentos 0,
+cliente 0; as 4 vendas de teste canceladas foram removidas). Backup em
+`docs/registros-banco/2026-11/backup-f9-homologacao-*.json`.
+
 ## Continua pendente (fora deste checklist)
 
 1. **ADL 440,40 — ENCERRADO, nada a reaplicar.** A conta de 12/11 fechou: o
