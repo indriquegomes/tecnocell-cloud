@@ -5,6 +5,25 @@ import { revalidatePath } from 'next/cache'
 import { logAtividade } from '@/lib/log-atividade'
 import { palavrasBusca, aplicaBusca } from '@/lib/busca-produtos'
 import { abaterNaDivida } from '@/lib/abater-divida'
+import { formatBRL } from '@/lib/utils'
+
+const formatarReais = (v: number) => formatBRL(Math.round(v * 100) / 100)
+
+/**
+ * Quanto de diferença no valor da peça que voltou NÃO é tratado como perda.
+ *
+ * O fornecedor às vezes manda modelo equivalente um pouco mais barato; tratar
+ * centavo de diferença como perda enche a tela de falso positivo. O número é
+ * configuração do dono (`configuracoes` → chave `trocas`, campo
+ * `tolerancia_diferenca`), com padrão de R$ 100 e teto de R$ 1.000.
+ */
+async function toleranciaDiferenca(supabase: Awaited<ReturnType<typeof createServiceClient>>): Promise<number> {
+  const { data } = await supabase.from('configuracoes').select('valor').eq('chave', 'trocas').maybeSingle()
+  const cfg = (data as { valor?: { tolerancia_diferenca?: number } } | null)?.valor
+  const n = Number(cfg?.tolerancia_diferenca)
+  if (!Number.isFinite(n) || n < 0) return 100
+  return Math.min(n, 1000)
+}
 
 // Quanto o fornecedor tem em aberto NESTA loja. É a régua da trava abaixo.
 //
@@ -45,22 +64,21 @@ const REVALIDAR = ['/painel/trocas', '/painel/estoque', '/painel/estoque/histori
 type SB = Awaited<ReturnType<typeof createServiceClient>>
 
 /**
- * Depósito de retorno da LOJA da peça: "PETRÓPOLIS ESTOQUE" ou "TERESÓPOLIS ESTOQUE".
+ * Depósito onde a peça da troca dá entrada quando volta do fornecedor.
  *
- * Antes voltava sempre pro PETRÓPOLIS ESTOQUE — peça de Teresópolis entrava no
- * estoque da outra loja (40 peças hoje). Regra do dono (04/11): peça volta pro
- * estoque da loja de onde saiu.
+ * REGRA: **sempre o "PETRÓPOLIS ESTOQUE"** (o fundo), não importa de qual loja a
+ * peça saiu nem para onde voltou. O depósito de ESTOQUE da loja de origem nunca
+ * é usado como destino — peça devolvida pelo fornecedor volta para o fundo de
+ * Petrópolis, que é onde o dono confere e redistribui.
+ *
+ * Se não achar o depósito, devolve null e a action recusa o retorno com
+ * mensagem — melhor recusar do que creditar no lugar errado.
  */
-async function depositoDeRetorno(supabase: SB, lojaId: string | null): Promise<string | null> {
+async function depositoDeRetorno(supabase: SB): Promise<string | null> {
   const { data: deps } = await supabase
-    .from('depositos').select('id, nome, loja_id').ilike('nome', '%ESTOQUE%')
-  const lista = (deps ?? []) as { id: string; nome: string; loja_id: string | null }[]
-  if (lojaId) {
-    const daLoja = lista.find((d) => d.loja_id === lojaId)
-    if (daLoja) return daLoja.id
-  }
-  // sem loja na troca: usa o depósito de estoque de Petrópolis como antes
-  return lista.find((d) => /PETRÓPOLIS/i.test(d.nome))?.id ?? lista[0]?.id ?? null
+    .from('depositos').select('id, nome').ilike('nome', '%ESTOQUE%')
+  const lista = (deps ?? []) as { id: string; nome: string }[]
+  return lista.find((d) => /PETR[ÓO]POLIS/i.test(d.nome))?.id ?? null
 }
 
 /** Move o estoque de verdade, pelo RPC (atômico, com trava da linha). */
@@ -118,9 +136,17 @@ export async function marcarEnviada(formData: FormData): Promise<void> {
 }
 
 /**
- * MOTIVO 2 do dono (04/11): o fornecedor trocou a peça. Volta a mesma ou uma
- * substituta e entra no estoque DA LOJA DE ONDE SAIU (não mais sempre Petrópolis).
- * Se a substituta custar menos, a diferença vira perda.
+ * Retorno da troca: o fornecedor devolveu a peça e ela entra no estoque.
+ *
+ * REGRA:
+ *  - o retorno entra SEMPRE no PETRÓPOLIS ESTOQUE (o fundo), qualquer que seja a
+ *    loja de onde a peça saiu; a loja recebe por transferência quando precisar;
+ *  - o custo da peça que saiu NÃO é relido do cadastro: vale o custo gravado na
+ *    troca no dia da saída;
+ *  - se voltou peça diferente, o custo é o do cadastro DESSA peça e a diferença
+ *    só vira perda acima da tolerância de `trocas.tolerancia_diferenca`
+ *    (configuração; padrão R$ 100). Diferença menor é registrada como
+ *    observação, sem inventar perda.
  */
 export async function confirmarRetorno(formData: FormData): Promise<{ ok: boolean; erro?: string }> {
   const usuario = await requirePermissao('estoque')
@@ -151,15 +177,24 @@ export async function confirmarRetorno(formData: FormData): Promise<{ ok: boolea
     custoRetorno = Number(prod.preco_custo ?? 0)
   }
 
-  const deposito = await depositoDeRetorno(supabase, troca.loja_id ?? null)
-  if (!deposito) return { ok: false, erro: 'depósito de ESTOQUE da loja não encontrado' }
+  const deposito = await depositoDeRetorno(supabase)
+  if (!deposito) return { ok: false, erro: 'depósito PETRÓPOLIS ESTOQUE não encontrado' }
 
   const obs = `Troca de fornecedor — retorno${ehSubstituta ? ' (peça substituta)' : ''}${troca.produto_nome ? ` — saiu: ${troca.produto_nome}` : ''}`
   const erroMov = await movimentar(supabase, produtoRetornoId, deposito, 'entrada', quantidade, obs, usuario?.id ?? null)
   if (erroMov) return { ok: false, erro: erroMov }
 
-  // perda quando a peça que voltou vale menos que a que saiu
-  const perda = ehSubstituta ? Math.max(0, Math.round((custoOriginal - custoRetorno) * quantidade * 100) / 100) : 0
+  // Diferença de valor entre o que saiu e o que voltou. Só vira perda acima da
+  // tolerância configurada — diferença pequena é normal (fornecedor manda modelo
+  // equivalente) e não pode aparecer como perda do mês.
+  const tolerancia = await toleranciaDiferenca(supabase)
+  const diferenca = Math.round((custoOriginal - custoRetorno) * quantidade * 100) / 100
+  const perda = ehSubstituta && diferenca > tolerancia ? diferenca : 0
+  const observacao = !ehSubstituta
+    ? null
+    : perda > 0
+      ? `Perda de ${formatarReais(perda)} — peça substituta ${formatarReais(diferenca)} mais barata (acima da tolerância de ${formatarReais(tolerancia)})`
+      : `Diferença de ${formatarReais(Math.max(0, diferenca))} dentro da tolerância de ${formatarReais(tolerancia)} — sem perda`
 
   const { error } = await supabase.from('trocas').update({
     status: 'retornou',
@@ -168,7 +203,7 @@ export async function confirmarRetorno(formData: FormData): Promise<{ ok: boolea
     produto_retorno_nome: produtoRetornoNome,
     custo_retorno: custoRetorno,
     perda: perda > 0 ? perda : null,
-    observacao: perda > 0 ? `Perda de R$ ${perda.toFixed(2).replace('.', ',')} — substituta mais barata` : null,
+    observacao,
     updated_at: new Date().toISOString(),
   }).eq('id', id)
   if (error) return { ok: false, erro: error.message }

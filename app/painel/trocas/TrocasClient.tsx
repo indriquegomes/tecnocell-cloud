@@ -34,6 +34,7 @@ export function TrocasClient({
   dividas,
   temAbatimento,
   erro,
+  resumo,
 }: {
   linhas: TrocaLinha[]
   fornecedores: { id: string; nome: string }[]
@@ -42,6 +43,12 @@ export function TrocasClient({
   dividas: { fornecedor: string; valor: number }[]
   temAbatimento: boolean
   erro?: string
+  resumo: {
+    porFornecedor: { fornecedor: string; pecas: number; valor: number; dias: number }[]
+    semFornecedorQtd: number
+    semFornecedorValor: number
+    antigas30: number
+  }
 }) {
   const router = useRouter()
   const [pendente, iniciar] = useTransition()
@@ -50,6 +57,7 @@ export function TrocasClient({
   const [lojaFiltro, setLojaFiltro] = useState<string>('todas')
   const [fornFiltro, setFornFiltro] = useState<string>('todos')
   const [abatendo, setAbatendo] = useState<TrocaLinha | null>(null)
+  const [retornando, setRetornando] = useState<TrocaLinha | null>(null)
   const [lote, setLote] = useState(false)
 
   const visiveis = linhas.filter((l) => {
@@ -241,11 +249,11 @@ export function TrocasClient({
                         </button>
                         <button
                           disabled={pendente}
-                          onClick={() => rodar(() => { const fd = new FormData(); fd.set('id', l.id); return confirmarRetorno(fd) })}
+                          onClick={() => setRetornando(l)}
                           className="rounded bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700"
-                          title="O fornecedor trocou: entra no estoque DA LOJA de onde saiu (mesma peça ou substituta)"
+                          title="O fornecedor devolveu a peça: entra no PETRÓPOLIS ESTOQUE (mesma peça ou outra)"
                         >
-                          ✓ Voltou trocada
+                          ✓ Chegou do fornecedor
                         </button>
                         <button
                           disabled={pendente}
@@ -299,7 +307,18 @@ export function TrocasClient({
         />
       )}
 
+      {retornando && (
+        <RetornoDaTroca
+          troca={retornando}
+          pendente={pendente}
+          fechar={() => setRetornando(null)}
+          rodar={rodar}
+        />
+      )}
+
       <NovaTroca depositos={depositos} pendente={pendente} rodar={rodar} setMsg={setMsg} />
+
+      <PainelFornecedores resumo={resumo} />
 
       <div className="flex flex-wrap gap-2">
         <button
@@ -538,6 +557,199 @@ function NovaTroca({
           Salvar
         </button>
         <button onClick={() => setAberto(false)} className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * ONDE ESTÁ O DINHEIRO — quanto cada fornecedor está segurando e há quantos dias.
+ * Serve de fila de cobrança: peça parada há mais de 30 dias aparece destacada.
+ */
+function PainelFornecedores({
+  resumo,
+}: {
+  resumo: {
+    porFornecedor: { fornecedor: string; pecas: number; valor: number; dias: number }[]
+    semFornecedorQtd: number
+    semFornecedorValor: number
+    antigas30: number
+  }
+}) {
+  const [aberto, setAberto] = useState(false)
+  const total = resumo.porFornecedor.reduce((s, f) => s + f.valor, 0)
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <button onClick={() => setAberto((v) => !v)} className="flex w-full items-center justify-between gap-2 text-left">
+        <span className="text-sm font-semibold text-gray-800">
+          Onde está o dinheiro · {fmt(total)} com {resumo.porFornecedor.length} fornecedor(es)
+        </span>
+        <span className="text-xs text-gray-400">{aberto ? 'fechar ▲' : 'ver por fornecedor ▼'}</span>
+      </button>
+
+      {resumo.antigas30 > 0 && (
+        <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+          {resumo.antigas30} peça(s) fora do estoque há mais de 30 dias — cobrar do fornecedor.
+        </p>
+      )}
+      {resumo.semFornecedorQtd > 0 && (
+        <p className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-[11px] text-rose-700">
+          {resumo.semFornecedorQtd} peça(s) ({fmt(resumo.semFornecedorValor)}) sem fornecedor definido — sem fornecedor não dá para cobrar.
+        </p>
+      )}
+
+      {aberto && (
+        <div className="mt-3 overflow-x-auto">
+          <table className="min-w-full text-xs">
+            <thead>
+              <tr className="text-left text-[11px] uppercase text-gray-400">
+                <th className="py-1 pr-3">Fornecedor</th>
+                <th className="py-1 pr-3 text-center">Peças</th>
+                <th className="py-1 pr-3 text-right">Valor a custo</th>
+                <th className="py-1 text-center">Mais antiga</th>
+              </tr>
+            </thead>
+            <tbody>
+              {resumo.porFornecedor.map((f) => (
+                <tr key={f.fornecedor} className="border-t border-gray-100">
+                  <td className="py-1 pr-3 text-gray-700">{f.fornecedor}</td>
+                  <td className="py-1 pr-3 text-center tabular-nums text-gray-600">{f.pecas}</td>
+                  <td className="py-1 pr-3 text-right font-semibold tabular-nums text-gray-800">{fmt(f.valor)}</td>
+                  <td className={`py-1 text-center tabular-nums ${f.dias > 30 ? 'font-semibold text-rose-600' : 'text-gray-500'}`}>{f.dias}d</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * CHEGOU DO FORNECEDOR — a peça voltou. Pergunta O QUE voltou, porque o valor e o
+ * estoque dependem disso:
+ *   - mesma peça  → entra com o custo que saiu, sem perda;
+ *   - outra peça  → escolhe qual, entra com o custo dela e a diferença só vira
+ *                   perda acima da tolerância configurada.
+ * O destino é sempre o PETRÓPOLIS ESTOQUE (o fundo).
+ */
+function RetornoDaTroca({
+  troca,
+  pendente,
+  fechar,
+  rodar,
+}: {
+  troca: TrocaLinha
+  pendente: boolean
+  fechar: () => void
+  rodar: (fn: () => Promise<unknown>) => void
+}) {
+  const [modo, setModo] = useState<'igual' | 'outra'>('igual')
+  const [termo, setTermo] = useState('')
+  const [resultados, setResultados] = useState<{ id: string; nome: string }[]>([])
+  const [escolhido, setEscolhido] = useState<{ id: string; nome: string } | null>(null)
+  const [buscando, setBuscando] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const custoTotal = Math.round(troca.custo * troca.quantidade * 100) / 100
+
+  async function buscar() {
+    const t = termo.trim()
+    if (t.length < 2) { setErro('Digite pelo menos 2 letras do nome (ou o código) da peça que voltou.'); return }
+    setBuscando(true); setErro(null); setEscolhido(null)
+    try {
+      setResultados(await buscarProdutosParaTroca(t))
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Erro ao buscar a peça.')
+    } finally { setBuscando(false) }
+  }
+
+  function confirmar() {
+    if (modo === 'outra' && !escolhido) { setErro('Escolha qual peça voltou.'); return }
+    setErro(null)
+    const fd = new FormData()
+    fd.set('id', troca.id)
+    if (modo === 'outra' && escolhido) fd.set('produto_substituto_id', escolhido.id)
+    rodar(() => confirmarRetorno(fd).then((r) => {
+      if (r.ok) fechar()
+      else setErro(r.erro ?? 'Não deu pra dar entrada.')
+      return r
+    }))
+  }
+
+  return (
+    <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4 shadow-sm space-y-3">
+      <div>
+        <p className="text-sm font-semibold text-gray-800">Chegou do fornecedor — {troca.produto_nome ?? 'peça'}</p>
+        <p className="text-[11px] text-gray-500">
+          {troca.quantidade}x · saiu com custo de <b>{fmt(custoTotal)}</b> · entra no <b>PETRÓPOLIS ESTOQUE</b>
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => { setModo('igual'); setEscolhido(null); setErro(null) }}
+          className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${modo === 'igual' ? 'border-emerald-500 bg-white text-emerald-700' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}
+        >
+          Voltou a mesma peça
+        </button>
+        <button
+          onClick={() => { setModo('outra'); setErro(null) }}
+          className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${modo === 'outra' ? 'border-emerald-500 bg-white text-emerald-700' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}
+        >
+          Voltou outra peça
+        </button>
+      </div>
+
+      {modo === 'outra' && (
+        <div>
+          <p className="text-xs text-gray-500">Qual peça voltou?</p>
+          <div className="mt-1 flex gap-2">
+            <input
+              value={termo}
+              onChange={(e) => setTermo(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void buscar() } }}
+              placeholder="ex: frontal samsung a15"
+              className="field flex-1 text-sm"
+            />
+            <button onClick={() => void buscar()} disabled={buscando} className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-900 disabled:opacity-50">
+              {buscando ? 'Buscando…' : 'Buscar'}
+            </button>
+          </div>
+          {escolhido && (
+            <p className="mt-2 rounded-lg bg-white px-3 py-2 text-xs text-emerald-800">Vai entrar: <b>{escolhido.nome}</b></p>
+          )}
+          {!escolhido && resultados.length > 0 && (
+            <div className="mt-2 max-h-52 overflow-y-auto rounded-lg border border-gray-200 bg-white">
+              {resultados.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => { setEscolhido(r); setResultados([]) }}
+                  className="block w-full border-b border-gray-100 px-3 py-2 text-left text-xs text-gray-700 last:border-0 hover:bg-emerald-50"
+                >
+                  {r.nome}
+                </button>
+              ))}
+            </div>
+          )}
+          <p className="mt-2 text-[11px] text-gray-400">
+            Se a peça que voltou vale menos, a diferença só vira perda acima do limite configurado. Diferença pequena é normal e não mexe no resultado.
+          </p>
+        </div>
+      )}
+
+      {erro && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{erro}</p>}
+
+      <div className="flex gap-2">
+        <button
+          disabled={pendente}
+          onClick={confirmar}
+          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+        >
+          Dar entrada no estoque
+        </button>
+        <button onClick={fechar} className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
       </div>
     </div>
   )

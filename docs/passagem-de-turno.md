@@ -6,7 +6,54 @@
 >
 > Regras do projeto: `AGENTS.md`. Como o sistema funciona: `docs/mapa/`.
 
-**Última atualização:** 15/11/2026 (dívida de fornecedor fechando o mês 11, rastro de PIX no fechamento e Reposição paginada).
+**Última atualização:** 16/11/2026 (troca com fornecedor: volta sempre no fundo de Petrópolis, retorno pergunta o que veio, tolerância de valor e painel de cobrança).
+
+## Nesta rodada (16/11/2026) — troca com fornecedor
+
+**Regra corrigida:** o retorno da troca entra **sempre no PETRÓPOLIS ESTOQUE** (o
+fundo), qualquer que seja a loja de onde a peça saiu; a loja recebe por
+transferência quando precisar. Antes o sistema creditava no estoque da loja de
+origem — foi o que mandou a peça do 15 Pro Max para Teresópolis estoque.
+(`app/painel/trocas/actions.ts`)
+
+**Retorno agora pergunta o que voltou.** O botão virou **"✓ Chegou do
+fornecedor"** e oferece "voltou a mesma peça" ou "voltou outra peça" (com busca).
+Antes ele lançava **sempre o mesmo produto**: quando o fornecedor mandava modelo
+diferente, o crédito ia para o item errado e a perda nunca era calculada.
+(`TrocasClient.tsx`, componente `RetornoDaTroca`)
+
+**Tolerância de diferença: R$ 100** (confirmada pelo dono; faixa considerada era
+R$ 100–200). Diferença até o limite **não vira perda** — fica registrada como
+observação. Acima disso a perda é registrada com o valor exato. O número vive em
+`configuracoes` → chave `trocas` → `tolerancia_diferenca` (padrão 100, teto 1000);
+**falta a tela** para o dono editar.
+
+**Painel "Onde está o dinheiro"** na aba Trocas: por fornecedor, peças, valor a
+custo e dias da peça mais antiga (vermelho acima de 30). Mostra também peças sem
+fornecedor definido. (`page.tsx` + `PainelFornecedores`)
+
+**Script de conferência:** `node scripts/conferencia-trocas.mjs` (só lê) — peças
+com o fornecedor por loja e por fornecedor, fila de cobrança, **troca que voltou
+sem entrada de estoque** e **peça que entrou fora do fundo**.
+
+**Tutorial para o balcão:** `docs/receitas/tutorial-trocas-fornecedor.md`.
+
+**Achados no dado (o que falta arrumar):**
+
+- **Fornecedor duplicado no cadastro**, e a troca guarda o nome: `H2O` (65 peças,
+  R$ 4.762,53) x `H2O FORNECEDOR` (59, R$ 4.115,14) · `ADL FORNECEDOR` (32,
+  R$ 2.690,05) x `ADL` (24, R$ 1.497,17) · `INOVA MERCADORIAS` x `INOVA`.
+  Enquanto existir, nenhum relatório de troca fecha por fornecedor e o abatimento
+  cai no nome errado. **É DADO** — unificar no cadastro.
+- **27 peças (R$ 2.015,40) sem fornecedor definido** — não dá para cobrar.
+- **0 de 222 trocas abatidas** na dívida: o recurso existe e ninguém usa.
+- **2 peças para mover** (entraram em Teresópolis estoque e devem ir para o fundo
+  de Petrópolis): FRONTAL SAMSUNG A36 PREMIUM (12/11) e FRONTAL IPHONE 15 PRO MAX
+  OLED DD (16/11). **Pendente:** a conexão do PC com o Supabase oscilou em
+  16/11; rodar pela tela (Estoque → Transferências) ou pelo script
+  `corrige-retornos` quando estabilizar.
+
+**Última atualização anterior:** 15/11/2026 (dívida de fornecedor fechando o mês 11, rastro de PIX no fechamento e Reposição paginada).
 
 ## Nesta rodada (13–15/11/2026)
 

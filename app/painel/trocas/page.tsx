@@ -110,6 +110,28 @@ export default async function TrocasPage({ searchParams }: { searchParams: Promi
   const totalPerdas = linhas.reduce((s, l) => s + (l.perda ?? 0), 0)
   const totalAbatido = linhas.reduce((s, l) => s + (l.valor_abatido ?? 0), 0)
 
+  // Painel "onde está o meu dinheiro": quanto cada fornecedor segura e há quantos
+  // dias a peça mais antiga dele está fora. É a fila de cobrança.
+  const porFornecedor = new Map<string, { pecas: number; valor: number; dias: number }>()
+  for (const l of emGarantia) {
+    const chave = l.fornecedor_nome ?? '(sem fornecedor definido)'
+    const atual = porFornecedor.get(chave) ?? { pecas: 0, valor: 0, dias: 0 }
+    atual.pecas += l.quantidade
+    atual.valor += l.custo * l.quantidade
+    atual.dias = Math.max(atual.dias, l.dias)
+    porFornecedor.set(chave, atual)
+  }
+  const resumoFornecedor = [...porFornecedor.entries()]
+    .map(([fornecedor, g]) => ({ fornecedor, pecas: g.pecas, valor: Math.round(g.valor * 100) / 100, dias: g.dias }))
+    .sort((a, b) => b.valor - a.valor)
+  const semFornecedor = emGarantia.filter((l) => !l.fornecedor_id)
+  const resumo = {
+    porFornecedor: resumoFornecedor,
+    semFornecedorQtd: semFornecedor.reduce((s, l) => s + l.quantidade, 0),
+    semFornecedorValor: Math.round(semFornecedor.reduce((s, l) => s + l.custo * l.quantidade, 0) * 100) / 100,
+    antigas30: emGarantia.filter((l) => l.dias > 30).length,
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -162,6 +184,7 @@ export default async function TrocasPage({ searchParams }: { searchParams: Promi
             dividas={dividas}
             temAbatimento={temAbatimento}
             erro={erro}
+            resumo={resumo}
           />
         </>
       )}
