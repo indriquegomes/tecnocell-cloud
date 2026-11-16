@@ -61,6 +61,27 @@ Revisão PRÓPRIA do diff completo `d07b549^..d07b549`, arquivo por arquivo:
 **Nenhum cálculo, filtro de status ou soma mudou.** Falta somente o parecer de
 um agente externo (regra do projeto) — repetir quando o Antigravity voltar.
 
+## Revisão independente da rodada d07b549 — CONCLUÍDA (Claude Code)
+
+Antigravity (Gemini) caiu 4× por queda de rede no endpoint do Google e o registro
+de subagentes internos ficou corrompido; o parecer externo saiu pelo **Claude
+Code** (CLI headless, somente leitura). **Veredito: seguro para o financeiro.**
+
+| Arquivo | Parecer |
+|---|---|
+| `app/painel/contas/page.tsx` | sem mudança de cálculo (só `Promise.all`) |
+| `lib/saldos-contas.ts` | sem mudança de cálculo (lotes de 300 em paralelo, mesmos filtros, `fetchAll`) |
+| `lib/saude-financeiro.ts` | sem mudança de cálculo (produtos só p/ estoque negativo via `fetchAllIn`; mesmos ids) |
+| `app/painel/fiados/page.tsx` | sem mudança de cálculo (lotes em paralelo, ids distintos por mapa) |
+| `app/painel/fechamento-mes/page.tsx` | sem mudança de cálculo (avisos no `Promise.all`, mesmos filtros) |
+| `app/api/telegram/comprovante/route.ts` | mudança **de propósito**: `slice(0,10)` UTC → `diaSP` (SP); AAAA-MM-DD preservado |
+
+Achados baixos: (a) `saldos-contas.ts` engole erro de lote (`data ?? []`) —
+silencioso pré-existente, paralelismo aumenta a chance; (b) `lojasPromise` sem
+catch em `fiados/page.tsx`; (c) `diaSP` devolve "Invalid Date" com entrada
+inválida (não ocorre na prática). Melhoria opcional: limitar lotes simultâneos e
+checar `error` de cada lote em `saldos-contas`.
+
 ## Nada novo quebrado
 
 - Trocas da INOVA seguem `enviada` com 0 abatido (abatem só quando o fornecedor
