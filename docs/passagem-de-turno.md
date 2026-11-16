@@ -59,6 +59,25 @@ invariantes do mês 11 = **46 OK / 0 falha**; `tsc` = 0; **206 testes**.
 **Verificado nesta rodada:** `tsc` = 0 · 206 testes · smoke 85 telas · CRUD
 real com limpeza · invariantes · deploy 28afbbf (app) e 32ab1ae (docs) no ar.
 
+**Fechamento do dia (15/11, fim da rodada):**
+- **`conta_id` nulo resolvido** (`705f538` + backfill): fiado recebido em PIX
+  pelo botão "Pago" do Financeiro agora recebe a conta (PIX → banco da loja ·
+  dinheiro → cofre); as 6 linhas antigas ganharam conta (PagBank +67,00 ·
+  TON Teresópolis +260,49 = 327,49). As 335 notas "Venda #" sem conta são
+  convenção (entrada conta em `pagamentos_venda`). Revisão do Claude Code:
+  seguro — o recebimento da gaveta é separado e não duplica no saldo.
+- **Revisão externa dupla:** Claude Code + Antigravity (Gemini) — ambos
+  "seguro para financeiro". As falhas iniciais do Antigravity eram o **sandbox
+  do shell cortando o TLS/streaming do `agy`** (não era rede).
+- **Contas adicionais:** já existe (Contas → aba Contas → "+ Nova conta"), com
+  tipo/origem, saldo inicial, chave Pix e dados bancários — testada ao vivo
+  (criar, aparecer nos Saldos, excluir; 0 restos).
+- **Sandbox do DSH:** patch de perfil gravado (`danger-full-access` + approval
+  `never`) — vale para as próximas sessões a partir do próximo start do app.
+  Nesta sessão continua workspace-write.
+- Checklist de fechamento: `tsc` 0 · 206 testes · 85 telas OK (só o falso
+  positivo da impressão) · invariantes do mês 11: 46 OK / 0 falha.
+
 ## Rodada de 12/11/2026 — RH, ponto e conferência de horas
 
 **RH — desligamento virou um ato.** Preencher a data de demissão em Usuários e
@@ -161,6 +180,11 @@ Painel abrindo sem erro de console.
   são rastreados; a nota antiga dizendo que ficava fora estava errada).
 
 ## Pendências reais (por prioridade)
+
+> **Abertas hoje (15/11):** item 8 (cadastros gerais — pausado por decisão do
+> dono) e item 9 (estrutura MEI 2027). O resto está resolvido ou é nota de
+> processo. Foco combinado: **fechar o mês 11 limpo** para o mês 12 não herdar
+> erro.
 
 1. **✅ REVISÃO INDEPENDENTE CONCLUÍDA (15/11 — Claude Code + Antigravity).**
    Dois pareceres externos independentes, **ambos: seguro para financeiro** — só
@@ -389,6 +413,12 @@ loja estava com caixa real de terceiro aberto e vendendo.
   `TESTE_USUARIO_EMAIL` / `TESTE_USUARIO_SENHA` no `.env.local`.
 - A sandbox de agente bloqueia: iniciar navegador (`spawn EPERM`), escrever fora
   do workspace e `git push`. Pedir permissão elevada quando precisar.
+- **Sandbox desligado a pedido do dono (15/11):** patch de perfil
+  (`~/.dsh/profiles/web/cordis.patch.yml` → `sandbox-policy.mode:
+  danger-full-access` + `approval.policy: never`) — vale para **toda sessão nova**
+  a partir do próximo start do app. A sessão que já estava aberta continua em
+  workspace-write até reiniciar/reabrir o app. Consequência: o agente escreve em
+  qualquer lugar do PC e não há prompt de aprovação.
 - **Antigravity (`agy`):** o sandbox workspace-write **corta o TLS/streaming** do
   binário (o agente conecta, trabalha e a conexão "reset" na hora de devolver a
   resposta; schannel no shell dá `SEC_E_NO_CREDENTIALS` até em `google.com`).
