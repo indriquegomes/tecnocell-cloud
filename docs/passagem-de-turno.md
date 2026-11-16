@@ -162,16 +162,19 @@ Painel abrindo sem erro de console.
 
 ## Pendências reais (por prioridade)
 
-1. **✅ REVISÃO INDEPENDENTE CONCLUÍDA (15/11 — Claude Code, headless).**
-   Antigravity caiu 4× por rede e o registro de subagentes internos ficou
-   corrompido; o parecer saiu pelo **Claude Code** (CLI, somente leitura).
-   **Veredito: seguro para financeiro** — nenhum cálculo/soma/filtro mudou; só
-   paralelização e a correção intencional de fuso do comprovante Pix. Achados
-   baixos: (a) `saldos-contas.ts` engole erro de lote (`data ?? []`) — silencioso
-   já pré-existente, o paralelismo só aumenta a chance; (b) `lojasPromise` sem
-   catch em `fiados/page.tsx`; (c) `diaSP` devolve "Invalid Date" com entrada
-   inválida (não acontece na prática — coluna timestamptz). Melhoria opcional:
-   limitar lotes simultâneos e checar `error` de cada lote em `saldos-contas`.
+1. **✅ REVISÃO INDEPENDENTE CONCLUÍDA (15/11 — Claude Code + Antigravity).**
+   Dois pareceres externos independentes, **ambos: seguro para financeiro** — só
+   paralelização e a correção intencional de fuso do comprovante Pix; nenhum
+   cálculo/soma/filtro mudou. Claude Code: achados baixos (a) `saldos-contas.ts`
+   engole erro de lote (`data ?? []`) — silencioso pré-existente, o paralelismo
+   só aumenta a chance; (b) `lojasPromise` sem catch em `fiados/page.tsx`;
+   (c) `diaSP` devolve "Invalid Date" com entrada inválida (não ocorre na
+   prática). Antigravity (plataforma da Google; agentes Gemini): parecer completo
+   arquivo por arquivo, veredito literal "SEGURO PARA O FINANCEIRO". **Causa das
+   falhas iniciais do Antigravity: o sandbox do shell cortava o TLS/streaming do
+   `agy`** (via schannel até google.com resetava; com acesso pleno, 200/404
+   normais). Rodar `agy` com acesso pleno resolve — receita em
+   `docs/registros/2026-11/checkup-15-11.md`.
 2. **✅ RESOLVIDO em 13/11 (`1974c13`)** — Next.js **16.2.11** no ar; as CVEs
    da faixa 16.2.6 (bypass de proxy, DoS em Server Actions e mais três) fechadas;
    build e telas conferidos.
@@ -386,3 +389,9 @@ loja estava com caixa real de terceiro aberto e vendendo.
   `TESTE_USUARIO_EMAIL` / `TESTE_USUARIO_SENHA` no `.env.local`.
 - A sandbox de agente bloqueia: iniciar navegador (`spawn EPERM`), escrever fora
   do workspace e `git push`. Pedir permissão elevada quando precisar.
+- **Antigravity (`agy`):** o sandbox workspace-write **corta o TLS/streaming** do
+  binário (o agente conecta, trabalha e a conexão "reset" na hora de devolver a
+  resposta; schannel no shell dá `SEC_E_NO_CREDENTIALS` até em `google.com`).
+  Rodar o `agy` direto, **com acesso pleno** (`danger-full-access`), resolve:
+  `C:\Users\usuario\AppData\Local\agy\bin\agy.EXE --print "<prompt>" --add-dir
+  "<projeto>" --dangerously-skip-permissions --output-format text`.

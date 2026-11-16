@@ -43,29 +43,11 @@ Planilha está velha por 1.482,00 exatos; o app está certo. A planilha precisa 
 atualização para voltar a bater — decisão do dono se ele quer que eu edite ou se ele
 mesmo atualiza.
 
-## Revisão da rodada d07b549 (perf em caminhos de dinheiro)
+## Revisão independente da rodada d07b549 — CONCLUÍDA (2 revisores externos)
 
-O revisor externo não respondeu nesta sessão (Antigravity/Gemini 3× com queda de
-rede no endpoint do Google; subagentes internos com registro corrompido 4×).
-Revisão PRÓPRIA do diff completo `d07b549^..d07b549`, arquivo por arquivo:
+Dois pareceres independentes, **ambos: seguro para o financeiro**.
 
-| Arquivo | Veredito | Evidência |
-|---|---|---|
-| `app/painel/contas/page.tsx` | sem mudança de cálculo | fila de 3 leituras → `Promise.all`; mesma lista, mesmos valores |
-| `lib/saldos-contas.ts` | sem mudança de cálculo | devoluções entram no mesmo lote paralelo; lotes de 300 vendas em `Promise.all`; mesma atribuição por id |
-| `app/painel/fiados/page.tsx` | sem mudança de cálculo | lotes de 100 em paralelo (ids diferentes por lote, mesmos mapas); `lojasDoUsuario` junto |
-| `app/painel/fechamento-mes/page.tsx` | sem mudança de cálculo | leituras de aviso entram no `Promise.all` principal; mesmas condições |
-| `lib/saude-financeiro.ts` | sem mudança de cálculo | 10 leituras em rodada única; produtos agora `fetchAllIn` só dos ids com estoque negativo (único uso); mesmas 3 regras, mesmos números |
-| `app/api/telegram/comprovante/route.ts` | mudança INTENCIONAL (fuso) | `slice(0,10)` (dia UTC) → `diaSP` (São Paulo); data-só preservada; teste de 22h cobre |
-
-**Nenhum cálculo, filtro de status ou soma mudou.** Falta somente o parecer de
-um agente externo (regra do projeto) — repetir quando o Antigravity voltar.
-
-## Revisão independente da rodada d07b549 — CONCLUÍDA (Claude Code)
-
-Antigravity (Gemini) caiu 4× por queda de rede no endpoint do Google e o registro
-de subagentes internos ficou corrompido; o parecer externo saiu pelo **Claude
-Code** (CLI headless, somente leitura). **Veredito: seguro para o financeiro.**
+**Claude Code (CLI headless, somente leitura):**
 
 | Arquivo | Parecer |
 |---|---|
@@ -76,11 +58,22 @@ Code** (CLI headless, somente leitura). **Veredito: seguro para o financeiro.**
 | `app/painel/fechamento-mes/page.tsx` | sem mudança de cálculo (avisos no `Promise.all`, mesmos filtros) |
 | `app/api/telegram/comprovante/route.ts` | mudança **de propósito**: `slice(0,10)` UTC → `diaSP` (SP); AAAA-MM-DD preservado |
 
-Achados baixos: (a) `saldos-contas.ts` engole erro de lote (`data ?? []`) —
-silencioso pré-existente, paralelismo aumenta a chance; (b) `lojasPromise` sem
-catch em `fiados/page.tsx`; (c) `diaSP` devolve "Invalid Date" com entrada
-inválida (não ocorre na prática). Melhoria opcional: limitar lotes simultâneos e
-checar `error` de cada lote em `saldos-contas`.
+Achados baixos do Claude: (a) `saldos-contas.ts` engole erro de lote (`data ?? []`) —
+silencioso pré-existente; (b) `lojasPromise` sem catch em `fiados/page.tsx`;
+(c) `diaSP` devolve "Invalid Date" com entrada inválida (não ocorre na prática).
+
+**Antigravity (plataforma da Google; agentes Gemini — `agy` CLI):** parecer completo,
+arquivo por arquivo: todos "sem mudança de cálculo", exceto o comprovante Pix
+(mudança intencional de fuso); tabela de caça toda "inalterada" (`valor + taxa`
+preservado, `status='pago'/'concluida'/'aberto'` idem, `fetchAll`/`fetchAllIn`
+mantidos, sem `.contains` em JSONB, builders novos por lote). Veredito literal:
+**"SEGURO PARA O FINANCEIRO."**
+
+**Por que o Antigravity falhava antes:** não era a rede — o **sandbox do shell
+cortava o TLS/streaming** do binário (prova: via schannel, até `www.google.com`
+resetava com `SEC_E_NO_CREDENTIALS`; com acesso pleno, `www.google.com` = 200 e
+`generativelanguage.googleapis.com` = 404 normal). Rodando `agy` direto com acesso
+pleno, o parecer saiu completo.
 
 ## Nada novo quebrado
 
