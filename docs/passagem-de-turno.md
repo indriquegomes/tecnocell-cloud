@@ -6,9 +6,60 @@
 >
 > Regras do projeto: `AGENTS.md`. Como o sistema funciona: `docs/mapa/`.
 
-**Última atualização:** 12/11/2026 (RH: desligamento, ponto e conferência de horas).
+**Última atualização:** 15/11/2026 (dívida de fornecedor fechando o mês 11, rastro de PIX no fechamento e Reposição paginada).
 
-## Nesta rodada (12/11/2026)
+## Nesta rodada (13–15/11/2026)
+
+**Dívida de fornecedor fecha em 103.014,16** — exatamente a planilha do dono
+(13/11 10h): ADL 23.283,68 · PLANETA 12.555,96 · H2O 29.144,32 · ZL 2.786,50 ·
+INOVA 35.243,70. Três consertos no caminho: ADL conciliou 581,00 (pagamento que
+estava no Financeiro sem abater nota — `1c7da99`); INOVA rateada por loja
+conforme estoque de ACESSÓRIOS (`296f3b9`, depois de o dono mostrar que o
+crédito de −251,60 é abatimento real de trocas antigas — `b81c421`); trava nova
+em Trocas: não gera crédito acima da dívida aberta (`08f61da`). Registro em
+`docs/registros/2026-11/baixa-de-pagamento-em-nota.md`.
+
+**PIX do dia no fechamento agora deixa rastro** (`2bb6734`): ao fechar o caixa,
+o app grava em `caixas.pix_resolucao` o que resolveu por fornecedor (valor,
+comprovantes, janela) — "os PIX fecharam" virou prova, não reconstrução.
+Coluna em `supabase/migrations/2026-11-13-caixa-pix-resolucao.sql` (**aplicada**;
+ainda sem fechamento novo para gravar). Os 3 abatimentos de PIX de cliente feitos
+**depois** do snapshot da planilha explicam a diferença ao centavo: H2O −1.202,00
+(115,00 em 13/11 + 1.087,00 em 14/11) e ADL −280,00 (13/11) = −1.482,00. App hoje
+em 101.532,16. **A planilha é a fonte de segurança e é conferida por humano — o
+dono não quer edição pelo agente.**
+
+**ADL 440,40 — encerrado de verdade.** O número do checkup da madrugada era
+errado: o fechamento de 12/11 abateu 440,40 (435,20 + 5,20) e a noite abateu
+3.599,00 = 4.039,40, igual ao que o app resolveu; os 53,60 de 18:33 foram para a
+sessão seguinte. Prova: dívida ADL hoje 23.003,68 = planilha − 280,00 (único
+abatimento pós-snapshot). Detalhe do bug de código (regra "já abatido" por dia
+UTC → agora por sessão do caixa, `c2b3c20`) em `baixa-de-pagamento-em-nota.md`.
+
+**Next 16.2.11** (`1974c13`): fecha as CVEs da faixa 16.2.6 (bypass de proxy,
+DoS em Server Actions, e mais três) — sem mudança de comportamento.
+
+**Reposição paginada** (`9c17b00`): lista padrão 1,24 MB → **0,33 MB**; "ver
+todos" 2,87 MB → **0,33 MB**; páginas de 100 com o `Paginacao` do sistema;
+warm ~1,9s. As "pesadas" do smoke (Contas 8,4s, Promoções 5,4s, Descontos 10s)
+eram **cold start do Vercel** — warm: 0,8–1,3s.
+
+**56 fiados sem `pessoa_id` — encerrado, nunca foi pendência.** A régua oficial
+(`scripts/conferir-fiado-por-cliente.mjs`) mostra 56/56 ligados ao cliente
+**pela venda** e **0 sem dono identificável**. O defeito de origem (fiado nascer
+sem `pessoa_id`) foi corrigido em 27/10 (migration
+`20261027200000_finalizar_venda_fiado_com_pessoa.sql` + `ebe9cc6`). Virou
+armadilha nova no `AGENTS.md` §9: achado antigo não volta como pendência viva.
+
+**Check-up 15/11** (`docs/registros/2026-11/checkup-15-11.md`): 85 telas sem
+erro de console/500 (única bandeira: impressão sem `?id=`, falso positivo);
+CRUD real (categorias e depósitos) criar → editar → excluir com **0 restos**;
+invariantes do mês 11 = **46 OK / 0 falha**; `tsc` = 0; **206 testes**.
+
+**Verificado nesta rodada:** `tsc` = 0 · 206 testes · smoke 85 telas · CRUD
+real com limpeza · invariantes · deploy 28afbbf (app) e 32ab1ae (docs) no ar.
+
+## Rodada de 12/11/2026 — RH, ponto e conferência de horas
 
 **RH — desligamento virou um ato.** Preencher a data de demissão em Usuários e
 salvar já desliga a pessoa de tudo: sai da folha, da escala, do espelho do RH, do
@@ -98,13 +149,15 @@ Painel abrindo sem erro de console.
 
 ## Estado do Git
 
-- Branch `main` **publicada**. Commits da rodada anterior: `ffb2f84` (docs/organização),
-  `d07b549` (perf + correções), `7e7df07` (para de versionar log de dev),
-  `345b3e0` (passagem de turno).
-- **Produção está com o código novo** (deploy da Vercel confirmado: o 404 em
-  português responde em `/endereco-que-nao-existe` com status 404).
-- **A rodada atual está no disco, sem commit** (ver acima).
-- `docs/mapa/` **está versionado** no Git (conferido em 12/11/2026: glossário e README
+- Branch `main` publicada, tudo commitado (working tree limpo). Últimos: `32ab1ae`
+  (fiados encerrados + regra da pendência-fantasma), `28afbbf` (checkup 15/11),
+  `9c17b00` (Reposição paginada), `2bb6734` (rastro do PIX no fechamento).
+- **Produção com o código novo:** deploy do `main@28afbbf` confirmado (Reposição
+  respondendo 0,33 MB com "Mostrando 1–100 de 529"); `32ab1ae` é só documentação.
+- Histórico recente: `1974c13` (Next 16.2.11), `1c7da99` (ADL conciliação),
+  `296f3b9` (INOVA rateio), `08f61da` (trava de troca), `c2b3c20` (fechamento
+  "já abatido" por sessão do caixa).
+- `docs/mapa/` versionado no Git (conferido em 12/11/2026: glossário e README
   são rastreados; a nota antiga dizendo que ficava fora estava errada).
 
 ## Pendências reais (por prioridade)
@@ -117,19 +170,13 @@ Painel abrindo sem erro de console.
    no dev; em produção 2,9 s → 1,1 s), `lib/saude-financeiro.ts` (4,4 s → 3,9 s
    no dev; 1,6 s → 1,1 s em produção), `app/painel/fiados/page.tsx`,
    `app/painel/fechamento-mes/page.tsx`.
-2. **Next.js 16.2.6 em faixa com falha crítica** (bypass de proxy/middleware em
-   App Router com Turbopack e um único locale; faixa afetada
-   `>=16.0.0 <16.2.11`). Subir para `16.2.11+`, refazer build e conferir as
-   telas. Mitigação que já existe: `layout.tsx` também barra por permissão.
-3. **Performance — tela Reposição** (`/painel/estoque/reposicao`): 4,1 s e
-   **1,2 MB** de HTML (512 linhas). Diagnóstico feito: `fetchAll` busca página
-   de 1000 **em série**, e a tela puxa 8,2 mil produtos + 19,6 mil linhas de
-   estoque só para somar por produto (≈30 idas ao banco em fila). **Receita**:
-   (a) construir a query DENTRO do callback do `fetchAll` (hoje o builder `vq`
-   é criado fora — `.range()` MUTA o builder, então reuso paralelo dá dado
-   errado); (b) opção de páginas em paralelo no `fetchAll` (ex.: 5 por vez);
-   (c) buscar só os produtos que venderam (`fetchAllIn`). Mexe em estoque →
-   autorização + revisão. **Não fazer sem o dono.**
+2. **✅ RESOLVIDO em 13/11 (`1974c13`)** — Next.js **16.2.11** no ar; as CVEs
+   da faixa 16.2.6 (bypass de proxy, DoS em Server Actions e mais três) fechadas;
+   build e telas conferidos.
+3. **✅ RESOLVIDO em 15/11 (`9c17b00`)** — Reposição paginada em 100 por página:
+   lista padrão 1,24 MB → **0,33 MB**, "ver todos" 2,87 MB → **0,33 MB**, warm
+   ~1,9s. (Nota histórica: o diagnóstico anterior — `fetchAll` em série e
+   builder reusado — continua valendo como referência; o corte foi a paginação.)
 4. **F9 (quitação de fiado) com venda real nunca foi homologado** — só em teste
    local (PGlite).
 5. **Conferir `conta_id` nulo** nos lançamentos de venda (o commit `3d33514`
@@ -138,9 +185,10 @@ Painel abrindo sem erro de console.
    regra marca como **pago** tudo que tem "semana de" na descrição e vence no
    sábado. Vale o dono conferir se é isso mesmo que ele quer — é dinheiro saindo
    sem ninguém olhar.
-7. **Telas ainda pesadas** (medido em 07/11, produção): Saúde 1,4–3,6 s (faz 10
-   leituras grandes), Fechamento do Mês 1,5 s. Relatórios e Vendas já foram
-   paginados (`5d14a6d`) e estão em 0,8 s.
+7. **Telas pesadas — medidas de novo em 15/11 (produção, warm):** Saúde 1,7s ·
+   Fechamento do Mês 1,7s · Contas 1,3s · Promoções 0,8s · Descontos 0,95s ·
+   Relatórios 1,0s. As leituras lentas do smoke (8–11s) eram **cold start do
+   Vercel**, não tela lenta. Nada acima de 2s — **nada pendente aqui**.
 8. **PRÓXIMA ETAPA — Cadastros gerais: revisão de nomes.** Não começar sem o
    dono abrir a etapa: ele parou o assunto em 10/11/2026 ("ta grande demais")
    porque a revisão esbarra em **dívidas de pessoas que não pagaram** e em
@@ -199,6 +247,12 @@ Painel abrindo sem erro de console.
    Campos mortos removidos em 12/11/2026: `mei_valor_servico` e `mei_dia_pagamento`
    saíram do formulário (nada no app lia os dois). As colunas continuam no banco,
    sem uso.
+
+10. **Nota sobre a planilha (não é pendência).** App 101.532,16 x planilha
+    103.014,16 — a diferença de 1.482,00 é PIX de cliente abatido nos fechamentos
+    de 13–14/11, depois do snapshot das 10h. A planilha é a fonte de segurança,
+    conferida por humano; o dono decide quando/quem atualiza (decisão: o agente
+    não edita). Mesma régua do capítulo "Nesta rodada".
 
 ## Nesta rodada (07/11/2026 — madrugada)
 
