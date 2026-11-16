@@ -185,18 +185,24 @@ Painel abrindo sem erro de console.
    RPC `cancelar_venda`, estoque de volta a 57, **0 resíduos** (lançamentos 0,
    movimentos 0, cliente 0). Backup:
    `docs/registros-banco/2026-11/backup-f9-homologacao-*.json`.
-5. **Conferir `conta_id` nulo** nos lançamentos de venda (o commit `3d33514`
-   mexeu na baixa de conta; conferir se o nulo ainda acontece).
-6. **Cron de salários — conferido em 15/11.** Job `pagar-salarios-sabado`
-   (pg_cron, `0 22 * * 6` = sábado 19h de São Paulo) marca `pago`, com
-   `data_pagamento` do dia, todo lançamento `pagar` pendente com descrição
-   "semana de" e vencimento naquele dia. No sábado 14/11 pagou exatamente as 6
-   folhas que venciam (Erick Alves de Mattos, Isaac Bento Morelli, Maria Eduarda
-   Kappler da Silva, Mariana Vila Real Castelli, Nikollas Bernardo Leocadio,
-   Brunna Furtado Gonçalves — R$ 4.160,62). É registro contábil, não movimento
-   de dinheiro: o risco é marcar pago sem a transferência ter saído. **Decisão
-   do dono:** manter (é o processo dele) ou desligar — nenhuma ação do agente
-   sem ordem.
+5. **Conferir `conta_id` nulo** nos lançamentos de venda — **conferido em 15/11:
+   AINDA ACONTECE.** Novembro: 467 linhas `pago` com conta nula — 335 sem forma
+   no lançamento (R$ 28.000,65, provável venda mista/importada), 118 vale-crédito
+   e 8 dinheiro (ok por natureza, não vão a conta) e **6 PIX (R$ 327,49) que
+   deveriam ter conta**. Falta decidir: a régua que ancora conta precisa cobrir
+   venda mista e o PIX avulso — investigar antes de corrigir (dado financeiro).
+6. **Cron de salários — ✅ MANTIDO (decisão do dono em 15/11).** Job
+   `pagar-salarios-sabado` (pg_cron, `0 22 * * 6` = sábado 19h de São Paulo)
+   marca `pago`, com `data_pagamento` do dia, todo lançamento `pagar` pendente
+   com descrição "semana de" e vencimento naquele dia. No sábado 14/11 pagou
+   exatamente as 6 folhas que venciam (Erick Alves de Mattos, Isaac Bento
+   Morelli, Maria Eduarda Kappler da Silva, Mariana Vila Real Castelli, Nikollas
+   Bernardo Leocadio, Brunna Furtado Gonçalves — R$ 4.160,62). É registro
+   contábil, não movimento de dinheiro. **Receita para funcionário novo
+   semanal:** cadastrar em Usuários/RH e criar as linhas "Salário — Nome —
+   semana de DD/MM" (A Pagar · Salários · vencimento sábado) no Financeiro →
+   Novo lançamento; o cron dá baixa sozinho. O botão "Gerar folha" cria
+   "Salário — Nome" sem "semana de" — esse o cron NÃO pega.
 7. **Telas pesadas — medidas de novo em 15/11 (produção, warm):** Saúde 1,7s ·
    Fechamento do Mês 1,7s · Contas 1,3s · Promoções 0,8s · Descontos 0,95s ·
    Relatórios 1,0s. As leituras lentas do smoke (8–11s) eram **cold start do
