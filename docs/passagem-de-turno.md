@@ -162,14 +162,14 @@ Painel abrindo sem erro de console.
 
 ## Pendências reais (por prioridade)
 
-1. **Revisão independente da rodada `d07b549`** (regra do projeto para
-   financeiro). O que mudou nesses arquivos foi só *como* as consultas são
-   feitas — nenhum cálculo —, e os números foram conferidos tela contra tela
-   antes do deploy:
-   `lib/saldos-contas.ts` e `app/painel/contas/page.tsx` (Contas 4,0 s → 2,1 s
-   no dev; em produção 2,9 s → 1,1 s), `lib/saude-financeiro.ts` (4,4 s → 3,9 s
-   no dev; 1,6 s → 1,1 s em produção), `app/painel/fiados/page.tsx`,
-   `app/painel/fechamento-mes/page.tsx`.
+1. **Revisão independente da rodada `d07b549` — EM ABERTO (15/11).** O agente
+   externo não respondeu nesta sessão: Antigravity (Gemini) caiu 3× com a mesma
+   queda de rede no endpoint do Google, e o registro de subagentes internos ficou
+   corrompido (4 tentativas). Fiz revisão PRÓPRIA do diff completo, arquivo por
+   arquivo — só paralelização de consultas e a correção de fuso intencional do
+   comprovante Pix; **nenhum cálculo, filtro de status ou soma mudou** (tabela em
+   `docs/registros/2026-11/checkup-15-11.md`). Falta o parecer de agente externo:
+   repetir quando o Antigravity voltar.
 2. **✅ RESOLVIDO em 13/11 (`1974c13`)** — Next.js **16.2.11** no ar; as CVEs
    da faixa 16.2.6 (bypass de proxy, DoS em Server Actions e mais três) fechadas;
    build e telas conferidos.

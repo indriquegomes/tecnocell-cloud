@@ -43,6 +43,24 @@ Planilha está velha por 1.482,00 exatos; o app está certo. A planilha precisa 
 atualização para voltar a bater — decisão do dono se ele quer que eu edite ou se ele
 mesmo atualiza.
 
+## Revisão da rodada d07b549 (perf em caminhos de dinheiro)
+
+O revisor externo não respondeu nesta sessão (Antigravity/Gemini 3× com queda de
+rede no endpoint do Google; subagentes internos com registro corrompido 4×).
+Revisão PRÓPRIA do diff completo `d07b549^..d07b549`, arquivo por arquivo:
+
+| Arquivo | Veredito | Evidência |
+|---|---|---|
+| `app/painel/contas/page.tsx` | sem mudança de cálculo | fila de 3 leituras → `Promise.all`; mesma lista, mesmos valores |
+| `lib/saldos-contas.ts` | sem mudança de cálculo | devoluções entram no mesmo lote paralelo; lotes de 300 vendas em `Promise.all`; mesma atribuição por id |
+| `app/painel/fiados/page.tsx` | sem mudança de cálculo | lotes de 100 em paralelo (ids diferentes por lote, mesmos mapas); `lojasDoUsuario` junto |
+| `app/painel/fechamento-mes/page.tsx` | sem mudança de cálculo | leituras de aviso entram no `Promise.all` principal; mesmas condições |
+| `lib/saude-financeiro.ts` | sem mudança de cálculo | 10 leituras em rodada única; produtos agora `fetchAllIn` só dos ids com estoque negativo (único uso); mesmas 3 regras, mesmos números |
+| `app/api/telegram/comprovante/route.ts` | mudança INTENCIONAL (fuso) | `slice(0,10)` (dia UTC) → `diaSP` (São Paulo); data-só preservada; teste de 22h cobre |
+
+**Nenhum cálculo, filtro de status ou soma mudou.** Falta somente o parecer de
+um agente externo (regra do projeto) — repetir quando o Antigravity voltar.
+
 ## Nada novo quebrado
 
 - Trocas da INOVA seguem `enviada` com 0 abatido (abatem só quando o fornecedor
