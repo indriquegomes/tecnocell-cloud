@@ -247,6 +247,12 @@ bater com o total, senão a venda inteira é recusada.
 - **Regra de dinheiro não soma só uma coluna.** A regra "venda cujo total não bate
   com os pagamentos" somava `valor` e esquecia `taxa` — toda venda no cartão virava
   erro (16 vendas em novembro). O total da venda é **preço + taxa da máquina**.
+- **Pendência antiga não volta como pendência viva.** Achado de checkup que já foi
+  detectado/corrigido não pode ser recarregado como "em aberto" sem revalidar contra
+  a régua oficial — ex.: fiado sem `pessoa_id` se liga ao cliente pela venda
+  (`scripts/conferir-fiado-por-cliente.mjs`, orfão = 0). Script oficial é a fonte;
+  reaproveitar o número antigo produz pendência-fantasma (foi o caso dos "56 fiados
+  sem cadastro" em 15/11/2026).
 
 ## 10. Regras de negócio que o código sozinho não conta
 

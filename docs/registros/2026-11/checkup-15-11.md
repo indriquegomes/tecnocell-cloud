@@ -15,6 +15,7 @@ para dados (somente leitura).
 | Testes de lógica | **206/206** (86 + 12 + 4 + 23 + 81), exit 0 em todos |
 | Build / deploy | `main@82b81ba` no ar — o rastro do PIX foi junto |
 | 85 telas de produção | OK — sem erro de console, sem HTTP 500 |
+| CRUD real (categorias e depósitos) | criado · editado · excluído · **0 restos `__QA__`** |
 | Invariantes (mês 11) | **49 OK / 0 falha** |
 
 A única tela que "falhou" no smoke é `/painel/pedidos-app/imprimir` sem `?id=` — é a
@@ -59,7 +60,16 @@ mesmo atualiza.
    abatimento pós-snapshot). O texto do commit `c2b3c20` ("440,40 sem baixa")
    repetia a versão errada do primeiro checkup — a correção `7f8d23e` já havia
    registrado que o achado não existia.
-2. **56 fiados em aberto sem cadastro** — 4.595,00 (55 Petrópolis, 1 Teresópolis).
+2. **56 fiados sem `pessoa_id` — ENCERRADO, não é pendência.** Contei
+   `pessoa_id is null` cru; a régua oficial (`scripts/conferir-fiado-por-cliente.mjs`)
+   mostra que os 56/56 estão ligados ao cliente **pela venda** (`venda_id →
+   venda.pessoa_id`, critério da tela Fiados) e que notas **sem dono
+   identificável = 0 (R$ 0,00)**. O defeito de origem (fiado nascer sem
+   `pessoa_id`) foi detectado e corrigido em **27/10** — migration
+   `20261027200000_finalizar_venda_fiado_com_pessoa.sql`, commit `ebe9cc6`;
+   as 56 são legado do import antigo (até 28/10). Falha de comunicação deste
+   checkup: item "morto" voltou como pendência viva por eu não ter rodado a
+   régua existente — não havia nada a vincular.
 3. **Reposição — resolvido no mesmo dia (`9c17b00`).** Medição em produção
    (warm): a tela era 1,24 MB / 2,36s com 529 linhas, e 2,87 MB com
    `?tudo=1` (1.362 linhas). O gargalo era payload, não servidor (dc 1,7s).
