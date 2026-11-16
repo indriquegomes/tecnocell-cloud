@@ -187,18 +187,20 @@ Painel abrindo sem erro de console.
    RPC `cancelar_venda`, estoque de volta a 57, **0 resíduos** (lançamentos 0,
    movimentos 0, cliente 0). Backup:
    `docs/registros-banco/2026-11/backup-f9-homologacao-*.json`.
-5. **`conta_id` nulo nos lançamentos de venda — INVESTIGADO (15/11).** A maior
-   parte já estava resolvida por desenho: as 335 notas "Venda #" sem forma/sem
-   conta são convenção (a entrada é contabilizada em `pagamentos_venda`; as
-   migrations de reembolso dizem "só o reembolso recebe conta_id") — o saldo das
-   Contas não lê nota de venda. As 118 vale e 8 dinheiro idem. **O furo real são
-   6 linhas (R$ 327,49, datas 04–11/11): fiados recebidos em PIX pela tela
-   Financeiro** ("botão Pago"), onde `marcarPago` só resolve conta para `tipo =
-   pagar` — para `receber` a conta fica nula, o movimento entra na gaveta mas o
-   PagBank do visor não é creditado. O F9/lote e o recebimento por linha do PDV
-   já resolvem conta (contaDaFormaTexto). **Falta autorização do dono** para:
-   (a) corrigir `marcarPago` para resolver conta em receber PIX/cartão; (b)
-   apontar a conta nas 6 linhas (dado, com backup).
+5. **`conta_id` nulo nos lançamentos de venda — ✅ RESOLVIDO em 15/11.**
+   Investigação: as 335 notas "Venda #" sem forma/sem conta são convenção (a
+   entrada é contabilizada em `pagamentos_venda`; as migrations de reembolso
+   dizem "só o reembolso recebe conta_id") — o saldo das Contas não lê nota de
+   venda. As 118 vale e 8 dinheiro idem. **O furo real eram 6 linhas (R$ 327,49,
+   04–11/11): fiados recebidos em PIX pela tela Financeiro** ("botão Pago"),
+   onde `marcarPago` só resolvia conta para `tipo = pagar`. Consertos:
+   (a) **código** `705f538` — `marcarPago` agora resolve conta também em
+   `receber` (PIX → banco ativo da loja · dinheiro → cofre), com revisão
+   independente do Claude Code (seguro para financeiro; o recebimento da gaveta
+   é separado e não entra no saldo das Contas); (b) **dado** — as 6 linhas
+   receberam conta (PagBank +67,00 · TON Teresópolis +260,49 = 327,49 exato),
+   backup em `docs/registros-banco/2026-11/backup-conta-fiado-pix-*.json`.
+   Restantes PIX sem conta: 0.
 6. **Cron de salários — ✅ MANTIDO (decisão do dono em 15/11).** Job
    `pagar-salarios-sabado` (pg_cron, `0 22 * * 6` = sábado 19h de São Paulo)
    marca `pago`, com `data_pagamento` do dia, todo lançamento `pagar` pendente

@@ -1,0 +1,41 @@
+{
+  "quando": "2026-11-16T10:09:54.112Z",
+  "linhas": [
+    {
+      "id": "2e8a6288-64e3-47c1-b8cd-cd3ae94338f2",
+      "pessoa_nome": "TIAGO CELULARES",
+      "valor": "42.00",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946"
+    },
+    {
+      "id": "3ef717f3-3119-4c1f-85a6-5f66d767ee0d",
+      "pessoa_nome": "NEW BOX",
+      "valor": "97.20",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "fb8fb55d-d6a3-4309-a782-8a0b0d559a1a",
+      "pessoa_nome": "DAVID DOS SANTOS MORTES",
+      "valor": "25.00",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946"
+    },
+    {
+      "id": "85d9177d-5096-40a2-98e5-9930bf2f7003",
+      "pessoa_nome": "JOAZ ROCHA",
+      "valor": "22.00",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "686cd132-e3d2-464c-9ac4-144db3cfd9f2",
+      "pessoa_nome": "TOP CELULARES TERESÓPOLIS",
+      "valor": "1.09",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "cca9d579-c4b0-4957-81df-56c69a5e0204",
+      "pessoa_nome": "LUCAS MAIA",
+      "valor": "140.20",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    }
+  ]
+}
