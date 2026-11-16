@@ -365,7 +365,8 @@ function AbaterNaNota({
   const sobra = digitado > 0 && digitado > dividaAberta ? Math.round((digitado - dividaAberta) * 100) / 100 : 0
 
   return (
-    <div className="rounded-xl border border-teal-200 bg-teal-50/40 p-4 shadow-sm space-y-3">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/30 p-3 sm:p-8">
+      <div className="w-full max-w-2xl rounded-xl border border-teal-200 bg-teal-50 p-4 shadow-xl space-y-3">
       <div>
         <p className="text-sm font-semibold text-gray-800">Abatido na nota — {troca.produto_nome ?? 'peça'}</p>
         <p className="text-[11px] text-gray-500">O fornecedor não devolveu a peça e deu crédito na dívida. Isso <b>não é perda</b>: o valor compra outras peças.</p>
@@ -417,6 +418,7 @@ function AbaterNaNota({
           Abater na dívida
         </button>
         <button onClick={fechar} className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-white">Cancelar</button>
+      </div>
       </div>
     </div>
   )
@@ -679,13 +681,14 @@ function RetornoDaTroca({
   }
 
   return (
-    <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4 shadow-sm space-y-3">
-      <div>
-        <p className="text-sm font-semibold text-gray-800">Chegou do fornecedor — {troca.produto_nome ?? 'peça'}</p>
-        <p className="text-[11px] text-gray-500">
-          {troca.quantidade}x · saiu com custo de <b>{fmt(custoTotal)}</b> · entra no <b>PETRÓPOLIS ESTOQUE</b>
-        </p>
-      </div>
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/30 p-3 sm:p-8">
+      <div className="w-full max-w-2xl rounded-xl border border-emerald-200 bg-emerald-50 p-4 shadow-xl space-y-3">
+        <div>
+          <p className="text-sm font-semibold text-gray-800">Chegou do fornecedor — {troca.produto_nome ?? 'peça'}</p>
+          <p className="text-[11px] text-gray-500">
+            {troca.quantidade}x · saiu com custo de <b>{fmt(custoTotal)}</b> · entra no <b>PETRÓPOLIS ESTOQUE</b>
+          </p>
+        </div>
 
       <div className="flex flex-wrap gap-2">
         <button
@@ -750,6 +753,7 @@ function RetornoDaTroca({
           Dar entrada no estoque
         </button>
         <button onClick={fechar} className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
+      </div>
       </div>
     </div>
   )
