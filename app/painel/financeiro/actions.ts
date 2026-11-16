@@ -212,13 +212,17 @@ export async function marcarPago(id: string, formData?: FormData) {
     comprovanteUrl = path
   }
 
-  // CONTA DA SAÍDA: pagamento a fornecedor feito com PIX do cliente não descontava
-  // de conta nenhuma, então o PagBank ficava cheio de dinheiro que nunca passou por
-  // lá (achado no dia 03/11 de Petrópolis: 8.096,23 de PIX creditados no banco e só
-  // 2.184,00 que realmente entraram). Se o lançamento não tem conta, resolve pela
-  // FORMA: PIX/cartão → banco (PagBank) · dinheiro → cofre da loja.
+  // CONTA DA BAIXA (pagar E receber): pagamento a fornecedor feito com PIX do
+  // cliente não descontava de conta nenhuma, então o PagBank ficava cheio de
+  // dinheiro que nunca passou por lá (achado no dia 03/11 de Petrópolis: 8.096,23
+  // de PIX creditados no banco e só 2.184,00 que realmente entraram). Se o
+  // lançamento não tem conta, resolve pela FORMA: PIX → banco (PagBank) ·
+  // dinheiro → cofre da loja.
+  // RECEBER (fiado quitado pelo botão "Pago" do Financeiro): o PIX do cliente
+  // entrou no banco de verdade, mas sem conta o visor do PagBank ficava curto —
+  // foram 6 linhas entre 04 e 11/11 (R$ 327,49). Mesma régua da saída.
   let contaDaBaixa = (antes as { conta_id?: string | null } | null)?.conta_id ?? null
-  if (!contaDaBaixa && antes?.tipo === 'pagar') {
+  if (!contaDaBaixa && (antes?.tipo === 'pagar' || antes?.tipo === 'receber')) {
     const alvo = forma.toLowerCase().includes('pix')
       ? 'banco'
       : forma.toLowerCase().includes('dinheiro') ? 'cofre' : null
