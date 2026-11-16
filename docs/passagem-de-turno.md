@@ -187,12 +187,18 @@ Painel abrindo sem erro de console.
    RPC `cancelar_venda`, estoque de volta a 57, **0 resíduos** (lançamentos 0,
    movimentos 0, cliente 0). Backup:
    `docs/registros-banco/2026-11/backup-f9-homologacao-*.json`.
-5. **Conferir `conta_id` nulo** nos lançamentos de venda — **conferido em 15/11:
-   AINDA ACONTECE.** Novembro: 467 linhas `pago` com conta nula — 335 sem forma
-   no lançamento (R$ 28.000,65, provável venda mista/importada), 118 vale-crédito
-   e 8 dinheiro (ok por natureza, não vão a conta) e **6 PIX (R$ 327,49) que
-   deveriam ter conta**. Falta decidir: a régua que ancora conta precisa cobrir
-   venda mista e o PIX avulso — investigar antes de corrigir (dado financeiro).
+5. **`conta_id` nulo nos lançamentos de venda — INVESTIGADO (15/11).** A maior
+   parte já estava resolvida por desenho: as 335 notas "Venda #" sem forma/sem
+   conta são convenção (a entrada é contabilizada em `pagamentos_venda`; as
+   migrations de reembolso dizem "só o reembolso recebe conta_id") — o saldo das
+   Contas não lê nota de venda. As 118 vale e 8 dinheiro idem. **O furo real são
+   6 linhas (R$ 327,49, datas 04–11/11): fiados recebidos em PIX pela tela
+   Financeiro** ("botão Pago"), onde `marcarPago` só resolve conta para `tipo =
+   pagar` — para `receber` a conta fica nula, o movimento entra na gaveta mas o
+   PagBank do visor não é creditado. O F9/lote e o recebimento por linha do PDV
+   já resolvem conta (contaDaFormaTexto). **Falta autorização do dono** para:
+   (a) corrigir `marcarPago` para resolver conta em receber PIX/cartão; (b)
+   apontar a conta nas 6 linhas (dado, com backup).
 6. **Cron de salários — ✅ MANTIDO (decisão do dono em 15/11).** Job
    `pagar-salarios-sabado` (pg_cron, `0 22 * * 6` = sábado 19h de São Paulo)
    marca `pago`, com `data_pagamento` do dia, todo lançamento `pagar` pendente
