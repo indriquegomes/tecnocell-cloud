@@ -272,14 +272,14 @@ export default async function ClientesPage({
                       </Link>
                       {verInativos ? (
                         <form action={reativarPessoa.bind(null, p.id)}>
-                          <button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-medium text-green-600 hover:bg-green-50 transition">
+                          <button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-bold text-[#00E676] hover:bg-green-50 transition">
                             Reativar
                           </button>
                         </form>
                       ) : (
                         <>
                           <form action={inativarPessoa.bind(null, p.id)}>
-                            <button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 transition">
+                            <button type="submit" className="rounded-lg px-2.5 py-1 text-xs font-bold text-[#B00020] hover:bg-red-50 transition">
                               Inativar
                             </button>
                           </form>
