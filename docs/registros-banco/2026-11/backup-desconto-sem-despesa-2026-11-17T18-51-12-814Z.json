@@ -1,0 +1,86 @@
+{
+  "quando": "2026-11-17T18:51:12.816Z",
+  "migracao": "alter table lancamentos add column if not exists criado_por uuid",
+  "faltantes": [
+    {
+      "origem_id": "57e56b82-c530-4228-9698-b31d52e458ce",
+      "origem_desc": "A Receber — Fiado #13404",
+      "pessoa_nome": "RENAN BENTO CALASANS DOS SANTOS",
+      "pessoa_id": "654bec4f0b36a8ade77dd120",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c",
+      "dia": "2026-11-13",
+      "valor": "1.00",
+      "forma": "Desconto — Arredondamento"
+    },
+    {
+      "origem_id": "ccc60def-4265-4690-b4b9-68c78cfbc4ce",
+      "origem_desc": "A Receber — Fiado #13337",
+      "pessoa_nome": "LOJA CAMPISTA",
+      "pessoa_id": "63fdeca9547cd7b7871132f6",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c",
+      "dia": "2026-11-13",
+      "valor": "17.00",
+      "forma": "Desconto — Arredondamento"
+    },
+    {
+      "origem_id": "ccc60def-4265-4690-b4b9-68c78cfbc4ce",
+      "origem_desc": "A Receber — Fiado #13337",
+      "pessoa_nome": "LOJA CAMPISTA",
+      "pessoa_id": "63fdeca9547cd7b7871132f6",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c",
+      "dia": "2026-11-13",
+      "valor": "17.00",
+      "forma": "Desconto — Desconto para pagar agora"
+    },
+    {
+      "origem_id": "a12731dc-8686-4df9-a5f0-af8f6d187e16",
+      "origem_desc": "A Receber — Fiado #13313",
+      "pessoa_nome": "NOVA OPÇAO",
+      "pessoa_id": "64405b14db7f4d921e14a325idpessoa",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c",
+      "dia": "2026-11-16",
+      "valor": "3.00",
+      "forma": "Desconto — Arredondamento"
+    },
+    {
+      "origem_id": "a5043308-be46-4fa4-a377-b59aefae8ada",
+      "origem_desc": "A Receber — Fiado #13527",
+      "pessoa_nome": "VIRTUALL INTERNET ESTAÇÃO",
+      "pessoa_id": "68388278ef6f9b2f93ccdc68",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "dia": "2026-11-16",
+      "valor": "20.00",
+      "forma": "Desconto — Desconto para pagar agora"
+    },
+    {
+      "origem_id": "e4503b60-6aac-4dfb-88f1-b76d16ff9519",
+      "origem_desc": "A Receber — Fiado #12718",
+      "pessoa_nome": "ELMO TELLES MACHADO AMMCELL",
+      "pessoa_id": "67e154811d163a14f6c478e1",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c",
+      "dia": "2026-11-16",
+      "valor": "22.80",
+      "forma": "Desconto — Desconto para pagar agora"
+    },
+    {
+      "origem_id": "b6cc4e88-c182-4a8e-a74d-773f8fc1571f",
+      "origem_desc": "A Receber — Fiado #12614",
+      "pessoa_nome": "SHAKURCELL",
+      "pessoa_id": "640b32e6866ec3e2ceb2396a",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c",
+      "dia": "2026-11-16",
+      "valor": "279.60",
+      "forma": "Desconto — Desconto para pagar agora"
+    },
+    {
+      "origem_id": "aa6f55cb-9063-4280-9dac-752d58840db4",
+      "origem_desc": "A Receber — peça quebrada em discussão (R$ 55,00)",
+      "pessoa_nome": "LUIS PAULO FERREIRA DOS SANTOS FILHO",
+      "pessoa_id": "67461640742a07ad3de42d9d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "dia": "2026-11-17",
+      "valor": "55.00",
+      "forma": "Desconto — Não vou receber mais"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "quando": "2026-11-17T18:43:39.500Z",
+  "antes": [
+    {
+      "nome": "LUIS PAULO FERREIRA DOS SANTOS FILHO",
+      "nao_vender": true,
+      "nao_vender_motivo": "DEVE R$ 55,00 — em discussão (peça quebrada)",
+      "observacoes": "Peça quebrada — cliente não aceitou pagar; cobrar ou perdoar."
+    }
+  ],
+  "depois": {
+    "nao_vender": false,
+    "nao_vender_motivo": null,
+    "observacoes": "Peça quebrada — cliente não aceitou pagar. Dívida de R$ 55,00 PERDOADA em 17/11/2026 (Desconto — Não vou receber mais)."
+  }
+}

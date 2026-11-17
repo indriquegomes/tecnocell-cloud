@@ -219,6 +219,32 @@ real com limpeza · invariantes · deploy 28afbbf (app) e 32ab1ae (docs) no ar.
 - Checklist de fechamento: `tsc` 0 · 206 testes · 85 telas OK (só o falso
   positivo da impressão) · invariantes do mês 11: 46 OK / 0 falha.
 
+## Rodada de 17/11/2026
+
+**Bug do desconto no fiado (achado pelo dono).** Ele perdoou R$ 55,00 do Luís
+Paulo pelo app e a tarja continuava no nome — a tarja é do CADASTRO
+(`nao_vender`), não some quando a dívida é perdoada. Investigando, apareceu bug
+maior: a ação do desconto grava a despesa ("Desconto concedido"/"Perda com
+fiado") com `lancamentos.criado_por` — coluna que existia só no código. O insert
+falhava em silêncio: a dívida era perdoada e o valor **sumia do resultado do
+mês**. Conferido: 8 descontos sem despesa entre 13 e 17/11 = **R$ 415,40**.
+Conserto: migration `2026-11-17-lancamentos-criado-por.sql` (aplicada) +
+backfill das 8 despesas. Backup:
+`docs/registros-banco/2026-11/backup-desconto-sem-despesa-*.json`. Armadilha nova
+no `AGENTS.md` §9.
+
+**Cadastros gerais (etapa aberta pelo dono, um por vez).** DANIEL FERREIRA DA
+SILVA e LUIS PAULO FERREIRA DOS SANTOS FILHO aplicados: nome limpo + não vender
++ motivo + A Receber real (o Luis Paulo depois foi perdoado pelo app e a tarja
+limpa; a observação registra o perdão). Lista e regras no item 8 das pendências.
+
+**PDV com letras garrafais:** "🚫 NÃO VENDER" e "⚠️ Já deve" maiores e em negrito
+(`d89e594`) — o aviso não pode passar batido no balcão.
+
+**Ferramenta:** dívida de anotação antiga nasce **sem loja** — sem loja o F9 não
+lista (filtra pela loja do caixa) e a tela Fiados esconde para usuário restrito.
+Linkar a loja resolve (Luís Paulo = Petrópolis, provado pelas vendas dele).
+
 ## Rodada de 12/11/2026 — RH, ponto e conferência de horas
 
 **RH — desligamento virou um ato.** Preencher a data de demissão em Usuários e

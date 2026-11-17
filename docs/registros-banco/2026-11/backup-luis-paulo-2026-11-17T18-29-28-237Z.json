@@ -1,0 +1,22 @@
+{
+  "quando": "2026-11-17T18:29:28.238Z",
+  "antes": [
+    {
+      "id": "67461640742a07ad3de42d9d",
+      "nome": "LUIS PAULO FERREIRA DOS SANTOS FILHO (PENDÊNCIA FINANCEIRA R$ 55,00)",
+      "nao_vender": false,
+      "nao_vender_motivo": null,
+      "observacoes": null
+    }
+  ],
+  "mudanca": {
+    "nome": "LUIS PAULO FERREIRA DOS SANTOS FILHO",
+    "nao_vender": true,
+    "nao_vender_motivo": "DEVE R$ 55,00 — em discussão (peça quebrada)",
+    "observacoes": "Peça quebrada — cliente não aceitou pagar; cobrar ou perdoar.",
+    "lancamento": {
+      "valor": 55,
+      "vencimento": "2026-08-01"
+    }
+  }
+}

@@ -273,6 +273,13 @@ bater com o total, senão a venda inteira é recusada.
   de manhã o número sempre parece menor. Conferir com
   `scripts/conferir-divida-fornecedor.mjs` e `scripts/pix-x-divida-fornecedor.mjs`
   (os dois só leem) antes de dizer que a dívida está errada.
+- **Coluna nova no código sem a migration aplicada = falha silenciosa na escrita.**
+  O desconto no fiado grava a despesa ("Desconto concedido"/"Perda com fiado") com
+  `lancamentos.criado_por` — coluna que só existia no código, não no banco. O insert
+  falhava, a dívida era perdoada e **o valor sumia do resultado do mês** (8 descontos,
+  R$ 415,40, entre 13 e 17/11/2026). Regra: toda coluna que o código lê/escreve
+  precisa da migration aplicada; quando um fluxo "funcionou mas não gravou a segunda
+  parte", conferir `information_schema.columns` antes de acusar a regra.
 
 ## 10. Regras de negócio que o código sozinho não conta
 
