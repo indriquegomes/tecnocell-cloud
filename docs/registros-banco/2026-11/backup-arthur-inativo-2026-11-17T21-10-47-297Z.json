@@ -1,0 +1,18 @@
+{
+  "quando": "2026-11-17T21:10:47.299Z",
+  "antes": [
+    {
+      "id": "66c790404007d16980572611",
+      "nome": "CADASTRO INATIVADO / ARTHUR RODRIGUES VAILLANT",
+      "ativo": true,
+      "nao_vender": true,
+      "nao_vender_motivo": "CADASTRO INATIVO"
+    }
+  ],
+  "depois": {
+    "nome": "ARTHUR RODRIGUES VAILLANT",
+    "ativo": false,
+    "nao_vender": false,
+    "nao_vender_motivo": null
+  }
+}

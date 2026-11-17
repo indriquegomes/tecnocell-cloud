@@ -460,15 +460,17 @@ Painel abrindo sem erro de console.
    313, HU100 ESPECIAIS. **H2 (fornecedor) foi fundido no H2O**: o pagamento de
    mercadoria pago (R$ 5.880,90) passou a apontar para o H2O e a ficha H2 saiu.
    Backup: `docs/registros-banco/2026-11/backup-cadastros-limpeza-*.json`.
-   **Pendentes (1–10 — precisam da decisão do dono):** TRICELL 16 DE MARÇO
-   (devendo 3.511,00) e TRICELL MR - MR CELL (devendo 1.806,00) → nome limpo +
-   aviso na nota "Entregar na…"; Luiz Gustavo (R$ 100), Marcio (R$ 924) e
-   Matheus (R$ 654,50) → dívida real (registrar no A Receber) ou anotação
-   velha?; Tatiana → motivo do aviso; Bio Tech → ok com "não atender" (já
-   ligado); CSM → instrução na nota ou só interna?; RODRIGO → remover o
-   lembrete da película (já aprovado antes); Arthur → nome limpo + Inativa.
-   **Luís Paulo: concluído** — dívida de R$ 55,00 perdoada pelo app (virou
-   "Perda com fiado") e aviso na nota "Só receber diante do pagamento".
+   **Pendentes (o dono resolveu alguns em 17/11 e deixou estes para 18/11):**
+   TRICELL 16 DE MARÇO (devendo 3.511,00) e TRICELL MR - MR CELL (devendo
+   1.806,00) → só falta o **nome limpo** (o dono já pôs o aviso na nota:
+   "ENTREGAR NA MR CELL" / "ENTREGAR NA TRICELL CURSO"); Luiz Gustavo (R$ 100),
+   Marcio (R$ 924) e Matheus (R$ 654,50) → dívida real (registrar no A Receber)
+   ou anotação velha? — o dono pôs o texto no motivo do aviso, falta o nome.
+   **Feitos em 17/11:** Tatiana (aviso "Complicado — cuidado ao atender"),
+   CSM CELL (instrução na nota E interna), RODRIGO PEREIRA (lembrete removido),
+   BIO TECH (inativado + aviso), **ARTHUR** (nome limpo `ARTHUR RODRIGUES
+   VAILLANT` + **Inativa**), Luís Paulo (perdoado, aviso na nota), Daniel.
+   Backup: `docs/registros-banco/2026-11/backup-arthur-inativo-*.json`.
 
    Números levantados em 10/11/2026, para dimensionar quando a etapa abrir: de
    2.153 pessoas, **9 têm lembrete dentro do nome** e **18 passam de 45
