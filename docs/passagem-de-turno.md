@@ -517,6 +517,15 @@ Painel abrindo sem erro de console.
     de 13–14/11, depois do snapshot das 10h. A planilha é a fonte de segurança,
     conferida por humano; o dono decide quando/quem atualiza (decisão: o agente
     não edita). Mesma régua do capítulo "Nesta rodada".
+11. **Perdas de troca sem vínculo do fornecedor (invariante 18, falha).** A
+    Troca, ao reconhecer perda, grava "Perda de troca — …" com o NOME do
+    fornecedor mas sem `pessoa_id` (`trocas/actions.ts` ~linha 248). O script
+    conta 12 (varredura ampla: 18 linhas, R$ 1.341,83, todas da H2O em 17/11).
+    Efeito: aparece no Financeiro por nome e a conta "por fornecedor" (que usa
+    cadastro) não enxerga — a armadilha "dívida lida de dois jeitos", agora com
+    perdas. **Fix proposto (aplicar com o ok do dono):** passar
+    `pessoa_id: troca.fornecedor_id` no insert (a tabela trocas guarda) e
+    linkar as linhas antigas. Não mexe em valor.
 
 ## Nesta rodada (07/11/2026 — madrugada)
 
