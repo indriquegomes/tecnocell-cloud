@@ -1,0 +1,20 @@
+{
+  "quando": "2026-11-17T19:57:14.882Z",
+  "grupos": [
+    {
+      "pessoa_nome": "H2O",
+      "n": 3,
+      "soma": "143.86"
+    },
+    {
+      "pessoa_nome": "H2O FORNECEDOR",
+      "n": 12,
+      "soma": "1176.08"
+    },
+    {
+      "pessoa_nome": null,
+      "n": 3,
+      "soma": "21.89"
+    }
+  ]
+}

@@ -517,15 +517,18 @@ Painel abrindo sem erro de console.
     de 13–14/11, depois do snapshot das 10h. A planilha é a fonte de segurança,
     conferida por humano; o dono decide quando/quem atualiza (decisão: o agente
     não edita). Mesma régua do capítulo "Nesta rodada".
-11. **Perdas de troca sem vínculo do fornecedor (invariante 18, falha).** A
-    Troca, ao reconhecer perda, grava "Perda de troca — …" com o NOME do
-    fornecedor mas sem `pessoa_id` (`trocas/actions.ts` ~linha 248). O script
-    conta 12 (varredura ampla: 18 linhas, R$ 1.341,83, todas da H2O em 17/11).
-    Efeito: aparece no Financeiro por nome e a conta "por fornecedor" (que usa
-    cadastro) não enxerga — a armadilha "dívida lida de dois jeitos", agora com
-    perdas. **Fix proposto (aplicar com o ok do dono):** passar
-    `pessoa_id: troca.fornecedor_id` no insert (a tabela trocas guarda) e
-    linkar as linhas antigas. Não mexe em valor.
+11. **Perdas de troca sem vínculo do fornecedor — ✅ RESOLVIDO em 17/11.**
+    Investigado a pedido do dono ("acho que já foi feito"): **não estava** — o
+    que existia era outra coisa (abatimento por ID do cadastro, `ab4da13`, e a
+    regra de perda como função pura com testes, `666d7dc`). O insert da perda
+    gravava só o nome copiado na troca (que pode estar **velho** — fornecedor
+    renomeado depois), sem `pessoa_id`; a conta por fornecedor não enxergava.
+    Consertos: (a) **código** `ed09d1a` — os dois inserts de perda (retorno e
+    abatimento) passam `pessoa_id` do cadastro e o nome ATUAL; (b) **dado** —
+    15 linhas antigas linkadas (3 "H2O" + 12 "H2O FORNECEDOR" → H2O; ADL/ZL/
+    INOVA idem pelo alias); 3 linhas sem fornecedor na troca ficam como estão.
+    Backup: `docs/registros-banco/2026-11/backup-perda-troca-vinculo-*.json`.
+    Invariante 19: **46 OK / 0 falha** no mês 11 (tsc 0, trocas 14/14).
 
 ## Nesta rodada (07/11/2026 — madrugada)
 
