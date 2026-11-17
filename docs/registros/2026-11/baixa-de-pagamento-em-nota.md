@@ -286,3 +286,85 @@ compara com o instante de abertura do caixa (`abertoEm`), no fuso de São Paulo.
 
 A linha de **0,90** da ADL era teste (dito pelo dono em 11/11) e foi cancelada, com o
 motivo na descrição.
+
+---
+
+## 13. 17/11/2026 — "o lançamento dos fornecedores está tudo errado de novo"
+
+O dono mandou os dois saldos da planilha às 08:31 e os números não batiam:
+
+| Fornecedor | App (novembro) | Planilha | Diferença |
+|---|---|---|---|
+| ADL | pendente 27.035,08 · pago 11.967,40 | pendente 23.378,68 · pago 15.998,80 | pago −4.031,40 · pendente +3.656,40 |
+| H2O | pendente 26.527,52 · pago 76.549,95 | pendente 14.885,23 · pago 78.410,95 | pago −1.861,00 · pendente +11.642,29 |
+
+### O que estava errado na ADL — causa confirmada
+
+A linha **`bb52a646…` "PAGAMENTO DE MERCADORIA" · R$ 4.031,40 · competência 11/11 ·
+Petrópolis**, criada em 12/11 às 18:26 **sem vínculo com o cadastro do fornecedor**
+(`pessoa_nome = 'ADL'`, `pessoa_id = null`), foi **desfeita hoje às 11:17**:
+
+```
+2026-11-17 11:17:23  brunna@tecnocell.local  pagamento.desfazer
+  {"cliente":"ADL","lancamento_id":"bb52a646-37d8-460b-8ae9-a05244e3517d","valor_estornado":0}
+```
+
+Desfazer devolve a linha para **pendente**. Resultado: o app passa a cobrar
+R$ 4.031,40 de um dinheiro que já saiu, e o mesmo valor desaparece do "já pago".
+É exatamente a diferença dos dois lados (pago −4.031,40).
+
+**Por que o "Pago" não abateu a nota antes disso:** a nota mais antiga em aberto da
+ADL é a **99**, e ela está **fechada no valor** (nota de entrada 9.897,00 − histórico
+7.801,12 = 2.095,88). Nenhuma nota da ADL carrega abatimento de 4.031,40 no histórico.
+Ou seja, o pagamento foi marcado Pago **sem abater nota** — o caminho de falha
+silenciosa que o comentário do `marcarPago` tenta cobrir com aviso na tela.
+
+### O defeito de desenho (a causa da frequência)
+
+`desfazerPagamento` é **assimétrico**: o "Pago" de mercadoria encolhe a nota do
+fornecedor (`abaterNaDivida`), mas o "Desfazer" só devolve o lançamento para pendente —
+o RPC `desfazer_pagamento_atomico` apaga o movimento de caixa e zera `valor_pago`,
+**sem devolver o valor para a nota**. Então:
+
+- desfazer um pagamento de mercadoria → dívida fantasma do tamanho do pagamento;
+- se a nota não tivesse sido abatida (como nesta linha) → o valor volta como dívida
+  e o dinheiro sai do "já pago": os dois números erram juntos.
+
+### Os outros mecanismos que fazem o número divergir
+
+1. **Pagamento digitado como conta a pagar** ("PAGAMENTO DE MERCADORIA") em vez de
+   baixa. Enquanto ninguém aperta "Pago", aquilo é dívida. Hoje existe **1** linha
+   assim (a da ADL acima); as 118 pagas da H2O são linhas do mesmo tipo já quitadas.
+2. **Linha com nome do fornecedor e sem cadastro** (`pessoa_id` null): a tela do
+   Financeiro acha por texto, mas as regras (abater na nota, painel por fornecedor,
+   trava de dívida) filtram por id. Na H2O de novembro são **R$ 20.252,89** em linhas
+   pagas sem cadastro — o mesmo fornecedor tem dois totais dependendo da tela.
+3. **Abatimento no valor da nota mas fora do histórico** (ADL #114 R$ 502,00 ·
+   H2O #118 R$ 1.337,50 · ZL #112 R$ 100,00). Não muda o total, mas qualquer
+   conferência que leia o histórico subestima o que foi pago.
+4. **Crédito automático criado sem cadastro** (`abaterNaDivida` insere a linha negativa
+   com `pessoa_nome` e sem `pessoa_id`; caso H2O −37,82) → o crédito nunca é consumido
+   pela nota seguinte, que filtra por id.
+5. **Fechamento do dia**: o PIX de cliente que foi para o fornecedor só vira abatimento
+   no fechamento do caixa. Em 17/11 entraram **R$ 5.226,99** para a H2O e só
+   **R$ 774,86** estavam abatidos às 08:31 — de manhã o número sempre parece errado.
+
+### O que fica pendente de decisão do dono
+
+- ADL: os R$ 4.031,40 são pagamento de verdade (ele conta como pago na planilha).
+  Voltar a linha para paga — ou apagá-la e abater na nota 99/101?
+- ADL: **R$ 375,00** de diferença que sobra depois de resolver a linha acima
+  (app 23.003,68 × planilha 23.378,68) — falta nomear de qual nota/pagamento é.
+- H2O: quais das quatro notas em aberto a planilha já considera pagas
+  (#110 R$ 2.496,00 · #117 R$ 12.483,00 · #118 R$ 11.462,90 · ESPECIAIS R$ 123,44).
+
+### Ferramentas que ficaram prontas (só leem)
+
+- `node scripts/conferir-divida-fornecedor.mjs` — dívida por cadastro × por nome, linha
+  pendente sem cadastro, nota que não fecha com a nota de entrada, abatimento repetido.
+- `node scripts/diagnostico-fornecedor.mjs H2O` — tudo do fornecedor, linha por linha,
+  com histórico e datas.
+- `node scripts/investigar-pendentes.mjs H2O` — cada pendente: quando nasceu, quem mexeu,
+  histórico e lançamentos com o mesmo valor.
+- `node scripts/pix-x-divida-fornecedor.mjs H2O` — PIX que foi para o fornecedor × o que
+  o app deu baixa, dia a dia.

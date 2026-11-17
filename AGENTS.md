@@ -253,6 +253,19 @@ bater com o total, senão a venda inteira é recusada.
   (`scripts/conferir-fiado-por-cliente.mjs`, orfão = 0). Script oficial é a fonte;
   reaproveitar o número antigo produz pendência-fantasma (foi o caso dos "56 fiados
   sem cadastro" em 15/11/2026).
+- **"Desfazer pagamento" NÃO desfaz o abatimento na nota.** `marcarPago` de compra de
+  mercadoria encolhe a nota do fornecedor (`abaterNaDivida`), mas
+  `desfazer_pagamento_atomico` só apaga o movimento de caixa e zera `valor_pago`.
+  Desfazer um pagamento de mercadoria devolve o valor como **dívida fantasma**, com o
+  dinheiro fora do "já pago" — foi o que deixou a ADL R$ 4.031,40 maior em 17/11/2026.
+  Antes de usar "Desfazer" em linha de mercadoria, olhar a nota.
+- **A dívida do fornecedor é lida de dois jeitos.** A tela do Financeiro casa por
+  texto (`pessoa_nome`); abatimento, painel por fornecedor e trava de dívida filtram
+  por `pessoa_id`. Linha com nome e sem cadastro aparece numa conta e não na outra. E
+  o PIX de cliente que vai para o fornecedor só abate no **fechamento do caixa** —
+  de manhã o número sempre parece menor. Conferir com
+  `scripts/conferir-divida-fornecedor.mjs` e `scripts/pix-x-divida-fornecedor.mjs`
+  (os dois só leem) antes de dizer que a dívida está errada.
 
 ## 10. Regras de negócio que o código sozinho não conta
 

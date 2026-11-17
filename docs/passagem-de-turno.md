@@ -6,9 +6,36 @@
 >
 > Regras do projeto: `AGENTS.md`. Como o sistema funciona: `docs/mapa/`.
 
-**Última atualização:** 17/11/2026 (tutorial da troca na própria tela; tolerância editável em Configurações).
+**Última atualização:** 17/11/2026 (dívida de fornecedor: por que o número não bate com a planilha).
 
-## Nesta rodada (17/11/2026) — tutorial da troca na tela
+## Nesta rodada (17/11/2026) — dívida de fornecedor: causa encontrada
+
+O dono relatou às 08:31 que ADL e H2O não batiam com a planilha. **Causa da ADL
+confirmada e explicada ao centavo:** uma linha "PAGAMENTO DE MERCADORIA" de
+R$ 4.031,40 (criada 12/11 18:26 sem vínculo de cadastro) foi **desfeita hoje às
+11:17** — e "Desfazer pagamento" devolve a linha para pendente, ou seja, o app passa
+a cobrar um dinheiro que já saiu. Isso explica os dois lados: pago −4.031,40 e
+pendente +4.031,40 (o resto da diferença do pendente é R$ 375,00 que falta nomear).
+
+**Defeito de desenho registrado:** `desfazerPagamento` é assimétrico — o "Pago" de
+mercadoria encolhe a nota (`abaterNaDivida`), o "Desfazer" não devolve o valor para a
+nota. Está na seção 9 do `AGENTS.md` e detalhado em
+`docs/registros/2026-11/baixa-de-pagamento-em-nota.md` §13.
+
+**Pendente de decisão do dono:** (1) voltar a linha da ADL para paga, apagá-la ou
+abater na nota; (2) de onde vêm os R$ 375,00 da ADL; (3) quais das 4 notas da H2O a
+planilha já considera pagas (#110 2.496,00 · #117 12.483,00 · #118 11.462,90 ·
+ESPECIAIS 123,44) — é o que fecha os R$ 11.642,29 da H2O.
+
+**Ferramentas novas (só leem, nada gravam):** `scripts/conferir-divida-fornecedor.mjs`,
+`scripts/diagnostico-fornecedor.mjs`, `scripts/investigar-pendentes.mjs`,
+`scripts/pix-x-divida-fornecedor.mjs`.
+
+**Não corrigido no código (espera autorização):** desfazer o abatimento junto com o
+pagamento; criar a linha de crédito do `abaterNaDivida` com `pessoa_id`; preencher o
+histórico das notas #114 (ADL 502,00), #118 (H2O 1.337,50) e #112 (ZL 100,00).
+
+## Rodada anterior (17/11/2026) — tutorial da troca na tela
 
 **O tutorial agora está na página.** Antes era só documento em `docs/receitas/`;
 quem atende não abre documento. Agora a aba Estoque → Trocas tem um painel
