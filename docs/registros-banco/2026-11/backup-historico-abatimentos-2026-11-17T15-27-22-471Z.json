@@ -1,0 +1,64 @@
+{
+  "quando": "2026-11-17T15:27:22.220Z",
+  "antes": [
+    {
+      "id": "6fabcd0e-f53b-4edb-ab7e-441968244f76",
+      "valor": 1375,
+      "status": "pendente",
+      "descricao": "COMPRA MERCADORIA - NOTA 112 (abateu 100,00 de pagamento)",
+      "historico_pagamentos": []
+    },
+    {
+      "id": "b7cd468d-dfd6-4f49-bdd4-a7b51f75ec46",
+      "valor": 7017.71,
+      "status": "pendente",
+      "descricao": "COMPRA MERCADORIA - NOTA 118 (abateu 1337,50 de pagamento) (abateu 55,00 de PIX do cliente ao fornecedor) (abateu 2533,80 de PIX do cliente ao fornecedor) (abateu 25,00 de PIX do c (abateu 4445,19 de pagamento)",
+      "historico_pagamentos": [
+        {
+          "data": "2026-11-12T21:21:56.462Z",
+          "forma": "PIX do cliente ao fornecedor",
+          "valor": 55
+        },
+        {
+          "data": "2026-11-12T21:41:09.231Z",
+          "forma": "PIX do cliente ao fornecedor",
+          "valor": 2533.8
+        },
+        {
+          "data": "2026-11-12T21:41:11.438Z",
+          "forma": "PIX do cliente ao fornecedor",
+          "valor": 25
+        },
+        {
+          "data": "2026-11-13T18:31:44.602Z",
+          "forma": "PIX do cliente ao fornecedor",
+          "valor": 115
+        },
+        {
+          "data": "2026-11-16T11:37:46.038Z",
+          "forma": "PIX do cliente ao fornecedor",
+          "valor": 1414.8
+        },
+        {
+          "data": "2026-11-17T15:20:26.984Z",
+          "forma": "pagamento",
+          "valor": 4445.19
+        }
+      ]
+    },
+    {
+      "id": "ede9059a-3930-479b-a3cc-0885a16a2003",
+      "valor": 8006.8,
+      "status": "pendente",
+      "descricao": "COMPRA MERCADORIA - NOTA 114 (abateu 502,00 de pagamento) (abateu 5,20 de PIX do cliente ao fornecedor)",
+      "historico_pagamentos": [
+        {
+          "data": "2026-11-12T11:02:03.348Z",
+          "forma": "PIX do cliente ao fornecedor",
+          "valor": 5.2
+        }
+      ]
+    }
+  ],
+  "depois": []
+}

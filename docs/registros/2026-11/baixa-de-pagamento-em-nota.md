@@ -418,3 +418,56 @@ Ou seja: não há dado corrompido — há **um pagamento que a planilha não reg
 4. Histórico das notas #114 (ADL 502,00), #118 (H2O 1.337,50) e #112 (ZL 100,00) está
    incompleto: o valor encolheu mas o abatimento não foi registrado.
 
+---
+
+## 15. 17/11/2026 — os quatro consertos no código (autorizados com "pode")
+
+1. **`criarLancamento` com "quitado" agora abate a nota.** Era a causa raiz dos
+   R$ 11.642,29 da H2O: criar a linha já paga não passava por `abaterNaDivida`. A régua
+   é a mesma do botão "Pago" — encolhe a nota mais antiga em aberto, e a própria linha
+   de nota (`COMPRA MERCADORIA…`) fica de fora para não contar duas vezes. Sem
+   fornecedor no lançamento, a tela avisa em vez de deixar a dívida errada em silêncio.
+   (`app/painel/financeiro/actions.ts`)
+
+2. **"Desfazer pagamento" devolve o valor para a nota.** Cada abatimento passou a
+   carregar o id do lançamento que o gerou (`lancamento_id` no item de
+   `historico_pagamentos`); no desfazer, a nota volta a crescer exatamente por esse
+   valor — inclusive quando ela tinha zerado e virado `cancelado`, que volta a
+   `pendente`. Abatimento feito **antes** desta correção não tem o carimbo: nesse caso
+   o app não chuta valor nenhum, só avisa que a nota não foi devolvida.
+   (`lib/abater-divida.ts`, `app/painel/financeiro/actions.ts`)
+
+3. **A conta é pura e testada.** `lib/estorno-abatimento.ts` (`planejarEstornoNota`)
+   decide quanto volta, qual status e como fica a descrição (tira só o
+   "(abateu X de …)" daquela baixa, preservando os outros abatimentos).
+   `test/estorno.test.ts` cobre **9 casos**: devolução certa, abatimento de outra baixa
+   intacto, nota zerada que reabre, duas linhas da mesma baixa, histórico sem carimbo
+   (devolve null), histórico inválido, id vazio, descrição sem o texto, centavo de
+   arredondamento.
+
+4. **Crédito do abatimento nasce com o cadastro** (`pessoa_id`): antes era só o nome, e
+   a linha negativa nunca era consumida pela nota seguinte, que filtra por id.
+
+5. **Histórico das 3 notas em aberto completado** (`scripts/completar-historico-abatimentos.mjs`,
+   só rastro — nenhum valor mudou): ZL #112 R$ 100,00, H2O #118 R$ 1.337,50 e ADL #114
+   R$ 502,00 ganharam a linha de histórico do abatimento que já estava aplicado no valor.
+   Notas canceladas foram deixadas de fora de propósito: estão fora da dívida e histórico
+   nelas só confundiria quem lê depois.
+
+**Estado da dívida depois de tudo (17/11/2026, as duas lojas, tudo em aberto):**
+
+| Fornecedor | App | Planilha do dono |
+|---|---|---|
+| INOVA | 35.243,70 | — |
+| PLANETA CELL | 12.324,96 | — |
+| H2O | **14.885,23** | **14.885,23** ✅ |
+| ZL | 2.786,50 | — |
+| ADL | **23.003,68** | 23.378,68 (faltam R$ 375,00 = R$ 280,00 de PIX de 13/11 + R$ 95,00 da planilha) |
+| Edson Canedo | 5.200,00 | — |
+
+**Lição de ferramenta:** o script `conferir-divida-fornecedor.mjs` estava com
+`Math.max(0, valor − valor_pago)` e por isso **engolia as linhas de crédito** (valor
+negativo): mostrava INOVA R$ 35.495,30 em vez de R$ 35.243,70 e ZL R$ 3.080,10 em vez de
+R$ 2.786,50. Corrigido — crédito de fornecedor diminui a dívida e tem que aparecer.
+
+

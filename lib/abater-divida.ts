@@ -31,6 +31,12 @@ export async function abaterNaDivida(
   rotulo = 'troca',
   /** quando vem o id do cadastro, filtra por ele (o nome no lançamento pode estar velho) */
   pessoaId: string | null = null,
+  /**
+   * id do lançamento que gerou o abatimento (pagamento ou troca). Vai gravado em cada
+   * item do histórico e é o que permite DESFAZER depois: sem ele, "Desfazer" não sabe
+   * qual pedaço da nota devolver (lib/estorno-abatimento.ts).
+   */
+  origemLancamentoId: string | null = null,
 ): Promise<{ ok: boolean; erro?: string; credito: number }> {
   let qPend = supabase.from('lancamentos')
     .select('id, valor, valor_pago, descricao, data_vencimento, historico_pagamentos')
@@ -59,7 +65,7 @@ export async function abaterNaDivida(
       // zerou a nota: sai da lista de pendentes sem inventar pagamento
       status: novoValor <= 0.005 ? 'cancelado' : 'pendente',
       descricao: `${p.descricao ?? 'Mercadoria'} (abateu ${abater.toFixed(2).replace('.', ',')} de ${rotulo})`,
-      historico_pagamentos: [...historico, { valor: abater, forma: rotulo, data: new Date().toISOString() }],
+      historico_pagamentos: [...historico, { valor: abater, forma: rotulo, data: new Date().toISOString(), lancamento_id: origemLancamentoId }],
       updated_at: new Date().toISOString(),
     }).eq('id', p.id)
     if (error) return { ok: false, erro: `Não deu pra abater em ${p.descricao ?? 'nota'}: ${error.message}`, credito: 0 }
@@ -77,10 +83,16 @@ export async function abaterNaDivida(
       status: 'pendente',
       categoria: 'Mercadoria',
       pessoa_nome: fornecedorNome,
+      // o cadastro vai junto: quem procura o crédito pela próxima nota filtra por id,
+      // e linha só com nome nunca é consumida (é dinheiro do fornecedor esquecido)
+      pessoa_id: pessoaId ?? null,
       loja_id: lojaId,
       conta_id: null,
       data_competencia: hoje,
       data_vencimento: hoje,
+      // o crédito também leva o carimbo da baixa: é o que permite "Desfazer" tirar este
+      // crédito de cena junto com o abatimento (senão sobraria saldo a favor do fornecedor)
+      historico_pagamentos: [{ valor: credito, forma: rotulo, data: new Date().toISOString(), lancamento_id: origemLancamentoId }],
       updated_at: new Date().toISOString(),
     })
     if (error) return { ok: false, erro: `Abatimento aplicado, mas o crédito de ${credito.toFixed(2)} não gravou: ${error.message}`, credito: 0 }

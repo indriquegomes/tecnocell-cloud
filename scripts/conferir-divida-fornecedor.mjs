@@ -71,7 +71,10 @@ const notas = await tudo(sb, 'notas_entrada', 'id, numero, fornecedor_id, valor_
 const notaPorNumero = new Map(notas.map((n) => [String(n.numero ?? ''), n]))
 
 const noMes = (r) => !MES || String(r.data_competencia ?? '').slice(0, 7) === MES
-const pendente = (r) => r.status === 'pendente' ? Math.max(0, Number(r.valor ?? 0) - Number(r.valor_pago ?? 0)) : 0
+// Sem `Math.max(0, …)`: linha de crédito (valor negativo, criada quando o abatimento é
+// maior que a dívida) DIMINUI o total. Zerar o negativo inflava o número e escondeu
+// R$ 37,82 na H2O em 17/11/2026.
+const pendente = (r) => r.status === 'pendente' ? Number(r.valor ?? 0) - Number(r.valor_pago ?? 0) : 0
 
 console.log(`\nDÍVIDA COM FORNECEDORES — ${MES ? 'competência ' + MES : 'tudo'}${termos.length ? ' — ' + termos.join(', ') : ''}`)
 console.log('(coluna "por ID" = regras do app; "por NOME" = o que a tela mostra ao buscar o fornecedor)\n')

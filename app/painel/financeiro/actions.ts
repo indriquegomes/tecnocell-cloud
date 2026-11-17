@@ -7,10 +7,11 @@ import { logAtividade } from '@/lib/log-atividade'
 import { registrarNoCaixa, retirarDoCaixa, lojaDoLancamento } from '@/lib/caixa'
 import { contaDaForma } from '@/lib/conta-da-forma'
 import { abaterNaDivida } from '@/lib/abater-divida'
+import { planejarEstornoNota } from '@/lib/estorno-abatimento'
 import { pessoaIdPorNome } from '@/lib/pessoa-por-nome'
 import { vinculoEncerrado } from '@/lib/vinculo'
 import { travarSeMesFechado } from '@/lib/fechamento'
-import { hojeSP } from '@/lib/utils'
+import { formatBRL, hojeSP } from '@/lib/utils'
 import { SETORES } from '@/lib/financeiro-setores'
 import { ehCompraDeMercadoria } from '@/lib/financeiro-setores'
 import { revalidatePath } from 'next/cache'
@@ -73,17 +74,33 @@ export async function criarLancamento(formData: FormData) {
     ? await contaDaForma(supabase, (formData.get('forma_pagamento') as string) || null, lojaId)
     : contaId
 
+  // Pagamento de mercadoria nascendo QUITADO: a nota do fornecedor tem que encolher
+  // (senão a dívida fica maior que a planilha, que foi o caso dos R$ 11.642,29 da H2O).
+  // A validação vem ANTES do insert de propósito: recusar depois de gravar deixaria a
+  // linha paga no banco sem baixa nenhuma — o operador corrige e o rastro fica torto.
+  const nomePessoa = (formData.get('pessoa_nome') as string) || null
+  const categoriaInformada = (formData.get('categoria') as string) || null
+  const ehBaixaDeMercadoria = quitado && tipo === 'pagar'
+    && !/COMPRA MERCADORIA/i.test(descricao ?? '')
+    && ehCompraDeMercadoria(categoriaInformada)
+  if (ehBaixaDeMercadoria && !nomePessoa) {
+    redirect(`/painel/financeiro/novo?erro=${encodeURIComponent('Pagamento de mercadoria sem fornecedor: escolha o fornecedor para a dívida ser abatida na nota dele.')}`)
+  }
+  const pessoaId = ehBaixaDeMercadoria ? await pessoaIdPorNome(supabase, nomePessoa) : null
+
   const linhas = Array.from({ length: vezes }, (_, i) => ({
     id: crypto.randomUUID(),
     descricao: vezes > 1 ? `${descricao} (${i + 1}/${vezes})` : descricao,
     valor: repeticao === 'parcelar' && i === vezes - 1 ? Math.round((valorTotal - valorParcela * (vezes - 1)) * 100) / 100 : valorParcela,
     tipo,
-    categoria: (formData.get('categoria') as string) || null,
+    categoria: categoriaInformada,
     subcategoria: (formData.get('subcategoria') as string) || null,
     data_competencia: competencia,
     data_vencimento: i === 0 ? vencimento : somaMeses(vencimento, i),
     forma_pagamento: (formData.get('forma_pagamento') as string) || null,
-    pessoa_nome: (formData.get('pessoa_nome') as string) || null,
+    pessoa_nome: nomePessoa,
+    // cadastro ligado quando existe: as regras de abatimento filtram por id
+    pessoa_id: i === 0 ? pessoaId : null,
     conta_id: i === 0 ? contaDoPrimeiro : contaId,
     loja_id: lojaId,
     // só a 1ª pode nascer quitada; as futuras ficam pendentes
@@ -109,6 +126,32 @@ export async function criarLancamento(formData: FormData) {
       'financeiro',
     )
   }
+
+  // PAGAMENTO QUE NASCE QUITADO TAMBÉM ABATE A NOTA DO FORNECEDOR.
+  // Antes, criar a linha com "quitado" gravava pago e deixava a nota cheia: o dinheiro
+  // aparecia no "já pago" e a dívida do fornecedor continuava igual — foi o que pôs
+  // R$ 11.642,29 de diferença na H2O em 17/11/2026 (dois pagamentos lançados quitados
+  // por este formulário). A régua é a mesma do botão "Pago" (`marcarPago`): encolhe a
+  // nota mais antiga em aberto. A própria nota fica de fora — marcar a nota como paga
+  // já a tira do pendente, abater de novo contaria duas vezes.
+  if (ehBaixaDeMercadoria) {
+    const r = await abaterNaDivida(
+      supabase,
+      nomePessoa as string,
+      lojaId,
+      Math.round(valorParcela * 100) / 100,
+      `Crédito de pagamento — ${descricao}`,
+      'pagamento',
+      pessoaId,
+      linhas[0].id,
+    )
+    // Falha aqui não desfaz o pagamento (o dinheiro saiu de verdade). Avisa em vez de
+    // deixar a dívida errada em silêncio.
+    if (!r.ok) {
+      redirect(`/painel/financeiro?erro=${encodeURIComponent('Pagamento registrado, mas a baixa na nota do fornecedor não foi aplicada: ' + (r.erro ?? 'erro desconhecido'))}`)
+    }
+  }
+
   revalidatePath('/painel/financeiro')
   redirect('/painel/financeiro')
 }
@@ -340,6 +383,10 @@ export async function marcarPago(id: string, formData?: FormData) {
       Math.round(faltava * 100) / 100,
       `Crédito de pagamento — ${linhaAntes?.descricao ?? 'mercadoria'}`,
       'pagamento',
+      // id do cadastro quando existir (a linha pode ter só o nome gravado)
+      await pessoaIdPorNome(supabase, pessoaDoPagamento),
+      // carimbo que permite desfazer: "Desfazer" devolve exatamente este pedaço da nota
+      id,
     )
     // Falha aqui não desfaz o pagamento (o dinheiro saiu de verdade). Avisa o operador
     // para conferir a nota na mão, em vez de a dívida ficar errada em silêncio.
@@ -363,7 +410,7 @@ export async function desfazerPagamento(id: string) {
 
   const { data: lanc, error: erroLanc } = await supabase
     .from('lancamentos')
-    .select('valor, valor_pago, tipo, status, pessoa_nome, data_vencimento')
+    .select('valor, valor_pago, tipo, status, pessoa_nome, pessoa_id, descricao, categoria, loja_id, data_vencimento')
     .eq('id', id)
     .maybeSingle()
   if (erroLanc) redirect(`/painel/financeiro?erro=${encodeURIComponent(erroLanc.message)}`)
@@ -433,8 +480,67 @@ export async function desfazerPagamento(id: string) {
   })
   if (error) redirect(`/painel/financeiro?erro=${encodeURIComponent(error.message)}`)
 
+  // DEVOLVE O VALOR PARA A NOTA DO FORNECEDOR.
+  // O "Pago" de compra de mercadoria encolhe a nota (`abaterNaDivida`), mas desfazer
+  // só voltava o lançamento para pendente: o valor reaparecia como dívida e o
+  // abatimento continuava na nota — a dívida do fornecedor ficava maior que a
+  // planilha, contando o mesmo dinheiro duas vezes. Cada abatimento gravado desde
+  // esta correção carrega o id do lançamento, então dá para devolver só o que ESTA
+  // linha encolheu (lib/estorno-abatimento.ts). Abatimento antigo, sem o carimbo,
+  // não é estornado — melhor avisar do que chutar valor de volta.
+  let notaAviso: string | null = null
+  // sucesso (verde) só quando a nota realmente voltou a crescer; o resto é aviso para
+  // conferir na mão e tem que aparecer em vermelho
+  let notaOk = false
+  const ehNotaDesfeita = /COMPRA MERCADORIA/i.test(String(lanc.descricao ?? ''))
+  if (lanc.tipo === 'pagar' && !ehNotaDesfeita && ehCompraDeMercadoria(lanc.categoria) && lanc.pessoa_nome) {
+    const filtro = supabase.from('lancamentos')
+      .select('id, valor, descricao, status, historico_pagamentos')
+      .eq('tipo', 'pagar')
+      .in('status', ['pendente', 'cancelado'])
+      .neq('id', id)
+    const { data: notas } = lanc.pessoa_id
+      ? await filtro.eq('pessoa_id', lanc.pessoa_id)
+      : await filtro.eq('pessoa_nome', lanc.pessoa_nome)
+    let devolvido = 0
+    for (const nota of (notas ?? []) as { id: string; valor: number | null; descricao: string | null; historico_pagamentos: unknown }[]) {
+      const plano = planejarEstornoNota({
+        valor: nota.valor, descricao: nota.descricao, historico: nota.historico_pagamentos, lancamentoId: id,
+      })
+      if (!plano || plano.abatido <= 0) continue
+      // Crédito com o fornecedor (valor negativo) criado por ESTA baixa quando o
+      // abatimento passou da dívida: não é nota, então não cresce — sai de cena. Sem
+      // isso o desfazer devolveria a nota e deixaria o crédito sobrando, inflando o
+      // saldo a favor do fornecedor com dinheiro que voltou para a dívida.
+      const ehCredito = Number(nota.valor ?? 0) < 0
+      const { error: erroNota } = await supabase.from('lancamentos').update({
+        valor: ehCredito ? 0 : plano.novoValor,
+        status: ehCredito ? 'cancelado' : plano.novoStatus,
+        descricao: plano.novaDescricao || nota.descricao,
+        historico_pagamentos: plano.novoHistorico,
+        updated_at: new Date().toISOString(),
+      }).eq('id', nota.id)
+      if (erroNota) { notaAviso = erroNota.message; break }
+      if (!ehCredito) devolvido = Math.round((devolvido + plano.abatido) * 100) / 100
+    }
+    // Erro de banco tem prioridade: nunca sobrescrever com mensagem de sucesso.
+    if (!notaAviso) {
+      if (devolvido > 0) {
+        notaOk = true
+        notaAviso = `Pagamento desfeito. Devolvido ${formatBRL(devolvido)} para a nota do fornecedor.`
+      } else {
+        // Não achou o carimbo: baixa feita antes desta correção. Avisar é obrigatório —
+        // silêncio aqui é dívida errada que ninguém vê.
+        notaAviso = 'Pagamento desfeito, mas a nota do fornecedor NÃO foi devolvida: não achei o abatimento desta linha (baixa feita antes da correção). Confira a nota em Financeiro e ajuste na mão.'
+      }
+    }
+  }
+
   revalidatePath('/painel/financeiro')
   revalidatePath('/painel/fiados')
+  if (notaAviso) {
+    redirect(`/painel/financeiro?${notaOk ? 'ok' : 'erro'}=${encodeURIComponent(notaAviso)}`)
+  }
 }
 
 export async function deletarLancamento(id: string) {

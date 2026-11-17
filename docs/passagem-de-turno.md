@@ -41,10 +41,17 @@ abatidos nas notas. Resultado: **H2O R$ 14.885,23 = planilha** e **ADL R$ 23.003
 **Pendente de decisão do dono:** de onde vêm os **R$ 95,00** que saíram da planilha da
 ADL entre 13/11 e hoje.
 
-**Não corrigido no código (espera autorização):** `criarLancamento` com "quitado" abater
-a nota do fornecedor (causa raiz dos R$ 11.642,29); `desfazerPagamento` devolver o valor
-para a nota; crédito do `abaterNaDivida` nascer com `pessoa_id`; histórico das notas #114
-(ADL 502,00), #118 (H2O 1.337,50) e #112 (ZL 100,00).
+**Corrigido no código (autorizado com "pode" em 17/11):**
+`criarLancamento` com "quitado" agora abate a nota do fornecedor (a causa raiz dos
+R$ 11.642,29); `desfazerPagamento` devolve o valor para a nota — cada abatimento leva o
+carimbo `lancamento_id` e a conta é a função pura `planejarEstornoNota`
+(`lib/estorno-abatimento.ts`, 9 casos em `test/estorno.test.ts`), nota zerada volta para
+'pendente'; o crédito do `abaterNaDivida` nasce com `pessoa_id`; e o histórico das notas
+#114 (ADL 502,00), #118 (H2O 1.337,50) e #112 (ZL 100,00) foi completado sem mexer em
+valor (`scripts/completar-historico-abatimentos.mjs`).
+
+**Ferramenta corrigida:** `conferir-divida-fornecedor.mjs` engolia as linhas de crédito
+(negativas) e inflava a dívida — INOVA 35.243,70 e ZL 2.786,50 são os números certos.
 
 ## Rodada anterior (17/11/2026) — tutorial da troca na tela
 
