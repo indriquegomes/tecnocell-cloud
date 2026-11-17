@@ -223,7 +223,7 @@ export async function marcarPerdida(formData: FormData): Promise<{ ok: boolean; 
   const motivo = String(formData.get('motivo') ?? '').trim() || 'fornecedor não trocou a peça'
 
   const { data: troca } = await supabase.from('trocas')
-    .select('id, produto_nome, quantidade, custo, status, loja_id, fornecedor_nome')
+    .select('id, produto_nome, quantidade, custo, status, loja_id, fornecedor_nome, fornecedor_id')
     .eq('id', id).maybeSingle()
   if (!troca) return { ok: false, erro: 'troca não encontrada' }
   if (troca.status === 'perdida' || troca.status === 'retornou' || troca.status === 'abatida') {
@@ -243,7 +243,15 @@ export async function marcarPerdida(formData: FormData): Promise<{ ok: boolean; 
 
   // PERDA DO MÊS: sem lançamento, o custo da peça sumia do resultado (a peça saiu
   // do estoque e nunca virou CMV). Categoria 'Perda' já é despesa no fechamento.
+  // Vínculo pelo ID do cadastro: o `fornecedor_nome` copiado na troca pode estar
+  // velho (fornecedor renomeado depois). Sem o vínculo a perda aparece no
+  // Financeiro por nome e a conta por fornecedor não a enxerga.
   if (custoPerdido > 0.005) {
+    let fornecedorAtualNome: string | null = null
+    if (troca.fornecedor_id) {
+      const { data: f } = await supabase.from('pessoas').select('nome').eq('id', troca.fornecedor_id).maybeSingle()
+      fornecedorAtualNome = (f as { nome?: string } | null)?.nome ?? null
+    }
     const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
     const { error: erroPerda } = await supabase.from('lancamentos').insert({
       descricao: `Perda de troca — ${troca.produto_nome ?? 'peça'} (${troca.fornecedor_nome ?? 'fornecedor não trocou'})`,
@@ -251,7 +259,8 @@ export async function marcarPerdida(formData: FormData): Promise<{ ok: boolean; 
       tipo: 'pagar',
       status: 'pago',
       categoria: 'Perda',
-      pessoa_nome: troca.fornecedor_nome ?? null,
+      pessoa_nome: fornecedorAtualNome ?? troca.fornecedor_nome ?? null,
+      pessoa_id: troca.fornecedor_id ?? null,
       loja_id: troca.loja_id ?? null,
       conta_id: null,        // não sai dinheiro: é reconhecimento de perda
       forma_pagamento: 'Troca',
@@ -335,6 +344,7 @@ export async function excluirTroca(formData: FormData): Promise<{ ok: boolean; e
  */
 async function lancarPerdaDaTroca(
   supabase: SB,
+  fornecedorId: string | null,
   fornecedorNome: string | null,
   lojaId: string | null,
   valor: number,
@@ -349,6 +359,7 @@ async function lancarPerdaDaTroca(
     status: 'pago',
     categoria: 'Perda',
     pessoa_nome: fornecedorNome,
+    pessoa_id: fornecedorId ?? null,
     loja_id: lojaId,
     conta_id: null,
     forma_pagamento: 'Troca',
@@ -421,7 +432,7 @@ export async function abaterTrocaNoFornecedor(formData: FormData): Promise<{ ok:
 
   // A DIFERENÇA a menor é despesa de verdade (categoria Perda já é despesa no fechamento).
   const erroPerda = await lancarPerdaDaTroca(
-    supabase, fornecedorNome, troca.loja_id ?? null, perda,
+    supabase, fornecedorId, fornecedorNome, troca.loja_id ?? null, perda,
     `Troca sem retorno — diferença a menor (${troca.produto_nome ?? 'peça'} · ${fornecedorNome})`,
   )
   if (erroPerda) return { ok: false, erro: `Troca fechada, mas a perda de ${perda.toFixed(2)} não gravou: ${erroPerda}` }
@@ -572,7 +583,7 @@ export async function abaterTrocasEmLote(formData: FormData): Promise<{ ok: bool
 
   const lojaPerda = fatias[0]?.lojaId ?? null
   const erroPerda = await lancarPerdaDaTroca(
-    supabase, fornecedorNome, lojaPerda, perdaTotal,
+    supabase, fornecedorId, fornecedorNome, lojaPerda, perdaTotal,
     `Troca sem retorno — diferença a menor em remessa de ${pecas.length} peças (${fornecedorNome})`,
   )
   if (erroPerda) return { ok: false, erro: `Abatimento aplicado, mas a perda de ${perdaTotal.toFixed(2)} não gravou: ${erroPerda}` }
