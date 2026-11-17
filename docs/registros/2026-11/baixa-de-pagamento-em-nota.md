@@ -368,3 +368,53 @@ o RPC `desfazer_pagamento_atomico` apaga o movimento de caixa e zera `valor_pago
   histórico e lançamentos com o mesmo valor.
 - `node scripts/pix-x-divida-fornecedor.mjs H2O` — PIX que foi para o fornecedor × o que
   o app deu baixa, dia a dia.
+
+---
+
+## 14. 17/11/2026 — o que foi corrigido, e a explicação dos R$ 375,00
+
+O dono respondeu às três perguntas. Com a resposta dele a conta fechou:
+
+**H2O — os R$ 11.642,29 eram os pagamentos de 16/11.** Ele mesmo disse: "isso foi os
+pagamentos de ontem das lojas, sendo R$ 4.445,19 Petrópolis e R$ 7.197,10 Teresópolis".
+São dois lançamentos criados no Financeiro **já quitados** (checkbox "quitado"):
+`criarLancamento` grava a linha `pago` com `conta_id` e **não passa pelo
+`abaterNaDivida`** — só o botão "Pago" abate. A nota nunca encolheu; a dívida ficou
+R$ 11.642,29 maior que a planilha e o pagamento aparecia no "já pago".
+
+Correção aplicada (`scripts/conciliar-adl-h2o-2026-11-17.mjs --gravar`): os dois valores
+encolheram as notas em aberto de cada loja, da mais antiga para a mais nova, com o
+abatimento escrito na descrição e no histórico (forma `pagamento`). Nota 118 caiu para
+R$ 7.017,71 e a 117 para R$ 5.285,90. **H2O ficou em R$ 14.885,23 — igual à planilha.**
+
+**ADL — a linha de R$ 4.031,40 voltou para "pago", sem encolher nota.** Ele confirmou que
+foi pago e lançado. **Não** se abate na nota 99/101: o valor já foi absorvido pelos
+abatimentos que as notas da ADL receberam (a nota 115 zerou com R$ 7.666,80 de histórico,
+mais do que a nota de entrada de R$ 4.051,00). Abater de novo tiraria R$ 4.031,40 da
+dívida duas vezes: daria R$ 18.972,28, longe da planilha. O cadastro do fornecedor foi
+ligado na linha (`pessoa_id`) — antes era só texto.
+**ADL ficou em R$ 23.003,68.**
+
+**Os R$ 375,00 da ADL têm nome.** São duas coisas somadas:
+
+| Parte | O que é |
+|---|---|
+| R$ 280,00 | PIX de 13/11 às 14:28, pago por um cliente (2DU ESCOLA TECNICA) direto para o **MAIS BARATO** — fornecedor cuja chave celular está no **cadastro da ADL** (`pessoa_chaves_pix`). No fechamento do caixa daquele dia (17:24) o app abateu esses R$ 280,00 na nota 99 da ADL. A planilha não tem esse pagamento. |
+| R$ 95,00 | Diferença entre a planilha de 13/11 (pagamentos R$ 16.093,80) e a de hoje (R$ 15.998,80): algum pagamento saiu da planilha. Precisa do dono dizer qual. |
+
+Ou seja: não há dado corrompido — há **um pagamento que a planilha não registrou** e uma
+**linha que a planilha mudou**.
+
+**Backup e desfazer** desta rodada:
+`docs/registros-banco/2026-11/backup-conciliacao-adl-h2o-2026-11-17T15-20-27-451Z.json` e
+`.../DESFAZER-conciliacao-adl-h2o-2026-11-17T15-20-27-451Z.sql`.
+
+### O que ainda falta no código (espera autorização)
+
+1. `criarLancamento` com "quitado" em compra de mercadoria **precisa** chamar
+   `abaterNaDivida` — é a causa raiz dos R$ 11.642,29.
+2. `desfazerPagamento` precisa **devolver o valor para a nota** que o "Pago" encolheu.
+3. A linha de crédito criada por `abaterNaDivida` precisa nascer com `pessoa_id`.
+4. Histórico das notas #114 (ADL 502,00), #118 (H2O 1.337,50) e #112 (ZL 100,00) está
+   incompleto: o valor encolheu mas o abatimento não foi registrado.
+

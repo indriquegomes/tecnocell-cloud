@@ -1,0 +1,167 @@
+{
+  "quando": "2026-11-17T15:20:26.552Z",
+  "antes": {
+    "adl": {
+      "id": "bb52a646-37d8-460b-8ae9-a05244e3517d",
+      "descricao": "PAGAMENTO DE MERCADORIA",
+      "valor": 4031.4,
+      "valor_pago": 0,
+      "status": "pendente",
+      "categoria": "Fornecedor / Mercadoria",
+      "pessoa_nome": "ADL",
+      "pessoa_id": null,
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "data_competencia": "2026-11-12T00:00:00+00:00",
+      "data_pagamento": null,
+      "historico_pagamentos": []
+    },
+    "h2oPagamentos": [
+      {
+        "id": "013ac2d4-7a79-44c6-8be8-98951fc1dfea",
+        "descricao": "mercadoria",
+        "valor": 7197.1,
+        "valor_pago": 7197.1,
+        "status": "pago",
+        "categoria": "fornecedor/mercadoria",
+        "pessoa_nome": "H2O",
+        "pessoa_id": null,
+        "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c",
+        "data_competencia": "2026-11-16T00:00:00+00:00",
+        "data_pagamento": "2026-11-16T21:54:31.225+00:00",
+        "created_at": "2026-11-16T21:54:31.275494+00:00",
+        "historico_pagamentos": []
+      },
+      {
+        "id": "f4e0c6fd-7007-42c2-912f-84542f2f40ea",
+        "descricao": "PAGAMENTO DE MERCADORIA",
+        "valor": 4445.19,
+        "valor_pago": 4445.19,
+        "status": "pago",
+        "categoria": "Fornecedor / Mercadoria",
+        "pessoa_nome": "H2O",
+        "pessoa_id": null,
+        "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+        "data_competencia": "2026-11-16T00:00:00+00:00",
+        "data_pagamento": "2026-11-16T22:00:00.308+00:00",
+        "created_at": "2026-11-16T22:00:00.392036+00:00",
+        "historico_pagamentos": []
+      },
+      {
+        "id": "d043f610-1612-4c51-adbd-35d69693461c",
+        "descricao": "PAGAMENTO DE MERCADORIA",
+        "valor": 1414.8,
+        "valor_pago": 1414.8,
+        "status": "pago",
+        "categoria": "Mercadoria",
+        "pessoa_nome": "H2O",
+        "pessoa_id": null,
+        "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+        "data_competencia": "2026-11-16T00:00:00+00:00",
+        "data_pagamento": "2026-11-16T11:48:11.045+00:00",
+        "created_at": "2026-11-16T11:48:11.101342+00:00",
+        "historico_pagamentos": []
+      }
+    ],
+    "h2oNotas": [
+      {
+        "id": "b624d836-3b10-4d5a-9de2-26b72ba45419",
+        "descricao": "Ajuste a favor — desconto/abatimento H2O (planilha do dono)",
+        "valor": -37.82,
+        "valor_pago": 0,
+        "status": "pendente",
+        "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+        "data_vencimento": "2026-11-05T00:00:00+00:00",
+        "historico_pagamentos": [],
+        "pessoa_nome": "H2O",
+        "pessoa_id": "698ca68bab433fc39fef7b75"
+      },
+      {
+        "id": "b7cd468d-dfd6-4f49-bdd4-a7b51f75ec46",
+        "descricao": "COMPRA MERCADORIA - NOTA 118 (abateu 1337,50 de pagamento) (abateu 55,00 de PIX do cliente ao fornecedor) (abateu 2533,80 de PIX do cliente ao fornecedor) (abateu 25,00 de PIX do cliente ao fornecedor) (abateu 115,00 de PIX do cliente ao fornecedor) (abateu 1414,80 de PIX do cliente ao fornecedor)",
+        "valor": 11462.9,
+        "valor_pago": 0,
+        "status": "pendente",
+        "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+        "data_vencimento": "2026-11-09T00:00:00+00:00",
+        "historico_pagamentos": [
+          {
+            "data": "2026-11-12T21:21:56.462Z",
+            "forma": "PIX do cliente ao fornecedor",
+            "valor": 55
+          },
+          {
+            "data": "2026-11-12T21:41:09.231Z",
+            "forma": "PIX do cliente ao fornecedor",
+            "valor": 2533.8
+          },
+          {
+            "data": "2026-11-12T21:41:11.438Z",
+            "forma": "PIX do cliente ao fornecedor",
+            "valor": 25
+          },
+          {
+            "data": "2026-11-13T18:31:44.602Z",
+            "forma": "PIX do cliente ao fornecedor",
+            "valor": 115
+          },
+          {
+            "data": "2026-11-16T11:37:46.038Z",
+            "forma": "PIX do cliente ao fornecedor",
+            "valor": 1414.8
+          }
+        ],
+        "pessoa_nome": "H2O",
+        "pessoa_id": "698ca68bab433fc39fef7b75"
+      },
+      {
+        "id": "bda34ccf-51cb-49af-ac11-6f8fbb8c4573",
+        "descricao": "COMPRA MERCADORIA - NOTA 117 (abateu 1087,00 de PIX do cliente ao fornecedor)",
+        "valor": 12483,
+        "valor_pago": 0,
+        "status": "pendente",
+        "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c",
+        "data_vencimento": "2026-11-09T00:00:00+00:00",
+        "historico_pagamentos": [
+          {
+            "data": "2026-11-14T13:03:47.164Z",
+            "forma": "PIX do cliente ao fornecedor",
+            "valor": 1087
+          }
+        ],
+        "pessoa_nome": "H2O",
+        "pessoa_id": "698ca68bab433fc39fef7b75"
+      },
+      {
+        "id": "67c2505c-99a2-4ded-a01f-1eb4c5e9226a",
+        "descricao": "COMPRA MERCADORIA - NOTA 110",
+        "valor": 2496,
+        "valor_pago": 0,
+        "status": "pendente",
+        "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+        "data_vencimento": "2026-11-09T00:00:00+00:00",
+        "historico_pagamentos": [],
+        "pessoa_nome": "H2O",
+        "pessoa_id": "698ca68bab433fc39fef7b75"
+      },
+      {
+        "id": "b24b315e-505f-46ca-8a07-5a7a65c0b3fd",
+        "descricao": "NOTA ESPECIAIS H2O (abateu 256,56 de baixa antiga — valor_pago)",
+        "valor": 123.44,
+        "valor_pago": 0,
+        "status": "pendente",
+        "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c",
+        "data_vencimento": "2026-11-10T00:00:00+00:00",
+        "historico_pagamentos": [
+          {
+            "data": "2026-11-12T17:07:53.791Z",
+            "forma": "baixa antiga",
+            "valor": 256.56
+          }
+        ],
+        "pessoa_nome": "H2O",
+        "pessoa_id": "698ca68bab433fc39fef7b75"
+      }
+    ]
+  },
+  "depois": {}
+}

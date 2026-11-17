@@ -259,6 +259,13 @@ bater com o total, senão a venda inteira é recusada.
   Desfazer um pagamento de mercadoria devolve o valor como **dívida fantasma**, com o
   dinheiro fora do "já pago" — foi o que deixou a ADL R$ 4.031,40 maior em 17/11/2026.
   Antes de usar "Desfazer" em linha de mercadoria, olhar a nota.
+- **Criar lançamento "já quitado" NÃO abate a nota do fornecedor.** O formulário do
+  Financeiro grava a linha `pago` direto (`criarLancamento`, checkbox "quitado") e não
+  passa pelo `abaterNaDivida`; só o botão **Pago** (`marcarPago`) abate. Resultado: o
+  pagamento aparece no "já pago" e a nota segue cheia — foi a causa dos **R$ 11.642,29**
+  da H2O em 17/11/2026 (dois pagamentos de 16/11 lançados quitados). Depois de lançar
+  pagamento de mercadoria por esse caminho, conferir a nota com
+  `scripts/conferir-divida-fornecedor.mjs`.
 - **A dívida do fornecedor é lida de dois jeitos.** A tela do Financeiro casa por
   texto (`pessoa_nome`); abatimento, painel por fornecedor e trava de dívida filtram
   por `pessoa_id`. Linha com nome e sem cadastro aparece numa conta e não na outra. E

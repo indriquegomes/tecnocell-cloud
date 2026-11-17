@@ -31,9 +31,20 @@ ESPECIAIS 123,44) — é o que fecha os R$ 11.642,29 da H2O.
 `scripts/diagnostico-fornecedor.mjs`, `scripts/investigar-pendentes.mjs`,
 `scripts/pix-x-divida-fornecedor.mjs`.
 
-**Não corrigido no código (espera autorização):** desfazer o abatimento junto com o
-pagamento; criar a linha de crédito do `abaterNaDivida` com `pessoa_id`; preencher o
-histórico das notas #114 (ADL 502,00), #118 (H2O 1.337,50) e #112 (ZL 100,00).
+**Corrigido em 17/11 (autorizado pelo dono, com backup e DESFAZER em
+`docs/registros-banco/2026-11/`):** a linha de R$ 4.031,40 da ADL voltou para paga (sem
+encolher nota) e os dois pagamentos de 16/11 da H2O (R$ 4.445,19 + R$ 7.197,10) foram
+abatidos nas notas. Resultado: **H2O R$ 14.885,23 = planilha** e **ADL R$ 23.003,68**
+(faltam R$ 375,00 = R$ 280,00 de um PIX de 13/11 ao Mais Barato que a planilha não tem
++ R$ 95,00 que mudaram na planilha).
+
+**Pendente de decisão do dono:** de onde vêm os **R$ 95,00** que saíram da planilha da
+ADL entre 13/11 e hoje.
+
+**Não corrigido no código (espera autorização):** `criarLancamento` com "quitado" abater
+a nota do fornecedor (causa raiz dos R$ 11.642,29); `desfazerPagamento` devolver o valor
+para a nota; crédito do `abaterNaDivida` nascer com `pessoa_id`; histórico das notas #114
+(ADL 502,00), #118 (H2O 1.337,50) e #112 (ZL 100,00).
 
 ## Rodada anterior (17/11/2026) — tutorial da troca na tela
 
