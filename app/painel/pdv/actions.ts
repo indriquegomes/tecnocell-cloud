@@ -118,6 +118,7 @@ export type PessoaPDV = {
   endereco: string | null; bairro: string | null; cidade: string | null
   estado: string | null; cep: string | null; tabela_preco_id: string | null
   nao_vender: boolean | null; nao_vender_motivo: string | null
+  aviso_nota: string | null
 }
 
 // Busca de cliente SOB DEMANDA (não embute mais as 2.397 pessoas no HTML).
@@ -130,7 +131,7 @@ export async function carregarClientesPDV(accessToken: string): Promise<PessoaPD
   const supabase = await createServiceClient()
   const rows = await fetchAll<PessoaPDV>(
     (from, to) => supabase.from('pessoas')
-      .select('id, nome, cpf_cnpj, telefone, endereco, bairro, cidade, estado, cep, tabela_preco_id, nao_vender, nao_vender_motivo')
+      .select('id, nome, cpf_cnpj, telefone, endereco, bairro, cidade, estado, cep, tabela_preco_id, nao_vender, nao_vender_motivo, aviso_nota')
       .eq('ativo', true).in('tipo', ['cliente', 'ambos']).order('nome').range(from, to),
   )
   return rows
@@ -142,7 +143,7 @@ export async function buscarClientesPDV(accessToken: string, termo: string): Pro
   if (raw.length < 1) return []
   const supabase = await createServiceClient()
   let q = supabase.from('pessoas')
-    .select('id, nome, cpf_cnpj, telefone, endereco, bairro, cidade, estado, cep, tabela_preco_id, nao_vender, nao_vender_motivo')
+    .select('id, nome, cpf_cnpj, telefone, endereco, bairro, cidade, estado, cep, tabela_preco_id, nao_vender, nao_vender_motivo, aviso_nota')
     .eq('ativo', true).in('tipo', ['cliente', 'ambos'])
   const digitos = raw.replace(/\D/g, '')
   const soDigitos = digitos.length >= 4 && /^[\d.\-/()\s]+$/.test(raw)
@@ -739,6 +740,8 @@ export interface CupomSnap {
   itens: { codigo: string | null; nome: string; quantidade: number; preco_unitario: number; prateleira: string | null }[]
   pagamentos: { forma_nome: string; valor: number; taxa: number; parcelas: number; status: string }[]
   cliente: string | null; clienteTelefone: string | null; clienteEndereco: string | null
+  /** aviso que sai impresso no cupom (o cliente vê) — nunca mensagem interna */
+  avisoNota?: string | null
   vendedor: string | null; deposito: string | null
   loja: string | null; lojaRazao: string | null; lojaCnpj: string | null; lojaIE: string | null
   lojaEndereco: string | null; lojaTelefone: string | null; lojaLogo: string | null; lojaTermos: string | null
@@ -761,14 +764,14 @@ export async function buscarCupomVenda(accessToken: string, vendaId: string): Pr
     supabase.from('itens_venda').select('quantidade, preco_unitario, total_item, nome, produtos(nome, codigo, prateleira)').eq('venda_id', vendaId),
     supabase.from('pagamentos_venda').select('valor, taxa, parcelas, status, formas_pagamento(nome)').eq('venda_id', vendaId),
     v.deposito_id ? supabase.from('depositos').select('nome, loja_id').eq('id', v.deposito_id).maybeSingle() : Promise.resolve({ data: null }),
-    v.pessoa_id ? supabase.from('pessoas').select('nome, telefone, endereco, bairro, cidade, estado, cep').eq('id', v.pessoa_id).maybeSingle() : Promise.resolve({ data: null }),
+    v.pessoa_id ? supabase.from('pessoas').select('nome, telefone, endereco, bairro, cidade, estado, cep, aviso_nota').eq('id', v.pessoa_id).maybeSingle() : Promise.resolve({ data: null }),
   ])
   const dep = (depRes as { data: { nome: string | null; loja_id: string | null } | null }).data
   const { data: loja } = dep?.loja_id
     ? await supabase.from('lojas').select('nome, razao_social, cnpj, inscricao_estadual, endereco, numero, complemento, bairro, cidade, uf, cep, whatsapp, telefone, logo_url, termos_venda').eq('id', dep.loja_id).maybeSingle()
     : { data: null }
 
-  const cli = (cliRes as { data: { nome: string; telefone: string | null; endereco: string | null; bairro: string | null; cidade: string | null; estado: string | null; cep: string | null } | null }).data
+  const cli = (cliRes as { data: { nome: string; telefone: string | null; endereco: string | null; bairro: string | null; cidade: string | null; estado: string | null; cep: string | null; aviso_nota: string | null } | null }).data
   const clienteEndereco = cli
     ? ([cli.endereco, cli.bairro, cli.cidade && cli.estado ? `${cli.cidade}/${cli.estado}` : (cli.cidade ?? cli.estado), cli.cep].filter(Boolean).join(', ') || null)
     : null
@@ -785,6 +788,7 @@ export async function buscarCupomVenda(accessToken: string, vendaId: string): Pr
       .map((p) => ({ forma_nome: p.formas_pagamento?.nome ?? '—', valor: Number(p.valor) || 0, taxa: Number(p.taxa) || 0, parcelas: p.parcelas ?? 1, status: p.status ?? 'pago' })),
     cliente: cli?.nome ?? null,
     clienteTelefone: cli?.telefone ?? null,
+    avisoNota: cli?.aviso_nota ?? null,
     clienteEndereco,
     vendedor: v.vendedor_nome ?? null,
     deposito: dep?.nome ?? null,

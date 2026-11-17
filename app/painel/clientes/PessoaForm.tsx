@@ -27,6 +27,7 @@ export type PessoaEdit = {
   estado: string | null; tabela_preco_id: string | null; limite_credito: number | null
   rotina_pagamento?: string | null
   nao_vender?: boolean | null; nao_vender_motivo?: string | null
+  aviso_nota?: string | null
   permite_fiado?: boolean | null
   chave_pix?: string | null; tipo_chave_pix?: string | null
   formas_pagamento?: string[] | null; forma_padrao?: string | null
@@ -237,6 +238,16 @@ export function PessoaForm({ tabelas, vendedores, editando, podeCredito = true, 
               placeholder="Motivo (ex: calote de R$439 em 06/2026)"
               className="field mt-2 text-sm" />
             <p className="mt-1 text-[11px] text-gray-400">O PDV mostra um aviso vermelho ao escolher este cliente. Não impede a venda.</p>
+          </div>
+
+          {/* Aviso que SAI NO CUPOM/NOTA (o cliente vê). Separado do aviso interno:
+              o cupom é entregue ao cliente e não pode carregar mensagem interna. */}
+          <div className="sm:col-span-2 rounded-xl border border-gray-200 bg-gray-50/60 p-3">
+            <label className="block text-sm font-medium text-gray-700">📄 Aviso na nota de venda (o cliente vê)</label>
+            <input name="aviso_nota" defaultValue={editando?.aviso_nota ?? ''}
+              placeholder="Ex: Entregar na TRICELL curso · Só receber diante do pagamento"
+              className="field mt-2 text-sm" />
+            <p className="mt-1 text-[11px] text-gray-400">Sai impresso no cupom/nota. Sem mensagem interna (dívida/cobrança) — o cliente lê.</p>
           </div>
 
           <div className="sm:col-span-2 rounded-xl border border-gray-200 bg-gray-50/60 p-3">

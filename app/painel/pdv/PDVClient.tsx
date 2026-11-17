@@ -146,6 +146,7 @@ interface Pessoa {
   tabela_preco_id?: string | null
   nao_vender?: boolean | null
   nao_vender_motivo?: string | null
+  aviso_nota?: string | null
 }
 
 interface Deposito {
@@ -587,6 +588,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     cliente: string | null
     clienteTelefone: string | null
     clienteEndereco: string | null
+    /** aviso que sai impresso no cupom (o cliente vê) */
+    avisoNota?: string | null
     entrega?: string | null
     rota?: string | null
     tipo?: 'retirada' | 'entrega'
@@ -1622,6 +1625,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           })),
         cliente: clienteSelecionado?.nome ?? null,
         clienteTelefone: clienteSelecionado?.telefone ?? null,
+        // aviso que SAI NO CUPOM (o cliente vê) — separado do aviso interno
+        avisoNota: clienteSelecionado?.aviso_nota ?? null,
         clienteEndereco: (() => {
           const p = clienteSelecionado
           if (!p) return null
@@ -2363,6 +2368,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     <p class="bold">CONSUMIDOR</p>
     ${snap.cliente ? `<p class="bold" style="font-size:14px">${snap.cliente}</p>` : '<p>CONSUMIDOR FINAL</p>'}
     ${snap.entrega ? `<p style="text-align:left"><b>📍 Entrega:</b> ${snap.entrega}</p>` : snap.clienteEndereco ? `<p style="text-align:left"><b>Endereço do cliente:</b> ${snap.clienteEndereco}</p>` : ''}
+    ${snap.avisoNota ? `<div style="border:2px solid #000;padding:6px 4px;margin:6px 0;text-align:center;font-size:12px;font-weight:900;letter-spacing:1px">${snap.avisoNota.replace(/</g, '&lt;')}</div>` : ''}
 
     <hr class="sep">
     <p class="assina bold">Conferência: __________________</p>
