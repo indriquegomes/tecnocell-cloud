@@ -67,7 +67,7 @@ export async function carregarPedidoAppPDV(id: string, unidade: string, accessTo
   if (erroAtendimento) throw new ErroPedido('Não foi possível conferir se o pedido já virou venda.')
   if (erroPessoa || !pessoa || (!atendimento?.venda_id &&
     (pedido.status === 'cancelado' || erroCadastro || !cadastro || pessoa.ativo !== true || pessoa.nao_vender === true))) {
-    throw new ErroPedido('Cadastro sem vínculo ativo e aprovado. Confira o cliente antes de atender.')
+    throw new ErroPedido('Cadastro sem vínculo ativo e aprovado — ou com AVISO INTERNO no cadastro. Confira o cliente antes de atender.')
   }
   if (erroProdutos || (!atendimento?.venda_id && itens.some(i => !produtos?.some(p => p.id === i.id && p.ativo === true)))) {
     throw new ErroPedido('Há peças indisponíveis neste pedido. Confira o cadastro dos produtos.')

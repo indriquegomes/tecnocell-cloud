@@ -232,12 +232,15 @@ export function PessoaForm({ tabelas, vendedores, editando, podeCredito = true, 
               <input type="hidden" name="nao_vender" value="0" />
               <input type="checkbox" name="nao_vender" value="1" defaultChecked={!!editando?.nao_vender}
                 className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500" />
-              🚫 Não vender para este cliente
+              ⚠️ Aviso interno (só a equipe vê)
             </label>
             <input name="nao_vender_motivo" defaultValue={editando?.nao_vender_motivo ?? ''}
-              placeholder="Motivo (ex: calote de R$439 em 06/2026)"
+              placeholder="Motivo (ex: deve R$ 55 — cobrar antes de vender)"
               className="field mt-2 text-sm" />
-            <p className="mt-1 text-[11px] text-gray-400">O PDV mostra um aviso vermelho ao escolher este cliente. Não impede a venda.</p>
+            <p className="mt-1 text-[11px] text-gray-400">
+              O PDV mostra o aviso em destaque ao escolher este cliente (não impede a venda no balcão).
+              Bloqueia compra pelo App. Edite/apague quando o problema for resolvido.
+            </p>
           </div>
 
           {/* Aviso que SAI NO CUPOM/NOTA (o cliente vê). Separado do aviso interno:

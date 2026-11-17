@@ -238,8 +238,8 @@ export default async function ClientesPage({
                       })()}
                       {p.nao_vender && (
                         <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700"
-                          title={(p.nao_vender_motivo as string) || 'Cliente marcado como não vender'}>
-                          🚫 NÃO VENDER
+                          title={(p.nao_vender_motivo as string) || 'Aviso interno — veja o motivo na ficha'}>
+                          ⚠️ AVISO INTERNO
                         </span>
                       )}
                       {p.foto_url && (

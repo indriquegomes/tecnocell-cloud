@@ -61,7 +61,7 @@ export async function alterarStatusCadastro(
     pessoaAnterior = cadastro.pessoa_id
     const { data: pessoa, error: erroPessoa } = await clientesApp.from('pessoas').select('id,ativo,nao_vender').eq('id', pessoaId).maybeSingle()
     if (erroPessoa || !pessoa?.ativo) return { ok: false, message: 'Pessoa não encontrada ou inativa.' }
-    if (pessoa.nao_vender) return { ok: false, message: 'Esta pessoa está bloqueada para compras no Cloud. Confira o cadastro antes de aprovar.' }
+    if (pessoa.nao_vender) return { ok: false, message: 'Esta pessoa está com AVISO INTERNO no cadastro — o App bloqueia a compra. Confirme com a loja antes de aprovar.' }
     const { data: outro, error: erroOutro } = await clientesApp.from('cadastros_clientes').select('user_id').eq('pessoa_id', pessoaId).neq('user_id', userId).limit(1)
     if (erroOutro) return { ok: false, message: 'Não foi possível conferir o vínculo.' }
     if (outro?.length) return { ok: false, message: 'Essa pessoa já está vinculada a outra conta.' }

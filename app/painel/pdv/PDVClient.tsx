@@ -2652,11 +2652,12 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 <button type="button" disabled={comercialTravado} onClick={() => { setPessoaId(''); setBuscaCliente(''); trocarTabela('') }}
                   className="ml-auto text-xs font-medium text-red-400 hover:text-red-600">✕</button>
               </div>
-              {/* Cliente problemático — AVISA, não bloqueia (decisão de João Vítor Maximiano França).
+              {/* Aviso interno de cuidado — a equipe vê ao escolher o cliente. AVISA,
+                  não bloqueia o balcão (decisão de João Vítor Maximiano França).
                   Letras GARRAFAIS: o atendente não pode passar batido no aviso. */}
               {clienteSelecionado.nao_vender && (
                 <div className="flex flex-wrap items-center gap-2.5 rounded-lg border-2 border-red-400 bg-red-50 px-3 py-2.5">
-                  <span className="text-lg font-extrabold tracking-wide text-red-700">🚫 NÃO VENDER</span>
+                  <span className="text-lg font-extrabold tracking-wide text-red-700">⚠️ AVISO INTERNO</span>
                   {clienteSelecionado.nao_vender_motivo && (
                     <span className="text-sm font-bold text-red-700">· {clienteSelecionado.nao_vender_motivo}</span>
                   )}
