@@ -48,6 +48,7 @@ export function TrocasClient({
     semFornecedorQtd: number
     semFornecedorValor: number
     antigas30: number
+    tolerancia: number
   }
 }) {
   const router = useRouter()
@@ -310,6 +311,7 @@ export function TrocasClient({
       {retornando && (
         <RetornoDaTroca
           troca={retornando}
+          tolerancia={resumo.tolerancia}
           pendente={pendente}
           fechar={() => setRetornando(null)}
           rodar={rodar}
@@ -576,6 +578,7 @@ function PainelFornecedores({
     semFornecedorQtd: number
     semFornecedorValor: number
     antigas30: number
+    tolerancia: number
   }
 }) {
   const [aberto, setAberto] = useState(false)
@@ -639,11 +642,13 @@ function PainelFornecedores({
  */
 function RetornoDaTroca({
   troca,
+  tolerancia,
   pendente,
   fechar,
   rodar,
 }: {
   troca: TrocaLinha
+  tolerancia: number
   pendente: boolean
   fechar: () => void
   rodar: (fn: () => Promise<unknown>) => void
@@ -737,7 +742,8 @@ function RetornoDaTroca({
             </div>
           )}
           <p className="mt-2 text-[11px] text-gray-400">
-            Se a peça que voltou vale menos, a diferença só vira perda acima do limite configurado. Diferença pequena é normal e não mexe no resultado.
+            Se a peça que voltou vale menos, a diferença até <b>{fmt(tolerancia)}</b> não é perda (é diferença de modelo).
+            Acima disso, a perda é lançada com o valor exato.
           </p>
         </div>
       )}

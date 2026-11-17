@@ -42,15 +42,24 @@ export async function salvarConfiguracoes(_prev: State, formData: FormData): Pro
     centro: zona('centro'),
   }
 
-  const [r1, r2, r3] = await Promise.all([
+  // Tolerância de diferença no retorno da troca com fornecedor (em reais).
+  // Teto de R$ 1.000: acima disso a "diferença de modelo" esconderia perda real.
+  const toleranciaRaw = parseFloat((formData.get('troca_tolerancia') as string) ?? '')
+  const valorTrocas = {
+    tolerancia_diferenca: Number.isFinite(toleranciaRaw) ? Math.min(Math.max(0, toleranciaRaw), 1000) : 100,
+  }
+
+  const [r1, r2, r3, r4] = await Promise.all([
     supabase.from('configuracoes').upsert({ chave: 'empresa', valor: valorEmpresa }, { onConflict: 'chave' }),
     supabase.from('configuracoes').upsert({ chave: 'pdv', valor: valorPdv }, { onConflict: 'chave' }),
     supabase.from('configuracoes').upsert({ chave: 'entregas', valor: valorEntregas }, { onConflict: 'chave' }),
+    supabase.from('configuracoes').upsert({ chave: 'trocas', valor: valorTrocas }, { onConflict: 'chave' }),
   ])
 
   if (r1.error) return { ok: false, erro: r1.error.message }
   if (r2.error) return { ok: false, erro: r2.error.message }
   if (r3.error) return { ok: false, erro: r3.error.message }
+  if (r4.error) return { ok: false, erro: r4.error.message }
   return { ok: true, erro: null }
 }
 

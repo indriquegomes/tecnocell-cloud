@@ -133,11 +133,16 @@ export default async function TrocasPage({ searchParams }: { searchParams: Promi
     .map(([id, g]) => ({ id, fornecedor: g.nome, pecas: g.pecas, valor: Math.round(g.valor * 100) / 100, dias: g.dias }))
     .sort((a, b) => b.valor - a.valor)
   const semFornecedor = emGarantia.filter((l) => !l.fornecedor_id)
+  // Tolerância configurada (Configurações → Troca com fornecedor). A tela mostra o
+  // número real para a atendente saber a partir de quanto vira perda.
+  const { data: cfgTrocas } = await supabase.from('configuracoes').select('valor').eq('chave', 'trocas').maybeSingle()
+  const tolerancia = Number((cfgTrocas?.valor as { tolerancia_diferenca?: number } | null)?.tolerancia_diferenca ?? 100)
   const resumo = {
     porFornecedor: resumoFornecedor,
     semFornecedorQtd: semFornecedor.reduce((s, l) => s + l.quantidade, 0),
     semFornecedorValor: Math.round(semFornecedor.reduce((s, l) => s + l.custo * l.quantidade, 0) * 100) / 100,
     antigas30: emGarantia.filter((l) => l.dias > 30).length,
+    tolerancia: Number.isFinite(tolerancia) && tolerancia >= 0 ? tolerancia : 100,
   }
 
   return (

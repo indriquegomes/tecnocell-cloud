@@ -5,7 +5,12 @@ import { useActionState } from 'react'
 import { salvarConfiguracoes } from './actions'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
 
-export function ConfigForm({ dados, dadosPdv, dadosEntregas }: { dados: Record<string, string>; dadosPdv: Record<string, number>; dadosEntregas: Record<string, { semana?: string; sabado?: string }> }) {
+export function ConfigForm({ dados, dadosPdv, dadosEntregas, dadosTrocas = {} }: {
+  dados: Record<string, string>
+  dadosPdv: Record<string, number>
+  dadosEntregas: Record<string, { semana?: string; sabado?: string }>
+  dadosTrocas?: Record<string, number>
+}) {
   const [state, formAction, pending] = useActionState(salvarConfiguracoes, { ok: false, erro: null })
 
   // Scroll to top so success/error message is visible
@@ -73,6 +78,17 @@ export function ConfigForm({ dados, dadosPdv, dadosEntregas }: { dados: Record<s
             <option value="America/Belem">Belém (GMT-3)</option>
           </select>
         </div>
+      </div>
+
+      <h3 className="text-sm font-semibold text-gray-700 border-b border-gray-100 pb-3 pt-2">Troca com fornecedor</h3>
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-gray-700">Tolerância de diferença no retorno (R$)</label>
+        <CampoDinheiro name="troca_tolerancia" defaultValue={Number(dadosTrocas.tolerancia_diferenca ?? 100)} />
+        <p className="text-xs text-gray-400 mt-1">
+          Quando o fornecedor devolve uma peça diferente e mais barata, a diferença até este valor <b>não vira perda</b>
+          (é diferença de modelo, não prejuízo). Acima dele, a perda é lançada com o valor exato. Vale só para peça
+          substituta — voltando a mesma peça, nunca há perda.
+        </p>
       </div>
 
       <h3 className="text-sm font-semibold text-gray-700 border-b border-gray-100 pb-3 pt-2">PDV / Caixa</h3>
