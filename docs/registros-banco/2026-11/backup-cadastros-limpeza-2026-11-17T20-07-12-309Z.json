@@ -1,0 +1,127 @@
+{
+  "quando": "2026-11-17T20:07:13.528Z",
+  "antes": [
+    {
+      "id": "2b9a4f92-c3af-459e-9176-633b3b515f17",
+      "nome": "H2",
+      "tipo": "fornecedor",
+      "ativo": true,
+      "nao_vender": false,
+      "nao_vender_motivo": null,
+      "aviso_nota": null
+    },
+    {
+      "id": "645540571f33d46d69d9c25d",
+      "nome": "313",
+      "tipo": "fornecedor",
+      "ativo": true,
+      "nao_vender": false,
+      "nao_vender_motivo": null,
+      "aviso_nota": null
+    },
+    {
+      "id": "6477568677023868d40c86e4",
+      "nome": "LUCIENE CRISTINA DOS REIS SALOTTI 25704755801",
+      "tipo": "cliente",
+      "ativo": true,
+      "nao_vender": false,
+      "nao_vender_motivo": null,
+      "aviso_nota": null
+    },
+    {
+      "id": "64a9a582fd011df677286395",
+      "nome": "TROCAS 313",
+      "tipo": "fornecedor",
+      "ativo": true,
+      "nao_vender": false,
+      "nao_vender_motivo": null,
+      "aviso_nota": null
+    },
+    {
+      "id": "64ac18f2f7041651f7a0af74",
+      "nome": "MAURICIO FAGUNDES DA SILVA 312 MAURICIO FAGUNDES DA SILVA 312",
+      "tipo": "cliente",
+      "ativo": true,
+      "nao_vender": false,
+      "nao_vender_motivo": null,
+      "aviso_nota": null
+    },
+    {
+      "id": "6648ce93084594bc5bdf7683",
+      "nome": "HU100 ESPECIAIS",
+      "tipo": "fornecedor",
+      "ativo": true,
+      "nao_vender": false,
+      "nao_vender_motivo": null,
+      "aviso_nota": null
+    },
+    {
+      "id": "6789631a321687d74755169c",
+      "nome": "CLIENTES INADIMPLENTES",
+      "tipo": "cliente",
+      "ativo": true,
+      "nao_vender": false,
+      "nao_vender_motivo": null,
+      "aviso_nota": null
+    },
+    {
+      "id": "698ca98ffe68b67c5c5f2094",
+      "nome": "ANA CRISTINA DA SILVA STARCK 08290468792",
+      "tipo": "cliente",
+      "ativo": true,
+      "nao_vender": false,
+      "nao_vender_motivo": null,
+      "aviso_nota": null
+    },
+    {
+      "id": "6a0629426e54572cff6f7c0c",
+      "nome": "DOUGLAS 21 97872‑2935",
+      "tipo": "cliente",
+      "ativo": true,
+      "nao_vender": false,
+      "nao_vender_motivo": null,
+      "aviso_nota": null
+    },
+    {
+      "id": "6a4e42e3bd217a9375b770c2",
+      "nome": "Mega Tech (NAO UTILIZAR ESSE CADASTRO",
+      "tipo": "cliente",
+      "ativo": true,
+      "nao_vender": false,
+      "nao_vender_motivo": null,
+      "aviso_nota": null
+    },
+    {
+      "id": "6a59489c60073a7a6e2cd0df",
+      "nome": "nfernanda781 nfernanda781",
+      "tipo": "cliente",
+      "ativo": true,
+      "nao_vender": false,
+      "nao_vender_motivo": null,
+      "aviso_nota": null
+    },
+    {
+      "id": "6a61678060073a7a6e34a1bb",
+      "nome": "J N MANUTENCAO CWB LTDA J N MANUTENCAO CWB LTDA",
+      "tipo": "cliente",
+      "ativo": true,
+      "nao_vender": false,
+      "nao_vender_motivo": null,
+      "aviso_nota": null
+    }
+  ],
+  "ids": {
+    "313": "645540571f33d46d69d9c25d",
+    "J N MANUTENCAO CWB LTDA J N MANUTENCAO CWB LTDA": "6a61678060073a7a6e34a1bb",
+    "CLIENTES INADIMPLENTES": "6789631a321687d74755169c",
+    "Mega Tech (NAO UTILIZAR ESSE CADASTRO": "6a4e42e3bd217a9375b770c2",
+    "MAURICIO FAGUNDES DA SILVA 312 MAURICIO FAGUNDES DA SILVA 312": "64ac18f2f7041651f7a0af74",
+    "nfernanda781 nfernanda781": "6a59489c60073a7a6e2cd0df",
+    "ANA CRISTINA DA SILVA STARCK 08290468792": "698ca98ffe68b67c5c5f2094",
+    "LUCIENE CRISTINA DOS REIS SALOTTI 25704755801": "6477568677023868d40c86e4",
+    "DOUGLAS 21 97872-2935": "6a0629426e54572cff6f7c0c",
+    "H2": "2b9a4f92-c3af-459e-9176-633b3b515f17",
+    "TROCAS 313": "64a9a582fd011df677286395",
+    "HU100 ESPECIAIS": "6648ce93084594bc5bdf7683"
+  }
+}
