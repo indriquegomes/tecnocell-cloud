@@ -5,9 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { logAtividade } from '@/lib/log-atividade'
 import { palavrasBusca, aplicaBusca } from '@/lib/busca-produtos'
 import { abaterNaDivida } from '@/lib/abater-divida'
-import { formatBRL } from '@/lib/utils'
-
-const formatarReais = (v: number) => formatBRL(Math.round(v * 100) / 100)
+import { decidirPerdaRetorno } from '@/lib/trocas-regras'
 
 /**
  * Quanto de diferença no valor da peça que voltou NÃO é tratado como perda.
@@ -188,13 +186,9 @@ export async function confirmarRetorno(formData: FormData): Promise<{ ok: boolea
   // tolerância configurada — diferença pequena é normal (fornecedor manda modelo
   // equivalente) e não pode aparecer como perda do mês.
   const tolerancia = await toleranciaDiferenca(supabase)
-  const diferenca = Math.round((custoOriginal - custoRetorno) * quantidade * 100) / 100
-  const perda = ehSubstituta && diferenca > tolerancia ? diferenca : 0
-  const observacao = !ehSubstituta
-    ? null
-    : perda > 0
-      ? `Perda de ${formatarReais(perda)} — peça substituta ${formatarReais(diferenca)} mais barata (acima da tolerância de ${formatarReais(tolerancia)})`
-      : `Diferença de ${formatarReais(Math.max(0, diferenca))} dentro da tolerância de ${formatarReais(tolerancia)} — sem perda`
+  const { perda, observacao } = decidirPerdaRetorno({
+    custoOriginal, custoRetorno, quantidade, tolerancia, ehSubstituta,
+  })
 
   const { error } = await supabase.from('trocas').update({
     status: 'retornou',
