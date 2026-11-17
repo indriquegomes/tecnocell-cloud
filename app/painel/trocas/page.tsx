@@ -1,6 +1,7 @@
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { formatBRL } from '@/lib/utils'
 import { TrocasClient } from './TrocasClient'
+import { Tutorial } from './Tutorial'
 
 // TROCAS COM FORNECEDOR — garantia do balcão até a peça voltar ao estoque.
 // A fila vive em `trocas` (migration 2026-11-03). Se a migration ainda não
@@ -189,6 +190,7 @@ export default async function TrocasPage({ searchParams }: { searchParams: Promi
               no SQL Editor do Supabase.
             </div>
           )}
+          <Tutorial tolerancia={resumo.tolerancia} />
           <TrocasClient
             linhas={linhas}
             fornecedores={fornecedores}

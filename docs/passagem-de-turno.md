@@ -6,9 +6,32 @@
 >
 > Regras do projeto: `AGENTS.md`. Como o sistema funciona: `docs/mapa/`.
 
-**Última atualização:** 16/11/2026 (troca com fornecedor: volta sempre no fundo de Petrópolis, retorno pergunta o que veio, tolerância de valor e painel de cobrança).
+**Última atualização:** 17/11/2026 (tutorial da troca na própria tela; tolerância editável em Configurações).
 
-## Nesta rodada (16/11/2026) — troca com fornecedor
+## Nesta rodada (17/11/2026) — tutorial da troca na tela
+
+**O tutorial agora está na página.** Antes era só documento em `docs/receitas/`;
+quem atende não abre documento. Agora a aba Estoque → Trocas tem um painel
+fechado **"Como funciona a troca com fornecedor"** com: o caminho da peça nos 4
+passos (com o nome exato de cada botão), o que cada situação quer dizer, o que
+significa cada número do topo, as 5 regras do dinheiro e o **roteiro de
+conferência** para análise futura (ordem de checar antes de acusar erro, tabela
+"onde cada número nasce", a armadilha do `excluirTroca`).
+(`app/painel/trocas/Tutorial.tsx`, renderizado em `page.tsx`)
+
+É `<details>` de propósito: fechado por padrão (não empurra a lista de 200+
+linhas) e funciona sem JavaScript. O valor da tolerância aparece no texto lendo
+`configuracoes` — se o dono mudar em Configurações, o texto acompanha sozinho.
+Teste: `e2e/trocas-tutorial.spec.ts` (abre e confere o conteúdo).
+
+**Tolerância virou campo de tela:** Configurações → **Troca com fornecedor**
+(CampoDinheiro, padrão R$ 200, teto R$ 1.000) grava em `configuracoes` chave
+`trocas`. Era o "falta a tela" da rodada anterior.
+
+Fonte única: o documento `docs/receitas/tutorial-trocas-fornecedor.md` foi
+reduzido a **como conferir os números** — o texto para pessoas mora na tela.
+
+## Rodada anterior (16/11/2026) — troca com fornecedor
 
 **Regra corrigida:** o retorno da troca entra **sempre no PETRÓPOLIS ESTOQUE** (o
 fundo), qualquer que seja a loja de onde a peça saiu; a loja recebe por
