@@ -420,19 +420,44 @@ Painel abrindo sem erro de console.
      "DEVE R$ 199,00 — cobrar antes de vender", observação histórica, A Receber
      R$ 199,00 pendente (venc. 01/08/2026). Backup em
      `docs/registros-banco/2026-11/backup-daniel-nao-vender-*.json`.
-   - **Aviso no PDV em LETRAS GARRAFAIS** (pedido do dono): "🚫 NÃO VENDER" e
-     "⚠️ Já deve R$ X em fiado" agora `font-extrabold` com borda 2 — o
+   - **Três camadas de aviso (desenho fechado em 17/11):**
+     1. **Aviso interno de cuidado** — o campo antigo "Não vender" foi
+        renomeado. Mesma coluna (`nao_vender`); no PDV vira tarja garrafal
+        "⚠️ AVISO INTERNO · motivo"; na lista de Clientes, selo "⚠️ AVISO
+        INTERNO"; **editável e apagável pelo balconista** (Clientes → editar),
+        some só quando for apagado — **pagar/perdoar dívida não limpa** (de
+        propósito). No balcão **avisa, não bloqueia**; no **App bloqueia** a
+        compra (`a8699a6`).
+     2. **Aviso na nota de venda** — campo novo `pessoas.aviso_nota`
+        (migration aplicada, `70c772e`), editável no cadastro: **sai impresso
+        no cupom** (automático e 2ª via) em caixa preta abaixo do nome do
+        cliente, **sem mensagem interna**. Luís Paulo = "Só receber diante do
+        pagamento" (testado com venda real #13933 → 2ª via conferida; cupom em
+        `docs/registros/2026-11/preview-nao-vender/cupom-luis-paulo.html`).
+     3. **Financeiro** — não lê nenhum dos dois campos; a matemática é
+        independente (dívida se paga/perdoa pelo F9, não pelo aviso).
+   - **Dívida mencionada no nome com dívida REAL no app** → nome limpo +
+     `nao_vender` + motivo + observação + **registrar o valor no A Receber**
+     (dado). **Primeiro caso: DANIEL FERREIRA DA SILVA** (era "DANIEL FERREIRA
+     DA SILVA (DEVENDO R$ 199,00)") — aplicado: nome limpo, aviso interno +
+     motivo "DEVE R$ 199,00 — cobrar antes de vender", observação histórica,
+     A Receber R$ 199,00 pendente (venc. 01/08/2026). Backup em
+     `docs/registros-banco/2026-11/backup-daniel-nao-vender-*.json`.
+   - **Aviso no PDV em LETRAS GARRAFAIS** (pedido do dono): "⚠️ AVISO INTERNO"
+     e "⚠️ Já deve R$ X em fiado" agora `font-extrabold` com borda 2 — o
      atendente não passa batido (`d89e594`). Prints em
      `docs/registros/2026-11/preview-nao-vender/`.
    - **Anotação de dívida sem dívida no app** → nome limpo; conferir caso a
      caso se a dívida é real (aí registra) ou é anotação velha (aí cai).
    - **Instrução operacional** → observação (e o PDV passa a mostrar a
      observação do cliente quando ele é selecionado).
-   Restam os outros casos da lista: Luís Paulo (R$ 55), Luiz Gustavo (R$ 100),
-   Marcio (R$ 924), Matheus (R$ 654,50) — decidir quais são dívida real;
-   Tatiana e Bio Tech → não vender + motivo; CSM/Tricell → instrução em
-   observação; Arthur inativo; J N repetido; Mega Tech e CLIENTES
-   INADIMPLENTES (apagar?); 14 apelidos deixados como estão.
+   Restam os outros casos da lista: Luiz Gustavo (R$ 100), Marcio (R$ 924),
+   Matheus (R$ 654,50) — decidir quais são dívida real; Tatiana e Bio Tech →
+   aviso interno + motivo; CSM/Tricell → instrução; Arthur inativo; J N
+   repetido; Mega Tech e CLIENTES INADIMPLENTES (apagar?); 14 apelidos deixados
+   como estão. **Luís Paulo: concluído** — dívida de R$ 55,00 foi perdoada pelo
+   dono pelo app (virou "Perda com fiado" no resultado) e o aviso na nota
+   ficou "Só receber diante do pagamento".
 
    Números levantados em 10/11/2026, para dimensionar quando a etapa abrir: de
    2.153 pessoas, **9 têm lembrete dentro do nome** e **18 passam de 45
