@@ -30,7 +30,7 @@ export async function resolverPixDoDia(
   const chat = await grupoDoTelegram(supabase, nomeLoja)
   if (!chat) return []
 
-  const [{ data: comps }, fornecedores, chaves, contasProprias] = await Promise.all([
+  const [{ data: comps }, fornecedores, chaves, contasProprias, lojas] = await Promise.all([
     supabase.from('comprovantes_pix')
       .select('valor, destinatario, extraido_raw, transacao_id, status, pagador, data_pix')
       .eq('telegram_chat_id', chat).neq('status', 'furo')
@@ -42,6 +42,7 @@ export async function resolverPixDoDia(
       (from, to) => supabase.from('pessoa_chaves_pix').select('pessoa_id, chave, favorecido')
         .eq('ativo', true).range(from, to)),
     supabase.from('contas').select('chave_pix, titular').not('chave_pix', 'is', null),
+    supabase.from('lojas').select('cnpj'),
   ])
 
   const meus = (comps ?? []) as { valor: number | null; destinatario: string | null; extraido_raw: unknown; transacao_id: string | null; status: string | null; pagador: string | null; data_pix: string | null }[]
@@ -63,8 +64,14 @@ export async function resolverPixDoDia(
     dia: c.data_pix ?? null,
   })), { transacoesDoOutroGrupo: txDoOutroGrupo })
 
+  // "Nossa conta" = CNPJ de QUALQUER loja da rede + chave cadastrada em conta.
+  // Só o CNPJ da loja do caixa não bastava: quando a cliente paga na chave da loja
+  // irmã, o comprovante caía no cadastro de fornecedor da outra loja e o fechamento
+  // abatia a dívida dela (66,76 em 16/11/2026) — dinheiro nosso virando crédito de
+  // fornecedor. A loja irmã recebeu o dinheiro, mas não é dívida a abater.
   const docsProprios = [
     (loja as { cnpj?: string | null } | null)?.cnpj ?? null,
+    ...((lojas.data ?? []).map((l) => (l as { cnpj?: string | null }).cnpj ?? null)),
     ...((contasProprias.data ?? []).map((c) => c.chave_pix as string)),
   ]
   const nomesProprios = (contasProprias.data ?? []).map((c) => c.titular as string)
