@@ -38,6 +38,26 @@ sem entrada de estoque** e **peça que entrou fora do fundo**.
 
 **Tutorial para o balcão:** `docs/receitas/tutorial-trocas-fornecedor.md`.
 
+**Bug relatado pelo dono e corrigido (16/11):** ele apertava em "Chegou do
+fornecedor" e "nada acontecia". O botão funcionava — o painel abria **no fim da
+página** (a lista tem 239 linhas e mais de 580 mil caracteres), fora da vista.
+Reproduzido em produção com navegador (clique abre o painel, zero erro de JS).
+Agora os painéis de retorno e de abatimento abrem como **modal na frente**
+(`e0b9672`). Verificado em produção: painel no topo da tela, sem erro de console.
+
+**Testes desta rodada:**
+
+- `lib/trocas-regras.ts` (`decidirPerdaRetorno`) — a decisão "vira perda ou não"
+  virou função pura, testável, e `test/trocas.test.ts` cobre **14 casos**
+  (mesma peça, dentro da tolerância, exatamente no limite, um centavo acima, mais
+  cara, quantidade > 1, tolerância zero/inválida, custo inválido, fração de
+  centavo). Total do projeto: **220 testes de lógica**.
+- **9 testes de erro de propósito na tela em produção** (`erros-propositais`):
+  troca já fechada não mostra o botão de retorno; modal abre na frente; "voltou
+  outra peça" sem escolher a peça recusa com mensagem; busca com 1 letra pede 2;
+  busca sem resultado não quebra; cancelar fecha; modal de abatimento abre e
+  mostra a dívida aberta; zero erro de JS. **9 de 9 OK.**
+
 **Achados no dado (o que falta arrumar):**
 
 - **O cadastro de fornecedor NÃO está duplicado** (conferido por id em 16/11):
