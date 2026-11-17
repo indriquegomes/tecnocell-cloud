@@ -1,0 +1,26 @@
+{
+  "quando": "2026-11-17T20:21:14.801Z",
+  "antes": [
+    {
+      "id": "63d91dae59a9c82974728b08",
+      "nome": "RODRIGO PEREIRA (SEMPRE INCLUIR PEL R$ 1,80)",
+      "nao_vender": false,
+      "nao_vender_motivo": null,
+      "aviso_nota": null
+    },
+    {
+      "id": "67110e9fb15fa8b6286f6c53",
+      "nome": "TATIANA DA SILVA COELHO (NÃO VENDER)",
+      "nao_vender": true,
+      "nao_vender_motivo": "NÃO VENDER",
+      "aviso_nota": null
+    },
+    {
+      "id": "67eab5a11d01dfe76c9349ee",
+      "nome": "CSM CELL (SOMENTE RETIRADA E CONFERÊNCIA OBRIGATÓRIA)",
+      "nao_vender": true,
+      "nao_vender_motivo": "SOMENTE RETIRADA E CONFERÊNCIA OBRIGATÓRIA",
+      "aviso_nota": null
+    }
+  ]
+}

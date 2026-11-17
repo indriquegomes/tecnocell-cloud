@@ -245,6 +245,19 @@ limpa; a observação registra o perdão). Lista e regras no item 8 das pendênc
 lista (filtra pela loja do caixa) e a tela Fiados esconde para usuário restrito.
 Linkar a loja resolve (Luís Paulo = Petrópolis, provado pelas vendas dele).
 
+**Bateria autônoma do fim da rodada (17/11, sem o dono):**
+- **Erros/robustez:** `test/robustez.test.ts` **81 casos** (entrada inválida,
+  NaN/negativo, datas quebradas) + 14 casos de erro da Troca — **95 checks** ≥50.
+- **Palavras erradas:** 10 telas reais × 7 padrões = **70 checagens, 0
+  problema** (sem mojibake, sem `undefined`/`null`/`NaN` de texto, sem erro em
+  inglês); varredura de fonte em **401 arquivos: 0 mojibake**.
+- **Funcionalidade:** **220 testes** de lógica (6 arquivos) + smoke de **85
+  telas** (só o falso positivo da impressão) + invariantes do mês 11 **46 OK /
+  0 falha**.
+- **Últimas 10 mudanças:** cada commit verificado (ver `checkup-15-11.md` e
+  registros desta rodada) — nada destoando; o diff não commitado de
+  `lib/pix-do-dia.ts` é **só comentário** de outra sessão (não é nosso, não mexi).
+
 ## Rodada de 12/11/2026 — RH, ponto e conferência de horas
 
 **RH — desligamento virou um ato.** Preencher a data de demissão em Usuários e
