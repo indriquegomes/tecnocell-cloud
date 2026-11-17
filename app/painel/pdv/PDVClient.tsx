@@ -2646,12 +2646,13 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 <button type="button" disabled={comercialTravado} onClick={() => { setPessoaId(''); setBuscaCliente(''); trocarTabela('') }}
                   className="ml-auto text-xs font-medium text-red-400 hover:text-red-600">✕</button>
               </div>
-              {/* Cliente problemático — AVISA, não bloqueia (decisão de João Vítor Maximiano França) */}
+              {/* Cliente problemático — AVISA, não bloqueia (decisão de João Vítor Maximiano França).
+                  Letras GARRAFAIS: o atendente não pode passar batido no aviso. */}
               {clienteSelecionado.nao_vender && (
-                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-2.5 py-1.5">
-                  <span className="text-xs font-bold text-red-700">🚫 NÃO VENDER</span>
+                <div className="flex flex-wrap items-center gap-2.5 rounded-lg border-2 border-red-400 bg-red-50 px-3 py-2.5">
+                  <span className="text-lg font-extrabold tracking-wide text-red-700">🚫 NÃO VENDER</span>
                   {clienteSelecionado.nao_vender_motivo && (
-                    <span className="text-xs text-red-600">· {clienteSelecionado.nao_vender_motivo}</span>
+                    <span className="text-sm font-bold text-red-700">· {clienteSelecionado.nao_vender_motivo}</span>
                   )}
                 </div>
               )}
@@ -2665,8 +2666,8 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 </div>
               )}
               {fiadoCliente && fiadoCliente.devendo > 0.01 && (
-                <div className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-1.5">
-                  <span className="text-xs font-semibold text-amber-700">⚠️ Já deve {formatBRL(fiadoCliente.devendo)} em fiado</span>
+                <div className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 border-2 border-amber-300 px-3 py-2.5">
+                  <span className="text-base font-extrabold text-amber-800">⚠️ Já deve {formatBRL(fiadoCliente.devendo)} em fiado</span>
                   {fiadoCliente.limite > 0 && (
                     <span className={`text-xs font-medium ${fiadoCliente.disponivel > 0 ? 'text-gray-500' : 'text-red-600 font-bold'}`}>
                       · limite {formatBRL(fiadoCliente.limite)} · {fiadoCliente.disponivel > 0 ? `disponível ${formatBRL(fiadoCliente.disponivel)}` : 'LIMITE ESTOURADO'}
