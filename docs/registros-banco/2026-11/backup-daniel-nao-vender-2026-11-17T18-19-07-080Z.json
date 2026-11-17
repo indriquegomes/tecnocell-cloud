@@ -1,0 +1,25 @@
+{
+  "quando": "2026-11-17T18:19:07.081Z",
+  "antes": [
+    {
+      "id": "656a0a3cae6b9e112dc583d5",
+      "nome": "DANIEL FERREIRA DA SILVA (DEVENDO R$ 199,00)",
+      "tipo": "cliente",
+      "ativo": true,
+      "nao_vender": false,
+      "nao_vender_motivo": null,
+      "observacoes": null
+    }
+  ],
+  "mudanca": {
+    "nome": "DANIEL FERREIRA DA SILVA",
+    "nao_vender": true,
+    "nao_vender_motivo": "DEVE R$ 199,00 — cobrar antes de vender",
+    "observacoes": "⚠ Devedor: R$ 199,00 (anotação antiga). Cobrar antes de vender.",
+    "lancamento": {
+      "valor": 199,
+      "vencimento": "2026-08-01",
+      "categoria": "Fiado (a receber)"
+    }
+  }
+}

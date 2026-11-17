@@ -385,11 +385,28 @@ Painel abrindo sem erro de console.
    Fechamento do Mês 1,7s · Contas 1,3s · Promoções 0,8s · Descontos 0,95s ·
    Relatórios 1,0s. As leituras lentas do smoke (8–11s) eram **cold start do
    Vercel**, não tela lenta. Nada acima de 2s — **nada pendente aqui**.
-8. **PRÓXIMA ETAPA — Cadastros gerais: revisão de nomes.** Não começar sem o
-   dono abrir a etapa: ele parou o assunto em 10/11/2026 ("ta grande demais")
-   porque a revisão esbarra em **dívidas de pessoas que não pagaram** e em
-   **fornecedores com bilhete** — não é só tirar sufixo do nome, é decidir caso a
-   caso o que é dívida real, o que é anotação velha e o que vira observação.
+8. **EM ANDAMENTO — Cadastros gerais: revisão de nomes (aberta pelo dono em
+   17/11/2026, um por um).** Regras que saíram até aqui:
+   - **Dívida mencionada no nome com dívida REAL no app** → nome limpo +
+     `nao_vender` + motivo + observação + **registrar o valor no A Receber**
+     (dado). **Primeiro caso: DANIEL FERREIRA DA SILVA** (era "DANIEL FERREIRA
+     DA SILVA (DEVENDO R$ 199,00)") — aplicado: nome limpo, não vender + motivo
+     "DEVE R$ 199,00 — cobrar antes de vender", observação histórica, A Receber
+     R$ 199,00 pendente (venc. 01/08/2026). Backup em
+     `docs/registros-banco/2026-11/backup-daniel-nao-vender-*.json`.
+   - **Aviso no PDV em LETRAS GARRAFAIS** (pedido do dono): "🚫 NÃO VENDER" e
+     "⚠️ Já deve R$ X em fiado" agora `font-extrabold` com borda 2 — o
+     atendente não passa batido (`d89e594`). Prints em
+     `docs/registros/2026-11/preview-nao-vender/`.
+   - **Anotação de dívida sem dívida no app** → nome limpo; conferir caso a
+     caso se a dívida é real (aí registra) ou é anotação velha (aí cai).
+   - **Instrução operacional** → observação (e o PDV passa a mostrar a
+     observação do cliente quando ele é selecionado).
+   Restam os outros casos da lista: Luís Paulo (R$ 55), Luiz Gustavo (R$ 100),
+   Marcio (R$ 924), Matheus (R$ 654,50) — decidir quais são dívida real;
+   Tatiana e Bio Tech → não vender + motivo; CSM/Tricell → instrução em
+   observação; Arthur inativo; J N repetido; Mega Tech e CLIENTES
+   INADIMPLENTES (apagar?); 14 apelidos deixados como estão.
 
    Números levantados em 10/11/2026, para dimensionar quando a etapa abrir: de
    2.153 pessoas, **9 têm lembrete dentro do nome** e **18 passam de 45
