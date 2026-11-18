@@ -12,7 +12,8 @@ type Encomenda = {
 
 // "Nota fixa" ENCOMENDAS ESPECIAIS na tela de Compras. Dois passos:
 // 1) aberta → estoquista marca "Comprou" (visto) → vira "aguardando chegada".
-// 2) comprada → peça chega → estoquista digita o custo e marca "Chegou" (entra no estoque).
+// 2) comprada → peça chega → estoquista digita o custo pago e marca "Chegou"
+//    (só avisa a chegada — a entrada no estoque é feita pela nota de entrada).
 export function EncomendasEspeciais({ encomendas }: { encomendas: Encomenda[] }) {
   const router = useRouter()
   const [custos, setCustos] = useState<Record<string, string>>({})

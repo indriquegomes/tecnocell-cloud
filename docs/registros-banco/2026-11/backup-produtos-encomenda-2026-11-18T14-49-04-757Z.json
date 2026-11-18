@@ -1,0 +1,200 @@
+{
+  "plano": [
+    {
+      "tipo": "apagar",
+      "id": "4140eec1-6a28-435d-b5dd-571a831ddf52",
+      "motivo": "nome errado; gêmeo 68de6e97 (FRONTAL SAMSUNG M54 ORIGINAL NACIONAL COM ARO)"
+    },
+    {
+      "tipo": "apagar",
+      "id": "c68f3489-7886-48c8-a914-09674de79c56",
+      "motivo": "nome errado (prefixo \"11766 -\"); gêmeo 6980f7e3 (FRONTAL SAMSUNG S23 ULTRA OLED COM ARO)"
+    },
+    {
+      "tipo": "fundir",
+      "id": "4882b9cf-10bb-488a-b021-375160d61618",
+      "para": "63dec6bd59a9c82738d5cb32",
+      "motivo": "TAMPA IPHONE 12 VERMELHA — fica o cadastro do SIGE"
+    },
+    {
+      "tipo": "fundir",
+      "id": "8fcede06-7851-4db4-8666-a0142971f636",
+      "para": "857b9efb-5cd6-492b-a40d-6507aaaa489d",
+      "motivo": "GAVETA SAMSUNG S21 FE CHUMBO — fica o que tem nota de entrada"
+    },
+    {
+      "tipo": "fundir",
+      "id": "982adeb7-a742-4c97-a823-38da40ddde02",
+      "para": "0e26c169-1caf-48ce-bf75-17059c43f144",
+      "motivo": "GAVETA XIAOMIMI 9T/9T PRO PRETO — fica o que tem nota de entrada"
+    }
+  ],
+  "produtos": [
+    {
+      "id": "4140eec1-6a28-435d-b5dd-571a831ddf52",
+      "nome": "frontal sansung m54 original nacional com aro",
+      "preco": 460,
+      "preco_custo": 395,
+      "ativo": true
+    },
+    {
+      "id": "4882b9cf-10bb-488a-b021-375160d61618",
+      "nome": "TAMPA IPHONE 12 VERMELHA",
+      "preco": 41,
+      "preco_custo": 45,
+      "ativo": true
+    },
+    {
+      "id": "8fcede06-7851-4db4-8666-a0142971f636",
+      "nome": "GAVETA SAMSUNG S21 FE CHUMBO",
+      "preco": 50,
+      "preco_custo": 35,
+      "ativo": true
+    },
+    {
+      "id": "982adeb7-a742-4c97-a823-38da40ddde02",
+      "nome": "GAVETA XIAOMIMI 9T/MI 9T PRO PRETO",
+      "preco": 40,
+      "preco_custo": 25,
+      "ativo": true
+    },
+    {
+      "id": "c68f3489-7886-48c8-a914-09674de79c56",
+      "nome": "11766 - FRONTAL SAMSUNG S23 ULTRA OLED COM ARO",
+      "preco": 499,
+      "preco_custo": 400,
+      "ativo": true
+    }
+  ],
+  "itens_venda": [
+    {
+      "id": "68eeb015-d081-45c0-96e3-e04207844382",
+      "venda_id": "38af15b8-3521-41bd-8756-370e5c07bc89",
+      "produto_id": "982adeb7-a742-4c97-a823-38da40ddde02",
+      "quantidade": 1,
+      "preco_unitario": 40,
+      "desconto_item": 0,
+      "total_item": 40,
+      "nome": null,
+      "custo_unitario": 25
+    },
+    {
+      "id": "095e1133-22ed-4278-a2b6-d0bb881d74d8",
+      "venda_id": "58a8957b-c6b8-47df-96ff-def2e1f84535",
+      "produto_id": "8fcede06-7851-4db4-8666-a0142971f636",
+      "quantidade": 1,
+      "preco_unitario": 50,
+      "desconto_item": 0,
+      "total_item": 50,
+      "nome": null,
+      "custo_unitario": 35
+    }
+  ],
+  "estoque": [
+    {
+      "id": "01002188-77dc-4561-bc84-48f9adf5b0b1",
+      "produto_id": "4140eec1-6a28-435d-b5dd-571a831ddf52",
+      "deposito_id": "63e4dc8ede713ef765366d69",
+      "quantidade": 0,
+      "updated_at": "2026-10-30T15:22:05.306171+00:00"
+    },
+    {
+      "id": "f6d85f91-efc3-487e-857f-3d64111e602c",
+      "produto_id": "4882b9cf-10bb-488a-b021-375160d61618",
+      "deposito_id": "63d9054d59a9c829747233d4",
+      "quantidade": 1,
+      "updated_at": "2026-11-10T16:15:00.91586+00:00"
+    },
+    {
+      "id": "3b116b5b-7df2-45f1-a41e-b590ac9921e4",
+      "produto_id": "8fcede06-7851-4db4-8666-a0142971f636",
+      "deposito_id": "63d9054d59a9c829747233d4",
+      "quantidade": 0,
+      "updated_at": "2026-10-30T15:23:12.296389+00:00"
+    },
+    {
+      "id": "909a9336-e300-4442-94bb-e130a909431b",
+      "produto_id": "982adeb7-a742-4c97-a823-38da40ddde02",
+      "deposito_id": "63d9054d59a9c829747233d4",
+      "quantidade": 0,
+      "updated_at": "2026-11-10T16:47:03.052593+00:00"
+    },
+    {
+      "id": "8720adb2-4bc3-43fd-a7d3-98e996dc5e56",
+      "produto_id": "c68f3489-7886-48c8-a914-09674de79c56",
+      "deposito_id": "63e4dc8ede713ef765366d69",
+      "quantidade": 0,
+      "updated_at": "2026-10-30T15:22:04.812807+00:00"
+    }
+  ],
+  "itens_tabela_preco": [
+    {
+      "id": "02f087b1-41be-45d9-a952-dee4999f217d",
+      "tabela_id": "2e58e047-8cfe-47a6-b172-b26a29bf7f2b",
+      "produto_id": "8fcede06-7851-4db4-8666-a0142971f636",
+      "preco": 35,
+      "created_at": "2026-10-30T15:04:51.154123+00:00",
+      "quantidade_minima": 1
+    },
+    {
+      "id": "8471860a-9b2b-4c24-97ce-862f80fe7f0a",
+      "tabela_id": "2e58e047-8cfe-47a6-b172-b26a29bf7f2b",
+      "produto_id": "4140eec1-6a28-435d-b5dd-571a831ddf52",
+      "preco": 395,
+      "created_at": "2026-10-30T15:19:58.147056+00:00",
+      "quantidade_minima": 1
+    },
+    {
+      "id": "6d7cdc75-da67-4e9f-bfb6-9117f849307a",
+      "tabela_id": "2e58e047-8cfe-47a6-b172-b26a29bf7f2b",
+      "produto_id": "c68f3489-7886-48c8-a914-09674de79c56",
+      "preco": 400,
+      "created_at": "2026-10-30T15:20:27.613488+00:00",
+      "quantidade_minima": 1
+    },
+    {
+      "id": "916f49e7-e9b9-445c-b134-25da3c46b8be",
+      "tabela_id": "2e58e047-8cfe-47a6-b172-b26a29bf7f2b",
+      "produto_id": "4882b9cf-10bb-488a-b021-375160d61618",
+      "preco": 45,
+      "created_at": "2026-11-10T16:15:00.58641+00:00",
+      "quantidade_minima": 1
+    },
+    {
+      "id": "edca7a26-6d55-4046-88c1-83fe73ad9647",
+      "tabela_id": "2e58e047-8cfe-47a6-b172-b26a29bf7f2b",
+      "produto_id": "982adeb7-a742-4c97-a823-38da40ddde02",
+      "preco": 25,
+      "created_at": "2026-11-10T16:15:39.386176+00:00",
+      "quantidade_minima": 1
+    }
+  ],
+  "movimentacoes_estoque": [
+    {
+      "id": "970cf809-6d7d-4803-a25e-8f3c96ae3f8c",
+      "produto_id": "c68f3489-7886-48c8-a914-09674de79c56",
+      "deposito_id": "63e4dc8ede713ef765366d69",
+      "operacao": "saida",
+      "quantidade": 1,
+      "qtd_anterior": 1,
+      "qtd_nova": 0,
+      "observacao": "dando saida pq foi dado entrada na encomenda e na nota de entrada, por bru",
+      "criado_por": "2f248009-d04e-4567-a616-3a910b9d2fd6",
+      "created_at": "2026-10-30T15:20:00+00:00"
+    },
+    {
+      "id": "39aae47d-cc3e-4d4b-950c-4cc8943c400a",
+      "produto_id": "4140eec1-6a28-435d-b5dd-571a831ddf52",
+      "deposito_id": "63e4dc8ede713ef765366d69",
+      "operacao": "saida",
+      "quantidade": 1,
+      "qtd_anterior": 1,
+      "qtd_nova": 0,
+      "observacao": "dando saida pq foi dado entrada na encomenda e na nota de entrada, por bru",
+      "criado_por": "2f248009-d04e-4567-a616-3a910b9d2fd6",
+      "created_at": "2026-10-30T15:20:00+00:00"
+    }
+  ],
+  "itens_nota_entrada": [],
+  "numeros_serie": []
+}

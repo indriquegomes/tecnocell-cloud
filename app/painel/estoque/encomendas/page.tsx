@@ -33,7 +33,7 @@ export default async function EncomendasPage({ searchParams }: { searchParams: P
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-gray-900">📦 Encomendas</h2>
-        <p className="mt-0.5 text-sm text-gray-500">Peças que clientes pediram e ainda não entraram no estoque.</p>
+        <p className="mt-0.5 text-sm text-gray-500">Peças que clientes pediram — da compra no fornecedor até a chegada. A entrada no estoque é feita pela nota de entrada.</p>
       </div>
 
       {/* Filtro por status */}

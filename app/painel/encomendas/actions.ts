@@ -113,50 +113,20 @@ export async function marcarComprada(encomendaId: string) {
   return { ok: true as const }
 }
 
-// Aprova quando a peça chega: cadastra o produto (se temporário), entra no estoque
-// e marca a encomenda como 'aprovada'. O custo é digitado pela estoquista.
+// Aprova quando a peça chega: marca a encomenda como 'aprovada' e guarda o custo
+// pago, e nada mais.
+//
+// NÃO cadastra produto e NÃO dá entrada no estoque, de propósito. A entrada da peça
+// é a NOTA DE ENTRADA: ela passa pelo RPC `receber_nota_entrada`, grava movimentação
+// e recalcula o custo pela média ponderada. Cadastrar aqui nascia do texto livre da
+// encomenda (produto duplicado, com nome torto e preço solto) e somar estoque aqui
+// contava a mesma peça duas vezes quando a nota chegava.
 export async function aprovarEncomenda(encomendaId: string, custo: number) {
   await requirePermissao('compras')
   const supabase = await createServiceClient()
-  const { data: enc } = await supabase.from('encomendas').select('*').eq('id', encomendaId).maybeSingle()
-  if (!enc) return { erro: 'Encomenda não encontrada.' }
-
-  let produto_id = (enc as { produto_id: string | null }).produto_id
-  // temporário → cria o produto agora (a estoquista cadastra na hora)
-  if (!produto_id) {
-    produto_id = crypto.randomUUID()
-    const { error: eProd } = await supabase.from('produtos').insert({
-      id: produto_id, nome: (enc as { item_nome: string }).item_nome,
-      preco: (enc as { valor_venda: number | null }).valor_venda ?? 0,
-      preco_custo: custo, ativo: true,
-    })
-    if (eProd) return { erro: 'Não deu pra criar o produto: ' + eProd.message }
-  } else {
-    await supabase.from('produtos').update({ preco_custo: custo }).eq('id', produto_id)
-  }
-
-  // depósito padrão da loja (onde o item entra)
-  let deposito_id: string | null = null
-  const lojaId = (enc as { loja_id: string | null }).loja_id
-  if (lojaId) {
-    const { data: loja } = await supabase.from('lojas').select('deposito_padrao_id').eq('id', lojaId).maybeSingle()
-    deposito_id = (loja as { deposito_padrao_id?: string | null } | null)?.deposito_padrao_id ?? null
-  }
-
-  // entra no estoque (upsert de quantidade)
-  const qtd = Number((enc as { quantidade: number }).quantidade) || 0
-  if (deposito_id && qtd > 0) {
-    const { data: existente } = await supabase.from('estoque').select('id, quantidade').eq('produto_id', produto_id).eq('deposito_id', deposito_id).maybeSingle()
-    if (existente) {
-      const { error: eEstoque } = await supabase.from('estoque').update({ quantidade: Number(existente.quantidade) + qtd }).eq('id', existente.id)
-      if (eEstoque) return { erro: 'Não deu pra dar entrada no estoque: ' + eEstoque.message }
-    } else {
-      const { error: eEstoque } = await supabase.from('estoque').insert({ produto_id, deposito_id, quantidade: qtd })
-      if (eEstoque) return { erro: 'Não deu pra criar estoque: ' + eEstoque.message }
-    }
-  }
-
-  const { error: eEnc } = await supabase.from('encomendas').update({ status: 'aprovada', custo, produto_id, aprovado_em: new Date().toISOString() }).eq('id', encomendaId)
+  const { error: eEnc } = await supabase.from('encomendas')
+    .update({ status: 'aprovada', custo, aprovado_em: new Date().toISOString() })
+    .eq('id', encomendaId)
   if (eEnc) return { erro: 'Não deu pra marcar como aprovada: ' + eEnc.message }
 
   revalidatePath('/painel/compras')
