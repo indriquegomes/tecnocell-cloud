@@ -318,7 +318,7 @@ export async function lerNotaFotos(_prev: LeituraResultado | null, formData: For
     const fotos = (formData.getAll('fotos') as File[]).filter((f) => f && f.size > 0)
     if (!fotos.length) return { ok: false, message: 'Anexe pelo menos uma foto da nota.' }
     const totalBytes = fotos.reduce((s, f) => s + f.size, 0)
-    if (totalBytes > 8 * 1024 * 1024) return { ok: false, message: 'As fotos somam mais de 8 MB. Mande menos fotos de uma vez.' }
+    if (totalBytes > 4 * 1024 * 1024) return { ok: false, message: 'As fotos somam mais de 4 MB. Mande menos fotos de uma vez.' }
 
     const partes: FotoNota[] = []
     for (const f of fotos) {
