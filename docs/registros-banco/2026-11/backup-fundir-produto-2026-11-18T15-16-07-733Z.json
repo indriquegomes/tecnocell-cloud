@@ -1,0 +1,77 @@
+{
+  "produto_de": {
+    "id": "881fe442-d7ae-475a-85b9-52aeadfe3e14",
+    "nome": "frontal poco 81",
+    "descricao": null,
+    "preco": 150,
+    "preco_custo": 115,
+    "categoria": null,
+    "marca": null,
+    "ativo": true,
+    "visivel_catalogo": true,
+    "imagem_url": null,
+    "codigo": null,
+    "created_at": "2026-10-30T15:01:56.452046+00:00",
+    "updated_at": "2026-10-30T15:01:56.452046+00:00",
+    "ean": null,
+    "fornecedor_id": null,
+    "prateleira": null,
+    "estoque_minimo": 0,
+    "controla_serie": false,
+    "modelo": null,
+    "unidade": "UN",
+    "preco_minimo": null,
+    "busca_norm": "frontal poco 81  ",
+    "permite_estoque_negativo": false,
+    "servico": false
+  },
+  "produto_para": {
+    "id": "4df386b5-5484-4de5-904c-d1b3258654e4",
+    "nome": "FRONTAL XIAOMI REDMI 15 4G/5G/POCO M7 4G/POCO M7 PLUS 5G/NOTE 15R/POCO C81 PREMIUM **ZL** SEM ARO",
+    "descricao": null,
+    "preco": 225,
+    "preco_custo": 115,
+    "categoria": "FRONTAL",
+    "marca": "XIAOMI",
+    "ativo": true,
+    "visivel_catalogo": true,
+    "imagem_url": null,
+    "codigo": null,
+    "created_at": "2026-10-29T13:42:35.502692+00:00",
+    "updated_at": "2026-10-29T13:42:35.48+00:00",
+    "ean": null,
+    "fornecedor_id": "64a962b59d3ac1a8f1953ced",
+    "prateleira": null,
+    "estoque_minimo": 0,
+    "controla_serie": false,
+    "modelo": null,
+    "unidade": "UN",
+    "preco_minimo": 115,
+    "busca_norm": "frontal xiaomi redmi 15 4g/5g/poco m7 4g/poco m7 plus 5g/note 15r/poco c81 premium **zl** sem aro  xiaomi",
+    "permite_estoque_negativo": false,
+    "servico": false
+  },
+  "itens_venda": [],
+  "estoque": [
+    {
+      "id": "5055a087-37f8-4e07-84fe-c0ed56f3b88b",
+      "produto_id": "881fe442-d7ae-475a-85b9-52aeadfe3e14",
+      "deposito_id": "63d9054d59a9c829747233d4",
+      "quantidade": 1,
+      "updated_at": "2026-10-30T15:01:56.88984+00:00"
+    }
+  ],
+  "itens_tabela_preco": [
+    {
+      "id": "75e93749-af07-4c2c-a37c-ea7a52501841",
+      "tabela_id": "2e58e047-8cfe-47a6-b172-b26a29bf7f2b",
+      "produto_id": "881fe442-d7ae-475a-85b9-52aeadfe3e14",
+      "preco": 115,
+      "created_at": "2026-10-30T15:01:56.452046+00:00",
+      "quantidade_minima": 1
+    }
+  ],
+  "movimentacoes_estoque": [],
+  "itens_nota_entrada": [],
+  "numeros_serie": []
+}
