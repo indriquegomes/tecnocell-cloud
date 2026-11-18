@@ -136,6 +136,21 @@ do mês não rodaram**: falta `SUPABASE_ACCESS_TOKEN` no ambiente.
   "11" não casa em "A115", classe separando bateria de frontal, leitura da classe no
   texto livre). Total do projeto: **238 testes**.
 
+**Importador de nota: ajuda na tela, busca no lugar da lista de 8 mil** (18/11). A tela
+carregava o **catálogo inteiro** (8.177 produtos, ~meio mega de payload) só para montar
+um `<select>` por linha — lista em que ninguém acha nada. Agora:
+
+- **Busca por linha** (`EscolherProduto.tsx`): digita "a15" ou "13 jk" e o servidor
+  devolve **no máximo 12** já filtrados pela classe (`buscarProdutosNota`, mesma régua
+  de `palavrasBusca`/`aplicaBusca` do PDV, número exigindo palavra inteira). A página
+  não carrega mais produto nenhum — quem lança a nota é a **estoquista**, e a tela
+  abria pesada por causa disso.
+- **"❓ Como lançar a nota"** (`AjudaNota.tsx`, `<details>`, funciona sem JS): os 5
+  passos, o que significa produto preenchido / "⚠ conferir" / linha amarela em branco,
+  a regra "nunca escolha no chute", o caminho para peça sem cadastro (Produtos → Nova
+  peça → volta pra nota) e os quatro erros que já aconteceram aqui. Mesmo padrão do
+  "Como fechar" do caixa.
+
 **Pendências que esta rodada deixou — só uma é código:**
 
 1. **✅ As duas correções da revisão foram aplicadas:** custo da chegada virou **opcional** (peça de garantia/troca entra com

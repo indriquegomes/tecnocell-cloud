@@ -6,6 +6,8 @@ import crypto from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { IMEI_ATIVO } from '@/lib/imei'
+import { aplicaBusca, palavrasBusca } from '@/lib/busca-produtos'
+import { produtoNaClasse } from '@/lib/nota-classes'
 import { lerItensDasFotos, casarProdutos, type FotoNota, type ItemCasado } from '@/lib/nota-leitura'
 
 export async function criarNotaEntrada(formData: FormData) {
@@ -280,6 +282,33 @@ function mimeDaFoto(buf: Buffer): string {
   if (buf[0] === 0x47 && buf[1] === 0x49) return 'image/gif'
   if (buf[0] === 0x52 && buf[1] === 0x49 && buf[8] === 0x57 && buf[9] === 0x45) return 'image/webp'
   return 'image/jpeg'
+}
+
+// BUSCA DE PRODUTO PRA LINHA DA NOTA — servidor, 12 resultados.
+//
+// A tela do importador carregava o catálogo inteiro (8.177 produtos) só pra montar
+// um `<select>`: quase meio mega de HTML e uma lista em que ninguém acha nada. Aqui
+// a busca é por palavra (mesma régua do PDV: número exige palavra inteira) e a
+// classe da nota filtra a família antes de devolver.
+export async function buscarProdutosNota(termo: string, classe: string | null) {
+  await requirePermissaoAny(['compras', 'notas_entrada'])
+  const palavras = palavrasBusca(termo ?? '')
+  if (!palavras.length) return []
+  const supabase = await createServiceClient()
+  let q = supabase.from('produtos').select('id, nome, categoria').eq('ativo', true)
+  q = aplicaBusca(q, 'busca_norm', palavras)
+  const { data, error } = await q.order('nome').limit(40)
+  if (error) {
+    // base antiga sem busca_norm: cai no ilike simples
+    let f = supabase.from('produtos').select('id, nome, categoria').eq('ativo', true)
+    for (const w of palavras) f = f.ilike('nome', `%${w}%`)
+    const alt = await f.order('nome').limit(40)
+    return (alt.data ?? []).slice(0, 12) as { id: string; nome: string; categoria: string | null }[]
+  }
+  const achados = (data ?? []) as { id: string; nome: string; categoria: string | null }[]
+  const daClasse = achados.filter((p) => produtoNaClasse(p, classe))
+  // classe que não achou nada não pode zerar a busca: devolve o que a palavra achou
+  return (daClasse.length ? daClasse : achados).slice(0, 12)
 }
 
 export async function lerNotaFotos(_prev: LeituraResultado | null, formData: FormData): Promise<LeituraResultado> {

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { depositosDaLojaAtiva } from '@/lib/lojas-usuario'
 import { hojeSP } from '@/lib/utils'
 import { ImportarClient } from './ImportarClient'
@@ -12,11 +12,9 @@ export default async function ImportarNotaPage({ searchParams }: { searchParams:
   // Número automático pela contagem das notas anteriores — editável.
   const { count } = await supabase.from('notas_entrada').select('id', { count: 'exact', head: true })
   const proximoNumero = String((count ?? 0) + 1)
-  const [{ data: depositos }, { data: lojas }, produtos] = await Promise.all([
+  const [{ data: depositos }, { data: lojas }] = await Promise.all([
     supabase.from('depositos').select('id, nome, loja_id').order('nome'),
     supabase.from('lojas').select('id, nome'),
-    fetchAll<{ id: string; nome: string; categoria: string | null }>((from, to) =>
-      supabase.from('produtos').select('id, nome, categoria').eq('ativo', true).order('nome').range(from, to)),
   ])
   // deposito padrão: o da loja ativa de quem está logado
   const depositosAtiva = await depositosDaLojaAtiva().catch(() => [] as string[])
@@ -43,7 +41,6 @@ export default async function ImportarNotaPage({ searchParams }: { searchParams:
         fornecedores={(fornecedoresRaw ?? []) as { id: string; nome: string }[]}
         depositos={(depositos ?? []) as { id: string; nome: string; loja_id: string | null }[]}
         lojas={(lojas ?? []) as { id: string; nome: string }[]}
-        produtos={produtos}
         proximoNumero={proximoNumero}
         hoje={hojeSP()}
         depositoPadrao={depositosAtiva[0] ?? null}

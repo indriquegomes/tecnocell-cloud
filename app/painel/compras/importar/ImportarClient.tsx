@@ -1,13 +1,15 @@
 'use client'
 
-import { useActionState, useEffect, useMemo, useState } from 'react'
+import { useActionState, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Spinner } from '@/components/Spinner'
 import { SubmitButton } from '@/components/SubmitButton'
 import { FornecedorSelect } from '../FornecedorSelect'
 import { lerNotaFotos, criarNotaDosItens, type LeituraResultado } from '../actions'
 import { formatBRL } from '@/lib/utils'
-import { CLASSES_NOTA, produtoNaClasse } from '@/lib/nota-classes'
+import { CLASSES_NOTA } from '@/lib/nota-classes'
+import { EscolherProduto } from './EscolherProduto'
+import { AjudaNota } from './AjudaNota'
 
 type ItemLidoTela = {
   descricao: string
@@ -18,13 +20,10 @@ type ItemLidoTela = {
   score: number
 }
 
-type ProdutoLista = { id: string; nome: string; categoria: string | null }
-
 export function ImportarClient({
   fornecedores,
   depositos,
   lojas,
-  produtos,
   proximoNumero,
   hoje,
   depositoPadrao,
@@ -32,7 +31,6 @@ export function ImportarClient({
   fornecedores: { id: string; nome: string }[]
   depositos: { id: string; nome: string; loja_id: string | null }[]
   lojas: { id: string; nome: string }[]
-  produtos: ProdutoLista[]
   proximoNumero: string
   hoje: string
   depositoPadrao: string | null
@@ -42,8 +40,8 @@ export function ImportarClient({
   const [trocar, setTrocar] = useState<Record<number, boolean>>({})
   const [escolhidos, setEscolhidos] = useState<Record<number, string>>({})
   const [erroSubmit, setErroSubmit] = useState<string | null>(null)
-  // De que a nota trata (frontal, bateria, acessório…). Filtra o seletor de produto,
-  // que hoje lista o catálogo inteiro — 8 mil linhas num <select> não se acha nada.
+  // De que a nota trata (frontal, bateria, acessório…). Filtra a busca de produto:
+  // é o que impede casar a peça parecida e não a certa.
   const [classe, setClasse] = useState<string>('')
 
   // nova leitura substitui a lista — a pessoa pode reler com fotos melhores
@@ -55,11 +53,6 @@ export function ImportarClient({
       if (leitura.classe) setClasse(leitura.classe)
     }
   }, [leitura])
-
-  const opcoesProduto = useMemo(() => {
-    const daClasse = classe ? produtos.filter((p) => produtoNaClasse(p, classe)) : produtos
-    return daClasse.length ? daClasse : produtos
-  }, [produtos, classe])
 
   const lojaNome = new Map(lojas.map((l) => [l.id, l.nome]))
   const lista = itens ?? []
@@ -80,6 +73,7 @@ export function ImportarClient({
 
   return (
     <div className="space-y-6">
+      <AjudaNota />
       {/* 1. fotos */}
       <form action={formLer} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
         <p className="font-semibold text-gray-800">1. Anexe as fotos da nota (pode várias páginas)</p>
@@ -143,16 +137,14 @@ export function ImportarClient({
           <p className="font-semibold text-gray-800">2. Confira os itens e complete os dados da nota</p>
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-56 flex-1">
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">Classe da nota (filtra a escolha do produto)</label>
-              <select value={classe} onChange={(e) => { setClasse(e.target.value); setEscolhidos({}) }} className="field">
-                <option value="">— catálogo inteiro —</option>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Classe da nota (filtra a busca do produto)</label>
+              <select value={classe} onChange={(e) => setClasse(e.target.value)} className="field">
+                <option value="">— Não sei / misturada (busca em todo o catálogo) —</option>
                 {CLASSES_NOTA.map((c) => <option key={c.valor} value={c.valor}>{c.label}</option>)}
               </select>
             </div>
             <p className="pb-2 text-xs text-gray-500">
-              {classe
-                ? `${opcoesProduto.length} produtos nessa classe para escolher`
-                : `Trocando a classe, a lista do produto encolhe (hoje ${produtos.length} no catálogo)`}
+              É o que evita achar a peça parecida: com a classe escolhida, a busca olha só aquela família.
             </p>
           </div>
 
@@ -212,23 +204,18 @@ export function ImportarClient({
                 <tbody className="divide-y divide-gray-50">
                   {lista.map((it, i) => {
                     const precisaEscolher = !it.produto_id || !!trocar[i]
-                    const valorSelect = escolhidos[i] ?? it.produto_id ?? ''
                     return (
                       <tr key={`${i}-${it.descricao}`} className={precisaEscolher ? 'bg-amber-50/50' : ''}>
                         <td className="px-3 py-2.5 text-sm text-gray-700">{it.descricao}</td>
                         <td className="px-3 py-2.5">
                           {precisaEscolher ? (
-                            <select
-                              name={`item_${i}_produto`}
-                              defaultValue={valorSelect}
-                              onChange={(e) => setEscolhidos((s) => ({ ...s, [i]: e.target.value }))}
-                              className="w-full rounded border border-gray-200 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                            >
-                              <option value="">— escolha o produto —</option>
-                              {opcoesProduto.map((p) => (
-                                <option key={p.id} value={p.id}>{p.nome}</option>
-                              ))}
-                            </select>
+                            <EscolherProduto
+                              nomeCampo={`item_${i}_produto`}
+                              idInicial={it.produto_id}
+                              nomeInicial={trocar[i] ? it.produto_nome : null}
+                              classe={classe}
+                              onEscolher={(id) => setEscolhidos((s) => ({ ...s, [i]: id }))}
+                            />
                           ) : (
                             <>
                               <input type="hidden" name={`item_${i}_produto`} value={it.produto_id ?? ''} />
