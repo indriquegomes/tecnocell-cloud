@@ -3,13 +3,16 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 
 // Fornecedor com barra de busca (29/07: o <select> de 97 fornecedores dificultava).
-// Filtra em memória (a lista já vem do servidor) e envia o id em name="fornecedor_id".
+// Filtra em memória (a lista já vem do servidor) e envia o id em `name` (padrão
+// "fornecedor_id"; o importador usa um nome por nota: "nota_0_fornecedor").
 export function FornecedorSelect({
   fornecedores,
   defaultId = '',
+  name = 'fornecedor_id',
 }: {
   fornecedores: { id: string; nome: string }[]
   defaultId?: string
+  name?: string
 }) {
   const inicial = fornecedores.find((f) => f.id === defaultId)
   const [id, setId] = useState(defaultId)
@@ -31,7 +34,7 @@ export function FornecedorSelect({
 
   return (
     <div className="relative" ref={box}>
-      <input type="hidden" name="fornecedor_id" value={id} />
+      <input type="hidden" name={name} value={id} />
       <input
         value={texto}
         autoComplete="off"

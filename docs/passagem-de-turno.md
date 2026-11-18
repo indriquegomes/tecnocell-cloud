@@ -159,6 +159,17 @@ um `<select>` por linha — lista em que ninguém acha nada. Agora:
   peça → volta pra nota) e os quatro erros que já aconteceram aqui. Mesmo padrão do
   "Como fechar" do caixa.
 
+**Várias notas de uma vez no importador** (18/11). Antes a leitura inteira virava **uma
+nota só**: quem chegava com três notas repetia a leitura três vezes. Agora o campo
+"Essas fotos são…" tem dois modos:
+
+- **Páginas da MESMA nota** (padrão): as fotos são somadas numa nota, como sempre foi.
+- **Cada foto é UMA nota** (até 6): o app lê foto por foto e monta **uma nota pendente
+  por foto**, cada uma com o seu fornecedor e o seu número — a tela mostra um bloco por
+  nota e o botão diz "Criar N notas pendentes". `criarNotasDosItens` grava todas e
+  desfaz a nota cuja linha falhar; o estoque continua mexendo **só** no Confirmar
+  Recebimento de cada uma.
+
 **Pendências que esta rodada deixou — só uma é código:**
 
 1. **✅ As duas correções da revisão foram aplicadas:** custo da chegada virou **opcional** (peça de garantia/troca entra com

@@ -31,6 +31,12 @@ export function AjudaNota() {
         <div>
           <p className="mb-1 font-semibold text-gray-900">2. Anexe as fotos e clique em Ler as fotos</p>
           <p>Uma nota de várias páginas vai junta. Foto escura ou torta é o que mais faz a leitura errar: apoie a folha, sem sombra.</p>
+          <p className="mt-1">
+            <b>Várias notas de uma vez:</b> em &quot;Essas fotos são…&quot; escolha
+            <b> Cada foto é UMA nota</b> (até 6). O app lê cada foto separada e monta uma nota pendente
+            para cada uma — cada nota com o seu fornecedor e o seu número. Se as fotos forem páginas da
+            mesma nota, deixe em <b>Páginas da MESMA nota</b>.
+          </p>
         </div>
 
         <div>
@@ -47,11 +53,11 @@ export function AjudaNota() {
         </div>
 
         <div>
-          <p className="mb-1 font-semibold text-gray-900">4. Complete a nota</p>
+          <p className="mb-1 font-semibold text-gray-900">4. Complete os dados</p>
           <p>
-            <b>Fornecedor</b> é obrigatório (é ele que liga a compra à dívida certa),
-            número da NF, datas e a <b>loja/estoque que recebe</b>. Depois clique em
-            <b> Criar nota pendente</b>.
+            <b>Loja/estoque que recebe</b> e datas valem para todas as notas do lote. Em cada nota,
+            <b> fornecedor</b> é obrigatório (é ele que liga a compra à dívida certa) e o <b>número da NF</b>
+            vem preenchido seguindo o anterior. Depois clique em <b>Criar nota(s) pendente(s)</b>.
           </p>
         </div>
 
