@@ -55,6 +55,18 @@ export function ImportarClient({
 
   function removerLinha(i: number) {
     setItens((atual) => (atual ?? []).filter((_, idx) => idx !== i))
+    // trocar/escolhidos são indexados pela posição: desloca junto com a lista
+    const deslocar = <T,>(m: Record<number, T>) => {
+      const novo: Record<number, T> = {}
+      for (const [k, v] of Object.entries(m)) {
+        const n = Number(k)
+        if (n < i) novo[n] = v
+        else if (n > i) novo[n - 1] = v
+      }
+      return novo
+    }
+    setTrocar(deslocar)
+    setEscolhidos(deslocar)
   }
 
   // blocos com produto vazio: a linha ficaria de fora da nota sem avisar
