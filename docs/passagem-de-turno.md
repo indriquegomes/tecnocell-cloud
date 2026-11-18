@@ -78,9 +78,28 @@ caía no CNPJ da outra loja casava com o cadastro de fornecedor dela e o fechame
 abatia dívida. Agora entra o CNPJ de **toda** a rede (lojas + chaves das contas).
 Verificado com o caixa de 16/11: os R$ 66,76 passaram a sair como conta própria.
 
+**Revisão independente do corte (Antigravity, 18/11) — "SIM COM RESSALVAS".** Não
+sobrou nenhum outro caminho que cadastre produto ou dê entrada no estoque a partir de
+`encomendas`: a tabela só recebe `update` de status/custo, criação de produto ficou
+restrita a `salvarProduto` e entrada de estoque só pela nota. Sobre o `022e2cf`, o
+risco de um PIX real de fornecedor virar conta própria é quase nulo (só o CNPJ das
+lojas entrou na lista) e, se acontecesse, o efeito seria dívida ficar em aberto para
+baixa manual — **sem perda de dinheiro**. Achados que ele levantou:
+
+- **`EncomendasEspeciais.tsx` exige custo maior que zero** para marcar "Chegou"
+  (`!(custo > 0)`). Como o custo virou só registro, isso trava encomenda de peça
+  trocada em garantia (custo zero). Corrigir: campo passa a ser opcional.
+- **`lib/pix-do-dia.ts` só leva `cnpj` das lojas para `docsProprios`**; se o
+  comprovante da loja irmã trouxer só nome/razão social, ela não é reconhecida como
+  conta própria. Corrigir: incluir `lojas.nome` em `nomesProprios`.
+- **Consequência operacional do corte:** peça que chegou e foi lançada pela nota só
+  baixa do estoque se for vendida pelo **cadastro do produto**. Venda como "item
+  avulso" (sem `produto_id`) não baixa — sobra estoque. Vale avisar o balcão.
+
 **Pendências que esta rodada deixou:**
 
-1. **Revisão independente** do corte da encomenda — caminho de estoque exige.
+1. **Duas correções pequenas** apontadas na revisão acima: custo opcional na chegada
+   da encomenda e nome da loja na lista de conta própria do PIX do dia.
 2. **A trava de retirada sem destino filtra só `tipo`**, não `forma_pagamento`: uma
    retirada em PIX (dinheiro que nunca esteve na gaveta) trava o fechamento do mesmo
    jeito. Decidir se corrige.
