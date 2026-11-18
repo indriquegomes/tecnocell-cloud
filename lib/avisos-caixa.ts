@@ -29,6 +29,12 @@ export type EntradaAvisos = {
   pixSemComprovante?: number
   /** reforços/retiradas sem motivo escrito */
   movimentosSemMotivo?: number
+  /**
+   * Retirada/sangria gravada em forma que NÃO é dinheiro (PIX, cartão) sem
+   * lançamento de destino. Não é gaveta, então não bloqueia o fechamento — mas o
+   * dinheiro saiu da conta e ficou sem rastro.
+   */
+  retiradasForaDaGavetaSemDestino?: { total: number; quantidade: number }
   valorAbertura?: number
   /** troco fixo da loja (saldo inicial da conta Caixa) — 0 = não cadastrado */
   trocoPadrao?: number
@@ -107,7 +113,19 @@ export function avisosDeFechamento(e: EntradaAvisos): AvisoCaixa[] {
     })
   }
 
-  // 6. Sessão aberta com valor diferente do troco fixo: o excedente deveria ter
+  // 6. Retirada fora da gaveta sem destino: o dinheiro saiu da CONTA (PIX/cartão) e
+  // ninguém lançou para onde. Não trava o fechamento porque a gaveta está certa, mas
+  // depois de fechar ninguém mais lembra o que foi.
+  const fora = e.retiradasForaDaGavetaSemDestino
+  if (fora && fora.quantidade > 0 && fora.total > 0.005) {
+    avisos.push({
+      nivel: 'info',
+      titulo: `Retirada de ${brl(fora.total)} fora da gaveta (PIX/cartão) sem destino escrito`,
+      detalhe: 'Não é dinheiro da gaveta, então a contagem não muda. Mas o dinheiro saiu da conta sem lançamento: confira em Contas ou no Financeiro se essa saída está registrada.',
+    })
+  }
+
+  // 7. Sessão aberta com valor diferente do troco fixo: o excedente deveria ter
   // ido para o cofre no fechamento anterior (ou a troca de turno não separou).
   if (
     typeof e.valorAbertura === 'number' && typeof e.trocoPadrao === 'number' &&
@@ -120,7 +138,7 @@ export function avisosDeFechamento(e: EntradaAvisos): AvisoCaixa[] {
     })
   }
 
-  // 7. Gaveta com menos dinheiro do que a sessão abriu: saiu cédula sem registro
+  // 8. Gaveta com menos dinheiro do que a sessão abriu: saiu cédula sem registro
   // (ou alguém guardou o envelope antes da hora).
   if (
     typeof e.saldoGaveta === 'number' && typeof e.valorAbertura === 'number' &&

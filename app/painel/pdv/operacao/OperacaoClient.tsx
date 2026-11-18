@@ -69,6 +69,8 @@ interface Movimento {
   forma_pagamento: string
   valor: number
   created_at: string
+  /** null = saiu sem destino escrito (a trava e o aviso usam isso) */
+  lancamento_id?: string | null
 }
 
 interface CaixaAberto {
@@ -785,6 +787,11 @@ function FecharCaixaPanel({
   const movimentosSemMotivo = movimentos.filter(
     (m) => ['reforco', 'retirada'].includes(m.tipo) && !(m.motivo ?? '').trim(),
   ).length
+  // Retirada em PIX/cartão é dinheiro que saiu da CONTA, não da gaveta: a contagem
+  // não muda, então isso vira aviso — nunca bloqueio.
+  const foraDaGaveta = movimentos.filter(
+    (m) => m.tipo === 'retirada' && !/dinheiro/i.test(m.forma_pagamento ?? '') && !m.lancamento_id,
+  )
   const avisos = avisosDeFechamento({
     abertoEm,
     agora: new Date().toISOString(),
@@ -792,6 +799,10 @@ function FecharCaixaPanel({
     pixFornecedorSemBaixa,
     pixSemComprovante,
     movimentosSemMotivo,
+    retiradasForaDaGavetaSemDestino: {
+      quantidade: foraDaGaveta.length,
+      total: Math.round(foraDaGaveta.reduce((s, m) => s + Number(m.valor ?? 0), 0) * 100) / 100,
+    },
     valorAbertura,
     trocoPadrao,
     saldoGaveta: saldoCaixa,
@@ -1024,16 +1035,19 @@ function RetiradaPanel({
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(registrarRetirada, null)
   const lista = movimentos.filter((m) => m.tipo === 'retirada')
+  // Só dinheiro: retirada é cédula que sai da gaveta. O resto (PIX, cartão) sai da
+  // conta e mora no Contas/Financeiro — o servidor recusa a forma errada de qualquer jeito.
+  const formasDinheiro = formasFisicas.filter((f) => /dinheiro/i.test(f))
   return (
     <div className="rounded-2xl border border-red-200 bg-white p-6 shadow-sm space-y-4">
       <h3 className="font-semibold text-gray-800 text-lg">Retirada (Sangria)</h3>
-      <p className="text-sm text-gray-500">Só para dinheiro que sai da gaveta <b>sem despesa lançada</b> (ex.: você leva pro cofre/banco). Despesa (motoboy, taxa, lanche): lance no Financeiro e clique <b>Pago</b> com a caixinha <b>"Saiu da gaveta"</b> marcada — o app liga a saída sozinho.</p>
+      <p className="text-sm text-gray-500">Só para <b>dinheiro</b> que sai da gaveta <b>sem despesa lançada</b> (ex.: você leva pro cofre/banco). Despesa (motoboy, taxa, lanche): lance no Financeiro e clique <b>Pago</b> com a caixinha <b>&quot;Saiu da gaveta&quot;</b> marcada — o app liga a saída sozinho.</p>
       <form action={withToken(action)} className="flex flex-wrap gap-4 items-end">
         <input type="hidden" name="caixa_id" value={caixaId} />
         <div className="flex-1 min-w-40">
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Forma</label>
           <select name="forma_pagamento" className="field">
-            {formasFisicas.map((f) => <option key={f} value={f}>{f}</option>)}
+            {(formasDinheiro.length ? formasDinheiro : ['Dinheiro']).map((f) => <option key={f} value={f}>{f}</option>)}
           </select>
         </div>
         <div className="flex-1 min-w-40">
@@ -1053,7 +1067,7 @@ function RetiradaPanel({
         </button>
       </form>
       <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-snug text-amber-800">
-        Motoboy, taxa ou lanche vão pelo Financeiro: lance a despesa e clique <b>Pago</b> com a caixinha <b>&quot;Saiu da gaveta&quot;</b> marcada. Não registre retirada aqui também — retirada na mão + despesa solta trava o fechamento.
+        Motoboy, taxa ou lanche vão pelo Financeiro: lance a despesa e clique <b>Pago</b> com a caixinha <b>&quot;Saiu da gaveta&quot;</b> marcada. Não registre retirada aqui também — retirada na mão + despesa solta trava o fechamento. <b>Saída em PIX ou cartão não é retirada:</b> registre em <b>Contas → transferência</b>.
       </p>
       <FeedbackMsg state={state} />
       {lista.length > 0 && (

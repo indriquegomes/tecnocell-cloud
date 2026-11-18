@@ -91,12 +91,18 @@ export async function fecharCaixa(
     // Sem isso o dinheiro sai da gaveta e o sistema não sabe pra onde foi — o
     // fechamento fecha certinho e ninguém enxerga (achado no caixa de 03/11:
     // 15,00 "taxa jhonatan" + 60,00 "motoboy" saíram sem lançamento nenhum).
+    //
+    // Só DINHEIRO trava: a régua tem que ser a mesma do calcular_valor_esperado,
+    // que soma apenas forma dinheiro. Retirada gravada em PIX não tirou cédula da
+    // gaveta — travar por ela impedia de fechar um caixa que estava certo. O que
+    // não é dinheiro vira AVISO na tela (avisos-caixa), não bloqueio.
     const { data: semDestino } = await supabase
       .from('movimentos_caixa')
       .select('valor, motivo, tipo')
       .eq('caixa_id', id)
       .is('lancamento_id', null)
       .in('tipo', ['retirada', 'sangria'])
+      .ilike('forma_pagamento', '%dinheiro%')
     const totalSemDestino = (semDestino ?? []).reduce((s, m) => s + Number((m as { valor?: number }).valor ?? 0), 0)
     if (totalSemDestino > 0.005) {
       const detalhe = (semDestino ?? [])
@@ -341,18 +347,31 @@ export async function registrarRetirada(
     if (!(await podeAcessarLoja(usuario.id, (cx as { loja_id?: string | null }).loja_id ?? null))) {
       return { ok: false, message: 'Você não tem acesso ao caixa desta loja.' }
     }
+    // RETIRADA É DINHEIRO. Sangria é cédula que sai da gaveta; PIX está no banco e
+    // cartão na maquininha. Retirada em PIX não mexe no esperado da gaveta (a RPC
+    // calcular_valor_esperado só soma forma dinheiro) e ainda travava o fechamento,
+    // porque a trava recusa retirada sem destino escrito. Quem tirou dinheiro da
+    // CONTA registra em Contas → transferência, ou no Financeiro como conta paga.
+    const forma = ((formData.get('forma_pagamento') as string) || 'Dinheiro').trim()
+    if (!/dinheiro/i.test(forma)) {
+      return {
+        ok: false,
+        message: `Retirada é só de dinheiro da gaveta — "${forma}" não sai da gaveta. ` +
+          'Para dinheiro que saiu da conta, use Contas → transferência ou lance a despesa no Financeiro e clique Pago.',
+      }
+    }
     const { error } = await supabase.from('movimentos_caixa').insert({
       caixa_id: caixaId,
       tipo: 'retirada',
       motivo: (formData.get('motivo') as string) || null,
-      forma_pagamento: (formData.get('forma_pagamento') as string) || 'Dinheiro',
+      forma_pagamento: forma,
       valor,
     })
     if (error) return { ok: false, message: error.message }
 
     await logAtividade('caixa.retirada', {
       caixa_id: caixaId,
-      forma: (formData.get('forma_pagamento') as string) || 'Dinheiro',
+      forma,
       valor,
       motivo: (formData.get('motivo') as string) || null,
     }, usuario, '/painel/pdv/operacao')

@@ -109,11 +109,22 @@ do mês não rodaram**: falta `SUPABASE_ACCESS_TOKEN` no ambiente.
    custo zero) e o **nome da loja** entrou na lista de conta própria do PIX do dia,
    travado por dois casos novos em `test/pix-destinos.test.ts` (nome da loja casa;
    fornecedor que cita a cidade no meio do nome continua fora).
-2. **Decisão de desenho (não é defeito comprovado):** a trava de retirada sem destino
-   em `app/painel/pdv/operacao/actions.ts:99` filtra só `tipo`, não `forma_pagamento`.
-   Uma retirada lançada em PIX não mexe na gaveta, mas trava o fechamento do mesmo
-   jeito. Mexer aqui é escolha do dono — o custo de errar é abrir buraco na regra que
-   impede dinheiro sair sem rastro.
+2. **✅ A trava de retirada foi alinhada com a régua da gaveta (A+C, 18/11).** A trava
+   recusava qualquer retirada sem destino escrito, olhando só `tipo` — mas
+   `calcular_valor_esperado` soma apenas forma **dinheiro**. Resultado: retirada lançada
+   em PIX (que não tira cédula nenhuma) travava o fechamento de um caixa correto — foi o
+   que aconteceu em Teresópolis. Conserto em três frentes:
+   - **origem (A):** `registrarRetirada` só aceita forma dinheiro — o `<select>` da tela
+     passou a oferecer só isso e o **servidor recusa** forma errada, com a mensagem
+     apontando o caminho certo (Contas → transferência, ou Financeiro → Pago).
+   - **trava:** passou a considerar só `forma_pagamento ilike '%dinheiro%'` — dinheiro
+     sem destino **continua travando**, que é o que ela existe para proteger.
+   - **aviso (C):** retirada não-dinheiro sem destino virou aviso amarelo no fechamento
+     (`lib/avisos-caixa.ts`, `retiradasForaDaGavetaSemDestino`), nunca bloqueio — a
+     gaveta está certa, mas o dinheiro saiu da conta sem rastro.
+   Teste novo em `test/avisos-caixa.test.ts` (avisa e **não** pede ciência). Estado atual
+   do dado: 67 retiradas não-dinheiro sem destino no histórico, **todas anteriores a
+   06/11** e **nenhuma em caixa aberto** — não há nada travado hoje.
 
 **O que NÃO é pendência (verificado em 18/11, para não voltar como fantasma):**
 

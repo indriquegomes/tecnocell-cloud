@@ -112,6 +112,8 @@ export default async function OperacaoPDVPage({
     forma_pagamento: string
     valor: number
     created_at: string
+    /** null = saiu sem destino escrito. A tela usa pra avisar retirada fora da gaveta. */
+    lancamento_id: string | null
   }[] = []
   let vendasDia: { id: string; total: number; created_at: string; forma_pagamento_id: string | null; forma_pagamento: string; recebido?: number; formas?: string[] }[] = []
   let porForma: Record<string, number> = {}
@@ -136,7 +138,7 @@ export default async function OperacaoPDVPage({
         .order('created_at', { ascending: false }),
       supabase
         .from('movimentos_caixa')
-        .select('id, tipo, motivo, forma_pagamento, valor, created_at')
+        .select('id, tipo, motivo, forma_pagamento, valor, created_at, lancamento_id')
         .eq('caixa_id', caixaAberto.id)
         .order('created_at', { ascending: false }),
     ])

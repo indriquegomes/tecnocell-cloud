@@ -102,3 +102,16 @@ test('vários problemas juntos aparecem todos, e um só conferir já exige ciên
   assert.equal(a.length, 5)
   assert.equal(precisaCiencia(a), true)
 })
+
+// Retirada em PIX/cartão não tira cédula da gaveta: avisa, não bloqueia. A régua é a
+// mesma do calcular_valor_esperado, que só soma forma dinheiro.
+test('retirada fora da gaveta sem destino avisa, mas NÃO pede ciência (não é gaveta)', () => {
+  const a = avisosDeFechamento({ ...base, retiradasForaDaGavetaSemDestino: { quantidade: 1, total: 550 } })
+  assert.equal(a.length, 1)
+  assert.equal(a[0].nivel, 'info')
+  assert.match(a[0].titulo, /550,00/)
+  assert.match(a[0].titulo, /fora da gaveta/)
+  assert.equal(precisaCiencia(a), false)
+  // nada a avisar quando não há retirada fora da gaveta
+  assert.deepEqual(avisosDeFechamento({ ...base, retiradasForaDaGavetaSemDestino: { quantidade: 0, total: 0 } }), [])
+})

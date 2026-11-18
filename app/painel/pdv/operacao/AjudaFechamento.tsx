@@ -62,7 +62,7 @@ export function AjudaFechamento() {
                   <li>Registrar a retirada na mão <b>e</b> lançar a despesa separada <b>não liga</b> as duas — o fechamento continua travado</li>
                   <li><b>Erro de digitação</b> → não invente retirada nem reforço. Chame o responsável.</li>
                 </ul>
-                <p className="mt-2">Retirada sem destino <b>trava o fechamento</b> — e é de propósito: impede dinheiro sumir sem rastro.</p>
+                <p className="mt-2">Retirada de <b>dinheiro</b> sem destino <b>trava o fechamento</b> — e é de propósito: impede dinheiro sumir sem rastro. Saída em PIX ou cartão não é retirada (não sai da gaveta): registre em <b>Contas → transferência</b>; o app até avisa, mas não trava.</p>
               </div>
 
               <div>
