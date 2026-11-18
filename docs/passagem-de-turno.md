@@ -6,9 +6,94 @@
 >
 > Regras do projeto: `AGENTS.md`. Como o sistema funciona: `docs/mapa/`.
 
-**Última atualização:** 17/11/2026 (dívida de fornecedor: por que o número não bate com a planilha).
+**Última atualização:** 18/11/2026 (encomenda parou de mexer no estoque; caixa de Teresópolis fechado).
 
-## Nesta rodada (17/11/2026) — dívida de fornecedor: causa encontrada
+## Nesta rodada (18/11/2026) — encomenda não mexe mais no estoque
+
+**Botão "✓ Chegou" da encomenda não cadastra produto e não dá entrada no estoque**
+(`3952d64`). Ele fazia três coisas além de avisar a chegada: criava o produto com o
+**texto livre digitado no balcão** (nome torto, duplicado), sobrescrevia o
+`preco_custo` do produto que já existia (matando o custo médio ponderado) e somava
+quantidade direto na tabela `estoque`, sem passar pelo RPC `movimentar_estoque` —
+sem movimentação e **contando a mesma peça duas vezes** quando a nota de entrada
+chegava. Agora `aprovarEncomenda` grava só `status`, `custo` e `aprovado_em`.
+
+- A **entrada continua sendo a nota de entrada** (RPC `receber_nota_entrada`: grava
+  movimentação, distribui série e recalcula o custo pela média ponderada).
+- A atendente **continua podendo encomendar item sem cadastro** — a opção não foi
+  tocada (`NovaEncomenda.tsx` e `criarEncomenda` iguais). O que mudou é que a peça
+  nova agora precisa de cadastro em **Produtos** antes da nota, porque a nota só
+  aceita produto que já existe (`AddItemNota.tsx` busca, não cria).
+
+**Limpeza dos cadastros que aquele caminho já tinha criado** (`69ebd25`, com
+`scripts/limpar-produtos-encomenda.mjs` e `scripts/fundir-produto.mjs` — ensaiam por
+padrão, fazem backup e recusam quando o cadastro tem item de nota ou número de série):
+
+- **Apagados** (2): nome errado com gêmeo correto no catálogo, estoque 0 e sem venda —
+  `frontal sansung m54 original nacional com aro` e
+  `11766 - FRONTAL SAMSUNG S23 ULTRA OLED COM ARO`.
+- **Fundidos** (4): a venda e o preço de tabela foram para o cadastro que sobrevive —
+  TAMPA IPHONE 12 VERMELHA (fica o do SIGE, o clone tinha preço 41 contra custo 45),
+  GAVETA SAMSUNG S21 FE CHUMBO (preço 50), GAVETA XIAOMIMI 9T/9T PRO PRETO (preço 40)
+  e `frontal poco 81` → **FRONTAL XIAOMI REDMI 15 4G/5G/POCO M7 4G/POCO M7 PLUS 5G/
+  NOTE 15R/POCO C81 PREMIUM \*\*ZL\*\* SEM ARO** (a unidade de estoque foi junto).
+- **Ficaram (7)**: TAMPA REALME NOTE 60 AZUL · EXTENSOR A71 VERSÃO REVA06 · BOTAO
+  EXTERNO VOLUME/POWER SAMSUNG A05 A055 LILÁS · BATERIA SAMSUNG A14 … \*ROX\* · BATERIA
+  XIAOMI REDMI NOTE 9 … BM54 \*HK\* · CASE COURO IPHONE 15 · CASE COURO IPHONE 15 PRO
+  MAX. Comparados contra os **8.184 produtos** do catálogo, **não são cópia de nada**
+  (as *ROX*/\*HK\*/\*PREMIUM\* da mesma bateria e CASE COURO × CAPAS CASE são SKUs
+  diferentes), e todos têm venda ou item de nota ligado.
+- Backups do estado anterior: `docs/registros-banco/2026-11/backup-produtos-encomenda-*.json`
+  e `backup-fundir-produto-*.json`.
+
+**Varredura do catálogo (só leitura):** 15 nomes repetidos em 8.184 produtos e
+**nenhum** veio do botão da encomenda. Os grandes grupos são convenção antiga do SIGE
+(`COMPONENTE LIVRE` × 403, `CADASTRO INATIVO` × 6, `BATERIA LIVRE` × 3); os pares já
+existentes (KIT 6 ESPATULAS AMARELAS, TAMPA XIAOMI MI 9 PRETA, FRONTAL SAMSUNG S10 /
+S10 PLUS / S21 PLUS OLED NACIONAL COM ARO, LENTE CAMERA SAMSUNG S9 G960, CHIP VIVO,
+GAVETA XIAOMI REDMI 9A AZUL, CAIXA DE SOM KAPBOM KA-8776, MOUSE COM FIO LEHMOX LEY-28,
+PENDRIVE/CARTAO DE MEMORIA KAPBOM 128GB) vêm do SIGE. Só um par tem id do app e os
+dois estão **inativos**.
+
+**Caixa de Teresópolis da sessão de 16/11 fechado.** O fechamento travava por uma
+retirada de **R$ 550,00 lançada em PIX** com motivo "QUITEI ERRADO": a trava recusa
+retirada sem lançamento de destino, e o par que foi lançado para "desfazer" (retirada
+550 em PIX + reforço 550 em **dinheiro**) **não se anula** — o reforço em dinheiro
+somava 550 na gaveta e o esperado ia a R$ 2.016,30 contra R$ 1.466,30 reais.
+
+- A retirada foi removida (era correção de digitação, sem dinheiro saindo) e o caixa
+  fechou com contado = esperado = **R$ 2.016,30**, divergência **0**.
+- Composição: troco 200,00 + vendas em dinheiro 289,30 + fiado recebido em dinheiro
+  1.166,00 + reforço em dinheiro 550,00 − devolução em dinheiro 189,00.
+- Rastro: `caixas.pix_resolucao` + `logs_atividade` (`caixa.fechar`) + backup
+  `docs/registros-banco/backup-caixa-tere-2026-11-17.json`. Ferramenta:
+  `scripts/fechar-caixa-tere-2026-11-16.mjs` (roda em ensaio com `DRY=1`).
+- **PIX do dia não foi abatido de propósito**: o único PIX classificado como
+  fornecedor (R$ 66,76) caiu em **CNPJ da própria rede**, então não é dívida a abater.
+  Ficou registrado como não abatido.
+
+**PIX do dia: dinheiro na chave da loja irmã deixou de virar dívida de fornecedor**
+(`022e2cf`). A lista de "nossa conta" usava só o CNPJ da **loja do caixa**; PIX que
+caía no CNPJ da outra loja casava com o cadastro de fornecedor dela e o fechamento
+abatia dívida. Agora entra o CNPJ de **toda** a rede (lojas + chaves das contas).
+Verificado com o caixa de 16/11: os R$ 66,76 passaram a sair como conta própria.
+
+**Pendências que esta rodada deixou:**
+
+1. **Revisão independente** do corte da encomenda — caminho de estoque exige.
+2. **A trava de retirada sem destino filtra só `tipo`**, não `forma_pagamento`: uma
+   retirada em PIX (dinheiro que nunca esteve na gaveta) trava o fechamento do mesmo
+   jeito. Decidir se corrige.
+3. **R$ 95,00 da ADL** e **PLANETA CELL −231,00** desde a planilha de 13/11: sem nome.
+4. **45 peças de troca sem fornecedor** (R$ 3.195,17 — era 28 peças / R$ 1.946,57 em
+   16/11) e **1 peça fora do fundo** (FRONTAL SAMSUNG A36 PREMIUM INCELL \*ZL\*, 12/11).
+5. **11 avisos** em `scripts/conferir-divida-fornecedor.mjs` (4 "pagamento virou
+   dívida", 7 "nota não fecha"): todos do mesmo defeito — abatimento aplicado no
+   `valor` da nota **fora do histórico**. O dinheiro está certo; o histórico não conta
+   a história.
+6. **0 de 225 trocas abatidas** na dívida: o recurso existe e ninguém usa.
+
+## Rodada anterior (17/11/2026) — dívida de fornecedor: causa encontrada
 
 O dono relatou às 08:31 que ADL e H2O não batiam com a planilha. **Causa da ADL
 confirmada e explicada ao centavo:** uma linha "PAGAMENTO DE MERCADORIA" de
@@ -348,7 +433,12 @@ Painel abrindo sem erro de console.
 
 ## Estado do Git
 
-- Branch `main` publicada, tudo commitado (working tree limpo). Últimos: `32ab1ae`
+- Branch `main` publicada, tudo commitado. **Últimos (18/11):** `69ebd25` (funde o
+  `frontal poco 81` no cadastro do POCO C81), `3952d64` (o "Chegou" da encomenda não
+  cadastra nem dá entrada), `022e2cf` (PIX na chave da loja irmã é conta nossa),
+  `dc793f6` (guia da retirada no fechamento do caixa).
+- `3952d64` e `69ebd25` com CI verde no próprio commit (`tsc` + `review`).
+- Últimos anteriores: `32ab1ae`
   (fiados encerrados + regra da pendência-fantasma), `28afbbf` (checkup 15/11),
   `9c17b00` (Reposição paginada), `2bb6734` (rastro do PIX no fechamento).
 - **Produção com o código novo:** deploy do `main@28afbbf` confirmado (Reposição
@@ -361,10 +451,11 @@ Painel abrindo sem erro de console.
 
 ## Pendências reais (por prioridade)
 
-> **Abertas hoje (15/11):** item 8 (cadastros gerais — pausado por decisão do
-> dono) e item 9 (estrutura MEI 2027). O resto está resolvido ou é nota de
-> processo. Foco combinado: **fechar o mês 11 limpo** para o mês 12 não herdar
-> erro.
+> **Abertas hoje (18/11):** a lista desta rodada está em "Pendências que esta rodada
+> deixou", no topo do arquivo. Na lista numerada abaixo seguem abertos o item 8
+> (cadastros gerais — pausado por decisão do dono) e o item 9 (estrutura MEI 2027).
+> O resto está resolvido ou é nota de processo. Foco combinado: **fechar o mês 11
+> limpo** para o mês 12 não herdar erro.
 
 1. **✅ REVISÃO INDEPENDENTE CONCLUÍDA (15/11 — Claude Code + Antigravity).**
    Dois pareceres externos independentes, **ambos: seguro para financeiro** — só
