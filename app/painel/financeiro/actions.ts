@@ -114,7 +114,8 @@ export async function criarLancamento(formData: FormData) {
   // action> sem error boundary derruba a tela inteira.
   if (error) redirect(`/painel/financeiro/novo?erro=${encodeURIComponent(error.message)}`)
   // Receber já quitado ao criar: o dinheiro precisa cair na gaveta, igual ao
-  // botão "Pago". (pagar quitado NÃO mexe na gaveta — refletido via saldos-contas.)
+  // botão "Pago". (pagar quitado em dinheiro TAMBÉM mexe na gaveta, logo abaixo —
+  // a saída precisa de movimento para o fechamento saber o destino.)
   if (quitado && tipo === 'receber') {
     await registrarNoCaixa(
       supabase,
@@ -149,6 +150,28 @@ export async function criarLancamento(formData: FormData) {
     // deixar a dívida errada em silêncio.
     if (!r.ok) {
       redirect(`/painel/financeiro?erro=${encodeURIComponent('Pagamento registrado, mas a baixa na nota do fornecedor não foi aplicada: ' + (r.erro ?? 'erro desconhecido'))}`)
+    }
+  }
+
+  // PAGAR QUITADO EM DINHEIRO SAI DA GAVETA — mesma régua do botão "Pago".
+  // Antes esta ligação só existia no "Pago": quem lançava a despesa com "quitado"
+  // fazia o dinheiro sair da gaveta sem movimento e o fechamento travava com
+  // "Saíram R$ X do caixa sem destino" (Teresópolis 17/11, Petrópolis 18/11). Só
+  // dinheiro: PIX e cartão não passam pela gaveta.
+  const formaQuitada = (formData.get('forma_pagamento') as string) || ''
+  if (quitado && tipo === 'pagar' && formaQuitada.trim().toLowerCase().includes('dinheiro')) {
+    const ret = await retirarDoCaixa(
+      supabase,
+      lojaId,
+      Math.round(valorParcela * 100) / 100,
+      `Pagamento em dinheiro — ${descricao}`,
+      linhas[0].id,
+      'financeiro',
+    )
+    // Gaveta sem saldo: avisa em vez de deixar a gaveta negativa no fechamento
+    // (dinheiro de envelope/cofre não passa por ela). O pagamento já está gravado.
+    if (!ret.ok && ret.erro && ret.erro.startsWith('A gaveta tem')) {
+      redirect(`/painel/financeiro?erro=${encodeURIComponent('Pagamento registrado, mas a saída da gaveta não foi registrada: ' + ret.erro)}`)
     }
   }
 

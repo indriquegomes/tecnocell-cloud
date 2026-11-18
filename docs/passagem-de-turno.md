@@ -6,9 +6,17 @@
 >
 > Regras do projeto: `AGENTS.md`. Como o sistema funciona: `docs/mapa/`.
 
-**Última atualização:** 18/11/2026 (importador de nota por foto; encomenda parou de mexer no estoque; caixa de Teresópolis fechado).
+**Última atualização:** 18/11/2026 (importador de nota por foto; despesa quitada em dinheiro liga a retirada; encomenda parou de mexer no estoque).
 
 ## Nesta rodada (18/11/2026) — importador de nota por foto, encomenda e caixa
+
+**Despesa "quitada" em dinheiro agora cria a retirada ligada no caixa** (mesma régua do
+botão "Pago" com "Saiu da gaveta"). Antes esta ligação só existia no "Pago": quem lançava
+a despesa com o checkbox "quitado" fazia o dinheiro sair da gaveta sem movimento e o
+fechamento travava com "Saíram R$ X do caixa sem destino" — foi o caso da Teresópolis em
+17/11 (motoboy R$ 70,00) e da Petrópolis em 18/11 (motoboy R$ 20,00). O movimento sai com
+`origem 'financeiro'` e `lancamento_id`, então o "Desfazer" também o enxerga. Só vale
+para forma Dinheiro; PIX/cartão não passam pela gaveta.
 
 **Importar Nota por Foto** (`Compras → Importar por foto`, rota `/painel/compras/importar`):
 a pessoa anexa as fotos da nota que chegou (pode várias páginas), o app lê os itens com a
