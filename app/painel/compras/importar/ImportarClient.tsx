@@ -158,6 +158,7 @@ export function ImportarClient({
                             <select
                               name={`item_${i}_produto`}
                               defaultValue={valorSelect}
+                              required
                               onChange={(e) => setEscolhidos((s) => ({ ...s, [i]: e.target.value }))}
                               className="w-full rounded border border-gray-200 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                             >
