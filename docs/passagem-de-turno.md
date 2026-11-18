@@ -103,23 +103,36 @@ referência órfã nova no banco. **Suíte e2e não rodada por decisão do dono*
 no banco de produção; volta depois que as duas lojas fecharem o caixa). **Invariantes
 do mês não rodaram**: falta `SUPABASE_ACCESS_TOKEN` no ambiente.
 
-**Pendências que esta rodada deixou:**
+**Pendências que esta rodada deixou — só uma é código:**
 
 1. **✅ As duas correções da revisão foram aplicadas:** custo da chegada virou **opcional** (peça de garantia/troca entra com
    custo zero) e o **nome da loja** entrou na lista de conta própria do PIX do dia,
    travado por dois casos novos em `test/pix-destinos.test.ts` (nome da loja casa;
    fornecedor que cita a cidade no meio do nome continua fora).
-2. **A trava de retirada sem destino filtra só `tipo`**, não `forma_pagamento`: uma
-   retirada em PIX (dinheiro que nunca esteve na gaveta) trava o fechamento do mesmo
-   jeito. Decidir se corrige.
-3. **R$ 95,00 da ADL** e **PLANETA CELL −231,00** desde a planilha de 13/11: sem nome.
-4. **45 peças de troca sem fornecedor** (R$ 3.195,17 — era 28 peças / R$ 1.946,57 em
-   16/11) e **1 peça fora do fundo** (FRONTAL SAMSUNG A36 PREMIUM INCELL \*ZL\*, 12/11).
-5. **11 avisos** em `scripts/conferir-divida-fornecedor.mjs` (4 "pagamento virou
-   dívida", 7 "nota não fecha"): todos do mesmo defeito — abatimento aplicado no
-   `valor` da nota **fora do histórico**. O dinheiro está certo; o histórico não conta
-   a história.
-6. **0 de 225 trocas abatidas** na dívida: o recurso existe e ninguém usa.
+2. **Decisão de desenho (não é defeito comprovado):** a trava de retirada sem destino
+   em `app/painel/pdv/operacao/actions.ts:99` filtra só `tipo`, não `forma_pagamento`.
+   Uma retirada lançada em PIX não mexe na gaveta, mas trava o fechamento do mesmo
+   jeito. Mexer aqui é escolha do dono — o custo de errar é abrir buraco na regra que
+   impede dinheiro sair sem rastro.
+
+**O que NÃO é pendência (verificado em 18/11, para não voltar como fantasma):**
+
+- **PLANETA CELL 12.324,96** é o valor do app, sem diferença marcada no registro
+  oficial (`docs/registros/2026-11/baixa-de-pagamento-em-nota.md` §15). Não existe
+  "−231,00 em aberto".
+- **R$ 95,00 da ADL** está nomeado e é do lado da **planilha**: algum pagamento saiu
+  da planilha de 13/11 para a de 17/11 (`baixa-de-pagamento-em-nota.md` §14). O dado do
+  app está certo; quem responde é o dono, com a planilha na mão.
+- **Peças de troca sem fornecedor** é **métrica** de qualidade, não tarefa: 42 peças /
+  R$ 2.827,69 em 17/11 (`conferencia-trocas-2026-11-17.md`). Varia com o movimento.
+- **Os avisos do `conferir-divida-fornecedor.mjs`** ("pagamento virou dívida", "nota
+  não fecha") são a **convenção do app** sendo acusada: o script soma `valor` +
+  histórico, e o abatimento fica gravado no `valor` com o texto na descrição. A dívida
+  por fornecedor já fecha com a planilha (H2O igual, ADL − R$ 375,00 nomeados). Regra do
+  `AGENTS.md` §9: conferente não pode acusar o padrão documentado.
+- **Suíte e2e** e **invariantes do mês** não são pendência de sistema: a e2e espera o
+  caixa fechar (decisão do dono) e os invariantes só precisam do
+  `SUPABASE_ACCESS_TOKEN` no ambiente.
 
 ## Rodada anterior (17/11/2026) — dívida de fornecedor: causa encontrada
 
