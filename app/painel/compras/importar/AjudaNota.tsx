@@ -30,13 +30,12 @@ export function AjudaNota() {
 
         <div>
           <p className="mb-1 font-semibold text-gray-900">2. Anexe as fotos e clique em Ler as fotos</p>
-          <p>Uma nota de várias páginas vai junta. Foto escura ou torta é o que mais faz a leitura errar: apoie a folha, sem sombra.</p>
-          <p className="mt-1">
-            <b>Várias notas de uma vez:</b> em &quot;Essas fotos são…&quot; escolha
-            <b> Cada foto é UMA nota</b> (até 6). O app lê cada foto separada e monta uma nota pendente
-            para cada uma — cada nota com o seu fornecedor e o seu número. Se as fotos forem páginas da
-            mesma nota, deixe em <b>Páginas da MESMA nota</b>.
+          <p>
+            <b>Uma foto por página da mesma nota.</b> Pode mandar a nota inteira: as fotos são comprimidas
+            no envio e cabem ~10 páginas de uma vez. Todos os itens das páginas somam numa <b>nota só</b> —
+            nada de uma nota por página, que deixaria o valor quebrado.
           </p>
+          <p className="mt-1">Foto escura ou torta é o que mais faz a leitura errar: apoie a folha, sem sombra.</p>
         </div>
 
         <div>

@@ -318,7 +318,12 @@ export async function lerNotaFotos(_prev: LeituraResultado | null, formData: For
     const fotos = (formData.getAll('fotos') as File[]).filter((f) => f && f.size > 0)
     if (!fotos.length) return { ok: false, message: 'Anexe pelo menos uma foto da nota.' }
     const totalBytes = fotos.reduce((s, f) => s + f.size, 0)
-    if (totalBytes > 8 * 1024 * 1024) return { ok: false, message: 'As fotos somam mais de 8 MB. Mande menos fotos de uma vez.' }
+    // O teto é da infraestrutura: o Next corta a server action em 4 MB (next.config.ts)
+    // e a Vercel em ~4,5 MB. A tela COMPRIME as fotos no navegador antes de enviar,
+    // então cabem ~10 páginas. Passar daqui é foto que não comprimiu.
+    if (totalBytes > 3.8 * 1024 * 1024) {
+      return { ok: false, message: 'As fotos somam mais de 3,8 MB mesmo depois de comprimidas. Mande em duas leituras — a nota é a mesma, os itens somam.' }
+    }
 
     const partes: FotoNota[] = []
     for (const f of fotos) {
@@ -330,46 +335,28 @@ export async function lerNotaFotos(_prev: LeituraResultado | null, formData: For
     // A classe da nota (o que a pessoa escolheu na tela, ou o que a nota declara no
     // topo) reduz o universo do casamento de ~8 mil produtos para algumas centenas.
     const classePedida = ((formData.get('classe') as string) || '').trim() || null
-    // "juntas" = várias páginas da MESMA nota · "separadas" = cada foto é uma nota.
-    const separadas = formData.get('modo') === 'separadas'
-    if (separadas && partes.length > 6) {
-      return { ok: false, message: 'No modo "cada foto é uma nota", mande no máximo 6 fotos por vez — a leitura é foto por foto.' }
-    }
-
     const supabase = await createServiceClient()
     const produtos = await fetchAll<{ id: string; nome: string; categoria: string | null }>((from, to) =>
       supabase.from('produtos').select('id, nome, categoria').eq('ativo', true).order('nome').range(from, to))
 
-    if (!separadas) {
-      const { itens, classe } = await lerItensDasFotos(partes, classePedida)
-      if (!itens.length) {
-        return { ok: false, message: 'Não consegui ler itens nesta foto. Confira se está legível e tente de novo — ou lance a nota pela tela normal.' }
-      }
-      return { ok: true, grupos: [{ itens: casarProdutos(itens, produtos, classe), classe }] }
+    // TODAS as fotos são páginas da MESMA nota: os itens de todas as páginas entram na
+    // mesma lista. Nota de 3 páginas somando R$ 20.523,00 continua sendo UMA nota —
+    // uma nota por página deixaria três notas com valor quebrado.
+    const { itens, classe } = await lerItensDasFotos(partes, classePedida)
+    if (!itens.length) {
+      return { ok: false, message: 'Não consegui ler itens nestas fotos. Confira se estão legíveis e tente de novo — ou lance a nota pela tela normal.' }
     }
-
-    // uma foto = uma nota: lê cada foto sozinha (o fornecedor e o número são por nota)
-    const grupos: GrupoNota[] = []
-    for (const parte of partes) {
-      const { itens, classe } = await lerItensDasFotos([parte], classePedida)
-      grupos.push({ itens: casarProdutos(itens, produtos, classe), classe })
-    }
-    if (!grupos.some((g) => g.itens.length)) {
-      return { ok: false, message: 'Não consegui ler itens em nenhuma das fotos. Confira a legibilidade e tente de novo.' }
-    }
-    return { ok: true, grupos }
+    return { ok: true, grupos: [{ itens: casarProdutos(itens, produtos, classe), classe }] }
   } catch (e) {
     console.error('lerNotaFotos:', e instanceof Error ? e.message : e)
     return { ok: false, message: 'Erro ao ler as fotos. Tente de novo.' }
   }
 }
 
-// CRIA AS NOTAS a partir do que foi lido — uma ou várias de uma vez.
+// CRIA A NOTA a partir do que foi lido.
 //
-// Cada grupo da tela vira uma nota pendente própria (com o fornecedor e o número
-// dela). Antes só existia uma nota por leitura: quem chegava com três notas tinha
-// que repetir a leitura três vezes. O estoque NÃO muda aqui — receber continua
-// sendo ato separado, dentro da nota.
+// Uma leitura = uma nota (as fotos são páginas dela). O estoque NÃO muda aqui:
+// receber continua sendo ato separado, dentro da nota.
 export async function criarNotasDosItens(formData: FormData) {
   await requirePermissaoAny(['compras', 'notas_entrada'])
   const supabase = await createServiceClient()

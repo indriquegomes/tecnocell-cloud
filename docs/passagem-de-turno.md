@@ -159,16 +159,18 @@ um `<select>` por linha — lista em que ninguém acha nada. Agora:
   peça → volta pra nota) e os quatro erros que já aconteceram aqui. Mesmo padrão do
   "Como fechar" do caixa.
 
-**Várias notas de uma vez no importador** (18/11). Antes a leitura inteira virava **uma
-nota só**: quem chegava com três notas repetia a leitura três vezes. Agora o campo
-"Essas fotos são…" tem dois modos:
+**Nota com várias páginas: a trava era o tamanho, não a tela** (18/11). O importador
+recusava várias fotos da mesma nota porque a server action tem teto de **4 MB**
+(`next.config.ts`) e a Vercel corta em ~4,5 MB — foto de celular tem 2–4 MB cada, então
+**3 páginas da nota da ADL (R$ 20.523,00) já estouravam** e o envio morria. Tentativa de
+"uma nota por foto" foi descartada pelo dono: 3 páginas viram 3 notas com valor quebrado.
 
-- **Páginas da MESMA nota** (padrão): as fotos são somadas numa nota, como sempre foi.
-- **Cada foto é UMA nota** (até 6): o app lê foto por foto e monta **uma nota pendente
-  por foto**, cada uma com o seu fornecedor e o seu número — a tela mostra um bloco por
-  nota e o botão diz "Criar N notas pendentes". `criarNotasDosItens` grava todas e
-  desfaz a nota cuja linha falhar; o estoque continua mexendo **só** no Confirmar
-  Recebimento de cada uma.
+- **As fotos são comprimidas no navegador** (`lib/comprimir-foto.ts`: lado maior 1700 px,
+  JPEG 0,72; foto já pequena não é recomprimida). Uma nota de ~10 páginas cabe no envio.
+- A tela mostra o total escolhido e o total enviado depois de comprimir.
+- Teto do servidor em 3,8 MB, com mensagem dizendo para dividir em duas leituras da
+  MESMA nota quando não couber.
+- **Todas as fotos continuam virando UMA nota** — os itens das páginas somam.
 
 **Pendências que esta rodada deixou — só uma é código:**
 

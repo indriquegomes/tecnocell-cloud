@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect, useState } from 'react'
+import { useActionState, useEffect, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { Spinner } from '@/components/Spinner'
 import { SubmitButton } from '@/components/SubmitButton'
@@ -8,6 +8,7 @@ import { FornecedorSelect } from '../FornecedorSelect'
 import { lerNotaFotos, criarNotasDosItens, type LeituraResultado } from '../actions'
 import { formatBRL } from '@/lib/utils'
 import { CLASSES_NOTA } from '@/lib/nota-classes'
+import { comprimirFoto } from '@/lib/comprimir-foto'
 import { EscolherProduto } from './EscolherProduto'
 import { AjudaNota } from './AjudaNota'
 
@@ -37,7 +38,7 @@ export function ImportarClient({
   depositoPadrao: string | null
 }) {
   const [leitura, formLer, lendo] = useActionState<LeituraResultado | null, FormData>(lerNotaFotos, null)
-  // Cada grupo = UMA nota. Uma leitura pode devolver várias (modo "cada foto é uma nota").
+  // Uma leitura = uma nota: as fotos são páginas dela e os itens somam numa lista só.
   const [grupos, setGrupos] = useState<GrupoTela[] | null>(null)
   const [trocar, setTrocar] = useState<Record<string, boolean>>({})
   const [escolhidos, setEscolhidos] = useState<Record<string, string>>({})
@@ -45,7 +46,33 @@ export function ImportarClient({
   // De que trata a nota (frontal, bateria, acessório…) — vale para a leitura e para
   // a busca de produto de cada linha. É o que evita casar a peça parecida.
   const [classe, setClasse] = useState<string>('')
-  const [modo, setModo] = useState<'juntas' | 'separadas'>('juntas')
+  // Fotos escolhidas: são comprimidas no navegador antes de subir (a server action
+  // tem teto de 4 MB e foto de celular tem 2–4 MB cada).
+  const [arquivos, setArquivos] = useState<File[]>([])
+  const [comprimindo, setComprimindo] = useState(false)
+  const [tamanhoEnviado, setTamanhoEnviado] = useState<number | null>(null)
+  const [, startTransition] = useTransition()
+
+  const enviarFotos = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!arquivos.length || comprimindo) return
+    setComprimindo(true)
+    setTamanhoEnviado(null)
+    try {
+      const fd = new FormData()
+      fd.set('classe', classe)
+      let total = 0
+      for (const f of arquivos) {
+        const comp = await comprimirFoto(f)
+        total += comp.size
+        fd.append('fotos', comp, comp.name)
+      }
+      setTamanhoEnviado(total)
+      startTransition(() => formLer(fd))
+    } finally {
+      setComprimindo(false)
+    }
+  }
 
   useEffect(() => {
     if (leitura?.ok) {
@@ -85,51 +112,49 @@ export function ImportarClient({
       <AjudaNota />
 
       {/* 1. fotos */}
-      <form action={formLer} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
+      <form onSubmit={enviarFotos} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
         <p className="font-semibold text-gray-800">1. Anexe as fotos da nota</p>
-        <p className="text-sm text-gray-500">Pode mandar várias fotos: elas são lidas de uma vez e viram uma ou várias notas pendentes.</p>
+        <p className="text-sm text-gray-500">
+          Mande a nota inteira: uma foto por página. Todas as páginas viram <b>uma nota só</b> — os itens somam.
+        </p>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Essas fotos são…</label>
-            <select name="modo" value={modo} onChange={(e) => setModo(e.target.value as 'juntas' | 'separadas')} className="field">
-              <option value="juntas">Páginas da MESMA nota (vira 1 nota)</option>
-              <option value="separadas">Cada foto é UMA nota (até 6)</option>
-            </select>
-            <p className="mt-1 text-xs text-gray-400">
-              {modo === 'juntas'
-                ? 'Fotos da mesma folha/nota: os itens de todas as páginas são somados numa nota só.'
-                : 'Uma nota por foto — cada uma com o seu fornecedor e o seu número.'}
-            </p>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">De que trata a nota?</label>
-            <select name="classe" value={classe} onChange={(e) => setClasse(e.target.value)} className="field">
-              <option value="">— Não sei / misturada (busca em todo o catálogo) —</option>
-              {CLASSES_NOTA.map((c) => <option key={c.valor} value={c.valor}>{c.label}</option>)}
-            </select>
-            <p className="mt-1 text-xs text-gray-400">
-              Escolher a classe faz o app procurar só naquela família (ex.: frontais) em vez do catálogo
-              inteiro. Se você escrever no topo da nota (&quot;TELAS E FRONTAIS&quot;), ele também entende sozinho.
-            </p>
-          </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">De que trata a nota?</label>
+          <select name="classe" value={classe} onChange={(e) => setClasse(e.target.value)} className="field">
+            <option value="">— Não sei / misturada (busca em todo o catálogo) —</option>
+            {CLASSES_NOTA.map((c) => <option key={c.valor} value={c.valor}>{c.label}</option>)}
+          </select>
+          <p className="mt-1 text-xs text-gray-400">
+            Escolher a classe faz o app procurar só naquela família (ex.: frontais) em vez do catálogo
+            inteiro. Se você escrever no topo da nota (&quot;TELAS E FRONTAIS&quot;), ele também entende sozinho.
+          </p>
         </div>
 
         <input
           type="file"
-          name="fotos"
           multiple
           required
           accept="image/*"
+          onChange={(e) => { setArquivos(Array.from(e.target.files ?? [])); setTamanhoEnviado(null) }}
           className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100"
         />
+        {arquivos.length > 0 && (
+          <p className="text-xs text-gray-500">
+            {arquivos.length} foto{arquivos.length === 1 ? '' : 's'} ·{' '}
+            {(arquivos.reduce((s, f) => s + f.size, 0) / 1024 / 1024).toFixed(1)} MB
+            {' — '}comprimidas no envio (cabe uma nota de até ~10 páginas)
+            {tamanhoEnviado !== null && ` · enviadas com ${(tamanhoEnviado / 1024 / 1024).toFixed(2)} MB`}
+          </p>
+        )}
         <div className="flex items-center gap-3">
           <button
             type="submit"
-            disabled={lendo}
+            disabled={lendo || comprimindo || arquivos.length === 0}
             className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition"
           >
-            {lendo ? (
+            {comprimindo ? (
+              <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Preparando as fotos...</span>
+            ) : lendo ? (
               <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Lendo fotos...</span>
             ) : (
               'Ler as fotos'
