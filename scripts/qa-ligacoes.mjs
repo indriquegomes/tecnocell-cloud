@@ -22,11 +22,14 @@ const checks = []
 const check = (nome, ok, detalhe = '', hist = false) => checks.push({ nome, ok: !!ok, detalhe, hist })
 
 // ── nota de entrada → conta a pagar ────────────────────────────────────────
+// Só nota RECEBIDA gera conta a pagar (o RPC receber_nota_entrada cria na hora de
+// receber). Nota pendente é nota em andamento — não acusa nada. A régua antiga
+// contava pendente e virou falso positivo em 18/11 (13 notas ainda não recebidas).
 const r1 = await um(`select count(*) n from notas_entrada n where n.created_at >= '2026-11-01'
-  and n.numero not in ('102','103') and n.valor_total > 0
+  and n.status = 'recebida' and n.numero not in ('102','103') and n.valor_total > 0
   and not exists (select 1 from lancamentos l where l.tipo='pagar'
     and l.descricao like 'COMPRA MERCADORIA - NOTA ' || n.numero || '%')`)
-check('toda nota de mercadoria de novembro tem conta a pagar', Number(r1.n) === 0, `${r1.n} sem`)
+check('toda nota de mercadoria recebida de novembro tem conta a pagar', Number(r1.n) === 0, `${r1.n} sem`)
 
 const r2 = await um(`select count(*) n from (select n.numero, count(*) c from notas_entrada n
   join lancamentos l on l.tipo='pagar' and l.descricao like 'COMPRA MERCADORIA - NOTA ' || n.numero || '%'
@@ -214,8 +217,13 @@ const r49 = await um(`select count(*) n from lancamentos where tipo='pagar' and 
   and data_vencimento >= '2026-11-01' and abs(valor) < 0.01`)
 check('nenhuma nota pendente de valor zero', Number(r49.n) === 0, `${r49.n} zerada(s)`)
 
+// Crédito a favor do fornecedor é linha PRÓPRIA (descrição "Crédito de pagamento"
+// ou "Ajuste a favor") — ela pode deixar o total negativo de propósito (H2O,
+// 17/11). O que este check castiga é nota comum ficando negativa, sinal de
+// abatimento lançado errado no mesmo cadastro.
 const r50 = await um(`select count(*) n from (select pessoa_nome, sum(valor - coalesce(valor_pago,0)) s
   from lancamentos where tipo='pagar' and status='pendente' and data_vencimento >= '2026-11-01'
+    and descricao not ilike 'Crédito%' and descricao not ilike 'Ajuste a favor%'
   group by 1 having sum(valor - coalesce(valor_pago,0)) < -0.01) x`)
 check('nenhum fornecedor com dívida negativa (crédito virou linha própria)', Number(r50.n) === 0, `${r50.n} negativo(s)`)
 
