@@ -115,6 +115,27 @@ referência órfã nova no banco. **Suíte e2e não rodada por decisão do dono*
 no banco de produção; volta depois que as duas lojas fecharem o caixa). **Invariantes
 do mês não rodaram**: falta `SUPABASE_ACCESS_TOKEN` no ambiente.
 
+**Importador de nota por foto: parou de escolher a peça errada, e ganhou classe**
+(18/11). Dois defeitos no mesmo lugar:
+
+- **Número de modelo virou obrigatório.** A nota dizia "13 INCELL JK" e o app
+  escolhia a "11 JK": duas de três palavras batiam e o número não era exigido. Pior,
+  a comparação era `includes`, então "11" casava dentro de "A115". Agora compara
+  **palavra por palavra** e todo número da nota tem que existir no nome do produto.
+  Quando não há a peça certa, a linha fica **sem produto** (a pessoa escolhe na tela)
+  — peça errada é prejuízo silencioso, linha em branco a pessoa resolve em 2 cliques.
+- **Classe da nota** (`lib/nota-classes.ts`, novo — arquivo sem nada de servidor
+  porque a tela usa a mesma régua): campo "De que trata esta nota?" no importador
+  (telas/frontais · baterias · películas · tampas/gavetas · placas/conectores ·
+  flex/botões · lentes/câmeras · alto-falantes · acessórios) **e** leitura automática
+  do que a pessoa escreve no topo da lista ("TELAS E FRONTAIS"). A classe filtra as
+  famílias do catálogo (a 1ª palavra do nome: FRONTAL 1.150, TAMPA 980, FLEX 564,
+  BATERIA 535, PLACA 357, PELICULA 331…) — o casamento compara contra centenas em vez
+  de 8.177 — e encolhe o `<select>` de produto, que listava o catálogo inteiro.
+- Testes: `test/nota-leitura.test.ts` foi de 4 para **8 casos** (número obrigatório,
+  "11" não casa em "A115", classe separando bateria de frontal, leitura da classe no
+  texto livre). Total do projeto: **238 testes**.
+
 **Pendências que esta rodada deixou — só uma é código:**
 
 1. **✅ As duas correções da revisão foram aplicadas:** custo da chegada virou **opcional** (peça de garantia/troca entra com

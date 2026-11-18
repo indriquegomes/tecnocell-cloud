@@ -272,7 +272,7 @@ export async function adicionarItemNota(notaId: string, formData: FormData) {
 // receber (mover estoque) continua sendo decisão de gente, no detalhe da nota.
 
 export type LeituraResultado =
-  | { ok: true; itens: ItemCasado[] }
+  | { ok: true; itens: ItemCasado[]; classe: string | null }
   | { ok: false; message: string }
 
 function mimeDaFoto(buf: Buffer): string {
@@ -297,15 +297,18 @@ export async function lerNotaFotos(_prev: LeituraResultado | null, formData: For
       partes.push({ mime, b64: buf.toString('base64') })
     }
 
-    const itens = await lerItensDasFotos(partes)
+    // A classe da nota (o que a pessoa escolheu na tela, ou o que a nota declara no
+    // topo) reduz o universo do casamento de ~8 mil produtos para algumas centenas.
+    const classePedida = ((formData.get('classe') as string) || '').trim() || null
+    const { itens, classe } = await lerItensDasFotos(partes, classePedida)
     if (!itens.length) {
       return { ok: false, message: 'Não consegui ler itens nesta foto. Confira se está legível e tente de novo — ou lance a nota pela tela normal.' }
     }
 
     const supabase = await createServiceClient()
-    const produtos = await fetchAll<{ id: string; nome: string }>((from, to) =>
-      supabase.from('produtos').select('id, nome').eq('ativo', true).order('nome').range(from, to))
-    return { ok: true, itens: casarProdutos(itens, produtos) }
+    const produtos = await fetchAll<{ id: string; nome: string; categoria: string | null }>((from, to) =>
+      supabase.from('produtos').select('id, nome, categoria').eq('ativo', true).order('nome').range(from, to))
+    return { ok: true, itens: casarProdutos(itens, produtos, classe), classe }
   } catch (e) {
     console.error('lerNotaFotos:', e instanceof Error ? e.message : e)
     return { ok: false, message: 'Erro ao ler as fotos. Tente de novo.' }

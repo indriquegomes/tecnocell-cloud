@@ -1,12 +1,13 @@
 'use client'
 
-import { useActionState, useEffect, useState } from 'react'
+import { useActionState, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Spinner } from '@/components/Spinner'
 import { SubmitButton } from '@/components/SubmitButton'
 import { FornecedorSelect } from '../FornecedorSelect'
 import { lerNotaFotos, criarNotaDosItens, type LeituraResultado } from '../actions'
 import { formatBRL } from '@/lib/utils'
+import { CLASSES_NOTA, produtoNaClasse } from '@/lib/nota-classes'
 
 type ItemLidoTela = {
   descricao: string
@@ -16,6 +17,8 @@ type ItemLidoTela = {
   produto_nome: string | null
   score: number
 }
+
+type ProdutoLista = { id: string; nome: string; categoria: string | null }
 
 export function ImportarClient({
   fornecedores,
@@ -29,7 +32,7 @@ export function ImportarClient({
   fornecedores: { id: string; nome: string }[]
   depositos: { id: string; nome: string; loja_id: string | null }[]
   lojas: { id: string; nome: string }[]
-  produtos: { id: string; nome: string }[]
+  produtos: ProdutoLista[]
   proximoNumero: string
   hoje: string
   depositoPadrao: string | null
@@ -39,6 +42,9 @@ export function ImportarClient({
   const [trocar, setTrocar] = useState<Record<number, boolean>>({})
   const [escolhidos, setEscolhidos] = useState<Record<number, string>>({})
   const [erroSubmit, setErroSubmit] = useState<string | null>(null)
+  // De que a nota trata (frontal, bateria, acessório…). Filtra o seletor de produto,
+  // que hoje lista o catálogo inteiro — 8 mil linhas num <select> não se acha nada.
+  const [classe, setClasse] = useState<string>('')
 
   // nova leitura substitui a lista — a pessoa pode reler com fotos melhores
   useEffect(() => {
@@ -46,8 +52,14 @@ export function ImportarClient({
       setItens(leitura.itens as ItemLidoTela[])
       setTrocar({})
       setEscolhidos({})
+      if (leitura.classe) setClasse(leitura.classe)
     }
   }, [leitura])
+
+  const opcoesProduto = useMemo(() => {
+    const daClasse = classe ? produtos.filter((p) => produtoNaClasse(p, classe)) : produtos
+    return daClasse.length ? daClasse : produtos
+  }, [produtos, classe])
 
   const lojaNome = new Map(lojas.map((l) => [l.id, l.nome]))
   const lista = itens ?? []
@@ -72,6 +84,18 @@ export function ImportarClient({
       <form action={formLer} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
         <p className="font-semibold text-gray-800">1. Anexe as fotos da nota (pode várias páginas)</p>
         <p className="text-sm text-gray-500">Uma nota com várias páginas vai junta — os itens das páginas são somados.</p>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">De que trata esta nota?</label>
+          <select name="classe" value={classe} onChange={(e) => setClasse(e.target.value)} className="field">
+            <option value="">— Não sei / misturada (procura no catálogo inteiro) —</option>
+            {CLASSES_NOTA.map((c) => <option key={c.valor} value={c.valor}>{c.label}</option>)}
+          </select>
+          <p className="mt-1 text-xs text-gray-400">
+            Escolher a classe faz o app procurar só naquela família (ex.: frontais) em vez do catálogo inteiro —
+            é o que evita casar a peça errada. Se você escrever no topo da nota (&quot;TELAS E FRONTAIS&quot;),
+            o app também entende sozinho.
+          </p>
+        </div>
         <input
           type="file"
           name="fotos"
@@ -117,6 +141,20 @@ export function ImportarClient({
           className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-5"
         >
           <p className="font-semibold text-gray-800">2. Confira os itens e complete os dados da nota</p>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="min-w-56 flex-1">
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Classe da nota (filtra a escolha do produto)</label>
+              <select value={classe} onChange={(e) => { setClasse(e.target.value); setEscolhidos({}) }} className="field">
+                <option value="">— catálogo inteiro —</option>
+                {CLASSES_NOTA.map((c) => <option key={c.valor} value={c.valor}>{c.label}</option>)}
+              </select>
+            </div>
+            <p className="pb-2 text-xs text-gray-500">
+              {classe
+                ? `${opcoesProduto.length} produtos nessa classe para escolher`
+                : `Trocando a classe, a lista do produto encolhe (hoje ${produtos.length} no catálogo)`}
+            </p>
+          </div>
 
           {erroSubmit && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{erroSubmit}</div>
@@ -187,7 +225,7 @@ export function ImportarClient({
                               className="w-full rounded border border-gray-200 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                             >
                               <option value="">— escolha o produto —</option>
-                              {produtos.map((p) => (
+                              {opcoesProduto.map((p) => (
                                 <option key={p.id} value={p.id}>{p.nome}</option>
                               ))}
                             </select>

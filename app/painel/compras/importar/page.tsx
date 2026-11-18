@@ -15,8 +15,8 @@ export default async function ImportarNotaPage({ searchParams }: { searchParams:
   const [{ data: depositos }, { data: lojas }, produtos] = await Promise.all([
     supabase.from('depositos').select('id, nome, loja_id').order('nome'),
     supabase.from('lojas').select('id, nome'),
-    fetchAll<{ id: string; nome: string }>((from, to) =>
-      supabase.from('produtos').select('id, nome').eq('ativo', true).order('nome').range(from, to)),
+    fetchAll<{ id: string; nome: string; categoria: string | null }>((from, to) =>
+      supabase.from('produtos').select('id, nome, categoria').eq('ativo', true).order('nome').range(from, to)),
   ])
   // deposito padrão: o da loja ativa de quem está logado
   const depositosAtiva = await depositosDaLojaAtiva().catch(() => [] as string[])
