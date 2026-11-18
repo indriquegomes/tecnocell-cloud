@@ -42,7 +42,7 @@ export async function resolverPixDoDia(
       (from, to) => supabase.from('pessoa_chaves_pix').select('pessoa_id, chave, favorecido')
         .eq('ativo', true).range(from, to)),
     supabase.from('contas').select('chave_pix, titular').not('chave_pix', 'is', null),
-    supabase.from('lojas').select('cnpj'),
+    supabase.from('lojas').select('nome, cnpj'),
   ])
 
   const meus = (comps ?? []) as { valor: number | null; destinatario: string | null; extraido_raw: unknown; transacao_id: string | null; status: string | null; pagador: string | null; data_pix: string | null }[]
@@ -74,7 +74,14 @@ export async function resolverPixDoDia(
     ...((lojas.data ?? []).map((l) => (l as { cnpj?: string | null }).cnpj ?? null)),
     ...((contasProprias.data ?? []).map((c) => c.chave_pix as string)),
   ]
-  const nomesProprios = (contasProprias.data ?? []).map((c) => c.titular as string)
+  // Nome da loja também entra: comprovante da loja irmã às vezes mostra só a razão
+  // social, sem CNPJ. A comparação de nome é por prefixo (`ehContaPropria`), então só
+  // vale para o nome da loja — nada de texto livre, que casaria com fornecedor.
+  const nomesProprios = [
+    (loja as { nome?: string | null } | null)?.nome ?? null,
+    ...((lojas.data ?? []).map((l) => (l as { nome?: string | null }).nome ?? null)),
+    ...((contasProprias.data ?? []).map((c) => c.titular as string)),
+  ]
   const ativos = fornecedores.filter((f) => f.ativo !== false)
 
   return agruparPorDestino(sep.validos).map((d) => {

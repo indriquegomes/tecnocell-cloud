@@ -98,8 +98,10 @@ baixa manual — **sem perda de dinheiro**. Achados que ele levantou:
 
 **Pendências que esta rodada deixou:**
 
-1. **Duas correções pequenas** apontadas na revisão acima: custo opcional na chegada
-   da encomenda e nome da loja na lista de conta própria do PIX do dia.
+1. **✅ As duas correções da revisão foram aplicadas:** custo da chegada virou **opcional** (peça de garantia/troca entra com
+   custo zero) e o **nome da loja** entrou na lista de conta própria do PIX do dia,
+   travado por dois casos novos em `test/pix-destinos.test.ts` (nome da loja casa;
+   fornecedor que cita a cidade no meio do nome continua fora).
 2. **A trava de retirada sem destino filtra só `tipo`**, não `forma_pagamento`: uma
    retirada em PIX (dinheiro que nunca esteve na gaveta) trava o fechamento do mesmo
    jeito. Decidir se corrige.

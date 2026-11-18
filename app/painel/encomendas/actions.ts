@@ -124,8 +124,11 @@ export async function marcarComprada(encomendaId: string) {
 export async function aprovarEncomenda(encomendaId: string, custo: number) {
   await requirePermissao('compras')
   const supabase = await createServiceClient()
+  // Custo é só registro: peça vinda de garantia ou troca chega com custo zero, então
+  // o valor nunca é exigido — só nunca pode ser negativo nem NaN.
+  const custoPago = Math.max(0, Number(custo) || 0)
   const { error: eEnc } = await supabase.from('encomendas')
-    .update({ status: 'aprovada', custo, aprovado_em: new Date().toISOString() })
+    .update({ status: 'aprovada', custo: custoPago, aprovado_em: new Date().toISOString() })
     .eq('id', encomendaId)
   if (eEnc) return { erro: 'Não deu pra marcar como aprovada: ' + eEnc.message }
 

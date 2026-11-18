@@ -61,6 +61,13 @@ test('dinheiro que caiu na conta da loja é reconhecido como conta própria', ()
   // comprovante que mostra só o começo do CNPJ: continua sendo a nossa conta
   const cnpjCortado = agruparPorDestino([{ valor: 47, destinatario: '38 216 415' }])
   assert.equal(ehContaPropria(cnpjCortado[0], ['38216415000170'], []), true)
+  // comprovante que traz só o NOME DA LOJA (nem CNPJ, nem titular): o nome das lojas
+  // entra na lista de nomes próprios por causa disso
+  const soLoja = agruparPorDestino([{ valor: 30, destinatario: 'Teresópolis' }])
+  assert.equal(ehContaPropria(soLoja[0], ['38216415000170'], ['Petrópolis', 'Teresópolis']), true)
+  // e quem NÃO é da casa continua fora, mesmo citando a cidade no meio do nome
+  const fornecedorDaCidade = agruparPorDestino([{ valor: 30, destinatario: 'X CASE PETROPOLIS' }])
+  assert.equal(ehContaPropria(fornecedorDaCidade[0], ['38216415000170'], ['Petrópolis', 'Teresópolis']), false)
 })
 
 test('casa o destinatário com o fornecedor do cadastro por CNPJ, chave Pix e nome', () => {

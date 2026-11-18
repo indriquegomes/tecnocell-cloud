@@ -31,9 +31,10 @@ export function EncomendasEspeciais({ encomendas }: { encomendas: Encomenda[] })
     router.refresh()
   }
 
+  // Custo é opcional: peça que veio por garantia ou troca chega com custo zero, e o
+  // valor aqui é só o registro do que foi pago — não toca mais no cadastro do produto.
   const aprovar = async (e: Encomenda) => {
-    const custo = Number((custos[e.id] ?? '').replace(',', '.'))
-    if (!(custo > 0)) { alert('Digite o custo da peça pra aprovar.'); return }
+    const custo = Math.max(0, Number((custos[e.id] ?? '').replace(',', '.')) || 0)
     setSalvando(e.id)
     await aprovarEncomenda(e.id, custo)
     setSalvando(null)
@@ -94,7 +95,7 @@ export function EncomendasEspeciais({ encomendas }: { encomendas: Encomenda[] })
                     {e.pessoa_nome} · {e.quantidade} un · venda {formatBRL(e.valor_venda ?? 0)}{e.sinal > 0 ? ` · sinal ${formatBRL(e.sinal)}` : ''}
                   </p>
                 </div>
-                <input type="number" step="0.01" min="0" placeholder="Custo R$" value={custos[e.id] ?? ''}
+                <input type="number" step="0.01" min="0" placeholder="Custo R$ (opcional)" value={custos[e.id] ?? ''}
                   onChange={(ev) => setCustos((c) => ({ ...c, [e.id]: ev.target.value }))} className="field w-28" />
                 <button type="button" onClick={() => aprovar(e)} disabled={salvando === e.id}
                   className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">✓ Chegou</button>
