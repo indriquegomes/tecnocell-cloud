@@ -58,7 +58,8 @@ export function AjudaFechamento() {
                 <ul className="ml-4 list-disc space-y-1">
                   <li>Pagou fornecedor em dinheiro → Financeiro → achar a nota → <b>Pago</b> → Dinheiro</li>
                   <li>Dinheiro indo para o cofre → registre a <b>transferência</b> (não é retirada)</li>
-                  <li>Motoboy, taxa, lanche → Financeiro → <b>+ A Pagar</b> → lançar e marcar paga em dinheiro</li>
+                  <li>Motoboy, taxa, lanche → Financeiro → <b>+ A Pagar</b> → lançar e marcar paga em dinheiro <b>com a caixinha "Saiu da gaveta" marcada</b> — é isso que liga a saída ao caixa</li>
+                  <li>Registrar a retirada na mão <b>e</b> lançar a despesa separada <b>não liga</b> as duas — o fechamento continua travado</li>
                   <li><b>Erro de digitação</b> → não invente retirada nem reforço. Chame o responsável.</li>
                 </ul>
                 <p className="mt-2">Retirada sem destino <b>trava o fechamento</b> — e é de propósito: impede dinheiro sumir sem rastro.</p>

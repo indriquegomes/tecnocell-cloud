@@ -1027,7 +1027,7 @@ function RetiradaPanel({
   return (
     <div className="rounded-2xl border border-red-200 bg-white p-6 shadow-sm space-y-4">
       <h3 className="font-semibold text-gray-800 text-lg">Retirada (Sangria)</h3>
-      <p className="text-sm text-gray-500">Saída de dinheiro do caixa sem ser compra.</p>
+      <p className="text-sm text-gray-500">Só para dinheiro que sai da gaveta <b>sem despesa lançada</b> (ex.: você leva pro cofre/banco). Despesa (motoboy, taxa, lanche): lance no Financeiro e clique <b>Pago</b> com a caixinha <b>"Saiu da gaveta"</b> marcada — o app liga a saída sozinho.</p>
       <form action={withToken(action)} className="flex flex-wrap gap-4 items-end">
         <input type="hidden" name="caixa_id" value={caixaId} />
         <div className="flex-1 min-w-40">
@@ -1038,7 +1038,7 @@ function RetiradaPanel({
         </div>
         <div className="flex-1 min-w-40">
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Motivo <span className="text-red-500">*</span></label>
-          <input name="motivo" className="field" placeholder="Ex: pagamento fornecedor..." required />
+          <input name="motivo" className="field" placeholder="Ex: dinheiro levado pro cofre" required />
         </div>
         <div className="w-40">
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Valor (R$)</label>
@@ -1052,6 +1052,9 @@ function RetiradaPanel({
           {pending ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Salvando...</span> : 'Registrar Retirada'}
         </button>
       </form>
+      <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-snug text-amber-800">
+        Motoboy, taxa ou lanche vão pelo Financeiro: lance a despesa e clique <b>Pago</b> com a caixinha <b>&quot;Saiu da gaveta&quot;</b> marcada. Não registre retirada aqui também — retirada na mão + despesa solta trava o fechamento.
+      </p>
       <FeedbackMsg state={state} />
       {lista.length > 0 && (
         <div>

@@ -107,7 +107,9 @@ export async function fecharCaixa(
         ok: false,
         message:
           `Saíram R$ ${totalSemDestino.toFixed(2)} do caixa sem destino: ${detalhe}. ` +
-          'Lance a despesa (ou a transferência pro cofre/banco) antes de fechar o caixa — senão esse dinheiro fica sem rastro.',
+          'Para destinar: no Financeiro, marque a despesa como Paga com a caixinha "Saiu da gaveta" marcada ' +
+          '(ou registre a transferência pro cofre/banco). Registrar a retirada na mão e lançar a despesa separada ' +
+          'não liga as duas — e o dinheiro fica sem rastro.',
       }
     }
 
