@@ -96,6 +96,13 @@ baixa manual — **sem perda de dinheiro**. Achados que ele levantou:
   baixa do estoque se for vendida pelo **cadastro do produto**. Venda como "item
   avulso" (sem `produto_id`) não baixa — sobra estoque. Vale avisar o balcão.
 
+**Checklist de fechamento da rodada:** `docs/registros/2026-11/checkup-18-11.md` —
+`tsc` 0 · **229 testes** de lógica · **85 telas** em produção sem erro (só o falso
+positivo da página de impressão) · deploy confirmado com o código do dia · zero
+referência órfã nova no banco. **Suíte e2e não rodada por decisão do dono** (escreve
+no banco de produção; volta depois que as duas lojas fecharem o caixa). **Invariantes
+do mês não rodaram**: falta `SUPABASE_ACCESS_TOKEN` no ambiente.
+
 **Pendências que esta rodada deixou:**
 
 1. **✅ As duas correções da revisão foram aplicadas:** custo da chegada virou **opcional** (peça de garantia/troca entra com
