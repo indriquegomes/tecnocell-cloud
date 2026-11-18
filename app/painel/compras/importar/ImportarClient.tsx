@@ -38,6 +38,7 @@ export function ImportarClient({
   const [itens, setItens] = useState<ItemLidoTela[] | null>(null)
   const [trocar, setTrocar] = useState<Record<number, boolean>>({})
   const [escolhidos, setEscolhidos] = useState<Record<number, string>>({})
+  const [erroSubmit, setErroSubmit] = useState<string | null>(null)
 
   // nova leitura substitui a lista — a pessoa pode reler com fotos melhores
   useEffect(() => {
@@ -54,6 +55,15 @@ export function ImportarClient({
 
   function removerLinha(i: number) {
     setItens((atual) => (atual ?? []).filter((_, idx) => idx !== i))
+  }
+
+  // blocos com produto vazio: a linha ficaria de fora da nota sem avisar
+  function temLinhaSemProduto(atual: ItemLidoTela[]): boolean {
+    return atual.some((it, i) => {
+      const precisaEscolher = !it.produto_id || !!trocar[i]
+      const escolhido = escolhidos[i] ?? it.produto_id ?? ''
+      return precisaEscolher && !escolhido
+    })
   }
 
   return (
@@ -94,8 +104,23 @@ export function ImportarClient({
 
       {/* 2. conferir e criar */}
       {itens && (
-        <form action={criarNotaDosItens} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-5">
+        <form
+          action={criarNotaDosItens}
+          onSubmit={(e) => {
+            if (temLinhaSemProduto(lista)) {
+              e.preventDefault()
+              setErroSubmit('Tem linha amarela sem produto escolhido. Escolha o produto dela — ou clique em "tirar" — antes de criar a nota.')
+              return
+            }
+            setErroSubmit(null)
+          }}
+          className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-5"
+        >
           <p className="font-semibold text-gray-800">2. Confira os itens e complete os dados da nota</p>
+
+          {erroSubmit && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{erroSubmit}</div>
+          )}
 
           <div className="grid gap-5 sm:grid-cols-2">
             <div>
