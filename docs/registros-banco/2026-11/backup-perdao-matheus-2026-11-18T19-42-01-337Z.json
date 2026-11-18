@@ -1,0 +1,35 @@
+{
+  "lancamento": {
+    "id": "67d8a918-d0f2-46cd-bdb2-90f67b2d76a7",
+    "codigo": null,
+    "descricao": "A Receber — anotação antiga (R$ 654,50) — vendas #176207 e #176411",
+    "valor": 654.5,
+    "data_competencia": "2025-09-11T00:00:00+00:00",
+    "data_vencimento": "2025-09-11T00:00:00+00:00",
+    "data_pagamento": null,
+    "tipo": "receber",
+    "status": "pendente",
+    "forma_pagamento": null,
+    "pessoa_nome": "MATHEUS MATTOS DE SOUZA DUARTE",
+    "created_at": "2026-11-18T19:36:37.796171+00:00",
+    "updated_at": "2026-11-18T19:36:37.796171+00:00",
+    "venda_id": null,
+    "valor_pago": 0,
+    "historico_pagamentos": [],
+    "conta_id": null,
+    "categoria": "Fiado (a receber)",
+    "pessoa_id": "646628a48f0e8d151c245b42",
+    "loja_id": null,
+    "comprovante_url": null,
+    "devolucao_id": null,
+    "subcategoria": null,
+    "criado_por": null
+  },
+  "pessoa": {
+    "id": "646628a48f0e8d151c245b42",
+    "nome": "MATHEUS MATTOS DE SOUZA DUARTE",
+    "nao_vender": true,
+    "nao_vender_motivo": "DEVE R$ 654,50 (fiado de 2025) — cobrar antes de vender",
+    "observacoes": "⚠ Devedor: R$ 654,50 em fiado de 2025 (vendas #176207 e #176411, pagamentos pendentes no SIGE). Cliente não responde cobrança. Cobrar antes de vender."
+  }
+}
