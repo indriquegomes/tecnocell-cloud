@@ -1,11 +1,12 @@
 'use server'
 
-import { createServiceClient, requirePermissaoAny } from '@/lib/supabase/server'
+import { createServiceClient, requirePermissaoAny, fetchAll } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
 import crypto from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { IMEI_ATIVO } from '@/lib/imei'
+import { lerItensDasFotos, casarProdutos, type FotoNota, type ItemCasado } from '@/lib/nota-leitura'
 
 export async function criarNotaEntrada(formData: FormData) {
   await requirePermissaoAny(['compras', 'notas_entrada'])
@@ -263,4 +264,101 @@ export async function adicionarItemNota(notaId: string, formData: FormData) {
   if (eTot) throw new Error(eTot.message)
 
   revalidatePath(`/painel/compras/${notaId}`)
+}
+
+// ── IMPORTAR NOTA POR FOTO ──────────────────────────────────────────────────
+// A menina manda as fotos da nota que chegou; o leitor devolve os itens casados
+// com o catálogo e a tela mostra tudo editável. A nota SEMPRE nasce PENDENTE —
+// receber (mover estoque) continua sendo decisão de gente, no detalhe da nota.
+
+export type LeituraResultado =
+  | { ok: true; itens: ItemCasado[] }
+  | { ok: false; message: string }
+
+function mimeDaFoto(buf: Buffer): string {
+  if (buf[0] === 0x89 && buf[1] === 0x50) return 'image/png'
+  if (buf[0] === 0x47 && buf[1] === 0x49) return 'image/gif'
+  if (buf[0] === 0x52 && buf[1] === 0x49 && buf[8] === 0x57 && buf[9] === 0x45) return 'image/webp'
+  return 'image/jpeg'
+}
+
+export async function lerNotaFotos(_prev: LeituraResultado | null, formData: FormData): Promise<LeituraResultado> {
+  try {
+    await requirePermissaoAny(['compras', 'notas_entrada'])
+    const fotos = (formData.getAll('fotos') as File[]).filter((f) => f && f.size > 0)
+    if (!fotos.length) return { ok: false, message: 'Anexe pelo menos uma foto da nota.' }
+    const totalBytes = fotos.reduce((s, f) => s + f.size, 0)
+    if (totalBytes > 4 * 1024 * 1024) return { ok: false, message: 'As fotos somam mais de 4 MB. Mande menos fotos de uma vez.' }
+
+    const partes: FotoNota[] = []
+    for (const f of fotos) {
+      const buf = Buffer.from(await f.arrayBuffer())
+      const mime = /^image\/(jpeg|png|webp|gif)$/i.test(f.type || '') ? f.type! : mimeDaFoto(buf)
+      partes.push({ mime, b64: buf.toString('base64') })
+    }
+
+    const itens = await lerItensDasFotos(partes)
+    if (!itens.length) {
+      return { ok: false, message: 'Não consegui ler itens nesta foto. Confira se está legível e tente de novo — ou lance a nota pela tela normal.' }
+    }
+
+    const supabase = await createServiceClient()
+    const produtos = await fetchAll<{ id: string; nome: string }>((from, to) =>
+      supabase.from('produtos').select('id, nome').eq('ativo', true).order('nome').range(from, to))
+    return { ok: true, itens: casarProdutos(itens, produtos) }
+  } catch (e) {
+    console.error('lerNotaFotos:', e instanceof Error ? e.message : e)
+    return { ok: false, message: 'Erro ao ler as fotos. Tente de novo.' }
+  }
+}
+
+export async function criarNotaDosItens(formData: FormData) {
+  await requirePermissaoAny(['compras', 'notas_entrada'])
+  const supabase = await createServiceClient()
+  const numero = ((formData.get('numero') as string) || '').trim() || String(Math.floor(100000 + Math.random() * 900000))
+  const fornecedorId = ((formData.get('fornecedor_id') as string) || '').trim()
+  if (!fornecedorId) redirect(`/painel/compras/importar?erro=${encodeURIComponent('Escolha o fornecedor — é ele que liga os itens ao fornecedor certo.')}`)
+
+  // itens chegam como item_<n>_produto / item_<n>_qtd / item_<n>_preco
+  const itens: { produto_id: string; quantidade: number; preco_unitario: number }[] = []
+  for (let i = 0; i < 500; i++) {
+    const produtoId = (formData.get(`item_${i}_produto`) as string | null) || ''
+    if (!produtoId) continue
+    const quantidade = Math.max(1, Math.round(Number(formData.get(`item_${i}_qtd`)) || 1))
+    const preco = Math.max(0, Math.round((Number(String(formData.get(`item_${i}_preco`)).replace(',', '.')) || 0) * 100) / 100)
+    itens.push({ produto_id: produtoId, quantidade, preco_unitario: preco })
+  }
+  if (!itens.length) redirect(`/painel/compras/importar?erro=${encodeURIComponent('Nenhum item para lançar. Escolha o produto das linhas marcadas antes de criar a nota.')}`)
+
+  const depositoId = ((formData.get('deposito_id') as string) || '').trim()
+  if (!depositoId) redirect(`/painel/compras/importar?erro=${encodeURIComponent('Escolha a loja/estoque que vai receber a mercadoria.')}`)
+
+  const valorTotal = itens.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0)
+  const { data: nota, error } = await supabase.from('notas_entrada').insert({
+    numero,
+    fornecedor_id: fornecedorId,
+    data_emissao: (formData.get('data_emissao') as string) || null,
+    data_entrada: (formData.get('data_entrada') as string) || hojeSP(),
+    observacoes: (formData.get('observacoes') as string) || 'Nota lida por foto no importador',
+    status: 'pendente',
+    valor_total: valorTotal,
+  }).select('id').single()
+  if (error) redirect(`/painel/compras/importar?erro=${encodeURIComponent(error.message)}`)
+
+  const { error: eItens } = await supabase.from('itens_nota_entrada').insert(itens.map((i) => ({
+    nota_id: nota!.id,
+    produto_id: i.produto_id,
+    deposito_id: depositoId,
+    quantidade: i.quantidade,
+    preco_unitario: i.preco_unitario,
+    total_item: i.quantidade * i.preco_unitario,
+  })))
+  if (eItens) {
+    // não deixa nota vazia pela metade: se os itens falharem, desfaz a nota
+    await supabase.from('notas_entrada').delete().eq('id', nota!.id)
+    redirect(`/painel/compras/importar?erro=${encodeURIComponent('Erro ao gravar os itens: ' + eItens.message)}`)
+  }
+
+  revalidatePath('/painel/compras')
+  redirect(`/painel/compras/${nota!.id}`)
 }

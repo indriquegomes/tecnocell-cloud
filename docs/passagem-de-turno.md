@@ -6,7 +6,19 @@
 >
 > Regras do projeto: `AGENTS.md`. Como o sistema funciona: `docs/mapa/`.
 
-**Última atualização:** 18/11/2026 (encomenda parou de mexer no estoque; caixa de Teresópolis fechado).
+**Última atualização:** 18/11/2026 (importador de nota por foto; encomenda parou de mexer no estoque; caixa de Teresópolis fechado).
+
+## Nesta rodada (18/11/2026) — importador de nota por foto, encomenda e caixa
+
+**Importar Nota por Foto** (`Compras → Importar por foto`, rota `/painel/compras/importar`):
+a pessoa anexa as fotos da nota que chegou (pode várias páginas), o app lê os itens com a
+mesma visão do bot do PIX (Gemini, DeepSeek de reserva) e casa cada item com o catálogo
+(nome normalizado, token a token, mínimo 60%). A nota nasce **pendente** — receber (mover
+estoque) continua sendo o botão de gente no detalhe da nota. Pedido do dono em 18/11.
+Testado com as notas reais da H2O (fotos em `Downloads`): 56 itens lidos, 56 casados;
+criação validada de ponta a ponta com Playwright (nota de teste criada e apagada no mesmo
+dia). Leitura em `lib/nota-leitura.ts`, testes em `test/nota-leitura.test.ts`. O botão
+"Importar por foto" também aparece na tela "Notas de Entrada" e na "Nova Nota de Entrada".
 
 ## Nesta rodada (18/11/2026) — encomenda não mexe mais no estoque
 

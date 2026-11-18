@@ -60,6 +60,9 @@ export default async function NovaNotaPage({ searchParams }: { searchParams: Pro
           </Link>
         </div>
       </form>
+      <p className="text-sm text-gray-500">
+        Tem as fotos da nota? <Link href="/painel/compras/importar" className="text-blue-600 font-medium hover:underline">Importar por foto</Link> — o app lê os itens e monta a nota.
+      </p>
     </div>
   )
 }
