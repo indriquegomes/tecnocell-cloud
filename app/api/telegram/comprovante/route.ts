@@ -344,21 +344,29 @@ async function extraiPendentes(loja: Loja, limite = 8) {
 // dedup via tudo; depois de meados de outubro ele só enxergava setembro e os
 // duplicados passaram batido, sem aviso no grupo (achado em 19/11). Por isso a
 // janela recente é lida com .range() até esgotar.
-async function comprovantesRecentes(loja: Loja, dias = 10): Promise<Comp[]> {
-  const desde = new Date(Date.now() - dias * 86400000).toISOString()
-  const out: Comp[] = []
-  for (let from = 0; from < 20000; from += 1000) {
-    const { data } = await sb().from('comprovantes_pix')
-      .select('id, telegram_message_id, transacao_id, data_pix, status, valor, pagador, destinatario, extraido_raw, recebido_em')
-      .eq('telegram_chat_id', loja.grupo)
-      .gte('recebido_em', desde)
-      .order('recebido_em', { ascending: false })
-      .range(from, from + 999)
+// PostgREST corta em 1000 e devolve as MAIS ANTIGAS: leitura de tabela que cresce
+// sem .range() fica cega pro que chegou hoje. Pagina até esgotar.
+async function paginar<T>(make: (from: number, to: number) => PromiseLike<{ data: T[] | null }>): Promise<T[]> {
+  const out: T[] = []
+  for (let from = 0; from < 100000; from += 1000) {
+    const { data } = await make(from, from + 999)
     if (!data || data.length === 0) break
-    out.push(...(data as Comp[]))
+    out.push(...data)
     if (data.length < 1000) break
   }
   return out
+}
+
+// Janela RECENTE do dedup (2 dias): cópia antiga não é retrabalhada — o que já foi
+// pago e enviado fica como está; o que interessa é pegar o duplicado de hoje.
+async function comprovantesRecentes(loja: Loja, dias = 2): Promise<Comp[]> {
+  const desde = new Date(Date.now() - dias * 86400000).toISOString()
+  return paginar<Comp>((from, to) => sb().from('comprovantes_pix')
+    .select('id, telegram_message_id, transacao_id, data_pix, status, valor, pagador, destinatario, extraido_raw, recebido_em')
+    .eq('telegram_chat_id', loja.grupo)
+    .gte('recebido_em', desde)
+    .order('recebido_em', { ascending: false })
+    .range(from, from + 999))
 }
 
 async function deduplica(loja: Loja) {
@@ -410,9 +418,10 @@ async function deduplica(loja: Loja) {
   const txs = [...new Set((cs || []).filter((c) => (c as Comp).status !== 'apagado').map((c) => (c as Comp).transacao_id).filter(Boolean))] as string[]
   if (outro && txs.length) {
     for (let i = 0; i < txs.length; i += 100) {
-      const { data: noOutro } = await supa.from('comprovantes_pix')
+      const noOutro = await paginar<{ transacao_id: string | null; valor: number | null; destinatario: string | null }>((from, to) => supa.from('comprovantes_pix')
         .select('transacao_id, valor, destinatario').eq('telegram_chat_id', outro)
         .neq('status', 'nao_comprovante').neq('status', 'apagado').in('transacao_id', txs.slice(i, i + 100))
+        .range(from, from + 999))
       for (const o of (noOutro || []) as Comp[]) {
         const aqui = (cs || []).find((c) => (c as Comp).transacao_id === o.transacao_id) as Comp | undefined
         if (!aqui || (aqui.extraido_raw as { cross_avisado?: boolean } | null)?.cross_avisado) continue
@@ -500,10 +509,11 @@ async function escreveSheet(loja: Loja) {
   const token = await googleToken()
   const sheetId = await garanteAba(token, loja.aba)
   const per = await periodoAberto(loja.grupo)
-  let q = sb().from('comprovantes_pix').select('*').eq('telegram_chat_id', loja.grupo).neq('status', 'nao_comprovante').neq('status', 'apagado')
-  if (per) q = q.gte('recebido_em', per.aberto_em)
-  const { data: csRaw } = await q.order('recebido_em')
-  const cs = (csRaw || []) as Comp[]
+  const cs = await paginar<Comp>((from, to) => {
+    let q = sb().from('comprovantes_pix').select('*').eq('telegram_chat_id', loja.grupo).neq('status', 'nao_comprovante').neq('status', 'apagado')
+    if (per) q = q.gte('recebido_em', per.aberto_em)
+    return q.order('recebido_em').range(from, from + 999)
+  })
   // apelidos: link pagador (Pix) → cliente (sistema)
   const { data: aliases } = await sb().from('pix_aliases').select('pagador_norm, cliente').eq('telegram_chat_id', loja.grupo)
   const alias = new Map((aliases || []).map((a: { pagador_norm: string; cliente: string }) => [a.pagador_norm, a.cliente]))
@@ -593,11 +603,11 @@ async function relerLista(loja: Loja): Promise<string[]> {
   const { data: ps } = await sb().from('pix_periodos').select('aberto_em, fechado_em').eq('telegram_chat_id', loja.grupo).order('aberto_em', { ascending: false }).limit(1)
   const p = (ps || [])[0]; if (!p) return []
   const ate = p.fechado_em || new Date().toISOString()
-  const { data } = await sb().from('comprovantes_pix').select('id')
+  const data = await paginar<{ id: string }>((from, to) => sb().from('comprovantes_pix').select('id')
     .eq('telegram_chat_id', loja.grupo).gte('recebido_em', p.aberto_em).lte('recebido_em', ate)
     .neq('status', 'nao_comprovante').neq('status', 'apagado').lt('telegram_message_id', 700000000)
-    .order('telegram_message_id')
-  return (data || []).map((c) => (c as { id: string }).id)
+    .order('telegram_message_id').range(from, from + 999))
+  return (data || []).map((c) => c.id)
 }
 async function disparaReler(loja: Loja, cursor: number) {
   try { await fetchT(`${BASE}/api/telegram/comprovante?loja=${loja.slug}&job=reler&cursor=${cursor}`, { method: 'POST', headers: { 'x-telegram-bot-api-secret-token': process.env.TELEGRAM_WEBHOOK_SECRET || '' } }, 8000) } catch { /* segue */ }
@@ -682,10 +692,9 @@ async function gravaHistorico(loja: Loja, cs: Comp[], fechadoEm: string) {
 // recebimento). Usado 1x pra importar o passado que não foi fechado com /fechar.
 async function backfillHistorico(loja: Loja) {
   const token = await googleToken()
-  const { data: csRaw } = await sb().from('comprovantes_pix').select('*')
+  const cs = await paginar<Comp>((from, to) => sb().from('comprovantes_pix').select('*')
     .eq('telegram_chat_id', loja.grupo).neq('status', 'nao_comprovante').neq('status', 'apagado').neq('status', 'duplicado')
-    .order('recebido_em')
-  const cs = (csRaw || []) as Comp[]
+    .order('recebido_em').range(from, from + 999))
   if (!cs.length) return
 
   const porDia = new Map<string, Comp[]>()
@@ -745,7 +754,7 @@ async function backfillHistorico(loja: Loja) {
 }
 
 async function fechar(loja: Loja, p: any, quem: string | null) {
-  const { data: cs } = await sb().from('comprovantes_pix').select('*').eq('telegram_chat_id', loja.grupo).gte('recebido_em', p.aberto_em).neq('status', 'duplicado').neq('status', 'nao_comprovante').neq('status', 'incompleto').neq('status', 'apagado').order('recebido_em')
+  const cs = await paginar<Comp>((from, to) => sb().from('comprovantes_pix').select('*').eq('telegram_chat_id', loja.grupo).gte('recebido_em', p.aberto_em).neq('status', 'duplicado').neq('status', 'nao_comprovante').neq('status', 'incompleto').neq('status', 'apagado').order('recebido_em').range(from, from + 999))
   const groups = agrupaPorDestino((cs || []) as Comp[]); const keys = Object.keys(groups).sort()
   let geral = 0, resumo = '📊 FECHAMENTO DO PIX' + (quem ? ' — ' + quem : '') + '\n'
   resumo += '(' + new Date(p.aberto_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }) + ' → agora)\n\n'
@@ -797,10 +806,10 @@ async function enviaFoto(loja: Loja, fid: string) {
 }
 async function itensReenvio(loja: Loja, p: { aberto_em: string; fechado_em: string | null }): Promise<Array<Record<string, unknown>>> {
   const ate = p.fechado_em || new Date().toISOString()
-  const { data: cs } = await sb().from('comprovantes_pix').select('*')
+  const cs = await paginar<Comp>((from, to) => sb().from('comprovantes_pix').select('*')
     .eq('telegram_chat_id', loja.grupo).gte('recebido_em', p.aberto_em).lte('recebido_em', ate)
     .neq('status', 'duplicado').neq('status', 'nao_comprovante').neq('status', 'incompleto').neq('status', 'apagado')
-    .order('recebido_em')
+    .order('recebido_em').range(from, from + 999))
   const groups = agrupaPorDestino((cs || []) as Comp[]); const keys = Object.keys(groups).sort()
   const itens: Array<Record<string, unknown>> = []
   for (const k of keys) {
