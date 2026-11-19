@@ -6,9 +6,19 @@
 >
 > Regras do projeto: `AGENTS.md`. Como o sistema funciona: `docs/mapa/`.
 
-**Última atualização:** 18/11/2026 (importador de nota por foto; despesa quitada em dinheiro liga a retirada; encomenda parou de mexer no estoque).
+**Última atualização:** 18/11/2026 (importador de nota por foto; despesa quitada em dinheiro liga a retirada; dedup do bot do PIX consertado; encomenda parou de mexer no estoque).
 
 ## Nesta rodada (18/11/2026) — importador de nota por foto, encomenda e caixa
+
+**Deduplicação do bot do PIX estava cega** (`app/api/telegram/comprovante/route.ts`).
+O `deduplica()` lia `comprovantes_pix` inteira, sem range: o PostgREST corta em 1000
+linhas e devolve as mais antigas, então desde meados de outubro (quando a tabela passou
+de 1000 linhas) o bot só enxergava setembro — duplicados deixaram de ser marcados e o
+grupo parou de receber o aviso "COMPROVANTE JÁ ENVIADO". Em novembro havia 17 grupos
+com o mesmo Pix contado mais de uma vez (R$ 2.575,10 a mais só na janela dos últimos
+10 dias; R$ 2.764,10 no mês). Correção: leitura paginada por janela de 10 dias
+(`comprovantesRecentes`) e aviso só quando a cópia chega nas últimas 24h — marcação de
+duplicado antiga continua, sem repisar o grupo. Armadilha registrada no `AGENTS.md`.
 
 **Despesa "quitada" em dinheiro agora cria a retirada ligada no caixa** (mesma régua do
 botão "Pago" com "Saiu da gaveta"). Antes esta ligação só existia no "Pago": quem lançava

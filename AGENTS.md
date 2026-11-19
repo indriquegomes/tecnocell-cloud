@@ -215,6 +215,13 @@ bater com o total, senão a venda inteira é recusada.
 - **Paginação:** consulta sem `fetchAll` para em 1000 linhas e o relatório
   mente. Filtro por coluna de JOIN (`.eq('vendas.created_at', …)`) dá 400 —
   evitar.
+- **Consulta "sem range" numa tabela grande vira consulta cega.** O PostgREST
+  corta em 1000 linhas e devolve as MAIS ANTIGAS: a deduplicação de comprovante
+  do bot do Telegram lia `comprovantes_pix` inteira e, depois que a tabela passou
+  de 1000 linhas (meados de outubro), só enxergava setembro — duplicados
+  passaram a contar em dobro sem aviso no grupo (19/11/2026). Toda leitura de
+  janela em tabela que cresce precisa de filtro de data + `.range()` paginado
+  (ver `comprovantesRecentes` na rota do comprovante).
 - **`fetchAll` busca página por página (sequencial)** e **`.range()` MUTA o
   builder** (`return this`, não devolve cópia). Por isso: nunca guardar um
   builder fora do callback e chamá-lo duas vezes, e nunca reaproveitar o mesmo

@@ -338,11 +338,32 @@ async function extraiPendentes(loja: Loja, limite = 8) {
 }
 
 // DEDUP por transacao_id: 1º (menor message_id) vale, resto = duplicado. Avisa 1x por transação.
+//
+// A LEITURA TEM QUE SER PAGINADA. O PostgREST corta toda consulta sem range em 1000
+// linhas e devolve as MAIS ANTIGAS. Enquanto a tabela tinha menos de 1000 linhas o
+// dedup via tudo; depois de meados de outubro ele só enxergava setembro e os
+// duplicados passaram batido, sem aviso no grupo (achado em 19/11). Por isso a
+// janela recente é lida com .range() até esgotar.
+async function comprovantesRecentes(loja: Loja, dias = 10): Promise<Comp[]> {
+  const desde = new Date(Date.now() - dias * 86400000).toISOString()
+  const out: Comp[] = []
+  for (let from = 0; from < 20000; from += 1000) {
+    const { data } = await sb().from('comprovantes_pix')
+      .select('id, telegram_message_id, transacao_id, data_pix, status, valor, pagador, destinatario, extraido_raw, recebido_em')
+      .eq('telegram_chat_id', loja.grupo)
+      .gte('recebido_em', desde)
+      .order('recebido_em', { ascending: false })
+      .range(from, from + 999)
+    if (!data || data.length === 0) break
+    out.push(...(data as Comp[]))
+    if (data.length < 1000) break
+  }
+  return out
+}
+
 async function deduplica(loja: Loja) {
   const supa = sb()
-  const { data: cs } = await supa.from('comprovantes_pix')
-    .select('id, telegram_message_id, transacao_id, data_pix, status, valor, pagador, destinatario, extraido_raw, recebido_em')
-    .eq('telegram_chat_id', loja.grupo)
+  const cs = await comprovantesRecentes(loja)
   const grupos: Record<string, Comp[]> = {}
   // 'apagado' fica FORA do dedup: foi excluído no grupo (espelho) e não pode ser
   // ressuscitado nem virar o "original" que marca um vivo como duplicado.
@@ -366,12 +387,17 @@ async function deduplica(loja: Loja) {
       const jaAvisou = arr.some((c) => (c.extraido_raw as { dup_avisado?: boolean } | null)?.dup_avisado)
       if (!jaAvisou) {
         const orig = arr[0], ult = arr[arr.length - 1]
-        const txt = '⚠️ COMPROVANTE JÁ ENVIADO (DUPLICADO NO CAIXA)\n'
-          + (ult.pagador ? 'De: ' + ult.pagador + '\n' : '')
-          + (ult.destinatario ? 'Para: ' + ult.destinatario + '\n' : '')
-          + (ult.valor != null ? 'Valor: R$ ' + money(ult.valor) + '\n' : '')
-          + 'Esse Pix (ID ' + id + ') já foi lançado. NÃO conta de novo e não vai no fechamento.'
-        await tgSend(loja.token, loja.grupo, txt, ult.telegram_message_id)
+        // Aviso só quando ACABOU de acontecer: marcar a cópia antiga como duplicado
+        // é definitivo, mas repisar no grupo um Pix de dias atrás só atrapalha.
+        const recente = ult.recebido_em ? Date.now() - new Date(ult.recebido_em).getTime() < 24 * 3600 * 1000 : false
+        if (recente) {
+          const txt = '⚠️ COMPROVANTE JÁ ENVIADO (DUPLICADO NO CAIXA)\n'
+            + (ult.pagador ? 'De: ' + ult.pagador + '\n' : '')
+            + (ult.destinatario ? 'Para: ' + ult.destinatario + '\n' : '')
+            + (ult.valor != null ? 'Valor: R$ ' + money(ult.valor) + '\n' : '')
+            + 'Esse Pix (ID ' + id + ') já foi lançado. NÃO conta de novo e não vai no fechamento.'
+          await tgSend(loja.token, loja.grupo, txt, ult.telegram_message_id)
+        }
         await supa.from('comprovantes_pix').update({ extraido_raw: { ...((orig.extraido_raw as object) || {}), dup_avisado: true } }).eq('id', orig.id)
       }
     }
