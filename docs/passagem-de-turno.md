@@ -14,11 +14,13 @@
 O `deduplica()` lia `comprovantes_pix` inteira, sem range: o PostgREST corta em 1000
 linhas e devolve as mais antigas, então desde meados de outubro (quando a tabela passou
 de 1000 linhas) o bot só enxergava setembro — duplicados deixaram de ser marcados e o
-grupo parou de receber o aviso "COMPROVANTE JÁ ENVIADO". Em novembro havia 17 grupos
-com o mesmo Pix contado mais de uma vez (R$ 2.575,10 a mais só na janela dos últimos
-10 dias; R$ 2.764,10 no mês). Correção: leitura paginada por janela de 10 dias
-(`comprovantesRecentes`) e aviso só quando a cópia chega nas últimas 24h — marcação de
-duplicado antiga continua, sem repisar o grupo. Armadilha registrada no `AGENTS.md`.
+grupo parou de receber o aviso "COMPROVANTE JÁ ENVIADO". Correção: TODA leitura de
+`comprovantes_pix` no bot passou a ser paginada (`paginar`/`comprovantesRecentes`) —
+dedup, planilha, fechar, /revisar, reenvio e histórico. O dedup olha só os últimos 2
+dias (cópia antiga não é retrabalhada: já foi paga e enviada) e o aviso no grupo sai só
+quando a cópia chega nas últimas 24h. As 19 marcações de duplicado antigas que um
+deploy intermediário tinha feito foram revertidas — nada antigo foi tocado. Armadilha
+registrada no `AGENTS.md`.
 
 **Despesa "quitada" em dinheiro agora cria a retirada ligada no caixa** (mesma régua do
 botão "Pago" com "Saiu da gaveta"). Antes esta ligação só existia no "Pago": quem lançava
