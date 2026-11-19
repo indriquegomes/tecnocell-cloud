@@ -156,10 +156,12 @@ export async function criarLancamento(formData: FormData) {
   // PAGAR QUITADO EM DINHEIRO SAI DA GAVETA — mesma régua do botão "Pago".
   // Antes esta ligação só existia no "Pago": quem lançava a despesa com "quitado"
   // fazia o dinheiro sair da gaveta sem movimento e o fechamento travava com
-  // "Saíram R$ X do caixa sem destino" (Teresópolis 17/11, Petrópolis 18/11). Só
-  // dinheiro: PIX e cartão não passam pela gaveta.
+  // "Saíram R$ X do caixa sem destino" (Teresópolis 17/11, Petrópolis 18/11).
+  // Só vale quando o lançamento NÃO tem conta: com conta (Cofre, banco) o dinheiro
+  // saiu da CONTA e o saldo dela já diminui — mexer na gaveta seria contar a saída
+  // duas vezes (foi o que puxou o esperado do caixa de petrópolis em 19/11).
   const formaQuitada = (formData.get('forma_pagamento') as string) || ''
-  if (quitado && tipo === 'pagar' && formaQuitada.trim().toLowerCase().includes('dinheiro')) {
+  if (quitado && tipo === 'pagar' && !contaDoPrimeiro && formaQuitada.trim().toLowerCase().includes('dinheiro')) {
     const ret = await retirarDoCaixa(
       supabase,
       lojaId,
