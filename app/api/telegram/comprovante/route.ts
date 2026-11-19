@@ -358,6 +358,19 @@ async function comprovantesRecentes(loja: Loja, dias = 10): Promise<Comp[]> {
     out.push(...(data as Comp[]))
     if (data.length < 1000) break
   }
+  // Irmãos antigos: se o "original" saiu da janela, a cópia ficaria sozinha, viraria
+  // i=0 e voltaria de 'duplicado' para 'extraido' (Pix contado em dobro). Traz de volta
+  // todas as linhas das mesmas transações, mesmo fora da janela.
+  const vistos = new Set(out.map((c) => c.id))
+  const txs = [...new Set(out.map((c) => c.transacao_id).filter(Boolean))] as string[]
+  for (let i = 0; i < txs.length; i += 100) {
+    const { data } = await sb().from('comprovantes_pix')
+      .select('id, telegram_message_id, transacao_id, data_pix, status, valor, pagador, destinatario, extraido_raw, recebido_em')
+      .eq('telegram_chat_id', loja.grupo)
+      .in('transacao_id', txs.slice(i, i + 100))
+      .limit(1000)
+    for (const c of (data || []) as Comp[]) if (!vistos.has(c.id)) { vistos.add(c.id); out.push(c) }
+  }
   return out
 }
 
