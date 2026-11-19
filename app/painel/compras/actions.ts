@@ -8,7 +8,7 @@ import { redirect } from 'next/navigation'
 import { IMEI_ATIVO } from '@/lib/imei'
 import { aplicaBusca, palavrasBusca } from '@/lib/busca-produtos'
 import { produtoNaClasse } from '@/lib/nota-classes'
-import { lerItensDasFotos, casarProdutos, type FotoNota, type ItemCasado } from '@/lib/nota-leitura'
+import { lerItensDasFotos, casarProdutos, type FotoNota, type ItemCasado, type ItemLido } from '@/lib/nota-leitura'
 
 export async function criarNotaEntrada(formData: FormData) {
   await requirePermissaoAny(['compras', 'notas_entrada'])
@@ -275,7 +275,7 @@ export async function adicionarItemNota(notaId: string, formData: FormData) {
 
 export type GrupoNota = { itens: ItemCasado[]; classe: string | null }
 export type LeituraResultado =
-  | { ok: true; grupos: GrupoNota[] }
+  | { ok: true; grupos: GrupoNota[]; aviso?: string }
   | { ok: false; message: string }
 
 function mimeDaFoto(buf: Buffer): string {
@@ -317,6 +317,7 @@ export async function lerNotaFotos(_prev: LeituraResultado | null, formData: For
     await requirePermissaoAny(['compras', 'notas_entrada'])
     const fotos = (formData.getAll('fotos') as File[]).filter((f) => f && f.size > 0)
     if (!fotos.length) return { ok: false, message: 'Anexe pelo menos uma foto da nota.' }
+    if (fotos.length > 12) return { ok: false, message: 'Mande no máximo 12 páginas por leitura. A nota é a mesma — se tiver mais, mande o resto numa segunda leitura.' }
     const totalBytes = fotos.reduce((s, f) => s + f.size, 0)
     // O teto é da infraestrutura: o Next corta a server action em 4 MB (next.config.ts)
     // e a Vercel em ~4,5 MB. A tela COMPRIME as fotos no navegador antes de enviar,
@@ -339,14 +340,30 @@ export async function lerNotaFotos(_prev: LeituraResultado | null, formData: For
     const produtos = await fetchAll<{ id: string; nome: string; categoria: string | null }>((from, to) =>
       supabase.from('produtos').select('id, nome, categoria').eq('ativo', true).order('nome').range(from, to))
 
-    // TODAS as fotos são páginas da MESMA nota: os itens de todas as páginas entram na
-    // mesma lista. Nota de 3 páginas somando R$ 20.523,00 continua sendo UMA nota —
-    // uma nota por página deixaria três notas com valor quebrado.
-    const { itens, classe } = await lerItensDasFotos(partes, classePedida)
+    // UMA FOTO POR CHAMADA, item por item somado.
+    //
+    // Mandar as 3 páginas numa chamada só fazia o motor de visão transcrever apenas a
+    // PRIMEIRA imagem — a nota de 3 páginas vinha com 1/3 dos itens. Lendo foto por
+    // foto (3 de cada vez, para não estourar o limite do provedor) e juntando as
+    // listas em ordem de página, todas as páginas entram.
+    const lerUma = async (p: FotoNota) => {
+      try { return await lerItensDasFotos([p], classePedida) } catch { return { itens: [], classe: null as string | null } }
+    }
+    const resultados: { itens: ItemLido[]; classe: string | null }[] = []
+    for (let i = 0; i < partes.length; i += 3) {
+      resultados.push(...await Promise.all(partes.slice(i, i + 3).map(lerUma)))
+    }
+    const itens = resultados.flatMap((r) => r.itens)
+    const classe = classePedida || resultados.find((r) => r.classe)?.classe || null
     if (!itens.length) {
       return { ok: false, message: 'Não consegui ler itens nestas fotos. Confira se estão legíveis e tente de novo — ou lance a nota pela tela normal.' }
     }
-    return { ok: true, grupos: [{ itens: casarProdutos(itens, produtos, classe), classe }] }
+    // página que não rendeu nada não pode passar em silêncio: o item dela ficaria de fora
+    const paginasFalhas = resultados.map((r, i) => (r.itens.length ? 0 : i + 1)).filter((n) => n > 0)
+    const aviso = paginasFalhas.length
+      ? `Não consegui ler ${paginasFalhas.length === 1 ? 'a página' : 'as páginas'} ${paginasFalhas.join(', ')} — confira se está legível (foto torta/escura) e lance essas linhas à mão, ou leia de novo só essa página.`
+      : undefined
+    return { ok: true, grupos: [{ itens: casarProdutos(itens, produtos, classe), classe }], aviso }
   } catch (e) {
     console.error('lerNotaFotos:', e instanceof Error ? e.message : e)
     return { ok: false, message: 'Erro ao ler as fotos. Tente de novo.' }

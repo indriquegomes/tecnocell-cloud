@@ -167,6 +167,11 @@ recusava várias fotos da mesma nota porque a server action tem teto de **4 MB**
 
 - **As fotos são comprimidas no navegador** (`lib/comprimir-foto.ts`: lado maior 1700 px,
   JPEG 0,72; foto já pequena não é recomprimida). Uma nota de ~10 páginas cabe no envio.
+- **A leitura passou a ser FOTO POR FOTO** — era o outro furo: mandando as páginas numa
+  chamada só, o motor de visão transcrevia **apenas a primeira imagem** e a nota de 3
+  páginas vinha com 1/3 dos itens. Agora lê 3 fotos por vez (em paralelo, para não
+  estourar o provedor) e soma as listas na ordem das páginas. Página que não render
+  nada vira **aviso amarelo com o número dela**, em vez de sumir em silêncio.
 - A tela mostra o total escolhido e o total enviado depois de comprimir.
 - Teto do servidor em 3,8 MB, com mensagem dizendo para dividir em duas leituras da
   MESMA nota quando não couber.

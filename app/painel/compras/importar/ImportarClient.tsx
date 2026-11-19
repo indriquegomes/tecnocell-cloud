@@ -169,6 +169,9 @@ export function ImportarClient({
       {leitura && !leitura.ok && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{leitura.message}</div>
       )}
+      {leitura?.ok && leitura.aviso && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{leitura.aviso}</div>
+      )}
 
       {/* 2. conferir e criar */}
       {grupos && (
