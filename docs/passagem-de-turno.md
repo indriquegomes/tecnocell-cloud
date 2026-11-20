@@ -28,7 +28,11 @@ a despesa com o checkbox "quitado" fazia o dinheiro sair da gaveta sem movimento
 fechamento travava com "Saíram R$ X do caixa sem destino" — foi o caso da Teresópolis em
 17/11 (motoboy R$ 70,00) e da Petrópolis em 18/11 (motoboy R$ 20,00). O movimento sai com
 `origem 'financeiro'` e `lancamento_id`, então o "Desfazer" também o enxerga. Só vale
-para forma Dinheiro; PIX/cartão não passam pela gaveta.
+para forma Dinheiro; PIX/cartão não passam pela gaveta. Quando o lançamento TEM conta
+(cofre/banco), a gaveta não é tocada — a saída fica só na conta.
+
+**Checklist da semana** (o que a rodada noturna fechou, 5 testes de erro, 50 ligações
+de tela, 86 telas, telas pesadas medidas e limpeza): `docs/registros/2026-11/semana-checklist.md`.
 
 **Importar Nota por Foto** (`Compras → Importar por foto`, rota `/painel/compras/importar`):
 a pessoa anexa as fotos da nota que chegou (pode várias páginas), o app lê os itens com a
