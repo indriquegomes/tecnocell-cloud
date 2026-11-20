@@ -58,12 +58,18 @@ pesadas e o que ficou pendente.
 
 - Type-check: **0 erros**.
 - Testes de lógica: **238 passando, 0 falha** (8 arquivos).
-- **5 testes de erro** (produção):
-  1. 404 de rota pública responde 404 em português.
-  2. Rota protegida desconhecida cai no login (não vaza tela).
-  3. Login errado mostra mensagem e não entra.
-  4. API inexistente responde 404.
-  5. Webhook do bot sem segredo recusa com 401.
+- **50 testes de erro** (produção, 0 falha), em 5 grupos:
+  1. Sessão ausente: 8 rotas protegidas (/painel, financeiro, clientes, produtos,
+     pdv, estoque, fiados, compras) caem no login sem vazar tela.
+  2. Público: 404 de rota e de API em português; login carrega com os campos;
+     rota protegida desconhecida cai no login; asset estático inexistente dá 404.
+  3. APIs sem credencial: catálogo/clientes/caixa-aberto do PDV recusam sem token;
+     chat recusa JSON inválido, lista vazia e mensagem gigante (400/413); crédito
+     de pedidos e webhook do bot recusam sem segredo (401).
+  4. Login errado: senha errada, usuário inexistente, usuário em branco e tentativa
+     de injection — nenhum entra.
+  5. Telas logadas: 10 telas abrem 200 e sem lixo de texto (mojibake, undefined,
+     NaN, Invalid Date); banners de erro aparecem no financeiro, compras e login.
 - **50 verificações de ligação de tela** (`qa-ligacoes.mjs`): mês 11 com **35 OK
   e 0 falha**; avisos para olhar: trocas com nome antigo (89 linhas), comprovante
   sem valor lido (6), mercadoria paga em PIX sem conta (10), fornecedor com dívida
