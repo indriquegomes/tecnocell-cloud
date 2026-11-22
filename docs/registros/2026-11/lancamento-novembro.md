@@ -250,6 +250,29 @@ Petrópolis contado = esperado (diferença 0,00); Teresópolis sobra de R$ 5,00 
 03/11 (sobra já conhecida do registro de 07/11). Total: R$ 14.528,60 contado ×
 R$ 14.523,60 esperado.
 
+## Decisões fechadas (22/11, fim da rodada)
+
+**1) Os 3 casos de vale-crédito — fechado: o crédito valeu, nada a lançar.**
+VT CELL 100,00 · Arthur Dias Moura 55,00 · Larissa Playtec 141,00. Nos três o app tem
+duas devoluções do mesmo valor no mesmo dia (uma `credito_conta`, outra `sem_reembolso`)
+e o **crédito foi criado e consumido** (`creditos_clientes` com uso do mesmo valor). O
+cliente recebeu em vale-crédito, então não há dinheiro a devolver. Os 3 lançamentos que
+eu tinha criado foram removidos (backup `devolucao-duplicada-removida-*`).
+
+**2) Os PIX "sem nome" — fechado: todos estão lançados, com o nome de fantasia do
+cadastro.** ROMULO 101,00 = STAR MANUNTENÇÃO · VITOR PORTO 210,00 = SUPERCELL ·
+LUIZ DIEGO 77,00 = Diego Santos · FERNANDO 90,00 = lançado como 91,00 (o chat pedia
+91,00 e o PIX saiu 90,00 — **R$ 1,00 ficou com a loja**).
+
+**3) Estoque das devoluções — vira contagem física, sem escrita automática.**
+14 devoluções com dinheiro devolvido e **nenhum registro na tela Devoluções**
+(R$ 3.096,90): Lucar Gabriel Dias 229,00 · Victor Afonso 100,00 · Raphael Vaz 195,00 ·
+Pedro Henrique Angelica Ferreira 221,00 · Alvaro Garcia 10,00 · Emily 128,00 + 112,00 ·
+Teremaqcell 87,00 + 15,00 · FINAL 65,00 · HELP TESH 229,00 · Diego Santos 141,00 ·
+**RODRIGO PEREIRA 1.530,90** · Loja Campista 34,00. Se a peça voltou de verdade, ela não
+entrou no estoque — precisa de contagem. Lançar devolução retroativa pela tela mexeria
+no kardex de um mês em fechamento, então não fiz.
+
 ## Investigação das 14 retiradas de caixa (03–05/11, R$ 1.005,70)
 
 Cruzado no app (movimentos do caixa × devoluções × vendas × lançamentos):
