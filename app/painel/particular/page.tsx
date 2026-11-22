@@ -44,8 +44,10 @@ export default async function ParticularPage({
   const { data: lojas } = await supabase.from('lojas').select('id, nome')
   const lojaDe = new Map((lojas ?? []).map((l: { id: string; nome: string }) => [l.id, l.nome]))
 
-  const proLabore = linhas.filter((l) => l.categoria === 'Pró-labore')
-  const particular = linhas.filter((l) => l.categoria === 'Particular')
+  // Lançamento cancelado continua na tabela (histórico), mas não entra em nenhuma soma.
+  const ativas = linhas.filter((l) => l.status !== 'cancelado')
+  const proLabore = ativas.filter((l) => l.categoria === 'Pró-labore')
+  const particular = ativas.filter((l) => l.categoria === 'Particular')
   const soma = (xs: typeof linhas, soPagas = false) =>
     Math.round(xs.filter((l) => !soPagas || l.status === 'pago').reduce((t, l) => t + Number(l.valor ?? 0), 0) * 100) / 100
 
