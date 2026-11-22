@@ -1,0 +1,43 @@
+{
+  "quando": "2026-11-22T02:14:13.065Z",
+  "linhas": [
+    {
+      "id": "cbdfef0c-8614-4a65-af93-03fdf0432ca1",
+      "descricao": "Pagamento de conta — Luiza Lopes Neves (Indrique) — 02/11",
+      "valor": 1499.78,
+      "tipo": "pagar",
+      "categoria": "Retirada do sócio",
+      "subcategoria": null,
+      "data_competencia": null,
+      "data_vencimento": "2026-11-02",
+      "forma_pagamento": "PIX",
+      "pessoa_nome": "Indrique Gomes França",
+      "pessoa_id": null,
+      "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "status": "pago",
+      "data_pagamento": "2026-11-02T12:00:00-03:00",
+      "valor_pago": 1499.78,
+      "updated_at": "2026-11-22T02:14:13.065Z"
+    },
+    {
+      "id": "259ea06a-18b0-4660-b372-4ece6e50491b",
+      "descricao": "Retirada sócio — Leoni De Souza Azevedo — 02/11",
+      "valor": 500,
+      "tipo": "pagar",
+      "categoria": "Retirada do sócio",
+      "subcategoria": null,
+      "data_competencia": null,
+      "data_vencimento": "2026-11-02",
+      "forma_pagamento": "PIX",
+      "pessoa_nome": "Indrique Gomes França",
+      "pessoa_id": null,
+      "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "status": "pago",
+      "data_pagamento": "2026-11-02T12:00:00-03:00",
+      "valor_pago": 500,
+      "updated_at": "2026-11-22T02:14:13.065Z"
+    }
+  ]
+}

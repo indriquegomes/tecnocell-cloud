@@ -1076,14 +1076,37 @@ export function DevolucoesClient({
                     </div>
                   )}
 
+                  {/* FIADO × DINHEIRO: cancelar a dívida e pagar o cliente são coisas
+                      diferentes. Quem devolve venda fiada cancela a dívida e não dá
+                      dinheiro nenhum (o cliente nunca pagou). Se a pessoa pagar por
+                      fora, o cliente fica com a dívida perdoada E com o dinheiro — o
+                      app não faz essa conta sozinho e o prejuízo fica invisível. */}
+                  {abateFiado > 0.01 && (
+                    <div className="rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-800">
+                      🤝 Venda <u>fiada</u>: a dívida de {fmt(abateFiado)} será {Math.round((venda!.fiado_restante - abateFiado) * 100) / 100 <= 0.01 ? 'cancelada' : 'abatida'}.
+                      {reembolso <= 0.01 && <> Esse cliente <u>não pagou</u> nada — devolver dinheiro a ele agora é prejuízo de {fmt(abateFiado)}: o app não lança essa saída.</>}
+                    </div>
+                  )}
+
                   {/* Como reembolsar a parte paga */}
                   <div>
                     <label className="block text-xs font-semibold uppercase text-gray-500 mb-2">
                       {reembolso > 0.01 ? `Reembolsar ${fmt(reembolso)} como?` : 'Como devolver?'}
                     </label>
                     {reembolso <= 0.01 ? (
-                      <div className="rounded-xl border-2 border-orange-200 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-700">
-                        🤝 Só abate a dívida do cliente — sem reembolso (nada foi pago por esses itens).
+                      <div className="space-y-2">
+                        <div className="rounded-xl border-2 border-orange-200 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-700">
+                          🤝 Sem reembolso — só abate a dívida do cliente (nada foi pago por esses itens).
+                        </div>
+                        {/* Devolução sem valor de reembolso NÃO gera lançamento de saída
+                            no Financeiro (o RPC só grava "Devolução — nome" quando o
+                            reembolso é maior que zero). Quem paga o cliente por fora
+                            — PIX do banco, dinheiro do envelope — deixa o dinheiro sem
+                            registro: a conta fica inflada e o DRE do mês perde a
+                            despesa. O aviso é na tela porque é ali que dá pra evitar. */}
+                        <div className="rounded-xl border-2 border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700">
+                          ⚠️ Assim o app <u>não lança saída de dinheiro</u>. Se o cliente já recebeu (ou vai receber) por PIX ou em dinheiro, preencha o valor do reembolso e escolha a forma — senão a conta do banco fica sobrando dinheiro e o mês fecha com despesa a menos.
+                        </div>
                       </div>
                     ) : modoMistoReemb ? (
                       /* MISTO: uma linha por forma. Já vem sugerido espelhando como
@@ -1165,7 +1188,12 @@ export function DevolucoesClient({
                           )}
                         </button>
                         <div className="grid grid-cols-3 gap-2">
-                          {CREDITO_OPTS.filter(op => !op.destaque).map((op) => (
+                          {/* "Sem reembolso" só pode existir quando NÃO há valor a devolver.
+                              Com reembolso > 0 a opção sumia do resultado: o RPC não cria
+                              lançamento para sem_reembolso/cancelamento_fiado, então o
+                              dinheiro pago ao cliente fora do app não entrava no
+                              Financeiro (conta inflada, DRE do mês sem a despesa). */}
+                          {CREDITO_OPTS.filter(op => !op.destaque && !(op.key === 'sem_reembolso' && reembolso > 0.01)).map((op) => (
                             <button key={op.key} onClick={() => setTipoCredito(op.key)}
                               className={`rounded-xl border-2 px-3 py-2.5 text-xs font-semibold transition flex flex-col items-center gap-1 ${
                                 tipoCredito === op.key
@@ -1189,7 +1217,7 @@ export function DevolucoesClient({
                             : tipoCredito === 'sem_reembolso'
                             ? '— Sem devolução de valor (troca ou cortesia).'
                             : tipoCredito === 'credito_conta'
-                            ? '🎟️ Vira saldo de vale-crédito — o cliente usa numa compra futura.'
+                            ? `🎟️ Vai virar ${fmt(reembolso)} de vale-crédito para ${venda.pessoa_nome ?? 'o cliente'} — ele usa numa compra futura. Não sai dinheiro agora.`
                             : ''}
                         </p>
                         {/* Atalho pro misto. Só faz sentido oferecer quando a venda

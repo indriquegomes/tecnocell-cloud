@@ -1,0 +1,59 @@
+{
+  "quando": "2026-11-22T17:39:23.813Z",
+  "ligar": [
+    {
+      "id": "2d5a52bc-4ed9-49ff-9042-0aad985810cf",
+      "lancamento_id": "2cc3a286-150e-4e72-b474-abf1d0fdc997",
+      "valor": 350,
+      "motivo": "venda fabiano"
+    },
+    {
+      "id": "282ef993-0bda-4247-b9e8-8cebb7e0e7ef",
+      "lancamento_id": "8caa7bcd-3dca-4b2e-b3a6-ebc9d51fc81a",
+      "valor": 62,
+      "motivo": "venda wm"
+    },
+    {
+      "id": "f8ec3b5c-6941-4129-b333-8e25b3a696a9",
+      "lancamento_id": "68f1b10a-6d1b-4b4e-992a-4bddc583a189",
+      "valor": 15,
+      "motivo": "taxa jhonatan"
+    },
+    {
+      "id": "9555977c-8d21-419e-9c46-f86ce2b4cc74",
+      "lancamento_id": "35331750-b7f8-496a-b666-95ec0d9f64cd",
+      "valor": 60,
+      "motivo": "felipe motoboy ( erro loja)"
+    },
+    {
+      "id": "79b45352-19d0-4dce-91ba-f69029a765a4",
+      "lancamento_id": "70e50cf0-e878-4f6b-a3f4-d9f713180c08",
+      "valor": 26,
+      "motivo": "NÃO CONSEGUI LOCALIZAR PIX DE 26,00 ! ACREDITO QUE TENHA SIDO QUITADO ERRADO - VIC"
+    },
+    {
+      "id": "20727caf-1a85-4108-b6a0-3541a199db8e",
+      "lancamento_id": "a25d396e-03bb-4038-966c-62e6017a9bb6",
+      "valor": 76,
+      "motivo": "FALTA DE 76,00 EM CAIXA FISICO (IMPOSSIBILIANDO O FECHAMENTO) - VIC"
+    },
+    {
+      "id": "cd1e8e01-6d19-4503-a8a8-c6df658776d1",
+      "lancamento_id": "9c0dab7d-39ac-458c-8fd3-a98c96e27008",
+      "valor": 0.1,
+      "motivo": "conexao"
+    },
+    {
+      "id": "903cac84-ac6a-4939-986a-7de828bce222",
+      "lancamento_id": "9c0dab7d-39ac-458c-8fd3-a98c96e27008",
+      "valor": 0.6,
+      "motivo": "QUITADO ERRADO - RODRIGO"
+    },
+    {
+      "id": "17d8cd99-eeb5-4c8e-a6a4-50770534e075",
+      "lancamento_id": "9c0dab7d-39ac-458c-8fd3-a98c96e27008",
+      "valor": 1,
+      "motivo": "ACERTO CX"
+    }
+  ]
+}

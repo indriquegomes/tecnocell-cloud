@@ -1,0 +1,24 @@
+{
+  "quando": "2026-11-22T13:35:21.087Z",
+  "linhas": [
+    {
+      "id": "e0a6b873-4f6e-4ddb-8a42-dfbca27fa57a",
+      "descricao": "Confraternização — aluguel do sítio (2ª de 2 parcelas; a 1ª saiu em outubro) — Claudia Valéria de Souza Almeida",
+      "valor": 425,
+      "tipo": "pagar",
+      "categoria": "Confraternização",
+      "subcategoria": null,
+      "data_competencia": null,
+      "data_vencimento": "2026-11-13",
+      "forma_pagamento": "PIX",
+      "pessoa_nome": "Claudia Valéria De Souza Almeida",
+      "pessoa_id": null,
+      "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "status": "pago",
+      "data_pagamento": "2026-11-13T12:00:00-03:00",
+      "valor_pago": 425,
+      "updated_at": "2026-11-22T13:35:21.087Z"
+    }
+  ]
+}

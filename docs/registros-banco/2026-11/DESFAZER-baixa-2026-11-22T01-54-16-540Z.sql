@@ -1,0 +1,1 @@
+UPDATE lancamentos SET status = 'pendente', valor_pago = 0, data_pagamento = NULL, forma_pagamento = 'PIX', conta_id = '9b812cd0-e0fe-41dd-ad31-06ee5323d11d', descricao = 'aluguel loja petropolis (3/4)', updated_at = now() WHERE id = 'd174cebe-3904-4c3c-892f-8cb87666a2bd';

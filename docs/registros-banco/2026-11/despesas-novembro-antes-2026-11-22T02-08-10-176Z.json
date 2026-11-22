@@ -1,0 +1,62 @@
+{
+  "quando": "2026-11-22T02:08:10.178Z",
+  "linhas": [
+    {
+      "id": "afe63c67-9c16-47b9-a77e-7776d2e346ac",
+      "descricao": "Combustível — Posto Barra — 05/11",
+      "valor": 79.19,
+      "tipo": "pagar",
+      "categoria": "Combustível",
+      "subcategoria": null,
+      "data_competencia": null,
+      "data_vencimento": "2026-11-05",
+      "forma_pagamento": "PIX",
+      "pessoa_nome": "Posto Barra",
+      "pessoa_id": null,
+      "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "status": "pago",
+      "data_pagamento": "2026-11-05T12:00:00-03:00",
+      "valor_pago": 79.19,
+      "updated_at": "2026-11-22T02:08:10.178Z"
+    },
+    {
+      "id": "bf0a40f7-247d-4111-809c-85e40b4d6505",
+      "descricao": "Combustível — Posto Barra — 11/11",
+      "valor": 113.87,
+      "tipo": "pagar",
+      "categoria": "Combustível",
+      "subcategoria": null,
+      "data_competencia": null,
+      "data_vencimento": "2026-11-11",
+      "forma_pagamento": "PIX",
+      "pessoa_nome": "Posto Barra",
+      "pessoa_id": null,
+      "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "status": "pago",
+      "data_pagamento": "2026-11-11T12:00:00-03:00",
+      "valor_pago": 113.87,
+      "updated_at": "2026-11-22T02:08:10.178Z"
+    },
+    {
+      "id": "33e764c1-1db8-4514-903e-57507b0f2bec",
+      "descricao": "Combustível — Posto Barra — 20/11",
+      "valor": 220.41,
+      "tipo": "pagar",
+      "categoria": "Combustível",
+      "subcategoria": null,
+      "data_competencia": null,
+      "data_vencimento": "2026-11-20",
+      "forma_pagamento": "PIX",
+      "pessoa_nome": "Posto Barra",
+      "pessoa_id": null,
+      "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "status": "pago",
+      "data_pagamento": "2026-11-20T12:00:00-03:00",
+      "valor_pago": 220.41,
+      "updated_at": "2026-11-22T02:08:10.178Z"
+    }
+  ]
+}

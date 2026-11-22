@@ -1,0 +1,9 @@
+UPDATE movimentos_caixa SET lancamento_id = NULL WHERE id = '2d5a52bc-4ed9-49ff-9042-0aad985810cf';
+UPDATE movimentos_caixa SET lancamento_id = NULL WHERE id = '282ef993-0bda-4247-b9e8-8cebb7e0e7ef';
+UPDATE movimentos_caixa SET lancamento_id = NULL WHERE id = 'f8ec3b5c-6941-4129-b333-8e25b3a696a9';
+UPDATE movimentos_caixa SET lancamento_id = NULL WHERE id = '9555977c-8d21-419e-9c46-f86ce2b4cc74';
+UPDATE movimentos_caixa SET lancamento_id = NULL WHERE id = '79b45352-19d0-4dce-91ba-f69029a765a4';
+UPDATE movimentos_caixa SET lancamento_id = NULL WHERE id = '20727caf-1a85-4108-b6a0-3541a199db8e';
+UPDATE movimentos_caixa SET lancamento_id = NULL WHERE id = 'cd1e8e01-6d19-4503-a8a8-c6df658776d1';
+UPDATE movimentos_caixa SET lancamento_id = NULL WHERE id = '903cac84-ac6a-4939-986a-7de828bce222';
+UPDATE movimentos_caixa SET lancamento_id = NULL WHERE id = '17d8cd99-eeb5-4c8e-a6a4-50770534e075';

@@ -1,0 +1,24 @@
+{
+  "quando": "2026-11-22T01:59:02.207Z",
+  "linhas": [
+    {
+      "id": "1e233c2e-401f-4e81-b706-9f2f0baf438d",
+      "descricao": "Honorários advogado — Monteverde & Miller — novembro/2026",
+      "valor": 810.5,
+      "tipo": "pagar",
+      "categoria": "Jurídico",
+      "subcategoria": null,
+      "data_competencia": null,
+      "data_vencimento": "2026-11-05",
+      "forma_pagamento": "PIX",
+      "pessoa_nome": "Monteverde & Miller Sociedade De Advogados",
+      "pessoa_id": null,
+      "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "status": "pago",
+      "data_pagamento": "2026-11-22T01:59:02.207Z",
+      "valor_pago": 810.5,
+      "updated_at": "2026-11-22T01:59:02.207Z"
+    }
+  ]
+}

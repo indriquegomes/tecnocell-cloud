@@ -1,0 +1,62 @@
+{
+  "quando": "2026-11-22T02:09:50.168Z",
+  "linhas": [
+    {
+      "id": "264176ef-c220-47d8-a464-3c5638671688",
+      "descricao": "Alimentação — Armazém do Grão — 04/11",
+      "valor": 50.65,
+      "tipo": "pagar",
+      "categoria": "Alimentação",
+      "subcategoria": null,
+      "data_competencia": null,
+      "data_vencimento": "2026-11-04",
+      "forma_pagamento": "PIX",
+      "pessoa_nome": "Armazem Do Grao Ltda",
+      "pessoa_id": null,
+      "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "status": "pago",
+      "data_pagamento": "2026-11-04T12:00:00-03:00",
+      "valor_pago": 50.65,
+      "updated_at": "2026-11-22T02:09:50.168Z"
+    },
+    {
+      "id": "92ac8c2d-98ba-4286-836c-9999fef032b9",
+      "descricao": "Confraternização — Dom Atacadista — 13/11",
+      "valor": 1281,
+      "tipo": "pagar",
+      "categoria": "Confraternização",
+      "subcategoria": null,
+      "data_competencia": null,
+      "data_vencimento": "2026-11-13",
+      "forma_pagamento": "PIX",
+      "pessoa_nome": "Dom Atacadista",
+      "pessoa_id": null,
+      "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "status": "pago",
+      "data_pagamento": "2026-11-13T12:00:00-03:00",
+      "valor_pago": 1281,
+      "updated_at": "2026-11-22T02:09:50.168Z"
+    },
+    {
+      "id": "bcaf5f82-be98-4836-891e-9c30fa4251c2",
+      "descricao": "Alimentação — Armazém do Grão — 14/11",
+      "valor": 140.7,
+      "tipo": "pagar",
+      "categoria": "Alimentação",
+      "subcategoria": null,
+      "data_competencia": null,
+      "data_vencimento": "2026-11-14",
+      "forma_pagamento": "PIX",
+      "pessoa_nome": "Armazem Do Grao Ltda",
+      "pessoa_id": null,
+      "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "status": "pago",
+      "data_pagamento": "2026-11-14T12:00:00-03:00",
+      "valor_pago": 140.7,
+      "updated_at": "2026-11-22T02:09:50.168Z"
+    }
+  ]
+}

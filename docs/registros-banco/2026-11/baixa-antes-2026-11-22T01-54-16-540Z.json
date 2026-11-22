@@ -1,0 +1,29 @@
+{
+  "quando": "2026-11-22T01:54:16.540Z",
+  "antes": {
+    "id": "d174cebe-3904-4c3c-892f-8cb87666a2bd",
+    "codigo": null,
+    "descricao": "aluguel loja petropolis (3/4)",
+    "valor": 2600,
+    "data_competencia": "2026-10-05T00:00:00+00:00",
+    "data_vencimento": "2026-11-30T00:00:00+00:00",
+    "data_pagamento": null,
+    "tipo": "pagar",
+    "status": "pendente",
+    "forma_pagamento": "PIX",
+    "pessoa_nome": "Edson Canedo",
+    "created_at": "2026-10-05T09:45:50.601695+00:00",
+    "updated_at": "2026-10-05T09:45:50.568+00:00",
+    "venda_id": null,
+    "valor_pago": 0,
+    "historico_pagamentos": [],
+    "conta_id": "9b812cd0-e0fe-41dd-ad31-06ee5323d11d",
+    "categoria": "Aluguel",
+    "pessoa_id": "caffd4e4-bb61-49fb-b764-afdb8e148103",
+    "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+    "comprovante_url": null,
+    "devolucao_id": null,
+    "subcategoria": null,
+    "criado_por": null
+  }
+}

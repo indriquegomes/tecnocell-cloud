@@ -1,0 +1,15 @@
+{
+  "quando": "2026-11-22T12:40:33.586Z",
+  "antes": [
+    {
+      "id": "1309c6da-8315-46d5-be90-fbb4bf46ff8b",
+      "descricao": "FGTS — guias pagas à Caixa (CEF) — 15/11 (10,80 + 70,36 + 18,70)",
+      "valor": 99.86
+    },
+    {
+      "id": "1458df17-affb-4527-b546-6704e89c8ae3",
+      "descricao": "FGTS — guias pagas à Caixa (CEF) — 19/11 (259,36 + 51,87 + 89,76)",
+      "valor": 400.99
+    }
+  ]
+}

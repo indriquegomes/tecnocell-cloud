@@ -1,0 +1,24 @@
+{
+  "quando": "2026-11-22T02:07:36.992Z",
+  "linhas": [
+    {
+      "id": "bba16a58-7e15-4a4d-a495-2502c72e9f5a",
+      "descricao": "Impostos — Receita Federal — 3 guias (522,32 + 84,15 + 48,63) — novembro/2026",
+      "valor": 655.1,
+      "tipo": "pagar",
+      "categoria": "Impostos",
+      "subcategoria": null,
+      "data_competencia": null,
+      "data_vencimento": "2026-11-19",
+      "forma_pagamento": "PIX",
+      "pessoa_nome": "Receita Federal",
+      "pessoa_id": null,
+      "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "status": "pago",
+      "data_pagamento": "2026-11-19T12:00:00-03:00",
+      "valor_pago": 655.1,
+      "updated_at": "2026-11-22T02:07:36.992Z"
+    }
+  ]
+}

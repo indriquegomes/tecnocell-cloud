@@ -1,0 +1,43 @@
+{
+  "quando": "2026-11-22T11:58:24.141Z",
+  "linhas": [
+    {
+      "id": "1309c6da-8315-46d5-be90-fbb4bf46ff8b",
+      "descricao": "FGTS — guias pagas à Caixa (CEF) — 15/11 (10,80 + 70,36 + 18,70)",
+      "valor": 99.86,
+      "tipo": "pagar",
+      "categoria": "Impostos",
+      "subcategoria": null,
+      "data_competencia": null,
+      "data_vencimento": "2026-11-15",
+      "forma_pagamento": "PIX",
+      "pessoa_nome": "Caixa Econômica Federal",
+      "pessoa_id": null,
+      "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "status": "pago",
+      "data_pagamento": "2026-11-15T12:00:00-03:00",
+      "valor_pago": 99.86,
+      "updated_at": "2026-11-22T11:58:24.141Z"
+    },
+    {
+      "id": "1458df17-affb-4527-b546-6704e89c8ae3",
+      "descricao": "FGTS — guias pagas à Caixa (CEF) — 19/11 (259,36 + 51,87 + 89,76)",
+      "valor": 400.99,
+      "tipo": "pagar",
+      "categoria": "Impostos",
+      "subcategoria": null,
+      "data_competencia": null,
+      "data_vencimento": "2026-11-19",
+      "forma_pagamento": "PIX",
+      "pessoa_nome": "Caixa Econômica Federal",
+      "pessoa_id": null,
+      "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "status": "pago",
+      "data_pagamento": "2026-11-19T12:00:00-03:00",
+      "valor_pago": 400.99,
+      "updated_at": "2026-11-22T11:58:24.141Z"
+    }
+  ]
+}

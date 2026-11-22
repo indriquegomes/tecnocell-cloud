@@ -1,0 +1,39 @@
+{
+  "quando": "2026-11-22T16:18:44.865Z",
+  "antes": [
+    {
+      "credito": {
+        "id": "2e1e2ba4-78b1-4bdd-88a7-b517d84f6dfc",
+        "pessoa_id": "643477dc775a50294778e2b1",
+        "pessoa_nome": "DENILSON PEÇAS",
+        "valor": 45,
+        "tipo": "credito",
+        "descricao": "Devolução de compra",
+        "devolucao_id": "2d0064f1-158e-49dd-a1df-39b4a95ba5bc",
+        "venda_id": null,
+        "created_at": "2026-11-21T17:35:28.664165+00:00",
+        "estorna_credito_id": null,
+        "lancamento_id": null,
+        "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+      },
+      "saldo": 45
+    },
+    {
+      "credito": {
+        "id": "c62d2e12-7008-477f-ad47-631d274179c6",
+        "pessoa_id": "642b3df41a5e5a9f0090b11b",
+        "pessoa_nome": "LUIZ CARLOS SANTANA",
+        "valor": 67,
+        "tipo": "credito",
+        "descricao": "Devolução de compra",
+        "devolucao_id": "8ef0c4bf-ca90-4049-81af-1d25b51f07e6",
+        "venda_id": null,
+        "created_at": "2026-11-16T15:16:49.259752+00:00",
+        "estorna_credito_id": null,
+        "lancamento_id": null,
+        "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+      },
+      "saldo": 67
+    }
+  ]
+}

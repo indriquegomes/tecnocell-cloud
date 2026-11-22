@@ -1,0 +1,608 @@
+{
+  "mes": "2026-11",
+  "gerado_em": "2026-11-22T17:45:07.368Z",
+  "janela": {
+    "de": "2026-11-01",
+    "ate": "2026-12-01"
+  },
+  "por_loja": {
+    "Petrópolis": {
+      "entradas": 36540.89,
+      "dinheiroEntrou": 25932.24,
+      "fiadoCobrado": 86893.28,
+      "compras": 132272.81,
+      "despesas": 144490.97,
+      "despesasDinheiro": 19552.41,
+      "porForma": {
+        "PIX": 32430.59,
+        "Dinheiro": 2626.7,
+        "Crédito PagBank": 240,
+        "Débito PagBank": 1170.6,
+        "Crédito TON": 49,
+        "Débito TON": 24
+      },
+      "resultado": -153329.61,
+      "dinheiroEmMaos": 6379.83
+    },
+    "Teresópolis": {
+      "entradas": 8395.3,
+      "dinheiroEntrou": 26458.9,
+      "fiadoCobrado": 101980.49,
+      "compras": 110068.89,
+      "despesas": 114645.21,
+      "despesasDinheiro": 14555.5,
+      "porForma": {
+        "PIX": 5748.8,
+        "Dinheiro": 2565.8,
+        "Crédito TON": 72.2,
+        "Débito PagBank": 8.5
+      },
+      "resultado": -114338.31,
+      "dinheiroEmMaos": 11903.4
+    }
+  },
+  "caixas": [
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-03T11:01:26.735546+00:00",
+      "fechado_em": "2026-11-03T20:23:48.547+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 1732.1
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-03T11:04:28.184443+00:00",
+      "fechado_em": "2026-11-03T21:42:36.13+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 1501
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-03T20:30:44.189175+00:00",
+      "fechado_em": "2026-11-03T21:50:00.451+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 350
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-03T21:46:45.227163+00:00",
+      "fechado_em": "2026-11-03T21:49:40.87+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 200
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-04T10:57:15.651754+00:00",
+      "fechado_em": "2026-11-04T18:08:17.595+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 1796
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-04T11:02:27.142042+00:00",
+      "fechado_em": "2026-11-04T19:26:12.076+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 1676
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-04T18:09:15.062747+00:00",
+      "fechado_em": "2026-11-04T21:44:23.39+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 621
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-04T19:26:19.504285+00:00",
+      "fechado_em": "2026-11-04T21:27:29.187+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 3436
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-04T21:35:42.521399+00:00",
+      "fechado_em": "2026-11-04T21:52:57.095+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 200
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-05T10:55:24.507661+00:00",
+      "fechado_em": "2026-11-05T20:21:43.757+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 791.5
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-05T11:03:29.246508+00:00",
+      "fechado_em": "2026-11-05T21:26:23.959+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 1825
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-05T20:24:29.735004+00:00",
+      "fechado_em": "2026-11-05T21:52:00.322+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 200
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-05T21:29:16.030902+00:00",
+      "fechado_em": "2026-11-05T21:56:22.469+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 200
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-06T10:56:00.856911+00:00",
+      "fechado_em": "2026-11-06T19:19:48.651+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 1860
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-06T11:02:00.396394+00:00",
+      "fechado_em": "2026-11-06T21:53:04.109+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 1423
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-06T19:22:26.990915+00:00",
+      "fechado_em": "2026-11-06T21:54:05.761+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 787.5
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-07T10:56:52.284162+00:00",
+      "fechado_em": "2026-11-07T19:50:26.253+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 607
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-07T10:57:40.64376+00:00",
+      "fechado_em": "2026-11-07T20:12:18.694+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 3521
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-09T11:01:29.24818+00:00",
+      "fechado_em": "2026-11-09T23:41:15.441005+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 1886
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-09T11:01:31.867596+00:00",
+      "fechado_em": "2026-11-09T20:58:48.392+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 1625
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-09T20:59:00.153036+00:00",
+      "fechado_em": "2026-11-10T10:58:36.607+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 200
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-10T10:58:45.675965+00:00",
+      "fechado_em": "2026-11-10T19:21:44.685+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 1521
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-10T11:05:13.816366+00:00",
+      "fechado_em": "2026-11-10T21:43:57.744+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 1893
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-10T19:24:49.923606+00:00",
+      "fechado_em": "2026-11-10T21:59:14.909+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 316
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-11T10:55:28.865541+00:00",
+      "fechado_em": "2026-11-11T18:47:55.997+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 1189
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-11T10:59:22.958955+00:00",
+      "fechado_em": "2026-11-11T19:54:40.592+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 2495.7
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-11T18:48:08.64292+00:00",
+      "fechado_em": "2026-11-11T22:00:51.927+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 884.5
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-11T19:55:23.530633+00:00",
+      "fechado_em": "2026-11-12T11:02:49.146+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 210
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-12T10:59:21.737885+00:00",
+      "fechado_em": "2026-11-12T21:42:57.083+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 1614
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-12T11:03:38.403828+00:00",
+      "fechado_em": "2026-11-12T21:21:55.153+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 2424
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-12T21:29:07.620447+00:00",
+      "fechado_em": "2026-11-12T21:50:56.498+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 200
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-13T10:59:35.353653+00:00",
+      "fechado_em": "2026-11-13T18:32:15.314+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 1817
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-13T11:01:03.404846+00:00",
+      "fechado_em": "2026-11-13T20:24:18.125+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 1637.24
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-13T18:32:28.141239+00:00",
+      "fechado_em": "2026-11-13T21:49:47.785+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 452
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-13T20:32:56.061292+00:00",
+      "fechado_em": "2026-11-13T21:34:13.999+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 200
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-14T11:02:10.00814+00:00",
+      "fechado_em": "2026-11-14T13:03:46.015+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 504.5
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-14T11:06:13.809282+00:00",
+      "fechado_em": "2026-11-16T11:40:18.283+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 1515.6
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-16T10:56:26.967188+00:00",
+      "fechado_em": "2026-11-17T02:36:51.016+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 2016.3
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-16T11:40:34.044304+00:00",
+      "fechado_em": "2026-11-16T21:54:43.965+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 1437
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-17T10:56:28.865691+00:00",
+      "fechado_em": "2026-11-17T19:40:48.286+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 1211
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-17T11:00:23.945879+00:00",
+      "fechado_em": "2026-11-18T11:21:07.154+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 905
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-17T19:41:01.81744+00:00",
+      "fechado_em": "2026-11-17T21:47:48.407+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 413.2
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-18T10:56:45.059461+00:00",
+      "fechado_em": "2026-11-18T21:48:13.045+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 483
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-18T11:21:22.173926+00:00",
+      "fechado_em": "2026-11-18T21:59:42.166+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 1562
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-19T10:53:33.725842+00:00",
+      "fechado_em": "2026-11-19T21:44:25.612+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 1592
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-19T11:00:20.8585+00:00",
+      "fechado_em": "2026-11-19T21:31:52.448+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 1630.3
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-20T11:52:38.398457+00:00",
+      "fechado_em": "2026-11-20T17:38:40.372+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 917
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-20T17:38:48.7009+00:00",
+      "fechado_em": "2026-11-20T17:41:26.268+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 200
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-21T10:59:32.113854+00:00",
+      "fechado_em": "2026-11-21T20:16:32.365+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 2684
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-21T11:02:14.419658+00:00",
+      "fechado_em": "2026-11-21T19:41:46.837+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 2038.9
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-21T19:47:32.902958+00:00",
+      "fechado_em": "2026-11-21T19:59:51.274+00:00",
+      "status": "fechado",
+      "abertura": 200,
+      "fechamento": 200
+    }
+  ],
+  "compras_por_fornecedor": {
+    "H2O": {
+      "total": 132323,
+      "por_loja": {
+        "Teresópolis": 60426,
+        "Petrópolis": 71897
+      }
+    },
+    "ADL": {
+      "total": 54487.9,
+      "por_loja": {
+        "Teresópolis": 29037,
+        "Petrópolis": 25450.9
+      }
+    },
+    "ACESSORIOS FABIO": {
+      "total": 22150.5,
+      "por_loja": {
+        "Teresópolis": 9683,
+        "Petrópolis": 12467.5
+      }
+    },
+    "PLANETA CELL": {
+      "total": 10497.92,
+      "por_loja": {
+        "Teresópolis": 5601.39,
+        "Petrópolis": 4896.53
+      }
+    },
+    "ZL": {
+      "total": 7400,
+      "por_loja": {
+        "Teresópolis": 3260,
+        "Petrópolis": 4140
+      }
+    },
+    "TROCAS H²0": {
+      "total": 7130.73,
+      "por_loja": {
+        "Petrópolis": 7130.73
+      }
+    },
+    "AMIN PELÍCULAS": {
+      "total": 3897.5,
+      "por_loja": {
+        "Petrópolis": 2459,
+        "Teresópolis": 1438.5
+      }
+    },
+    "(sem fornecedor)": {
+      "total": 2320.04,
+      "por_loja": {
+        "Petrópolis": 2320.04
+      }
+    },
+    "GHR FERRAMENTAS": {
+      "total": 1162,
+      "por_loja": {
+        "Teresópolis": 518,
+        "Petrópolis": 644
+      }
+    },
+    "ESPECIAIS SAO PAULO": {
+      "total": 659,
+      "por_loja": {
+        "Petrópolis": 554,
+        "Teresópolis": 105
+      }
+    },
+    "POSTO DOS COMPONENTES": {
+      "total": 313.11,
+      "por_loja": {
+        "Petrópolis": 313.11
+      }
+    }
+  },
+  "despesas_por_categoria": {
+    "Mercadoria": 95104.77,
+    "fornecedor/mercadoria": 38849.79,
+    "Fornecedor / Mercadoria": 32434.99,
+    "Vale crédito usado": 25790.32,
+    "Salários": 23232.95,
+    "(sem categoria)": 8842.1,
+    "Retirada do sócio": 8072.47,
+    "Devolução ao cliente": 5604.9,
+    "Comissão": 4290,
+    "Aluguel": 2600,
+    "Confraternização": 2106,
+    "Desconto concedido": 2005.61,
+    "motoboy": 1872.5,
+    "Perda": 1590.62,
+    "Impostos": 1155.95,
+    "Uso interno": 1118.33,
+    "Jurídico": 810.5,
+    "Gastos em São Paulo": 751.44,
+    "Perda com fiado": 709.5,
+    "despesas loja": 631,
+    "Energia/Luz": 549.43,
+    "Outras despesas": 544.88,
+    "Combustível": 413.47,
+    "Estorno de crédito": 353,
+    "Bônus": 260,
+    "Alimentação": 191.35,
+    "Serviços": 70,
+    "Tarifas bancárias": 32.8
+  },
+  "contas_a_pagar_aberto": {
+    "total": 203485.29,
+    "notas": 79
+  },
+  "fiado_aberto": {
+    "total": 47608.92,
+    "notas": 575,
+    "por_loja": {
+      "Petrópolis": 32140.56,
+      "Teresópolis": 15269.36
+    }
+  },
+  "estoque": {
+    "por_deposito": {
+      "PETRÓPOLIS LOJA": {
+        "qtd": 28816,
+        "custo": 252192.08,
+        "venda": 1097355.78
+      },
+      "PETRÓPOLIS ESTOQUE": {
+        "qtd": 741,
+        "custo": 51677.04,
+        "venda": 136641.72
+      },
+      "TERESÓPOLIS LOJA": {
+        "qtd": 13958,
+        "custo": 203582.92,
+        "venda": 665288.12
+      },
+      "TERESÓPOLIS ESTOQUE": {
+        "qtd": 105,
+        "custo": 9294.35,
+        "venda": 24997.3
+      }
+    },
+    "por_loja": {
+      "Petrópolis": {
+        "qtd": 29557,
+        "custo": 303869.12,
+        "venda": 1233997.5
+      },
+      "Teresópolis": {
+        "qtd": 14063,
+        "custo": 212877.27,
+        "venda": 690285.42
+      }
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "quando": "2026-11-22T02:12:39.059Z",
+  "linhas": [
+    {
+      "id": "3080d556-4ae1-45cd-a652-857de9dc4fc2",
+      "descricao": "Compra para a loja — Mercado Livre (Pix Marketplace) — 10/11",
+      "valor": 296,
+      "tipo": "pagar",
+      "categoria": "despesas loja",
+      "subcategoria": null,
+      "data_competencia": null,
+      "data_vencimento": "2026-11-10",
+      "forma_pagamento": "PIX",
+      "pessoa_nome": "Pix Marketplace",
+      "pessoa_id": null,
+      "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "status": "pago",
+      "data_pagamento": "2026-11-10T12:00:00-03:00",
+      "valor_pago": 296,
+      "updated_at": "2026-11-22T02:12:39.059Z"
+    },
+    {
+      "id": "dbfe7087-37be-42ee-9b6e-23831876f49e",
+      "descricao": "Recarga de cartão pré-pago — material de uso da loja — 13/11",
+      "valor": 300,
+      "tipo": "pagar",
+      "categoria": "despesas loja",
+      "subcategoria": null,
+      "data_competencia": null,
+      "data_vencimento": "2026-11-13",
+      "forma_pagamento": "Recarga de Cartão Pré-Pago",
+      "pessoa_nome": null,
+      "pessoa_id": null,
+      "conta_id": null,
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "status": "pago",
+      "data_pagamento": "2026-11-13T12:00:00-03:00",
+      "valor_pago": 300,
+      "updated_at": "2026-11-22T02:12:39.059Z"
+    }
+  ]
+}

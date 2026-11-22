@@ -1,0 +1,2 @@
+DELETE FROM movimentos_caixa WHERE lancamento_id IN ('150ac773-e227-49b9-8ead-3f318a9e6aa4','62dcfc36-22c2-47d0-a1f2-2efa3ca37b55','1e618618-c5b9-423d-8c70-7c4f1affb396','adc8931a-009b-4671-b261-db2973bd1f53','e7d35e45-8a63-4317-acaf-23ed6662e1d3') AND origem = 'financeiro';
+DELETE FROM lancamentos WHERE id IN ('150ac773-e227-49b9-8ead-3f318a9e6aa4','62dcfc36-22c2-47d0-a1f2-2efa3ca37b55','1e618618-c5b9-423d-8c70-7c4f1affb396','adc8931a-009b-4671-b261-db2973bd1f53','e7d35e45-8a63-4317-acaf-23ed6662e1d3');

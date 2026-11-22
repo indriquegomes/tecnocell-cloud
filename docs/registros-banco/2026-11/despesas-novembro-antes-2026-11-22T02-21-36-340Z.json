@@ -1,0 +1,24 @@
+{
+  "quando": "2026-11-22T02:21:36.342Z",
+  "linhas": [
+    {
+      "id": "0c170134-6bae-4a16-bd48-b25052151010",
+      "descricao": "Dívida parcelada — parcela 01/10 — complemento pago em 02/11",
+      "valor": 461.88,
+      "tipo": "pagar",
+      "categoria": "Outras despesas",
+      "subcategoria": null,
+      "data_competencia": null,
+      "data_vencimento": "2026-11-02",
+      "forma_pagamento": "PIX",
+      "pessoa_nome": "Isabela Ponciano Camara",
+      "pessoa_id": null,
+      "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "status": "pago",
+      "data_pagamento": "2026-11-02T12:00:00-03:00",
+      "valor_pago": 461.88,
+      "updated_at": "2026-11-22T02:21:36.342Z"
+    }
+  ]
+}

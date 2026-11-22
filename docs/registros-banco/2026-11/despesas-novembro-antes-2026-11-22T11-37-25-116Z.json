@@ -1,0 +1,43 @@
+{
+  "quando": "2026-11-22T11:37:25.118Z",
+  "linhas": [
+    {
+      "id": "ac078275-2f6c-42cd-8b66-cec52f92eb56",
+      "descricao": "Tarifa PagBank Saúde — novembro/2026 (cartão cancelado em 21/11)",
+      "valor": 24.9,
+      "tipo": "pagar",
+      "categoria": "Tarifas bancárias",
+      "subcategoria": null,
+      "data_competencia": null,
+      "data_vencimento": "2026-11-19",
+      "forma_pagamento": "PIX",
+      "pessoa_nome": null,
+      "pessoa_id": null,
+      "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "status": "pago",
+      "data_pagamento": "2026-11-19T12:00:00-03:00",
+      "valor_pago": 24.9,
+      "updated_at": "2026-11-22T11:37:25.118Z"
+    },
+    {
+      "id": "5d2d9d9c-24a4-4777-8cf2-babc56e3891e",
+      "descricao": "Mensalidade do seguro da conta PagBank — novembro/2026 (cancelado em 21/11)",
+      "valor": 7.9,
+      "tipo": "pagar",
+      "categoria": "Tarifas bancárias",
+      "subcategoria": null,
+      "data_competencia": null,
+      "data_vencimento": "2026-11-20",
+      "forma_pagamento": "PIX",
+      "pessoa_nome": null,
+      "pessoa_id": null,
+      "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "status": "pago",
+      "data_pagamento": "2026-11-20T12:00:00-03:00",
+      "valor_pago": 7.9,
+      "updated_at": "2026-11-22T11:37:25.118Z"
+    }
+  ]
+}

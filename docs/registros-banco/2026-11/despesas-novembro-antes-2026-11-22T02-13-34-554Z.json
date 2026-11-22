@@ -1,0 +1,24 @@
+{
+  "quando": "2026-11-22T02:13:34.555Z",
+  "linhas": [
+    {
+      "id": "f9f923ff-806e-4599-b326-d1d3ff6aa227",
+      "descricao": "Pró-labore novembro/2026 — Indrique Gomes França",
+      "valor": 5976,
+      "tipo": "pagar",
+      "categoria": "Retirada do sócio",
+      "subcategoria": null,
+      "data_competencia": null,
+      "data_vencimento": "2026-11-20",
+      "forma_pagamento": "PIX",
+      "pessoa_nome": "Indrique Gomes França",
+      "pessoa_id": null,
+      "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "status": "pago",
+      "data_pagamento": "2026-11-20T12:00:00-03:00",
+      "valor_pago": 5976,
+      "updated_at": "2026-11-22T02:13:34.555Z"
+    }
+  ]
+}

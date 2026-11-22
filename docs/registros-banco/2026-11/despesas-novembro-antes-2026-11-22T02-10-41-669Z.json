@@ -1,0 +1,43 @@
+{
+  "quando": "2026-11-22T02:10:41.671Z",
+  "linhas": [
+    {
+      "id": "9093bd8b-70c1-4240-b38f-9b6bc1b07971",
+      "descricao": "Gastos em São Paulo — passagem de ônibus — 03/11",
+      "valor": 345.18,
+      "tipo": "pagar",
+      "categoria": "Gastos em São Paulo",
+      "subcategoria": "Passagem",
+      "data_competencia": null,
+      "data_vencimento": "2026-11-03",
+      "forma_pagamento": "PIX",
+      "pessoa_nome": "Aguia Branca Transportes S A",
+      "pessoa_id": null,
+      "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "status": "pago",
+      "data_pagamento": "2026-11-03T12:00:00-03:00",
+      "valor_pago": 345.18,
+      "updated_at": "2026-11-22T02:10:41.671Z"
+    },
+    {
+      "id": "b5bda9a3-a2f3-410d-8cbf-c9ade00e56c5",
+      "descricao": "Gastos em São Paulo — passagem de ônibus — 17/11",
+      "valor": 406.26,
+      "tipo": "pagar",
+      "categoria": "Gastos em São Paulo",
+      "subcategoria": "Passagem",
+      "data_competencia": null,
+      "data_vencimento": "2026-11-17",
+      "forma_pagamento": "PIX",
+      "pessoa_nome": "Aguia Branca Transportes S A",
+      "pessoa_id": null,
+      "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "status": "pago",
+      "data_pagamento": "2026-11-17T12:00:00-03:00",
+      "valor_pago": 406.26,
+      "updated_at": "2026-11-22T02:10:41.671Z"
+    }
+  ]
+}
