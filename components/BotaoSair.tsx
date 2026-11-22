@@ -32,6 +32,10 @@ export function BotaoSair({
       onSubmit={async (e) => {
         if (saindo) { e.preventDefault(); return }
         e.preventDefault()
+        // O elemento tem que ser guardado ANTES do await: depois do signOut o
+        // currentTarget do evento sintético vira null e `form.submit()` estourava
+        // (Cannot read properties of null) — o logout não chegava no servidor.
+        const form = e.currentTarget as HTMLFormElement
         setSaindo(true)
         try {
           await createClient().auth.signOut()
@@ -39,7 +43,6 @@ export function BotaoSair({
           // sem sessão no navegador ou storage bloqueado: segue para o servidor
         }
         // submit nativo: não passa de novo pelo onSubmit (nada de loop)
-        const form = e.currentTarget as HTMLFormElement
         form.submit()
       }}
     >
