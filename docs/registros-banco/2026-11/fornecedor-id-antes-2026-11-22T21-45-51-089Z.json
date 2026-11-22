@@ -1,0 +1,187 @@
+{
+  "quando": "2026-11-22T21:45:51.089Z",
+  "plano": [
+    {
+      "l": {
+        "id": "67920f79-8d9b-4c1d-b40a-b7cd69aeed5b",
+        "descricao": "PAGAMENTO DE MERCADORIA ",
+        "valor": 2414,
+        "pessoa_nome": "H2O",
+        "pessoa_id": null,
+        "data_vencimento": "2026-11-20T00:00:00+00:00"
+      },
+      "pessoa_nome": "H2O",
+      "pessoa_id": "698ca68bab433fc39fef7b75",
+      "de": "H2O (sem id)"
+    },
+    {
+      "l": {
+        "id": "b31804cb-e578-4b91-ab29-7420c5b9b72d",
+        "descricao": "PAGAMENTO DE MERCADORIA",
+        "valor": 53.6,
+        "pessoa_nome": "ADL",
+        "pessoa_id": null,
+        "data_vencimento": "2026-11-12T00:00:00+00:00"
+      },
+      "pessoa_nome": "ADL",
+      "pessoa_id": "69d6bb5139449d9509f24978",
+      "de": "ADL (sem id)"
+    },
+    {
+      "l": {
+        "id": "6fc89c09-5bd6-4875-b796-5bc3c3da81f8",
+        "descricao": "PAGAMENTO DE MERCADORIA ",
+        "valor": 903.3,
+        "pessoa_nome": "ZL",
+        "pessoa_id": null,
+        "data_vencimento": "2026-11-12T00:00:00+00:00"
+      },
+      "pessoa_nome": "ZL",
+      "pessoa_id": "6537e9a5252e1067daf498a3",
+      "de": "ZL (sem id)"
+    },
+    {
+      "l": {
+        "id": "a7304c69-7c40-4006-a594-d6e45a6f3b44",
+        "descricao": "PAGAMENTO DE MERCADORIA ",
+        "valor": 3289.8,
+        "pessoa_nome": "H2O",
+        "pessoa_id": null,
+        "data_vencimento": "2026-11-12T00:00:00+00:00"
+      },
+      "pessoa_nome": "H2O",
+      "pessoa_id": "698ca68bab433fc39fef7b75",
+      "de": "H2O (sem id)"
+    },
+    {
+      "l": {
+        "id": "8195289f-c4fd-4b3a-bb89-1a15848e982a",
+        "descricao": "PAGAMENTO DE MERCADORIA ",
+        "valor": 115,
+        "pessoa_nome": "H2O",
+        "pessoa_id": null,
+        "data_vencimento": "2026-11-13T00:00:00+00:00"
+      },
+      "pessoa_nome": "H2O",
+      "pessoa_id": "698ca68bab433fc39fef7b75",
+      "de": "H2O (sem id)"
+    },
+    {
+      "l": {
+        "id": "f7d02a06-b868-4422-a493-d9dea880d072",
+        "descricao": "PAGAMENTO DE MERCADORIA ",
+        "valor": 100,
+        "pessoa_nome": "ZL",
+        "pessoa_id": null,
+        "data_vencimento": "2026-11-11T00:00:00+00:00"
+      },
+      "pessoa_nome": "ZL",
+      "pessoa_id": "6537e9a5252e1067daf498a3",
+      "de": "ZL (sem id)"
+    },
+    {
+      "l": {
+        "id": "2251d8ea-419b-447b-99bb-a1e632e22d2c",
+        "descricao": "PAGAMENTO DE MERCADORIA ",
+        "valor": 502,
+        "pessoa_nome": "ADL",
+        "pessoa_id": null,
+        "data_vencimento": "2026-11-11T00:00:00+00:00"
+      },
+      "pessoa_nome": "ADL",
+      "pessoa_id": "69d6bb5139449d9509f24978",
+      "de": "ADL (sem id)"
+    },
+    {
+      "l": {
+        "id": "28c57b60-5e42-443a-b810-5784d66753fe",
+        "descricao": "PAGAMENTO DE MERCADORIA ",
+        "valor": 1366.5,
+        "pessoa_nome": "H2O",
+        "pessoa_id": null,
+        "data_vencimento": "2026-11-11T00:00:00+00:00"
+      },
+      "pessoa_nome": "H2O",
+      "pessoa_id": "698ca68bab433fc39fef7b75",
+      "de": "H2O (sem id)"
+    },
+    {
+      "l": {
+        "id": "aff6339b-cedb-4f07-bc78-9b1b9ecc23ac",
+        "descricao": "PAGAMENTO DE MERCADORIA",
+        "valor": 3615.8,
+        "pessoa_nome": "ADL",
+        "pessoa_id": null,
+        "data_vencimento": "2026-11-11T00:00:00+00:00"
+      },
+      "pessoa_nome": "ADL",
+      "pessoa_id": "69d6bb5139449d9509f24978",
+      "de": "ADL (sem id)"
+    },
+    {
+      "l": {
+        "id": "2385af86-97c6-4ef6-938c-4ca5c6f28e79",
+        "descricao": "PAGAMENTO DE MERCADORIA",
+        "valor": 1337.5,
+        "pessoa_nome": "H2O",
+        "pessoa_id": null,
+        "data_vencimento": "2026-11-11T00:00:00+00:00"
+      },
+      "pessoa_nome": "H2O",
+      "pessoa_id": "698ca68bab433fc39fef7b75",
+      "de": "H2O (sem id)"
+    },
+    {
+      "l": {
+        "id": "65982594-c492-4788-9423-2beae2e309ac",
+        "descricao": "PAGAMENTO DE MERCADORIA ",
+        "valor": 141,
+        "pessoa_nome": null,
+        "pessoa_id": null,
+        "data_vencimento": "2026-11-11T00:00:00+00:00"
+      },
+      "pessoa_nome": "ZL",
+      "pessoa_id": "6537e9a5252e1067daf498a3",
+      "de": "(vazio)"
+    },
+    {
+      "l": {
+        "id": "38821a8d-f26d-4bf5-9ebd-eb90a12578a4",
+        "descricao": "PAGAMENTO DE MERCADORIA ",
+        "valor": 1087,
+        "pessoa_nome": "H2O",
+        "pessoa_id": null,
+        "data_vencimento": "2026-11-14T00:00:00+00:00"
+      },
+      "pessoa_nome": "H2O",
+      "pessoa_id": "698ca68bab433fc39fef7b75",
+      "de": "H2O (sem id)"
+    },
+    {
+      "l": {
+        "id": "fa532584-db3b-459a-aed6-c9f3cf55f043",
+        "descricao": "PAGAMENTO DE MERCADORIA",
+        "valor": 440.4,
+        "pessoa_nome": "ADL",
+        "pessoa_id": null,
+        "data_vencimento": "2026-11-12T00:00:00+00:00"
+      },
+      "pessoa_nome": "ADL",
+      "pessoa_id": "69d6bb5139449d9509f24978",
+      "de": "ADL (sem id)"
+    },
+    {
+      "l": {
+        "id": "d043f610-1612-4c51-adbd-35d69693461c",
+        "descricao": "PAGAMENTO DE MERCADORIA",
+        "valor": 1414.8,
+        "pessoa_nome": "H2O",
+        "pessoa_id": null,
+        "data_vencimento": "2026-11-16T00:00:00+00:00"
+      },
+      "pessoa_nome": "H2O",
+      "pessoa_id": "698ca68bab433fc39fef7b75",
+      "de": "H2O (sem id)"
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+DELETE FROM lancamentos WHERE id IN ('d753312d-6807-4b71-b88f-abf95ffb2644','96838d41-39bc-4c0d-a004-1ceb4622525e');

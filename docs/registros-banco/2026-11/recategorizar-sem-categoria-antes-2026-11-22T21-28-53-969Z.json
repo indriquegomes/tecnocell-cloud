@@ -1,0 +1,159 @@
+{
+  "quando": "2026-11-22T21:28:53.970Z",
+  "plano": [
+    {
+      "id": "3fe5ebb4-a6d3-4cf9-a7bf-cf1a5cafd8c3",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "valor": 2207.6,
+      "categoria": null,
+      "subcategoria": null,
+      "data_vencimento": "2026-11-10T00:00:00+00:00",
+      "pessoa_nome": "ZL",
+      "categoriaNova": "Fornecedor / Mercadoria",
+      "subcategoriaNova": "Pagamento de mercadoria"
+    },
+    {
+      "id": "6b86f47e-4840-48d5-9fe6-d31b52fac65a",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "valor": 1492,
+      "categoria": null,
+      "subcategoria": null,
+      "data_vencimento": "2026-11-10T00:00:00+00:00",
+      "pessoa_nome": "H2O",
+      "categoriaNova": "Fornecedor / Mercadoria",
+      "subcategoriaNova": "Pagamento de mercadoria"
+    },
+    {
+      "id": "9a0ddd35-e35e-4636-ba61-1d54ca029b68",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "valor": 326,
+      "categoria": null,
+      "subcategoria": null,
+      "data_vencimento": "2026-11-10T00:00:00+00:00",
+      "pessoa_nome": "ADL",
+      "categoriaNova": "Fornecedor / Mercadoria",
+      "subcategoriaNova": "Pagamento de mercadoria"
+    },
+    {
+      "id": "28c57b60-5e42-443a-b810-5784d66753fe",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "valor": 1366.5,
+      "categoria": null,
+      "subcategoria": null,
+      "data_vencimento": "2026-11-11T00:00:00+00:00",
+      "pessoa_nome": "H2O",
+      "categoriaNova": "Fornecedor / Mercadoria",
+      "subcategoriaNova": "Pagamento de mercadoria"
+    },
+    {
+      "id": "f7d02a06-b868-4422-a493-d9dea880d072",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "valor": 100,
+      "categoria": null,
+      "subcategoria": null,
+      "data_vencimento": "2026-11-11T00:00:00+00:00",
+      "pessoa_nome": "ZL",
+      "categoriaNova": "Fornecedor / Mercadoria",
+      "subcategoriaNova": "Pagamento de mercadoria"
+    },
+    {
+      "id": "2251d8ea-419b-447b-99bb-a1e632e22d2c",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "valor": 502,
+      "categoria": null,
+      "subcategoria": null,
+      "data_vencimento": "2026-11-11T00:00:00+00:00",
+      "pessoa_nome": "ADL",
+      "categoriaNova": "Fornecedor / Mercadoria",
+      "subcategoriaNova": "Pagamento de mercadoria"
+    },
+    {
+      "id": "65982594-c492-4788-9423-2beae2e309ac",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "valor": 141,
+      "categoria": null,
+      "subcategoria": null,
+      "data_vencimento": "2026-11-11T00:00:00+00:00",
+      "pessoa_nome": null,
+      "categoriaNova": "Fornecedor / Mercadoria",
+      "subcategoriaNova": "Pagamento de mercadoria (sem fornecedor)"
+    },
+    {
+      "id": "1ab63734-322f-46f0-afb7-40e5ecd542cd",
+      "descricao": "Devolução — CRISTIAN EDUARDO SOUZA",
+      "valor": 4,
+      "categoria": null,
+      "subcategoria": null,
+      "data_vencimento": "2026-11-12T00:00:00+00:00",
+      "pessoa_nome": "CRISTIAN EDUARDO SOUZA",
+      "categoriaNova": "Devolução ao cliente",
+      "subcategoriaNova": null
+    },
+    {
+      "id": "d7a5f378-8a3e-4bd9-85e5-02a694d92519",
+      "descricao": "Devolução — CRISTIAN EDUARDO SOUZA",
+      "valor": 25,
+      "categoria": null,
+      "subcategoria": null,
+      "data_vencimento": "2026-11-12T00:00:00+00:00",
+      "pessoa_nome": "CRISTIAN EDUARDO SOUZA",
+      "categoriaNova": "Devolução ao cliente",
+      "subcategoriaNova": null
+    },
+    {
+      "id": "8195289f-c4fd-4b3a-bb89-1a15848e982a",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "valor": 115,
+      "categoria": null,
+      "subcategoria": null,
+      "data_vencimento": "2026-11-13T00:00:00+00:00",
+      "pessoa_nome": "H2O",
+      "categoriaNova": "Fornecedor / Mercadoria",
+      "subcategoriaNova": "Pagamento de mercadoria"
+    },
+    {
+      "id": "ca527767-53fb-476f-98cb-ff1f8281b82e",
+      "descricao": "Devolução — LUIZ CARLOS SANTANA",
+      "valor": 67,
+      "categoria": null,
+      "subcategoria": null,
+      "data_vencimento": "2026-11-16T00:00:00+00:00",
+      "pessoa_nome": "LUIZ CARLOS SANTANA",
+      "categoriaNova": "Devolução ao cliente",
+      "subcategoriaNova": null
+    },
+    {
+      "id": "9fe50d54-f671-460c-9a24-59771ba8b592",
+      "descricao": "Devolução — KAYRO MAIA RABELLO",
+      "valor": 37,
+      "categoria": null,
+      "subcategoria": null,
+      "data_vencimento": "2026-11-18T00:00:00+00:00",
+      "pessoa_nome": "KAYRO MAIA RABELLO",
+      "categoriaNova": "Devolução ao cliente",
+      "subcategoriaNova": null
+    },
+    {
+      "id": "67920f79-8d9b-4c1d-b40a-b7cd69aeed5b",
+      "descricao": "PAGAMENTO DE MERCADORIA ",
+      "valor": 2414,
+      "categoria": null,
+      "subcategoria": null,
+      "data_vencimento": "2026-11-20T00:00:00+00:00",
+      "pessoa_nome": "H2O",
+      "categoriaNova": "Fornecedor / Mercadoria",
+      "subcategoriaNova": "Pagamento de mercadoria"
+    },
+    {
+      "id": "9b6dfdae-5d32-46df-bd84-46b8a53f6971",
+      "descricao": "Devolução — DAVID DOS SANTOS MORTES",
+      "valor": 45,
+      "categoria": null,
+      "subcategoria": null,
+      "data_vencimento": "2026-11-21T00:00:00+00:00",
+      "pessoa_nome": "DAVID DOS SANTOS MORTES",
+      "categoriaNova": "Devolução ao cliente",
+      "subcategoriaNova": null
+    }
+  ]
+}

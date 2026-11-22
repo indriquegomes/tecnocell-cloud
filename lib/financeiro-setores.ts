@@ -39,7 +39,7 @@ export const SETORES: Setor[] = [
     chave: 'estrutura',
     label: 'Estrutura da loja',
     emoji: '🏠',
-    categorias: ['Aluguel', 'Energia/Luz', 'Contabilidade', 'Impostos'],
+    categorias: ['Aluguel', 'Energia/Luz', 'Contabilidade', 'Impostos', 'Jurídico', 'Tarifas bancárias'],
   },
   {
     chave: 'operacao',
@@ -47,7 +47,7 @@ export const SETORES: Setor[] = [
     emoji: '🛠️',
     // 'Frete / Entrega' é para pagamento a transportadora ou entregador terceirizado.
     // Pagar o SEU entregador é Salário: a função dele é motoboy, o gasto é salário.
-    categorias: ['Frete / Entrega', 'Combustível', 'Alimentação', 'Manutenção', 'Limpeza', 'Transporte', 'Perda', 'Uso interno', 'Serviços', 'Gastos em São Paulo', 'Saúde', 'Confraternização', 'Outras despesas', 'despesas loja'],
+    categorias: ['Frete / Entrega', 'Combustível', 'Alimentação', 'Manutenção', 'Limpeza', 'Transporte', 'Perda', 'Perda de troca', 'Uso interno', 'Serviços', 'Gastos em São Paulo', 'Saúde', 'Confraternização', 'Outras despesas', 'despesas loja'],
   },
   {
     chave: 'vendas',
@@ -65,7 +65,17 @@ export const SETORES: Setor[] = [
     chave: 'socio',
     label: 'Sócio e dívidas',
     emoji: '👤',
-    categorias: ['Retirada do sócio', 'Dívida parcelada'],
+    // 'Pró-labore' é o pagamento do dono (custo da loja, com data fixa);
+    // 'Retirada do sócio' é dinheiro que sai como distribuição e conta pessoal.
+    categorias: ['Pró-labore', 'Retirada do sócio', 'Dívida parcelada'],
+  },
+  {
+    chave: 'particular',
+    label: 'Particular do sócio',
+    emoji: '📄',
+    // Contas da vida particular do dono, pagas com o pró-labore. Ficam aqui para
+    // ter controle próprio (aba Particular) e não se misturar com despesa da loja.
+    categorias: ['Particular'],
   },
   {
     chave: 'sem_categoria',
@@ -136,7 +146,11 @@ export const SUBCATEGORIAS: Record<string, string[]> = {
   'Alimentação': ['Equipe', 'Cliente'],
   // sócio e dívidas
   'Dívida parcelada': ['Fornecedor', 'Sócio', 'Empréstimo'],
-  'Retirada do sócio': ['Retirada', 'Pró-labore'],
+  'Retirada do sócio': ['Retirada', 'Conta pessoal', 'Gasto particular'],
+  'Pró-labore': ['Loja Petrópolis', 'Loja Teresópolis', 'Complemento'],
+  // particular do sócio — o que é a conta, não quando vence
+  'Particular': ['Casa', 'Condomínio', 'Energia/Água', 'Escola', 'Saúde', 'Carro', 'Cartão', 'Pessoal', 'Outros'],
+  'Perda de troca': ['Avaria', 'Peça quebrada', 'Diferença de valor'],
 }
 
 export const subcategoriasDe = (categoria: string | null | undefined): string[] =>

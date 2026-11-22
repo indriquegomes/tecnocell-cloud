@@ -4,6 +4,7 @@ export const ROTAS_PERMISSAO: Record<string, string | string[]> = {
   '/painel/vendas':        'vendas',
   '/painel/devolucoes':    'devolucoes',
   '/painel/financeiro':    'financeiro',
+  '/painel/particular':    'master',   // contas particulares do dono: só ele vê
   '/painel/estoque':       'estoque',
   '/painel/trocas':        'estoque',   // a tela mostra custo de peça: mesma permissão das ações dela
   '/painel/estoque/transferencias': 'estoque',

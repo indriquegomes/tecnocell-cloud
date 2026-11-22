@@ -114,6 +114,7 @@ const navCompleto: NavGroup[] = [
     group: 'Financeiro',
     items: [
       { href: '/painel/financeiro',    label: 'Financeiro',           permissao: 'financeiro' },
+      { href: '/painel/particular',    label: 'Particular (dono)',    permissao: 'master' },
       { href: '/painel/fiados',        label: 'Fiados',               permissao: ['financeiro', 'fiados'] },
       { href: '/painel/vales-credito', label: 'Créditos de Clientes', permissao: 'financeiro' },
       { href: '/painel/contas',        label: 'Contas',               permissao: 'financeiro' },

@@ -1,0 +1,14 @@
+UPDATE lancamentos SET pessoa_nome = 'H2O', pessoa_id = NULL WHERE id = '67920f79-8d9b-4c1d-b40a-b7cd69aeed5b';
+UPDATE lancamentos SET pessoa_nome = 'ADL', pessoa_id = NULL WHERE id = 'b31804cb-e578-4b91-ab29-7420c5b9b72d';
+UPDATE lancamentos SET pessoa_nome = 'ZL', pessoa_id = NULL WHERE id = '6fc89c09-5bd6-4875-b796-5bc3c3da81f8';
+UPDATE lancamentos SET pessoa_nome = 'H2O', pessoa_id = NULL WHERE id = 'a7304c69-7c40-4006-a594-d6e45a6f3b44';
+UPDATE lancamentos SET pessoa_nome = 'H2O', pessoa_id = NULL WHERE id = '8195289f-c4fd-4b3a-bb89-1a15848e982a';
+UPDATE lancamentos SET pessoa_nome = 'ZL', pessoa_id = NULL WHERE id = 'f7d02a06-b868-4422-a493-d9dea880d072';
+UPDATE lancamentos SET pessoa_nome = 'ADL', pessoa_id = NULL WHERE id = '2251d8ea-419b-447b-99bb-a1e632e22d2c';
+UPDATE lancamentos SET pessoa_nome = 'H2O', pessoa_id = NULL WHERE id = '28c57b60-5e42-443a-b810-5784d66753fe';
+UPDATE lancamentos SET pessoa_nome = 'ADL', pessoa_id = NULL WHERE id = 'aff6339b-cedb-4f07-bc78-9b1b9ecc23ac';
+UPDATE lancamentos SET pessoa_nome = 'H2O', pessoa_id = NULL WHERE id = '2385af86-97c6-4ef6-938c-4ca5c6f28e79';
+UPDATE lancamentos SET pessoa_nome = NULL, pessoa_id = NULL WHERE id = '65982594-c492-4788-9423-2beae2e309ac';
+UPDATE lancamentos SET pessoa_nome = 'H2O', pessoa_id = NULL WHERE id = '38821a8d-f26d-4bf5-9ebd-eb90a12578a4';
+UPDATE lancamentos SET pessoa_nome = 'ADL', pessoa_id = NULL WHERE id = 'fa532584-db3b-459a-aed6-c9f3cf55f043';
+UPDATE lancamentos SET pessoa_nome = 'H2O', pessoa_id = NULL WHERE id = 'd043f610-1612-4c51-adbd-35d69693461c';

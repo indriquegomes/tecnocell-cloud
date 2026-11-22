@@ -1,0 +1,395 @@
+{
+  "quando": "2026-11-22T21:40:17.971Z",
+  "mudancas": [
+    {
+      "antes": {
+        "id": "vt-isabella-beatriz-2026-12",
+        "descricao": "Vale transporte dezembro/2026 — 25 dias × R$ 11,80 (Petrópolis)",
+        "valor": 295,
+        "categoria": "Vale transporte",
+        "subcategoria": "Passagem",
+        "status": "pendente",
+        "data_vencimento": "2026-11-30T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Salários",
+        "subcategoria": "Vale transporte"
+      }
+    },
+    {
+      "antes": {
+        "id": "cd5d59c9-eca6-4d8a-853a-023ec99b54bf",
+        "descricao": "Perda de troca — TAMPA SAMSUNG A24 PRETA (fornecedor não trocou)",
+        "valor": 9,
+        "categoria": "Perda",
+        "subcategoria": null,
+        "status": "pago",
+        "data_vencimento": "2026-11-16T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Perda de troca",
+        "subcategoria": null
+      }
+    },
+    {
+      "antes": {
+        "id": "5f59daf7-f160-4f07-8e53-7144e81d73bc",
+        "descricao": "Perda de troca — TAMPA SAMSUNG A24 PRETA (fornecedor não trocou)",
+        "valor": 9,
+        "categoria": "Perda",
+        "subcategoria": null,
+        "status": "pago",
+        "data_vencimento": "2026-11-16T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Perda de troca",
+        "subcategoria": null
+      }
+    },
+    {
+      "antes": {
+        "id": "vt-maria-julia-2026-12",
+        "descricao": "Vale transporte dezembro/2026 — 25 dias × R$ 11,80 (Petrópolis)",
+        "valor": 295,
+        "categoria": "Vale transporte",
+        "subcategoria": "Passagem",
+        "status": "pendente",
+        "data_vencimento": "2026-11-30T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Salários",
+        "subcategoria": "Vale transporte"
+      }
+    },
+    {
+      "antes": {
+        "id": "vt-leticia-2026-12",
+        "descricao": "Vale transporte dezembro/2026 — valor fixo (Teresópolis)",
+        "valor": 270,
+        "categoria": "Vale transporte",
+        "subcategoria": "Passagem",
+        "status": "pendente",
+        "data_vencimento": "2026-11-30T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Salários",
+        "subcategoria": "Vale transporte"
+      }
+    },
+    {
+      "antes": {
+        "id": "vt-rodrigo-2026-12",
+        "descricao": "Vale transporte dezembro/2026 — valor fixo (Teresópolis)",
+        "valor": 270,
+        "categoria": "Vale transporte",
+        "subcategoria": "Passagem",
+        "status": "pendente",
+        "data_vencimento": "2026-11-30T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Salários",
+        "subcategoria": "Vale transporte"
+      }
+    },
+    {
+      "antes": {
+        "id": "1c11aade-8e43-4eb3-a0e6-3d76cd47f899",
+        "descricao": "Perda de troca — FRONTAL IPHONE 11 LCD PREMIUM VIVID (H2O FORNECEDOR)",
+        "valor": 46.91,
+        "categoria": "Perda",
+        "subcategoria": null,
+        "status": "pago",
+        "data_vencimento": "2026-11-17T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Perda de troca",
+        "subcategoria": null
+      }
+    },
+    {
+      "antes": {
+        "id": "a6d47cd8-99b3-429e-a71d-8b9caf71773e",
+        "descricao": "Bônus — outubro/2026 — Brunna Furtado Gonçalves",
+        "valor": 260,
+        "categoria": "Bônus",
+        "subcategoria": null,
+        "status": "pago",
+        "data_vencimento": "2026-11-07T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Salários",
+        "subcategoria": "Bônus"
+      }
+    },
+    {
+      "antes": {
+        "id": "da4ddbc2-db3c-43f2-9df7-66524bff4ad0",
+        "descricao": "Perda de troca — FRONTAL MOTOROLA EDGE 50 FUSION/G85 PREMIUM OLED NACIONAL SEM ARO (H2O FORNECEDOR)",
+        "valor": 201.25,
+        "categoria": "Perda",
+        "subcategoria": null,
+        "status": "pago",
+        "data_vencimento": "2026-11-17T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Perda de troca",
+        "subcategoria": null
+      }
+    },
+    {
+      "antes": {
+        "id": "2bd762f9-c168-4210-bf39-8fd38ea6da3c",
+        "descricao": "Perda de troca — FRONTAL XIAOMI REDMI 13C/POCO C65 LCD PREMIUM COM ARO VIVID (H2O FORNECEDOR)",
+        "valor": 53.23,
+        "categoria": "Perda",
+        "subcategoria": null,
+        "status": "pago",
+        "data_vencimento": "2026-11-17T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Perda de troca",
+        "subcategoria": null
+      }
+    },
+    {
+      "antes": {
+        "id": "d693a38a-fbb9-4b1c-94ad-8a913493cfa8",
+        "descricao": "Perda de troca — FRONTAL MOTOROLA E22 XT2239/E22i LCD PREMIUM SEM ARO *PROMOÇÃO TOP20* (H2O)",
+        "valor": 36.86,
+        "categoria": "Perda",
+        "subcategoria": null,
+        "status": "pago",
+        "data_vencimento": "2026-11-17T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Perda de troca",
+        "subcategoria": null
+      }
+    },
+    {
+      "antes": {
+        "id": "6c852db6-263a-4f84-9c69-eaa545e6584e",
+        "descricao": "Perda de troca — FRONTAL XIAOMI REDMI 13C/POCO C65/POCO M6 LCD PREMIUM SEM ARO *PROMOÇÃO TOP20* (H2O FORNECEDOR)",
+        "valor": 37.17,
+        "categoria": "Perda",
+        "subcategoria": null,
+        "status": "pago",
+        "data_vencimento": "2026-11-17T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Perda de troca",
+        "subcategoria": null
+      }
+    },
+    {
+      "antes": {
+        "id": "3b5e21b2-61aa-4e9c-a090-45736bec2416",
+        "descricao": "Perda de troca — FRONTAL MOTOROLA G13 XT2331-1/G23 XT2333-4/G34 XT2363/G45/G53 XT2335 LCD PREMIUM SEM ARO *PROMOÇÃO TOP20* (H2O FORNECEDOR)",
+        "valor": 36.36,
+        "categoria": "Perda",
+        "subcategoria": null,
+        "status": "pago",
+        "data_vencimento": "2026-11-17T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Perda de troca",
+        "subcategoria": null
+      }
+    },
+    {
+      "antes": {
+        "id": "7b827ee5-9e1d-4a67-9239-4e1b32c81e23",
+        "descricao": "Perda de troca — FRONTAL SAMSUNG A03 CORE A032 LCD PREMIUM COM ARO VIVID (H2O FORNECEDOR)",
+        "valor": 55,
+        "categoria": "Perda",
+        "subcategoria": null,
+        "status": "pago",
+        "data_vencimento": "2026-11-17T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Perda de troca",
+        "subcategoria": null
+      }
+    },
+    {
+      "antes": {
+        "id": "0c48d876-d4fc-4ad0-a8c2-774970ddd307",
+        "descricao": "Perda de troca — FRONTAL XIAOMI NOTE 13 4G/NOTE 14 4G OLED SEM ARO (H2O FORNECEDOR)",
+        "valor": 228.08,
+        "categoria": "Perda",
+        "subcategoria": null,
+        "status": "pago",
+        "data_vencimento": "2026-11-17T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Perda de troca",
+        "subcategoria": null
+      }
+    },
+    {
+      "antes": {
+        "id": "15d8a077-db3f-440d-ba5a-d2e2eb13961e",
+        "descricao": "Perda de troca — FRONTAL IPHONE 14 PRO PREMIUM OLED DD/AMG (H2O FORNECEDOR)",
+        "valor": 246.11,
+        "categoria": "Perda",
+        "subcategoria": null,
+        "status": "pago",
+        "data_vencimento": "2026-11-17T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Perda de troca",
+        "subcategoria": null
+      }
+    },
+    {
+      "antes": {
+        "id": "72065042-c254-4bd8-add4-7636c07a1567",
+        "descricao": "Perda de troca — FRONTAL IPHONE 11 PRO PREMIUM OLED AMG/GX (H2O FORNECEDOR)",
+        "valor": 130,
+        "categoria": "Perda",
+        "subcategoria": null,
+        "status": "pago",
+        "data_vencimento": "2026-11-17T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Perda de troca",
+        "subcategoria": null
+      }
+    },
+    {
+      "antes": {
+        "id": "bb24d4fa-9740-4ee4-8b35-c54cf2edcc61",
+        "descricao": "Perda de troca — FRONTAL IPHONE 13 PREMIUM INCELL VIVID (H2O FORNECEDOR)",
+        "valor": 60.72,
+        "categoria": "Perda",
+        "subcategoria": null,
+        "status": "pago",
+        "data_vencimento": "2026-11-17T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Perda de troca",
+        "subcategoria": null
+      }
+    },
+    {
+      "antes": {
+        "id": "04f9f653-bd0d-4beb-8535-11c63366bf1f",
+        "descricao": "Perda de troca — FRONTAL XIAOMI NOTE 13 4G/NOTE 14 4G INCELL SEM ARO (H2O FORNECEDOR)",
+        "valor": 41.25,
+        "categoria": "Perda",
+        "subcategoria": null,
+        "status": "pago",
+        "data_vencimento": "2026-11-17T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Perda de troca",
+        "subcategoria": null
+      }
+    },
+    {
+      "antes": {
+        "id": "825a3cfc-d0da-49bd-8988-6b462d6600d6",
+        "descricao": "Perda de troca — BATERIA MOTOROLA EDGE 30 NEO NP40 *HK* (H2O)",
+        "valor": 67,
+        "categoria": "Perda",
+        "subcategoria": null,
+        "status": "pago",
+        "data_vencimento": "2026-11-17T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Perda de troca",
+        "subcategoria": null
+      }
+    },
+    {
+      "antes": {
+        "id": "f9f923ff-806e-4599-b326-d1d3ff6aa227",
+        "descricao": "Pró-labore novembro/2026 — Indrique Gomes França",
+        "valor": 5976,
+        "categoria": "Retirada do sócio",
+        "subcategoria": null,
+        "status": "pago",
+        "data_vencimento": "2026-11-20T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Pró-labore",
+        "subcategoria": null
+      }
+    },
+    {
+      "antes": {
+        "id": "9cdc5af4-ca0c-40ba-b592-dca6de2a9fd5",
+        "descricao": "Perda de troca — TV BOX MXQ PRO 5G 4K (ACESSORIOS FABIO)",
+        "valor": 83,
+        "categoria": "Perda",
+        "subcategoria": null,
+        "status": "pago",
+        "data_vencimento": "2026-11-19T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Perda de troca",
+        "subcategoria": null
+      }
+    },
+    {
+      "antes": {
+        "id": "4d1b03cd-ddbd-4dc6-a140-ef179050923e",
+        "descricao": "Perda de troca — PELICULA HIDROGEL DIVERSAS CLEAR (fornecedor não trocou)",
+        "valor": 3.89,
+        "categoria": "Perda",
+        "subcategoria": null,
+        "status": "pago",
+        "data_vencimento": "2026-11-17T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Perda de troca",
+        "subcategoria": null
+      }
+    },
+    {
+      "antes": {
+        "id": "2cc39f00-23d7-4f92-91a9-998bcc80e6a4",
+        "descricao": "Perda de troca — FRONTAL MOTOROLA G14 XT2341/G54 XT2341/G55 XT-2435/G64 LCD PREMIUM SEM ARO *PROMOÇÃO TOP20* (H2O)",
+        "valor": 40,
+        "categoria": "Perda",
+        "subcategoria": null,
+        "status": "pago",
+        "data_vencimento": "2026-11-17T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Perda de troca",
+        "subcategoria": null
+      }
+    },
+    {
+      "antes": {
+        "id": "7444b29a-7760-4cd3-a202-d101d4cdcd6d",
+        "descricao": "Perda de troca — FRONTAL MOTOROLA G05 XT2523/G15 XT2521-2/G15 POWER XT2521-5/E15 XT2523-6 LCD PREMIUM SEM ARO *PROMOÇÃO TOP20* (H2O FORNECEDOR)",
+        "valor": 40,
+        "categoria": "Perda",
+        "subcategoria": null,
+        "status": "pago",
+        "data_vencimento": "2026-11-17T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Perda de troca",
+        "subcategoria": null
+      }
+    },
+    {
+      "antes": {
+        "id": "vt-vitoria-2026-12",
+        "descricao": "Vale transporte dezembro/2026 — valor fixo (Teresópolis)",
+        "valor": 270,
+        "categoria": "Vale transporte",
+        "subcategoria": "Passagem",
+        "status": "pendente",
+        "data_vencimento": "2026-11-30T00:00:00+00:00"
+      },
+      "depois": {
+        "categoria": "Salários",
+        "subcategoria": "Vale transporte"
+      }
+    }
+  ]
+}
