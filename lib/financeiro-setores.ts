@@ -33,11 +33,10 @@ export const SETORES: Setor[] = [
     chave: 'fornecedores',
     label: 'Fornecedores',
     emoji: '🏭',
-    // As duas grafias antigas ficam aqui para o FILTRO agrupar certo — sem elas, uma
-    // compra de mercadoria lançada como 'Fornecedor / Mercadoria' caía em
-    // "❓ Sem categoria" na tela. Elas não são oferecidas no formulário: quem
-    // sugere é TODAS_CATEGORIAS, que descarta as legadas logo abaixo.
-    categorias: ['Mercadoria', 'Fornecedor / Mercadoria', 'fornecedor/mercadoria'],
+    // Só 'Mercadoria' é oferecida no cadastro (há teste em logica.test.ts travando
+    // isso — categoria a mais aqui vira duas grafias na base). As antigas ficam em
+    // ALIAS_SETOR, que serve só ao filtro.
+    categorias: ['Mercadoria'],
   },
   {
     chave: 'estrutura',
@@ -98,6 +97,16 @@ export const rotuloSetor = (chave: string): string => {
   return s ? s.emoji + ' ' + s.label : chave
 }
 
+// Grafias que existem no banco mas NÃO são oferecidas no cadastro. Servem para o
+// filtro cair no setor certo: sem isso, uma compra lançada como 'Fornecedor /
+// Mercadoria' aparecia em "❓ Sem categoria" na tela do Financeiro.
+const ALIAS_SETOR: Record<string, string> = {
+  'fornecedor / mercadoria': 'fornecedores',
+  'fornecedor/mercadoria': 'fornecedores',
+  'fonecedor': 'fornecedores',
+  'mercadoria ': 'fornecedores',
+}
+
 // Em qual setor cai uma categoria solta (comparação sem diferenciar maiúscula).
 export function setorDaCategoria(categoria: string | null | undefined): Setor {
   const alvo = (categoria ?? '').trim().toLowerCase()
@@ -105,14 +114,15 @@ export function setorDaCategoria(categoria: string | null | undefined): Setor {
   for (const s of SETORES) {
     if (s.categorias.some((c) => c.trim().toLowerCase() === alvo)) return s
   }
+  const alias = ALIAS_SETOR[alvo]
+  if (alias) return SETORES.find((s) => s.chave === alias) ?? SETORES[SETORES.length - 1]
   return SETORES[SETORES.length - 1]
 }
 
 // Lista plana de todas as categorias conhecidas — usada nas sugestões do formulário.
-// As grafias LEGADAS de mercadoria existem só para o filtro agrupar; no formulário elas
-// não aparecem, senão a lista oferece três jeitos de dizer a mesma coisa e a base volta
-// a rachar. Quem lança compra escolhe "Mercadoria".
-const CATEGORIAS_LEGADAS = new Set(['Fornecedor / Mercadoria', 'fornecedor/mercadoria', 'Vale Transporte'])
+// 'Vale Transporte' (com T maiúsculo) é grafia antiga da base e não é oferecida, para
+// a lista não mostrar dois jeitos de dizer a mesma coisa.
+const CATEGORIAS_LEGADAS = new Set(['Vale Transporte'])
 export const TODAS_CATEGORIAS: string[] = SETORES
   .flatMap((s) => s.categorias)
   .filter((c) => !CATEGORIAS_LEGADAS.has(c))
