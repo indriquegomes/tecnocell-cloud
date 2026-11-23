@@ -13,7 +13,7 @@
 //  - busca é sem frescura de acento (cada vogal e cada c vira curinga '_').
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { categoriasDoSetor } from './financeiro-setores'
+import { categoriasParaFiltro } from './financeiro-setores'
 import { hojeSP } from './utils'
 
 export type ParamsFinanceiro = {
@@ -82,7 +82,7 @@ export function aplicarFiltros(q: any, params: ParamsFinanceiro, ctx: { lojaEfet
   if (params.setor) {
     // Setor vem antes da categoria: escolher Funcionários já restringe àquelas
     // categorias, e a cascata da tela só oferece as do setor escolhido.
-    const cats = categoriasDoSetor(params.setor)
+    const cats = categoriasParaFiltro(params.setor)
     if (params.setor === 'sem_categoria') q = q.is('categoria', null)
     else if (cats.length) q = q.in('categoria', cats)
   }

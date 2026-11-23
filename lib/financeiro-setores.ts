@@ -92,6 +92,17 @@ export const SETORES: Setor[] = [
 export const categoriasDoSetor = (chave: string): string[] =>
   SETORES.find((s) => s.chave === chave)?.categorias ?? []
 
+// Categorias para FILTRAR no banco: as do cadastro + as grafias antigas (como estão
+// gravadas, com maiúscula/espaço originais — o .in() do banco diferencia). Sem isso, o
+// filtro por setor "Fornecedores" some com as compras lançadas como 'Fornecedor / Mercadoria'.
+const GRAFIAS_ANTIGAS: Record<string, string[]> = {
+  fornecedores: ['Fornecedor / Mercadoria', 'fornecedor/mercadoria', 'Fonecedor', 'Mercadoria '],
+}
+export const categoriasParaFiltro = (chave: string): string[] => [
+  ...categoriasDoSetor(chave),
+  ...(GRAFIAS_ANTIGAS[chave] ?? []),
+]
+
 export const rotuloSetor = (chave: string): string => {
   const s = SETORES.find((x) => x.chave === chave)
   return s ? s.emoji + ' ' + s.label : chave
