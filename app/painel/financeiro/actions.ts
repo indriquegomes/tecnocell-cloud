@@ -11,7 +11,7 @@ import { planejarEstornoNota } from '@/lib/estorno-abatimento'
 import { pessoaIdPorNome } from '@/lib/pessoa-por-nome'
 import { vinculoEncerrado } from '@/lib/vinculo'
 import { travarSeMesFechado } from '@/lib/fechamento'
-import { formatBRL, hojeSP } from '@/lib/utils'
+import { formatBRL, hojeSP, diaSP } from '@/lib/utils'
 import { SETORES } from '@/lib/financeiro-setores'
 import { ehCompraDeMercadoria } from '@/lib/financeiro-setores'
 import { revalidatePath } from 'next/cache'
@@ -453,7 +453,11 @@ export async function desfazerPagamento(id: string) {
     const { data: q } = await supabase.from('lancamentos')
       .select('data_pagamento').eq('id', id).maybeSingle()
     const diaPag = (q as { data_pagamento?: string | null } | null)?.data_pagamento
-    if (diaPag && diaPag.slice(0, 10) !== hojeSP()) {
+    // data_pagamento é timestamptz: o "Pago" grava new Date().toISOString() (UTC), que
+    // depois das 21h em SP já é o dia seguinte. Aceita o dia em SP OU o dia literal
+    // (baixa do PDV grava só a data, que vira meia-noite UTC).
+    const hoje = hojeSP()
+    if (diaPag && diaPag.slice(0, 10) !== hoje && diaSP(diaPag) !== hoje) {
       redirect(`/painel/financeiro?erro=${encodeURIComponent(
         `Esse recebimento foi baixado em ${diaPag.slice(8, 10)}/${diaPag.slice(5, 7)} — só dá para desfazer no mesmo dia. ` +
         'Para dia anterior, fale com o dono (o dinheiro já entrou no fechamento).',
