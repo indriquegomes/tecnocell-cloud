@@ -35,6 +35,7 @@ export type ProdutoPDV = {
   id: string; nome: string; preco: number; codigo: string | null; marca: string | null
   categoria: string | null; descricao: string | null; imagem_url: string | null
   controla_serie: boolean; prateleira: string | null; estoquePorDeposito: Record<string, number>
+  promocao_top20: boolean
 }
 
 // Busca de produto SOB DEMANDA (o PDV não embute mais os 7.983 produtos no HTML).
@@ -54,10 +55,12 @@ function mapRowToProdutoPDV(p: Record<string, unknown>): ProdutoPDV {
     // pro PDV, pra nenhuma tela pedir IMEI de novo — sem mexer nos dados antigos.
     controla_serie: false, prateleira: (p.prateleira as string | null) ?? null,
     estoquePorDeposito,
+    // peça da promoção TOP 20: preço já baixo, sem desconto (aviso no PDV)
+    promocao_top20: p.promocao_top20 === true,
   }
 }
 
-const SEL_PRODUTO_PDV = 'id, nome, preco, codigo, marca, categoria, descricao, imagem_url, controla_serie, prateleira, estoque(deposito_id, quantidade)'
+const SEL_PRODUTO_PDV = 'id, nome, preco, codigo, marca, categoria, descricao, imagem_url, controla_serie, prateleira, promocao_top20, estoque(deposito_id, quantidade)'
 
 // Catálogo completo, leve, pra busca 100% LOCAL no PDV (instantânea, sem rede por tecla).
 // Paginado com fetchAll pra não bater no cap de 1000 do PostgREST.
@@ -84,7 +87,7 @@ export async function buscarProdutosPDV(
   // preco_custo vem junto pro PDV poder avisar quando o item está saindo abaixo do
   // custo. Achamos 177 produtos nessa situação (20/07) — a venda dava prejuízo e
   // ninguém via, porque nada na tela indicava.
-  const sel = 'id, nome, preco, preco_custo, codigo, marca, categoria, descricao, imagem_url, controla_serie, prateleira, estoque(deposito_id, quantidade)'
+  const sel = 'id, nome, preco, preco_custo, codigo, marca, categoria, descricao, imagem_url, controla_serie, prateleira, promocao_top20, estoque(deposito_id, quantidade)'
   let q = supabase.from('produtos').select(sel).eq('ativo', true)
   q = aplicaBusca(q, 'busca_norm', palavras)
   let { data, error } = await q.order('nome').limit(60)

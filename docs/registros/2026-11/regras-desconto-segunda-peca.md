@@ -44,8 +44,10 @@ garantia** está avariada — ele quebrou.
 2. Como controlar o "uma vez só": sem o carimbo, o app teria de registrar a quebra/benefício
    no cadastro do cliente ou na venda (tela + cliente + data). É a peça que substitui o
    carimbo perdido.
-3. Aviso no PDV quando o operador der desconto em peça TOP 20 (hoje o desconto manual não
-   olha o produto).
+3. ~~Aviso no PDV quando o operador der desconto em peça TOP 20~~ → **feito em 23/11**:
+   selo TOP 20 na busca e no carrinho do PDV; aviso vermelho quando o item TOP 20 recebe
+   desconto, quando a venda com peça TOP 20 leva desconto geral e na tela "Confira a
+   venda". Avisa, não bloqueia — a trava é a conferência de quem fecha.
 
 ## Peças prontas para usar hoje
 

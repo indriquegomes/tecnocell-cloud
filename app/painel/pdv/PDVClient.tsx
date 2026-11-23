@@ -114,6 +114,7 @@ interface Produto {
   controla_serie: boolean
   prateleira: string | null
   estoquePorDeposito: Record<string, number>
+  promocao_top20?: boolean | null   // peça TOP 20: preço já baixo, sem desconto
 }
 
 interface FormaPagamento {
@@ -198,6 +199,7 @@ interface ItemCarrinho {
   prateleira?: string | null  // gaveta/prateleira onde a peça está guardada
   preco_custo?: number | null // pra avisar quando o item sai abaixo do custo
   avulso?: boolean            // item digitado na hora (encomenda sem cadastro); produto_id é uid falso
+  promocao_top20?: boolean    // peça TOP 20: não entra em desconto (aviso no carrinho)
 }
 
 interface PagamentoItem {
@@ -1007,6 +1009,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         series: p.controla_serie ? [] : undefined,
         prateleira: p.prateleira,
         preco_custo: p.preco_custo ?? null,
+        promocao_top20: p.promocao_top20 === true,
       }, ...prev]
     })
     setBusca('')
@@ -1297,6 +1300,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const subtotal = carrinho.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0)
   const descontoManualItens = carrinho.reduce((s, i) => s + i.quantidade * descontoManualItem(i).descontoUnitario, 0)
   const totalItens = carrinho.reduce((s, i) => s + i.quantidade, 0)
+
+  // Peça TOP 20 → preço já baixo, sem desconto. Avisa (não bloqueia) quando tem peça
+  // TOP 20 na venda com desconto — a trava real é a conferência de quem fecha.
+  const top20NoCarrinho = carrinho.filter((i) => i.promocao_top20 === true)
 
   // Desconto por promoção aplicada em cada linha (resolve 'auto' = melhor desconto)
   const descontoPromoDetalhes = carrinho.flatMap((item) => {
@@ -2853,6 +2860,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                         <p className="font-medium text-gray-800 truncate">
                           {p.codigo && <span className="mr-1.5 rounded bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-gray-500 tabular-nums align-middle">{p.codigo}</span>}
                           {p.nome}
+                          {p.promocao_top20 && <span className="ml-1.5 inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 align-middle">TOP 20</span>}
                         </p>
                         <p className="mt-0.5 text-xs text-gray-400">
                           {p.marca && <span>{p.marca} · </span>}
@@ -2956,6 +2964,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                     <td className="px-4 py-3">
                       <p className="text-sm font-medium text-gray-800">
                         {item.codigo && <span className="text-gray-400 font-normal">{item.codigo} · </span>}{item.nome}
+                        {item.promocao_top20 && <span className="ml-1.5 inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 align-middle">TOP 20</span>}
                       </p>
                       <p className="text-xs text-gray-400">
                         {item.avulso ? (
@@ -3073,6 +3082,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                               ⚠ abaixo do custo ({formatBRL(custo)})
                             </span>
                           )}
+                          {item.promocao_top20 && descontoUnitario > 0 && (
+                            <span className="block text-[11px] font-semibold text-red-600" title="Peça da promoção TOP 20: preço já baixo, não entra em desconto.">
+                              ⚠ peça TOP 20 — sem desconto
+                            </span>
+                          )}
                         </td>
                       )
                     })()}
@@ -3138,6 +3152,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 <span>Desconto aplicado{descontoTipo === 'percent' ? ` (${parseFloat(desconto) || 0}%)` : ''}</span>
                 <span className="font-medium text-red-500">− {formatBRL(descontoNum)}</span>
               </div>
+            )}
+            {descontoNum > 0 && top20NoCarrinho.length > 0 && (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-2 py-1.5 text-xs font-semibold text-red-700">
+                ⚠ Tem peça TOP 20 na venda — ela não entra em desconto. Confirme com a gerência.
+              </p>
             )}
             {descontoManualItens > 0 && (
               <div className="flex justify-between text-xs text-blue-600">
@@ -3602,6 +3621,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                 </div>
                 {faltamPg > 0.01 && <p className="mt-1 text-xs font-medium text-red-600">Ajuste pagamentos: faltam {formatBRL(faltamPg)}.</p>}
                 {sobraPg > 0.01 && <p className="mt-1 text-xs font-medium text-red-600">Ajuste pagamentos: sobra {formatBRL(sobraPg)}.</p>}
+                {descontoNum > 0 && top20NoCarrinho.length > 0 && (
+                  <p className="mt-1 rounded-lg border border-red-200 bg-red-50 px-2 py-1.5 text-xs font-semibold text-red-700">
+                    ⚠ Tem peça TOP 20 na venda — ela não entra em desconto. Confirme com a gerência.
+                  </p>
+                )}
               </div>
 
               <div className="border-t border-gray-100 pt-3 space-y-1.5">
