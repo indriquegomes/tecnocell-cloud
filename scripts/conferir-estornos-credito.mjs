@@ -35,13 +35,13 @@ const de = `${mes}-01`
 const ate = m === 12 ? `${ano + 1}-01-01` : `${ano}-${String(m + 1).padStart(2, '0')}-01`
 
 const estornos = await tudo((a, b) => s.from('creditos_clientes')
-  .select('id, pessoa_id, pessoa_nome, valor, tipo, descricao, created_at, devolucao_id, estorna_credito_id')
+  .select('id, pessoa_id, pessoa_nome, valor, tipo, descricao, created_at, devolucao_id, estorna_credito_id, loja_id')
   .eq('tipo', 'estorno').gte('created_at', de).lt('created_at', ate).range(a, b))
 const lanc = await tudo((a, b) => s.from('lancamentos')
   .select('id, descricao, valor, status, categoria, data_pagamento, data_vencimento, pessoa_nome, devolucao_id')
   .eq('tipo', 'pagar').gte('data_vencimento', '2026-09-01').range(a, b))
 const creditos = await tudo((a, b) => s.from('creditos_clientes')
-  .select('pessoa_id, valor, tipo').range(a, b))
+  .select('pessoa_id, pessoa_nome, valor, tipo, loja_id').range(a, b))
 
 const saldo = (pessoaId) => Math.round(creditos
   .filter((c) => c.pessoa_id === pessoaId)
@@ -77,5 +77,53 @@ for (const g of grupo2) console.log(`   ${dia(g.e.created_at)} ${brl(g.e.valor).
 console.log(`\n🟡 3) "Estorno de crédito" pendente no mês: ${pendentes.length} · R$ ${brl(pendentes.reduce((t, l) => t + Number(l.valor || 0), 0))}`)
 for (const l of pendentes) console.log(`   ${dia(l.data_vencimento)} ${brl(l.valor).padStart(9)} ${(l.pessoa_nome || '-').slice(0, 30)} — ${l.descricao?.slice(0, 46)}`)
 
-const problemas = grupo1.length + grupo2.length + pendentes.length
-console.log(problemas ? `\n${problemas} ponto(s) para olhar antes de fechar o mês.` : '\nnada a apontar — estorno e reembolso combinando.')
+// 4) ESTORNO FEITO FORA DA TELA — o defeito que apareceu em 23/11 e é o mais perigoso.
+// O saldo do vale é lido POR LOJA (é o limite que o PDV aplica). Estorno gravado sem
+// `loja_id` cai num balde "(sem loja)" e o crédito continua inteiro na loja dele: o PDV
+// passa a oferecer ao cliente um vale que ele não tem mais (RODRIGO PEREIRA aparecia com
+// R$ 1.025,50 de saldo quando o real era R$ 25,50; LUIZ CARLOS SANTANA com 67,00 e
+// DENILSON PEÇAS com 45,00 quando o real era zero). A tela grava pelo RPC
+// `estornar_credito_cliente`, que copia a loja do crédito, liga o `estorna_credito_id` e
+// recusa estorno que deixaria saldo negativo — quem faz por SQL pula as três travas.
+const semLoja = estornos.filter((e) => !e.loja_id || !e.estorna_credito_id)
+console.log(`\n🔴 4) Estorno gravado fora da tela (sem loja ou sem vínculo com o crédito): ${semLoja.length}`)
+for (const e of semLoja) console.log(`   ${dia(e.created_at)} ${brl(e.valor).padStart(9)} ${(e.pessoa_nome || '-').slice(0, 30)} — loja=${e.loja_id ? 'ok' : 'FALTA'} · vínculo=${e.estorna_credito_id ? 'ok' : 'FALTA'} · ${String(e.descricao ?? '').slice(0, 40)}`)
+if (semLoja.length) console.log('   → conserta com `node scripts/consertar-estornos-sem-loja.mjs --gravar` (ensaio sem --gravar)')
+
+// 5) CRÉDITO ESTORNADO DEPOIS DE GASTO — saldo negativo. Aqui não é bug de tela: o
+// cliente usou o crédito e depois o crédito foi cancelado, então ele deve a diferença.
+const negativos = []
+const porPessoa = new Map()
+for (const c of creditos) {
+  const k = c.pessoa_id ?? 'sem'
+  porPessoa.set(k, (porPessoa.get(k) ?? 0) + (['uso', 'estorno'].includes(c.tipo) ? -Number(c.valor || 0) : Number(c.valor || 0)))
+}
+for (const [pid, v] of porPessoa) {
+  if (v < -0.01) {
+    const nome = creditos.find((c) => c.pessoa_id === pid)?.pessoa_nome ?? pid
+    negativos.push({ pid, nome, v })
+  }
+}
+// saldo POR LOJA é o que o PDV aplica na venda: se ele estiver maior que o saldo da
+// pessoa, o cliente pode gastar crédito que não tem. É o defeito do estorno sem loja.
+const porPessoaLoja = new Map()
+for (const c of creditos) {
+  const k = `${c.pessoa_id ?? 'sem'}|${c.loja_id ?? ''}`
+  porPessoaLoja.set(k, (porPessoaLoja.get(k) ?? 0) + (['uso', 'estorno'].includes(c.tipo) ? -Number(c.valor || 0) : Number(c.valor || 0)))
+}
+const inflados = []
+for (const [k, v] of porPessoaLoja) {
+  if (v <= 0.01) continue
+  const [pid] = k.split('|')
+  const total = porPessoa.get(pid) ?? 0
+  if (v - total > 0.01) inflados.push({ nome: creditos.find((c) => c.pessoa_id === pid)?.pessoa_nome ?? pid, loja: v, total })
+}
+console.log(`\n🟡 5) Cliente com saldo de vale NEGATIVO (crédito cancelado já gasto): ${negativos.length}`)
+for (const n of negativos) console.log(`   ${(n.nome || '-').slice(0, 34).padEnd(34)} R$ ${brl(n.v)} — usou mais crédito do que tinha`)
+console.log(`\n🔴 6) Saldo POR LOJA maior que o saldo real (vale a mais no PDV): ${inflados.length}`)
+for (const i of inflados) console.log(`   ${(i.nome || '-').slice(0, 34).padEnd(34)} loja R$ ${brl(i.loja)} × real R$ ${brl(i.total)}`)
+
+const problemas = grupo1.length + grupo2.length + pendentes.length + semLoja.length + inflados.length
+if (problemas) console.log(`\n${problemas} ponto(s) para olhar antes de fechar o mês.`)
+else console.log('\nnada a apontar — estorno e reembolso combinando.')
+if (negativos.length) console.log(`⚠ atenção: ${negativos.length} cliente(s) com saldo negativo (usou mais crédito do que tinha) — é dívida do cliente, não dinheiro solto na loja.`)

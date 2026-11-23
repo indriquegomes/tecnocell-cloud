@@ -317,6 +317,19 @@ bater com o total, senão a venda inteira é recusada.
   (devolução paga pelo `devolucao_id` ou "Devolução — cliente" pago com o mesmo valor)
   e recusa com a data do pagamento. Conferência pronta para o fechamento:
   `scripts/conferir-estornos-credito.mjs <AAAA-MM>`.
+- **Estorno gravado FORA da tela envenena o saldo que o PDV aplica.** O saldo de
+  vale-crédito é lido **por loja** — é o teto que o PDV usa na venda. A tela grava pelo
+  RPC `estornar_credito_cliente`, que copia a loja do crédito, liga o
+  `estorna_credito_id` e recusa estorno que deixaria saldo negativo. Quem faz por SQL
+  pula as três travas: em 22–23/11/2026 três estornos foram gravados sem `loja_id` e sem
+  vínculo, o estorno caiu num balde "(sem loja)" e o crédito continuou inteiro na loja —
+  RODRIGO PEREIRA aparecia no PDV com **R$ 1.025,50** de vale (real: R$ 25,50), LUIZ
+  CARLOS SANTANA com R$ 67,00 e DENILSON PEÇAS com R$ 45,00 (real: zero). Ou seja: o
+  cliente podia gastar crédito que não tinha. Conserto pronto em
+  `scripts/consertar-estornos-sem-loja.mjs` (liga cada estorno ao crédito certo, divide o
+  que cobria dois créditos, com backup e DESFAZER) e `buscarSaldoCredito` agora resolve a
+  loja do estorno **pelo crédito que ele cancela**, não pela coluna da própria linha.
+  Alarmes 4 e 6 do `conferir-estornos-credito.mjs` pegam a recaída.
 
 ## 10. Regras de negócio que o código sozinho não conta
 

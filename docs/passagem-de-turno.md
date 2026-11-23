@@ -66,6 +66,25 @@ centavo. Também ganharam `.order('id')` as somas de dinheiro de `lib/saldos-con
 o cartão "A Receber/A Pagar" do Financeiro. 3 testes novos em `test/robustez.test.ts`.
 Armadilha registrada no `AGENTS.md` §9.
 
+**7. Os estornos de 22–23/11 foram gravados FORA da tela e deixaram o saldo errado por
+loja.** Três estornos (`RODRIGO PEREIRA` 1.000,00 · `LUIZ CARLOS SANTANA` 67,00 ·
+`DENILSON PEÇAS` 45,00) entraram com `loja_id` nulo e sem `estorna_credito_id` — o
+caminho da tela (RPC `estornar_credito_cliente`) copia a loja do crédito, liga o vínculo
+e recusa estorno que deixaria saldo negativo; por SQL as três travas foram puladas. Como
+o saldo é lido **por loja** (é o teto do PDV), o crédito continuava inteiro na loja e o
+estorno caía num balde "(sem loja)": **o PDV mostrava 1.025,50 de vale para o RODRIGO
+quando o real é 25,50**, 67,00 para o LUIZ e 45,00 para o DENILSON — crédito que não
+existia, disponível para gastar. Consertado por `scripts/consertar-estornos-sem-loja.mjs`
+(o estorno de 1.000 que cobria dois créditos virou 750 + 250 ligados, com backup e
+DESFAZER). Agora os três mostram 25,50 · 0 · 0, e os alarmes 4 e 6 do
+`conferir-estornos-credito.mjs` pegam a recaída. `buscarSaldoCredito` passou a resolver a
+loja do estorno **pelo crédito que ele cancela**, então nem um estorno feito na mão
+consegue inflar o vale do PDV.
+**Único saldo negativo que sobrou é real:** ISEC, −R$ 230,00 — dois créditos de sinal de
+230,00 no mesmo minuto (27/10), um deles estornado depois de os dois serem gastos num uso
+de 460,00. O cliente usou R$ 230,00 de crédito que não tinha: é dívida dele (ou prejuízo
+da loja) — decide o dono.
+
 ## Nesta rodada (22/11/2026) — dinheiro que estava fora do Financeiro + aba Particular
 
 **O problema que a rodada resolveu:** novembro tinha muito dinheiro que saiu e não

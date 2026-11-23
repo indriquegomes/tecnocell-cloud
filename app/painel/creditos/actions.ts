@@ -26,24 +26,38 @@ export async function buscarSaldoCredito(
   }
   const supabase = await createServiceClient()
 
-  // TODAS as linhas (paginadas) — o saldo TEM que somar o extrato inteiro. Antes
-  // usava .limit(50) e o saldo saía errado pra quem tem mais de 50 movimentos.
-  const todos = await fetchAll<MovimentoCredito>(
+  // TODAS as linhas do cliente (paginadas) — o saldo TEM que somar o extrato inteiro.
+  // Antes usava .limit(50) e o saldo saía errado pra quem tem mais de 50 movimentos.
+  //
+  // A loja de cada linha é resolvida AQUI, não no filtro: o estorno cancela um crédito
+  // e vale pela loja DESSE crédito. Quando alguém grava estorno fora da tela (sem
+  // `loja_id`, como aconteceu em 22–23/11), o filtro `.eq('loja_id', lojaId)` deixava o
+  // estorno de fora e o crédito inteiro dentro: RODRIGO PEREIRA aparecia no PDV com
+  // R$ 1.025,50 de vale quando o saldo real era R$ 25,50 — o cliente podia gastar
+  // crédito que não existia. Seguindo o vínculo (`estorna_credito_id`), o estorno cai na
+  // loja certa mesmo se a linha veio incompleta.
+  const todos = await fetchAll<MovimentoCredito & { loja_id: string | null; estorna_credito_id: string | null }>(
     (from, to) => supabase
       .from('creditos_clientes')
-      .select('id, tipo, valor, descricao, created_at')
+      .select('id, tipo, valor, descricao, created_at, loja_id, estorna_credito_id')
       .eq('pessoa_id', pessoaId)
-      .eq('loja_id', lojaId)
       .order('created_at', { ascending: false })
+      .order('id')
       .range(from, to),
   )
+  const lojaDoCredito = new Map(
+    todos.filter((m) => m.tipo !== 'estorno').map((m) => [m.id, m.loja_id]),
+  )
+  const lojaDaLinha = (m: MovimentoCredito & { loja_id: string | null; estorna_credito_id: string | null }) =>
+    (m.tipo === 'estorno' && m.estorna_credito_id ? (lojaDoCredito.get(m.estorna_credito_id) ?? m.loja_id) : m.loja_id)
+  const daLoja = todos.filter((m) => lojaDaLinha(m) === lojaId)
   // 'credito' entra (+); 'uso' e 'estorno' saem (−). O estorno CANCELA um crédito,
   // então subtrai — antes somava, o que dobrava o saldo ao estornar.
-  const saldo = todos.reduce((s, m) => {
+  const saldo = daLoja.reduce((s, m) => {
     if (m.tipo === 'uso' || m.tipo === 'estorno') return s - m.valor
     return s + m.valor
   }, 0)
-  const movimentos = todos.slice(0, 50)   // extrato recente pra exibir
+  const movimentos = daLoja.slice(0, 50)   // extrato recente pra exibir
 
   return { saldo: Math.max(0, saldo), movimentos }
 }
