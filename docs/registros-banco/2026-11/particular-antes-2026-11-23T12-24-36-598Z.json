@@ -1,0 +1,50 @@
+{
+  "quando": "2026-11-23T12:24:36.599Z",
+  "antes": [
+    {
+      "id": "259ea06a-18b0-4660-b372-4ece6e50491b",
+      "descricao": "Retirada sócio — Leoni De Souza Azevedo — 02/11",
+      "valor": 500,
+      "valor_pago": 500,
+      "status": "pago",
+      "categoria": "Retirada do sócio",
+      "subcategoria": null,
+      "data_vencimento": "2026-11-02T00:00:00+00:00",
+      "data_pagamento": "2026-11-02T15:00:00+00:00",
+      "forma_pagamento": "PIX",
+      "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "pessoa_nome": "Indrique Gomes França"
+    },
+    {
+      "id": "8f20d458-6a70-4d8c-910a-dbfd4a3dd1fa",
+      "descricao": "Gasto particular do sócio — Supercabo TV (internet) — 11/11",
+      "valor": 96.69,
+      "valor_pago": 96.69,
+      "status": "pago",
+      "categoria": "Retirada do sócio",
+      "subcategoria": null,
+      "data_vencimento": "2026-11-11T00:00:00+00:00",
+      "data_pagamento": "2026-11-11T15:00:00+00:00",
+      "forma_pagamento": "PIX",
+      "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "pessoa_nome": "Indrique Gomes França"
+    },
+    {
+      "id": "cbdfef0c-8614-4a65-af93-03fdf0432ca1",
+      "descricao": "Pagamento de conta — Luiza Lopes Neves (Indrique) — 02/11",
+      "valor": 1499.78,
+      "valor_pago": 1499.78,
+      "status": "pago",
+      "categoria": "Retirada do sócio",
+      "subcategoria": null,
+      "data_vencimento": "2026-11-02T00:00:00+00:00",
+      "data_pagamento": "2026-11-02T15:00:00+00:00",
+      "forma_pagamento": "PIX",
+      "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "pessoa_nome": "Indrique Gomes França"
+    }
+  ]
+}

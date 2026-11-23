@@ -1,44 +1,44 @@
 {
   "mes": "2026-11",
-  "gerado_em": "2026-11-23T01:58:36.253Z",
+  "gerado_em": "2026-11-23T12:24:51.612Z",
   "janela": {
     "de": "2026-11-01",
     "ate": "2026-12-01"
   },
   "por_loja": {
     "Petrópolis": {
-      "entradas": 36540.89,
-      "dinheiroEntrou": 25932.24,
-      "fiadoCobrado": 86893.28,
+      "entradas": 36863.69,
+      "dinheiroEntrou": 26102.24,
+      "fiadoCobrado": 87439.08,
       "compras": 132272.81,
-      "despesas": 145100.47,
+      "despesas": 145423.07,
       "despesasDinheiro": 19552.41,
       "porForma": {
-        "PIX": 32430.59,
-        "Dinheiro": 2626.7,
+        "PIX": 32583.39,
+        "Dinheiro": 2796.7,
         "Crédito PagBank": 240,
         "Débito PagBank": 1170.6,
         "Crédito TON": 49,
         "Débito TON": 24
       },
-      "resultado": -153939.11,
-      "dinheiroEmMaos": 6379.83
+      "resultado": -153393.11,
+      "dinheiroEmMaos": 6549.83
     },
     "Teresópolis": {
-      "entradas": 8395.3,
-      "dinheiroEntrou": 26458.9,
-      "fiadoCobrado": 101980.49,
+      "entradas": 8531.3,
+      "dinheiroEntrou": 26663.9,
+      "fiadoCobrado": 103309,
       "compras": 110068.89,
-      "despesas": 116331.61,
+      "despesas": 116406.61,
       "despesasDinheiro": 14555.5,
       "porForma": {
-        "PIX": 5748.8,
-        "Dinheiro": 2565.8,
+        "PIX": 5784.8,
+        "Dinheiro": 2665.8,
         "Crédito TON": 72.2,
         "Débito PagBank": 8.5
       },
-      "resultado": -116024.71,
-      "dinheiroEmMaos": 11903.4
+      "resultado": -114635.2,
+      "dinheiroEmMaos": 12108.4
     }
   },
   "caixas": [
@@ -449,6 +449,22 @@
       "status": "fechado",
       "abertura": 200,
       "fechamento": 200
+    },
+    {
+      "loja": "Teresópolis",
+      "aberto_em": "2026-11-23T11:01:21.212059+00:00",
+      "fechado_em": null,
+      "status": "aberto",
+      "abertura": 200,
+      "fechamento": null
+    },
+    {
+      "loja": "Petrópolis",
+      "aberto_em": "2026-11-23T11:01:50.723374+00:00",
+      "fechado_em": null,
+      "status": "aberto",
+      "abertura": 200,
+      "fechamento": null
     }
   ],
   "compras_por_fornecedor": {
@@ -531,14 +547,14 @@
     "Mercadoria": 95104.77,
     "Fornecedor / Mercadoria": 41099.09,
     "fornecedor/mercadoria": 38849.79,
-    "Vale crédito usado": 25790.32,
+    "Vale crédito usado": 26187.92,
     "Salários": 24887.95,
     "Devolução ao cliente": 6509.3,
     "Pró-labore": 5976,
     "Comissão": 4290,
     "Aluguel": 2600,
     "Confraternização": 2106,
-    "Retirada do sócio": 2096.47,
+    "Particular": 2096.47,
     "Desconto concedido": 2005.61,
     "motoboy": 1872.5,
     "Perda de troca": 1424.83,
@@ -563,19 +579,19 @@
     "notas": 90
   },
   "fiado_aberto": {
-    "total": 47608.92,
-    "notas": 575,
+    "total": 44386.71,
+    "notas": 529,
     "por_loja": {
-      "Petrópolis": 32140.56,
-      "Teresópolis": 15269.36
+      "Petrópolis": 30834.16,
+      "Teresópolis": 13353.55
     }
   },
   "estoque": {
     "por_deposito": {
       "PETRÓPOLIS LOJA": {
-        "qtd": 28816,
-        "custo": 252192.08,
-        "venda": 1097355.78
+        "qtd": 28769,
+        "custo": 252395.88,
+        "venda": 1097124.24
       },
       "PETRÓPOLIS ESTOQUE": {
         "qtd": 741,
@@ -584,8 +600,8 @@
       },
       "TERESÓPOLIS LOJA": {
         "qtd": 13958,
-        "custo": 203582.92,
-        "venda": 665288.12
+        "custo": 203630.71,
+        "venda": 665483.19
       },
       "TERESÓPOLIS ESTOQUE": {
         "qtd": 105,
@@ -595,14 +611,14 @@
     },
     "por_loja": {
       "Petrópolis": {
-        "qtd": 29557,
-        "custo": 303869.12,
-        "venda": 1233997.5
+        "qtd": 29510,
+        "custo": 304072.92,
+        "venda": 1233765.96
       },
       "Teresópolis": {
         "qtd": 14063,
-        "custo": 212877.27,
-        "venda": 690285.42
+        "custo": 212925.06,
+        "venda": 690480.49
       }
     }
   }

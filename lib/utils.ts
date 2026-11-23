@@ -14,8 +14,15 @@ export function formatBRL(value: number): string {
 
 export function formatDate(iso: string): string {
   if (!iso) return ''
-  // date-only "YYYY-MM-DD" → fixa meio-dia pra timezone não pular o dia (-1)
-  const d = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(iso + 'T12:00:00') : new Date(iso)
+  // Campo de DIA (vencimento, competência) chega de dois jeitos e os dois querem
+  // mostrar o MESMO dia: "2026-11-02" (date puro) e "2026-11-02T00:00:00+00:00"
+  // (coluna timestamptz recebendo data pura — o banco grava meia-noite UTC, que em
+  // São Paulo é 21h do dia ANTERIOR, e a tela mostrava um dia a menos).
+  // Fixa meio-dia pra timezone não pular o dia. Instante de verdade
+  // ("...T18:30:00+00:00") continua sendo convertido normalmente.
+  const ehDia = /^\d{4}-\d{2}-\d{2}$/.test(iso)
+    || /^\d{4}-\d{2}-\d{2}T00:00:00(\.\d+)?(Z|[+-]00:?00)$/.test(iso)
+  const d = ehDia ? new Date(iso.slice(0, 10) + 'T12:00:00') : new Date(iso)
   if (isNaN(d.getTime())) return ''
   return new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',

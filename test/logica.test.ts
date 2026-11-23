@@ -212,6 +212,20 @@ test('formatBRL(0) → R$ 0,00', () => assert.equal(formatBRL(0), 'R$' + NBSP + 
 test('formatBRL(-10) → -R$ 10,00', () => assert.equal(formatBRL(-10), '-R$' + NBSP + '10,00'))
 test('formatDate("2026-10-16") → 16/10/2026', () => assert.equal(formatDate('2026-10-16'), '16/10/2026'))
 test('formatDate vazio → ""', () => assert.equal(formatDate(''), ''))
+// Vencimento é DIA, não instante. Coluna timestamptz recebendo data pura devolve
+// meia-noite UTC — que em São Paulo é 21h do dia anterior. Isso fazia a aba
+// Particular mostrar 01/11 num vencimento de 02/11. As três grafias de DIA têm que
+// dar o mesmo dia; instante de verdade continua convertido pro fuso.
+test('formatDate: meia-noite UTC (+00:00) mostra o MESMO dia', () =>
+  assert.equal(formatDate('2026-11-02T00:00:00+00:00'), '02/11/2026'))
+test('formatDate: meia-noite UTC (Z) mostra o MESMO dia', () =>
+  assert.equal(formatDate('2026-11-02T00:00:00Z'), '02/11/2026'))
+test('formatDate: meia-noite UTC com milissegundos também', () =>
+  assert.equal(formatDate('2026-11-02T00:00:00.000Z'), '02/11/2026'))
+test('formatDate: 23h30 UTC de 07/11 é 20h30 em SP — dia 07/11', () =>
+  assert.equal(formatDate('2026-11-07T23:30:00+00:00'), '07/11/2026'))
+test('formatDate: 02h UTC de 08/11 é 23h de 07/11 em SP', () =>
+  assert.equal(formatDate('2026-11-08T02:00:00+00:00'), '07/11/2026'))
 test('slugify remove acento e espaço', () => assert.equal(slugify('Célula Frontal'), 'celula-frontal'))
 test('normalizarUsuario("Letícia") → "leticia"', () => assert.equal(normalizarUsuario('Letícia'), 'leticia'))
 test('normalizarUsuario("Isabela Ponciano") → "isabela.ponciano"', () => assert.equal(normalizarUsuario('Isabela Ponciano'), 'isabela.ponciano'))
