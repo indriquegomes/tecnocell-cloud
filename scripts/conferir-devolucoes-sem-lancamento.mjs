@@ -48,10 +48,16 @@ const estornos = await tudo((a, b) => s.from('creditos_clientes')
 // fantasia (TEREMAQCELL × AMILTON, por exemplo) — por isso as palavras são testadas
 // uma a uma.
 const dias = (a, b) => Math.abs((new Date(dia(a) + 'T12:00:00Z') - new Date(dia(b) + 'T12:00:00Z')) / 86400000)
+// Palavras que NÃO identificam cliente — quase todo cadastro de loja de celular tem.
+// Sem esta lista o conferente acusava "AD CELL BINGEN" casando com "MISTER CELL" só
+// porque o valor era igual: falso positivo que faz perder a confiança no alarme.
+const GENERICAS = new Set(['CELL', 'CELULARES', 'CELULAR', 'PHONE', 'SMART', 'ASSISTENCIA', 'TECNICA', 'ACESSORIOS', 'LOJA', 'PECAS', 'CENTRO', 'MANUTENCAO', 'INFORMATICA', 'MOBILE', 'BARRA', 'CASA', 'PONTO',
+  // sobrenomes que se repetem em meio cadastro: não identificam cliente
+  'SANTOS', 'SILVA', 'SOUZA', 'OLIVEIRA', 'PEREIRA', 'LIMA', 'COSTA', 'ALVES', 'FERREIRA', 'RODRIGUES', 'CARVALHO', 'GOMES', 'MARTINS', 'RIBEIRO', 'ALMEIDA', 'ARAUJO', 'BARBOSA', 'ROCHA', 'DIAS', 'MOREIRA', 'NASCIMENTO', 'MEDEIROS', 'FREITAS', 'JUNIOR'])
 const achaLanc = (d, valorEsperado) => {
   const nome = norm(d.pessoa_nome)
-  const longas = nome.split(' ').filter((p) => p.length >= 4)
-  const curtas = nome.split(' ').filter((p) => p.length >= 3)
+  const longas = nome.split(' ').filter((p) => p.length >= 4 && !GENERICAS.has(p))
+  const curtas = nome.split(' ').filter((p) => p.length >= 3 && !GENERICAS.has(p))
   const pistas = longas.length ? longas : curtas
   // valor certo é o que o CLIENTE pagou (total − fiado abatido), não o total da devolução
   const alvo = Number(valorEsperado ?? d.valor_total ?? 0)
