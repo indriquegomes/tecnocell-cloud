@@ -135,17 +135,19 @@ export function LinhaEditable({
             </form>
           )}
           {/* Desfazer aparece SEMPRE que a linha está paga, para a coluna Ações não
-              mudar de formato de linha para linha. Quando a baixa veio do PDV/OS (sem
-              recibo do caixa amarrado), desfazer por aqui deixaria a gaveta errada —
-              então o botão fica desabilitado e explica onde desfazer. */}
+              mudar de formato de linha para linha. Vale para baixa do Financeiro e para
+              a do PDV (F9): as duas gravam movimento no caixa ligado ao lançamento, e é
+              esse movimento que o desfazer apaga junto (senão a gaveta ficaria errada).
+              Linha baixada antes do vínculo existir não tem movimento ligado — aí o
+              botão fica desabilitado e explica. */}
           {pago && (lanc.tipo === 'pagar' || idsDesfazer) && (
             <form action={desfazerPagamento.bind(null, lanc.id)}>
-              <button type="submit" title="Desfazer o pagamento e voltar para pendente" className="rounded-lg px-2.5 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 transition">Desfazer</button>
+              <button type="submit" title="Desfazer a baixa: o lançamento volta para pendente e o dinheiro sai do caixa. Só no mesmo dia." className="rounded-lg px-2.5 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 transition">Desfazer</button>
             </form>
           )}
           {pago && lanc.tipo !== 'pagar' && !idsDesfazer && (
             <button type="button" disabled
-              title="Este recebimento foi baixado pelo PDV. Para desfazer, use a tela de recebimento (Fiados) para o caixa não ficar errado."
+              title="Esta baixa não tem movimento de caixa ligado a ela (foi feita antes de o sistema passar a ligar). Desfazer por aqui deixaria a gaveta errada — fale com o dono."
               className="rounded-lg px-2.5 py-1 text-xs font-medium text-gray-300 cursor-not-allowed">Desfazer</button>
           )}
           <Link href={`/painel/financeiro/${lanc.id}/editar`} title="Abrir a edição completa" className="rounded-lg px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 transition">Editar</Link>

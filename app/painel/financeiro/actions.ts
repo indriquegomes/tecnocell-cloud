@@ -446,14 +446,34 @@ export async function desfazerPagamento(id: string) {
     redirect(`/painel/financeiro?erro=${encodeURIComponent('Só é possível desfazer um lançamento já pago.')}`)
   }
 
-  // Movimentos que o "Pago" jogou no caixa: 'recebimento' (fiado recebido) e
+  // TRAVA DO MESMO DIA (quitação feita no PDV). Desfazer recebimento de dia anterior
+  // mexeria em dinheiro que já foi contado e explicado; aí o caminho é estorno manual
+  // com o dono. Vale para qualquer origem — é a mesma regra da devolução em dinheiro.
+  {
+    const { data: q } = await supabase.from('lancamentos')
+      .select('data_pagamento').eq('id', id).maybeSingle()
+    const diaPag = (q as { data_pagamento?: string | null } | null)?.data_pagamento
+    if (diaPag && diaPag.slice(0, 10) !== hojeSP()) {
+      redirect(`/painel/financeiro?erro=${encodeURIComponent(
+        `Esse recebimento foi baixado em ${diaPag.slice(8, 10)}/${diaPag.slice(5, 7)} — só dá para desfazer no mesmo dia. ` +
+        'Para dia anterior, fale com o dono (o dinheiro já entrou no fechamento).',
+      )}`)
+    }
+  }
+
+  // Movimentos que a baixa jogou no caixa: 'recebimento' (fiado recebido) e
   // 'retirada' (despesa paga em dinheiro saindo da gaveta).
+  //
+  // Aceita as origens 'financeiro' (botão "Pago") e 'pdv' (F9 do crediário). Antes o
+  // PDV era recusado aqui e o botão ficava desabilitado, apontando para uma tela de
+  // Fiados que não tinha desfazer — quitação errada no balcão só se corrigia por SQL.
+  // Quem chama pela tela já passou pelas travas (só o MESMO dia, caixa aberto).
   const { data: movs, error: erroMov } = await supabase
     .from('movimentos_caixa')
-    .select('id, valor, caixa_id, tipo')
+    .select('id, valor, caixa_id, tipo, origem')
     .eq('lancamento_id', id)
     .in('tipo', ['recebimento', 'retirada'])
-    .eq('origem', 'financeiro')
+    .in('origem', ['financeiro', 'pdv', 'correcao'])
   if (erroMov) redirect(`/painel/financeiro?erro=${encodeURIComponent(erroMov.message)}`)
   const lista = (movs ?? []) as { id: string; valor: number | null; caixa_id: string | null; tipo?: string }[]
   // Recebimento devolve dinheiro à gaveta; retirada tirou dinheiro dela. Só o que o
@@ -504,6 +524,19 @@ export async function desfazerPagamento(id: string) {
     p_novo_pago: novoPago,
   })
   if (error) redirect(`/painel/financeiro?erro=${encodeURIComponent(error.message)}`)
+
+  // REDE DE SEGURANÇA: se a RPC do banco ainda for a versão antiga (que só apagava
+  // origem 'financeiro'), o movimento do PDV sobraria e a gaveta ficaria errada com o
+  // lançamento já pendente. Confere e limpa o resto — vale a pena perder o "atômico"
+  // para nunca deixar dinheiro órfão no caixa.
+  {
+    const { data: sobrou } = await supabase.from('movimentos_caixa')
+      .select('id').eq('lancamento_id', id).in('tipo', ['recebimento', 'retirada'])
+    if ((sobrou ?? []).length > 0) {
+      console.warn('desfazerPagamento: RPC não apagou todos os movimentos; limpando o resto', sobrou)
+      await supabase.from('movimentos_caixa').delete().eq('lancamento_id', id).in('tipo', ['recebimento', 'retirada'])
+    }
+  }
 
   // DEVOLVE O VALOR PARA A NOTA DO FORNECEDOR.
   // O "Pago" de compra de mercadoria encolhe a nota (`abaterNaDivida`), mas desfazer

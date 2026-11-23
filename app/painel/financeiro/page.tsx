@@ -119,14 +119,15 @@ export default async function FinanceiroPage({
     if (data?.signedUrl) comprovanteUrl.set(l.id, data.signedUrl)
   }))
 
-  // Lancamentos com movimento de caixa ligado (quitados pelo Financeiro). Só esses
-  // têm "Desfazer" seguro — PDV/OS quitam sem gravar lancamento_id.
+  // Lancamentos com movimento de caixa ligado (quitados pelo Financeiro OU pelo F9 do
+  // PDV). Só esses têm "Desfazer" seguro — o movimento é a prova de que o dinheiro
+  // entrou/saiu, e é ele que o desfazer apaga junto.
   const { data: movsLigados } = await supabase
     .from('movimentos_caixa')
     .select('lancamento_id')
     .not('lancamento_id', 'is', null)
     .eq('tipo', 'recebimento')
-    .eq('origem', 'financeiro')
+    .in('origem', ['financeiro', 'pdv', 'correcao'])
   const idsDesfazer = new Set(((movsLigados ?? []) as { lancamento_id: string }[]).map((m) => m.lancamento_id))
 
   // ✨ Totais DO FILTRO (não só os globais): soma exatamente o que está filtrado,
