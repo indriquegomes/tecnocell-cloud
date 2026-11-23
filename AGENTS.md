@@ -208,6 +208,22 @@ bater com o total, senão a venda inteira é recusada.
   meia-noite UTC como DIA; instante de verdade continua convertido. Antes de exibir
   data de coluna `timestamptz`, conferir se é dia (vencimento, competência) ou instante
   (pagamento, criação) — dia nunca pode andar um dia.
+- **`data_pagamento` também vinha como data pura — e isso inventa movimento em domingo.**
+  A RPC `receber_fiado_reais` gravava `(now() at time zone 'America/Sao_Paulo')::date`:
+  em coluna `timestamptz` vira meia-noite UTC = 21h do dia anterior em São Paulo. Em
+  novembro/2026, **3.240 dos 3.998** lançamentos pagos estavam assim — e quem converte
+  para o fuso do Brasil (conferência, "recebi hoje", relatório por dia) joga o pagamento
+  de segunda 23/11 no **domingo 22/11**, dia em que a loja não abre (foi o falso alarme
+  de 23/11). A hora real de cada baixa ficou em `historico_pagamentos` — dá para
+  recuperar. Correção: migration `2026-11-24-fiado-data-pagamento-real.sql` (`now()` no
+  lugar do `::date`, resto do corpo idêntico) e `scripts/consertar-hora-pagamento.mjs`
+  para devolver a hora das linhas antigas. Regra: instante é instante — baixa, pagamento
+  e criação gravam `now()`, nunca `::date`.
+- **Ao conferir dia, trate data pura como DIA, não como instante.** Script de
+  conferência que faz `new Date(campo).toLocaleDateString('...America/Sao_Paulo')`
+  num campo gravado como data pura mostra o dia anterior (21h). Regra prática: se o
+  valor é `...T00:00:00+00:00`, o dia é o próprio `slice(0,10)`; só converta para o fuso
+  quando for instante de verdade.
 - **`Intl.format` LANÇA com data inválida** (`RangeError: Invalid time value`)
   — não devolve "Invalid Date". Guarda com `Number.isNaN(new Date(x).getTime())`.
 - **`proxy.ts` não pode usar supabase-js.** Ele valida o token com `fetch`

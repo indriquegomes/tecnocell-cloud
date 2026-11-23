@@ -91,6 +91,21 @@ aberto (fiado) e saldo de vale-crédito, lidos como saldo do dia. Achado de mês
 para `docs/registros/2026-10/achados-pos-fechamento.md` — não para a lista de novembro.
 Regra escrita no `AGENTS.md` §9.
 
+**9. "Recebimento no domingo" era hora de pagamento gravada como data.** O dono avisou
+que domingo a loja não abre, e a conferência tinha apontado pagamento no domingo 22/11.
+Conferido: **zero venda, zero caixa, zero movimento de gaveta, zero devolução** no
+domingo — a loja não abriu mesmo. O que aparecia era a RPC `receber_fiado_reais` gravando
+`data_pagamento = (now() at time zone 'America/Sao_Paulo')::date` — **data pura** numa
+coluna `timestamptz`, que vira meia-noite UTC = **21h do dia anterior** em São Paulo.
+Assim, pagamento de segunda 23/11 aparecia como domingo 22/11 às 21h. Em novembro isso
+afeta **3.240 dos 3.998** lançamentos pagos. A hora real de cada baixa está em
+`historico_pagamentos`.
+Correções prontas: migration `2026-11-24-fiado-data-pagamento-real.sql` (troca o `::date`
+por `now()`; resto do corpo idêntico — **precisa ser colada no SQL Editor**) e
+`scripts/consertar-hora-pagamento.mjs` (devolve a hora das 2.550 linhas que têm a hora no
+histórico; 690 não têm hora em lugar nenhum, mas o dia está certo). O script de conferência
+passou a tratar data pura como DIA, então esse falso alarme não volta.
+
 ## Nesta rodada (22/11/2026) — dinheiro que estava fora do Financeiro + aba Particular
 
 **O problema que a rodada resolveu:** novembro tinha muito dinheiro que saiu e não
@@ -186,6 +201,11 @@ Commits: `af9ab04` · `1716536` · `7358fa5` · `94faa83` · `7ec235c`.
 3. **Contas particulares: começar a lançar as do mês** na aba `/painel/particular`.
    As três que já existiam foram migradas em 23/11 (R$ 2.096,47); o que vier agora o
    dono lança pelo botão “+ Nova conta particular”.
+4. **R$ 1.699,89 de compras pagas em dinheiro fora do app** (Petrópolis 1.049,39 +
+   Teresópolis 650,50). O caderno do dono é a verdade; no fechamento do caixa do fim do
+   mês essa diferença vai aparecer como divergência de valor. Detalhe, pistas e o que
+   conferir: `docs/registros/2026-11/divergencias-dinheiro-vivo-23-11.md`. Decisão do
+   dono (23/11): a partir de dezembro, todo gasto em dinheiro entra no app no dia.
 
 **Fechados em 23/11 — não voltam:** R$ 530,00 de estorno do RODRIGO PEREIRA (cancelado
 e crédito estornado) · LK CELL 61,00 (pago em 13/11) · Banco Original R$ 10.000 ·
