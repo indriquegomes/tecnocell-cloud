@@ -16,7 +16,26 @@ Três linhas que estavam em `Retirada do sócio` eram **conta paga**, não saque
 Souza Azevedo, 02/11) e 96,69 (Supercabo TV, internet da casa, 11/11) — **R$ 2.096,47**.
 Viraram `Particular` (subcategoria Pessoal · Pessoal · Casa) por
 `scripts/passar-particular.mjs --gravar`, com backup e DESFAZER em
-`docs/registros-banco/2026-11/`. Nada de valor, data, forma ou conta foi tocado: é
+`docs/registros-banco/2026-11/`.
+
+**10. Desfazer recebimento do PDV + status Avaria (os dois pedidos do dono).**
+Antes, quitação feita no F9 do PDV **não podia ser desfeita**: o botão do Financeiro vinha
+desabilitado e mandava para a tela de Fiados, que não tem desfazer — correção de erro de
+balcão só por SQL. Agora o desfazer vale para as duas origens, com três travas: **mesmo
+dia** (data da baixa = hoje), **caixa aberto** e **movimento ligado ao lançamento** (a
+prova de que o dinheiro entrou). A RPC `desfazer_pagamento_atomico` passou a apagar também
+`origem 'pdv'`/`'correcao'` — migration `2026-11-24-desfazer-pagamento-aceita-pdv.sql`
+**aplicada em 23/11** (conferido no `pg_proc`), e a action tem rede de segurança que limpa
+o movimento se a RPC do banco estiver velha.
+Na devolução entrou o status **`Avaria · não vende`**: peça quebrada sai do estoque e não
+volta a ser vendida (o RPC já trata status diferente de `ok` assim). Hoje a peça avariada
+**não gera despesa** — só baixa de estoque; virar "Perda de troca" no mês é decisão do dono.
+**Teste na tela com a Maria Julia de Souza Ferreira Carvalho** (fiados #11213 R$ 7,90 e
+#14425 R$ 5,00): F9 quitou as duas com hora real e **dois** movimentos (um por dívida, com
+`lancamento_id` e `origem pdv`); o Desfazer ficou habilitado e devolveu o fiado a pendente
+com 0 movimentos. Tudo revertido. Script: `scripts/teste-tela-f9-desfazer.mjs`.
+Correção de leitura: os "598 lançamentos sem forma" **não são quitação** — são lançamentos
+de venda criados pela `finalizar_venda`, cuja forma está em `pagamentos_venda`. Nada de valor, data, forma ou conta foi tocado: é
 rótulo, e a despesa do mês continua a mesma. `Retirada do sócio` de novembro ficou
 **R$ 0,00** — a aba agora mostra: pró-labore 5.976,00 (pago 20/11) − contas
 particulares 2.096,47 = **sobra R$ 3.879,53**.
