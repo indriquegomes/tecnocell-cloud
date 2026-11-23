@@ -44,6 +44,15 @@ Armadilha que isso evitou: `not.in` em SQL é nulo quando a coluna é nula, ent�
 "ingênuo" apagava toda linha sem categoria e toda linha sem pessoa — conferido no banco
 (7.522 contra 7.523) e travado por 4 testes.
 
+**5. Peça quebrada não pode voltar para o estoque vendável.** A devolução de 12/11 marcou
+a TAG RASTREADORA A'GOLD TCD-06F quebrada como `ok` (status de "peça boa, volta a
+vender") e o RPC devolveu a peça ao estoque da loja — 3 unidades, uma delas quebrada.
+Baixa corrigida como **perda** e item marcado `avaria`.
+**Furo que continua no app:** a tela de devolução só oferece `OK · Venda` e
+`Troca · Saída`; não existe botão "peça quebrada/avaria". Quem recebe uma peça quebrada
+não tem o que marcar, e o padrão (`ok`) manda a peça de volta para vender. Decisão do
+dono pendente: criar o botão `Avaria` (e dizer se a perda vira despesa no mês).
+
 ## Nesta rodada (22/11/2026) — dinheiro que estava fora do Financeiro + aba Particular
 
 **O problema que a rodada resolveu:** novembro tinha muito dinheiro que saiu e não
@@ -128,11 +137,14 @@ Commits: `af9ab04` · `1716536` · `7358fa5` · `94faa83` · `7ec235c`.
    estoque, caixa e resultado). Caixas abertos no momento da revisão: 0. A sobra de
    R$ 10,20 do caixa de 01→23/11 **não é pendência** — o dono decidiu em 23/11 que já
    estava tratada; não levantar esse número de novo.
-2. **Maria Julia de Souza Ferreira Carvalho — R$ 65,00** (devolução de 12/11 da venda
-   #12938, ela desistiu da compra, registrada `sem_reembolso`): é a estagiária. Os
-   pagamentos dela com vencimento 30/11 — bolsa estágio novembro R$ 700,00 e vale
-   transporte R$ 295,00 — estão lançados e corretos. Falta só dizer se os R$ 65,00
-   também são devidos a ela (então entram junto) ou se a compra foi trocada.
+2. **Maria Julia de Souza Ferreira Carvalho — R$ 65,00 da TAG quebrada** (devolução de
+   12/11 da venda #12938). Decidido em 23/11: ela **quebrou a peça** e não recebe
+   reembolso; a peça **saiu do estoque vendável como perda** (`baixar-tag-quebrada.mjs`:
+   estoque da loja 3 → 2, item da devolução marcado `avaria`, backup e DESFAZER em
+   `docs/registros-banco/2026-11/`). Falta UMA confirmação: os R$ 65,00 da venda
+   aparecem **pagos em PIX desde 11/11**. Se a loja já recebeu, não há nada a lançar; se
+   ela só vai pagar agora, o pagamento da venda tem de ser desfeito e o valor virar
+   “a receber” no nome dela — senão entra dinheiro sem origem no Financeiro.
 3. **Contas particulares: começar a lançar as do mês** na aba `/painel/particular`.
    As três que já existiam foram migradas em 23/11 (R$ 2.096,47); o que vier agora o
    dono lança pelo botão “+ Nova conta particular”.
@@ -1072,4 +1084,12 @@ Código pronto, **não commitado**. Falta, na ordem:
 
 Como funciona: `docs/mapa/monitoramento-erros.md`. Verificação rodável:
 `node --import ./test/alias.mjs test/erros.test.ts` e
-`node --import ./test/alias.mjs test/vigia-erros.test.ts` (9 testes).
+`node --import ./test/alias.mjs test/vigia-erros.test.ts` (11 testes).
+
+Revisão independente já aplicada (2 críticos + 8 médios corrigidos): `avisado_em`
+só é marcado quando o Telegram aceita; `insert` com erro agora avisa no console
+(`[erros] não gravou: ...` — é o sinal de monitoramento cego); CPF/CNPJ/telefone
+formatados são mascarados; a URL enviada é só o caminho, nunca a query; consulta
+do vigia e da tela paginada (`fetchAll`) em vez de `limit`; grupo silenciado não
+renova o próprio silêncio; cron do vigia passou para `*/10 * * * *` (24h) e o
+resumo das 20h roda dentro dele — se o envio falhar, tenta de novo em 10 min.

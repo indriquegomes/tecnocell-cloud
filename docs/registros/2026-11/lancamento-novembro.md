@@ -659,3 +659,14 @@ entra aqui; se não existir, item 5 fecha como "nada a lançar".
   135/2026 **não existem** em `lancamentos` nem em `movimentos_caixa` (varredura por
   descrição e motivo); nota fiscal de troca é documento do fornecedor, sem valor a
   lançar. Os quatro saíram da lista de pendências.
+- 23/11 — a devolução de 12/11 da estagiária Maria Julia de Souza Ferreira Carvalho
+  (venda #12938, TAG RASTREADORA A'GOLD TCD-06F, R$ 65,00, PIX pago em 11/11) foi
+  registrada `sem_reembolso` **com o item em `ok`** — status de "peça boa, volta a
+  vender". A peça estava **quebrada** (ela quebrou sem querer) e por isso voltou ao
+  estoque da loja: 3 unidades, uma imprestável. Corrigido com
+  `scripts/baixar-tag-quebrada.mjs --gravar`: baixa de 1 unidade como **perda**
+  (operação do próprio estoque, entra no livro-razão) e item da devolução em `avaria`.
+  Estoque da loja: 3 → 2. Backup e DESFAZER em `docs/registros-banco/2026-11/`.
+  Dinheiro: os R$ 65,00 seguem pagos na venda e não houve saída no caixa em 12/11 —
+  nenhum lançamento criado. A tela de devolução não oferece "peça quebrada", só
+  `OK · Venda` e `Troca · Saída`; é o furo que deixou a peça voltar para vender.
