@@ -339,3 +339,46 @@ test('B. diaSP(undefined) não quebra (retorna string)', () => {
   assert.equal(typeof v, 'string')
 })
 test('B. slugify só acento → "a" (á vira a)', () => assert.equal(slugify('Á'), 'a'))
+
+// --- paginação: linha repetida entre páginas NÃO pode contar duas vezes ---
+// O PostgREST pagina por offset. Sem ORDER BY estável, a mesma linha pode voltar em
+// duas páginas — foi assim que o saldo de vale-crédito da tela de Fiados apareceu
+// DOBRADO (cliente com R$ 18,00 no extrato virou "Vale R$ 36,00" na cobrança, e esse
+// número ia para o WhatsApp do cliente). `fetchAll` agora descarta o `id` repetido.
+import { fetchAll, fetchAllIn } from '@/lib/paginar'
+
+const pagina = (rows: { id: string; valor: number }[], de: number, tamanho: number) => rows.slice(de, de + tamanho)
+
+test('fetchAll não duplica linha que aparece em duas páginas', async () => {
+  // página 1 = 1000 linhas; a página 2 repete as 5 últimas da página 1 (offset instável)
+  const base = Array.from({ length: 1010 }, (_, i) => ({ id: 'l' + i, valor: 1 }))
+  const chamadas: number[] = []
+  const rows = await fetchAll<{ id: string; valor: number }>(async (from, to) => {
+    chamadas.push(from)
+    const fatia = pagina(base, from, to - from + 1)
+    if (from === 1000) return { data: [...base.slice(995, 1000), ...fatia] }
+    return { data: fatia }
+  })
+  assert.equal(rows.length, 1010, 'sobrou linha repetida no resultado')
+  assert.equal(new Set(rows.map((r) => r.id)).size, 1010)
+})
+
+test('fetchAll soma exatamente o extrato quando uma linha volta duas vezes', async () => {
+  // extrato: 1 crédito de 18 e 1 uso de 18 → saldo 0; com a linha do crédito repetida
+  // a conta ingênua daria 18 (o dobro do movimento), que é o defeito que apareceu.
+  const extrato = [
+    { id: 'a', tipo: 'credito', valor: 18 },
+    { id: 'b', tipo: 'uso', valor: 18 },
+  ]
+  const rows = await fetchAll<{ id: string; tipo: string; valor: number }>(async (from) =>
+    from === 0 ? { data: [...extrato, extrato[0]] } : { data: [] })
+  const saldo = rows.reduce((t, r) => t + (r.tipo === 'uso' ? -r.valor : r.valor), 0)
+  assert.equal(saldo, 0)
+})
+
+test('fetchAllIn mantém o resultado de cada lote', async () => {
+  const ids = Array.from({ length: 250 }, (_, i) => 'p' + i)
+  const rows = await fetchAllIn<{ id: string; pessoa_id: string }>(ids, async (chunk) =>
+    ({ data: chunk.map((p) => ({ id: 'c' + p, pessoa_id: p })) }))
+  assert.equal(rows.length, 250)
+})

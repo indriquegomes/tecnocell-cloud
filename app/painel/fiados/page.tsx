@@ -143,7 +143,10 @@ export default async function FiadosPage() {
     if (pessoaIdsVale.length) {
       const creditos = await fetchAllIn<{ pessoa_id: string; loja_id: string | null; tipo: string; valor: number | null }>(
         pessoaIdsVale,
-        (chunk, from, to) => supabase.from('creditos_clientes').select('pessoa_id, loja_id, tipo, valor').in('pessoa_id', chunk).range(from, to),
+        // `.order('id')` NÃO é enfeite: sem ordem estável, a paginação por offset do
+        // PostgREST pode repetir a mesma linha em duas páginas — e o vale do cliente
+        // saía dobrado na tela e na cobrança ("Vale R$ 36" para quem tem R$ 18).
+        (chunk, from, to) => supabase.from('creditos_clientes').select('id, pessoa_id, loja_id, tipo, valor').in('pessoa_id', chunk).order('id').range(from, to),
       )
       for (const c of creditos) {
         const k = `${c.pessoa_id}|${c.loja_id ?? ''}`
