@@ -26,10 +26,16 @@ nem na segunda peça.
 
 - O cliente tem que mostrar a tela que comprou **dentro da garantia (3 meses)**, avariada
   (quebrou).
-- Aí pode ganhar desconto na segunda peça.
-- O desconto é dado **uma vez só** por cliente/peça.
-- Quem define o valor: **Indrique Gomes França** ou **Mariana Vila Real Castelli**.
-- Antes o controle era um carimbo na peça; o carimbo se perdeu — cada um fica de olho.
+- Aí pode ganhar desconto na segunda peça, pelo botão **🎁** na linha da peça do carrinho:
+  1. Selecione o **cliente da venda** antes de abrir o botão.
+  2. Marque "a tela quebrada foi comprada dentro da garantia".
+  3. Digite o **%** (padrão 40; botão "40%").
+  4. Se o cliente **já usou** o benefício ou o % passar de 40, precisa da **senha do
+     gerente**.
+  5. **Aplicar desconto** — em peça TOP 20 o app recusa na hora.
+- O desconto é dado **uma vez só** por cliente/peça — o app registra o uso e avisa quando
+  o cliente voltar.
+- Antes o controle era um carimbo na peça; o carimbo se perdeu — agora é o app.
 
 ## Na hora da venda
 
