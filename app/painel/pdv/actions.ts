@@ -180,12 +180,21 @@ export async function buscarFiadoCliente(
   return { limite, devendo, disponivel: limite > 0 ? limite - devendo : 0, permite_fiado: !!(pessoa as { permite_fiado?: boolean }).permite_fiado }
 }
 
-// Confere a senha de desconto da loja no servidor (a senha nunca vai pro cliente)
+// Confere a senha de desconto da loja no servidor (a senha nunca vai pro cliente).
+// Loja SEM senha cadastrada não libera nada — senha vazia aceitava qualquer texto
+// (foi o buraco achado em 23/11: 41% passava com qualquer senha).
 export async function validarSenhaDesconto(lojaId: string, senha: string): Promise<boolean> {
   const supabase = await createServiceClient()
   const { data } = await supabase.from('lojas').select('senha_desconto').eq('id', lojaId).maybeSingle()
   const esperada = (data?.senha_desconto ?? '').trim()
-  return !esperada || senha.trim() === esperada
+  return !!esperada && senha.trim() === esperada
+}
+
+// A loja tem a senha de desconto cadastrada? (para a mensagem certa ao vendedor)
+async function lojaTemSenhaDesconto(lojaId: string): Promise<boolean> {
+  const supabase = await createServiceClient()
+  const { data } = await supabase.from('lojas').select('senha_desconto').eq('id', lojaId).maybeSingle()
+  return !!((data as { senha_desconto?: string | null } | null)?.senha_desconto ?? '').trim()
 }
 
 // ============================================================================
@@ -231,6 +240,9 @@ export async function conferirBeneficioSegundaPeca(
   if (!isMaster && (usou != null || percentual > PCT_SEGUNDA_PECA_SEM_SENHA)) {
     const senhaOk = !!senha && (await validarSenhaDesconto(lojaId, senha))
     if (!senhaOk) {
+      if (!(await lojaTemSenhaDesconto(lojaId))) {
+        return { ok: false, jaUsou: usou, precisaSenha: true, erro: 'A loja não tem a senha do gerente cadastrada. Cadastre em Lojas → Editar → Senha de desconto.' }
+      }
       return {
         ok: false, jaUsou: usou, precisaSenha: true,
         erro: usou
@@ -255,6 +267,9 @@ export async function registrarBeneficioSegundaPeca(
   const { isMaster } = await permissoesEfetivas(usuario.id)
   if (!isMaster && (usou != null || input.percentual > PCT_SEGUNDA_PECA_SEM_SENHA)) {
     if (!input.senha || !(await validarSenhaDesconto(input.loja_id, input.senha))) {
+      if (!(await lojaTemSenhaDesconto(input.loja_id))) {
+        return { ok: false, erro: 'A loja não tem a senha do gerente cadastrada. Cadastre em Lojas → Editar → Senha de desconto.' }
+      }
       return { ok: false, erro: usou ? 'Cliente já usou o benefício — precisa da senha do gerente.' : 'Desconto acima de 40% precisa da senha do gerente.' }
     }
   }
