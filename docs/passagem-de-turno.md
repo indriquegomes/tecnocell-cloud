@@ -95,6 +95,12 @@ Commits: `af9ab04` · `1716536` · `7358fa5` · `94faa83` · `7ec235c`.
    **Fechado — não sobra conta a pagar de estorno.**
 2. **Novembro não está fechado.** Fechamento do Mês é ação do dono na tela (congela
    estoque, caixa e resultado). Caixas abertos no momento da revisão: 0.
+3. **Conferente de devolução x lançamento estava acusando gente errada** (corrigido em
+   `ce2dff1`): casava por sobrenome comum ou por "CELL" e juntava clientes diferentes.
+   Depois da correção sobram 5 alertas e todos são conhecidos: 3 do vale-crédito
+   (fechados, tabela abaixo), LK CELL 61,00 (pago em 13/11) e Maria Julia de Souza
+   Ferreira Carvalho 65,00 — **só este último pede olhada**: devolução de 12/11 marcada
+   `sem_reembolso`; conferir se ela recebeu os R$ 65,00 por fora.
 
 **RESOLVIDO — não volta para a lista (cada um com prova):**
 
