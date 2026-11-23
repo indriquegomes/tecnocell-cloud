@@ -1,0 +1,33 @@
+{
+  "quando": "2026-11-23T16:25:38.198Z",
+  "lancamento": {
+    "id": "72681555-c939-4172-bf8f-fac7f2ec2e0b",
+    "tipo": "receber",
+    "descricao": "A Receber — Fiado #14867",
+    "valor": 100,
+    "valor_pago": 100,
+    "status": "pago",
+    "forma_pagamento": "PIX",
+    "data_pagamento": "2026-11-23T00:00:00+00:00",
+    "pessoa_id": "63d91db059a9c82974728b69",
+    "pessoa_nome": "DAVID DOS SANTOS MORTES",
+    "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+    "historico_pagamentos": [
+      {
+        "data": "2026-11-23T15:39:37.06191+00:00",
+        "forma": "PIX",
+        "valor": 100
+      }
+    ]
+  },
+  "movimento": {
+    "id": "e932bf78-6d26-455b-a04c-6998932671a5",
+    "caixa_id": "42d17422-1e78-43fd-bb05-1338750d56cc",
+    "tipo": "recebimento",
+    "valor": 100,
+    "forma_pagamento": "PIX",
+    "motivo": "Fiado recebido — DAVID DOS SANTOS MORTES",
+    "lancamento_id": null,
+    "created_at": "2026-11-23T15:39:37.06191+00:00"
+  }
+}
