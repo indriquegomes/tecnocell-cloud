@@ -63,18 +63,30 @@ do `await signOut()`, com `currentTarget` nulo). Corrigido em `94faa83`.
 1 falso positivo da impressão) · `tsc` 0 · CRUD da aba com `__QA__` e zero restos.
 Commits: `af9ab04` · `1716536` · `7358fa5` · `94faa83` · `7ec235c`.
 
-**O que ficou aberto (decisão do dono):**
-1. **Novembro NÃO está fechado** — falta o Fechamento do Mês (ação dele na tela).
-2. **Contagem física das devoluções sem registro:** 14 devoluções, R$ 3.096,90
-   (maior: RODRIGO PEREIRA 1.530,90) — dinheiro voltou ao cliente, peça não entrou
-   no estoque.
-3. **Comissão 0,5% de outubro:** 6 linhas pendentes, R$ 1.852,80 ("ajustar em 20/11").
-4. **3 estornos de crédito pendentes:** R$ 591,00 (LK CELL 61,00 · RODRIGO PEREIRA
-   280,00 + 250,00) — esperando confirmação de que o dinheiro saiu.
-5. **3 casos de crédito + dinheiro:** LK CELL 61,00 · DAVID DOS SANTOS MORTES 141,00 ·
-   DIOGO DOS SANTOS LIMA 45,00.
-6. **Adiantamento de salário** de Lucas da Silva Mello e Giovane Rego da Silva nas
-   semanas 14/11 e 21/11 — o dono disse que virou motoboy variável; confirmar.
+**O que ficou aberto — SÓ ISTO (revisado com o dono em 22/11):**
+
+1. **R$ 591,00 de estorno de crédito a pagar aos clientes.** LK CELL 61,00 ·
+   RODRIGO PEREIRA 280,00 (venda #5809) + 250,00 (venda #12657). O crédito desses
+   clientes **já foi cancelado** (`creditos_clientes` tipo `estorno`) e a linha "a
+   pagar" nunca foi paga: sem conta, sem forma, sem histórico, sem comprovante. Falta
+   o pagamento e a baixa.
+2. **Novembro não está fechado.** Fechamento do Mês é ação do dono na tela (congela
+   estoque, caixa e resultado). Caixas abertos no momento da revisão: 0.
+
+**RESOLVIDO — não volta para a lista (cada um com prova):**
+
+| Assunto | Prova |
+|---|---|
+| **14 devoluções / contagem de estoque** | era leitura errada da coluna `devolucao_id`; o dono já tratou. Dinheiro lançado, assunto encerrado |
+| **RODRIGO PEREIRA 1.530,90** | está na lista de estornos do WhatsApp; lançado e pago em 19/11 (`Devolução — RODRIGO PEREIRA`) |
+| **8 PIX "sem nome"** | todos lançados com o nome de fantasia do cadastro (STAR Manutenção, SUPERCELL, Diego Santos, Control Z…) |
+| **3 casos de vale-crédito** (VT CELL 100 · Arthur Dias 55 · Larissa 141) | o crédito foi criado **e consumido** — o cliente recebeu em crédito, não há dinheiro a devolver |
+| **Comissão 0,5% de outubro** | não é valor fixo: é precificada nas vendas no fim do mês |
+| **R$ 1,00 do Fernando** (pediu 91, saiu 90) | insignificante por decisão do dono |
+| **141,00 de 11/11** | atribuído ao ZL (comprovante: FERNANDES DA SILVA) |
+| **14 linhas sem categoria / 14 de fornecedor sem cadastro** | classificadas e ligadas ao cadastro (R$ 16.780,70) |
+| **Duas devoluções de 250 na venda #12657** | é 1 peça devolvida (`ok`) + 1 em troca (`troca`) do mesmo item — sem duplicidade |
+
 
 ## Nesta rodada (18/11/2026) — importador de nota por foto, encomenda e caixa
 
