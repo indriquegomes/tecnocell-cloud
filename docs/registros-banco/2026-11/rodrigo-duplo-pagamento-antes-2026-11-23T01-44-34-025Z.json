@@ -1,0 +1,60 @@
+{
+  "quando": "2026-11-23T01:44:34.026Z",
+  "pagar": [
+    {
+      "id": "77ed2a94-13f2-44d7-9b4e-d82d9e8cf623",
+      "descricao": "Estorno de crédito — devolução da venda #5809 — RODRIGO PEREIRA (SEMPRE INCLUIR PEL R$ 1,80)",
+      "valor": 280,
+      "status": "pendente"
+    },
+    {
+      "id": "2ba166dc-4034-451f-849f-46dfda7b3b3b",
+      "descricao": "Estorno de crédito — devolução da venda #12657 — RODRIGO PEREIRA (SEMPRE INCLUIR PEL R$ 1,80)",
+      "valor": 250,
+      "status": "pendente"
+    }
+  ],
+  "creds": [
+    {
+      "id": "ad17c33d-70f0-49f5-ac16-0a130b5c4680",
+      "pessoa_id": "63d91dae59a9c82974728b08",
+      "pessoa_nome": "RODRIGO PEREIRA (SEMPRE INCLUIR PEL R$ 1,80)",
+      "valor": 750,
+      "tipo": "credito",
+      "descricao": "Devolução de compra",
+      "devolucao_id": "0e61770a-9f8c-4bc9-a207-951218459d5d",
+      "created_at": "2026-11-16T14:55:01.550652+00:00"
+    },
+    {
+      "id": "290ab413-ec58-4af0-a92c-fb6df2efe7ec",
+      "pessoa_id": "63d91dae59a9c82974728b08",
+      "pessoa_nome": "RODRIGO PEREIRA (SEMPRE INCLUIR PEL R$ 1,80)",
+      "valor": 250,
+      "tipo": "credito",
+      "descricao": "Devolução de compra",
+      "devolucao_id": "9b4ee7f3-1843-47cb-9440-62ecdabde9a7",
+      "created_at": "2026-11-16T14:55:23.19047+00:00"
+    },
+    {
+      "id": "601bd4de-ace9-4c47-be67-b0e970dd0af7",
+      "pessoa_id": "63d91dae59a9c82974728b08",
+      "pessoa_nome": "RODRIGO PEREIRA (SEMPRE INCLUIR PEL R$ 1,80)",
+      "valor": 250,
+      "tipo": "credito",
+      "descricao": "Devolução de compra",
+      "devolucao_id": "2fc417a8-1722-4512-9d4b-3002b0946c13",
+      "created_at": "2026-11-16T14:56:12.042869+00:00"
+    },
+    {
+      "id": "52049077-5ad2-4d75-8d36-7a163e9c3315",
+      "pessoa_id": "63d91dae59a9c82974728b08",
+      "pessoa_nome": "RODRIGO PEREIRA (SEMPRE INCLUIR PEL R$ 1,80)",
+      "valor": 280,
+      "tipo": "credito",
+      "descricao": "Devolução de compra",
+      "devolucao_id": "7cf90e01-457e-447d-ad44-ad5eaa646077",
+      "created_at": "2026-11-16T14:56:33.265625+00:00"
+    }
+  ],
+  "saldoAntes": 1025.5
+}

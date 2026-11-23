@@ -63,13 +63,36 @@ do `await signOut()`, com `currentTarget` nulo). Corrigido em `94faa83`.
 1 falso positivo da impressão) · `tsc` 0 · CRUD da aba com `__QA__` e zero restos.
 Commits: `af9ab04` · `1716536` · `7358fa5` · `94faa83` · `7ec235c`.
 
+**Bloco de testes e melhoria sem o dono (22/11, fim da rodada):**
+
+- **Testes de lógica: 249 passando, 0 falhando** em 10 arquivos (eram 238 em 8).
+  Novos: `test/particular.test.ts` (10 casos da conta da aba: sobra, cancelado fora
+  da conta, pendente não abate, sobra negativa, centavos) e
+  `test/financeiro-setores.test.ts` (11 casos: categorias novas no setor certo,
+  grafias legadas de mercadoria, sugestão do formulário sem as legadas).
+  Obs.: `test/logica.test.ts` sai com código 1 apesar de 86/86 passarem — condição
+  anterior a esta rodada, não é regressão; os arquivos novos saem com 0.
+- **`npm run build` = sucesso** (Next 16.2.11, 112 páginas geradas).
+- **`lib/particular.ts` criado**: o cálculo da aba saiu da página e virou função pura
+  testável; a página consome `resumoParticular()`.
+- **`scripts/conferir-estornos-credito.mjs` criado** (só leitura): acha estorno com
+  conta a pagar aberta e reembolso já pago, crédito estornado que continua no saldo e
+  "Estorno de crédito" pendente. Rodado em novembro: **nada a apontar**.
+- **Financeiro → filtro**: `Fornecedor / Mercadoria` e `fornecedor/mercadoria` deixaram
+  de cair em "❓ Sem categoria" (entraram no setor Fornecedores só para o filtro; a
+  sugestão do formulário continua oferecendo apenas `Mercadoria`).
+- **Armadilha nova no `AGENTS.md` §9:** estorno de crédito × reembolso já pago (caso
+  RODRIGO PEREIRA, R$ 530 fantasma + R$ 1.000 de crédito preso).
+- Foto final do mês em `docs/fechamento/2026-11/app.json`: despesas Petrópolis
+  R$ 145.100,47 · Teresópolis R$ 116.331,61.
+
 **O que ficou aberto — SÓ ISTO (revisado com o dono em 22/11):**
 
-1. **R$ 591,00 de estorno de crédito a pagar aos clientes.** LK CELL 61,00 ·
-   RODRIGO PEREIRA 280,00 (venda #5809) + 250,00 (venda #12657). O crédito desses
-   clientes **já foi cancelado** (`creditos_clientes` tipo `estorno`) e a linha "a
-   pagar" nunca foi paga: sem conta, sem forma, sem histórico, sem comprovante. Falta
-   o pagamento e a baixa.
+1. **R$ 530,00 de estorno de crédito do RODRIGO PEREIRA já resolvido** — 280,00
+   (venda #5809) e 250,00 (venda #12657) foram **cancelados em 22/11**: eram duplicata
+   do reembolso de 1.530,90 pago em PIX no dia 19/11, e o crédito que sobrava
+   (1.000,00) foi estornado. O LK CELL 61,00 também estava duplicado e foi cancelado.
+   **Fechado — não sobra conta a pagar de estorno.**
 2. **Novembro não está fechado.** Fechamento do Mês é ação do dono na tela (congela
    estoque, caixa e resultado). Caixas abertos no momento da revisão: 0.
 

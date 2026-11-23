@@ -1,0 +1,19 @@
+{
+  "quando": "2026-11-23T01:33:46.490Z",
+  "alvo": {
+    "id": "1d7ddb98-51cf-4a67-83c9-3b954ed1bcba",
+    "descricao": "Estorno de crédito — devolução da venda #12552 — LK CELL",
+    "valor": 61,
+    "status": "pendente",
+    "data_vencimento": "2026-11-13T00:00:00+00:00"
+  },
+  "pagamento": [
+    {
+      "id": "a754b91d-82ab-46b4-8841-5ecd8ca33fc2",
+      "descricao": "Devolução — LK CELL (estorno de compra)",
+      "valor": 61,
+      "status": "pago",
+      "data_pagamento": "2026-11-13T15:00:00+00:00"
+    }
+  ]
+}

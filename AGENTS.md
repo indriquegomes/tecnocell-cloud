@@ -287,6 +287,17 @@ bater com o total, senão a venda inteira é recusada.
   R$ 415,40, entre 13 e 17/11/2026). Regra: toda coluna que o código lê/escreve
   precisa da migration aplicada; quando um fluxo "funcionou mas não gravou a segunda
   parte", conferir `information_schema.columns` antes de acusar a regra.
+- **Estorno de crédito não conferia se o reembolso já tinha sido pago.** A RPC
+  `estornar_credito_cliente` cancela o crédito do cliente e, quando o crédito veio de
+  uma devolução, **abre uma conta a pagar pendente** — sem olhar se aquela devolução
+  já tinha sido reembolsada. Em 21/11/2026 isso aconteceu com RODRIGO PEREIRA: o
+  reembolso de 1.530,90 foi pago em PIX no dia 19/11, e o estorno de parte do crédito
+  (280,00 + 250,00) criou **R$ 530,00 de dívida fantasma** e deixou **R$ 1.000,00 de
+  crédito preso** no saldo de quem já tinha recebido. O caso do LK CELL (61,00) é o
+  mesmo defeito em tamanho menor. Desde 22/11 a action `estornarCredito` confere antes
+  (devolução paga pelo `devolucao_id` ou "Devolução — cliente" pago com o mesmo valor)
+  e recusa com a data do pagamento. Conferência pronta para o fechamento:
+  `scripts/conferir-estornos-credito.mjs <AAAA-MM>`.
 
 ## 10. Regras de negócio que o código sozinho não conta
 

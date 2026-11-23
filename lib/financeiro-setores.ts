@@ -33,7 +33,11 @@ export const SETORES: Setor[] = [
     chave: 'fornecedores',
     label: 'Fornecedores',
     emoji: '🏭',
-    categorias: ['Mercadoria'],
+    // As duas grafias antigas ficam aqui para o FILTRO agrupar certo — sem elas, uma
+    // compra de mercadoria lançada como 'Fornecedor / Mercadoria' caía em
+    // "❓ Sem categoria" na tela. Elas não são oferecidas no formulário: quem
+    // sugere é TODAS_CATEGORIAS, que descarta as legadas logo abaixo.
+    categorias: ['Mercadoria', 'Fornecedor / Mercadoria', 'fornecedor/mercadoria'],
   },
   {
     chave: 'estrutura',
@@ -105,7 +109,13 @@ export function setorDaCategoria(categoria: string | null | undefined): Setor {
 }
 
 // Lista plana de todas as categorias conhecidas — usada nas sugestões do formulário.
-export const TODAS_CATEGORIAS: string[] = SETORES.flatMap((s) => s.categorias)
+// As grafias LEGADAS de mercadoria existem só para o filtro agrupar; no formulário elas
+// não aparecem, senão a lista oferece três jeitos de dizer a mesma coisa e a base volta
+// a rachar. Quem lança compra escolhe "Mercadoria".
+const CATEGORIAS_LEGADAS = new Set(['Fornecedor / Mercadoria', 'fornecedor/mercadoria', 'Vale Transporte'])
+export const TODAS_CATEGORIAS: string[] = SETORES
+  .flatMap((s) => s.categorias)
+  .filter((c) => !CATEGORIAS_LEGADAS.has(c))
 
 // SUBCATEGORIA — o terceiro nível, opcional.
 //

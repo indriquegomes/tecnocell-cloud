@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createServiceClient, requirePermissao, fetchAll } from '@/lib/supabase/server'
 import { formatBRL, formatDate } from '@/lib/utils'
 import { hojeSP } from '@/lib/lembretes'
+import { resumoParticular } from '@/lib/particular'
 
 // PARTICULAR DO DONO — as contas da vida dele, pagas com o pró-labore.
 //
@@ -44,16 +45,7 @@ export default async function ParticularPage({
   const { data: lojas } = await supabase.from('lojas').select('id, nome')
   const lojaDe = new Map((lojas ?? []).map((l: { id: string; nome: string }) => [l.id, l.nome]))
 
-  const proLabore = linhas.filter((l) => l.categoria === 'Pró-labore')
-  const particular = linhas.filter((l) => l.categoria === 'Particular')
-  const soma = (xs: typeof linhas, soPagas = false) =>
-    Math.round(xs.filter((l) => !soPagas || l.status === 'pago').reduce((t, l) => t + Number(l.valor ?? 0), 0) * 100) / 100
-
-  const proLaborePrevisto = soma(proLabore)
-  const proLaborePago = soma(proLabore, true)
-  const particularPago = soma(particular, true)
-  const particularPendente = Math.round((soma(particular) - particularPago) * 100) / 100
-  const sobra = Math.round((proLaborePrevisto - particularPago) * 100) / 100
+  const { proLaborePrevisto, proLaborePago, particularPago, particularPendente, sobra } = resumoParticular(linhas)
 
   const nomeMes = new Date(`${mesAtual}-01T12:00:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo' })
   const mesAnterior = m === 1 ? `${ano - 1}-12` : `${ano}-${String(m - 1).padStart(2, '0')}`

@@ -1,6 +1,6 @@
 {
   "mes": "2026-11",
-  "gerado_em": "2026-11-22T17:45:07.368Z",
+  "gerado_em": "2026-11-23T01:58:36.253Z",
   "janela": {
     "de": "2026-11-01",
     "ate": "2026-12-01"
@@ -11,7 +11,7 @@
       "dinheiroEntrou": 25932.24,
       "fiadoCobrado": 86893.28,
       "compras": 132272.81,
-      "despesas": 144490.97,
+      "despesas": 145100.47,
       "despesasDinheiro": 19552.41,
       "porForma": {
         "PIX": 32430.59,
@@ -21,7 +21,7 @@
         "Crédito TON": 49,
         "Débito TON": 24
       },
-      "resultado": -153329.61,
+      "resultado": -153939.11,
       "dinheiroEmMaos": 6379.83
     },
     "Teresópolis": {
@@ -29,7 +29,7 @@
       "dinheiroEntrou": 26458.9,
       "fiadoCobrado": 101980.49,
       "compras": 110068.89,
-      "despesas": 114645.21,
+      "despesas": 116331.61,
       "despesasDinheiro": 14555.5,
       "porForma": {
         "PIX": 5748.8,
@@ -37,7 +37,7 @@
         "Crédito TON": 72.2,
         "Débito PagBank": 8.5
       },
-      "resultado": -114338.31,
+      "resultado": -116024.71,
       "dinheiroEmMaos": 11903.4
     }
   },
@@ -529,19 +529,19 @@
   },
   "despesas_por_categoria": {
     "Mercadoria": 95104.77,
+    "Fornecedor / Mercadoria": 41099.09,
     "fornecedor/mercadoria": 38849.79,
-    "Fornecedor / Mercadoria": 32434.99,
     "Vale crédito usado": 25790.32,
-    "Salários": 23232.95,
-    "(sem categoria)": 8842.1,
-    "Retirada do sócio": 8072.47,
-    "Devolução ao cliente": 5604.9,
+    "Salários": 24887.95,
+    "Devolução ao cliente": 6509.3,
+    "Pró-labore": 5976,
     "Comissão": 4290,
     "Aluguel": 2600,
     "Confraternização": 2106,
+    "Retirada do sócio": 2096.47,
     "Desconto concedido": 2005.61,
     "motoboy": 1872.5,
-    "Perda": 1590.62,
+    "Perda de troca": 1424.83,
     "Impostos": 1155.95,
     "Uso interno": 1118.33,
     "Jurídico": 810.5,
@@ -552,14 +552,15 @@
     "Outras despesas": 544.88,
     "Combustível": 413.47,
     "Estorno de crédito": 353,
-    "Bônus": 260,
     "Alimentação": 191.35,
+    "Manutenção": 174.5,
+    "Perda": 165.79,
     "Serviços": 70,
     "Tarifas bancárias": 32.8
   },
   "contas_a_pagar_aberto": {
-    "total": 203485.29,
-    "notas": 79
+    "total": 244894.29,
+    "notas": 90
   },
   "fiado_aberto": {
     "total": 47608.92,
