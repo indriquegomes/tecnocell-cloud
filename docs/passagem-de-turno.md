@@ -35,6 +35,15 @@ novembro: "Banco Original R$ 10.000" e "DPVAT/licenciamento HPG-8E31 R$ 299,24" 
 (varredura por descrição e motivo); "nota fiscal de troca" é documento do fornecedor,
 sem valor a lançar. Foco daqui até o fechamento: **mês 11**.
 
+**4. Funcionário não vê o dinheiro do dono no Financeiro.** As linhas `Pró-labore`,
+`Retirada do sócio` e `Particular` (e qualquer linha que cite o nome do master) saíram
+da lista, dos totais, dos cartões, das opções de filtro e do CSV para quem não é master.
+A régua é uma só (`lib/visibilidade-dono.ts`, `semODoDono`) e os nomes do dono vêm do
+cadastro de perfis (`is_master`), não de nome fixo no código. Para o master nada mudou.
+Armadilha que isso evitou: `not.in` em SQL é nulo quando a coluna é nula, então o filtro
+"ingênuo" apagava toda linha sem categoria e toda linha sem pessoa — conferido no banco
+(7.522 contra 7.523) e travado por 4 testes.
+
 ## Nesta rodada (22/11/2026) — dinheiro que estava fora do Financeiro + aba Particular
 
 **O problema que a rodada resolveu:** novembro tinha muito dinheiro que saiu e não
@@ -116,11 +125,14 @@ Commits: `af9ab04` · `1716536` · `7358fa5` · `94faa83` · `7ec235c`.
 **O que ficou aberto — SÓ ISTO (revisado com o dono em 23/11):**
 
 1. **Novembro não está fechado.** Fechamento do Mês é ação do dono na tela (congela
-   estoque, caixa e resultado). Caixas abertos no momento da revisão: 0. A única conta
-   de conferência pendente é a **sobra de R$ 10,20** do caixa de 01→22/11.
-2. **Maria Julia de Souza Ferreira Carvalho — R$ 65,00** (devolução de 12/11 marcada
-   `sem_reembolso`): conferir se ela recebeu os R$ 65,00 por fora. É o único alerta
-   vivo do conferente de devolução.
+   estoque, caixa e resultado). Caixas abertos no momento da revisão: 0. A sobra de
+   R$ 10,20 do caixa de 01→23/11 **não é pendência** — o dono decidiu em 23/11 que já
+   estava tratada; não levantar esse número de novo.
+2. **Maria Julia de Souza Ferreira Carvalho — R$ 65,00** (devolução de 12/11 da venda
+   #12938, ela desistiu da compra, registrada `sem_reembolso`): é a estagiária. Os
+   pagamentos dela com vencimento 30/11 — bolsa estágio novembro R$ 700,00 e vale
+   transporte R$ 295,00 — estão lançados e corretos. Falta só dizer se os R$ 65,00
+   também são devidos a ela (então entram junto) ou se a compra foi trocada.
 3. **Contas particulares: começar a lançar as do mês** na aba `/painel/particular`.
    As três que já existiam foram migradas em 23/11 (R$ 2.096,47); o que vier agora o
    dono lança pelo botão “+ Nova conta particular”.
@@ -144,6 +156,7 @@ existem em `lancamentos` nem em `movimentos_caixa`; conferido por descrição e 
 | **14 linhas sem categoria / 14 de fornecedor sem cadastro** | classificadas e ligadas ao cadastro (R$ 16.780,70) |
 | **Duas devoluções de 250 na venda #12657** | é 1 peça devolvida (`ok`) + 1 em troca (`troca`) do mesmo item — sem duplicidade |
 | **Contas pessoais fora da aba Particular** | migradas em 23/11: as 3 linhas de `Retirada do sócio` que eram conta paga viraram `Particular` (R$ 2.096,47) |
+| **Sobra de R$ 10,20 do caixa de novembro** | o dono decidiu em 23/11 que já estava tratada — não é pendência e não volta para a lista |
 
 
 ## Nesta rodada (18/11/2026) — importador de nota por foto, encomenda e caixa
@@ -1043,3 +1056,20 @@ loja estava com caixa real de terceiro aberto e vendendo.
   Rodar o `agy` direto, **com acesso pleno** (`danger-full-access`), resolve:
   `C:\Users\usuario\AppData\Local\agy\bin\agy.EXE --print "<prompt>" --add-dir
   "<projeto>" --dangerously-skip-permissions --output-format text`.
+
+## Pendente (23/11/2026) — monitoramento de erro em uso
+
+Código pronto, **não commitado**. Falta, na ordem:
+
+1. **Aplicar a migration** `supabase/migrations/2026-11-23-erros-app.sql` no SQL
+   Editor do Supabase. Sem ela o sistema funciona igual (tudo é silencioso), mas
+   nada é gravado em `erros_app`.
+2. **Criar o grupo privado do Telegram** "TecnoCell — Erros" (só o dono), pôr o
+   bot como administrador e cadastrar `TELEGRAM_GRUPO_ERROS` nas variáveis da
+   Vercel (opcional: `TELEGRAM_TOKEN_ERROS`; sem ela usa o token de Petrópolis).
+   Sem essa variável, a tela Saúde avisa em vermelho que o alerta está desligado.
+3. Só então autorização de commit/deploy (trava do dono).
+
+Como funciona: `docs/mapa/monitoramento-erros.md`. Verificação rodável:
+`node --import ./test/alias.mjs test/erros.test.ts` e
+`node --import ./test/alias.mjs test/vigia-erros.test.ts` (9 testes).

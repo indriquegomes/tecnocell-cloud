@@ -241,3 +241,19 @@ export async function podeAcessarLoja(usuarioId: string, lojaId: string | null):
   const permitidas = (data?.lojas_permitidas as string[] | null) ?? []
   return permitidas.length === 0 || permitidas.includes(lojaId)
 }
+
+// Quem pode ver o dinheiro do dono (pró-labore, retirada, conta particular).
+//
+// Master vê tudo. Funcionário não vê: o `nomes` devolvido são os perfis master ativos,
+// para o filtro esconder também a linha que cita o nome do dono sem estar naquelas
+// categorias. Nunca lança — sessão estranha cai em "não é master", que é o lado seguro.
+export async function dinheiroDoDonoVisivel(): Promise<{ isMaster: boolean; nomes: string[] }> {
+  const usuario = await requireAuth().catch(() => null)
+  if (!usuario) return { isMaster: false, nomes: [] }
+  const { isMaster } = await permissoesEfetivas(usuario.id).catch(() => ({ isMaster: false }))
+  if (isMaster) return { isMaster: true, nomes: [] }
+  const service = await createServiceClient()
+  const { data } = await service.from('perfis').select('nome').eq('is_master', true).eq('ativo', true)
+  const nomes = ((data ?? []) as { nome: string | null }[]).map((p) => (p.nome ?? '').trim()).filter(Boolean)
+  return { isMaster: false, nomes }
+}

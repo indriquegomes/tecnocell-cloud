@@ -49,6 +49,7 @@ export function aplicarLoja(q: any, lojaEfetiva: string | null): any {
   return q
 }
 
+
 export function aplicarFiltros(q: any, params: ParamsFinanceiro, ctx: { lojaEfetiva: string | null }): any {
   q = aplicarLoja(q, ctx.lojaEfetiva)
   const campoData = campoDataDe(params)

@@ -1,4 +1,4 @@
-import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll, dinheiroDoDonoVisivel } from '@/lib/supabase/server'
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { FinanceiroTabs } from './FinanceiroTabs'
 import { IconWallet } from '@/components/icons'
@@ -11,6 +11,7 @@ import { gerarFolha } from './actions'
 import Link from 'next/link'
 import { Dica } from '@/components/Dica'
 import { aplicarFiltros, aplicarLoja, periodoDe, querystringDoFiltro } from '@/lib/financeiro-filtros'
+import { semODoDono, CATEGORIAS_SO_DO_MASTER } from '@/lib/visibilidade-dono'
 
 // A classificação vive em um lugar só (lib/financeiro-setores.ts): setor → categoria.
 // O filtro em cascata e o formulário leem daqui, então não nasce categoria fora de lugar.
@@ -39,12 +40,24 @@ export default async function FinanceiroPage({
   ])
   const formasOpc = [...new Set((formasList ?? []).map((f) => f.nome as string))]
   const contasOpc = (contasList ?? []) as { id: string; nome: string }[]
-  const categoriasOpc = [...new Set(SETORES.flatMap((s) => s.categorias))]
+  // O dinheiro do dono fica fora da tela de quem não é master: sai da lista, dos totais,
+  // do CSV e das opções de filtro. Para o master nada muda (semODoDono nem é chamado).
+  const { isMaster, nomes: nomesDoDono } = await dinheiroDoDonoVisivel()
+  const visivel = (q: unknown) => (isMaster ? q : semODoDono(q, nomesDoDono))
+  // Setor/categoria do dono não aparecem no filtro de quem não é master — oferecer um
+  // filtro que devolve lista vazia é pior do que não oferecer.
+  const setoresVisiveis = isMaster
+    ? SETORES
+    : SETORES
+        .filter((s) => s.chave !== 'particular')
+        .map((s) => ({ ...s, categorias: s.categorias.filter((c) => !CATEGORIAS_SO_DO_MASTER.includes(c)) }))
+        .filter((s) => s.categorias.length > 0 || !!s.semCategoria)
+  const categoriasOpc = [...new Set(setoresVisiveis.flatMap((s) => s.categorias))]
 
   // Filtro de loja e filtros completos vêm de lib/financeiro-filtros.ts, para a rota
   // de exportação usar exatamente o mesmo recorte (antes o filtro vivia aqui e o CSV
   // era montado no navegador com a lista inteira — 2 MB de HTML em cada abertura).
-  const aplicaLoja = (q: unknown) => aplicarLoja(q, lojaEfetiva)
+  const aplicaLoja = (q: unknown) => visivel(aplicarLoja(q, lojaEfetiva))
   // Filtros completos e período vêm de lib/financeiro-filtros.ts (mesma regra usada
   // pela rota de exportação — filtro duplicado é filtro que divergiu).
   const { mesIni, mesFim, verTudo } = periodoDe(params)
@@ -64,7 +77,7 @@ export default async function FinanceiroPage({
       .limit(50)
     paramsFiltro.pessoa_ids = ((casam ?? []) as { id: string }[]).map((p) => p.id)
   }
-  const aplica = (q: unknown) => aplicarFiltros(q, paramsFiltro, { lojaEfetiva })
+  const aplica = (q: unknown) => visivel(aplicarFiltros(q, paramsFiltro, { lojaEfetiva }))
   const temFiltro = !!(params.busca || params.pessoa || params.forma || params.conta || params.categoria || params.subcategoria || params.setor || params.origem || params.vence || params.valor_min || params.valor_max || params.status || params.de || params.ate || params.tipo)
 
   const ordemAtual = params.ordem ?? 'data_vencimento'
@@ -269,7 +282,7 @@ export default async function FinanceiroPage({
           lojaEfetiva={lojaEfetiva}
           operaveis={operaveis}
           formasOpc={formasOpc}
-          setores={SETORES}
+          setores={setoresVisiveis}
           subcategorias={SUBCATEGORIAS}
           temFiltro={temFiltro}
         />

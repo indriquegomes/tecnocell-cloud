@@ -1,6 +1,7 @@
-import { createServiceClient, fetchAll, requirePermissao } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll, requirePermissao, dinheiroDoDonoVisivel } from '@/lib/supabase/server'
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { aplicarFiltros, periodoDe } from '@/lib/financeiro-filtros'
+import { semODoDono } from '@/lib/visibilidade-dono'
 import { hojeSP } from '@/lib/utils'
 import type { NextRequest } from 'next/server'
 
@@ -24,16 +25,20 @@ export async function GET(req: NextRequest) {
     ? params.loja
     : (ativa?.id ?? null)
 
-  const linhas = await fetchAll<Record<string, unknown>>((from, to) =>
-    aplicarFiltros(
+  // CSV tem que sair igual à tela: quem não é master não exporta o dinheiro do dono.
+  const { isMaster, nomes: nomesDoDono } = await dinheiroDoDonoVisivel()
+
+  const linhas = await fetchAll<Record<string, unknown>>((from, to) => {
+    const q = aplicarFiltros(
       supabase.from('lancamentos')
         .select('descricao, pessoa_nome, data_vencimento, data_competencia, data_pagamento, valor, tipo, status, forma_pagamento, categoria, subcategoria')
         .order('data_vencimento', { ascending: true })
         .range(from, to) as never,
       params,
       { lojaEfetiva },
-    ) as never,
-  )
+    )
+    return (isMaster ? q : semODoDono(q, nomesDoDono)) as never
+  })
 
   const cabecalho = ['Descrição', 'Pessoa', 'Vencimento', 'Competência', 'Pagamento', 'Valor', 'Tipo', 'Situação', 'Forma', 'Categoria', 'Subcategoria']
   const campos = ['descricao', 'pessoa_nome', 'data_vencimento', 'data_competencia', 'data_pagamento', 'valor', 'tipo', 'status', 'forma_pagamento', 'categoria', 'subcategoria']
