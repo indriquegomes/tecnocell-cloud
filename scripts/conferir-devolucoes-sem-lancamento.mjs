@@ -42,6 +42,14 @@ const estornos = await tudo((a, b) => s.from('creditos_clientes')
   .select('devolucao_id, valor, tipo, descricao')
   .eq('tipo', 'estorno').gte('created_at', de).lt('created_at', ate).range(a, b))
 
+// A PEÇA VOLTOU DANIFICADA? Quem devolve peça quebrada não recebe o dinheiro de volta —
+// então "sem reembolso" ali é o esperado, e alarmar é ruído. O status vem do item da
+// devolução: 'ok' = peça boa (volta a vender, então o dinheiro tinha que voltar);
+// 'avaria'/'defeito' = peça perdida, sem reembolso por decisão da loja.
+const itensDev = await tudo((a, b) => s.from('itens_devolucao')
+  .select('devolucao_id, status_produto').range(a, b))
+const danificada = new Set(itensDev.filter((i) => (i.status_produto ?? 'ok') !== 'ok').map((i) => i.devolucao_id))
+
 // Casa lançamento por NOME (alguma palavra do nome do cliente aparece na descrição)
 // E valor, com data a até 3 dias. Só valor+data dá falso positivo demais (15, 55, 76
 // repetem o dia inteiro); só nome dá falso negativo quando o lançamento usa o nome
@@ -71,13 +79,16 @@ const achaLanc = (d, valorEsperado) => {
 }
 const creditEstornado = (d) => estornos.some((e) => e.devolucao_id === d.id)
 
-const semForma = [], fiadoMaisDinheiro = [], creditoMaisDinheiro = []
+const semForma = [], fiadoMaisDinheiro = [], creditoMaisDinheiro = [], pecaPerdida = []
 for (const d of devs) {
   const total = Number(d.valor_total || 0)
   const abate = Number(d.abate_fiado || 0)
   const pago = Math.round((total - abate) * 100) / 100 // parte que o cliente realmente pagou
   const temLanc = achaLanc(d, pago)
-  if (pago > 0.005 && ['sem_reembolso', 'cancelamento_fiado'].includes(d.tipo_credito) && !temLanc) semForma.push({ d, pago })
+  if (pago > 0.005 && ['sem_reembolso', 'cancelamento_fiado'].includes(d.tipo_credito) && !temLanc) {
+    if (danificada.has(d.id)) pecaPerdida.push({ d, pago })
+    else semForma.push({ d, pago })
+  }
   if (abate > 0.005 && temLanc && Math.abs(Number(temLanc.valor || 0) - abate) < 0.011) fiadoMaisDinheiro.push({ d, abate, lanc: temLanc })
   if (d.tipo_credito === 'credito_conta' && temLanc && !creditEstornado(d)) creditoMaisDinheiro.push({ d, lanc: temLanc })
 }
@@ -94,6 +105,13 @@ for (const { d, abate, lanc: l } of fiadoMaisDinheiro) console.log(`   ${dia(d.c
 
 console.log(`\n🟡 3) Crédito em conta E dinheiro pago: ${creditoMaisDinheiro.length} · R$ ${brl(total(creditoMaisDinheiro, (x) => Number(x.d.valor_total || 0)))}`)
 for (const { d, lanc: l } of creditoMaisDinheiro) console.log(`   ${dia(d.created_at)} crédito ${brl(d.valor_total).padStart(9)} + lançamento ${brl(l.valor).padStart(9)} ${(d.pessoa_nome || '-').slice(0, 30)}`)
+
+// Não é alarme: é o caso em que a loja decidiu não devolver porque a peça voltou perdida.
+// Fica listado para o dono saber que existe e que não há dinheiro solto ali.
+if (pecaPerdida.length) {
+  console.log(`\nℹ️  Peça voltou danificada — "sem reembolso" é o esperado: ${pecaPerdida.length} · R$ ${brl(total(pecaPerdida, (x) => x.pago))}`)
+  for (const { d, pago } of pecaPerdida) console.log(`   ${dia(d.created_at)} ${brl(pago).padStart(10)} ${(d.pessoa_nome || '-').slice(0, 34)} — peça avariada, cliente não recebe de volta`)
+}
 
 const problemas = semForma.length + fiadoMaisDinheiro.length + creditoMaisDinheiro.length
 console.log(problemas ? `\n${problemas} devolução(ões) para olhar antes de fechar o mês.` : '\nnada a apontar — devolução e dinheiro combinando.')
