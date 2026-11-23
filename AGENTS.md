@@ -199,6 +199,15 @@ bater com o total, senão a venda inteira é recusada.
 - **Fuso horário:** nunca `toISOString()` para data — o servidor roda em UTC e
   depois das 21h vira o dia seguinte. Usar `hojeSP()` e
   `timeZone: 'America/Sao_Paulo'`. Para data-only, `new Date(d + 'T12:00:00')`.
+- **Data de vencimento chega como meia-noite UTC, não como `YYYY-MM-DD`.**
+  `lancamentos.data_vencimento` e `data_competencia` são `timestamptz`: quem grava
+  data pura recebe de volta `2026-11-02T00:00:00+00:00`, que em São Paulo é 21h do dia
+  **anterior**. `formatDate` tratava isso como instante e a aba Particular mostrava
+  01/11 numa conta que vence 02/11 (mesmo defeito no painel e em Relatórios, que também
+  usam `formatDate` com `data_vencimento`). Desde 23/11/2026 o `formatDate` reconhece
+  meia-noite UTC como DIA; instante de verdade continua convertido. Antes de exibir
+  data de coluna `timestamptz`, conferir se é dia (vencimento, competência) ou instante
+  (pagamento, criação) — dia nunca pode andar um dia.
 - **`Intl.format` LANÇA com data inválida** (`RangeError: Invalid time value`)
   — não devolve "Invalid Date". Guarda com `Number.isNaN(new Date(x).getTime())`.
 - **`proxy.ts` não pode usar supabase-js.** Ele valida o token com `fetch`

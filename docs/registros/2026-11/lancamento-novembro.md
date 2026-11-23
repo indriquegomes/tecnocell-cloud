@@ -643,3 +643,19 @@ entra aqui; se não existir, item 5 fecha como "nada a lançar".
   com o app (R$ 20.959,85) e **60 não têm lançamento (R$ 39.427,66)**, agrupadas em
   A (conhecidas), B (pessoas), C (sem nome), D (CDB não é despesa). Item 1 abriu
   pela linha do aluguel Petrópolis (2.600,00 de 03/11, já existente e pendente no app).
+- 23/11 — as três contas pessoais que estavam em `Retirada do sócio` viraram
+  `Particular` (1.499,78 Luiza Lopes Neves · 500,00 Leoni De Souza Azevedo · 96,69
+  Supercabo TV = **R$ 2.096,47**), por `scripts/passar-particular.mjs --gravar`, com
+  backup e DESFAZER em `docs/registros-banco/2026-11/`. É rótulo: nenhum valor, data,
+  forma ou conta mudou e a despesa do mês continua igual. `Retirada do sócio` de
+  novembro ficou R$ 0,00 e a aba `/painel/particular` passou a mostrar
+  pró-labore 5.976,00 − contas 2.096,47 = **sobra R$ 3.879,53**.
+- 23/11 — a aba Particular mostrava vencimento um dia antes (conta de 02/11 aparecia
+  como 01/11): `data_vencimento` é `timestamptz` e data pura entra como meia-noite UTC,
+  que em São Paulo é 21h do dia anterior; o `formatDate` tratava como instante. Corrigido
+  na raiz (`lib/utils.ts`), com 5 testes novos, no ar em `868b4cb`. Conferido na tela:
+  02/11 · 02/11 · 11/11 · 20/11.
+- 23/11 — Banco Original R$ 10.000, DPVAT/licenciamento HPG-8E31 R$ 299,24 e acordo
+  135/2026 **não existem** em `lancamentos` nem em `movimentos_caixa` (varredura por
+  descrição e motivo); nota fiscal de troca é documento do fornecedor, sem valor a
+  lançar. Os quatro saíram da lista de pendências.

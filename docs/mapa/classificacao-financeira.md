@@ -39,7 +39,11 @@ resultado operacional.
 | Categoria | O que é |
 |---|---|
 | **Pró-labore** | pagamento fixo do dono: **4.000 Petrópolis + 2.000 Teresópolis**, dia 30 (custo de existir, mas pago ao dono) |
-| **Retirada do sócio** | retirada, conta pessoal e gasto particular do dono — distribuição |
+| **Retirada do sócio** | dinheiro que o dono **tirou** da loja e não é conta — só distribuição |
+
+Cada linha dessas é **uma coisa**: `Retirada do sócio` = saque; conta que ele pagou
+(escola, internet da casa, pagamento a pessoa) vai para `Particular`, senão a aba
+Particular não enxerga e o saque mentiroso aparece como saque.
 | **Dívida parcelada** | parcela de dívida (ex.: Isabela Ponciano Câmara) |
 
 ## 4. Contra-receita (dinheiro que volta ao cliente)

@@ -6,7 +6,34 @@
 >
 > Regras do projeto: `AGENTS.md`. Como o sistema funciona: `docs/mapa/`.
 
-**Última atualização:** 22/11/2026 (mês 11 lançado a partir do extrato PagBank e da lista de estornos do WhatsApp; trava de reembolso na devolução; aba Particular do dono; bug do "Sair" corrigido).
+**Última atualização:** 23/11/2026 (contas particulares migradas para a aba Particular; data de vencimento mostrando um dia a menos corrigida).
+
+## Nesta rodada (23/11/2026) — particular ligado e data de vencimento certa
+
+**1. As contas pessoais que já estavam lançadas foram para a aba Particular.**
+Três linhas que estavam em `Retirada do sócio` eram **conta paga**, não saque:
+1.499,78 (pagamento de conta a Luiza Lopes Neves, 02/11), 500,00 (retirada a Leoni De
+Souza Azevedo, 02/11) e 96,69 (Supercabo TV, internet da casa, 11/11) — **R$ 2.096,47**.
+Viraram `Particular` (subcategoria Pessoal · Pessoal · Casa) por
+`scripts/passar-particular.mjs --gravar`, com backup e DESFAZER em
+`docs/registros-banco/2026-11/`. Nada de valor, data, forma ou conta foi tocado: é
+rótulo, e a despesa do mês continua a mesma. `Retirada do sócio` de novembro ficou
+**R$ 0,00** — a aba agora mostra: pró-labore 5.976,00 (pago 20/11) − contas
+particulares 2.096,47 = **sobra R$ 3.879,53**.
+
+**2. A aba mostrava o vencimento um dia antes.** `data_vencimento` é `timestamptz` e
+data pura entra como meia-noite UTC — 21h do dia anterior em São Paulo. O
+`formatDate` tratava como instante: conta do dia 02/11 aparecia como 01/11 (o mesmo
+defeito existia no painel e em Relatórios). Agora `formatDate` reconhece meia-noite
+UTC como DIA; instante de verdade continua convertido. 5 testes novos em
+`test/logica.test.ts`. Armadilha registrada no `AGENTS.md` §9. No ar em `868b4cb`,
+conferido na tela: 02/11 · 02/11 · 11/11 · 20/11.
+
+**3. Os quatro itens que o dono não reconhecia saíram da lista.** Nenhum é dinheiro de
+novembro: "Banco Original R$ 10.000" e "DPVAT/licenciamento HPG-8E31 R$ 299,24" e
+"acordo 135/2026 R$ 200/mês" **não existem** em `lancamentos` nem em `movimentos_caixa`
+(varredura por descrição e motivo); "nota fiscal de troca" é documento do fornecedor,
+sem valor a lançar. Foco daqui até o fechamento: **mês 11**.
 
 ## Nesta rodada (22/11/2026) — dinheiro que estava fora do Financeiro + aba Particular
 
@@ -86,21 +113,22 @@ Commits: `af9ab04` · `1716536` · `7358fa5` · `94faa83` · `7ec235c`.
 - Foto final do mês em `docs/fechamento/2026-11/app.json`: despesas Petrópolis
   R$ 145.100,47 · Teresópolis R$ 116.331,61.
 
-**O que ficou aberto — SÓ ISTO (revisado com o dono em 22/11):**
+**O que ficou aberto — SÓ ISTO (revisado com o dono em 23/11):**
 
-1. **R$ 530,00 de estorno de crédito do RODRIGO PEREIRA já resolvido** — 280,00
-   (venda #5809) e 250,00 (venda #12657) foram **cancelados em 22/11**: eram duplicata
-   do reembolso de 1.530,90 pago em PIX no dia 19/11, e o crédito que sobrava
-   (1.000,00) foi estornado. O LK CELL 61,00 também estava duplicado e foi cancelado.
-   **Fechado — não sobra conta a pagar de estorno.**
-2. **Novembro não está fechado.** Fechamento do Mês é ação do dono na tela (congela
-   estoque, caixa e resultado). Caixas abertos no momento da revisão: 0.
-3. **Conferente de devolução x lançamento estava acusando gente errada** (corrigido em
-   `ce2dff1`): casava por sobrenome comum ou por "CELL" e juntava clientes diferentes.
-   Depois da correção sobram 5 alertas e todos são conhecidos: 3 do vale-crédito
-   (fechados, tabela abaixo), LK CELL 61,00 (pago em 13/11) e Maria Julia de Souza
-   Ferreira Carvalho 65,00 — **só este último pede olhada**: devolução de 12/11 marcada
-   `sem_reembolso`; conferir se ela recebeu os R$ 65,00 por fora.
+1. **Novembro não está fechado.** Fechamento do Mês é ação do dono na tela (congela
+   estoque, caixa e resultado). Caixas abertos no momento da revisão: 0. A única conta
+   de conferência pendente é a **sobra de R$ 10,20** do caixa de 01→22/11.
+2. **Maria Julia de Souza Ferreira Carvalho — R$ 65,00** (devolução de 12/11 marcada
+   `sem_reembolso`): conferir se ela recebeu os R$ 65,00 por fora. É o único alerta
+   vivo do conferente de devolução.
+3. **Contas particulares: começar a lançar as do mês** na aba `/painel/particular`.
+   As três que já existiam foram migradas em 23/11 (R$ 2.096,47); o que vier agora o
+   dono lança pelo botão “+ Nova conta particular”.
+
+**Fechados em 23/11 — não voltam:** R$ 530,00 de estorno do RODRIGO PEREIRA (cancelado
+e crédito estornado) · LK CELL 61,00 (pago em 13/11) · Banco Original R$ 10.000 ·
+DPVAT/licenciamento HPG-8E31 R$ 299,24 · acordo 135/2026 · nota fiscal de troca (não
+existem em `lancamentos` nem em `movimentos_caixa`; conferido por descrição e motivo).
 
 **RESOLVIDO — não volta para a lista (cada um com prova):**
 
@@ -115,6 +143,7 @@ Commits: `af9ab04` · `1716536` · `7358fa5` · `94faa83` · `7ec235c`.
 | **141,00 de 11/11** | atribuído ao ZL (comprovante: FERNANDES DA SILVA) |
 | **14 linhas sem categoria / 14 de fornecedor sem cadastro** | classificadas e ligadas ao cadastro (R$ 16.780,70) |
 | **Duas devoluções de 250 na venda #12657** | é 1 peça devolvida (`ok`) + 1 em troca (`troca`) do mesmo item — sem duplicidade |
+| **Contas pessoais fora da aba Particular** | migradas em 23/11: as 3 linhas de `Retirada do sócio` que eram conta paga viraram `Particular` (R$ 2.096,47) |
 
 
 ## Nesta rodada (18/11/2026) — importador de nota por foto, encomenda e caixa
