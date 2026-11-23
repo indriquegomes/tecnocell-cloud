@@ -6,7 +6,75 @@
 >
 > Regras do projeto: `AGENTS.md`. Como o sistema funciona: `docs/mapa/`.
 
-**Última atualização:** 18/11/2026 (importador de nota por foto; despesa quitada em dinheiro liga a retirada; dedup do bot do PIX consertado; encomenda parou de mexer no estoque).
+**Última atualização:** 22/11/2026 (mês 11 lançado a partir do extrato PagBank e da lista de estornos do WhatsApp; trava de reembolso na devolução; aba Particular do dono; bug do "Sair" corrigido).
+
+## Nesta rodada (22/11/2026) — dinheiro que estava fora do Financeiro + aba Particular
+
+**O problema que a rodada resolveu:** novembro tinha muito dinheiro que saiu e não
+estava no app — reembolso pago por PIX, despesa fixa, retirada de caixa. O resultado
+do mês aparecia R$ 33 mil melhor do que foi.
+
+**1. Extrato do PagBank (01–21/11) cruzado com o app.** 130 saídas (R$ 60.387,51):
+70 casavam com lançamento, **60 não tinham nada**. Foram lançadas 51 (aluguel
+Petrópolis, energia Enel, advogado outubro, contabilidade e honorários de novembro
+pendentes, impostos/Receita Federal, FGTS da Caixa lidos por OCR, combustível,
+alimentação, confraternização, passagens São Paulo, pró-labore, contas do sócio,
+supercabo, Mercado Livre, recarga de cartão, adiantamentos do João Vítor, comissão,
+13º 1ª parcela, motoboy, tarifas PagBank). Detalhe e prova de cada uma em
+`docs/registros/2026-11/lancamento-novembro.md`.
+
+**2. Lista de estornos do WhatsApp (`Downloads\INDRiQUE Proncipal.zip`).** 39 pedidos,
+R$ 5.526,90. Cruzamento com `devolucoes` mostrou o furo: **a devolução era registrada
+como "sem reembolso" e o dinheiro pago por PIX fora do app não virava lançamento** —
+o RPC só cria `Devolução — nome` quando o reembolso é maior que zero. Resultado:
+**51 lançamentos de devolução (R$ 6.509,30)** criados nesta rodada; antes eram 7.
+
+**3. Trava de reembolso (banco + tela).** Migration
+`supabase/migrations/2026-11-22-devolucao-exige-forma-de-reembolso.sql` (aplicada no
+SQL Editor pelo dono): `registrar_devolucao` recusa reembolso > 0 com
+`sem_reembolso`/`cancelamento_fiado` e misto sem nenhuma forma real. Na tela
+(`DevolucoesClient.tsx`): "Sem reembolso" deixa de existir quando há valor a devolver,
+aviso vermelho de saída não lançada, aviso âmbar em venda fiada e prévia do
+vale-crédito que nasce.
+
+**4. Retiradas de caixa de 03–05/11 (R$ 1.005,70).** Investigadas uma a uma no app:
+10 ligadas ao destino (2 devoluções pagas em dinheiro, taxa, motoboy, 3 quebras de
+caixa) e 4 são correção de pagamento (decisão do dono). Caixa conferido depois:
+Petrópolis diferença 0,00 · Teresópolis sobra de 5,00 (a de 03/11).
+
+**5. Classificação arrumada.** `Pró-labore` separado de `Retirada do sócio` ·
+`Perda de troca` separada de `Perda` · `Bônus` e `Vale transporte` dentro de
+`Salários` · categorias novas no catálogo (**Jurídico**, **Tarifas bancárias**,
+**Particular**, **Perda de troca**) · **14 linhas sem categoria → 0** · **14 linhas
+de fornecedor sem cadastro ligado → 0** (R$ 16.780,70, incluindo os 141,00 de 11/11
+que eram do ZL).
+
+**6. Aba nova: `/painel/particular` (master).** Pró-labore do mês, contas
+particulares pagas, pendentes e **sobra para retirar**, com navegação de mês e atalho
+`+ Nova conta particular` (pré-preenche A Pagar + categoria Particular). Pró-labore
+fixo **4.000 Petrópolis + 2.000 Teresópolis**, dia 30 — lançado de dez/2026 a jun/2027.
+
+**7. Bug real achado no check-up:** o botão **"Sair"** estourava
+`Cannot read properties of null (reading 'submit')` (o `form.submit()` rodava depois
+do `await signOut()`, com `currentTarget` nulo). Corrigido em `94faa83`.
+
+**Check-up:** `docs/registros/2026-11/checkup-22-11.md` e
+`docs/registros/2026-11/checkup-particular-22-11.md`. 87 telas em produção (86 OK,
+1 falso positivo da impressão) · `tsc` 0 · CRUD da aba com `__QA__` e zero restos.
+Commits: `af9ab04` · `1716536` · `7358fa5` · `94faa83` · `7ec235c`.
+
+**O que ficou aberto (decisão do dono):**
+1. **Novembro NÃO está fechado** — falta o Fechamento do Mês (ação dele na tela).
+2. **Contagem física das devoluções sem registro:** 14 devoluções, R$ 3.096,90
+   (maior: RODRIGO PEREIRA 1.530,90) — dinheiro voltou ao cliente, peça não entrou
+   no estoque.
+3. **Comissão 0,5% de outubro:** 6 linhas pendentes, R$ 1.852,80 ("ajustar em 20/11").
+4. **3 estornos de crédito pendentes:** R$ 591,00 (LK CELL 61,00 · RODRIGO PEREIRA
+   280,00 + 250,00) — esperando confirmação de que o dinheiro saiu.
+5. **3 casos de crédito + dinheiro:** LK CELL 61,00 · DAVID DOS SANTOS MORTES 141,00 ·
+   DIOGO DOS SANTOS LIMA 45,00.
+6. **Adiantamento de salário** de Lucas da Silva Mello e Giovane Rego da Silva nas
+   semanas 14/11 e 21/11 — o dono disse que virou motoboy variável; confirmar.
 
 ## Nesta rodada (18/11/2026) — importador de nota por foto, encomenda e caixa
 
