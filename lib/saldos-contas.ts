@@ -47,18 +47,18 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
       supabase.from('forma_conta_loja').select('forma_id, loja_id, conta_id'),   // vazio/inexistente = fallback p/ conta_destino_id
       // Só pagamento de venda a partir do corte: o resto está no saldo inicial de cada
       // conta e era descartado logo abaixo, depois de baixar 7.900 linhas à toa.
-      fetchAll<{ valor: number; taxa: number | null; forma_pagamento_id: string | null; venda_id: string | null }>((from, to) => supabase.from('pagamentos_venda').select('valor, taxa, forma_pagamento_id, venda_id').eq('status', 'pago').gte('created_at', INICIO_COFRE).range(from, to)),
-      fetchAll<{ conta_origem_id: string; conta_destino_id: string; valor: number }>((from, to) => supabase.from('transferencias').select('conta_origem_id, conta_destino_id, valor').range(from, to)),
-      fetchAll<{ tipo: string; valor: number; conta_id: string }>((from, to) => supabase.from('lancamentos').select('tipo, valor, conta_id, status, data_pagamento').eq('status', 'pago').not('conta_id', 'is', null).gte('data_pagamento', INICIO_COFRE).range(from, to)),
+      fetchAll<{ valor: number; taxa: number | null; forma_pagamento_id: string | null; venda_id: string | null }>((from, to) => supabase.from('pagamentos_venda').select('valor, taxa, forma_pagamento_id, venda_id').eq('status', 'pago').gte('created_at', INICIO_COFRE).order('id').range(from, to)),
+      fetchAll<{ conta_origem_id: string; conta_destino_id: string; valor: number }>((from, to) => supabase.from('transferencias').select('conta_origem_id, conta_destino_id, valor').order('id').range(from, to)),
+      fetchAll<{ tipo: string; valor: number; conta_id: string }>((from, to) => supabase.from('lancamentos').select('tipo, valor, conta_id, status, data_pagamento').eq('status', 'pago').not('conta_id', 'is', null).gte('data_pagamento', INICIO_COFRE).order('id').range(from, to)),
       // Devoluções (as duas leituras) não dependem de nada acima: entram no mesmo
       // lote paralelo em vez de esperar a vez depois das vendas. Antes eram 2 idas
       // ao banco em série no fim da função — ~0,4 s a mais na tela Contas.
       fetchAll<{ caixa_id: string; valor: number; created_at: string }>((from, to) =>
-        supabase.from('movimentos_caixa').select('caixa_id, valor, created_at').eq('tipo', 'devolucao').range(from, to)),
+        supabase.from('movimentos_caixa').select('caixa_id, valor, created_at').eq('tipo', 'devolucao').order('id').range(from, to)),
       fetchAll<{ valor: number; forma_pagamento: string | null; loja_id: string | null }>((from, to) =>
         supabase.from('lancamentos').select('valor, forma_pagamento, loja_id')
           .eq('tipo', 'pagar').eq('status', 'pago').is('conta_id', null)
-          .ilike('descricao', 'Devolução —%').range(from, to)),
+          .ilike('descricao', 'Devolução —%').order('id').range(from, to)),
       // PIX que o CLIENTE mandou direto ao fornecedor. A venda em PIX credita o banco e
       // o pagamento ao fornecedor nasce sem conta (o dinheiro nunca passou pelo banco),
       // então esse valor ficava dentro do saldo para sempre — é o que fez o PagBank do
@@ -68,7 +68,7 @@ export async function calcularSaldosContas(supabase: SB, contas: ContaSaldo[]): 
         supabase.from('lancamentos').select('valor, forma_pagamento, loja_id')
           .eq('tipo', 'pagar').eq('status', 'pago').is('conta_id', null)
           .eq('categoria', 'Mercadoria')
-          .gte('data_pagamento', INICIO_COFRE).range(from, to)),
+          .gte('data_pagamento', INICIO_COFRE).order('id').range(from, to)),
     ])
     const formaById = Object.fromEntries((formas ?? []).map((f) => [f.id, f as { tipo: string | null; conta_destino_id: string | null }]))
 

@@ -53,6 +53,19 @@ Baixa corrigida como **perda** e item marcado `avaria`.
 não tem o que marcar, e o padrão (`ok`) manda a peça de volta para vender. Decisão do
 dono pendente: criar o botão `Avaria` (e dizer se a perda vira despesa no mês).
 
+**6. O "🎟️ Vale" da tela de Fiados mostrava o DOBRO.** No dia 23/11 a cobrança saiu com
+`Vale R$ 36,00` para o cliente AD CELL BINGEN, cujo extrato dá **R$ 18,00**. Causa: a
+leitura de `creditos_clientes` era paginada por offset **sem `ORDER BY`** — o PostgREST
+pode devolver a mesma linha em duas páginas, e a soma por cliente contava o movimento
+duas vezes. Não era só dele: FORCELL CENTRO aparecia com 112 (certo: 56), BRUNA ALVES
+220,76 (certo: 72), HIPERCELL 173 (certo: 79). Corrigido em duas camadas: `.order('id')`
+na consulta de créditos e **`fetchAll` descarta `id` repetido** (rede de segurança para
+as 214 chamadas paginadas do app). Conferência que prova: `scripts/conferir-vale-tela-vs-banco.mjs`
+— antes 2 dobrados e 15 divergentes, agora os 10 clientes com vale batem centavo a
+centavo. Também ganharam `.order('id')` as somas de dinheiro de `lib/saldos-contas.ts` e
+o cartão "A Receber/A Pagar" do Financeiro. 3 testes novos em `test/robustez.test.ts`.
+Armadilha registrada no `AGENTS.md` §9.
+
 ## Nesta rodada (22/11/2026) — dinheiro que estava fora do Financeiro + aba Particular
 
 **O problema que a rodada resolveu:** novembro tinha muito dinheiro que saiu e não

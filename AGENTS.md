@@ -224,6 +224,16 @@ bater com o total, senão a venda inteira é recusada.
 - **Paginação:** consulta sem `fetchAll` para em 1000 linhas e o relatório
   mente. Filtro por coluna de JOIN (`.eq('vendas.created_at', …)`) dá 400 —
   evitar.
+- **Paginação sem `ORDER BY` estável DUPLICA linha — e soma em dobro.** O PostgREST
+  pagina por offset: sem ordem definida, a MESMA linha pode voltar em duas páginas.
+  Em 23/11/2026 isso fez a tela de Fiados mostrar `🎟️ Vale R$ 36,00` para o cliente
+  AD CELL BINGEN, que tem **R$ 18,00** de saldo — e esse número entra na mensagem de
+  cobrança que vai para o WhatsApp do cliente. O mesmo apareceu em FORCELL CENTRO
+  (112 em vez de 56), BRUNA ALVES (220,76 em vez de 72) e HIPERCELL (173 em vez de 79).
+  Duas defesas, as duas obrigatórias: (1) toda consulta paginada leva `.order()` com
+  coluna única — `id` serve, `created_at` **não** serve porque empata em lote;
+  (2) `fetchAll` descarta `id` repetido (rede de segurança). Quem soma dinheiro com
+  `fetchAll` sem `.order()` está a uma página de distância de contar duas vezes.
 - **Consulta "sem range" numa tabela grande vira consulta cega.** O PostgREST
   corta em 1000 linhas e devolve as MAIS ANTIGAS: a deduplicação de comprovante
   do bot do Telegram lia `comprovantes_pix` inteira e, depois que a tabela passou

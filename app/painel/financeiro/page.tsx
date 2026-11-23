@@ -182,8 +182,10 @@ export default async function FinanceiroPage({
   })()
   // Cards de resumo somam TODOS os pendentes (globais), sem o cap de 200 da lista
   // nem o filtro de busca/tipo — senão os totais subcontam quando houver >200 lançamentos.
+  // `.order('id')`: soma de dinheiro com paginação por offset precisa de ordem estável,
+  // senão a mesma linha volta em duas páginas e o cartão conta duas vezes.
   const paraTotais = await fetchAll<{ valor: number | null; valor_pago: number | null; tipo: string; status: string | null }>(
-    (from, to) => aplicaLoja(supabase.from('lancamentos').select('valor, valor_pago, tipo, status')).range(from, to)
+    (from, to) => aplicaLoja(supabase.from('lancamentos').select('valor, valor_pago, tipo, status').order('id')).range(from, to)
   )
   // Só conta status 'pendente' (não 'cancelado') e soma o RESTANTE (valor - valor_pago),
   // não o valor cheio. Antes somava o cheio e incluía cancelado — o card "A Receber"
