@@ -133,6 +133,15 @@ export default async function NovoProdutoPage({ searchParams }: { searchParams: 
               </span>
             </span>
           </label>
+          <label className="sm:col-span-2 flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 cursor-pointer">
+            <input name="promocao_top20" type="checkbox" value="true" className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+            <span>
+              <span className="block text-sm font-medium text-gray-800">Promoção TOP 20</span>
+              <span className="block text-xs text-gray-500 mt-0.5">
+                Peça da lista das mais vendidas (preço já baixo). Essas peças não entram no desconto da segunda peça.
+              </span>
+            </span>
+          </label>
         </div>
 
         <div className="flex gap-3 pt-2">
