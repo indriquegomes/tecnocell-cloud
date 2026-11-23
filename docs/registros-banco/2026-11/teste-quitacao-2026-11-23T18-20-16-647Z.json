@@ -1,0 +1,63 @@
+{
+  "quando": "2026-11-23T18:20:16.647Z",
+  "antes": {
+    "id": "dc4f2bf6-437d-43e7-a240-4d303ce6a9af",
+    "codigo": null,
+    "descricao": "A Receber — Fiado #14425",
+    "valor": 5,
+    "data_competencia": "2026-11-19T00:00:00+00:00",
+    "data_vencimento": "2026-11-19T00:00:00+00:00",
+    "data_pagamento": null,
+    "tipo": "receber",
+    "status": "pendente",
+    "forma_pagamento": null,
+    "pessoa_nome": "Maria Julia de Souza Ferreira Carvalho",
+    "created_at": "2026-11-19T18:53:31.664603+00:00",
+    "updated_at": "2026-11-19T18:53:31.664603+00:00",
+    "venda_id": "b95d356a-cedb-40b2-bb6e-4beafe7dacec",
+    "valor_pago": 0,
+    "historico_pagamentos": [],
+    "conta_id": null,
+    "categoria": "Combinado na entrega",
+    "pessoa_id": "cacf47b0-cd57-47a3-a492-2bda0cf54661",
+    "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+    "comprovante_url": null,
+    "devolucao_id": null,
+    "subcategoria": null,
+    "criado_por": null
+  },
+  "depois": {
+    "status": "pago",
+    "valor_pago": 5,
+    "data_pagamento": "2026-11-23T18:20:16.034967+00:00",
+    "forma_pagamento": "PIX",
+    "historico_pagamentos": [
+      {
+        "data": "2026-11-23T18:20:16.034967+00:00",
+        "forma": "PIX",
+        "valor": 5
+      }
+    ]
+  },
+  "mov": {
+    "id": "095b8ce3-7394-4747-ab15-0154ee1a5609",
+    "tipo": "recebimento",
+    "valor": 5,
+    "forma_pagamento": "PIX",
+    "motivo": "Fiado recebido — Maria Julia de Souza Ferreira Carvalho",
+    "lancamento_id": "dc4f2bf6-437d-43e7-a240-4d303ce6a9af",
+    "origem": "pdv",
+    "created_at": "2026-11-23T18:20:16.034967+00:00"
+  },
+  "rpc": {
+    "total": 5,
+    "pagamentos": [
+      {
+        "id": "dc4f2bf6-437d-43e7-a240-4d303ce6a9af",
+        "valor": 5,
+        "quitado": true
+      }
+    ]
+  },
+  "operacaoId": "b964c681-32ee-4384-bd5b-d0818091abf1"
+}
