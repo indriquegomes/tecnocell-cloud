@@ -188,6 +188,89 @@ export async function validarSenhaDesconto(lojaId: string, senha: string): Promi
   return !esperada || senha.trim() === esperada
 }
 
+// ============================================================================
+// DESCONTO 2ª PEÇA (garantia) — substitui o carimbo perdido na peça.
+// Regras (dono, 23/11/2026): peça TOP 20 nunca entra; cliente que já usou → senha
+// do gerente; acima de 40% → senha do gerente. A conferência roda no servidor,
+// nunca só na tela.
+// ============================================================================
+const PCT_SEGUNDA_PECA_SEM_SENHA = 40
+
+async function beneficioJaUsado(
+  supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  pessoaId: string,
+): Promise<{ criado_em: string } | null> {
+  const { data } = await supabase
+    .from('beneficios_segunda_peca')
+    .select('created_at')
+    .eq('pessoa_id', pessoaId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return data ? { criado_em: (data as { created_at: string }).created_at } : null
+}
+
+export async function conferirBeneficioSegundaPeca(
+  accessToken: string,
+  pessoaId: string | null,
+  produtoId: string,
+  percentual: number,
+  lojaId: string,
+  senha: string | null,
+): Promise<{ ok: boolean; top20?: boolean; jaUsou?: { criado_em: string } | null; precisaSenha?: boolean; erro?: string }> {
+  const usuario = await requirePermissao('pdv', accessToken)
+  const supabase = await createServiceClient()
+  const { data: prod } = await supabase.from('produtos').select('nome, promocao_top20').eq('id', produtoId).maybeSingle()
+  if (!prod) return { ok: false, erro: 'Produto não encontrado.' }
+  if ((prod as { promocao_top20?: boolean | null }).promocao_top20) {
+    return { ok: false, top20: true, erro: `"${(prod as { nome: string }).nome}" é peça TOP 20 — não entra em desconto.` }
+  }
+  if (!pessoaId) return { ok: false, erro: 'Selecione o cliente da venda para registrar o benefício da segunda peça.' }
+  const usou = await beneficioJaUsado(supabase, pessoaId)
+  const { isMaster } = await permissoesEfetivas(usuario.id)
+  if (!isMaster && (usou != null || percentual > PCT_SEGUNDA_PECA_SEM_SENHA)) {
+    const senhaOk = !!senha && (await validarSenhaDesconto(lojaId, senha))
+    if (!senhaOk) {
+      return {
+        ok: false, jaUsou: usou, precisaSenha: true,
+        erro: usou
+          ? 'Este cliente já usou o desconto de segunda peça. Precisa da senha do gerente.'
+          : `Desconto acima de ${PCT_SEGUNDA_PECA_SEM_SENHA}% precisa da senha do gerente.`,
+      }
+    }
+  }
+  return { ok: true, jaUsou: usou }
+}
+
+export async function registrarBeneficioSegundaPeca(
+  accessToken: string,
+  input: { pessoa_id: string; produto_id: string; percentual: number; valor: number; loja_id: string; venda_id: string | null; senha: string | null },
+): Promise<{ ok: boolean; erro?: string }> {
+  const usuario = await requirePermissao('pdv', accessToken)
+  const supabase = await createServiceClient()
+  const { data: prod } = await supabase.from('produtos').select('nome, promocao_top20').eq('id', input.produto_id).maybeSingle()
+  if (!prod) return { ok: false, erro: 'Produto não encontrado.' }
+  if ((prod as { promocao_top20?: boolean | null }).promocao_top20) return { ok: false, erro: 'Peça TOP 20 não entra em desconto.' }
+  const usou = await beneficioJaUsado(supabase, input.pessoa_id)
+  const { isMaster } = await permissoesEfetivas(usuario.id)
+  if (!isMaster && (usou != null || input.percentual > PCT_SEGUNDA_PECA_SEM_SENHA)) {
+    if (!input.senha || !(await validarSenhaDesconto(input.loja_id, input.senha))) {
+      return { ok: false, erro: usou ? 'Cliente já usou o benefício — precisa da senha do gerente.' : 'Desconto acima de 40% precisa da senha do gerente.' }
+    }
+  }
+  const { error } = await supabase.from('beneficios_segunda_peca').insert({
+    pessoa_id: input.pessoa_id,
+    produto_id: input.produto_id,
+    venda_id: input.venda_id,
+    loja_id: input.loja_id,
+    percentual: Math.round(input.percentual * 100) / 100,
+    valor: Math.round(input.valor * 100) / 100,
+    criado_por: usuario.id,
+  })
+  if (error) return { ok: false, erro: 'Não foi possível registrar o benefício: ' + error.message }
+  return { ok: true }
+}
+
 interface ItemCarrinho {
   produto_id: string | null
   nome: string

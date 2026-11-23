@@ -6,7 +6,7 @@ import { formaFoiEscolhida, labelPrazo, labelTipoPagamento } from '@/lib/formas-
 import { createClient } from '@/lib/supabase/client'
 import { carregarPedidoAppPDV } from '../pedidos-app/actions'
 import { Spinner } from '@/components/Spinner'
-import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, carregarClientesPDV, buscarFiadoCliente, buscarVendas, buscarCrediario, pagarLancamentos, pagarLancamentosVale, registrarPagamentoParcial, registrarPagamentoMisto, registrarPagamentoValeCredito, aplicarDescontoCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda, type ResultadoReceb } from './actions'
+import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, carregarClientesPDV, buscarFiadoCliente, buscarVendas, buscarCrediario, pagarLancamentos, pagarLancamentosVale, registrarPagamentoParcial, registrarPagamentoMisto, registrarPagamentoValeCredito, aplicarDescontoCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, conferirBeneficioSegundaPeca, registrarBeneficioSegundaPeca, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda, type ResultadoReceb } from './actions'
 import { criarClientePDV } from '../clientes/actions'
 import { buscarOSPorNumero, receberOS } from '../os/actions'
 import { PoliticaCadastro } from '../clientes/politica'
@@ -270,6 +270,15 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [pessoaId, setPessoaId] = useState('')
   const [desconto, setDesconto] = useState('')
   const [senhaDesconto, setSenhaDesconto] = useState('')
+  // Desconto 2ª peça (garantia): modal do benefício + o que foi aplicado e ainda vai
+  // ser registrado quando a venda concluir (venda_id só existe lá).
+  const [beneficioItem, setBeneficioItem] = useState<ItemCarrinho | null>(null)
+  const [beneficioPct, setBeneficioPct] = useState('40')
+  const [beneficioSenha, setBeneficioSenha] = useState('')
+  const [beneficioQuebrada, setBeneficioQuebrada] = useState(false)
+  const [beneficioErro, setBeneficioErro] = useState<string | null>(null)
+  const [beneficioConferindo, setBeneficioConferindo] = useState(false)
+  const [beneficiosPendentes, setBeneficiosPendentes] = useState<Record<string, { pessoa_id: string; percentual: number; valor: number; senha: string | null }>>({})
   const [observacoes, setObservacoes] = useState('')
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
@@ -1281,6 +1290,44 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     if (pedidoAtualRef.current) return
     setErro(null)
     setCarrinho((prev) => prev.filter((i) => i.produto_id !== produto_id))
+    setBeneficiosPendentes((prev) => { const n = { ...prev }; delete n[produto_id]; return n })
+  }
+
+  // Abre o modal do benefício da 2ª peça (garantia) para a peça do carrinho.
+  const abrirBeneficio = (item: ItemCarrinho) => {
+    setBeneficioItem(item)
+    setBeneficioPct('40')
+    setBeneficioSenha('')
+    setBeneficioQuebrada(false)
+    setBeneficioErro(null)
+  }
+
+  // Confere o benefício no servidor e aplica o desconto na peça. O registro do uso
+  // (tabela beneficios_segunda_peca) acontece quando a venda conclui.
+  const aplicarBeneficio = async () => {
+    const item = beneficioItem
+    if (!item) return
+    setBeneficioErro(null)
+    setBeneficioConferindo(true)
+    try {
+      const pct = Number(beneficioPct.replace(',', '.')) || 0
+      if (!(pct > 0) || pct > 100) { setBeneficioErro('Digite um percentual entre 1 e 100.'); return }
+      if (!beneficioQuebrada) { setBeneficioErro('Confirme que a tela quebrada foi comprada dentro da garantia.'); return }
+      const token = await authToken()
+      const r = await conferirBeneficioSegundaPeca(token, pessoaId || null, item.produto_id, pct, lojaId, beneficioSenha || null)
+      if (!r.ok) { setBeneficioErro(r.erro ?? 'Não foi possível aplicar o desconto.'); return }
+      const valorDesconto = Math.round(item.preco_unitario * item.quantidade * pct) / 100
+      alterarDescontoItem(item.produto_id, 'percent', pct)
+      setBeneficiosPendentes((prev) => ({
+        ...prev,
+        [item.produto_id]: { pessoa_id: pessoaId, percentual: pct, valor: valorDesconto, senha: beneficioSenha || null },
+      }))
+      setBeneficioItem(null)
+    } catch (e) {
+      setBeneficioErro(String(e))
+    } finally {
+      setBeneficioConferindo(false)
+    }
   }
 
   // Copiar "código - nome - preço" do produto para mandar no WhatsApp
@@ -1669,6 +1716,16 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
       try { imprimirCupomAuto(cupomFinal, result.vendaId) } catch { setErro('Venda concluída. Use Imprimir para tentar novamente.') }   // sai sozinho (iframe, não é bloqueado como popup)
       setVendaConcluidaId(result.vendaId)
       setVendaTotal(result.total)
+      // Registra o uso do benefício da 2ª peça (o carimbo de verdade). Falha aqui não
+      // cancela a venda — o cupom já saiu; o registro é para o controle da loja.
+      for (const [pid, b] of Object.entries(beneficiosPendentes)) {
+        if (!carrinho.some((i) => i.produto_id === pid)) continue
+        void registrarBeneficioSegundaPeca(token, {
+          pessoa_id: b.pessoa_id, produto_id: pid, percentual: b.percentual, valor: b.valor,
+          loja_id: lojaId, venda_id: result.vendaId, senha: b.senha,
+        }).catch(() => {})
+      }
+      setBeneficiosPendentes({})
       setVendaSnapshot(cupomFinal)
       setMostrarConfirmacao(false)
       setEtapa('venda')
@@ -3095,6 +3152,11 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                     </td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-3">
+                        <button disabled={comercialTravado || !!item.avulso} type="button" onClick={() => abrirBeneficio(item)}
+                          title="Desconto 2ª peça (tela quebrada na garantia)"
+                          className="text-sm text-amber-500 hover:text-amber-700 transition disabled:opacity-40">
+                          🎁
+                        </button>
                         <button type="button" onClick={() => copiarProduto(item)}
                           title="Copiar produto para o WhatsApp"
                           className={`transition text-sm ${copiadoId === item.produto_id ? 'text-green-600' : 'text-gray-400 hover:text-blue-600'}`}>
@@ -4782,6 +4844,60 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
               <button type="button" onClick={() => setMostrarOrcamentos(false)}
                 className="rounded-xl border border-gray-200 px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
                 Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal — desconto 2ª peça (garantia). O carimbo perdido da peça vira registro
+          por cliente: aqui confere as regras e aplica o desconto na peça. */}
+      {beneficioItem && (
+        <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setBeneficioItem(null) }}>
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
+              <h3 className="text-base font-bold text-gray-900">🎁 Desconto 2ª peça (garantia)</h3>
+              <button type="button" onClick={() => setBeneficioItem(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+            </div>
+            <div className="px-5 py-4 space-y-3 text-sm">
+              <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+                <p className="font-medium text-gray-800">{beneficioItem.nome}</p>
+                <p className="text-xs text-gray-500">
+                  {formatBRL(beneficioItem.preco_unitario)} × {beneficioItem.quantidade} · cliente:{' '}
+                  {clienteSelecionado?.nome ?? <span className="font-semibold text-red-600">nenhum — selecione o cliente na venda</span>}
+                </p>
+              </div>
+              <label className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 cursor-pointer">
+                <input type="checkbox" checked={beneficioQuebrada} onChange={(e) => setBeneficioQuebrada(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500" />
+                <span className="text-xs text-amber-800">O cliente trouxe a tela quebrada comprada <b>dentro da garantia (3 meses)</b>.</span>
+              </label>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-gray-600">Desconto na 2ª peça</span>
+                <div className="flex items-center gap-1.5">
+                  <input type="number" min="1" max="100" step="0.01" value={beneficioPct}
+                    onChange={(e) => setBeneficioPct(e.target.value)}
+                    className="w-20 rounded-lg border border-gray-200 px-2 py-1 text-right text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <span className="text-gray-500">%</span>
+                  <button type="button" onClick={() => setBeneficioPct('40')}
+                    className="rounded-lg border border-orange-200 bg-orange-50 px-2 py-1 text-xs font-semibold text-orange-700 hover:bg-orange-100 transition">40%</button>
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-500">Senha do gerente (só se o cliente já usou ou acima de 40%)</label>
+                <input type="password" autoComplete="off" value={beneficioSenha}
+                  onChange={(e) => setBeneficioSenha(e.target.value)} placeholder="senha"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              {beneficioErro && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">{beneficioErro}</p>}
+            </div>
+            <div className="flex gap-2 border-t border-gray-100 px-5 py-3">
+              <button type="button" onClick={() => setBeneficioItem(null)}
+                className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">Cancelar</button>
+              <button type="button" onClick={aplicarBeneficio} disabled={beneficioConferindo}
+                className="flex-1 rounded-xl bg-amber-600 px-4 py-2 text-sm font-bold text-white hover:bg-amber-700 transition disabled:opacity-50">
+                {beneficioConferindo ? 'Conferindo…' : 'Aplicar desconto'}
               </button>
             </div>
           </div>
