@@ -37,9 +37,12 @@ const ate = m === 12 ? `${ano + 1}-01-01` : `${ano}-${String(m + 1).padStart(2, 
 const estornos = await tudo((a, b) => s.from('creditos_clientes')
   .select('id, pessoa_id, pessoa_nome, valor, tipo, descricao, created_at, devolucao_id, estorna_credito_id, loja_id')
   .eq('tipo', 'estorno').gte('created_at', de).lt('created_at', ate).range(a, b))
+// Recorte do MÊS. Antes esta consulta começava em 2026-09-01 fixo e trazia lançamento de
+// mês já fechado para dentro da conferência do mês corrente — o dono olhava a lista de
+// novembro e encontrava conta de setembro/outubro no meio.
 const lanc = await tudo((a, b) => s.from('lancamentos')
   .select('id, descricao, valor, status, categoria, data_pagamento, data_vencimento, pessoa_nome, devolucao_id')
-  .eq('tipo', 'pagar').gte('data_vencimento', '2026-09-01').range(a, b))
+  .eq('tipo', 'pagar').gte('data_vencimento', de).lt('data_vencimento', ate).range(a, b))
 const creditos = await tudo((a, b) => s.from('creditos_clientes')
   .select('pessoa_id, pessoa_nome, valor, tipo, loja_id').range(a, b))
 
@@ -90,22 +93,26 @@ console.log(`\n🔴 4) Estorno gravado fora da tela (sem loja ou sem vínculo co
 for (const e of semLoja) console.log(`   ${dia(e.created_at)} ${brl(e.valor).padStart(9)} ${(e.pessoa_nome || '-').slice(0, 30)} — loja=${e.loja_id ? 'ok' : 'FALTA'} · vínculo=${e.estorna_credito_id ? 'ok' : 'FALTA'} · ${String(e.descricao ?? '').slice(0, 40)}`)
 if (semLoja.length) console.log('   → conserta com `node scripts/consertar-estornos-sem-loja.mjs --gravar` (ensaio sem --gravar)')
 
-// 5) CRÉDITO ESTORNADO DEPOIS DE GASTO — saldo negativo. Aqui não é bug de tela: o
-// cliente usou o crédito e depois o crédito foi cancelado, então ele deve a diferença.
-const negativos = []
-const porPessoa = new Map()
-for (const c of creditos) {
+// 5) ESTORNO DO MÊS QUE PASSOU DO SALDO — o cliente gastou o crédito e o crédito foi
+// cancelado depois. Aqui o recorte é o MÊS: interessa o estorno que ESTE mês fez virar
+// saldo negativo. Saldo negativo herdado de mês fechado (ex.: ISEC, 31/10) NÃO entra na
+// conferência de novembro — mês fechado não volta para a mesa.
+const ordenados = [...creditos].sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''))
+const saldoAntes = new Map()
+const estouros = []
+for (const c of ordenados) {
   const k = c.pessoa_id ?? 'sem'
-  porPessoa.set(k, (porPessoa.get(k) ?? 0) + (['uso', 'estorno'].includes(c.tipo) ? -Number(c.valor || 0) : Number(c.valor || 0)))
-}
-for (const [pid, v] of porPessoa) {
-  if (v < -0.01) {
-    const nome = creditos.find((c) => c.pessoa_id === pid)?.pessoa_nome ?? pid
-    negativos.push({ pid, nome, v })
+  const antes = saldoAntes.get(k) ?? 0
+  const efeito = ['uso', 'estorno'].includes(c.tipo) ? -Number(c.valor || 0) : Number(c.valor || 0)
+  const depois = antes + efeito
+  if (c.tipo === 'estorno' && (c.created_at ?? '') >= de && (c.created_at ?? '') < ate && depois < -0.01) {
+    estouros.push({ nome: c.pessoa_nome ?? k, valor: c.valor, antes, depois, quando: c.created_at })
   }
+  saldoAntes.set(k, depois)
 }
 // saldo POR LOJA é o que o PDV aplica na venda: se ele estiver maior que o saldo da
 // pessoa, o cliente pode gastar crédito que não tem. É o defeito do estorno sem loja.
+const porPessoa = saldoAntes
 const porPessoaLoja = new Map()
 for (const c of creditos) {
   const k = `${c.pessoa_id ?? 'sem'}|${c.loja_id ?? ''}`
@@ -118,12 +125,14 @@ for (const [k, v] of porPessoaLoja) {
   const total = porPessoa.get(pid) ?? 0
   if (v - total > 0.01) inflados.push({ nome: creditos.find((c) => c.pessoa_id === pid)?.pessoa_nome ?? pid, loja: v, total })
 }
-console.log(`\n🟡 5) Cliente com saldo de vale NEGATIVO (crédito cancelado já gasto): ${negativos.length}`)
-for (const n of negativos) console.log(`   ${(n.nome || '-').slice(0, 34).padEnd(34)} R$ ${brl(n.v)} — usou mais crédito do que tinha`)
+console.log(`\n🟡 5) Estorno DO MÊS que passou do saldo (crédito já gasto): ${estouros.length}`)
+for (const n of estouros) console.log(`   ${dia(n.quando)} ${(n.nome || '-').slice(0, 30).padEnd(30)} estorno ${brl(n.valor)} · saldo antes ${brl(n.antes)} → ${brl(n.depois)}`)
 console.log(`\n🔴 6) Saldo POR LOJA maior que o saldo real (vale a mais no PDV): ${inflados.length}`)
 for (const i of inflados) console.log(`   ${(i.nome || '-').slice(0, 34).padEnd(34)} loja R$ ${brl(i.loja)} × real R$ ${brl(i.total)}`)
 
-const problemas = grupo1.length + grupo2.length + pendentes.length + semLoja.length + inflados.length
+const problemas = grupo1.length + grupo2.length + pendentes.length + semLoja.length + inflados.length + estouros.length
 if (problemas) console.log(`\n${problemas} ponto(s) para olhar antes de fechar o mês.`)
 else console.log('\nnada a apontar — estorno e reembolso combinando.')
-if (negativos.length) console.log(`⚠ atenção: ${negativos.length} cliente(s) com saldo negativo (usou mais crédito do que tinha) — é dívida do cliente, não dinheiro solto na loja.`)
+// Nota de pé de página: saldo negativo herdado de mês fechado NÃO é conferência deste mês.
+const herdado = [...saldoAntes.entries()].filter(([, v]) => v < -0.01)
+if (herdado.length) console.log(`ℹ️  ${herdado.length} cliente(s) com saldo de vale negativo vindo de mês anterior (fora do recorte deste mês — dívida de cliente, não dinheiro solto).`)

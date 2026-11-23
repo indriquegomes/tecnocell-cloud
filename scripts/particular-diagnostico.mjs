@@ -54,9 +54,11 @@ console.log(`\nParecem pessoais mas estão em categoria de LOJA (candidatas a vi
 for (const l of suspeitas) console.log(`  ${dia(l.data_vencimento)}  ${String(l.categoria ?? '—').slice(0, 14).padEnd(14)} ${String(l.descricao ?? '').slice(0, 40).padEnd(40)} R$ ${brl(l.valor).padStart(10)}  ${l.status}  ${lojaDe.get(l.loja_id ?? '') ?? '—'}`)
 if (!suspeitas.length) console.log('  (nenhuma)')
 
-// Para decidir "é do mês passado?": mostra a mesma varredura nos 3 meses anteriores.
-console.log('\n--- Mesma varredura nos meses anteriores (para ver se algo é de mês passado) ---')
-for (const ant of [-1, -2, -3]) {
+// Meses anteriores SÓ quando pedido (`--meses-anteriores`): mês fechado não entra na
+// conferência do mês corrente. Sem a flag, o script fala apenas do mês pedido.
+if (process.argv.includes('--meses-anteriores')) {
+  console.log('\n--- Mesma varredura nos meses anteriores (só com --meses-anteriores) ---')
+  for (const ant of [-1, -2, -3]) {
   const d = new Date(ano, m - 1 + ant, 1)
   const a = d.getFullYear()
   const mm = d.getMonth() + 1
@@ -69,5 +71,6 @@ for (const ant of [-1, -2, -3]) {
   const p = ls.filter((l) => ['Pró-labore', 'Particular'].includes(l.categoria ?? ''))
   const sp = ls.filter((l) => !['Pró-labore', 'Particular'].includes(l.categoria ?? '') && PESSOAL.test(norm(l.descricao)))
   console.log(`  ${ini.slice(0, 7)}: aba ${p.length} (R$ ${brl(p.reduce((t, l) => t + Number(l.valor ?? 0), 0))}) · suspeitas ${sp.length}${sp.length ? ' → ' + sp.map((l) => `${l.descricao} R$ ${brl(l.valor)}`).join(' | ').slice(0, 200) : ''}`)
+  }
 }
 console.log('')

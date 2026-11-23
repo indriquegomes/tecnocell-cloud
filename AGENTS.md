@@ -279,6 +279,15 @@ bater com o total, senão a venda inteira é recusada.
   (`scripts/conferir-fiado-por-cliente.mjs`, orfão = 0). Script oficial é a fonte;
   reaproveitar o número antigo produz pendência-fantasma (foi o caso dos "56 fiados
   sem cadastro" em 15/11/2026).
+- **Conferência de mês fechado é SÓ do mês — e conta de mês passado não entra na
+  lista do mês corrente.** Script de conferência recebe o mês e recorta por ele
+  (`data_vencimento`/`created_at` dentro do mês). A **única** coisa que atravessa mês
+  é **saldo**: dívida de cliente (fiado em aberto) e saldo de vale-crédito, que são
+  lidos como saldo do dia, nunca como "conta de outubro". Exemplo do erro: a
+  conferência de novembro puxava estorno de 31/10 (ISEC, −R$ 230,00) e lançamentos
+  desde 2026-09-01 fixo, e o dono recebia conta de mês fechado na mesa. Achado de mês
+  fechado vai para `docs/registros/<ano-mês>/achados-pos-fechamento.md`, não para a
+  lista do mês corrente.
 - **"Desfazer pagamento" NÃO desfaz o abatimento na nota.** `marcarPago` de compra de
   mercadoria encolhe a nota do fornecedor (`abaterNaDivida`), mas
   `desfazer_pagamento_atomico` só apaga o movimento de caixa e zera `valor_pago`.

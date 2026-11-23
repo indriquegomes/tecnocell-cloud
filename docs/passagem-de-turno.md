@@ -80,10 +80,16 @@ DESFAZER). Agora os três mostram 25,50 · 0 · 0, e os alarmes 4 e 6 do
 `conferir-estornos-credito.mjs` pegam a recaída. `buscarSaldoCredito` passou a resolver a
 loja do estorno **pelo crédito que ele cancela**, então nem um estorno feito na mão
 consegue inflar o vale do PDV.
-**Único saldo negativo que sobrou é real:** ISEC, −R$ 230,00 — dois créditos de sinal de
-230,00 no mesmo minuto (27/10), um deles estornado depois de os dois serem gastos num uso
-de 460,00. O cliente usou R$ 230,00 de crédito que não tinha: é dívida dele (ou prejuízo
-da loja) — decide o dono.
+
+**8. Conferência do mês passou a ser SÓ do mês.** A conferência de estornos lia
+lançamento desde `2026-09-01` fixo e mostrava saldo de vale acumulado de toda a vida do
+cliente — então a lista de novembro vinha com conta de setembro/outubro no meio (o caso do
+ISEC é de **31/10**). Corrigido: toda consulta recorta pelo mês (`data_vencimento`/
+`created_at` dentro do mês), e o alarme de "saldo negativo" virou "estorno **deste mês**
+que passou do saldo". O que atravessa mês é **saldo**, não conta: dívida de cliente em
+aberto (fiado) e saldo de vale-crédito, lidos como saldo do dia. Achado de mês fechado vai
+para `docs/registros/2026-10/achados-pos-fechamento.md` — não para a lista de novembro.
+Regra escrita no `AGENTS.md` §9.
 
 ## Nesta rodada (22/11/2026) — dinheiro que estava fora do Financeiro + aba Particular
 
