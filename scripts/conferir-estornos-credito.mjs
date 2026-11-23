@@ -44,7 +44,7 @@ const lanc = await tudo((a, b) => s.from('lancamentos')
   .select('id, descricao, valor, status, categoria, data_pagamento, data_vencimento, pessoa_nome, devolucao_id')
   .eq('tipo', 'pagar').gte('data_vencimento', de).lt('data_vencimento', ate).range(a, b))
 const creditos = await tudo((a, b) => s.from('creditos_clientes')
-  .select('pessoa_id, pessoa_nome, valor, tipo, loja_id').range(a, b))
+  .select('id, pessoa_id, pessoa_nome, valor, tipo, loja_id, created_at').order('created_at').order('id').range(a, b))
 
 const saldo = (pessoaId) => Math.round(creditos
   .filter((c) => c.pessoa_id === pessoaId)
