@@ -90,6 +90,11 @@ function gavetaFormulaTela({ abertura, movimentos, pagamentos, tipoPorForma }) {
 // ── o banco de treino ──────────────────────────────────────────────────────
 async function bancoDeTreino({ comCorrecao = false } = {}) {
   const db = new PGlite()
+  // O Postgres do Supabase roda em UTC; o PGlite herda o fuso da máquina (aqui,
+  // Etc/GMT+3). Sem fixar UTC, `(now() at time zone 'America/Sao_Paulo')::date` cai em
+  // 03:00Z em vez de 00:00Z e os testes de "a divergência DEVE existir" viram falso
+  // negativo — a caixa de treino passaria a testar outra coisa que não a produção.
+  await db.exec(`set time zone 'UTC'`)
   await db.exec(`
     create role anon;
     create role authenticated;
