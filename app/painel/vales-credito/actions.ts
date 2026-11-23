@@ -74,6 +74,49 @@ export async function estornarCredito(id: string, formData?: FormData) {
   const origem = ((formData?.get('origem') as string | null) ?? '').trim()   // 'Dinheiro' | 'PIX' | ''
   const entregue = origem !== ''
 
+  // TRAVA (22/11): se a devolução desse crédito JÁ teve o reembolso pago, estornar
+  // cria uma conta a pagar que não existe — o cliente recebeu o dinheiro e o crédito
+  // só precisa sair do saldo. Foi o que deixou R$ 530,00 de dívida fantasma no
+  // RODRIGO PEREIRA (reembolso de 1.530,90 pago em 19/11 e duas linhas "a pagar"
+  // abertas em 21/11) e a duplicata do LK CELL. A conferência é feita ANTES da RPC:
+  // ou dá tudo certo, ou nada é escrito.
+  {
+    const { data: cred } = await supabase
+      .from('creditos_clientes')
+      .select('id, valor, pessoa_nome, devolucao_id')
+      .eq('id', id)
+      .maybeSingle()
+    const c = cred as { valor: number | null; pessoa_nome: string | null; devolucao_id: string | null } | null
+    if (c) {
+      let pago: { descricao: string | null; data_pagamento: string | null; valor: number | null } | null = null
+      if (c.devolucao_id) {
+        const { data } = await supabase.from('lancamentos')
+          .select('descricao, data_pagamento, valor')
+          .eq('tipo', 'pagar').eq('status', 'pago').eq('devolucao_id', c.devolucao_id)
+          .limit(1).maybeSingle()
+        pago = data ?? null
+      }
+      if (!pago && c.pessoa_nome) {
+        const { data } = await supabase.from('lancamentos')
+          .select('descricao, data_pagamento, valor')
+          .eq('tipo', 'pagar').eq('status', 'pago')
+          .ilike('descricao', 'Devolução — %')
+          .eq('pessoa_nome', c.pessoa_nome)
+          .eq('valor', c.valor)
+          .limit(1).maybeSingle()
+        pago = data ?? null
+      }
+      if (pago) {
+        const quando = (pago.data_pagamento ?? '').slice(8, 10) + '/' + (pago.data_pagamento ?? '').slice(5, 7)
+        redirect(`/painel/vales-credito?erro=${encodeURIComponent(
+          `O reembolso desta devolução já foi pago em ${quando} (${pago.descricao ?? 'Devolução'}). `
+          + 'Estornar o crédito agora abriria uma conta a pagar que não existe. '
+          + 'Se o crédito precisa sair do saldo mesmo assim, fale com o dono.',
+        )}`)
+      }
+    }
+  }
+
   // Tudo numa RPC atômica (migration 2026-08-27): trava saldo negativo (mesmo
   // achado de DIEGO PALMA em 27/08 — dois créditos de R$45+R$100, R$45 já
   // gasto, estornar os dois inteiros deixou -R$45,00) + idempotência (índice
