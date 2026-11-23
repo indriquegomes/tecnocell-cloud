@@ -101,10 +101,16 @@ Assim, pagamento de segunda 23/11 aparecia como domingo 22/11 às 21h. Em novemb
 afeta **3.240 dos 3.998** lançamentos pagos. A hora real de cada baixa está em
 `historico_pagamentos`.
 Correções prontas: migration `2026-11-24-fiado-data-pagamento-real.sql` (troca o `::date`
-por `now()`; resto do corpo idêntico — **precisa ser colada no SQL Editor**) e
-`scripts/consertar-hora-pagamento.mjs` (devolve a hora das 2.550 linhas que têm a hora no
-histórico; 690 não têm hora em lugar nenhum, mas o dia está certo). O script de conferência
-passou a tratar data pura como DIA, então esse falso alarme não volta.
+por `now()`; resto do corpo idêntico) e `scripts/consertar-hora-pagamento.mjs` (devolve a
+hora das 2.550 linhas que têm a hora no histórico; 690 não têm hora em lugar nenhum, mas o
+dia está certo). O script de conferência passou a tratar data pura como DIA, então esse
+falso alarme não volta.
+**Aplicado em 23/11 (o dono colou no SQL Editor, "Success. No rows returned"):**
+`2026-11-24-fiado-data-pagamento-real.sql` e
+`2026-11-24-recebimento-lote-instante-e-vinculo.sql` — conferido no `pg_proc`: as duas
+funções estão com `now()` e a de lote já cria um movimento por dívida com `lancamento_id`
++ `origem`. O backfill das 2.552 horas foi gravado (backup e DESFAZER em
+`docs/registros-banco/2026-11/`).
 
 ## Nesta rodada (22/11/2026) — dinheiro que estava fora do Financeiro + aba Particular
 
