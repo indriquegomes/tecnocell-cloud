@@ -218,16 +218,28 @@ export default async function RelatoriosPage({
 
     // Subtrai devoluções do período — senão o relatório conta como vendido o que
     // o cliente devolveu ("20 vendidos, 5 devolvidos" virava 20 em vez de 15).
-    const devs = await fetchAll<{ id: string }>((from, to) => {
+    //
+    // MAS cada ponta segue a régua de docs/mapa/regra-perda-e-devolucao.md:
+    //   • RECEITA só cai quando o dinheiro/crédito voltou para o cliente. Devolução
+    //     `sem_reembolso` (loja ficou com o preço) NÃO reduz receita — antes reduzia, e
+    //     o mês aparecia menor do que foi.
+    //   • CUSTO só volta quando a peça voltou para o estoque (`status_produto = 'ok'`).
+    //     Peça que não volta (troca/avaria) continua no resultado, e a perda dela é
+    //     lançada como despesa ("Perda de troca"/"Perda") — estornar o custo aqui e
+    //     lançar a perda depois contaria o mesmo custo duas vezes a favor da loja.
+    //   • O custo usado é o TRAVADO na venda (`itens_venda.custo_unitario`), não o
+    //     preço de custo do cadastro de hoje — cadastro muda, a venda não.
+    const devs = await fetchAll<{ id: string; venda_id: string | null; tipo_credito: string | null }>((from, to) => {
       let q = supabase.from('devolucoes')
-        .select('id').gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+        .select('id, venda_id, tipo_credito').gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
       if (depositosDaLoja) q = q.in('deposito_id', depositosDaLoja)   // só devoluções da loja filtrada
       return q.range(from, to)
     })
     const devIds = (devs ?? []).map((d) => d.id)
+    const devInfo = new Map((devs ?? []).map((d) => [d.id, d]))
     if (devIds.length) {
-      const devItens = await fetchAllIn<{ produto_id: string; nome: string; quantidade: number; total_item: number }>(devIds, (chunk, from, to) => supabase.from('itens_devolucao')
-        .select('produto_id, nome, quantidade, total_item').in('devolucao_id', chunk).range(from, to))
+      const devItens = await fetchAllIn<{ devolucao_id: string; produto_id: string; nome: string; quantidade: number; total_item: number; status_produto: string | null }>(devIds, (chunk, from, to) => supabase.from('itens_devolucao')
+        .select('devolucao_id, produto_id, nome, quantidade, total_item, status_produto').in('devolucao_id', chunk).range(from, to))
       const devPids = [...new Set(devItens.map((i) => i.produto_id).filter(Boolean))] as string[]
       let custoDevById: Record<string, number> = {}
       let categoriaDevById: Record<string, string | null> = {}
@@ -236,25 +248,40 @@ export default async function RelatoriosPage({
         custoDevById = Object.fromEntries(custosDev.map((p) => [p.id, p.preco_custo ?? 0]))
         categoriaDevById = Object.fromEntries(custosDev.map((p) => [p.id, p.categoria ?? null]))
       }
+      // custo travado na venda: (venda_id|produto_id) → custo_unitario
+      const vendaIdsDev = [...new Set((devs ?? []).map((d) => d.venda_id).filter(Boolean))] as string[]
+      const custoTravado = new Map<string, number>()
+      if (vendaIdsDev.length) {
+        const itensVenda = await fetchAllIn<{ venda_id: string; produto_id: string; custo_unitario: number | null }>(vendaIdsDev, (chunk, from, to) => supabase.from('itens_venda')
+          .select('venda_id, produto_id, custo_unitario').in('venda_id', chunk).range(from, to))
+        for (const iv of itensVenda) {
+          if (iv.custo_unitario != null) custoTravado.set(`${iv.venda_id}|${iv.produto_id}`, Number(iv.custo_unitario))
+        }
+      }
       for (const it of devItens) {
         // Filtro de categoria vale também pras devoluções — senão item devolvido de
         // OUTRA categoria vaza no condensado filtrado ("só FRONTAL" mostrava bateria/
         // componente devolvidos como linha negativa).
         if (catprod && (categoriaDevById[it.produto_id] ?? null) !== catprod) continue
+        const info = devInfo.get(it.devolucao_id)
         const nome = it.nome ?? '—'
         const qtd = Number(it.quantidade) || 0
         const devolvido = Number(it.total_item) || 0
-        const custoLinha = (custoDevById[it.produto_id] ?? 0) * qtd
+        const pecaVoltou = (it.status_produto ?? 'ok') === 'ok'
+        const dinheiroVoltou = (info?.tipo_credito ?? '') !== 'sem_reembolso'
+        const custoUnit = custoTravado.get(`${info?.venda_id}|${it.produto_id}`) ?? custoDevById[it.produto_id] ?? 0
+        const custoLinha = (pecaVoltou ? custoUnit : 0) * qtd
+        const receitaLinha = dinheiroVoltou ? devolvido : 0
         const agg = porProduto[it.produto_id]
         if (agg) {
           agg.qtd -= qtd
-          agg.vendido -= devolvido
+          agg.vendido -= receitaLinha
           agg.custo -= custoLinha
         } else {
           // devolvido mas não vendido no período → entra negativo
-          porProduto[it.produto_id] = { nome, qtd: -qtd, vendido: -devolvido, custo: -custoLinha }
+          porProduto[it.produto_id] = { nome, qtd: -qtd, vendido: -receitaLinha, custo: -custoLinha }
         }
-        totalVendidoItens -= devolvido
+        totalVendidoItens -= receitaLinha
         totalCustoItens -= custoLinha
       }
     }
