@@ -437,6 +437,25 @@ export default async function RelatoriosPage({
         .eq('tipo', 'pagar').neq('status', 'cancelado').gte('data_vencimento', dataInicio).lte('data_vencimento', dataFim + 'T23:59:59')).range(from, to)),
     ])
     dreReceita = (vs ?? []).reduce((s, v) => s + (v.total ?? 0), 0)
+    // DEVOLUÇÃO SAI DA RECEITA — menos a "sem reembolso", em que a loja ficou com o
+    // dinheiro (régua em docs/mapa/regra-perda-e-devolucao.md). Antes a receita ficava
+    // BRUTA de devolução enquanto o custo já saía líquido: o DRE somava duas vantagens e
+    // o lucro bruto do mês aparecia maior do que foi.
+    {
+      const devsDre = await fetchAll<{ id: string; tipo_credito: string | null }>((from, to) => {
+        let q = supabase.from('devolucoes').select('id, tipo_credito')
+          .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
+        if (depositosDaLoja) q = q.in('deposito_id', depositosDaLoja)
+        return q.range(from, to)
+      })
+      const comReembolso = devsDre.filter((d) => (d.tipo_credito ?? '') !== 'sem_reembolso').map((d) => d.id)
+      if (comReembolso.length) {
+        const itensDev = await fetchAllIn<{ total_item: number | null }>(comReembolso, (chunk, from, to) =>
+          supabase.from('itens_devolucao').select('total_item').in('devolucao_id', chunk).range(from, to))
+        const devolvido = itensDev.reduce((s, i) => s + Number(i.total_item ?? 0), 0)
+        dreReceita -= devolvido
+      }
+    }
     const catMap: Record<string, number> = {}
     for (const l of (ds ?? []) as { valor: number; categoria: string | null }[]) {
       // Mercadoria comprada é ESTOQUE, não despesa: o custo já entra no resultado
