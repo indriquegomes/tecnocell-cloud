@@ -89,6 +89,24 @@ calcular na hora (hoje: view `v_estorno_custo_devolucao`, aplicada em 23/11).
 imutável — a view já dá o mesmo número sem segunda verdade para dessincronizar. Só vale se
 aparecer a necessidade de histórico de “como o custo era na época”.
 
+
+## 9. Registro de estoque em TODA venda (para provar o estoque inicial)
+
+**O que é:** a venda baixa `estoque.quantidade` direto e **não** grava linha em
+`movimentacoes_estoque`. Em 23/11: 514 vendas, 852 peças vendidas, só **85** movimentos
+(356 peças). Em novembro: 8.093 peças vendidas contra 2.074 movimentos.
+
+**Por que importa:** sem isso **não existe histórico de estoque** — não dá para responder
+"com quanto o estoque começou o mês" nem provar a identidade
+`inicial + compras − vendas − perdas = final`. Hoje o estoque inicial só sai por
+estimativa (≈ R$ 476 mil → R$ 490 mil, +R$ 13 mil no mês) e a prova real é a **contagem no
+fechamento**.
+
+**Esforço:** médio (uma chamada de `movimentar_estoque`/`saida` por item dentro de
+`finalizar_venda`, com vínculo da venda; conferir caso de item avulso e uso interno).
+**Falta:** decisão do dono — pesa na performance do PDV, então tem que ser feito com cuidado
+e medido (a venda hoje leva ~2,5s; queremos continuar assim).
+
 ## Ordem sugerida
 
 | # | Item | Quem decide | Quando |
@@ -101,3 +119,4 @@ aparecer a necessidade de histórico de “como o custo era na época”.
 | 6 | Backfill de vínculo | dono | antes de usar “Desfazer” em recebimento antigo |
 | 7 | Cartão “sobrou pra mim” | dono | junto com o 3 (uma passada de UI) |
 | 8 | Custo persistido | só se precisar | — |
+| 9 | Estoque em toda venda (prova o estoque inicial) | dono | quando quiser fechar o cerco do estoque |
