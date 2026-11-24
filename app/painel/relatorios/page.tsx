@@ -192,6 +192,9 @@ export default async function RelatoriosPage({
   type ProdAgg = { nome: string; qtd: number; vendido: number; custo: number }
   const porProduto: Record<string, ProdAgg> = {}
   let totalVendidoItens = 0, totalCustoItens = 0
+  // Componentes da devolução separados, para o DRE mostrar a conta aberta
+  // (receita bruta − devoluções; custo bruto − custo das peças que voltaram).
+  let receitaDevolvidaPeriodo = 0, custoDevolvidoPeriodo = 0, itensDevolvidosPeriodo = 0
   if (precisaItens) {
     const data = await fetchAll((from, to) => {
       let q = supabase.from('itens_venda')
@@ -283,6 +286,9 @@ export default async function RelatoriosPage({
         }
         totalVendidoItens -= receitaLinha
         totalCustoItens -= custoLinha
+        receitaDevolvidaPeriodo += receitaLinha
+        custoDevolvidoPeriodo += custoLinha
+        itensDevolvidosPeriodo += qtd
       }
     }
   }
@@ -426,6 +432,7 @@ export default async function RelatoriosPage({
 
   // ---------- DRE (resultado do período) ----------
   let dreReceita = 0, dreDespesas = 0, dreComprasMercadoria = 0
+  let dreReceitaBruta = 0
   let despesasPorCategoria: { categoria: string; valor: number }[] = []
   if (aba === 'dre') {
     // Receita (vendas) e despesas (lançamentos) são independentes — rodam em
@@ -441,21 +448,11 @@ export default async function RelatoriosPage({
     // dinheiro (régua em docs/mapa/regra-perda-e-devolucao.md). Antes a receita ficava
     // BRUTA de devolução enquanto o custo já saía líquido: o DRE somava duas vantagens e
     // o lucro bruto do mês aparecia maior do que foi.
-    {
-      const devsDre = await fetchAll<{ id: string; tipo_credito: string | null }>((from, to) => {
-        let q = supabase.from('devolucoes').select('id, tipo_credito')
-          .gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
-        if (depositosDaLoja) q = q.in('deposito_id', depositosDaLoja)
-        return q.range(from, to)
-      })
-      const comReembolso = devsDre.filter((d) => (d.tipo_credito ?? '') !== 'sem_reembolso').map((d) => d.id)
-      if (comReembolso.length) {
-        const itensDev = await fetchAllIn<{ total_item: number | null }>(comReembolso, (chunk, from, to) =>
-          supabase.from('itens_devolucao').select('total_item').in('devolucao_id', chunk).range(from, to))
-        const devolvido = itensDev.reduce((s, i) => s + Number(i.total_item ?? 0), 0)
-        dreReceita -= devolvido
-      }
-    }
+    // A devolução sai da receita pela MESMA conta do bloco de itens (uma verdade só):
+    // `receitaDevolvidaPeriodo` já traz o valor das devoluções que devolveram dinheiro/
+    // crédito, com o mesmo filtro de loja e período.
+    dreReceitaBruta = dreReceita
+    dreReceita -= receitaDevolvidaPeriodo
     const catMap: Record<string, number> = {}
     for (const l of (ds ?? []) as { valor: number; categoria: string | null }[]) {
       // Mercadoria comprada é ESTOQUE, não despesa: o custo já entra no resultado
@@ -472,6 +469,10 @@ export default async function RelatoriosPage({
     despesasPorCategoria = Object.entries(catMap).map(([categoria, valor]) => ({ categoria, valor })).sort((a, b) => b.valor - a.valor)
   }
   const dreCmv = totalCustoItens
+  const dreCmvBruto = totalCustoItens + custoDevolvidoPeriodo
+  const dreDevolucoes = receitaDevolvidaPeriodo
+  const dreCustoDevolvido = custoDevolvidoPeriodo
+  const dreItensDevolvidos = itensDevolvidosPeriodo
   const dreLucroBruto = dreReceita - dreCmv
   const dreResultado = dreLucroBruto - dreDespesas
 
@@ -1583,13 +1584,27 @@ export default async function RelatoriosPage({
         <div className="space-y-6">
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="space-y-1 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <LinhaDRE label="Receita de vendas" valor={dreReceita} cor="text-gray-800" />
-            <LinhaDRE label="(−) Custo das peças vendidas" valor={-dreCmv} cor="text-orange-500" />
+            {/* A CONTA ABERTA: o dono tem que poder conferir cada linha, não só o
+                resultado. Antes o DRE mostrava "receita" e "custo" já líquidos de
+                devolução — o número mudava e não havia como ver de onde vinha. */}
+            <LinhaDRE label="Receita de vendas (bruta)" valor={dreReceitaBruta} cor="text-gray-800" />
+            <LinhaDRE label="(−) Devoluções (dinheiro/crédito que voltou ao cliente)" valor={-dreDevolucoes} cor="text-rose-500" />
+            <div className="my-1 border-t border-gray-100" />
+            <LinhaDRE label="Receita de vendas (líquida)" valor={dreReceita} cor="text-gray-800" />
+            <LinhaDRE label="(−) Custo das peças vendidas (bruto)" valor={-dreCmvBruto} cor="text-orange-500" />
+            <LinhaDRE label="(+) Custo das peças devolvidas que voltaram ao estoque" valor={dreCustoDevolvido} cor="text-emerald-600" />
+            <LinhaDRE label="(−) Custo das peças vendidas (líquido)" valor={-dreCmv} cor="text-orange-500" />
             <div className="my-1 border-t border-gray-100" />
             <LinhaDRE label="(=) Lucro bruto" valor={dreLucroBruto} cor={dreLucroBruto >= 0 ? 'text-green-600' : 'text-red-500'} bold />
             <LinhaDRE label="(−) Despesas (contas a pagar)" valor={-dreDespesas} cor="text-red-500" />
             <div className="my-1 border-t-2 border-gray-200" />
             <LinhaDRE label="(=) Resultado do período" valor={dreResultado} cor={dreResultado >= 0 ? 'text-blue-600' : 'text-red-600'} bold big />
+            <p className="pt-3 text-[11px] text-gray-500">
+              <b>Régua da devolução</b> (docs/mapa/regra-perda-e-devolucao.md): devolução com reembolso, crédito
+              ou cancelamento de fiado <b>sai da receita</b>; devolução <b>sem reembolso</b> não sai (a loja ficou
+              com o dinheiro). No custo, só volta o das peças que <b>voltaram ao estoque</b> ({dreItensDevolvidos} peça(s) no
+              período) — peça que foi para o fornecedor ou virou avaria continua no resultado.
+            </p>
             {dreComprasMercadoria > 0 && (
               <p className="pt-3 text-[11px] text-gray-500">
                 Fora do resultado: <b>{formatBRL(dreComprasMercadoria)}</b> de compra de mercadoria paga no período — é
