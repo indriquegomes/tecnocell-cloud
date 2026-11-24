@@ -74,3 +74,34 @@ o resultado de novembro está **pior** do que a verdade nesse tanto (o erro é a
 2. **Registro contábil (mais completo):** a devolução com peça boa grava um “estorno de
    custo” vinculado ao item devolvido, e o fechamento usa esse crédito. Dá histórico por
    peça e sobrevive a mudança de relatório.
+
+## 6. O que foi feito em 23/11/2026 (degraus 1 e 2)
+
+**Degrau 1 — DRE (código, no ar em `2f4507b` e `a49de14`):**
+
+- receita só cai quando o dinheiro/crédito voltou ao cliente (`sem_reembolso` não derruba);
+- custo só volta quando a peça voltou ao estoque (`status_produto = 'ok'`);
+- custo usado é o **travado na venda** (`itens_venda.custo_unitario`), não o cadastro;
+- e a receita, que antes ficava **bruta** de devolução enquanto o custo já saía líquido,
+  passou a descontar devolução também — eram duas vantagens no mesmo evento.
+
+**Degrau 2 — fonte única (migration
+`2026-11-24-view-estorno-custo-devolucao.sql`):** a view `v_estorno_custo_devolucao`
+define o estorno de custo uma vez (item `ok`, custo travado, tipo de crédito junto), para
+relatório, fechamento e conferência lerem o mesmo número. **View e não tabela de
+propósito:** a fonte (`itens_devolucao` + `itens_venda.custo_unitario`) é imutável — uma
+tabela nova criaria segunda verdade para dessincronizar.
+
+**Prova de que a régua nova reconcilia** (Petrópolis, 01–30/11/2026):
+
+| | Antes | Depois |
+|---|---|---|
+| Receita de vendas | R$ 194.999,89 | **R$ 148.017,27** |
+| (−) Custo das peças vendidas | R$ 106.493,47 | **R$ 116.249,30** |
+| (=) Lucro bruto | R$ 88.506,42 | **R$ 31.767,97** |
+| (=) Resultado do período | + R$ 12.311,09 | **− R$ 44.427,36** |
+
+A queda da receita (R$ 46.982,62) é **exatamente** o valor de devolução apurado pelo
+conferente independente (`scripts/conferir-cmv-devolucao.mjs`) — as duas contas batem.
+Ou seja: o resultado de novembro estava sendo inflado em ~R$ 56,7 mil só em Petrópolis.
+

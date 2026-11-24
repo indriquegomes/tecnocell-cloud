@@ -18,15 +18,33 @@ async function tudo(q) { const o = []; for (let i = 0; i < 400000; i += P) { con
 async function tudoIn(ids, make, chunk = 200) { const o = []; for (let i = 0; i < ids.length; i += chunk) { const c = ids.slice(i, i + chunk); o.push(...await tudo((a, b) => make(c, a, b))) } return o }
 
 const mes = process.argv[2] ?? '2026-11'
+const lojaNome = process.argv[3] ?? null
 const [ano, m] = mes.split('-').map(Number)
 const inicio = `${mes}-01T00:00:00-03:00`
 const fim = m === 12 ? `${ano + 1}-01-01T00:00:00-03:00` : `${ano}-${String(m + 1).padStart(2, '0')}-01T00:00:00-03:00`
 
+// filtro de loja igual ao do DRE: venda entra se o caixa dela é da loja
+let caixasDaLoja = null
+let depositosDaLoja = null
+if (lojaNome) {
+  const { data: lojas } = await s.from('lojas').select('id, nome').ilike('nome', `%${lojaNome}%`)
+  const loja = (lojas ?? [])[0]
+  if (!loja) { console.error('loja não encontrada:', lojaNome); process.exit(1) }
+  const { data: cxs } = await s.from('caixas').select('id').eq('loja_id', loja.id)
+  caixasDaLoja = new Set((cxs ?? []).map((c) => c.id))
+  const { data: deps } = await s.from('depositos').select('id').eq('loja_id', loja.id)
+  depositosDaLoja = new Set((deps ?? []).map((d) => d.id))
+  console.log(`loja: ${loja.nome} · ${caixasDaLoja.size} caixa(s) · ${depositosDaLoja.size} depósito(s)`)
+}
+
 // vendas do mês (itens com custo travado)
-const itens = await tudo((f, t) => s.from('itens_venda')
-  .select('venda_id, produto_id, quantidade, total_item, custo_unitario, produtos(preco_custo), vendas!inner(created_at, status)')
-  .eq('vendas.status', 'concluida').gte('vendas.created_at', inicio).lt('vendas.created_at', fim)
-  .order('id').range(f, t))
+const itens = await tudo((f, t) => {
+  let q = s.from('itens_venda')
+    .select('venda_id, produto_id, quantidade, total_item, custo_unitario, produtos(preco_custo), vendas!inner(created_at, status, caixa_id)')
+    .eq('vendas.status', 'concluida').gte('vendas.created_at', inicio).lt('vendas.created_at', fim)
+  if (caixasDaLoja) q = q.in('vendas.caixa_id', [...caixasDaLoja])
+  return q.order('id').range(f, t)
+})
 let vendido = 0, custoVenda = 0
 const custoTravado = new Map()
 for (const it of itens) {
@@ -40,8 +58,12 @@ for (const it of itens) {
 }
 
 // devoluções do mês
-const devs = await tudo((f, t) => s.from('devolucoes')
-  .select('id, venda_id, tipo_credito, valor_total').gte('created_at', inicio).lt('created_at', fim).order('id').range(f, t))
+const devs = await tudo((f, t) => {
+  let q = s.from('devolucoes')
+    .select('id, venda_id, tipo_credito, valor_total, deposito_id').gte('created_at', inicio).lt('created_at', fim)
+  if (depositosDaLoja) q = q.in('deposito_id', [...depositosDaLoja])
+  return q.order('id').range(f, t)
+})
 const devInfo = new Map(devs.map((d) => [d.id, d]))
 const devItens = devs.length ? await tudoIn(devs.map((d) => d.id), (chunk, a, b) => s.from('itens_devolucao')
   .select('devolucao_id, produto_id, quantidade, total_item, status_produto').in('devolucao_id', chunk).order('id').range(a, b)) : []
