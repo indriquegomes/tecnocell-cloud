@@ -1611,7 +1611,7 @@ export default async function RelatoriosPage({
                 estoque, já contado no custo das peças vendidas.
               </p>
             )}
-            <p className="pt-2 text-[11px] text-gray-400">Receita e custo das peças pela data da venda; despesas pelo vencimento no período. O custo usa o preço de custo atual do produto.</p>
+            <p className="pt-2 text-[11px] text-gray-400">Receita e custo das peças pela data da venda; despesas pelo vencimento no período. O custo usa o <b>custo travado na venda</b> (o preço de custo do cadastro só entra em venda antiga que não tem o valor travado) — mexer no cadastro hoje não muda o resultado de ontem.</p>
           </div>
           <div className="flex items-center justify-center rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             {dreReceita > 0 ? (
