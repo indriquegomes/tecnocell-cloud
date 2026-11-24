@@ -406,7 +406,10 @@ bater com o total, senão a venda inteira é recusada.
 | Preciso de… | Onde está |
 |---|---|
 | Regras, armadilhas, permissões, autorização | **este arquivo** |
+| **Onde a gente está agora** / o que falta | `docs/passagem-de-turno.md` — bloco **ESTADO ATUAL** no topo |
 | Como o sistema funciona (telas, fluxos, banco) | `docs/mapa/` |
+| **Régua de perda, devolução e troca** | `docs/mapa/regra-perda-e-devolucao.md` |
+| Ideias esperando decisão (nada em andamento) | `docs/futuras-opcoes.md` |
 | Um nome oficial por processo | `docs/mapa/glossario.md` |
 | O que fazer agora / o que ficou pendente | `docs/passagem-de-turno.md` |
 | Receita de tarefa (checkup, perf, design, debug…) | `docs/receitas/` |

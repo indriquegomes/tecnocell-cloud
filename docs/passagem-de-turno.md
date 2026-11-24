@@ -6,7 +6,71 @@
 >
 > Regras do projeto: `AGENTS.md`. Como o sistema funciona: `docs/mapa/`.
 
-**Última atualização:** 23/11/2026 (contas particulares migradas para a aba Particular; data de vencimento mostrando um dia a menos corrigida).
+**Última atualização:** 23/11/2026 — fim do dia (régua da perda/devolução corrigida no DRE, número certo de novembro, conferência do dono fechada).
+
+## ESTADO ATUAL — leia isto antes de qualquer outra coisa
+
+**Onde a gente está:** novembro está **pronto para fechar**, com o número *certo* (antes
+estava inflado em ~R$ 56 mil só em Petrópolis). Nada está pela metade no sistema.
+
+### Os números de novembro (as duas lojas, lojas fechadas)
+
+| | Petrópolis | Teresópolis |
+|---|---|---|
+| Venda bruta | R$ 202.722,08 | R$ 178.026,67 |
+| (−) Devoluções (sai da receita) | − R$ 47.739,62 | − R$ 44.630,57 |
+| Receita líquida | R$ 154.982,46 | R$ 133.396,10 |
+| Custo das peças (bruto) | − R$ 146.625,31 | − R$ 126.124,73 |
+| (+) Custo devolvido (peça voltou) | R$ 25.303,06 | R$ 21.560,10 |
+| Custo líquido | − R$ 121.322,25 | − R$ 104.564,63 |
+| Lucro bruto | R$ 33.660,21 | R$ 28.831,47 |
+| (−) Despesas | − R$ 76.593,53 | − R$ 36.610,02 |
+| **Resultado** | **− R$ 42.933,32** | **− R$ 7.778,55** |
+
+Conferência do dono (pedida por ele, fechada em 23/11): **entrada de pagamentos × saída de
+itens** → R$ 380.675,02 × R$ 380.748,75 = diferença de **R$ 73,73 (0,02%)**. A venda fecha.
+Rode com `scripts/conferir-conta-do-dono.mjs 2026-11` (também imprime o balanço:
+prateleira R$ 490.112 a custo · fiado a receber R$ 41.191 · deve fornecedor R$ 144.624 ·
+outras contas R$ 97.635 · vale-crédito a honrar R$ 5.297).
+
+### O que foi corrigido hoje (e está no ar)
+
+1. **DRE da devolução** — receita só cai quando o dinheiro/crédito voltou; custo só volta
+   quando a peça voltou ao estoque; custo travado na venda. A conta aparece aberta na tela
+   (bruta → devolução → líquida) com a quebra **por motivo** (fiado cancelado, vale-crédito,
+   dinheiro/PIX, sem reembolso). Commits `2f4507b`, `a49de14`, `1f3bb28`, `81444ab`.
+2. **Vale-crédito dobrado** (36 em vez de 18) — paginação sem ordem; `fetchAll` deduplica.
+3. **Estorno fora da tela** inflava o vale do PDV — consertado + `buscarSaldoCredito`
+   resolve a loja pelo crédito.
+4. **Hora do pagamento** gravada como data (pagamento de segunda aparecia no domingo) —
+   migrations aplicadas + 2.552 horas recuperadas.
+5. **Desfazer recebimento do PDV** funcionando (mesmo dia + caixa aberto + vínculo).
+6. **Botão “Avaria · não vende”** na devolução.
+7. **Peça quebrada**: baixa como perda lança despesa “Perda: produto” automaticamente.
+8. **Conferência por mês**: nenhum conferente traz mais conta de mês fechado.
+
+### O que falta — SÓ ISTO
+
+1. **Fechar novembro** (Fechamento do Mês) — ação do dono. Os números acima são os que vão
+   congelar.
+2. **Comparar a dívida do fornecedor** (R$ 144.623,57) com o extrato do fornecedor
+   (H2O/ADL/INOVA de novembro) — é a única ponta que a conta do app não prova sozinha.
+3. **Contas particulares**: lançar as do mês na aba `/painel/particular` (as 3 antigas já
+   foram migradas, R$ 2.096,47).
+
+### Não é para reabrir (decidido com o dono em 23/11)
+
+Sobra de R$ 10,20 do caixa · 4 vale-crédito/estorno já fechados · Banco Original, DPVAT,
+acordo 135/2026, nota fiscal de troca (não existem no banco) · 598 lançamentos de venda sem
+forma (a forma está em `pagamentos_venda`) · R$ 530 de estorno do RODRIGO PEREIRA · ISEC
+−R$ 230 (é de 31/10, está em `docs/registros/2026-10/achados-pos-fechamento.md`) ·
+R$ 1.699,89 de compras em dinheiro fora do app (decisão: a partir de dezembro, lançar no dia).
+
+### O que está esperando decisão (não está em andamento)
+
+`docs/futuras-opcoes.md` — regra do “teste”, saída para teste no estoque, quebra de caixa
+separada de perda, conferente de perda, lista de devoluções no DRE, backfill de vínculo,
+cartão “quanto sobrou pra mim”.
 
 ## Nesta rodada (23/11/2026) — particular ligado e data de vencimento certa
 
@@ -209,46 +273,26 @@ Commits: `af9ab04` · `1716536` · `7358fa5` · `94faa83` · `7ec235c`.
 - Foto final do mês em `docs/fechamento/2026-11/app.json`: despesas Petrópolis
   R$ 145.100,47 · Teresópolis R$ 116.331,61.
 
-**O que ficou aberto — SÓ ISTO (revisado com o dono em 23/11):**
+**O que ficou aberto — SÓ ISTO:**
 
-1. **Novembro não está fechado.** Fechamento do Mês é ação do dono na tela (congela
-   estoque, caixa e resultado). Caixas abertos no momento da revisão: 0. A sobra de
-   R$ 10,20 do caixa de 01→23/11 **não é pendência** — o dono decidiu em 23/11 que já
-   estava tratada; não levantar esse número de novo.
-2. **Maria Julia de Souza Ferreira Carvalho — R$ 65,00 da TAG quebrada** (devolução de
-   12/11 da venda #12938). Decidido em 23/11: ela **quebrou a peça** e não recebe
-   reembolso; a peça **saiu do estoque vendável como perda** (`baixar-tag-quebrada.mjs`:
-   estoque da loja 3 → 2, item da devolução marcado `avaria`, backup e DESFAZER em
-   `docs/registros-banco/2026-11/`). Falta UMA confirmação: os R$ 65,00 da venda
-   aparecem **pagos em PIX desde 11/11**. Se a loja já recebeu, não há nada a lançar; se
-   ela só vai pagar agora, o pagamento da venda tem de ser desfeito e o valor virar
-   “a receber” no nome dela — senão entra dinheiro sem origem no Financeiro.
-3. **Contas particulares: começar a lançar as do mês** na aba `/painel/particular`.
-   As três que já existiam foram migradas em 23/11 (R$ 2.096,47); o que vier agora o
-   dono lança pelo botão “+ Nova conta particular”.
-4. **R$ 1.699,89 de compras pagas em dinheiro fora do app** (Petrópolis 1.049,39 +
-   Teresópolis 650,50). O caderno do dono é a verdade; no fechamento do caixa do fim do
-   mês essa diferença vai aparecer como divergência de valor. Detalhe, pistas e o que
-   conferir: `docs/registros/2026-11/divergencias-dinheiro-vivo-23-11.md`. Decisão do
-   dono (23/11): a partir de dezembro, todo gasto em dinheiro entra no app no dia.
-5. **Conferir o DRE de novembro antes de fechar** (mesma rodada de 23/11): o DRE passou a
-   seguir a régua de `docs/mapa/regra-perda-e-devolucao.md` e o número mudou muito. Números
-   do app conferidos contra conta feita fora da tela em 23/11 (`scripts/dre-por-loja.mjs`):
+> Consolidado no bloco **ESTADO ATUAL** no topo deste arquivo (fim do dia 23/11). A lista
+> viva é aquela: fechar novembro · comparar a dívida do fornecedor com o extrato ·
+> lançar as contas particulares do mês.
 
-   | | Petrópolis | Teresópolis |
-   |---|---|---|
-   | Receita bruta | R$ 202.722,08 | R$ 177.737,07 |
-   | (−) Devoluções | − R$ 47.739,62 | − R$ 44.630,57 |
-   | Receita líquida | **R$ 154.982,46** | **R$ 133.106,50** |
-   | Custo bruto | − R$ 146.625,31 | − R$ 125.912,70 |
-   | (+) Custo devolvido (voltou ao estoque) | R$ 25.303,06 | R$ 21.654,61 |
-   | Custo líquido | − R$ 121.322,25 | − R$ 104.258,09 |
-   | Lucro bruto | R$ 33.660,21 | R$ 28.848,41 |
-   | (−) Despesas | − R$ 76.593,53 | − R$ 36.610,02 |
-   | **Resultado** | **− R$ 42.933,32** | **− R$ 7.761,61** |
+**Histórico do que esta rodada fechou** (não volta para a lista; cada linha teve prova):
 
-   A tela bate com essa conta (diferença de R$ 5,43, arredondamento de custo em venda
-   antiga). Falta o dono dar o ok e fechar.
+- **Maria Julia de Souza Ferreira Carvalho — R$ 65,00 da TAG quebrada** (devolução de 12/11
+  da venda #12938): ela quebrou a peça, não recebe reembolso; a peça saiu do estoque
+  vendável como perda (`baixar-tag-quebrada.mjs`, estoque 3 → 2, item marcado `avaria`) e a
+  despesa “Perda: TAG RASTREADORA…” (R$ 50,00) nasceu automática no banco. Os R$ 65,00
+  estão pagos em PIX desde 11/11. **Fechado.**
+- **R$ 1.699,89 de compras pagas em dinheiro fora do app** (Petrópolis 1.049,39 +
+  Teresópolis 650,50): o caderno do dono é a verdade. Detalhe em
+  `docs/registros/2026-11/divergencias-dinheiro-vivo-23-11.md`. Decisão do dono: a partir
+  de dezembro, todo gasto em dinheiro entra no app no dia. **Fechado como decisão.**
+- **DRE de novembro**: mudou de régua (ver ESTADO ATUAL). Números conferidos fora da tela
+  por `scripts/dre-por-loja.mjs` e pela conta do dono
+  (`scripts/conferir-conta-do-dono.mjs`: entrada × saída fecha em 0,02%). **Fechado.**
 
 **Menu do que NÃO está em andamento (decisão futura do dono):** `docs/futuras-opcoes.md`
 — regra do “teste” (755 cancelamentos de fiado em novembro, 70% com motivo “teste”, R$
