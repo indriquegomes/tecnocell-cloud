@@ -10,8 +10,12 @@
 
 ## ESTADO ATUAL — leia isto antes de qualquer outra coisa
 
-**Onde a gente está:** novembro está **pronto para fechar**, com o número *certo* (antes
-estava inflado em ~R$ 56 mil só em Petrópolis). Nada está pela metade no sistema.
+**Onde a gente está:** o mês **ainda está aberto** (fecha em **30/11**) e falta a contagem de
+estoque. Os números abaixo são **parciais até 23/11** — não são o fechamento. O resultado
+parcial é de **−R$ 50.405**, e no ritmo de venda atual (R$ 19.973/dia em 18 dias abertos,
+margem 21,7%) o mês deve fechar em **torno de −R$ 25 mil**. A alavanca nos dias que restam
+não é vender mais, é **devolver menos**: cada R$ 1 de devolução evitada vira R$ 1 no
+resultado (o custo da peça já está contado).
 
 ### Os números de novembro (as duas lojas, lojas fechadas)
 
