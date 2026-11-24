@@ -231,6 +231,12 @@ Commits: `af9ab04` · `1716536` · `7358fa5` · `94faa83` · `7ec235c`.
    mês essa diferença vai aparecer como divergência de valor. Detalhe, pistas e o que
    conferir: `docs/registros/2026-11/divergencias-dinheiro-vivo-23-11.md`. Decisão do
    dono (23/11): a partir de dezembro, todo gasto em dinheiro entra no app no dia.
+5. **Conferir o DRE de novembro antes de fechar** (mesma rodada de 23/11): o DRE passou a
+   seguir a régua de `docs/mapa/regra-perda-e-devolucao.md` e o número mudou muito —
+   Petrópolis: receita R$ 194.999,89 → **148.017,27** · custo R$ 106.493,47 →
+   **116.249,30** · resultado **+12.311,09 → −44.427,36**. A queda da receita casa
+   exatamente com o conferente independente (R$ 46.982,62). Falta o dono olhar
+   Teresópolis e dar o ok antes de congelar o mês.
 
 **Fechados em 23/11 — não voltam:** R$ 530,00 de estorno do RODRIGO PEREIRA (cancelado
 e crédito estornado) · LK CELL 61,00 (pago em 13/11) · Banco Original R$ 10.000 ·
