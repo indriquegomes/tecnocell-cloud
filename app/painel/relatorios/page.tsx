@@ -195,6 +195,9 @@ export default async function RelatoriosPage({
   // Componentes da devolução separados, para o DRE mostrar a conta aberta
   // (receita bruta − devoluções; custo bruto − custo das peças que voltaram).
   let receitaDevolvidaPeriodo = 0, custoDevolvidoPeriodo = 0, itensDevolvidosPeriodo = 0
+  // Quebra por motivo (o dono confere "de onde vem o valor de devolução"):
+  // teste, desistência, peça errada, defeito… separado por como o valor voltou.
+  const devolucaoPorMotivo: Record<string, { pecas: number; valor: number; entraNaReceita: boolean }> = {}
   if (precisaItens) {
     const data = await fetchAll((from, to) => {
       let q = supabase.from('itens_venda')
@@ -289,6 +292,19 @@ export default async function RelatoriosPage({
         receitaDevolvidaPeriodo += receitaLinha
         custoDevolvidoPeriodo += custoLinha
         itensDevolvidosPeriodo += qtd
+        {
+          const rotulo = !dinheiroVoltou
+            ? 'Sem reembolso (loja ficou com o dinheiro)'
+            : info?.tipo_credito === 'cancelamento_fiado'
+              ? 'Fiado cancelado (a dívida foi cancelada)'
+              : info?.tipo_credito === 'credito_conta'
+                ? 'Vale-crédito (o cliente levou crédito)'
+                : 'Dinheiro/PIX de volta ao cliente'
+          const atual = devolucaoPorMotivo[rotulo] ?? { pecas: 0, valor: 0, entraNaReceita: dinheiroVoltou }
+          atual.pecas += qtd
+          atual.valor += devolvido
+          devolucaoPorMotivo[rotulo] = atual
+        }
       }
     }
   }
@@ -1605,6 +1621,23 @@ export default async function RelatoriosPage({
               com o dinheiro). No custo, só volta o das peças que <b>voltaram ao estoque</b> ({dreItensDevolvidos} peça(s) no
               período) — peça que foi para o fornecedor ou virou avaria continua no resultado.
             </p>
+            {Object.keys(devolucaoPorMotivo).length > 0 && (
+              <div className="mt-3 rounded-lg bg-gray-50 p-3">
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500">De onde vem a devolução</p>
+                <table className="w-full text-[11px]">
+                  <tbody>
+                    {Object.entries(devolucaoPorMotivo).sort((a, b) => b[1].valor - a[1].valor).map(([motivo, v]) => (
+                      <tr key={motivo} className="border-t border-gray-100 first:border-0">
+                        <td className="py-1 pr-2 text-gray-600">{motivo}</td>
+                        <td className="py-1 pr-2 text-right tabular-nums text-gray-500">{v.pecas} peça(s)</td>
+                        <td className={`py-1 text-right tabular-nums font-semibold ${v.entraNaReceita ? 'text-rose-600' : 'text-gray-400'}`}>{formatBRL(v.valor)}</td>
+                        <td className="w-24 py-1 pl-2 text-right text-[10px] text-gray-400">{v.entraNaReceita ? 'sai da receita' : 'fica na receita'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
             {dreComprasMercadoria > 0 && (
               <p className="pt-3 text-[11px] text-gray-500">
                 Fora do resultado: <b>{formatBRL(dreComprasMercadoria)}</b> de compra de mercadoria paga no período — é
