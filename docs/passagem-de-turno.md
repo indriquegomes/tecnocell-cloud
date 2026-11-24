@@ -232,11 +232,29 @@ Commits: `af9ab04` · `1716536` · `7358fa5` · `94faa83` · `7ec235c`.
    conferir: `docs/registros/2026-11/divergencias-dinheiro-vivo-23-11.md`. Decisão do
    dono (23/11): a partir de dezembro, todo gasto em dinheiro entra no app no dia.
 5. **Conferir o DRE de novembro antes de fechar** (mesma rodada de 23/11): o DRE passou a
-   seguir a régua de `docs/mapa/regra-perda-e-devolucao.md` e o número mudou muito —
-   Petrópolis: receita R$ 194.999,89 → **148.017,27** · custo R$ 106.493,47 →
-   **116.249,30** · resultado **+12.311,09 → −44.427,36**. A queda da receita casa
-   exatamente com o conferente independente (R$ 46.982,62). Falta o dono olhar
-   Teresópolis e dar o ok antes de congelar o mês.
+   seguir a régua de `docs/mapa/regra-perda-e-devolucao.md` e o número mudou muito. Números
+   do app conferidos contra conta feita fora da tela em 23/11 (`scripts/dre-por-loja.mjs`):
+
+   | | Petrópolis | Teresópolis |
+   |---|---|---|
+   | Receita bruta | R$ 202.722,08 | R$ 177.737,07 |
+   | (−) Devoluções | − R$ 47.739,62 | − R$ 44.630,57 |
+   | Receita líquida | **R$ 154.982,46** | **R$ 133.106,50** |
+   | Custo bruto | − R$ 146.625,31 | − R$ 125.912,70 |
+   | (+) Custo devolvido (voltou ao estoque) | R$ 25.303,06 | R$ 21.654,61 |
+   | Custo líquido | − R$ 121.322,25 | − R$ 104.258,09 |
+   | Lucro bruto | R$ 33.660,21 | R$ 28.848,41 |
+   | (−) Despesas | − R$ 76.593,53 | − R$ 36.610,02 |
+   | **Resultado** | **− R$ 42.933,32** | **− R$ 7.761,61** |
+
+   A tela bate com essa conta (diferença de R$ 5,43, arredondamento de custo em venda
+   antiga). Falta o dono dar o ok e fechar.
+
+**Menu do que NÃO está em andamento (decisão futura do dono):** `docs/futuras-opcoes.md`
+— regra do “teste” (755 cancelamentos de fiado em novembro, 70% com motivo “teste”, R$
+42.750,87), saída para teste no estoque, quebra de caixa separada de perda, conferente de
+perda, lista de devoluções dentro do DRE, backfill de vínculo dos recebimentos antigos e
+cartão “quanto sobrou pra mim”. Nada disso entra na lista de pendências.
 
 **Fechados em 23/11 — não voltam:** R$ 530,00 de estorno do RODRIGO PEREIRA (cancelado
 e crédito estornado) · LK CELL 61,00 (pago em 13/11) · Banco Original R$ 10.000 ·
@@ -1158,11 +1176,11 @@ loja estava com caixa real de terceiro aberto e vendendo.
   `C:\Users\usuario\AppData\Local\agy\bin\agy.EXE --print "<prompt>" --add-dir
   "<projeto>" --dangerously-skip-permissions --output-format text`.
 
-## Pendente (23/11/2026) — monitoramento de erro em uso
+## Pendente (24/11/2026) — monitoramento de erro em uso
 
 Código pronto, **não commitado**. Falta, na ordem:
 
-1. **Aplicar a migration** `supabase/migrations/2026-11-23-erros-app.sql` no SQL
+1. **Aplicar a migration** `supabase/migrations/2026-11-24-erros-app.sql` no SQL
    Editor do Supabase. Sem ela o sistema funciona igual (tudo é silencioso), mas
    nada é gravado em `erros_app`.
 2. **Criar o grupo privado do Telegram** "TecnoCell — Erros" (só o dono), pôr o
@@ -1179,6 +1197,14 @@ Revisão independente já aplicada (2 críticos + 8 médios corrigidos): `avisad
 só é marcado quando o Telegram aceita; `insert` com erro agora avisa no console
 (`[erros] não gravou: ...` — é o sinal de monitoramento cego); CPF/CNPJ/telefone
 formatados são mascarados; a URL enviada é só o caminho, nunca a query; consulta
-do vigia e da tela paginada (`fetchAll`) em vez de `limit`; grupo silenciado não
-renova o próprio silêncio; cron do vigia passou para `*/10 * * * *` (24h) e o
-resumo das 20h roda dentro dele — se o envio falhar, tenta de novo em 10 min.
+do vigia e da tela paginada (`fetchAll`) com `.order('id')`; grupo silenciado não
+renova o próprio silêncio; cron do vigia é `*/10 * * * *` (24h).
+
+Ajuste de ruído (pedido do dono, mesmo dia): **não existe resumo diário** —
+mensagem só quando há problema. A prova de vida virou a hora da última passada,
+gravada em `configuracoes` → `erros_vigia` e mostrada na tela Saúde ("último check:
+há X min"; acima de 20 min ela acusa o vigia parado). Além do Telegram existe
+**alerta na tela**: `components/AlertaErros.tsx`, montado no layout do painel só
+para o master, consulta `GET /api/erros/novos` de minuto em minuto e mostra um
+aviso no canto com link para a Saúde; a dispensa é por ocorrência
+(`localStorage`), então o mesmo problema não reaparece.
