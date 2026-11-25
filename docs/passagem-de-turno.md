@@ -144,20 +144,26 @@ outras contas R$ 97.635 · vale-crédito a honrar R$ 5.297).
    apaga mais a credencial no erro 500 (transitório) — só 401/405/409/412/440 pedem
    QR novo.
 
-6. **Monitoramento de erro em uso — falta só 1 variável.** Estado em 25/11 (fim do dia):
-   - **No ar:** commit `83f06ef` (avisos de tela religados + correção da descoberta do Telegram).
-   - **Banco:** migration `2026-11-24-erros-app.sql` **aplicada** em 25/11 pela API de
-     administração do Supabase (14 colunas, RLS ligado, **0 policies**, 4 índices). O arquivo
-     agora está no repositório.
-   - **Destino:** bot **@Tecnocellerros_bot** (dedicado, sem webhook). O dono mandou `/start`;
-     o chat (`901717187`) ficou salvo em `configuracoes` → `erros_chat`. Não precisa digitar
-     `chat_id` nem criar grupo — conversa direta com o bot basta.
-   - **FALTA:** cadastrar **`TELEGRAM_TOKEN_ERROS`** (token do @Tecnocellerros_bot) nas
-     variáveis da Vercel. Provado em produção: o cron das 19:00 viu o erro de teste, resolveu o
-     destino (`chat_ok: true`) e **não conseguiu enviar** (`avisado: false`) — sem a variável o
-     app cai no token do bot de Petrópolis, que não pode falar nesse chat.
-   - Depois: rodar um erro de teste e confirmar a mensagem; revogar o token `sbp_...` e o token
-     antigo do bot. Detalhe: `docs/mapa/monitoramento-erros.md`.
+6. **Monitoramento de erro em uso — CONCLUÍDO E NO AR (25/11).** Sobram só itens de
+   segurança, nenhum é código:
+   - **No ar:** commits `83f06ef` (avisos de tela), `c826c34` (token na tabela `segredos`),
+     `3b2254d` (aviso só no horário da loja), `ce3f2a0` (guarda do vigia).
+   - **Banco:** `erros_app` (14 colunas, RLS, **0 policies**, 4 índices) e `segredos`
+     (RLS, 0 policies) aplicadas pela API de administração do Supabase.
+   - **Destino:** bot **@Tecnocellerros_bot** (dedicado, sem webhook). Chat `901717187`
+     salvo em `configuracoes` → `erros_chat`; token em `segredos` → `telegram_token_erros`
+     (variável de ambiente `TELEGRAM_TOKEN_ERROS` tem precedência quando existir).
+   - **Provado ponta a ponta em produção:** erro de teste às 19:31 → cron das 19:40
+     entregou (`avisado: true`, `ultimo_envio` gravado). Guarda testada: marcador 2h velho →
+     avisou; segunda chamada no dia → "já avisou hoje".
+   - **Aviso só no horário:** 08:00 até fechamento configurado + 90 min; domingo em
+     silêncio; fora do horário grava e anuncia na abertura. Regra em `lib/vigia-erros.ts`
+     (`dentroDoHorarioDeAviso`, `ABRE_MIN`, `FOLGA_FECHAMENTO_MIN`).
+   - **Guarda:** cron `7,37 * * * *` → `/api/vigia/erros?job=guarda` avisa se o vigia
+     ficar 40 min sem passar (1× por dia).
+   - **Resta (segurança, sem pressa):** cadastrar `TELEGRAM_TOKEN_ERROS` na Vercel e apagar
+     a linha de `segredos`; revogar o token `sbp_...`; `/revoke` do bot e atualizar o token.
+     Detalhe: `docs/mapa/monitoramento-erros.md`.
 
 ### Não é para reabrir (decidido com o dono em 23/11)
 
