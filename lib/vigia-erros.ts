@@ -2,6 +2,46 @@
 // (test/vigia-erros.test.ts). A rota /api/vigia/erros só busca as linhas,
 // chama isto e manda no Telegram.
 
+// ── Horário de aviso ──────────────────────────────────────────────────────────
+//
+// O sistema roda 24h, mas ninguém quer o celular apitando às 3 da manhã por causa
+// de um visitante na loja virtual. Fora do horário o erro continua sendo GRAVADO
+// (aparece na tela Saúde) e é anunciado na primeira passada depois de abrir.
+//
+// Referência é a mesma hora de fechamento que o aviso de caixa já usa
+// (`configuracoes.pdv`), com folga depois do fechamento: problema que aparece
+// enquanto estão fechando a gaveta ainda precisa chegar.
+
+export type MomentoLoja = { minutosDoDia: number; diaSemana: number } // 0 = domingo
+
+export const ABRE_MIN = 8 * 60          // 08:00
+export const FOLGA_FECHAMENTO_MIN = 90  // avisa até 1h30 depois do fechamento
+
+export function dentroDoHorarioDeAviso(
+  momento: MomentoLoja,
+  fechamentoSemana = '18:30',
+  fechamentoSabado = '16:30',
+): boolean {
+  if (momento.diaSemana === 0) return false                 // domingo a loja não abre
+  if (momento.minutosDoDia < ABRE_MIN) return false
+
+  const referencia = momento.diaSemana === 6 ? fechamentoSabado : fechamentoSemana
+  const [h, m] = referencia.split(':').map(Number)
+  const fecha = (h || 0) * 60 + (m || 0)
+
+  return momento.minutosDoDia <= fecha + FOLGA_FECHAMENTO_MIN
+}
+
+// De onde o vigia começa a ler: o normal é a janela curta (15 min), mas se a
+// última vez que ele CONSEGUIU avisar foi há mais tempo (de madrugada, quando
+// aviso fica pausado), o atrasado entra — senão o problema da noite nunca seria
+// anunciado.
+export function inicioDaJanela(agora: number, ultimoEnvio: number | null, janelaMin: number): number {
+  const curta = agora - janelaMin * 60_000
+  if (!ultimoEnvio) return curta
+  return Math.min(curta, ultimoEnvio)
+}
+
 export type LinhaErro = {
   id: string
   created_at: string

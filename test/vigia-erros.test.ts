@@ -1,10 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { agruparLinhas, escolherChatDeErro, gruposAAvisar, mapearChats, montarAviso, type LinhaErro } from '../lib/vigia-erros.ts'
+import { agruparLinhas, dentroDoHorarioDeAviso, escolherChatDeErro, gruposAAvisar, inicioDaJanela, mapearChats, montarAviso, type LinhaErro } from '../lib/vigia-erros.ts'
 
-// O aviso do vigia é o único sinal que o dono recebe durante o dia. Dois defeitos
-// o inutilizam: agrupar errado (50 avisos do mesmo problema) e calar o que é
-// grave (grupo silenciado cedo demais).
+// O aviso do vigia é o único sinal que o dono recebe durante o dia. Três defeitos
+// o inutilizam: agrupar errado (50 avisos do mesmo problema), calar o que é grave
+// (silêncio cedo demais) e avisar na hora errada (madrugada).
 
 function linha(over: Partial<LinhaErro> = {}): LinhaErro {
   return {
@@ -63,9 +63,9 @@ test('ponto de atenção usa marca diferente de erro', () => {
   assert.match(montarAviso(grupos, 1, 15, 8), /· 1× \[\/painel\/pdv\] Caixa aberto/)
 })
 
-// ── Descoberta do grupo de aviso ──────────────────────────────────────────────
-// O bot é o mesmo que já está em grupos da loja. Escolher errado aqui significa
-// aviso técnico no grupo de comprovantes do cliente — por isso a regra é testada.
+// ── Descoberta do destino ─────────────────────────────────────────────────────
+// O bot do monitoramento é dedicado, mas escolher errado aqui manda aviso técnico
+// para a conversa errada.
 
 test('escolhe o grupo cujo nome fala de erro', () => {
   const chat = escolherChatDeErro([
@@ -82,7 +82,6 @@ test('nunca escolhe grupo da loja nem canal', () => {
 })
 
 test('sem grupo com "erro", cai na conversa direta com o bot', () => {
-  // Este bot é dedicado ao monitoramento: a única conversa direta dele é a do dono.
   const chat = escolherChatDeErro([
     { id: -100, titulo: 'TecnoCell Petrópolis — Comprovantes', tipo: 'group' },
     { id: 555, titulo: null, tipo: 'private', nome: 'Indrique' },
@@ -103,7 +102,7 @@ test('sem título não dá para saber, então não escolhe nada', () => {
 })
 
 // O formato do Telegram usa `type`/`title`/`first_name`. Ler `tipo`/`titulo` no
-// JSON cru fazia a descoberta receber dois updates e não reconhecer nenhum — em
+// JSON cru fazia a descoberta receber os updates e não reconhecer nenhum — em
 // produção isso significa aviso que nunca sai. Esta é a tradução, testada no
 // formato REAL que o Telegram devolve.
 test('traduz o formato real do Telegram (type/title/first_name)', () => {
@@ -115,7 +114,6 @@ test('traduz o formato real do Telegram (type/title/first_name)', () => {
     { id: 901717187, tipo: 'private', titulo: null, nome: 'Indrique' },
     { id: -1001234567890, tipo: 'supergroup', titulo: 'TecnoCell — Erros', nome: null },
   ])
-  // e a escolha continua correta com o dado traduzido: grupo com "Erros" ganha
   assert.equal(escolherChatDeErro(chats)?.id, -1001234567890)
 })
 
@@ -124,3 +122,46 @@ test('conversa direta do dono é reconhecida depois da tradução', () => {
   assert.equal(escolherChatDeErro(chats)?.id, 901717187)
 })
 
+// ── Horário de aviso ─────────────────────────────────────────────────────────
+// O vigia roda 24h, mas alerta só com a loja funcionando. Abrir demais acorda o
+// dono de madrugada; fechar demais deixa o problema de sexta sem aviso.
+
+const min = (h: number, m = 0) => h * 60 + m
+
+test('dia de semana: avisa das 8h até 1h30 depois do fechamento', () => {
+  const seg = 1
+  assert.equal(dentroDoHorarioDeAviso({ minutosDoDia: min(7, 59), diaSemana: seg }), false)
+  assert.equal(dentroDoHorarioDeAviso({ minutosDoDia: min(8), diaSemana: seg }), true)
+  assert.equal(dentroDoHorarioDeAviso({ minutosDoDia: min(12), diaSemana: seg }), true)
+  assert.equal(dentroDoHorarioDeAviso({ minutosDoDia: min(19, 59), diaSemana: seg }), true)  // 18:30 + 90
+  assert.equal(dentroDoHorarioDeAviso({ minutosDoDia: min(20, 1), diaSemana: seg }), false)
+})
+
+test('madrugada e domingo ficam em silêncio', () => {
+  assert.equal(dentroDoHorarioDeAviso({ minutosDoDia: min(3), diaSemana: 3 }), false)
+  assert.equal(dentroDoHorarioDeAviso({ minutosDoDia: min(12), diaSemana: 0 }), false)  // domingo
+})
+
+test('sábado fecha mais cedo e a folga acompanha', () => {
+  assert.equal(dentroDoHorarioDeAviso({ minutosDoDia: min(17, 59), diaSemana: 6 }), true)   // 16:30 + 90
+  assert.equal(dentroDoHorarioDeAviso({ minutosDoDia: min(18, 1), diaSemana: 6 }), false)
+})
+
+test('horário configurado pela tela manda (não é fixo no código)', () => {
+  // loja que fecha 21h: avisa até 22:30
+  assert.equal(dentroDoHorarioDeAviso({ minutosDoDia: min(22), diaSemana: 2 }, '21:00', '16:30'), true)
+  // sábado com fechamento 17h: 18h ainda está na folga, 18h31 já passou
+  assert.equal(dentroDoHorarioDeAviso({ minutosDoDia: min(18), diaSemana: 6 }, '18:30', '17:00'), true)
+  assert.equal(dentroDoHorarioDeAviso({ minutosDoDia: min(18, 31), diaSemana: 6 }, '18:30', '17:00'), false)
+})
+
+test('janela pega o atrasado da madrugada, sem inflar no dia normal', () => {
+  const agora = 1_000_000_000_000
+  const quinzeMin = 15 * 60_000
+  // passada normal (envio recente): janela curta de 15 min
+  assert.equal(inicioDaJanela(agora, agora - 10 * 60_000, 15), agora - quinzeMin)
+  // veio de 8 horas sem conseguir avisar: janela começa no último envio
+  assert.equal(inicioDaJanela(agora, agora - 8 * 3600_000, 15), agora - 8 * 3600_000)
+  // nunca enviou: janela curta
+  assert.equal(inicioDaJanela(agora, null, 15), agora - quinzeMin)
+})

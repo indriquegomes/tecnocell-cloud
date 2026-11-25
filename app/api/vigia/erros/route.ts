@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
 import { lerSegredo } from '@/lib/segredos'
-import { agruparLinhas, escolherChatDeErro, gruposAAvisar, mapearChats, montarAviso, nomeDoChat, type LinhaErro, type UpdateTelegram } from '@/lib/vigia-erros'
+import { agruparLinhas, dentroDoHorarioDeAviso, escolherChatDeErro, gruposAAvisar, inicioDaJanela, mapearChats, montarAviso, nomeDoChat, type LinhaErro, type MomentoLoja, type UpdateTelegram } from '@/lib/vigia-erros'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -114,6 +114,20 @@ async function mandarTelegram(
 // A prova de vida do vigia fica na tela Saúde do sistema ("último check: 10h40"),
 // que é onde se olha quando se quer saber — e não no bolso de quem trabalha.
 
+// "Agora" no fuso da loja (a Vercel roda em UTC; depois das 21h o dia já virou lá).
+function momentoSP(base = new Date()): MomentoLoja {
+  const f = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    hour: '2-digit', minute: '2-digit', weekday: 'short', hour12: false,
+  })
+  const p: Record<string, string> = {}
+  for (const x of f.formatToParts(base)) p[x.type] = x.value
+  return {
+    minutosDoDia: Number(p.hour) * 60 + Number(p.minute),
+    diaSemana: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(p.weekday),
+  }
+}
+
 async function vigia() {
   const supabase = await createServiceClient()
 
@@ -123,10 +137,28 @@ async function vigia() {
     .delete()
     .lt('created_at', new Date(Date.now() - RETENCAO_DIAS * 86400000).toISOString())
 
-  // Página por página (fetchAll): uma tempestade de erro acima de 1000 linhas não
-  // pode deixar linha para trás — quem fica de fora da janela nunca é avisado e
-  // nunca é marcado.
-  const desde = new Date(Date.now() - JANELA_MIN * 60000).toISOString()
+  // Horário de aviso: o vigia roda sempre, mas só AVISA com a loja funcionando.
+  // Fora do horário o erro continua gravado e é anunciado na primeira passada
+  // depois de abrir — o atrasado nunca se perde, e ninguém é acordado à toa.
+  const { data: cfgPdv } = await supabase.from('configuracoes').select('valor').eq('chave', 'pdv').maybeSingle()
+  const horarios = ((cfgPdv?.valor as Record<string, string> | null) ?? {}) as Record<string, string>
+  const podeAvisar = dentroDoHorarioDeAviso(
+    momentoSP(),
+    horarios.hora_fechar_semana || '18:30',
+    horarios.hora_fechar_sabado || '16:30',
+  )
+
+  // De onde ler: o último envio bem-sucedido entra na conta, então o que ficou
+  // pendente de madrugada entra na primeira passada do dia.
+  const { data: marcadorAnterior } = await supabase
+    .from('configuracoes')
+    .select('valor')
+    .eq('chave', 'erros_vigia')
+    .maybeSingle()
+  const infoAnterior = (marcadorAnterior?.valor as { ultimo_envio?: string | null } | null) ?? null
+  const ultimoEnvio = infoAnterior?.ultimo_envio ? new Date(infoAnterior.ultimo_envio).getTime() : null
+  const desde = new Date(inicioDaJanela(Date.now(), ultimoEnvio, JANELA_MIN)).toISOString()
+
   const linhas = (await fetchAll((from, to) =>
     supabase
       .from('erros_app')
@@ -154,6 +186,9 @@ async function vigia() {
           ultima_em: new Date().toISOString(),
           novos,
           avisado,
+          fora_de_horario: !podeAvisar,
+          // Só avança quando o aviso saiu: é daqui que sai a janela do atrasado.
+          ultimo_envio: avisado ? new Date().toISOString() : (infoAnterior?.ultimo_envio ?? null),
           chat_titulo: destino.titulo,
           chat_ok: Boolean(destino.chat),
           chat_erro: destino.erro,
@@ -161,6 +196,13 @@ async function vigia() {
       },
       { onConflict: 'chave' },
     )
+  }
+
+  if (!podeAvisar) {
+    // Fora do horário: não manda nada e NÃO marca linha nenhuma — elas voltam na
+    // primeira passada com a loja aberta.
+    await registrarPassada(linhas.length, false)
+    return NextResponse.json({ ok: true, novos: linhas.length, avisado: false, motivo: 'fora do horário da loja' })
   }
 
   if (linhas.length === 0) {
