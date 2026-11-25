@@ -6,7 +6,7 @@ import { BotaoImprimirResumo } from './BotaoImprimirResumo'
 import { estoqueCustoPorLoja } from '@/lib/estoque-custo'
 import { ehCompraDeMercadoria } from '@/lib/financeiro-setores'
 import { montarDre, type ItemDevolvidoDre } from '@/lib/dre'
-import { IconFile, IconPackage, IconStore, IconUsers, IconWallet } from '@/components/icons'
+import { IconChart, IconFile, IconPackage, IconPlus, IconReturn, IconStore, IconUsers, IconWallet } from '@/components/icons'
 
 function nomeMes(mes: string) {
   const [ano, m] = mes.split('-').map(Number)
@@ -526,7 +526,7 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">📅 Fechamento do Mês</h2>
+          <h2 className="text-2xl font-bold text-gray-900">Fechamento do Mês</h2>
           <p className="mt-0.5 text-sm text-gray-500">Entradas e saídas, estoque e resultado de cada loja.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -552,73 +552,114 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
 
       {linha && (
         <div className="space-y-6">
-          {/* ── RESULTADO DO MÊS — o número que importa, com a conta aberta ── */}
-          <section className="overflow-hidden rounded-2xl bg-[#1B6CA8] p-6 text-white shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-5">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-white/75">Resultado do mês · {nomeMes(mes)} · {lojasList.find((x) => x.id === lojaSel)?.nome}</p>
-                <p className="mt-1.5 text-[44px] font-extrabold leading-none tabular-nums">{fmt(dre.resultado)}</p>
-                <p className="mt-2 text-xs text-white/70">receita líquida − custo das peças vendidas − despesas</p>
-                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/70">
-                  <span>Entrou <b className="font-semibold tabular-nums text-white">{fmt(linha.entradas)}</b></span>
-                  <span aria-hidden className="h-3 w-px bg-white/25" />
-                  <span>Saiu <b className="font-semibold tabular-nums text-white">{fmt(linha.saidas)}</b></span>
-                  <span aria-hidden className="h-3 w-px bg-white/25" />
-                  <span>Em mãos <b className="font-semibold tabular-nums text-white">{fmt(linha.caixaCalculado)}</b></span>
+          {/* ── FAIXA DE KPIs — o mês em quatro números ── */}
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Resultado do mês</p>
+                  <p className={`mt-2 text-2xl font-bold tabular-nums ${dre.resultado >= 0 ? 'text-gray-900' : 'text-rose-600'}`}>{fmt(dre.resultado)}</p>
+                  <p className="mt-1 text-xs text-gray-400">receita líquida − custo − despesas</p>
                 </div>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1B6CA8]/10 text-[#1B6CA8]"><IconChart className="h-4 w-4" /></span>
               </div>
             </div>
-
-            <div className="mt-5 rounded-xl bg-white p-4 text-gray-900">
-              <p className="text-sm font-bold text-gray-800">Como o resultado se formou <span className="font-normal text-gray-400">· mesma conta do DRE em Relatórios</span></p>
-              <table className="mt-2 w-full text-sm">
-                <tbody>
-                  <tr><td className="py-1 text-gray-600">Receita de vendas (bruta)</td><td className="py-1 text-right font-semibold tabular-nums text-gray-900">{fmt(dre.receitaBruta)}</td></tr>
-                  <tr><td className="py-1 text-gray-600">− Devoluções (dinheiro que voltou)</td><td className="py-1 text-right tabular-nums text-rose-600">−{fmt(dre.receitaDevolvida)}</td></tr>
-                  <tr className="border-t border-gray-100"><td className="py-1 font-semibold text-gray-800">= Receita líquida</td><td className="py-1 text-right font-bold tabular-nums text-gray-900">{fmt(dre.receitaLiquida)}</td></tr>
-                  <tr><td className="py-1 text-gray-600">− Custo das peças vendidas</td><td className="py-1 text-right tabular-nums text-rose-600">−{fmt(dre.cmv)}</td></tr>
-                  <tr className="border-t border-gray-100"><td className="py-1 font-semibold text-gray-800">= Lucro bruto</td><td className="py-1 text-right font-bold tabular-nums text-gray-900">{fmt(dre.lucroBruto)}</td></tr>
-                  <tr><td className="py-1 text-gray-600">− Despesas do mês <span className="text-[10px] text-gray-400">(pago {fmt(dre.despesasPago)} + a pagar {fmt(dre.despesasAberto)})</span></td><td className="py-1 text-right tabular-nums text-rose-600">−{fmt(dre.despesas)}</td></tr>
-                  <tr className="border-t-2 border-gray-200"><td className="py-1.5 font-bold text-gray-900">= Resultado</td><td className={`py-1.5 text-right font-bold tabular-nums ${dre.resultado >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{fmt(dre.resultado)}</td></tr>
-                </tbody>
-              </table>
-              {mesCorrente && (
-                <p className="mt-3 border-t border-gray-100 pt-2 text-[11px] text-gray-500">
-                  Hoje ({hoje.slice(8, 10)}/{hoje.slice(5, 7)}) · {lojasList.find((x) => x.id === lojaSel)?.nome}: vendas {fmt(hojeVendas)} · fiado recebido {fmt(hojeFiado)} · caixa contado {fmt(hojeCaixaContado)} · devoluções {hojeDevolN} ({fmt(hojeDevolValor)})
-                </p>
-              )}
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Entrou no caixa</p>
+                  <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">{fmt(linha.entradas)}</p>
+                  <p className="mt-1 text-xs text-gray-400">vendas pagas + fiado cobrado</p>
+                </div>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600"><IconPlus className="h-4 w-4" /></span>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Saiu do caixa</p>
+                  <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">{fmt(linha.saidas)}</p>
+                  <p className="mt-1 text-xs text-gray-400">compras + despesas pagas</p>
+                </div>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600"><IconReturn className="h-4 w-4" /></span>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Em mãos (referência)</p>
+                  <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">{fmt(linha.caixaCalculado)}</p>
+                  <p className="mt-1 text-xs text-gray-400">abertura + cédula que entrou − cédula que saiu</p>
+                </div>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600"><IconWallet className="h-4 w-4" /></span>
+              </div>
             </div>
           </section>
 
-          {/* ── AGIR AGORA — só aparece quando há o que fazer ── */}
-          {(fornecedorVencido > 0 || fiadoVencido > 0 || caixaAbertoDaLoja) && (
-            <section aria-label="Agir agora" className="flex flex-wrap items-center gap-2">
-              {fornecedorVencido > 0 && (
-                <Link href={`/painel/financeiro?tipo=pagar&status=vencido&tudo=1&loja=${lojaSel}`}
-                  className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100">
-                  <IconStore className="h-4 w-4" /> Fornecedor atrasado {fmt(fornecedorVencido)} — conferir
-                </Link>
-              )}
-              {fiadoVencido > 0 && (
-                <Link href="/painel/fiados"
-                  className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-100">
-                  <IconUsers className="h-4 w-4" /> Fiado atrasado {fmt(fiadoVencido)} — cobrar
-                </Link>
-              )}
-              {caixaAbertoDaLoja && (
-                <Link href="/painel/pdv/operacao"
-                  className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-800 hover:bg-sky-100">
-                  <IconWallet className="h-4 w-4" /> Caixa aberto — fechar o dia
-                </Link>
-              )}
-            </section>
+          {mesCorrente && (
+            <p className="text-xs text-gray-500">
+              Hoje ({hoje.slice(8, 10)}/{hoje.slice(5, 7)}) · {lojasList.find((x) => x.id === lojaSel)?.nome}: vendas {fmt(hojeVendas)} · fiado recebido {fmt(hojeFiado)} · caixa contado {fmt(hojeCaixaContado)} · devoluções {hojeDevolN} ({fmt(hojeDevolValor)})
+            </p>
           )}
+
+          {/* ── CONTA ABERTA + O QUE FAZER ── */}
+          <section className="grid gap-4 lg:grid-cols-3">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm lg:col-span-2">
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="text-sm font-semibold text-gray-800">Como o resultado se formou</p>
+                <p className="text-xs text-gray-400">{nomeMes(mes)}</p>
+              </div>
+              <table className="mt-3 w-full text-sm">
+                <tbody>
+                  <tr><td className="py-1.5 text-gray-600">Receita de vendas (bruta)</td><td className="py-1.5 text-right font-semibold tabular-nums text-gray-900">{fmt(dre.receitaBruta)}</td></tr>
+                  <tr><td className="py-1.5 text-gray-600">− Devoluções (dinheiro que voltou)</td><td className="py-1.5 text-right tabular-nums text-gray-600">−{fmt(dre.receitaDevolvida)}</td></tr>
+                  <tr className="border-t border-gray-100"><td className="py-1.5 font-semibold text-gray-800">= Receita líquida</td><td className="py-1.5 text-right font-bold tabular-nums text-gray-900">{fmt(dre.receitaLiquida)}</td></tr>
+                  <tr><td className="py-1.5 text-gray-600">− Custo das peças vendidas</td><td className="py-1.5 text-right tabular-nums text-gray-600">−{fmt(dre.cmv)}</td></tr>
+                  <tr className="border-t border-gray-100"><td className="py-1.5 font-semibold text-gray-800">= Lucro bruto</td><td className="py-1.5 text-right font-bold tabular-nums text-gray-900">{fmt(dre.lucroBruto)}</td></tr>
+                  <tr><td className="py-1.5 text-gray-600">− Despesas do mês <span className="text-[10px] text-gray-400">(pago {fmt(dre.despesasPago)} + a pagar {fmt(dre.despesasAberto)})</span></td><td className="py-1.5 text-right tabular-nums text-gray-600">−{fmt(dre.despesas)}</td></tr>
+                  <tr className="border-t-2 border-gray-200"><td className="py-2 font-bold text-gray-900">= Resultado</td><td className={`py-2 text-right font-bold tabular-nums ${dre.resultado >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{fmt(dre.resultado)}</td></tr>
+                </tbody>
+              </table>
+              <p className="mt-3 border-t border-gray-100 pt-2 text-[11px] text-gray-400">mesma conta do DRE em Relatórios</p>
+            </div>
+
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <p className="text-sm font-semibold text-gray-800">Agir agora</p>
+              <p className="mt-0.5 text-xs text-gray-400">o que está esperando decisão</p>
+              <div className="mt-3 space-y-2">
+                {fornecedorVencido > 0 && (
+                  <Link href={`/painel/financeiro?tipo=pagar&status=vencido&tudo=1&loja=${lojaSel}`}
+                    className="flex items-center justify-between rounded-xl border border-gray-200 px-3 py-2 text-sm hover:bg-gray-50">
+                    <span className="text-gray-700"><IconStore className="mr-2 inline h-4 w-4 text-gray-400" />Fornecedor atrasado <b className="tabular-nums text-gray-900">{fmt(fornecedorVencido)}</b></span>
+                    <span aria-hidden className="text-gray-400">›</span>
+                  </Link>
+                )}
+                {fiadoVencido > 0 && (
+                  <Link href="/painel/fiados"
+                    className="flex items-center justify-between rounded-xl border border-gray-200 px-3 py-2 text-sm hover:bg-gray-50">
+                    <span className="text-gray-700"><IconUsers className="mr-2 inline h-4 w-4 text-gray-400" />Fiado atrasado <b className="tabular-nums text-gray-900">{fmt(fiadoVencido)}</b></span>
+                    <span aria-hidden className="text-gray-400">›</span>
+                  </Link>
+                )}
+                {caixaAbertoDaLoja && (
+                  <Link href="/painel/pdv/operacao"
+                    className="flex items-center justify-between rounded-xl border border-gray-200 px-3 py-2 text-sm hover:bg-gray-50">
+                    <span className="text-gray-700"><IconWallet className="mr-2 inline h-4 w-4 text-gray-400" />Caixa aberto — fechar o dia</span>
+                    <span aria-hidden className="text-gray-400">›</span>
+                  </Link>
+                )}
+                {!(fornecedorVencido > 0 || fiadoVencido > 0 || caixaAbertoDaLoja) && (
+                  <p className="text-sm text-gray-400">Nada pendente aqui.</p>
+                )}
+              </div>
+            </div>
+          </section>
 
           {/* ── TENHO × DEVO — a foto do patrimônio da loja ── */}
           <section className="grid gap-4 lg:grid-cols-2">
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Tenho <span className="font-normal normal-case tracking-normal text-gray-400">· o que é da loja hoje</span></p>
-              <p className="mt-1 text-3xl font-extrabold tabular-nums text-emerald-700">{fmt(tenho)}</p>
+              <p className="mt-1 text-3xl font-bold tabular-nums text-gray-900">{fmt(tenho)}</p>
               <dl className="mt-4 space-y-2.5 text-sm">
                 <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-2.5">
                   <dt className="flex items-center gap-2 text-gray-600"><IconPackage className="h-4 w-4 text-gray-400" /> Estoque (a custo)</dt>
@@ -637,7 +678,7 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
             </div>
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Devo <span className="font-normal normal-case tracking-normal text-gray-400">· o que é de outros</span></p>
-              <p className="mt-1 text-3xl font-extrabold tabular-nums text-rose-700">{fmt(devo)}</p>
+              <p className="mt-1 text-3xl font-bold tabular-nums text-gray-900">{fmt(devo)}</p>
               <dl className="mt-4 space-y-2.5 text-sm">
                 <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-2.5">
                   <dt className="flex items-center gap-2 text-gray-600"><IconStore className="h-4 w-4 text-gray-400" /> Fornecedor</dt>
@@ -655,24 +696,26 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
 
           {/* DESCONTOS E PERDAS DO MÊS — o que a loja deixou de receber */}
           {(descontoConcedidoMes > 0 || perdaFiadoMes > 0) && (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
-              <p className="text-sm font-bold text-amber-800">🏷 Descontos e perdas do mês</p>
-              <p className="mt-0.5 text-[11px] text-amber-700">dinheiro que a loja deixou de receber — já descontado do resultado</p>
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="text-sm font-semibold text-gray-800">Descontos e perdas do mês</p>
+                <p className="text-xs text-gray-400">já descontado do resultado</p>
+              </div>
               <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-xl border border-amber-200 bg-white p-3">
-                  <p className="text-xs font-semibold text-gray-500">Desconto concedido</p>
-                  <p className="mt-1 text-lg font-bold text-gray-800">{fmt(descontoConcedidoMes)}</p>
-                  <p className="text-[11px] text-gray-400">a venda rendeu menos</p>
+                <div className="rounded-xl border border-gray-200 p-3">
+                  <p className="text-xs font-medium text-gray-500">Desconto concedido</p>
+                  <p className="mt-1 text-lg font-bold tabular-nums text-gray-900">{fmt(descontoConcedidoMes)}</p>
+                  <p className="mt-0.5 text-[11px] text-gray-400">a venda rendeu menos</p>
                 </div>
-                <div className="rounded-xl border border-rose-200 bg-white p-3">
-                  <p className="text-xs font-semibold text-gray-500">Perda com fiado</p>
-                  <p className="mt-1 text-lg font-bold text-rose-700">{fmt(perdaFiadoMes)}</p>
-                  <p className="text-[11px] text-gray-400">não vai receber mais</p>
+                <div className="rounded-xl border border-gray-200 p-3">
+                  <p className="text-xs font-medium text-gray-500">Perda com fiado</p>
+                  <p className="mt-1 text-lg font-bold tabular-nums text-rose-600">{fmt(perdaFiadoMes)}</p>
+                  <p className="mt-0.5 text-[11px] text-gray-400">não vai receber mais</p>
                 </div>
-                <div className="rounded-xl border border-amber-200 bg-white p-3">
-                  <p className="text-xs font-semibold text-gray-500">Total do mês</p>
-                  <p className="mt-1 text-lg font-bold text-gray-900">{fmt(descontoConcedidoMes + perdaFiadoMes)}</p>
-                  <p className="text-[11px] text-gray-400">{descontosMes.length} desconto(s)</p>
+                <div className="rounded-xl border border-gray-200 p-3">
+                  <p className="text-xs font-medium text-gray-500">Total do mês</p>
+                  <p className="mt-1 text-lg font-bold tabular-nums text-gray-900">{fmt(descontoConcedidoMes + perdaFiadoMes)}</p>
+                  <p className="mt-0.5 text-[11px] text-gray-400">{descontosMes.length} desconto(s)</p>
                 </div>
               </div>
             </div>
@@ -680,7 +723,7 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
 
           {/* comparação com o mês anterior */}
           <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-sm font-bold text-gray-800">↔️ Comparação com {nomeMes(mesAnterior)}</p>
+            <p className="text-sm font-bold text-gray-800">Comparação com {nomeMes(mesAnterior)}</p>
             <p className="mt-0.5 text-[11px] text-gray-400">mesma loja · verde = subiu, vermelho = caiu</p>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               {(() => {
@@ -738,7 +781,7 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
               {/* 📊 INDICADORES — o que antes ocupava a tela inteira em cartões */}
               <div className="overflow-hidden rounded-xl border border-gray-200 lg:col-span-2">
-                <div className="bg-gray-600 px-4 py-2 text-sm font-bold text-white">📊 Indicadores do mês</div>
+                <div className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Indicadores do mês</div>
                 <table className="w-full text-sm">
                   <tbody>
                     <tr className="border-t border-gray-100"><td className="px-4 py-2 text-gray-600">Caixa inicial (fim de {nomeMes(mesAnterior)})</td><td className="px-4 py-2 text-right font-semibold tabular-nums text-gray-900">{fmt(linha.caixaInicial)}</td></tr>
@@ -754,7 +797,7 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
 
               {/* 💵 DINHEIRO — tabela */}
               <div className="overflow-hidden rounded-xl border border-emerald-200">
-                <div className="bg-emerald-600 px-4 py-2 text-sm font-bold text-white">💵 Dinheiro</div>
+                <div className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Dinheiro</div>
                 <table className="w-full text-sm">
                   <tbody>
                     <tr><td colSpan={2} className="bg-emerald-50 px-4 py-1.5 text-[11px] font-semibold uppercase text-emerald-700">Onde está agora</td></tr>
@@ -774,7 +817,7 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
 
               {/* 📦 ESTOQUE — tabela */}
               <div className="overflow-hidden rounded-xl border border-sky-200">
-                <div className="bg-sky-600 px-4 py-2 text-sm font-bold text-white">📦 Estoque</div>
+                <div className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Estoque</div>
                 <table className="w-full text-sm">
                   <tbody>
                     <tr><td colSpan={2} className="bg-sky-50 px-4 py-1.5 text-[11px] font-semibold uppercase text-sky-700">Custo agora (cadastro)</td></tr>
@@ -791,7 +834,7 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
 
               {/* 📦 ESTOQUE POR CATEGORIA — tabela largura total */}
               <div className="overflow-hidden rounded-xl border border-slate-200 lg:col-span-2">
-                <div className="bg-slate-600 px-4 py-2 text-sm font-bold text-white">📦 Estoque por categoria (abertura oficial)</div>
+                <div className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Estoque por categoria (abertura oficial)</div>
                 <table className="w-full text-sm">
                   <tbody>
                     <tr className="border-b border-gray-100"><td className="px-4 py-2 text-gray-600">Categoria</td><td className="px-4 py-2 text-right text-gray-500">Valor</td></tr>
@@ -807,7 +850,7 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
 
               {linha.perdasItens.length > 0 && (
                 <div className="overflow-hidden rounded-xl border border-rose-200 lg:col-span-2">
-                  <div className="bg-rose-600 px-4 py-2 text-sm font-bold text-white">🗑️ Motivos das perdas</div>
+                  <div className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Motivos das perdas</div>
                   <div className="divide-y divide-gray-100">
                     {linha.perdasItens.map((it, i) => (
                       <div key={i} className="flex justify-between gap-2 px-4 py-2 text-sm">

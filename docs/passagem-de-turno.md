@@ -52,13 +52,16 @@ outras contas R$ 97.635 · vale-crédito a honrar R$ 5.297).
 6. **Botão “Avaria · não vende”** na devolução.
 7. **Peça quebrada**: baixa como perda lança despesa “Perda: produto” automaticamente.
 8. **Conferência por mês**: nenhum conferente traz mais conta de mês fechado.
-9. **Quadro na tela de Fechamento do Mês** (24/11) — hero azul **Resultado do mês** (com a conta
-   aberta dentro do cartão) + seção **Tenho × Devo** com atrasados e patrimônio líquido; o resto
-   (sobra de caixa, livre para retirar, crédito, consignado, perdas, trocas, estoque consumido)
-   virou "Indicadores do mês" dentro de Ver detalhes. Mesma régua do DRE de Relatórios
-   (`lib/dre.ts` — a fórmula mora em um lugar só; testes em `test/logica.test.ts`). Conferido ao
-   centavo contra a tela de Relatórios (Petrópolis em 24/11: resultado −R$ 42.927,89 nos dois
-   lugares). No ar: commits `02150fe` e `cd4e982`.
+9. **Quadro na tela de Fechamento do Mês** (24/11, pele Mosaic em 25/11) — faixa de 4 KPIs
+   (Resultado do mês, Entrou no caixa, Saiu do caixa, Em mãos), **Como o resultado se formou**
+   com o aside **Agir agora** (atalhos para fornecedor atrasado, fiado atrasado e caixa aberto)
+   e **Tenho × Devo** com atrasados e patrimônio líquido. O resto (sobra de caixa, livre para
+   retirar, crédito, consignado, perdas, trocas, estoque consumido) virou "Indicadores do mês"
+   dentro de Ver detalhes. Mesa neutra (cinza + branco), um único azul de acento, sem emoji de
+   título. Mesma régua do DRE de Relatórios (`lib/dre.ts` — a fórmula mora em um lugar só;
+   testes em `test/logica.test.ts`). Conferido ao centavo contra a tela de Relatórios (Petrópolis:
+   resultado idêntico nos dois lugares). Referência visual escolhida pelo dono: Cruip **Mosaic**,
+   com a estrutura de atalhos do Omie.
 
 ### O que falta — SÓ ISTO
 
