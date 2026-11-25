@@ -150,6 +150,14 @@ RPC); camada 3 = pequeno, mas muda o dia a dia da equipe → decisão do dono.
 
 **Falta:** decisão do dono (liberar a camada 1 e 4 agora, e a 3 depois de medir o uso).
 
+**FEITO em 25/11/2026 (commits `e4a09dd` + teste `financeiro-porteiro.spec.ts`):**
+camada **1** (formulário com lista fechada + servidor recusando categoria inventada, forma
+fora do cadastro, "Outros" e pagamento sem conta/gaveta — `lib/validacao-lancamento.ts`,
+10 testes), camada **4** (duas regras novas no conferente do Saúde: *forma fora do cadastro*
+e *pago sem origem nas últimas 48h*) e a migration `2026-11-25-categorias-financeiro.sql`
+(tabela + trigger) **esperando colar no SQL Editor** — até colar, quem segura é o servidor.
+Falta a camada **3** (permissão `financeiro_lancar` separada), que muda o dia a dia da equipe.
+
 ## Ordem sugerida
 
 | # | Item | Quem decide | Quando |
