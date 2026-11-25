@@ -1,10 +1,15 @@
 import { test, expect } from '@playwright/test'
+import { execSync } from 'node:child_process'
 import { login } from './helpers'
 
 // QA: a devolução do tipo "Fora do app (WhatsApp)" (estorno pedido pelo grupo)
 // tem que registrar a saída como PAGA — não pode sobrar conta pendente no
-// Financeiro nem mexer na gaveta. A venda __QA__ é criada por
-// scripts/qa-fora-do-app.mjs criar (número 999990) e apagada depois.
+// Financeiro nem mexer na gaveta. A venda __QA__ (número 999990) é recriada aqui
+// por scripts/qa-fora-do-app.mjs e apagada por `... limpar` depois da conferência.
+test.beforeAll(() => {
+  execSync('node scripts/qa-fora-do-app.mjs criar', { stdio: 'inherit' })
+})
+
 test('devolução "Fora do app (WhatsApp)" registra a saída como PAGA', async ({ page }) => {
   await login(page)
   await page.goto('/painel/devolucoes')
@@ -33,4 +38,13 @@ test('devolução "Fora do app (WhatsApp)" registra a saída como PAGA', async (
   await page.getByRole('button', { name: /Confirmar —/ }).click()
   // sucesso: o modal fecha e a devolução aparece na lista
   await expect(page.getByText('__QA__ DEVOLUCAO FORA DO APP').first()).toBeVisible({ timeout: 25000 })
+})
+
+// A devolução tem que aparecer PAGA no Financeiro e somar no "já pago" do filtro.
+test('Financeiro mostra a devolução fora do app como paga', async ({ page }) => {
+  await login(page)
+  await page.goto('/painel/financeiro?pessoa=__QA__&tudo=1')
+  await expect(page.getByText(/Devolução . __QA__/).first()).toBeVisible({ timeout: 20000 })
+  // R$ vem com espaço não separável do Intl: \s cobre
+  await expect(page.getByText(/já pago\s*R\$\s*10,00/).first()).toBeVisible({ timeout: 20000 })
 })

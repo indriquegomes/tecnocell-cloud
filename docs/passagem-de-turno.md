@@ -102,12 +102,15 @@ outras contas R$ 97.635 · vale-crédito a honrar R$ 5.297).
    `metas_poupanca`/`aportes_poupanca` continuam no banco, invisíveis. Não há migração a colar.
 
 5. **Devolução paga fora do app (estorno do WhatsApp)** — tipo novo "Fora do app (WhatsApp)" em
-   Devoluções (commit `4a6eb59`): grava a saída como PAGA, não mexe em gaveta nem em conta e não
-   pede senha. Os 4 estornos que estavam pendentes no Financeiro (R$ 315,00: MICHEL GARCIA 45,
-   Marcos Vinicius Ferreira da Conceição 51, FG ASSISTENCIA 142 e 77) foram marcados como pagos com
+   Devoluções (commits `4a6eb59` e `95b5f31`): grava a saída como PAGA, não mexe em gaveta nem em
+   conta e não pede senha. Testado de ponta a ponta no site com Playwright e venda `__QA__` 999990
+   (`e2e/devolucao-fora-do-app.spec.ts` cria e usa a venda por `scripts/qa-fora-do-app.mjs`).
+   Os 4 estornos que estavam pendentes no Financeiro (R$ 315,00: MICHEL GARCIA 45, Marcos Vinicius
+   Ferreira da Conceição 51, FG ASSISTENCIA 142 e 77) foram marcados como pagos com
    `scripts/consertar-estornos-fora-do-app.mjs` (backup + DESFAZER em `docs/registros-banco/2026-11/`).
-   **Falta colar no SQL Editor** a migração `2026-11-25-estorno-credito-pago.sql` — sem ela, o botão
-   "Estornar crédito" continua abrindo conta PENDENTE.
+   **Falta colar no SQL Editor** duas migrações: `2026-11-25-estorno-credito-pago.sql` (o botão
+   "Estornar crédito" passar a nascer pago) e `2026-11-25-pago-tem-valor-pago.sql` (trigger: linha
+   paga sempre tem `valor_pago` — hoje o reembolso de devolução grava 0 e a tela soma R$ 0,00).
 5. **Bot do WhatsApp (25/11)**: foi **recomeçado do zero no modo mínimo** —
    `bot-whatsapp/pix.mjs` responde **só** "qual o PIX" (chave lida de
    `contas.chave_pix` da conta bancária da loja; hoje PagBank Petrópolis,
