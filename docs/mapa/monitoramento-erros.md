@@ -14,6 +14,7 @@ trabalhando — e como o dono fica sabendo na hora.
 | `app/error.tsx`, `app/painel/error.tsx` | telas de erro | Erro de componente também é enviado (o React não passa pelo `window.onerror`) |
 | `GET /api/vigia/erros` | rota + cron 10 min (24h) | Agrupa o que chegou, avisa **uma vez** no grupo privado do dono, marca `avisado_em` **só do que o Telegram aceitou**, e grava a hora da passada (`configuracoes` → `erros_vigia`) |
 | Descoberta do destino | dentro do vigia | O dono **não digita `chat_id`**: ou cria o grupo com "erro" no nome e põe o bot dentro, ou só manda um "oi" para o bot. O vigia lê `getUpdates`, prefere grupo com "erro" no título, aceita conversa direta como alternativa (o bot é dedicado) e salva em `configuracoes` → `erros_chat`. Ao achar, manda uma mensagem única de "monitoramento conectado" |
+| `GET /api/vigia/erros?job=guarda` | cron 07 e 37 de cada hora | Percebe o **vigia parado**: se a última passada passou de 40 min dentro do horário da loja, avisa 1× por dia |
 | `GET /api/erros/novos` | rota (master) | Contagem da última hora para o **alerta na tela** |
 | `components/AlertaErros.tsx` | layout do painel (só master) | Aviso no canto da tela: "2 problemas na última hora" + link para a Saúde. Consulta de minuto em minuto |
 | Tela Saúde do sistema | `/painel/saude` | Bloco "Telas com problema hoje" + "último check do vigia: há X min" (master-only) |

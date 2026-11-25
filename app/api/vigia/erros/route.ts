@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
 import { lerSegredo } from '@/lib/segredos'
-import { agruparLinhas, dentroDoHorarioDeAviso, escolherChatDeErro, gruposAAvisar, inicioDaJanela, mapearChats, montarAviso, nomeDoChat, type LinhaErro, type MomentoLoja, type UpdateTelegram } from '@/lib/vigia-erros'
+import { agruparLinhas, dentroDoHorarioDeAviso, escolherChatDeErro, gruposAAvisar, inicioDaJanela, jaAvisouParadoHoje, mapearChats, montarAviso, nomeDoChat, precisaAvisarParado, type LinhaErro, type MomentoLoja, type UpdateTelegram } from '@/lib/vigia-erros'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -128,6 +128,71 @@ function momentoSP(base = new Date()): MomentoLoja {
   }
 }
 
+// Horário de aviso: o vigia roda sempre, mas só AVISA com a loja funcionando.
+// Fora do horário o erro continua gravado e é anunciado na primeira passada
+// depois de abrir — o atrasado nunca se perde, e ninguém é acordado à toa.
+async function podeAvisarAgora(supabase: Awaited<ReturnType<typeof createServiceClient>>): Promise<boolean> {
+  const { data } = await supabase.from('configuracoes').select('valor').eq('chave', 'pdv').maybeSingle()
+  const horarios = ((data?.valor as Record<string, string> | null) ?? {}) as Record<string, string>
+  return dentroDoHorarioDeAviso(
+    momentoSP(),
+    horarios.hora_fechar_semana || '18:30',
+    horarios.hora_fechar_sabado || '16:30',
+  )
+}
+
+// GUARDA — roda em cron separado (a cada 30 min), justamente para continuar viva
+// se o cron do vigia morrer. Compara a hora da última passada: se ficou velha
+// dentro do horário da loja, avisa uma vez no dia. Sem isso, "vigia morto" fica
+// idêntico a "nada quebrou".
+async function guarda() {
+  const supabase = await createServiceClient()
+  const agora = Date.now()
+  const hoje = hojeSP()
+
+  const { data } = await supabase
+    .from('configuracoes')
+    .select('chave, valor')
+    .in('chave', ['erros_vigia', 'erros_parado_aviso'])
+
+  const porChave: Record<string, unknown> = {}
+  for (const linha of (data ?? []) as { chave: string; valor: unknown }[]) porChave[linha.chave] = linha.valor
+
+  const vigia = (porChave.erros_vigia ?? {}) as { ultima_em?: string }
+  const aviso = (porChave.erros_parado_aviso ?? {}) as { dia?: string }
+  const ultima = vigia.ultima_em ? new Date(vigia.ultima_em).getTime() : null
+
+  if (!(await podeAvisarAgora(supabase))) {
+    return NextResponse.json({ ok: true, avisado: false, motivo: 'fora do horário da loja' })
+  }
+  if (!precisaAvisarParado(ultima, agora)) {
+    return NextResponse.json({ ok: true, avisado: false, motivo: 'vigia em dia' })
+  }
+  if (jaAvisouParadoHoje(aviso.dia, hoje)) {
+    return NextResponse.json({ ok: true, avisado: false, motivo: 'já avisou hoje' })
+  }
+
+  const minutos = ultima ? Math.round((agora - ultima) / 60000) : null
+  const texto =
+    '⚠️ A conferência automática de erros parou.\n' +
+    (minutos === null
+      ? 'Ela nunca rodou desde que foi ligada.'
+      : 'A última passada foi há ' + minutos + ' min (ela deveria passar a cada 10).') +
+    '\nO monitoramento das telas está sem vigia — vale olhar painel → Saúde do sistema.'
+
+  const destino = await resolverChatDoErro(supabase)
+  const enviado = destino.chat ? await mandarTelegram(destino.chat, texto) : false
+
+  if (enviado) {
+    await supabase.from('configuracoes').upsert(
+      { chave: 'erros_parado_aviso', valor: { dia: hoje, em: new Date().toISOString(), minutos } },
+      { onConflict: 'chave' },
+    )
+  }
+
+  return NextResponse.json({ ok: true, avisado: enviado, minutos, chat: destino.chat ? 'ok' : destino.erro })
+}
+
 async function vigia() {
   const supabase = await createServiceClient()
 
@@ -137,16 +202,7 @@ async function vigia() {
     .delete()
     .lt('created_at', new Date(Date.now() - RETENCAO_DIAS * 86400000).toISOString())
 
-  // Horário de aviso: o vigia roda sempre, mas só AVISA com a loja funcionando.
-  // Fora do horário o erro continua gravado e é anunciado na primeira passada
-  // depois de abrir — o atrasado nunca se perde, e ninguém é acordado à toa.
-  const { data: cfgPdv } = await supabase.from('configuracoes').select('valor').eq('chave', 'pdv').maybeSingle()
-  const horarios = ((cfgPdv?.valor as Record<string, string> | null) ?? {}) as Record<string, string>
-  const podeAvisar = dentroDoHorarioDeAviso(
-    momentoSP(),
-    horarios.hora_fechar_semana || '18:30',
-    horarios.hora_fechar_sabado || '16:30',
-  )
+  const podeAvisar = await podeAvisarAgora(supabase)
 
   // De onde ler: o último envio bem-sucedido entra na conta, então o que ficou
   // pendente de madrugada entra na primeira passada do dia.
@@ -278,5 +334,6 @@ export async function GET(req: Request) {
   if (process.env.CRON_SECRET && req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ ok: false, erro: 'não autorizado' }, { status: 401 })
   }
-  return vigia()
+  // `?job=guarda` é o cron independente que percebe o vigia parado.
+  return new URL(req.url).searchParams.get('job') === 'guarda' ? guarda() : vigia()
 }

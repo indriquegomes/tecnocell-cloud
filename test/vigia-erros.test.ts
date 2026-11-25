@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { agruparLinhas, dentroDoHorarioDeAviso, escolherChatDeErro, gruposAAvisar, inicioDaJanela, mapearChats, montarAviso, type LinhaErro } from '../lib/vigia-erros.ts'
+import { agruparLinhas, dentroDoHorarioDeAviso, escolherChatDeErro, gruposAAvisar, inicioDaJanela, jaAvisouParadoHoje, mapearChats, montarAviso, precisaAvisarParado, type LinhaErro } from '../lib/vigia-erros.ts'
 
 // O aviso do vigia é o único sinal que o dono recebe durante o dia. Três defeitos
 // o inutilizam: agrupar errado (50 avisos do mesmo problema), calar o que é grave
@@ -164,4 +164,24 @@ test('janela pega o atrasado da madrugada, sem inflar no dia normal', () => {
   assert.equal(inicioDaJanela(agora, agora - 8 * 3600_000, 15), agora - 8 * 3600_000)
   // nunca enviou: janela curta
   assert.equal(inicioDaJanela(agora, null, 15), agora - quinzeMin)
+})
+
+// ── Guarda do vigia ──────────────────────────────────────────────────────────
+// Sem isto, "vigia morto" é indistinguível de "nada quebrou": o silêncio é o mesmo.
+
+test('guarda percebe o vigia parado, com folga para 4 passadas perdidas', () => {
+  const agora = 1_000_000_000_000
+  assert.equal(precisaAvisarParado(agora - 10 * 60_000, agora), false)  // 10 min: normal
+  assert.equal(precisaAvisarParado(agora - 39 * 60_000, agora), false)  // 39 min: ainda ok
+  assert.equal(precisaAvisarParado(agora - 41 * 60_000, agora), true)   // 41 min: parado
+  assert.equal(precisaAvisarParado(agora - 20 * 3600_000, agora), true)
+  // nunca passou: também é problema (nunca rodou)
+  assert.equal(precisaAvisarParado(null, agora), true)
+})
+
+test('guarda avisa no máximo uma vez por dia', () => {
+  assert.equal(jaAvisouParadoHoje('2026-11-25', '2026-11-25'), true)
+  assert.equal(jaAvisouParadoHoje('2026-11-25', '2026-11-26'), false)
+  assert.equal(jaAvisouParadoHoje(null, '2026-11-25'), false)
+  assert.equal(jaAvisouParadoHoje(undefined, '2026-11-25'), false)
 })

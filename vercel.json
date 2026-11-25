@@ -26,6 +26,10 @@
     {
       "path": "/api/vigia/erros",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/vigia/erros?job=guarda",
+      "schedule": "7,37 * * * *"
     }
   ]
 }

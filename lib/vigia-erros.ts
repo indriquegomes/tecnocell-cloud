@@ -42,6 +42,24 @@ export function inicioDaJanela(agora: number, ultimoEnvio: number | null, janela
   return Math.min(curta, ultimoEnvio)
 }
 
+// ── Vigia parado ─────────────────────────────────────────────────────────────
+//
+// O vigia só fala quando há erro — então "vigia morto" produz o mesmo silêncio de
+// "nada quebrou". Quem percebe a diferença é uma GUARDA em cron separado (o
+// próprio vigia não pode se vigiar: morto, não roda nada). Ela avisa no máximo
+// 1× por dia, e só dentro do horário da loja.
+
+export const PARADO_LIMITE_MIN = 40   // 4 passadas perdidas (o vigia passa a cada 10)
+
+export function precisaAvisarParado(ultimaEm: number | null, agora: number, limiteMin = PARADO_LIMITE_MIN): boolean {
+  if (!ultimaEm) return true
+  return agora - ultimaEm > limiteMin * 60_000
+}
+
+export function jaAvisouParadoHoje(diaDoUltimoAviso: string | null | undefined, hoje: string): boolean {
+  return Boolean(diaDoUltimoAviso) && diaDoUltimoAviso === hoje
+}
+
 export type LinhaErro = {
   id: string
   created_at: string
