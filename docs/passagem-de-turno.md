@@ -72,8 +72,23 @@ outras contas R$ 97.635 · vale-crédito a honrar R$ 5.297).
    caixa/nota/mês fechado) e volta para o painel via `_voltar`. **Nova movimentação** grava
    lançamento pago com travas (valor, mês fechado, conta pela forma). **Metas de poupança** são
    tabelas novas (`metas_poupanca`, `aportes_poupanca`) — migração
-   `supabase/migrations/2026-11-25-painel-financeiro-metas-poupanca.sql`, **ainda não aplicada**;
-   sem ela, a aba Metas abre vazia. Guardar desconta do "Tenho agora" (reserva) e registra aporte.
+   `2026-11-25-painel-financeiro-metas-poupanca.sql`, **aplicada em 25/11**; mais a coluna
+   `escopo` (`2026-11-25-metas-poupanca-escopo.sql`, também aplicada). Guardar desconta do
+   "Tenho agora" (reserva) e registra aporte.
+11. **Aba Particular vira painel divertido (25/11)** — `/painel/particular` em tela cheia, com
+   a estrutura do protótipo divertido aprovado e **cores na paleta do app** (Tenho agora azul
+   #1B6CA8 · Entrou emerald · Saiu rose · Sobrou sky · Dica em laranja #F47920). Início (Não
+   esqueça! com **Paguei!** sem tocar no caixa da loja, barras, O que aconteceu), **Meus potinhos**
+   (potes pessoais, `escopo='pessoal'`, sem formulário de criação a pedido do dono) e **Anotar
+   dinheiro**. O painel financeiro adulto saiu do menu (código fica). Potes iniciais entram pela
+   migração `2026-11-25-potes-pessoais-iniciais.sql` (Meta do mês 55.000 · Reserva 20.000 ·
+   Equipamentos 10.000, guardado zero) — **aplicar no SQL Editor**; sem ela, Meus potinhos fica vazio.
+12. **Monitoramento de erros no ar (25/11, autorizado pelo dono)** — `AlertaErros` (aviso discreto
+   no canto do master), `MonitorErros` no layout raiz, rotas `/api/erros[/novos]` e
+   `/api/vigia/erros` (cron de 10 min no `vercel.json`), lista em Saúde do sistema e testes
+   (`test/erros.test.ts`, `test/vigia-erros.test.ts`, 15 passando). Foi trabalho de outro agente;
+   entrou no commit só com a autorização do dono porque os arquivos estavam fora do repositório e
+   o build da Vercel quebrava ("Module not found: @/components/AlertaErros").
 
 ### O que falta — SÓ ISTO
 
@@ -83,10 +98,9 @@ outras contas R$ 97.635 · vale-crédito a honrar R$ 5.297).
    (H2O/ADL/INOVA de novembro) — é a única ponta que a conta do app não prova sozinha.
 3. **Contas particulares**: lançar as do mês na aba `/painel/particular` (as 3 antigas já
    foram migradas, R$ 2.096,47).
-4. **Painel financeiro**: colar a migração
-   `2026-11-25-painel-financeiro-metas-poupanca.sql` no SQL Editor (sem ela a aba Metas fica
-   vazia) e testar Pagar/Receber + Nova movimentação com uma conta de valor baixo antes de usar
-   de verdade.
+4. **Aba Particular / potes**: colar a migração
+   `2026-11-25-potes-pessoais-iniciais.sql` no SQL Editor (cria os 3 potes pessoais; sem ela,
+   "Meus potinhos" fica vazio) e testar Paguei!, Guardar R$ 500 e Anotar dinheiro.
 5. **Bot do WhatsApp (25/11)**: foi **recomeçado do zero no modo mínimo** —
    `bot-whatsapp/pix.mjs` responde **só** "qual o PIX" (chave lida de
    `contas.chave_pix` da conta bancária da loja; hoje PagBank Petrópolis,
@@ -97,6 +111,17 @@ outras contas R$ 97.635 · vale-crédito a honrar R$ 5.297).
    parear de novo, o QR sai em `bot-whatsapp/data/qr_petropolis.png` (renova a cada
    ~20 s) ou na página `Desktop/QR-bot-petropolis.html`, que se atualiza sozinha.
    Situação a qualquer momento: `node bot-whatsapp/status.mjs`.
+
+6. **Monitoramento de erro em uso** (código pronto, **não commitado**, feito em 24–25/11 numa
+   sessão paralela): (a) colar `supabase/migrations/2026-11-24-erros-app.sql` no SQL Editor;
+   (b) criar no @BotFather um **bot só de erro** (sem webhook — os bots das lojas usam webhook e
+   por isso `getUpdates` responde 409), criar o grupo **"TecnoCell — Erros"** com esse bot dentro
+   e cadastrar `TELEGRAM_TOKEN_ERROS` na Vercel. O `chat_id` **não precisa ser digitado**: o vigia
+   descobre o grupo pelo nome (precisa ter "erro") e salva em `configuracoes` → `erros_chat`;
+   (c) só depois disso pedir autorização de commit. Mensagem só quando há problema (sem resumo
+   diário); alerta também no canto da tela do painel, só para o master. Detalhe:
+   `docs/mapa/monitoramento-erros.md`. Enquanto a migration não for aplicada, o console mostra
+   `[erros] não gravou: Could not find the table`.
 
 ### Não é para reabrir (decidido com o dono em 23/11)
 
