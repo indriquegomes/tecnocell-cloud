@@ -98,9 +98,16 @@ outras contas R$ 97.635 · vale-crédito a honrar R$ 5.297).
    (H2O/ADL/INOVA de novembro) — é a única ponta que a conta do app não prova sozinha.
 3. **Contas particulares**: lançar as do mês na aba `/painel/particular` (as 3 antigas já
    foram migradas, R$ 2.096,47).
-4. **Aba Particular / potes**: colar a migração
-   `2026-11-25-potes-pessoais-iniciais.sql` no SQL Editor (cria os 3 potes pessoais; sem ela,
-   "Meus potinhos" fica vazio) e testar Paguei!, Guardar R$ 500 e Anotar dinheiro.
+4. **Aba Particular / potes**: recurso REMOVIDO do app em 25/11 (a pedido do dono) — as tabelas
+   `metas_poupanca`/`aportes_poupanca` continuam no banco, invisíveis. Não há migração a colar.
+
+5. **Devolução paga fora do app (estorno do WhatsApp)** — tipo novo "Fora do app (WhatsApp)" em
+   Devoluções (commit `4a6eb59`): grava a saída como PAGA, não mexe em gaveta nem em conta e não
+   pede senha. Os 4 estornos que estavam pendentes no Financeiro (R$ 315,00: MICHEL GARCIA 45,
+   Marcos Vinicius Ferreira da Conceição 51, FG ASSISTENCIA 142 e 77) foram marcados como pagos com
+   `scripts/consertar-estornos-fora-do-app.mjs` (backup + DESFAZER em `docs/registros-banco/2026-11/`).
+   **Falta colar no SQL Editor** a migração `2026-11-25-estorno-credito-pago.sql` — sem ela, o botão
+   "Estornar crédito" continua abrindo conta PENDENTE.
 5. **Bot do WhatsApp (25/11)**: foi **recomeçado do zero no modo mínimo** —
    `bot-whatsapp/pix.mjs` responde **só** "qual o PIX" (chave lida de
    `contas.chave_pix` da conta bancária da loja; hoje PagBank Petrópolis,
