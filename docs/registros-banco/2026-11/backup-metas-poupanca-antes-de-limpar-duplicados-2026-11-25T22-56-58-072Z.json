@@ -1,0 +1,82 @@
+{
+  "metas": [
+    {
+      "id": "0727a49a-66a3-4bea-8662-886f5f370662",
+      "nome": "Reserva",
+      "cor": "#34C79D",
+      "atual": 0,
+      "objetivo": 20000,
+      "ativo": true,
+      "criado_em": "2026-11-25T13:43:46.839199+00:00",
+      "updated_at": "2026-11-25T13:43:46.839199+00:00",
+      "escopo": "empresa"
+    },
+    {
+      "id": "d1a93441-8c92-4cef-9fbf-e9b6a113c476",
+      "nome": "Impostos",
+      "cor": "#5BC0EB",
+      "atual": 0,
+      "objetivo": 10000,
+      "ativo": true,
+      "criado_em": "2026-11-25T13:43:46.839199+00:00",
+      "updated_at": "2026-11-25T13:43:46.839199+00:00",
+      "escopo": "empresa"
+    },
+    {
+      "id": "4b8864dc-bc3d-47ce-964a-dadc73c134d6",
+      "nome": "Equipamentos",
+      "cor": "#7B6CF6",
+      "atual": 0,
+      "objetivo": 10000,
+      "ativo": true,
+      "criado_em": "2026-11-25T13:43:46.839199+00:00",
+      "updated_at": "2026-11-25T13:43:46.839199+00:00",
+      "escopo": "empresa"
+    },
+    {
+      "id": "ad53d433-34ca-416f-a083-f2fb7911da30",
+      "nome": "Meta do ano",
+      "cor": "#FFD25A",
+      "atual": 0,
+      "objetivo": 10000,
+      "ativo": true,
+      "criado_em": "2026-11-25T13:43:46.839199+00:00",
+      "updated_at": "2026-11-25T13:43:46.839199+00:00",
+      "escopo": "empresa"
+    },
+    {
+      "id": "5dbf24b7-d208-4996-8c09-b1ed64acb793",
+      "nome": "Meta do mês",
+      "cor": "#1B6CA8",
+      "atual": 0,
+      "objetivo": 55000,
+      "ativo": true,
+      "criado_em": "2026-11-25T18:26:46.454257+00:00",
+      "updated_at": "2026-11-25T18:26:46.454257+00:00",
+      "escopo": "pessoal"
+    },
+    {
+      "id": "0347d1e9-4dc3-4df7-8746-8979c97636c4",
+      "nome": "Reserva",
+      "cor": "#10b981",
+      "atual": 0,
+      "objetivo": 20000,
+      "ativo": true,
+      "criado_em": "2026-11-25T18:26:46.454257+00:00",
+      "updated_at": "2026-11-25T18:26:46.454257+00:00",
+      "escopo": "pessoal"
+    },
+    {
+      "id": "41fbd915-756a-4bd3-b209-4bccf973743d",
+      "nome": "Equipamentos",
+      "cor": "#f59e0b",
+      "atual": 0,
+      "objetivo": 10000,
+      "ativo": true,
+      "criado_em": "2026-11-25T18:26:46.454257+00:00",
+      "updated_at": "2026-11-25T18:26:46.454257+00:00",
+      "escopo": "pessoal"
+    }
+  ],
+  "aportes": []
+}
