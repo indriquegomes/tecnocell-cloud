@@ -494,15 +494,15 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     const [vh, fh, dh, ch] = await Promise.all([
       fetchAll<{ total: number | null }>((from, to) => supabase.from('vendas')
         .select('total').eq('status', 'concluida').eq('uso_interno', false)
-        .gte('data', hojeTs).lt('data', amanhaTs).order('id').range(from, to)),
+        .gte('data', hojeTs).lt('data', amanhaTs).in('caixa_id', filtroCaixa).order('id').range(from, to)),
       fetchAll<{ valor_pago: number | null }>((from, to) => supabase.from('lancamentos')
         .select('valor_pago').eq('tipo', 'receber').eq('status', 'pago')
-        .gte('data_pagamento', hojeTs).lt('data_pagamento', amanhaTs).order('id').range(from, to)),
+        .gte('data_pagamento', hojeTs).lt('data_pagamento', amanhaTs).eq('loja_id', lojaSel).order('id').range(from, to)),
       fetchAll<{ valor_total: number | null }>((from, to) => supabase.from('devolucoes')
-        .select('valor_total').gte('created_at', hojeTs).lt('created_at', amanhaTs).order('id').range(from, to)),
+        .select('valor_total').gte('created_at', hojeTs).lt('created_at', amanhaTs).in('deposito_id', filtroDeposito).order('id').range(from, to)),
       fetchAll<{ valor_fechamento: number | null }>((from, to) => supabase.from('caixas')
         .select('valor_fechamento').eq('status', 'fechado')
-        .gte('fechado_em', hojeTs).lt('fechado_em', amanhaTs).order('id').range(from, to)),
+        .gte('fechado_em', hojeTs).lt('fechado_em', amanhaTs).eq('loja_id', lojaSel).order('id').range(from, to)),
     ])
     hojeVendas = vh.reduce((s, v) => s + Number(v.total ?? 0), 0)
     hojeFiado = fh.reduce((s, l) => s + Number(l.valor_pago ?? 0), 0)
