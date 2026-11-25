@@ -26,6 +26,26 @@ despercebida. **Silêncio = nada aconteceu.** A prova de vida do vigia (hora da
 última passada) aparece na tela Saúde, que é onde se vai olhar quando se quer
 saber, não no bolso de quem trabalha.
 
+## Aviso só no horário da loja
+
+O cron roda **24h** (144 chamadas por dia, uma consulta vazia na maioria — custo
+irrelevante perto do cron de 1 minuto que o projeto já tem), mas **a mensagem só
+sai com a loja funcionando** (`dentroDoHorarioDeAviso`, testado nas bordas):
+
+- abre **08:00**;
+- fecha na hora configurada em `configuracoes.pdv` (a mesma do aviso de caixa),
+  **com folga de 90 min** — problema na hora de fechar a gaveta ainda avisa;
+- **domingo em silêncio**.
+
+Fora do horário o erro **continua sendo gravado** (aparece na tela Saúde) e é
+anunciado na primeira passada depois de abrir: a janela de leitura começa no
+último envio bem-sucedido (`inicioDaJanela`), então o atrasado da madrugada entra
+com a contagem de ocorrências, e nada se perde.
+
+Quem quiser mexer nisso: `ABRE_MIN` e `FOLGA_FECHAMENTO_MIN` em
+`lib/vigia-erros.ts`. A marca `erros_vigia.fora_de_horario` mostra na tela se o
+vigia está em horário de aviso ou pausado.
+
 ## Três regras que não podem ser quebradas
 
 1. **Nada de dado de cliente.** Nome, valor, CPF, telefone e IMEI não entram:
