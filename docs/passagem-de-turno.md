@@ -106,11 +106,22 @@ outras contas R$ 97.635 · vale-crédito a honrar R$ 5.297).
    `contas.chave_pix` da conta bancária da loja; hoje PagBank Petrópolis,
    `67.262.680/0001-92 · STOR ONE LTDA`) e fica em silêncio em qualquer outro
    assunto. Sem IA, sem produto, sem banco local. O bot completo (`run.mjs`) fica
-   no repositório, desligado. **Sessão de Petrópolis conectada em 25/11** (credencial
-   salva em `bot-whatsapp/data/auth_petropolis/`, reinicia sem pedir QR). Se precisar
-   parear de novo, o QR sai em `bot-whatsapp/data/qr_petropolis.png` (renova a cada
-   ~20 s) ou na página `Desktop/QR-bot-petropolis.html`, que se atualiza sozinha.
-   Situação a qualquer momento: `node bot-whatsapp/status.mjs`.
+   no repositório, desligado. **A sessão NÃO está pareada** (25/11 à tarde a
+   credencial morreu — causa abaixo). Para parear: abra
+   `bot-whatsapp/data/qr_petropolis.png` (renova a cada ~20 s) e escaneie com o
+   WhatsApp da loja. Situação a qualquer momento: `node bot-whatsapp/status.mjs`.
+
+   **Achado 25/11 — bot mudo depois de um tempo (root cause):** o arranque do
+   Windows (`TecnoCell-Bot.bat` na pasta Startup) rodava `pm2 resurrect`, e o dump
+   do PM2 restaurava o bot ANTIGO (`run.mjs`) **na mesma pasta de sessão**
+   (`auth_petropolis`). Dois bots na mesma sessão = `Bad MAC` em massa
+   (`tecnocell-bot-error.log`), depois `sessão inválida (500)`, o `pix.mjs` apagava
+   a credencial e o bot caía no QR — "com um tempo ele para de responder". Correções
+   (25/11): (a) o `.bat` agora roda `pm2 start ecosystem.config.cjs` + `pm2 save`
+   (fonte única — nunca mais volta o `run.mjs`); (b) `pm2 delete`/start pelo
+   ecosystem + `pm2 save`, então o dump não tem mais `run.mjs`; (c) `pix.mjs` não
+   apaga mais a credencial no erro 500 (transitório) — só 401/405/409/412/440 pedem
+   QR novo.
 
 6. **Monitoramento de erro em uso** (código pronto, **não commitado**, feito em 24–25/11 numa
    sessão paralela): (a) colar `supabase/migrations/2026-11-24-erros-app.sql` no SQL Editor;

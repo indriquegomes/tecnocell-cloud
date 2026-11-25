@@ -89,7 +89,13 @@ let respondidas = 0
 
 const esperaQueda = (n) => Math.min(5000 * Math.pow(2, n), 30 * 60 * 1000) // 5s → 30min
 const esperaSemSessao = (n) => Math.min(2000 * Math.pow(2, n - 1), 20000) // 2s → 20s (QR fresco)
-const CODIGOS_DEFINITIVOS = new Set([401, 405, 409, 412, 440, 500]) // 403 = banido, fica de fora
+// Códigos que significam "a credencial morreu" (só 401 saiu da conta de verdade;
+// 405/409/412/440 são recusas do servidor que exigem pareamento novo).
+// 500 NÃO entra: é falha de stream (transitória, às vezes um engasgo de rede) e
+// apagá-la transformava um engasgo em QR obrigatório — o bot parava de responder
+// e ninguém sabia até alguém escanear de novo (25/11/2026). Com 500 fora, o bot
+// reconecta com a MESMA credencial e só pede QR quando é 401 de verdade.
+const CODIGOS_DEFINITIVOS = new Set([401, 405, 409, 412, 440]) // 403 = banido, fica de fora
 
 // Log repetido é o que enche disco. Cada aviso sai no máximo uma vez por janela.
 const ultimoLog = new Map()
