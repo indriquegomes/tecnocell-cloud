@@ -253,6 +253,11 @@ async function iniciaSessao() {
       if (!jid.endsWith('@s.whatsapp.net') && !jid.endsWith('@lid')) continue
 
       const texto = msg.message?.conversation || msg.message?.extendedTextMessage?.text
+      // Prova de vida sem conteúdo: mostra que a mensagem chegou e se foi lida como
+      // pergunta de PIX (só número, nunca o texto — é conversa de cliente).
+      if (!msg.key.fromMe) {
+        console.log(`[pix] recebi de ${jid.replace(/@.*/, '')} — PIX: ${ehPerguntaPix(texto || '') ? 'sim' : 'não'}`)
+      }
       if (!texto || !ehPerguntaPix(texto)) continue // não é PIX: silêncio, sem log de conteúdo
 
       const pausaAte = pausados.get(jid)

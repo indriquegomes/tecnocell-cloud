@@ -106,10 +106,11 @@ outras contas R$ 97.635 · vale-crédito a honrar R$ 5.297).
    `contas.chave_pix` da conta bancária da loja; hoje PagBank Petrópolis,
    `67.262.680/0001-92 · STOR ONE LTDA`) e fica em silêncio em qualquer outro
    assunto. Sem IA, sem produto, sem banco local. O bot completo (`run.mjs`) fica
-   no repositório, desligado. **A sessão NÃO está pareada** (25/11 à tarde a
-   credencial morreu — causa abaixo). Para parear: abra
-   `bot-whatsapp/data/qr_petropolis.png` (renova a cada ~20 s) e escaneie com o
-   WhatsApp da loja. Situação a qualquer momento: `node bot-whatsapp/status.mjs`.
+   no repositório, desligado. **Sessão pareada em 25/11 à noite** (o bot estava com
+   a credencial morta desde a tarde — causa abaixo; o pareamento foi refeito e o
+   reinício do PM2 já reconecta sem QR). Situação a qualquer momento:
+   `node bot-whatsapp/status.mjs`; log de prova de vida: cada mensagem recebida sai
+   como `recebi de <número> — PIX: sim/não` (sem o conteúdo).
 
    **Achado 25/11 — bot mudo depois de um tempo (root cause):** o arranque do
    Windows (`TecnoCell-Bot.bat` na pasta Startup) rodava `pm2 resurrect`, e o dump
