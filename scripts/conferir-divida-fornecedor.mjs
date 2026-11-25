@@ -82,6 +82,7 @@ console.log('| fornecedor | por ID | por NOME | diferença | pendente sem cadast
 console.log('|---|---|---|---|---|')
 
 const problemas = []
+const servicos = []   // conta de serviço fixo sem cadastro: informa, não acusa
 for (const f of alvo) {
   const nome = String(f.nome)
   const porId = linhas.filter((l) => l.pessoa_id === f.id && noMes(l))
@@ -90,8 +91,14 @@ for (const f of alvo) {
   const dNome = n2(porNome.reduce((s, l) => s + pendente(l), 0))
   if (!dId && !dNome) continue
   console.log(`| ${nome} | ${brl(dId)} | ${brl(dId + dNome)} | ${brl(dNome)} | ${porNome.length} linha(s) |`)
-  for (const l of porNome.filter((l) => pendente(l) > 0)) {
+  // Só mercadoria conta como "pendente sem cadastro": conta de SERVIÇO fixo
+  // (advocacia mensal, contabilidade) não é dívida de mercadoria, e acusá-la aqui
+  // virava alarme falso — o tipo de erro que ensina a ignorar o conferente.
+  for (const l of porNome.filter((l) => pendente(l) > 0 && /mercadoria/i.test(String(l.categoria ?? '')))) {
     problemas.push({ tipo: 'PENDENTE SEM CADASTRO', fornecedor: nome, linha: l })
+  }
+  for (const l of porNome.filter((l) => pendente(l) > 0 && !/mercadoria/i.test(String(l.categoria ?? '')))) {
+    servicos.push({ fornecedor: nome, linha: l })
   }
 }
 
@@ -139,5 +146,14 @@ for (const p of problemas) {
   } else {
     console.log(`\n[${p.tipo}] ${p.fornecedor}`)
     console.log(`   ${p.detalhe}`)
+  }
+}
+
+// Serviço fixo (advocacia, contabilidade) sem cadastro não entra como problema:
+// não é dívida de mercadoria. Fica listado à parte para não sumir do radar.
+if (servicos.length) {
+  console.log(`\nFORA DA CONTA DE MERCADORIA — ${servicos.length} linha(s) de serviço sem cadastro:`)
+  for (const s of servicos) {
+    console.log(`  ${s.fornecedor} · ${brl(s.linha.valor)} · categoria ${s.linha.categoria ?? '-'} · "${String(s.linha.descricao ?? '').slice(0, 50)}"`)
   }
 }

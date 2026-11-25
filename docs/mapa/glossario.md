@@ -25,6 +25,7 @@
 | **Fiado** | Venda sem pagamento agora: vira dívida do cliente | crediário, "A Receber", F9 (a quitação) | `lancamentos.tipo = 'receber'`; pagamento `status = 'pendente'` |
 | **Vale-crédito** | Saldo que o cliente tem na loja e usa como pagamento | vale, crédito, "créditos de clientes" | `creditos_clientes`; `formas_pagamento.tipo = 'vale_credito'`; `pagamentos_venda.status = 'vale'` |
 | **Devolução em crédito** | Devolução em que o dinheiro fica como saldo | crédito na conta, "credito_conta" | `devolucoes.tipo_credito = 'credito_conta'` |
+| **Serviço fixo** | Prestador pago todo mês por serviço, **não** vende mercadoria (advocacia, contabilidade). A conta entra com categoria de serviço (`Jurídico`, `Contabilidade`) e **não** é dívida de mercadoria | "fornecedor de serviço", honorários | `lancamentos` com `categoria` de serviço e sem `pessoa_id` — o conferente de dívida não deve acusar |
 
 ## Mercadoria que volta
 
