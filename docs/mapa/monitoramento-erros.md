@@ -13,7 +13,7 @@ trabalhando — e como o dono fica sabendo na hora.
 | `components/MonitorErros.tsx` | layout raiz | Escuta `window.onerror` e `unhandledrejection` em toda tela |
 | `app/error.tsx`, `app/painel/error.tsx` | telas de erro | Erro de componente também é enviado (o React não passa pelo `window.onerror`) |
 | `GET /api/vigia/erros` | rota + cron 10 min (24h) | Agrupa o que chegou, avisa **uma vez** no grupo privado do dono, marca `avisado_em` **só do que o Telegram aceitou**, e grava a hora da passada (`configuracoes` → `erros_vigia`) |
-| Descoberta do grupo | dentro do vigia | O dono **não digita `chat_id`**: cria o grupo com nome que tenha "erro", põe o bot dentro, e o vigia lê `getUpdates`, aceita **só** grupo com "erro" no título e salva em `configuracoes` → `erros_chat` |
+| Descoberta do destino | dentro do vigia | O dono **não digita `chat_id`**: ou cria o grupo com "erro" no nome e põe o bot dentro, ou só manda um "oi" para o bot. O vigia lê `getUpdates`, prefere grupo com "erro" no título, aceita conversa direta como alternativa (o bot é dedicado) e salva em `configuracoes` → `erros_chat`. Ao achar, manda uma mensagem única de "monitoramento conectado" |
 | `GET /api/erros/novos` | rota (master) | Contagem da última hora para o **alerta na tela** |
 | `components/AlertaErros.tsx` | layout do painel (só master) | Aviso no canto da tela: "2 problemas na última hora" + link para a Saúde. Consulta de minuto em minuto |
 | Tela Saúde do sistema | `/painel/saude` | Bloco "Telas com problema hoje" + "último check do vigia: há X min" (master-only) |
@@ -75,6 +75,14 @@ para o grupo da loja.
 (criado no @BotFather), sem webhook. Com ele a descoberta funciona; com o bot da
 loja, o caminho é cadastrar `TELEGRAM_GRUPO_ERROS` à mão.
 
+### Armadilha que já custou um teste falho
+
+O Telegram devolve `type` / `title` / `first_name`. Se o código traduzir isso no
+tipo (`tipo`, `titulo`) e **ler o JSON cru**, todo campo vem `undefined`, a
+descoberta "não acha nada" e o aviso nunca sai — mesmo com dois updates na mão.
+A tradução vive em `mapearChats()` (lib/vigia-erros.ts) e tem teste com o formato
+real do Telegram. Não inlinar essa leitura de volta na rota.
+
 ## Quando nada é gravado
 
 Se a migration não estiver aplicada, o console do servidor mostra
@@ -85,5 +93,7 @@ está são.
 ## Ponto de atenção
 
 Tabela `erros_app` só existe depois de aplicar
-`supabase/migrations/2026-11-24-erros-app.sql` no SQL Editor. Sem a migration, o
-sistema **não quebra** (tudo é silencioso), mas nada é gravado.
+`supabase/migrations/2026-11-24-erros-app.sql`. Aplicada em **25/11/2026** pela
+API de administração do Supabase (14 colunas, RLS ligado, 0 policies, 4 índices)
+e testada ponta a ponta no mesmo dia: erro de teste → vigia → mensagem no
+Telegram do dono → linha marcada como avisada → teste apagado.

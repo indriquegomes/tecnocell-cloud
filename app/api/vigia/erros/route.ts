@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
-import { agruparLinhas, escolherChatDeErro, gruposAAvisar, montarAviso, type ChatCandidato, type LinhaErro } from '@/lib/vigia-erros'
+import { agruparLinhas, escolherChatDeErro, gruposAAvisar, mapearChats, montarAviso, nomeDoChat, type LinhaErro, type UpdateTelegram } from '@/lib/vigia-erros'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -31,10 +31,11 @@ function inicioDoDiaISO(dia: string): string {
 // De quem é o aviso. Ordem: variável de ambiente → o que já foi descoberto e
 // salvo → descoberta agora.
 //
-// A descoberta existe porque chat_id numérico é impossível de ler no Telegram e o
-// dono não tem que mexer nisso: ele cria o grupo "TecnoCell — Erros", põe o bot
-// dentro, e o próprio Telegram avisa o bot (update `my_chat_member`) com o id.
-// Só aceita grupo com "erro" no nome — nunca o grupo da loja.
+// A descoberta existe porque `chat_id` numérico é impossível de ler no Telegram e
+// o dono não tem que mexer nisso: ele cria o grupo (ou abre conversa com o bot) e
+// o Telegram avisa o bot com o id. Grupo só vale com "erro" no nome; conversa
+// direta só porque este bot é dedicado ao monitoramento — a única DM dele é a do
+// dono. Nunca escolhe o grupo da loja.
 async function descobrirChatDoErro(
   supabase: Awaited<ReturnType<typeof createServiceClient>>,
 ): Promise<{ chat: string | null; titulo: string | null; erro: string | null }> {
@@ -43,31 +44,28 @@ async function descobrirChatDoErro(
 
   try {
     const r = await fetch('https://api.telegram.org/bot' + token + '/getUpdates?limit=100', { cache: 'no-store' })
-    const corpo = (await r.json()) as {
-      ok: boolean
-      description?: string
-      result?: { message?: { chat?: ChatCandidato }; my_chat_member?: { chat?: ChatCandidato } }[]
-    }
+    const corpo = (await r.json()) as { ok: boolean; description?: string; result?: UpdateTelegram[] }
     if (!corpo.ok) {
       // Webhook ativo no bot responde 409: aí a descoberta não funciona e o
       // caminho é cadastrar TELEGRAM_GRUPO_ERROS (ou usar um bot só de erro).
       return { chat: null, titulo: null, erro: corpo.description ?? 'Telegram recusou getUpdates' }
     }
 
-    const chats: ChatCandidato[] = []
-    for (const u of corpo.result ?? []) {
-      const c = u.message?.chat ?? u.my_chat_member?.chat
-      if (c) chats.push({ id: c.id, titulo: c.titulo ?? null, tipo: c.tipo })
+    const achado = escolherChatDeErro(mapearChats(corpo.result ?? []))
+    const nome = nomeDoChat(achado)
+    if (!achado) {
+      return { chat: null, titulo: null, erro: 'o bot ainda não está em grupo nem conversa: mande "oi" para ele no Telegram' }
     }
-    const achado = escolherChatDeErro(chats)
-    if (!achado) return { chat: null, titulo: null, erro: 'nenhum grupo com "erro" no nome onde o bot esteja' }
 
     const chat = String(achado.id)
     await supabase.from('configuracoes').upsert(
-      { chave: 'erros_chat', valor: { chat_id: chat, titulo: achado.titulo, em: new Date().toISOString() } },
+      { chave: 'erros_chat', valor: { chat_id: chat, titulo: nome, em: new Date().toISOString() } },
       { onConflict: 'chave' },
     )
-    return { chat, titulo: achado.titulo, erro: null }
+    // Avisa uma vez no próprio destino que ele foi escolhido: o dono confirma na
+    // hora, sem precisar abrir o painel.
+    await mandarTelegram(chat, '🛠 Monitoramento conectado. Daqui pra frente eu aviso aqui quando alguma tela der problema — só quando houver problema.')
+    return { chat, titulo: nome, erro: null }
   } catch (e) {
     return { chat: null, titulo: null, erro: e instanceof Error ? e.message : String(e) }
   }

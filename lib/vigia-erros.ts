@@ -33,21 +33,56 @@ export function gruposAAvisar(grupos: GrupoErro[], silenciados: Set<string>): Gr
   return grupos.filter((g) => !silenciados.has(g.chave))
 }
 
-// ── Descoberta do grupo de aviso ───────────────────────────────────────────────
+// ── Descoberta do destino do aviso ────────────────────────────────────────────
 //
-// O dono não deve precisar descobrir nem digitar um "chat_id". Ele cria o grupo,
-// põe o bot dentro e o Telegram avisa o bot (update `my_chat_member`); daí sai o
-// id. A ordem das escolhas mora aqui, longe da rede, para poder ser testada.
+// O dono não digita `chat_id`: ele cria o grupo (ou abre conversa com o bot) e o
+// Telegram avisa o bot; daí sai o id. A ordem das escolhas mora aqui, longe da
+// rede, para poder ser testada.
 
-export type ChatCandidato = { id: number | string; titulo: string | null; tipo: string }
+export type ChatCandidato = {
+  id: number | string
+  titulo: string | null
+  tipo: string
+  nome?: string | null   // conversa direta: first_name do dono
+}
 
-// Só vale grupo com "erro" no nome. Sem esse filtro o bot poderia despejar aviso
-// técnico no grupo da loja — pior erro possível nesta peça.
+// Formato CRU do Telegram: `type`, `title`, `first_name`. Traduzir isso no tipo e
+// ler errado (usar `c.tipo` no JSON cru) foi o que fez a descoberta achar dois
+// updates e não reconhecer nenhum — por isso a tradução virou função testada.
+export type ChatBruto = { id: number; type?: string; title?: string | null; first_name?: string | null }
+export type UpdateTelegram = {
+  message?: { chat?: ChatBruto }
+  my_chat_member?: { chat?: ChatBruto }
+}
+
+export function mapearChats(updates: UpdateTelegram[]): ChatCandidato[] {
+  const chats: ChatCandidato[] = []
+  for (const u of updates) {
+    const c = u.message?.chat ?? u.my_chat_member?.chat
+    if (!c) continue
+    chats.push({ id: c.id, tipo: c.type ?? '', titulo: c.title ?? null, nome: c.first_name ?? null })
+  }
+  return chats
+}
+
+// Ordem: (1) grupo com "erro" no nome; (2) conversa direta com o bot.
+//
+// Nunca escolhe grupo da loja: aquele não tem "erro" no título, e o bot do
+// monitoramento é dedicado — a única conversa direta dele é a do dono.
 export function escolherChatDeErro(chats: ChatCandidato[]): ChatCandidato | null {
   const grupos = chats.filter(
     (c) => (c.tipo === 'group' || c.tipo === 'supergroup') && /erro/i.test(c.titulo ?? ''),
   )
-  return grupos.length > 0 ? grupos[grupos.length - 1] : null
+  if (grupos.length > 0) return grupos[grupos.length - 1]
+
+  const diretas = chats.filter((c) => c.tipo === 'private')
+  return diretas.length > 0 ? diretas[diretas.length - 1] : null
+}
+
+// Nome do destino, para a tela Saúde mostrar onde o aviso está caindo.
+export function nomeDoChat(c: ChatCandidato | null): string | null {
+  if (!c) return null
+  return c.titulo ?? c.nome ?? null
 }
 
 // Quem estava usando: NOME COMPLETO, nunca login nem apelido (regra do projeto).

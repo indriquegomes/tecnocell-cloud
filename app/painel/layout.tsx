@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { PainelShell } from '@/components/PainelShell'
 import { ChatWidget } from '@/components/ChatWidget'
+import { AlertaErros } from '@/components/AlertaErros'
 import { NavProgress } from '@/components/NavProgress'
 import { BotaoSair } from '@/components/BotaoSair'
 import { createServiceClient, permissoesEfetivas, configAcesso } from '@/lib/supabase/server'
@@ -204,10 +205,10 @@ export default async function PainelLayout({ children }: { children: React.React
         {children}
       </PainelShell>
       <ChatWidget tipo={temPermissao(permissoes, 'chat_ia', isMaster) ? 'funcionario' : 'cliente'} />
-      {/* Monitoramento de erros (AlertaErros) está em construção por outro agente e
-          vive só na máquina local — importá-lo aqui quebrou o build da Vercel
-          (módulo não existe no repositório). Volta quando o componente e a rota
-          /api/erros estiverem commitados. */}
+      {/* Aviso de problema na tela: só para o master. O componente e a rota
+          /api/erros/novos já estão no repositório; a rota também confere o master,
+          então montar aqui não abre o dado para ninguém. */}
+      {isMaster && <AlertaErros />}
     </>
   )
 }
