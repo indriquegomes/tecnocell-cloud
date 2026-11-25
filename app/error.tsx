@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { enviarErro, tituloDeErro } from '@/lib/erros-cliente'
 
 // Erro fora do painel (login, loja virtual, convite). Sem este arquivo, essas
 // telas caíam na página padrão do Next em inglês. Next 16 chama o retry de
@@ -14,6 +15,9 @@ export default function Error({
 }) {
   useEffect(() => {
     console.error(error)
+    // O console do navegador não é lido por ninguém: o problema também vai para
+    // o painel → Saúde do sistema, com a rota onde aconteceu.
+    enviarErro({ titulo: tituloDeErro(error), mensagem: error.message, digest: error.digest })
   }, [error])
 
   return (

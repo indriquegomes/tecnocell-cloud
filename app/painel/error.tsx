@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect } from 'react'
+import { enviarErro, tituloDeErro } from '@/lib/erros-cliente'
 
 // Tela de erro do painel — antes um erro de servidor mostrava a página padrão
 // do Next ("Application error: a server-side exception has occurred"), em
@@ -18,6 +19,9 @@ export default function PainelError({
   useEffect(() => {
     // Fica no console do navegador e no log do servidor (Sentry escuta os dois).
     console.error(error)
+    // E vai para o painel → Saúde do sistema: tela que não carrega é problema de
+    // uso, não só de código, e precisa chegar em quem toma decisão.
+    enviarErro({ titulo: tituloDeErro(error), mensagem: error.message, digest: error.digest })
   }, [error])
 
   return (

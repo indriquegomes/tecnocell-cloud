@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Plus_Jakarta_Sans } from 'next/font/google'
 import './globals.css'
 import { RegistrarSW } from '@/components/RegistrarSW'
+import { MonitorErros } from '@/components/MonitorErros'
 
 // Fonte do sistema — Plus Jakarta Sans (variável, self-hosted pelo next/font =
 // zero request externo, sem layout shift). Exposta como --font-sans p/ o globals.
@@ -32,6 +33,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR" className={`h-full ${jakarta.variable}`} suppressHydrationWarning>
       <body className="min-h-full bg-gray-50 antialiased">
         <RegistrarSW />
+        {/* Escuta erro fora do React em qualquer tela (painel, login, loja).
+            Montar no layout raiz cobre tudo uma vez só — montar também no painel
+            duplicaria o listener. */}
+        <MonitorErros />
         {children}
       </body>
     </html>
