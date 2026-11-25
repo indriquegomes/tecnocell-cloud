@@ -95,14 +95,14 @@ from (values
   ('Comissão Marketplace', 'integracao'),
   ('Sangria / Retirada', 'caixa'),
   ('Estorno de crédito', 'socio'),
-  -- grafias antigas que existem na base (aceitas, não oferecidas)
-  ('Vale Transporte', 'funcionarios'),
-  ('Motoboy', 'operacao'),
-  ('Fornecedor / Mercadoria', 'fornecedores'),
+  -- Grafias antigas que existem na base (aceitas, não oferecidas). NÃO repetir a mesma
+-- palavra em outra caixa: 'Vale transporte' já cobre 'Vale Transporte', 'motoboy' cobre
+-- 'Motoboy' e 'fornecedor/mercadoria' cobre 'Fornecedor / Mercadoria' — o trigger
+-- normaliza (minúscula + espaço em volta da barra) e a coluna nome_norm é única.
   ('fornecedor/mercadoria', 'fornecedores'),
   ('fonecedor', 'fornecedores')
 ) as v(nome, setor)
-on conflict (nome) do nothing;
+on conflict do nothing;
 
 -- Rede de segurança: se alguma linha entrou antes do trigger, preenche agora.
 update public.categorias_financeiro
