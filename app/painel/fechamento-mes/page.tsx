@@ -148,14 +148,14 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
       // TODOS os movimentos do mês: recebimento (fiado), reforço (entra na gaveta),
       // retirada/sangria e devolução em dinheiro (saem da gaveta).
       fetchAll<any>((from, to) => supabase.from('movimentos_caixa')
-        .select('tipo, forma_pagamento, valor, caixa_id')
+        .select('tipo, forma_pagamento, valor, caixa_id, created_at')
         .gte('created_at', deTs).lt('created_at', ateTs).range(from, to)),
       fetchAll<any>((from, to) => supabase.from('itens_nota_entrada')
         .select('total_item, deposito_id, notas_entrada!inner(data_entrada, status)')
         .neq('notas_entrada.status', 'cancelada')
         .gte('notas_entrada.data_entrada', de).lt('notas_entrada.data_entrada', ate).range(from, to)),
       fetchAll<any>((from, to) => supabase.from('lancamentos')
-        .select('valor, loja_id, categoria, pessoa_nome, forma_pagamento').eq('tipo', 'pagar').eq('status', 'pago')
+        .select('valor, loja_id, categoria, pessoa_nome, forma_pagamento, data_pagamento').eq('tipo', 'pagar').eq('status', 'pago')
         .gte('data_pagamento', deTs).lt('data_pagamento', ateTs).range(from, to)),
     ])
 
@@ -173,6 +173,27 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
       if (ehCompraDeMercadoria(d.categoria)) continue
       const loja = d.loja_id || lojaDePessoa(d.pessoa_nome || '') || petropolisId
       add(loja, 'despesas', d.valor ?? 0)
+    }
+
+    // Série SEMANAL do mês (semana 1 = dias 1-7, ..., 5 = 29+), para o gráfico.
+    // Soma as MESMAS fontes do "entrou/saiu" acima — o gráfico não pode contradizer o KPI.
+    const porSemana: Record<string, { entradas: number[]; saidas: number[] }> = {}
+    for (const l of lojasList) porSemana[l.id] = { entradas: [0, 0, 0, 0, 0], saidas: [0, 0, 0, 0, 0] }
+    const semDe = (diaIso: string | null | undefined) => {
+      const dia = Number((diaIso ?? '').slice(8, 10))
+      return dia >= 1 && dia <= 31 ? Math.min(5, Math.ceil(dia / 7)) : 0
+    }
+    const addSem = (loja: string | null, campo: 'entradas' | 'saidas', diaIso: string | null | undefined, valor: number) => {
+      const sem = semDe(diaIso)
+      if (!loja || !porSemana[loja] || !sem) return
+      porSemana[loja][campo][sem - 1] += valor
+    }
+    for (const p of pags) addSem(lojaDeDeposito.get(p.vendas?.deposito_id) ?? null, 'entradas', p.vendas?.data, p.valor ?? 0)
+    for (const r of movsCaixa) if (r.tipo === 'recebimento') addSem(lojaDeCaixa.get(r.caixa_id) ?? null, 'entradas', r.created_at, r.valor ?? 0)
+    for (const c of comprasItens) addSem(lojaDeDeposito.get(c.deposito_id) ?? null, 'saidas', c.notas_entrada?.data_entrada, c.total_item ?? 0)
+    for (const d of despesas) {
+      if (ehCompraDeMercadoria(d.categoria)) continue
+      addSem(d.loja_id || lojaDePessoa(d.pessoa_nome || '') || petropolisId, 'saidas', d.data_pagamento, d.valor ?? 0)
     }
 
     // 💵 DINHEIRO (gaveta) por loja, no mês: cédula que entrou − cédula que saiu.
@@ -203,7 +224,7 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
       addDin(loja, 'saiu', d.valor ?? 0)
     }
 
-    return { porLoja, dinheiroPorLoja }
+    return { porLoja, dinheiroPorLoja, porSemana }
   }
 
   const inicioAnterior = mesAnterior + '-01'
@@ -213,6 +234,7 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
   ])
   const porLoja = movAtual.porLoja
   const dinheiroPorLoja = movAtual.dinheiroPorLoja
+  const porSemana = movAtual.porSemana
 
   const perdasApp = await fetchAll<any>((from, to) => supabase.from('movimentacoes_estoque')
     .select('quantidade, observacao, deposito_id, produtos(nome, preco_custo)')
@@ -491,6 +513,24 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
   const devo = Math.round((fornecedorSaldo + outrasSaldo) * 100) / 100
   const caixaAbertoDaLoja = (caixasAbertos ?? []).some((c) => c.loja_id === lojaSel)
 
+  // ─── Pele Mosaic: gráfico semanal + pílulas de variação ───────────────────
+  // A série semanal soma as MESMAS fontes do "entrou/saiu" do KPI (venda paga +
+  // fiado recebido × compras + despesas pagas), então o gráfico não contradiz o
+  // número. Semana 1 = dias 1-7, ..., semana 5 = 29 em diante.
+  const serie = porSemana[lojaSel] ?? { entradas: [0, 0, 0, 0, 0], saidas: [0, 0, 0, 0, 0] }
+  const maiorSerie = Math.max(1, ...serie.entradas, ...serie.saidas)
+  const pctDe = (atual: number, anterior: number) =>
+    anterior === 0 ? null : Math.round(((atual - anterior) / Math.abs(anterior)) * 1000) / 10
+  const entrouPct = pctDe(linha?.entradas ?? 0, prevEntradas)
+  const saiuPct = pctDe(linha?.saidas ?? 0, prevSaidas)
+  const ultimoDiaDoMes = new Date(Date.UTC(ano, m, 0)).toISOString().slice(0, 10)
+  const CHART_W = 560, CHART_H = 150, CHART_PAD = 10
+  const pxS = (i: number) => CHART_PAD + (i / 4) * (CHART_W - CHART_PAD * 2)
+  const pyS = (v: number) => CHART_H - CHART_PAD - (v / maiorSerie) * (CHART_H - CHART_PAD * 2)
+  const linhaSerie = (vals: number[]) => vals.map((v, i) => `${i ? 'L' : 'M'}${pxS(i)},${pyS(v)}`).join(' ')
+  const areaSerie = (vals: number[]) =>
+    `M${pxS(0)},${CHART_H - CHART_PAD} ` + vals.map((v, i) => `L${pxS(i)},${pyS(v)}`).join(' ') + ` L${pxS(4)},${CHART_H - CHART_PAD} Z`
+
   // Linha "Hoje" (só quando o mês aberto na tela é o mês corrente).
   let hojeVendas = 0, hojeFiado = 0, hojeDevolN = 0, hojeDevolValor = 0, hojeCaixaContado = 0
   if (mesCorrente) {
@@ -526,17 +566,17 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Fechamento do Mês</h2>
-          <p className="mt-0.5 text-sm text-gray-500">Entradas e saídas, estoque e resultado de cada loja.</p>
+          <h2 className="text-2xl font-semibold tracking-tight text-gray-800">Fechamento do Mês</h2>
+          <p className="mt-0.5 text-sm text-gray-400">Entradas e saídas, estoque e resultado de cada loja.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <a href={`/painel/fechamento-mes?mes=${mesAnterior}&loja=${lojaSel}`} className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-semibold text-gray-600 hover:bg-gray-50">← Anterior</a>
-          <span className="rounded-lg bg-blue-50 px-4 py-1.5 text-sm font-bold text-blue-700">{nomeMes(mes)}</span>
-          <a href={`/painel/fechamento-mes?mes=${mesSeguinte}&loja=${lojaSel}`} className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-semibold text-gray-600 hover:bg-gray-50">Próximo →</a>
-          <div className="flex items-center gap-1 rounded-xl border border-gray-200 bg-white p-0.5">
+          <a href={`/painel/fechamento-mes?mes=${mesAnterior}&loja=${lojaSel}`} className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm font-medium text-gray-600 transition hover:border-gray-300">← Anterior</a>
+          <span className="rounded-lg bg-gray-900 px-3 py-1.5 text-sm font-medium text-white">{nomeMes(mes)}</span>
+          <a href={`/painel/fechamento-mes?mes=${mesSeguinte}&loja=${lojaSel}`} className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm font-medium text-gray-600 transition hover:border-gray-300">Próximo →</a>
+          <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-0.5">
             {lojasList.map((l) => (
               <a key={l.id} href={`/painel/fechamento-mes?mes=${mes}&loja=${l.id}`}
-                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${l.id === lojaSel ? 'bg-[#1B6CA8] text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                className={`rounded-md px-3 py-1 text-sm font-medium transition ${l.id === lojaSel ? 'bg-[#8470ff] text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
                 {l.nome}
               </a>
             ))}
@@ -552,46 +592,58 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
 
       {linha && (
         <div className="space-y-6">
-          {/* ── FAIXA DE KPIs — o mês em quatro números ── */}
+          {/* ── KPIs — quatro números, estilo Mosaic (rótulo curto + pílula de variação) ── */}
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-medium text-gray-500">Resultado do mês</p>
-                  <p className={`mt-2 text-2xl font-bold tabular-nums ${dre.resultado >= 0 ? 'text-gray-900' : 'text-rose-600'}`}>{fmt(dre.resultado)}</p>
-                  <p className="mt-1 text-xs text-gray-400">receita líquida − custo − despesas</p>
-                </div>
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1B6CA8]/10 text-[#1B6CA8]"><IconChart className="h-4 w-4" /></span>
+            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Resultado do mês</p>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-500"><IconChart className="h-3.5 w-3.5" /></span>
+              </div>
+              <p className="mt-2 text-3xl font-semibold tabular-nums text-gray-800">{fmt(dre.resultado)}</p>
+              <div className="mt-2 flex items-center gap-2">
+                <span className={`rounded-full px-1.5 text-sm font-medium ${dre.resultado >= 0 ? 'bg-green-500/20 text-green-700' : 'bg-red-500/20 text-red-700'}`}>{dre.resultado >= 0 ? 'lucro' : 'prejuízo'}</span>
+                <span className="text-xs text-gray-400">receita líquida − custo − despesas</span>
               </div>
             </div>
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-medium text-gray-500">Entrou no caixa</p>
-                  <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">{fmt(linha.entradas)}</p>
-                  <p className="mt-1 text-xs text-gray-400">vendas pagas + fiado cobrado</p>
-                </div>
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600"><IconPlus className="h-4 w-4" /></span>
+            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Entrou no caixa</p>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-500/10 text-green-600"><IconPlus className="h-3.5 w-3.5" /></span>
+              </div>
+              <p className="mt-2 text-3xl font-semibold tabular-nums text-gray-800">{fmt(linha.entradas)}</p>
+              <div className="mt-2 flex items-center gap-2">
+                {entrouPct === null ? (
+                  <span className="rounded-full bg-gray-500/10 px-1.5 text-sm font-medium text-gray-500">sem base</span>
+                ) : (
+                  <span className={`rounded-full px-1.5 text-sm font-medium ${entrouPct >= 0 ? 'bg-green-500/20 text-green-700' : 'bg-red-500/20 text-red-700'}`}>{entrouPct >= 0 ? '+' : ''}{entrouPct}%</span>
+                )}
+                <span className="text-xs text-gray-400">vs {nomeMes(mesAnterior)}</span>
               </div>
             </div>
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-medium text-gray-500">Saiu do caixa</p>
-                  <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">{fmt(linha.saidas)}</p>
-                  <p className="mt-1 text-xs text-gray-400">compras + despesas pagas</p>
-                </div>
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600"><IconReturn className="h-4 w-4" /></span>
+            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Saiu do caixa</p>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-500"><IconReturn className="h-3.5 w-3.5" /></span>
+              </div>
+              <p className="mt-2 text-3xl font-semibold tabular-nums text-gray-800">{fmt(linha.saidas)}</p>
+              <div className="mt-2 flex items-center gap-2">
+                {saiuPct === null ? (
+                  <span className="rounded-full bg-gray-500/10 px-1.5 text-sm font-medium text-gray-500">sem base</span>
+                ) : (
+                  <span className={`rounded-full px-1.5 text-sm font-medium ${saiuPct <= 0 ? 'bg-green-500/20 text-green-700' : 'bg-red-500/20 text-red-700'}`}>{saiuPct >= 0 ? '+' : ''}{saiuPct}%</span>
+                )}
+                <span className="text-xs text-gray-400">vs {nomeMes(mesAnterior)}</span>
               </div>
             </div>
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-medium text-gray-500">Em mãos (referência)</p>
-                  <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">{fmt(linha.caixaCalculado)}</p>
-                  <p className="mt-1 text-xs text-gray-400">abertura + cédula que entrou − cédula que saiu</p>
-                </div>
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600"><IconWallet className="h-4 w-4" /></span>
+            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Em mãos</p>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-500/10 text-gray-500"><IconWallet className="h-3.5 w-3.5" /></span>
+              </div>
+              <p className="mt-2 text-3xl font-semibold tabular-nums text-gray-800">{fmt(linha.caixaCalculado)}</p>
+              <div className="mt-2 flex items-center gap-2">
+                <span className="rounded-full bg-gray-500/10 px-1.5 text-sm font-medium text-gray-500">referência</span>
+                <span className="text-xs text-gray-400">abertura + cédula − cédula</span>
               </div>
             </div>
           </section>
@@ -602,95 +654,166 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
             </p>
           )}
 
-          {/* ── CONTA ABERTA + O QUE FAZER ── */}
+          {/* ── GRÁFICO + RESULTADO (Mosaic: gráfico grande + tabela curta) ── */}
           <section className="grid gap-4 lg:grid-cols-3">
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm lg:col-span-2">
-              <div className="flex items-baseline justify-between gap-3">
-                <p className="text-sm font-semibold text-gray-800">Como o resultado se formou</p>
-                <p className="text-xs text-gray-400">{nomeMes(mes)}</p>
+            <div className="rounded-xl border border-gray-200 bg-white shadow-sm lg:col-span-2">
+              <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-800">Entradas × saídas</h3>
+                  <p className="text-xs text-gray-400">por semana · {nomeMes(mes)}</p>
+                </div>
+                <div className="flex items-center gap-4 text-xs text-gray-500">
+                  <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-[#8470ff]" />Entradas</span>
+                  <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-gray-300" />Saídas</span>
+                </div>
+              </header>
+              <div className="px-4 pb-3 pt-4">
+                <svg viewBox="0 0 560 150" className="h-36 w-full" preserveAspectRatio="none" role="img" aria-label="Entradas e saídas por semana">
+                  <defs>
+                    <linearGradient id="gradEntradas" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#8470ff" stopOpacity="0.22" />
+                      <stop offset="100%" stopColor="#8470ff" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <line key={i} x1={pxS(i)} y1={CHART_PAD} x2={pxS(i)} y2={CHART_H - CHART_PAD} stroke="#f3f4f6" strokeWidth="1" />
+                  ))}
+                  <path d={areaSerie(serie.entradas)} fill="url(#gradEntradas)" />
+                  <path d={linhaSerie(serie.saidas)} fill="none" stroke="#d1d5db" strokeWidth="2" />
+                  <path d={linhaSerie(serie.entradas)} fill="none" stroke="#8470ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <div className="mt-2 flex justify-between text-xs text-gray-400">
+                  {[1, 2, 3, 4, 5].map((s) => <span key={s}>sem {s}</span>)}
+                </div>
               </div>
-              <table className="mt-3 w-full text-sm">
-                <tbody>
-                  <tr><td className="py-1.5 text-gray-600">Receita de vendas (bruta)</td><td className="py-1.5 text-right font-semibold tabular-nums text-gray-900">{fmt(dre.receitaBruta)}</td></tr>
-                  <tr><td className="py-1.5 text-gray-600">− Devoluções (dinheiro que voltou)</td><td className="py-1.5 text-right tabular-nums text-gray-600">−{fmt(dre.receitaDevolvida)}</td></tr>
-                  <tr className="border-t border-gray-100"><td className="py-1.5 font-semibold text-gray-800">= Receita líquida</td><td className="py-1.5 text-right font-bold tabular-nums text-gray-900">{fmt(dre.receitaLiquida)}</td></tr>
-                  <tr><td className="py-1.5 text-gray-600">− Custo das peças vendidas</td><td className="py-1.5 text-right tabular-nums text-gray-600">−{fmt(dre.cmv)}</td></tr>
-                  <tr className="border-t border-gray-100"><td className="py-1.5 font-semibold text-gray-800">= Lucro bruto</td><td className="py-1.5 text-right font-bold tabular-nums text-gray-900">{fmt(dre.lucroBruto)}</td></tr>
-                  <tr><td className="py-1.5 text-gray-600">− Despesas do mês <span className="text-[10px] text-gray-400">(pago {fmt(dre.despesasPago)} + a pagar {fmt(dre.despesasAberto)})</span></td><td className="py-1.5 text-right tabular-nums text-gray-600">−{fmt(dre.despesas)}</td></tr>
-                  <tr className="border-t-2 border-gray-200"><td className="py-2 font-bold text-gray-900">= Resultado</td><td className={`py-2 text-right font-bold tabular-nums ${dre.resultado >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{fmt(dre.resultado)}</td></tr>
-                </tbody>
-              </table>
-              <p className="mt-3 border-t border-gray-100 pt-2 text-[11px] text-gray-400">mesma conta do DRE em Relatórios</p>
             </div>
 
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <p className="text-sm font-semibold text-gray-800">Agir agora</p>
-              <p className="mt-0.5 text-xs text-gray-400">o que está esperando decisão</p>
-              <div className="mt-3 space-y-2">
-                {fornecedorVencido > 0 && (
-                  <Link href={`/painel/financeiro?tipo=pagar&status=vencido&tudo=1&loja=${lojaSel}`}
-                    className="flex items-center justify-between rounded-xl border border-gray-200 px-3 py-2 text-sm hover:bg-gray-50">
-                    <span className="text-gray-700"><IconStore className="mr-2 inline h-4 w-4 text-gray-400" />Fornecedor atrasado <b className="tabular-nums text-gray-900">{fmt(fornecedorVencido)}</b></span>
-                    <span aria-hidden className="text-gray-400">›</span>
-                  </Link>
-                )}
-                {fiadoVencido > 0 && (
-                  <Link href="/painel/fiados"
-                    className="flex items-center justify-between rounded-xl border border-gray-200 px-3 py-2 text-sm hover:bg-gray-50">
-                    <span className="text-gray-700"><IconUsers className="mr-2 inline h-4 w-4 text-gray-400" />Fiado atrasado <b className="tabular-nums text-gray-900">{fmt(fiadoVencido)}</b></span>
-                    <span aria-hidden className="text-gray-400">›</span>
-                  </Link>
-                )}
-                {caixaAbertoDaLoja && (
-                  <Link href="/painel/pdv/operacao"
-                    className="flex items-center justify-between rounded-xl border border-gray-200 px-3 py-2 text-sm hover:bg-gray-50">
-                    <span className="text-gray-700"><IconWallet className="mr-2 inline h-4 w-4 text-gray-400" />Caixa aberto — fechar o dia</span>
-                    <span aria-hidden className="text-gray-400">›</span>
-                  </Link>
-                )}
-                {!(fornecedorVencido > 0 || fiadoVencido > 0 || caixaAbertoDaLoja) && (
-                  <p className="text-sm text-gray-400">Nada pendente aqui.</p>
-                )}
+            <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+              <header className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                <h3 className="text-sm font-semibold text-gray-800">Resultado</h3>
+                <span className="text-xs text-gray-400">{nomeMes(mes)}</span>
+              </header>
+              <div className="px-4 py-3">
+                <table className="w-full text-sm">
+                  <tbody>
+                    <tr><td className="py-1 text-gray-600">Receita de vendas (bruta)</td><td className="py-1 text-right font-medium tabular-nums text-gray-900">{fmt(dre.receitaBruta)}</td></tr>
+                    <tr><td className="py-1 text-gray-600">− Devoluções</td><td className="py-1 text-right tabular-nums text-gray-600">−{fmt(dre.receitaDevolvida)}</td></tr>
+                    <tr className="border-t border-gray-100"><td className="py-1 font-semibold text-gray-800">= Receita líquida</td><td className="py-1 text-right font-bold tabular-nums text-gray-900">{fmt(dre.receitaLiquida)}</td></tr>
+                    <tr><td className="py-1 text-gray-600">− Custo das peças</td><td className="py-1 text-right tabular-nums text-gray-600">−{fmt(dre.cmv)}</td></tr>
+                    <tr className="border-t border-gray-100"><td className="py-1 font-semibold text-gray-800">= Lucro bruto</td><td className="py-1 text-right font-bold tabular-nums text-gray-900">{fmt(dre.lucroBruto)}</td></tr>
+                    <tr><td className="py-1 text-gray-600">− Despesas <span className="text-[10px] text-gray-400">(pago {fmt(dre.despesasPago)} + a pagar {fmt(dre.despesasAberto)})</span></td><td className="py-1 text-right tabular-nums text-gray-600">−{fmt(dre.despesas)}</td></tr>
+                    <tr className="border-t-2 border-gray-200"><td className="py-2 font-bold text-gray-900">= Resultado</td><td className={`py-2 text-right font-bold tabular-nums ${dre.resultado >= 0 ? 'text-green-700' : 'text-red-700'}`}>{fmt(dre.resultado)}</td></tr>
+                  </tbody>
+                </table>
+                <Link href={`/painel/relatorios?aba=dre&de=${inicio}&ate=${ultimoDiaDoMes}&loja=${lojaSel}`}
+                  className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3 text-sm font-medium text-[#8470ff] hover:text-[#6b58e6]">
+                  Ver DRE completo <span aria-hidden>→</span>
+                </Link>
               </div>
             </div>
           </section>
 
-          {/* ── TENHO × DEVO — a foto do patrimônio da loja ── */}
-          <section className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Tenho <span className="font-normal normal-case tracking-normal text-gray-400">· o que é da loja hoje</span></p>
-              <p className="mt-1 text-3xl font-bold tabular-nums text-gray-900">{fmt(tenho)}</p>
-              <dl className="mt-4 space-y-2.5 text-sm">
-                <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-2.5">
-                  <dt className="flex items-center gap-2 text-gray-600"><IconPackage className="h-4 w-4 text-gray-400" /> Estoque (a custo)</dt>
-                  <dd className="font-semibold tabular-nums text-gray-900">{fmt(estoqueDaLoja)}</dd>
-                </div>
-                <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-2.5">
-                  <dt className="flex items-center gap-2 text-gray-600"><IconUsers className="h-4 w-4 text-gray-400" /> Fiado a receber</dt>
-                  <dd className="font-semibold tabular-nums text-gray-900">{fmt(fiadoSaldo)}</dd>
-                </div>
-                <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-2.5">
-                  <dt className="flex items-center gap-2 text-gray-600"><IconWallet className="h-4 w-4 text-gray-400" /> Vale-crédito a honrar</dt>
-                  <dd className="font-semibold tabular-nums text-gray-900">{fmt(creditoDaLoja)}</dd>
-                </div>
-                <div className="flex justify-between gap-3 pt-0.5 text-xs"><dt className="text-amber-700">Fiado atrasado</dt><dd className="font-semibold tabular-nums text-amber-700">{fmt(fiadoVencido)}</dd></div>
-              </dl>
+          {/* ── PENDÊNCIAS + TENHO × DEVO — três cartões, estilo Mosaic ── */}
+          <section className="grid gap-4 lg:grid-cols-3">
+            <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+              <header className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                <h3 className="text-sm font-semibold text-gray-800">Agir agora</h3>
+                <span className="rounded-xs bg-gray-50 px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">pendências</span>
+              </header>
+              <ul className="divide-y divide-gray-100">
+                {fornecedorVencido > 0 && (
+                  <li>
+                    <Link href={`/painel/financeiro?tipo=pagar&status=vencido&tudo=1&loja=${lojaSel}`} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-500"><IconStore className="h-4 w-4" /></span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm text-gray-700">Fornecedor atrasado</span>
+                        <span className="block text-xs tabular-nums text-gray-400">{fmt(fornecedorVencido)}</span>
+                      </span>
+                      <span className="shrink-0 text-xs font-medium text-[#8470ff]">abrir →</span>
+                    </Link>
+                  </li>
+                )}
+                {fiadoVencido > 0 && (
+                  <li>
+                    <Link href="/painel/fiados" className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-amber-600"><IconUsers className="h-4 w-4" /></span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm text-gray-700">Fiado atrasado</span>
+                        <span className="block text-xs tabular-nums text-gray-400">{fmt(fiadoVencido)}</span>
+                      </span>
+                      <span className="shrink-0 text-xs font-medium text-[#8470ff]">abrir →</span>
+                    </Link>
+                  </li>
+                )}
+                {caixaAbertoDaLoja && (
+                  <li>
+                    <Link href="/painel/pdv/operacao" className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-500/10 text-sky-600"><IconWallet className="h-4 w-4" /></span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm text-gray-700">Caixa aberto</span>
+                        <span className="block text-xs text-gray-400">fechar o dia</span>
+                      </span>
+                      <span className="shrink-0 text-xs font-medium text-[#8470ff]">abrir →</span>
+                    </Link>
+                  </li>
+                )}
+                {!(fornecedorVencido > 0 || fiadoVencido > 0 || caixaAbertoDaLoja) && (
+                  <li className="px-4 py-6 text-center text-sm text-gray-400">Nada pendente aqui.</li>
+                )}
+              </ul>
             </div>
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Devo <span className="font-normal normal-case tracking-normal text-gray-400">· o que é de outros</span></p>
-              <p className="mt-1 text-3xl font-bold tabular-nums text-gray-900">{fmt(devo)}</p>
-              <dl className="mt-4 space-y-2.5 text-sm">
-                <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-2.5">
-                  <dt className="flex items-center gap-2 text-gray-600"><IconStore className="h-4 w-4 text-gray-400" /> Fornecedor</dt>
-                  <dd className="font-semibold tabular-nums text-gray-900">{fmt(fornecedorSaldo)}</dd>
-                </div>
-                <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-2.5">
-                  <dt className="flex items-center gap-2 text-gray-600"><IconFile className="h-4 w-4 text-gray-400" /> Outras contas</dt>
-                  <dd className="font-semibold tabular-nums text-gray-900">{fmt(outrasSaldo)}</dd>
-                </div>
-                <div className="flex justify-between gap-3 pt-0.5 text-xs"><dt className="text-rose-700">Fornecedor atrasado</dt><dd className="font-semibold tabular-nums text-rose-700">{fmt(fornecedorVencido)}</dd></div>
-              </dl>
-              <p className="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-500">Patrimônio líquido (tenho − devo): <span className={`font-semibold tabular-nums ${tenho - devo >= 0 ? 'text-gray-900' : 'text-rose-700'}`}>{fmt(tenho - devo)}</span></p>
+
+            <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+              <header className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                <h3 className="text-sm font-semibold text-gray-800">Tenho</h3>
+                <span className="text-xs text-gray-400">o que é da loja</span>
+              </header>
+              <div className="px-4 py-3">
+                <p className="text-2xl font-semibold tabular-nums text-gray-800">{fmt(tenho)}</p>
+                <dl className="mt-3 divide-y divide-gray-100 text-sm">
+                  <div className="flex items-center justify-between gap-3 py-2">
+                    <dt className="flex items-center gap-2 text-gray-600"><IconPackage className="h-4 w-4 text-gray-400" /> Estoque (a custo)</dt>
+                    <dd className="font-medium tabular-nums text-gray-800">{fmt(estoqueDaLoja)}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 py-2">
+                    <dt className="flex items-center gap-2 text-gray-600"><IconUsers className="h-4 w-4 text-gray-400" /> Fiado a receber</dt>
+                    <dd className="font-medium tabular-nums text-gray-800">{fmt(fiadoSaldo)}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 py-2">
+                    <dt className="flex items-center gap-2 text-gray-600"><IconWallet className="h-4 w-4 text-gray-400" /> Vale-crédito a honrar</dt>
+                    <dd className="font-medium tabular-nums text-gray-800">{fmt(creditoDaLoja)}</dd>
+                  </div>
+                </dl>
+                <p className="mt-3 flex items-center gap-2 border-t border-gray-100 pt-3">
+                  <span className="rounded-full bg-amber-500/20 px-1.5 text-xs font-medium text-amber-700">atrasado</span>
+                  <span className="text-xs tabular-nums text-gray-400">{fmt(fiadoVencido)}</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+              <header className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                <h3 className="text-sm font-semibold text-gray-800">Devo</h3>
+                <span className="text-xs text-gray-400">o que é de outros</span>
+              </header>
+              <div className="px-4 py-3">
+                <p className="text-2xl font-semibold tabular-nums text-gray-800">{fmt(devo)}</p>
+                <dl className="mt-3 divide-y divide-gray-100 text-sm">
+                  <div className="flex items-center justify-between gap-3 py-2">
+                    <dt className="flex items-center gap-2 text-gray-600"><IconStore className="h-4 w-4 text-gray-400" /> Fornecedor</dt>
+                    <dd className="font-medium tabular-nums text-gray-800">{fmt(fornecedorSaldo)}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 py-2">
+                    <dt className="flex items-center gap-2 text-gray-600"><IconFile className="h-4 w-4 text-gray-400" /> Outras contas</dt>
+                    <dd className="font-medium tabular-nums text-gray-800">{fmt(outrasSaldo)}</dd>
+                  </div>
+                </dl>
+                <p className="mt-3 flex items-center gap-2 border-t border-gray-100 pt-3">
+                  <span className="rounded-full bg-red-500/20 px-1.5 text-xs font-medium text-red-700">atrasado</span>
+                  <span className="text-xs tabular-nums text-gray-400">{fmt(fornecedorVencido)}</span>
+                </p>
+                <p className="mt-2 text-xs text-gray-400">Patrimônio líquido (tenho − devo): <span className={`font-semibold tabular-nums ${tenho - devo >= 0 ? 'text-gray-800' : 'text-red-600'}`}>{fmt(tenho - devo)}</span></p>
+              </div>
             </div>
           </section>
 
