@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { PainelShell } from '@/components/PainelShell'
 import { ChatWidget } from '@/components/ChatWidget'
+import { AlertaErros } from '@/components/AlertaErros'
 import { NavProgress } from '@/components/NavProgress'
 import { BotaoSair } from '@/components/BotaoSair'
 import { createServiceClient, permissoesEfetivas, configAcesso } from '@/lib/supabase/server'
@@ -64,6 +65,15 @@ export default async function PainelLayout({ children }: { children: React.React
   const permNecessaria = permissaoPorRota(pathname)
   if (permNecessaria && !temAlgumaPermissao(permissoes, permNecessaria, isMaster)) {
     redirect('/painel?acesso=negado')
+  }
+
+  // ── PAINEL FINANCEIRO EM TELA CHEIA (protótipo aprovado) ────────────────
+  // A tela tem a barra lateral DELA (250px, Início/Metas/Nova movimentação).
+  // Dentro da casca do sistema apareciam duas barras e a tela deixava de ser a
+  // aprovada. Aqui ele roda sozinho, com autenticação e permissão já checadas
+  // acima (a rota segue protegida por 'financeiro').
+  if (pathname.startsWith('/painel/painel-financeiro')) {
+    return <div className="min-h-screen" style={{ background: '#F7F3EA' }}>{children}</div>
   }
 
   // ── Avisos da barra: caixa aberto fora de hora + rotinas da equipe ("Maria Eduarda Kappler da Silva conferir
@@ -195,6 +205,8 @@ export default async function PainelLayout({ children }: { children: React.React
         {children}
       </PainelShell>
       <ChatWidget tipo={temPermissao(permissoes, 'chat_ia', isMaster) ? 'funcionario' : 'cliente'} />
+      {/* Só o dono recebe o aviso de problema na tela (a rota também confere). */}
+      {isMaster && <AlertaErros />}
     </>
   )
 }

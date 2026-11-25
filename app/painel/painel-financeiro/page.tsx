@@ -145,7 +145,7 @@ export default async function PainelFinanceiroPage({
   const voltar = `/painel/painel-financeiro?aba=inicio&mes=${mes}`
 
   return (
-    <div className="-m-6 min-h-full bg-[#F7F3EA] text-[#1F1B3A]" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+    <div className="min-h-screen bg-[#F7F3EA] text-[#1F1B3A]" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
       <link rel="stylesheet" precedence="default" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" />
 
       <div className="flex min-h-full flex-wrap" style={{ background: CREAM }}>
@@ -159,6 +159,12 @@ export default async function PainelFinanceiroPage({
           <Nava href={`/painel/painel-financeiro?aba=metas&mes=${mes}`} ativo={aba === 'metas'}>Metas</Nava>
           <Nava href={`/painel/painel-financeiro?aba=nova&mes=${mes}`} ativo={aba === 'nova'}>Nova movimentação</Nava>
 
+          {/* Prefixo do protótipo não tem "voltar" porque lá é o app inteiro.
+              Aqui o painel roda em tela cheia, então fica uma saída discreta. */}
+          <Link href="/painel" className="mt-1 px-3.5 text-[13px] font-semibold underline-offset-2 hover:underline" style={{ color: SEC }}>
+            ← Voltar ao sistema
+          </Link>
+
           <div className={`${CARD} mt-auto p-3.5`} style={{ background: '#EDE7FF' }}>
             <b>Dica</b>
             <div className="mt-1 text-[13px] font-semibold" style={{ color: INK }}>
@@ -168,8 +174,8 @@ export default async function PainelFinanceiroPage({
         </aside>
 
         {/* ── Conteúdo ── */}
-        <main className="min-w-0 flex-[999_1_560px] px-0 py-0 lg:p-7">
-          <div className="flex flex-col gap-5 p-5 lg:p-0">
+        <main className="min-w-0 flex-[999_1_560px] p-5 lg:p-7">
+          <div className="flex flex-col gap-5">
             {/* Cabeçalho */}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
