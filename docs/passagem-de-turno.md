@@ -144,16 +144,20 @@ outras contas R$ 97.635 · vale-crédito a honrar R$ 5.297).
    apaga mais a credencial no erro 500 (transitório) — só 401/405/409/412/440 pedem
    QR novo.
 
-6. **Monitoramento de erro em uso** (código pronto, **não commitado**, feito em 24–25/11 numa
-   sessão paralela): (a) colar `supabase/migrations/2026-11-24-erros-app.sql` no SQL Editor;
-   (b) criar no @BotFather um **bot só de erro** (sem webhook — os bots das lojas usam webhook e
-   por isso `getUpdates` responde 409), criar o grupo **"TecnoCell — Erros"** com esse bot dentro
-   e cadastrar `TELEGRAM_TOKEN_ERROS` na Vercel. O `chat_id` **não precisa ser digitado**: o vigia
-   descobre o grupo pelo nome (precisa ter "erro") e salva em `configuracoes` → `erros_chat`;
-   (c) só depois disso pedir autorização de commit. Mensagem só quando há problema (sem resumo
-   diário); alerta também no canto da tela do painel, só para o master. Detalhe:
-   `docs/mapa/monitoramento-erros.md`. Enquanto a migration não for aplicada, o console mostra
-   `[erros] não gravou: Could not find the table`.
+6. **Monitoramento de erro em uso — falta só 1 variável.** Estado em 25/11 (fim do dia):
+   - **No ar:** commit `83f06ef` (avisos de tela religados + correção da descoberta do Telegram).
+   - **Banco:** migration `2026-11-24-erros-app.sql` **aplicada** em 25/11 pela API de
+     administração do Supabase (14 colunas, RLS ligado, **0 policies**, 4 índices). O arquivo
+     agora está no repositório.
+   - **Destino:** bot **@Tecnocellerros_bot** (dedicado, sem webhook). O dono mandou `/start`;
+     o chat (`901717187`) ficou salvo em `configuracoes` → `erros_chat`. Não precisa digitar
+     `chat_id` nem criar grupo — conversa direta com o bot basta.
+   - **FALTA:** cadastrar **`TELEGRAM_TOKEN_ERROS`** (token do @Tecnocellerros_bot) nas
+     variáveis da Vercel. Provado em produção: o cron das 19:00 viu o erro de teste, resolveu o
+     destino (`chat_ok: true`) e **não conseguiu enviar** (`avisado: false`) — sem a variável o
+     app cai no token do bot de Petrópolis, que não pode falar nesse chat.
+   - Depois: rodar um erro de teste e confirmar a mensagem; revogar o token `sbp_...` e o token
+     antigo do bot. Detalhe: `docs/mapa/monitoramento-erros.md`.
 
 ### Não é para reabrir (decidido com o dono em 23/11)
 
