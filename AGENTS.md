@@ -363,6 +363,15 @@ bater com o total, senão a venda inteira é recusada.
   que cobria dois créditos, com backup e DESFAZER) e `buscarSaldoCredito` agora resolve a
   loja do estorno **pelo crédito que ele cancela**, não pela coluna da própria linha.
   Alarmes 4 e 6 do `conferir-estornos-credito.mjs` pegam a recaída.
+- **Não existe conta bancária por loja — a conta oficial é UMA.** O PIX de cliente das
+  duas lojas encosta na **mesma conta** (no app: PagBank, a única ativa), e dela saem
+  fornecedor, folha e contas fixas — é dinheiro de passagem, não saldo parado. Fonte:
+  `docs/registros/2026-10/CONTEXTO-FINANCEIRO.md` (regra do dono, 26/10/2026) e
+  `docs/mapa/contas-e-pix.md`. Consequência: **não "consertar"** lançamento PIX de
+  Teresópolis trocando a conta por uma "conta da loja" (as contas `PIX Teresópolis`,
+  `PagBank Teresópolis`, `PIX`, `TON`, `VALE CREDITO` estão inativas e são sobra) e não
+  tratar "PIX de loja X sem conta própria" como erro de configuração. Em 25/11/2026 essa
+  leitura errada quase virou backfill de R$ 25 mil para a conta errada.
 
 ## 10. Regras de negócio que o código sozinho não conta
 
