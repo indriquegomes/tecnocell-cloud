@@ -56,17 +56,34 @@ Só o master. A tela mora em `/painel/saude` (`'master'` em `lib/permissoes.ts`)
 e o aviso vai para o grupo privado do Telegram (`TELEGRAM_GRUPO_ERROS`), nunca
 para o grupo da loja.
 
+## Onde mora o token do bot
+
+Ordem de leitura (`lib/segredos.ts`):
+
+1. **Variável de ambiente** `TELEGRAM_TOKEN_ERROS` (padrão do projeto).
+2. **Tabela `segredos`** (chave `telegram_token_erros`) — alternativa usada quando a
+   variável não está cadastrada no ambiente. Criada em 25/11 e já com o token do
+   @Tecnocellerros_bot gravado.
+3. `TELEGRAM_TOKEN_PETROPOLIS` como último recurso — **não serve** para entregar o
+   aviso: outro bot não pode falar no chat privado do bot de erro.
+
+A tabela `segredos` tem RLS ligado e **zero policy** de propósito: `configuracoes`
+é legível por qualquer pessoa logada (policy `auth_config`), então token lá vazaria
+para a equipe. Conferido com a chave anon: leitura volta **vazia**; com service role
+volta a linha. Nada de segredo é enviado ao navegador nem aparece em tela.
+
+Quando a variável na Vercel for cadastrada, ela passa a valer automaticamente (vem
+primeiro) e a linha da tabela pode ser apagada.
+
 ## Variáveis de ambiente (Vercel)
 
-- `TELEGRAM_TOKEN_ERROS` — token do bot que manda o aviso. **Só isto é
-  obrigatório** (sem token, o vigia responde "sem token do Telegram configurado").
-  Se não existir, cai em `TELEGRAM_TOKEN_PETROPOLIS`.
+- `TELEGRAM_TOKEN_ERROS` — token do bot que manda o aviso. **Opcional** enquanto a
+  linha existir em `segredos`; recomendado cadastrar (variável é o lugar certo de
+  segredo, e não depende de banco).
 - `TELEGRAM_GRUPO_ERROS` — **opcional**. Serve para fixar o destino à mão; sem
-  ela o vigia descobre o grupo sozinho (ver "Descoberta do grupo").
-- `CRON_SECRET` — se existir, é exigido como `Authorization: Bearer` no vigia.
-  Se **não** existir, a rota fica aberta (mesmo padrão dos outros crons do
-  projeto): o pior que alguém consegue é disparar uma passada, que respeita o
-  silêncio de 1 hora por grupo. Vale criar a variável.
+  ela o vigia descobre o grupo/conversa sozinho.
+- `CRON_SECRET` — se existir, é exigido como `Authorization: Bearer` no vigia
+  (é o caso em produção: sem o Bearer a rota responde 401).
 
 ## Por que a descoberta pode falhar
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { hojeSP } from '@/lib/utils'
+import { lerSegredo } from '@/lib/segredos'
 import { agruparLinhas, escolherChatDeErro, gruposAAvisar, mapearChats, montarAviso, nomeDoChat, type LinhaErro, type UpdateTelegram } from '@/lib/vigia-erros'
 
 export const runtime = 'nodejs'
@@ -28,18 +29,25 @@ function inicioDoDiaISO(dia: string): string {
   return new Date(dia + 'T00:00:00-03:00').toISOString()
 }
 
+// Token do bot de erro. Ordem: variável de ambiente → tabela `segredos` (só a
+// service role lê) → token do bot de Petrópolis (último recurso, e que não
+// consegue falar no chat privado do bot de erro).
+async function tokenDoErro(): Promise<string | null> {
+  return (await lerSegredo('TELEGRAM_TOKEN_ERROS', 'telegram_token_erros')) || process.env.TELEGRAM_TOKEN_PETROPOLIS || null
+}
+
 // De quem é o aviso. Ordem: variável de ambiente → o que já foi descoberto e
 // salvo → descoberta agora.
 //
-// A descoberta existe porque `chat_id` numérico é impossível de ler no Telegram e
-// o dono não tem que mexer nisso: ele cria o grupo (ou abre conversa com o bot) e
+// A descoberta existe porque `chat_id` numérico é impossível de ler no Telegram e o
+// dono não tem que mexer nisso: ele cria o grupo (ou abre conversa com o bot) e
 // o Telegram avisa o bot com o id. Grupo só vale com "erro" no nome; conversa
 // direta só porque este bot é dedicado ao monitoramento — a única DM dele é a do
 // dono. Nunca escolhe o grupo da loja.
 async function descobrirChatDoErro(
   supabase: Awaited<ReturnType<typeof createServiceClient>>,
 ): Promise<{ chat: string | null; titulo: string | null; erro: string | null }> {
-  const token = process.env.TELEGRAM_TOKEN_ERROS || process.env.TELEGRAM_TOKEN_PETROPOLIS
+  const token = await tokenDoErro()
   if (!token) return { chat: null, titulo: null, erro: 'sem token do Telegram configurado (TELEGRAM_TOKEN_ERROS)' }
 
   try {
@@ -87,7 +95,7 @@ async function mandarTelegram(
   chat: string,
   texto: string,
 ): Promise<boolean> {
-  const token = process.env.TELEGRAM_TOKEN_ERROS || process.env.TELEGRAM_TOKEN_PETROPOLIS
+  const token = await tokenDoErro()
   if (!token) return false
   try {
     const r = await fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
