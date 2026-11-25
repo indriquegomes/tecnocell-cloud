@@ -10,6 +10,11 @@ test.beforeAll(() => {
   execSync('node scripts/qa-fora-do-app.mjs criar', { stdio: 'inherit' })
 })
 
+// a venda devolvida não precisa continuar no banco: o teste apaga o que criou
+test.afterAll(() => {
+  execSync('node scripts/qa-fora-do-app.mjs limpar', { stdio: 'inherit' })
+})
+
 test('devolução "Fora do app (WhatsApp)" registra a saída como PAGA', async ({ page }) => {
   await login(page)
   await page.goto('/painel/devolucoes')
