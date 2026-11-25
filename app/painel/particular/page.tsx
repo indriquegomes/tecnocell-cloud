@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { createServiceClient, requirePermissao, fetchAll } from '@/lib/supabase/server'
 import { formatBRL, hojeSP } from '@/lib/utils'
 import { resumoParticular } from '@/lib/particular'
-import { guardarNoPote, pagarParticular } from './actions'
+import { pagarParticular } from './actions'
 import { AnotarParticular } from './AnotarParticular'
 
 // ABA PARTICULAR — painel do dono, em tela cheia, com a ESTRUTURA do protótipo
@@ -16,21 +16,15 @@ import { AnotarParticular } from './AnotarParticular'
 // particular paga sai dele; o que sobra é o que pode ser retirado. Nada aqui é
 // despesa da loja.
 //
-// Potes = metas_poupanca com escopo 'pessoal' (separados das metas do negócio).
-// Cor do pote é decorativa: usa a paleta do app, por posição.
 
-const AZUL = '#1B6CA8'
-const LARANJA = '#F47920'
 const EMERALD = '#059669'
 const ROSE = '#e11d48'
-const AMBER = '#f59e0b'
 const CARD = 'rounded-2xl border border-gray-200 bg-white shadow-sm'
 const BTN_PRIMARIO = 'inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#1B6CA8] px-4 text-sm font-semibold text-white transition hover:bg-[#155a8e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B6CA8]'
 const BTN_SECUNDARIO = 'inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B6CA8]'
 const BTN_LARANJA = 'inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#F47920] px-4 text-sm font-semibold text-white transition hover:bg-[#d9650f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F47920]'
 const BTN_OK = 'inline-flex min-h-[44px] items-center justify-center rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600'
 const NAV_BASE = 'flex min-h-[44px] items-center rounded-lg px-3 text-sm font-semibold transition'
-const PALETA = [AZUL, '#10b981', '#f59e0b', LARANJA]
 
 function brl(v: number) {
   return v < 0 ? `−${formatBRL(Math.abs(v))}` : formatBRL(v)
@@ -41,21 +35,6 @@ function diaCurto(iso: string | null | undefined) {
   return s ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : '—'
 }
 
-function Pote({ cor, pct, nome }: { cor: string; pct: number; nome: string }) {
-  const p = Math.max(0, Math.min(100, pct))
-  const h = (78 * p) / 100
-  const id = 'pote-' + nome.replace(/\W+/g, '')
-  return (
-    <svg width="110" height="136" viewBox="0 0 80 100" role="img" aria-label={`Pote ${nome}, ${Math.round(p)}% cheio`}>
-      <defs><clipPath id={id}><path d="M16 18h48q8 0 8 10v54q0 14-14 14H22q-14 0-14-14V28q0-10 8-10z" /></clipPath></defs>
-      <rect x="20" y="3" width="40" height="12" rx="5" fill={LARANJA} stroke="#94a3b8" strokeWidth="2" />
-      <path d="M16 18h48q8 0 8 10v54q0 14-14 14H22q-14 0-14-14V28q0-10 8-10z" fill="#FFF7ED" />
-      {h > 0 && <rect x="0" y={96 - h} width="80" height={h} fill={cor} clipPath={`url(#${id})`} />}
-      <path d="M16 18h48q8 0 8 10v54q0 14-14 14H22q-14 0-14-14V28q0-10 8-10z" fill="none" stroke="#94a3b8" strokeWidth="2" />
-    </svg>
-  )
-}
-
 export default async function ParticularPage({
   searchParams,
 }: {
@@ -63,7 +42,7 @@ export default async function ParticularPage({
 }) {
   await requirePermissao('master')
   const params = await searchParams
-  const aba = params.aba === 'potinhos' ? 'potinhos' : params.aba === 'anotar' ? 'anotar' : 'inicio'
+  const aba = params.aba === 'anotar' ? 'anotar' : 'inicio'
   const hoje = hojeSP()
   const mesAtual = hoje.slice(0, 7)
   const [ano, m] = mesAtual.split('-').map(Number)
@@ -74,7 +53,7 @@ export default async function ParticularPage({
 
   const supabase = await createServiceClient()
 
-  const [linhas, entradasP, aVencer, recentes, potesRes] = await Promise.all([
+  const [linhas, entradasP, aVencer, recentes] = await Promise.all([
     fetchAll<{ id: string; descricao: string | null; valor: number | null; valor_pago: number | null; status: string | null; categoria: string | null; data_vencimento: string | null; data_pagamento: string | null }>((from, to) =>
       supabase.from('lancamentos')
         .select('id, descricao, valor, valor_pago, status, categoria, data_vencimento, data_pagamento')
@@ -98,8 +77,6 @@ export default async function ParticularPage({
         .eq('tipo', 'pagar').eq('categoria', 'Particular').eq('status', 'pago')
         .gte('data_pagamento', iniTs).lt('data_pagamento', fimTs)
         .order('data_pagamento', { ascending: false }).order('id').range(from, to)),
-    supabase.from('metas_poupanca').select('id, nome, atual, objetivo')
-      .eq('ativo', true).eq('escopo', 'pessoal').order('nome'),
   ])
 
   const r = resumoParticular(linhas as { categoria: string | null; valor?: number | null; valor_pago?: number | null; status?: string | null }[])
@@ -108,9 +85,6 @@ export default async function ParticularPage({
   const saiu = r.particularPago
   const sobrou = entrou - saiu
   const maxBarra = Math.max(entrou, saiu, 1)
-
-  const potes = (potesRes.data ?? []) as { id: string; nome: string; atual: number | null; objetivo: number | null }[]
-  const migracaoPendente = !!potesRes.error
 
   const movs = [
     ...recentes.map((x) => ({ id: x.id, nome: x.descricao ?? 'Conta particular', data: x.data_pagamento, valor: Number(x.valor ?? 0), entrada: false })),
@@ -134,7 +108,6 @@ export default async function ParticularPage({
             TecnoCell
           </div>
           <Nav href="/painel/particular" ativo={aba === 'inicio'}>Início</Nav>
-          <Nav href="/painel/particular?aba=potinhos" ativo={aba === 'potinhos'}>Meus potinhos</Nav>
           <Nav href="/painel/particular?aba=anotar" ativo={aba === 'anotar'}>Anotar dinheiro</Nav>
           <Link href="/painel" className="mt-1 px-3 text-sm font-medium text-gray-400 underline-offset-2 hover:underline">
             ← Voltar ao sistema
@@ -152,7 +125,7 @@ export default async function ParticularPage({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
-                  {aba === 'potinhos' ? 'Meus potinhos' : aba === 'anotar' ? 'Anotar dinheiro' : 'Particular do Dono'}
+                  {aba === 'anotar' ? 'Anotar dinheiro' : 'Particular do Dono'}
                 </h1>
                 {(params.msg || aba === 'inicio') && (
                   <p role="status" className="mt-0.5 text-sm text-gray-500">
@@ -162,12 +135,6 @@ export default async function ParticularPage({
               </div>
               <Link href="/painel/particular?aba=anotar" className={BTN_LARANJA}>+ Anotar dinheiro</Link>
             </div>
-
-            {migracaoPendente && (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-                Meus potinhos ainda não funcionam: falta aplicar a migração <b>2026-11-25-metas-poupanca-escopo.sql</b> no SQL Editor do Supabase.
-              </div>
-            )}
 
             {aba === 'inicio' && (
               <>
@@ -249,40 +216,6 @@ export default async function ParticularPage({
                     ))}
                   </div>
                 </div>
-              </>
-            )}
-
-            {aba === 'potinhos' && (
-              <>
-                {potes.length > 0 && (
-                  <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
-                    {potes.map((p, idx) => {
-                      const atual = Number(p.atual ?? 0)
-                      const objetivo = Number(p.objetivo ?? 0)
-                      const pct = objetivo > 0 ? Math.round((atual / objetivo) * 100) : 0
-                      const cheio = atual >= objetivo
-                      return (
-                        <div key={p.id} className={`${CARD} flex flex-col items-center gap-2 p-4 text-center`}>
-                          <Pote cor={PALETA[idx % PALETA.length]} pct={pct} nome={p.nome} />
-                          <span className="text-base font-bold text-gray-800">{p.nome}</span>
-                          <span className="rounded-full border border-orange-200 bg-orange-50 px-3 py-[1px] text-xs font-semibold text-[#9a3412]">{pct}% cheio</span>
-                          <span className="text-sm text-gray-500">
-                            <b className="tabular-nums text-gray-800">{brl(atual)}</b> de <b className="tabular-nums text-gray-800">{brl(objetivo)}</b>
-                          </span>
-                          {cheio ? (
-                            <span className="mt-1 text-sm font-semibold text-emerald-700">Pote cheio!</span>
-                          ) : (
-                            <form action={guardarNoPote} className="mt-1 w-full">
-                              <input type="hidden" name="pote_id" value={p.id} />
-                              <input type="hidden" name="valor" value="500" />
-                              <button type="submit" className={`${BTN_LARANJA} w-full`}>Guardar R$ 500</button>
-                            </form>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
               </>
             )}
 
