@@ -36,7 +36,6 @@ const GRAFIAS_LEGADAS = new Set([
   'fonecedor',
   'despesas loja',
   'estorno',
-  'sinal',
 ])
 
 export const categoriasAceitas = (): string[] => [

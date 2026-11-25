@@ -121,6 +121,18 @@ outras contas R$ 97.635 · vale-crédito a honrar R$ 5.297).
    Testado no site (Playwright `e2e/vale-cancelar-sem-dinheiro.spec.ts` + `scripts/qa-vale-cancelar.mjs`):
    crédito de R$ 25 cancelado, saldo zerado, **zero lançamentos** criados. As duas migrations
    (estorno sem conta e trigger do valor_pago) foram aplicadas em 25/11 e conferidas no banco.
+
+7. **Porteiro do dinheiro (25/11) — as 3 camadas no ar.** Categoria do lançamento agora é lista
+   fechada no formulário e na edição inline (agrupada por setor); o **servidor** recusa categoria
+   inventada, forma fora do cadastro, "Outros" e pagamento pago sem conta/gaveta
+   (`lib/validacao-lancamento.ts`, 10 testes + `e2e/financeiro-porteiro.spec.ts`); e o **banco**
+   recusa categoria desconhecida (`categorias_financeiro` + trigger, colada em 25/11 e conferida:
+   inventada barrada, grafia antiga aceita, 45 categorias). Criar/editar/apagar lançamento manual
+   exige a permissão `financeiro_lancar` (dada aos 11 perfis/cargos que já tinham Financeiro, com
+   backup e DESFAZER; revogar em Usuários/Cargos). O Saúde ganhou duas regras novas (forma fora do
+   cadastro, pago sem origem nas últimas 48h) e 40 pagamentos PIX sem conta ganharam conta
+   (`scripts/consertar-pagamento-sem-conta.mjs`, R$ 50.257,86 → conta única PagBank, conforme
+   `docs/mapa/contas-e-pix.md`).
 5. **Bot do WhatsApp (25/11)**: foi **recomeçado do zero no modo mínimo** —
    `bot-whatsapp/pix.mjs` responde **só** "qual o PIX" (chave lida de
    `contas.chave_pix` da conta bancária da loja; hoje PagBank Petrópolis,
