@@ -494,14 +494,14 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     const [vh, fh, dh, ch] = await Promise.all([
       fetchAll<{ total: number | null }>((from, to) => supabase.from('vendas')
         .select('total').eq('status', 'concluida').eq('uso_interno', false)
-        .gte('data', hojeTs).lt('data', amanhaTs).order('id').range(from, to)),
+        .gte('data', hojeTs).lt('data', amanhaTs).in('caixa_id', filtroCaixa).order('id').range(from, to)),
       fetchAll<{ valor_pago: number | null }>((from, to) => supabase.from('lancamentos')
-        .select('valor_pago').eq('tipo', 'receber').eq('status', 'pago')
+        .select('valor_pago').eq('tipo', 'receber').eq('status', 'pago').eq('loja_id', lojaSel)
         .gte('data_pagamento', hojeTs).lt('data_pagamento', amanhaTs).order('id').range(from, to)),
       fetchAll<{ valor_total: number | null }>((from, to) => supabase.from('devolucoes')
-        .select('valor_total').gte('created_at', hojeTs).lt('created_at', amanhaTs).order('id').range(from, to)),
+        .select('valor_total').gte('created_at', hojeTs).lt('created_at', amanhaTs).in('deposito_id', filtroDeposito).order('id').range(from, to)),
       fetchAll<{ valor_fechamento: number | null }>((from, to) => supabase.from('caixas')
-        .select('valor_fechamento').eq('status', 'fechado')
+        .select('valor_fechamento').eq('status', 'fechado').eq('loja_id', lojaSel)
         .gte('fechado_em', hojeTs).lt('fechado_em', amanhaTs).order('id').range(from, to)),
     ])
     hojeVendas = vh.reduce((s, v) => s + Number(v.total ?? 0), 0)
@@ -548,117 +548,85 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
       )}
 
       {linha && (
-        <div className="space-y-4">
-          {/* QUADRO DE ANÁLISE — resultado de verdade, o que tenho e o que devo */}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className={`rounded-2xl p-4 shadow-sm ${dre.resultado >= 0 ? 'bg-emerald-50' : 'bg-amber-50'}`}>
-              <p className="text-xs font-semibold uppercase text-gray-500">Resultado do mês</p>
-              <p className={`mt-1 text-2xl font-bold ${dre.resultado >= 0 ? 'text-emerald-700' : 'text-amber-700'}`}>{fmt(dre.resultado)}</p>
-              <p className="text-[11px] leading-snug text-gray-500">receita líquida − custo das peças − despesas</p>
+        <div className="space-y-6">
+          {/* ── RESULTADO DO MÊS — o número que importa, com a conta aberta ── */}
+          <section className="overflow-hidden rounded-2xl bg-[#1B6CA8] p-6 text-white shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-white/75">Resultado do mês · {nomeMes(mes)} · {lojasList.find((x) => x.id === lojaSel)?.nome}</p>
+                <p className="mt-1.5 text-[38px] font-extrabold leading-none tabular-nums">{fmt(dre.resultado)}</p>
+                <p className="mt-2 text-xs text-white/70">receita líquida − custo das peças vendidas − despesas</p>
+              </div>
+              <dl className="grid min-w-[280px] grid-cols-1 gap-2 sm:grid-cols-3">
+                <div className="rounded-xl bg-white/10 px-3 py-2.5">
+                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-white/70">Entrou no caixa</dt>
+                  <dd className="mt-0.5 text-base font-bold tabular-nums">{fmt(linha.entradas)}</dd>
+                </div>
+                <div className="rounded-xl bg-white/10 px-3 py-2.5">
+                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-white/70">Saiu do caixa</dt>
+                  <dd className="mt-0.5 text-base font-bold tabular-nums">{fmt(linha.saidas)}</dd>
+                </div>
+                <div className="rounded-xl bg-white/10 px-3 py-2.5">
+                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-white/70">Em mãos (ref.)</dt>
+                  <dd className="mt-0.5 text-base font-bold tabular-nums">{fmt(linha.caixaCalculado)}</dd>
+                </div>
+              </dl>
             </div>
-            <div className={`rounded-2xl p-4 shadow-sm ${linha.resultado >= 0 ? 'bg-sky-50' : 'bg-rose-50'}`}>
-              <p className="text-xs font-semibold uppercase text-gray-500">Sobra de caixa</p>
-              <p className={`mt-1 text-2xl font-bold ${linha.resultado >= 0 ? 'text-sky-800' : 'text-rose-700'}`}>{fmt(linha.resultado)}</p>
-              <p className="text-[11px] leading-snug text-gray-500">entrou − saiu no caixa — não é lucro</p>
-            </div>
-            <div className="rounded-2xl bg-violet-50 p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase text-violet-700">Tenho</p>
-              <p className="mt-1 text-2xl font-bold text-violet-800">{fmt(tenho)}</p>
-              <p className="text-[11px] leading-snug text-violet-700">estoque {fmt(estoqueDaLoja)} + fiado {fmt(fiadoSaldo)} + vale {fmt(creditoDaLoja)}</p>
-              <p className="mt-0.5 text-[11px] font-semibold text-amber-700">vencido: fiado {fmt(fiadoVencido)}</p>
-            </div>
-            <div className="rounded-2xl bg-rose-50 p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase text-rose-700">Devo</p>
-              <p className="mt-1 text-2xl font-bold text-rose-800">{fmt(devo)}</p>
-              <p className="text-[11px] leading-snug text-rose-700">fornecedor {fmt(fornecedorSaldo)} + outras contas {fmt(outrasSaldo)}</p>
-              <p className="mt-0.5 text-[11px] font-semibold text-rose-700">vencido: fornecedor {fmt(fornecedorVencido)}</p>
-            </div>
-          </div>
 
-          {/* Como o resultado se formou — a conta aberta do DRE, mesma régua de Relatórios */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-sm font-bold text-gray-800">🧮 Como o resultado se formou</p>
-            <p className="mt-0.5 text-[11px] text-gray-400">mesma conta do DRE em Relatórios · {nomeMes(mes)} · {lojasList.find((x) => x.id === lojaSel)?.nome}</p>
-            <table className="mt-3 w-full text-sm">
-              <tbody>
-                <tr><td className="py-1 text-gray-600">Receita de vendas (bruta)</td><td className="py-1 text-right font-semibold tabular-nums text-gray-900">{fmt(dre.receitaBruta)}</td></tr>
-                <tr><td className="py-1 text-gray-600">− Devoluções (dinheiro que voltou)</td><td className="py-1 text-right tabular-nums text-rose-600">−{fmt(dre.receitaDevolvida)}</td></tr>
-                <tr className="border-t border-gray-100"><td className="py-1 font-semibold text-gray-800">= Receita líquida</td><td className="py-1 text-right font-bold tabular-nums text-gray-900">{fmt(dre.receitaLiquida)}</td></tr>
-                <tr><td className="py-1 text-gray-600">− Custo das peças vendidas</td><td className="py-1 text-right tabular-nums text-rose-600">−{fmt(dre.cmv)}</td></tr>
-                <tr className="border-t border-gray-100"><td className="py-1 font-semibold text-gray-800">= Lucro bruto</td><td className="py-1 text-right font-bold tabular-nums text-gray-900">{fmt(dre.lucroBruto)}</td></tr>
-                <tr><td className="py-1 text-gray-600">− Despesas do mês <span className="text-[10px] text-gray-400">(pago {fmt(dre.despesasPago)} + a pagar {fmt(dre.despesasAberto)})</span></td><td className="py-1 text-right tabular-nums text-rose-600">−{fmt(dre.despesas)}</td></tr>
-                <tr className="border-t-2 border-gray-200"><td className="py-1.5 font-bold text-gray-900">= Resultado</td><td className={`py-1.5 text-right font-bold tabular-nums ${dre.resultado >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{fmt(dre.resultado)}</td></tr>
-              </tbody>
-            </table>
-            {mesCorrente && (
-              <p className="mt-3 text-[11px] text-gray-500">
-                Hoje ({hoje.slice(8, 10)}/{hoje.slice(5, 7)}): vendas {fmt(hojeVendas)} · fiado recebido {fmt(hojeFiado)} · caixa contado {fmt(hojeCaixaContado)} · devoluções {hojeDevolN} ({fmt(hojeDevolValor)})
-              </p>
-            )}
-          </div>
+            <div className="mt-5 rounded-xl bg-white p-4 text-gray-900">
+              <p className="text-sm font-bold text-gray-800">Como o resultado se formou <span className="font-normal text-gray-400">· mesma conta do DRE em Relatórios</span></p>
+              <table className="mt-2 w-full text-sm">
+                <tbody>
+                  <tr><td className="py-1 text-gray-600">Receita de vendas (bruta)</td><td className="py-1 text-right font-semibold tabular-nums text-gray-900">{fmt(dre.receitaBruta)}</td></tr>
+                  <tr><td className="py-1 text-gray-600">− Devoluções (dinheiro que voltou)</td><td className="py-1 text-right tabular-nums text-rose-600">−{fmt(dre.receitaDevolvida)}</td></tr>
+                  <tr className="border-t border-gray-100"><td className="py-1 font-semibold text-gray-800">= Receita líquida</td><td className="py-1 text-right font-bold tabular-nums text-gray-900">{fmt(dre.receitaLiquida)}</td></tr>
+                  <tr><td className="py-1 text-gray-600">− Custo das peças vendidas</td><td className="py-1 text-right tabular-nums text-rose-600">−{fmt(dre.cmv)}</td></tr>
+                  <tr className="border-t border-gray-100"><td className="py-1 font-semibold text-gray-800">= Lucro bruto</td><td className="py-1 text-right font-bold tabular-nums text-gray-900">{fmt(dre.lucroBruto)}</td></tr>
+                  <tr><td className="py-1 text-gray-600">− Despesas do mês <span className="text-[10px] text-gray-400">(pago {fmt(dre.despesasPago)} + a pagar {fmt(dre.despesasAberto)})</span></td><td className="py-1 text-right tabular-nums text-rose-600">−{fmt(dre.despesas)}</td></tr>
+                  <tr className="border-t-2 border-gray-200"><td className="py-1.5 font-bold text-gray-900">= Resultado</td><td className={`py-1.5 text-right font-bold tabular-nums ${dre.resultado >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{fmt(dre.resultado)}</td></tr>
+                </tbody>
+              </table>
+              {mesCorrente && (
+                <p className="mt-3 border-t border-gray-100 pt-2 text-[11px] text-gray-500">
+                  Hoje ({hoje.slice(8, 10)}/{hoje.slice(5, 7)}) · {lojasList.find((x) => x.id === lojaSel)?.nome}: vendas {fmt(hojeVendas)} · fiado recebido {fmt(hojeFiado)} · caixa contado {fmt(hojeCaixaContado)} · devoluções {hojeDevolN} ({fmt(hojeDevolValor)})
+                </p>
+              )}
+            </div>
+          </section>
 
-          {/* resultado do mês — 5 cards iguais, cores diferentes */}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="rounded-2xl bg-gray-100 p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase text-gray-500">Caixa inicial</p>
-              <p className="mt-1 text-2xl font-bold text-gray-800">{fmt(linha.caixaInicial)}</p>
-              <p className="text-[11px] text-gray-400">fim de {nomeMes(mesAnterior)}</p>
+          {/* ── TENHO × DEVO — a foto do patrimônio da loja ── */}
+          <section className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="flex items-baseline justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Tenho</p>
+                  <p className="text-[11px] text-gray-400">o que é da loja hoje</p>
+                </div>
+                <p className="text-2xl font-extrabold tabular-nums text-emerald-700">{fmt(tenho)}</p>
+              </div>
+              <dl className="mt-4 space-y-2 text-sm">
+                <div className="flex justify-between gap-3 border-b border-gray-100 pb-2"><dt className="text-gray-600">Estoque (a custo)</dt><dd className="font-semibold tabular-nums text-gray-900">{fmt(estoqueDaLoja)}</dd></div>
+                <div className="flex justify-between gap-3 border-b border-gray-100 pb-2"><dt className="text-gray-600">Fiado a receber</dt><dd className="font-semibold tabular-nums text-gray-900">{fmt(fiadoSaldo)}</dd></div>
+                <div className="flex justify-between gap-3 border-b border-gray-100 pb-2"><dt className="text-gray-600">Vale-crédito a honrar</dt><dd className="font-semibold tabular-nums text-gray-900">{fmt(creditoDaLoja)}</dd></div>
+                <div className="flex justify-between gap-3 pt-0.5 text-xs"><dt className="text-amber-700">Fiado atrasado</dt><dd className="font-semibold tabular-nums text-amber-700">{fmt(fiadoVencido)}</dd></div>
+              </dl>
             </div>
-            <div className="rounded-2xl bg-emerald-50 p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase text-emerald-700">Entrou no mês</p>
-              <p className="mt-1 text-2xl font-bold text-emerald-700">{fmt(linha.entradas)}</p>
-              <p className="text-[11px] text-emerald-600">vendas pagas + fiado</p>
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="flex items-baseline justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Devo</p>
+                  <p className="text-[11px] text-gray-400">o que é de outros</p>
+                </div>
+                <p className="text-2xl font-extrabold tabular-nums text-rose-700">{fmt(devo)}</p>
+              </div>
+              <dl className="mt-4 space-y-2 text-sm">
+                <div className="flex justify-between gap-3 border-b border-gray-100 pb-2"><dt className="text-gray-600">Fornecedor</dt><dd className="font-semibold tabular-nums text-gray-900">{fmt(fornecedorSaldo)}</dd></div>
+                <div className="flex justify-between gap-3 border-b border-gray-100 pb-2"><dt className="text-gray-600">Outras contas</dt><dd className="font-semibold tabular-nums text-gray-900">{fmt(outrasSaldo)}</dd></div>
+                <div className="flex justify-between gap-3 pt-0.5 text-xs"><dt className="text-rose-700">Fornecedor atrasado</dt><dd className="font-semibold tabular-nums text-rose-700">{fmt(fornecedorVencido)}</dd></div>
+              </dl>
+              <p className="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-500">Patrimônio líquido (tenho − devo): <span className={`font-semibold tabular-nums ${tenho - devo >= 0 ? 'text-gray-900' : 'text-rose-700'}`}>{fmt(tenho - devo)}</span></p>
             </div>
-            <div className="rounded-2xl bg-red-50 p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase text-red-700">Saiu no mês</p>
-              <p className="mt-1 text-2xl font-bold text-red-700">{fmt(linha.saidas)}</p>
-              <p className="text-[11px] text-red-600">compras + despesas</p>
-            </div>
-            <div className="rounded-2xl bg-blue-50 p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase text-blue-700">Dinheiro em mãos (referência)</p>
-              <p className="mt-1 text-2xl font-bold text-blue-700">{fmt(linha.caixaCalculado)}</p>
-              <p className="text-[11px] text-blue-600">abertura + cédula que entrou − cédula que saiu</p>
-            </div>
-            <div className="rounded-2xl bg-sky-100 p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase text-sky-700">Livre para retirar</p>
-              <p className={`mt-1 text-2xl font-bold ${linha.resultadoDisponivel >= 0 ? 'text-sky-800' : 'text-red-700'}`}>{fmt(linha.resultadoDisponivel)}</p>
-              <p className="text-[11px] text-sky-700">lucro − crédito de cliente em aberto</p>
-            </div>
-            <div className="rounded-2xl bg-violet-50 p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase text-violet-700">🎟️ Crédito de cliente</p>
-              <p className="mt-1 text-2xl font-bold text-violet-700">{fmt(linha.creditoAberto)}</p>
-              <p className="text-[11px] text-violet-600">a loja deve em peça — não é despesa, é reserva</p>
-            </div>
-          </div>
-
-          {/* indicadores — 5 cards iguais, cores diferentes */}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <div className="rounded-2xl bg-purple-50 p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase text-purple-700">🏷️ Consignado</p>
-              <p className="mt-1 text-2xl font-bold text-purple-700">{fmt(linha.consignado)}</p>
-              <p className="text-[11px] text-purple-600">dívida a pagar</p>
-            </div>
-            <div className="rounded-2xl bg-rose-50 p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase text-rose-700">🗑️ Perdas</p>
-              <p className="mt-1 text-2xl font-bold text-rose-700">{fmt(linha.perdasApp)}</p>
-              <p className="text-[11px] text-rose-600">oficial setembro {fmt(linha.perdas)}</p>
-            </div>
-            <div className="rounded-2xl bg-amber-50 p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase text-amber-700">🔄 Trocas na rua</p>
-              <p className="mt-1 text-2xl font-bold text-amber-700">{fmt(linha.trocasNaRua)}</p>
-              <p className="text-[11px] text-amber-600">enviadas, não resolvidas</p>
-            </div>
-            <div className="rounded-2xl bg-emerald-50 p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase text-emerald-700">💵 Dinheiro em mãos</p>
-              <p className="mt-1 text-2xl font-bold text-emerald-700">{fmt(linha.dinheiroEmMaos)}</p>
-              <p className="text-[11px] text-emerald-600">entrou − saiu em dinheiro</p>
-            </div>
-            <div className="rounded-2xl bg-sky-50 p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase text-sky-700">📦 Estoque consumido</p>
-              <p className="mt-1 text-2xl font-bold text-sky-700">{linha.temEstoqueBase ? fmt(linha.consumido) : '—'}</p>
-              <p className="text-[11px] text-sky-600">{linha.temEstoqueBase ? 'início − final' : '1º mês, sem base'}</p>
-            </div>
-          </div>
+          </section>
 
           {/* DESCONTOS E PERDAS DO MÊS — o que a loja deixou de receber */}
           {(descontoConcedidoMes > 0 || perdaFiadoMes > 0) && (
@@ -743,6 +711,22 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
             <summary className="cursor-pointer select-none text-sm font-semibold text-gray-600">Ver detalhes</summary>
 
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              {/* 📊 INDICADORES — o que antes ocupava a tela inteira em cartões */}
+              <div className="overflow-hidden rounded-xl border border-gray-200 lg:col-span-2">
+                <div className="bg-gray-600 px-4 py-2 text-sm font-bold text-white">📊 Indicadores do mês</div>
+                <table className="w-full text-sm">
+                  <tbody>
+                    <tr className="border-t border-gray-100"><td className="px-4 py-2 text-gray-600">Caixa inicial (fim de {nomeMes(mesAnterior)})</td><td className="px-4 py-2 text-right font-semibold tabular-nums text-gray-900">{fmt(linha.caixaInicial)}</td></tr>
+                    <tr className="border-t border-gray-100"><td className="px-4 py-2 text-gray-600">Sobra de caixa (entrou − saiu, sem contar estoque)</td><td className="px-4 py-2 text-right font-semibold tabular-nums text-gray-900">{fmt(linha.resultado)}</td></tr>
+                    <tr className="border-t border-gray-100"><td className="px-4 py-2 text-gray-600">Caixa livre para retirar (caixa − crédito de cliente)</td><td className="px-4 py-2 text-right font-semibold tabular-nums text-gray-900">{fmt(linha.resultadoDisponivel)}</td></tr>
+                    <tr className="border-t border-gray-100"><td className="px-4 py-2 text-gray-600">Consignado</td><td className="px-4 py-2 text-right font-semibold tabular-nums text-gray-900">{fmt(linha.consignado)}</td></tr>
+                    <tr className="border-t border-gray-100"><td className="px-4 py-2 text-gray-600">Perdas</td><td className="px-4 py-2 text-right font-semibold tabular-nums text-rose-700">{fmt(linha.perdasApp)}</td></tr>
+                    <tr className="border-t border-gray-100"><td className="px-4 py-2 text-gray-600">Trocas na rua (enviadas, não resolvidas)</td><td className="px-4 py-2 text-right font-semibold tabular-nums text-gray-900">{fmt(linha.trocasNaRua)}</td></tr>
+                    <tr className="border-t border-gray-100"><td className="px-4 py-2 text-gray-600">Estoque consumido no mês</td><td className="px-4 py-2 text-right font-semibold tabular-nums text-gray-900">{linha.temEstoqueBase ? fmt(linha.consumido) : '—'}</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
               {/* 💵 DINHEIRO — tabela */}
               <div className="overflow-hidden rounded-xl border border-emerald-200">
                 <div className="bg-emerald-600 px-4 py-2 text-sm font-bold text-white">💵 Dinheiro</div>
