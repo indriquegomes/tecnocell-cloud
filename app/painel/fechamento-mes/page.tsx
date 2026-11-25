@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server'
-import { formatBRL } from '@/lib/utils'
+import { formatBRL, diaSP } from '@/lib/utils'
 import { FecharMesButton } from './FecharMesButton'
 import { BotaoImprimirResumo } from './BotaoImprimirResumo'
 import { estoqueCustoPorLoja } from '@/lib/estoque-custo'
@@ -179,8 +179,10 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     // Soma as MESMAS fontes do "entrou/saiu" acima — o gráfico não pode contradizer o KPI.
     const porSemana: Record<string, { entradas: number[]; saidas: number[] }> = {}
     for (const l of lojasList) porSemana[l.id] = { entradas: [0, 0, 0, 0, 0], saidas: [0, 0, 0, 0, 0] }
+    // Instante (timestamptz, chega em UTC) → dia em São Paulo; data pura (date) já é o dia.
+    const diaDe = (v: string | null | undefined) => (v && v.length > 10 && !Number.isNaN(new Date(v).getTime()) ? diaSP(v) : v)
     const semDe = (diaIso: string | null | undefined) => {
-      const dia = Number((diaIso ?? '').slice(8, 10))
+      const dia = Number((diaDe(diaIso) ?? '').slice(8, 10))
       return dia >= 1 && dia <= 31 ? Math.min(5, Math.ceil(dia / 7)) : 0
     }
     const addSem = (loja: string | null, campo: 'entradas' | 'saidas', diaIso: string | null | undefined, valor: number) => {
