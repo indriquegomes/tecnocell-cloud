@@ -10,23 +10,37 @@
 -- A partir daqui a lista oficial vive também no banco (`categorias_financeiro`) e um
 -- trigger recusa categoria desconhecida em INSERT/UPDATE — pega tela, script, import
 -- e SQL colado à mão. Categoria NULA continua permitida: as devoluções criadas pelo
--- RPC nascem sem categoria (a classificação delas é o próprio tipo de reembolso) e a
--- régua de "não pode nascer sem categoria" é aplicada na tela (lib/validacao-lancamento.ts).
+-- RPC nascem sem categoria e a régua de "não pode nascer sem categoria" é da tela
+-- (lib/validacao-lancamento.ts).
 --
--- A lista abaixo é a mesma de `lib/financeiro-setores.ts` + as categorias que só o
--- código escreve + as grafias antigas que existem na base (aceitas para não perder
--- histórico; não aparecem no formulário).
+-- ORDEM IMPORTA: `nome_norm` é preenchido pelo trigger, então o trigger nasce ANTES
+-- da carga (senão o insert da lista quebra no NOT NULL).
 
 create table if not exists public.categorias_financeiro (
   nome      text primary key,
-  nome_norm text not null unique,
+  nome_norm text unique,
   setor     text,
   ativo     boolean not null default true,
   criado_em timestamptz not null default now()
 );
 
--- normaliza igual ao trigger: sem acento não é preciso (as grafias da base têm acento
--- nos dois lados), mas trim + maiúscula + espaço em volta da barra é.
+create or replace function public.categorias_financeiro_norm()
+returns trigger
+language plpgsql
+as $function$
+begin
+  new.nome_norm := lower(btrim(regexp_replace(new.nome, '\s*/\s*', '/', 'g')));
+  return new;
+end;
+$function$;
+
+drop trigger if exists trg_categorias_financeiro_norm on public.categorias_financeiro;
+create trigger trg_categorias_financeiro_norm
+  before insert or update of nome on public.categorias_financeiro
+  for each row execute function public.categorias_financeiro_norm();
+
+-- Lista oficial: a mesma de `lib/financeiro-setores.ts` + as categorias que só o
+-- código escreve + as grafias antigas da base (aceitas para não perder histórico).
 insert into public.categorias_financeiro (nome, setor)
 select v.nome, v.setor
 from (values
@@ -90,29 +104,14 @@ from (values
 ) as v(nome, setor)
 on conflict (nome) do nothing;
 
+-- Rede de segurança: se alguma linha entrou antes do trigger, preenche agora.
 update public.categorias_financeiro
    set nome_norm = lower(btrim(regexp_replace(nome, '\s*/\s*', '/', 'g')))
- where nome_norm is null or nome_norm <> lower(btrim(regexp_replace(nome, '\s*/\s*', '/', 'g')));
+ where nome_norm is null;
 
--- nome_norm é obrigatório: preenche na carga (acima) e mantém sincronizado depois.
-create or replace function public.categorias_financeiro_norm()
-returns trigger
-language plpgsql
-as $function$
-begin
-  new.nome_norm := lower(btrim(regexp_replace(new.nome, '\s*/\s*', '/', 'g')));
-  return new;
-end;
-$function$;
+alter table public.categorias_financeiro alter column nome_norm set not null;
 
-drop trigger if exists trg_categorias_financeiro_norm on public.categorias_financeiro;
-create trigger trg_categorias_financeiro_norm
-  before insert or update of nome on public.categorias_financeiro
-  for each row execute function public.categorias_financeiro_norm();
-
-update public.categorias_financeiro
-   set nome_norm = lower(btrim(regexp_replace(nome, '\s*/\s*', '/', 'g')));
-
+-- O PORTEIRO DO BANCO: categoria desconhecida não entra em `lancamentos`.
 create or replace function public.valida_categoria_lancamento()
 returns trigger
 language plpgsql
