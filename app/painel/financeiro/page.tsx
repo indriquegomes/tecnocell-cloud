@@ -1,4 +1,4 @@
-import { createServiceClient, fetchAll, dinheiroDoDonoVisivel } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll, dinheiroDoDonoVisivel, permissoesEfetivas, requireAuth } from '@/lib/supabase/server'
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { FinanceiroTabs } from './FinanceiroTabs'
 import { IconWallet } from '@/components/icons'
@@ -43,6 +43,10 @@ export default async function FinanceiroPage({
   // O dinheiro do dono fica fora da tela de quem não é master: sai da lista, dos totais,
   // do CSV e das opções de filtro. Para o master nada muda (semODoDono nem é chamado).
   const { isMaster, nomes: nomesDoDono } = await dinheiroDoDonoVisivel()
+  // Criar lancamento manual exige a permissao propria (financeiro_lancar); sem ela os
+  // botoes somem e a action tambem recusa (lib/validacao-lancamento.ts).
+  const efetivas = await permissoesEfetivas((await requireAuth()).id).catch(() => ({ permissoes: [] as string[], isMaster: false }))
+  const podeLancar = isMaster || efetivas.isMaster || (efetivas.permissoes ?? []).includes('financeiro_lancar')
   const visivel = (q: unknown) => (isMaster ? q : semODoDono(q, nomesDoDono))
   // Setor/categoria do dono não aparecem no filtro de quem não é master — oferecer um
   // filtro que devolve lista vazia é pior do que não oferecer.
@@ -253,14 +257,20 @@ export default async function FinanceiroPage({
       {/* Ações — criar e gerar separados do cabeçalho */}
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
         <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Novo lançamento</span>
-        <Link href="/painel/financeiro/novo?tipo=receber"
-          className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
-          + A Receber
-        </Link>
-        <Link href="/painel/financeiro/novo?tipo=pagar"
-          className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition">
-          + A Pagar
-        </Link>
+        {podeLancar ? (
+          <>
+            <Link href="/painel/financeiro/novo?tipo=receber"
+              className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
+              + A Receber
+            </Link>
+            <Link href="/painel/financeiro/novo?tipo=pagar"
+              className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition">
+              + A Pagar
+            </Link>
+          </>
+        ) : (
+          <span className="text-xs text-gray-400">Sem permissão para criar lançamento (peça ao dono)</span>
+        )}
         <div className="mx-2 hidden h-6 w-px bg-gray-200 sm:block" />
         <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Gerar</span>
         <form action={gerarFolha} className="flex items-center gap-2">

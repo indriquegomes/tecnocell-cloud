@@ -34,7 +34,9 @@ const EXT_COMPROVANTE: Record<string, string> = {
 }
 
 export async function criarLancamento(formData: FormData) {
-  await requirePermissao('financeiro')
+  // Criar lançamento solto é o único caminho que inventa dinheiro no app: exige
+  // permissão própria ('financeiro_lancar', em Cargos/Usuários), além do módulo.
+  const usuario = await requirePermissao('financeiro_lancar')
   const supabase = await createServiceClient()
   const quitado = formData.getAll('quitado').includes('1')
   // Math.max(0, ...): campo de dinheiro mascarado não digita negativo pela UI normal,
@@ -128,6 +130,7 @@ export async function criarLancamento(formData: FormData) {
     status: quitado && i === 0 ? 'pago' : 'pendente',
     data_pagamento: quitado && i === 0 ? new Date().toISOString() : null,
     valor_pago: quitado && i === 0 ? valorParcela : 0,
+    criado_por: i === 0 ? usuario.id : null,
     updated_at: new Date().toISOString(),
   }))
   const { error } = await supabase.from('lancamentos').insert(linhas)
@@ -203,7 +206,7 @@ export async function criarLancamento(formData: FormData) {
 }
 
 export async function editarLancamento(id: string, formData: FormData) {
-  await requirePermissao('financeiro')
+  await requirePermissao('financeiro_lancar')
   const supabase = await createServiceClient()
   // Trava de mês fechado: não deixa editar um lançamento que mora (ou que vai
   // morar) num mês já fechado — mudaria o resultado do passado auditado.
@@ -681,7 +684,7 @@ export async function desfazerPagamento(id: string) {
 }
 
 export async function deletarLancamento(id: string) {
-  await requirePermissao('financeiro')
+  await requirePermissao('financeiro_lancar')
   const supabase = await createServiceClient()
   // Trava de mês fechado: não apaga lançamento de mês já fechado.
   const { data: alvo } = await supabase.from('lancamentos').select('data_vencimento').eq('id', id).maybeSingle()
@@ -847,7 +850,7 @@ export async function gerarFolha(formData: FormData) {
 // Recebe o id + os campos que o form da linha manda. Não redirect pra não perder
 // a posição na lista — só revalida e devolve {ok}.
 export async function editarLancamentoInline(id: string, formData: FormData) {
-  const usuario = await requirePermissao('financeiro')
+  const usuario = await requirePermissao('financeiro_lancar')
   const supabase = await createServiceClient()
   const valor = Math.max(0, parseFloat((formData.get('valor') as string) || '0'))
   const vencimento = (formData.get('data_vencimento') as string) || null

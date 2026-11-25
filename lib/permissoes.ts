@@ -87,6 +87,9 @@ export const TODAS_PERMISSOES = [
   { grupo: 'Limites',  key: 'venda_abaixo_minimo', label: 'Vender abaixo do mínimo', desc: 'Fechar venda com preço abaixo do piso do produto' },
   { grupo: 'Limites',  key: 'crediario_receber', label: 'Receber crediário',       desc: 'Registrar pagamento de fiado' },
   { grupo: 'Limites',  key: 'credito_limite',    label: 'Alterar limite de crédito', desc: 'Mudar o limite de crédito das pessoas' },
+  // Criar/editar/apagar lançamento solto no Financeiro (o único lugar onde dá para
+  // inventar uma linha de dinheiro). Ver `lib/validacao-lancamento.ts`.
+  { grupo: 'Limites',  key: 'financeiro_lancar', label: 'Criar lançamento no Financeiro', desc: 'Criar, editar e apagar lançamento manual (sem isso, só opera o que os fluxos geram)' },
 ] as const
 
 export type PermissaoKey = typeof TODAS_PERMISSOES[number]['key']
