@@ -107,6 +107,49 @@ fechamento**.
 **Falta:** decisão do dono — pesa na performance do PDV, então tem que ser feito com cuidado
 e medido (a venda hoje leva ~2,5s; queremos continuar assim).
 
+## 10. Trava do lançamento de dinheiro (categoria e forma fechadas)
+
+**O que é:** fechar o único lugar do app onde dá para digitar qualquer coisa e virar
+dinheiro: o **Financeiro → Novo lançamento**. Hoje `categoria` e `forma_pagamento` são
+texto livre (o formulário só *sugere*) e o "quitado" grava pago com qualquer conta.
+
+**O que foi medido (set/nov, 16.679 lançamentos):**
+
+- **47 grafias** de categoria para ~20 coisas — `Mercadoria` (292) × `Fornecedor /
+  Mercadoria` (29) × `fornecedor/mercadoria` (15), `motoboy` × `Motoboy`, `Estorno` ×
+  `Estorno de crédito`, `despesas loja`, `Contabilidade` × `Serviços`…
+- **21 grafias** de forma de pagamento — `pix`, `dinheiro`, `crédito ton`, `débito
+  pagbank`, `cartao_debito`, `fora_do_app`, `recarga de cartão pré-pago`, `outros` (134)…
+- **9 linhas pagas** com forma "Outros" em novembro e **3 sem categoria**; **989 linhas
+  pagas sem venda nem devolução** (as legítimas: fornecedor, conta fixa, folha).
+
+**O caso que abriu o assunto:** `FONE QUE VITÃO PEGOU NA LOJA` — R$ 49,00 lançados como
+despesa paga na conta Teresópolis. A peça saiu da loja, não era despesa: virou A Receber
+(conserto em `scripts/consertar-fone-vitao.mjs`) e a conta ficou R$ 49,00 menor por um
+dinheiro que nunca saiu.
+
+**A solução (4 camadas, em ordem de força):**
+
+1. **Servidor recusa o que não está no catálogo** (`app/painel/financeiro/actions.ts`):
+   categoria tem que estar em `TODAS_CATEGORIAS` (`lib/financeiro-setores.ts`) e forma de
+   pagamento tem que existir em `formas_pagamento` — senão não grava. É a camada que
+   resolve o atalho do dia a dia e não toca em nenhum fluxo automático.
+2. **Banco recusa também** (trigger `valida_lancamento`): mesma regra no INSERT/UPDATE de
+   `lancamentos`, com a lista oficial numa tabela (`categorias_financeiro`) — pega quem
+   colar SQL ou rodar script. Exige antes: devolução passa a gravar categoria
+   `Devolução ao cliente` (hoje nasce sem) e `Estorno de crédito`/`Sangria / Retirada`/
+   `Comissão Marketplace` entram no catálogo.
+3. **Permissão separada**: `financeiro` (operar: ver, dar baixa) × `financeiro_lancar`
+   (criar/alterar lançamento solto). A equipe fica só com a primeira.
+4. **Vigia diário** (o cron de 10 min que já existe): lista toda linha paga sem origem
+   (sem conta e sem gaveta), forma fora do catálogo, categoria desconhecida e pagar sem
+   fornecedor — aparece no Painel do master. Nada mais passa em silêncio.
+
+**Esforço:** camada 1 + 4 = pequeno (um dia); camada 2 = médio (migration + 2 ajustes de
+RPC); camada 3 = pequeno, mas muda o dia a dia da equipe → decisão do dono.
+
+**Falta:** decisão do dono (liberar a camada 1 e 4 agora, e a 3 depois de medir o uso).
+
 ## Ordem sugerida
 
 | # | Item | Quem decide | Quando |
@@ -120,3 +163,4 @@ e medido (a venda hoje leva ~2,5s; queremos continuar assim).
 | 7 | Cartão “sobrou pra mim” | dono | junto com o 3 (uma passada de UI) |
 | 8 | Custo persistido | só se precisar | — |
 | 9 | Estoque em toda venda (prova o estoque inicial) | dono | quando quiser fechar o cerco do estoque |
+| 10 | Trava do lançamento de dinheiro | dono | camadas 1+4 já; 3 depois de medir o uso |
