@@ -38,6 +38,10 @@ const LOJAS = MODO_TESTE
     ? TODAS_LOJAS.filter((l) => l.slug === LOJA_SO)
     : TODAS_LOJAS
 
-console.log(MODO_TESTE ? '[bot-whatsapp] MODO TESTE — uma sessão só, pasta auth_teste' : '[bot-whatsapp] modo normal — Petrópolis + Teresópolis')
+console.log(
+  MODO_TESTE
+    ? '[bot-whatsapp] MODO TESTE — uma sessão só, pasta auth_teste'
+    : `[bot-whatsapp] lojas ativas: ${LOJAS.map((l) => l.slug).join(' + ')}`,
+)
 
 for (const loja of LOJAS) iniciaSessao(loja).catch((e) => console.error(`[${loja.slug}] falha ao iniciar sessão:`, e))

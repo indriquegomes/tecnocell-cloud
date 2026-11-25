@@ -1,15 +1,55 @@
-# Bot de Atendimento WhatsApp (preço e estoque)
+# Bot de Atendimento WhatsApp
 
-Responde automaticamente perguntas de preço/disponibilidade de produto no
-WhatsApp das lojas. Qualquer outro assunto é ignorado — a pessoa continua
-respondendo na mão, normalmente. Detalhe completo em
-`docs/arquivo/superpowers/specs/2026-08-20-whatsapp-ia-atendimento-design.md`.
+Dois bots moram aqui. **O que está no ar hoje (25/11) é o mínimo**: `pix.mjs`.
 
-Precisa de `DEEPSEEK_API_KEY` configurada no `.env.local` — sem ela o
-processo falha na inicialização com erro claro (não sobe silencioso sem
-funcionar).
+## `pix.mjs` — bot mínimo (o que roda agora)
 
-## Antes de rodar num número real
+Responde **uma coisa só**: quando o cliente pergunta do PIX, manda a chave da
+loja (lida de `contas.chave_pix` da conta bancária daquela loja, cache de 10 min)
+com o titular e o pedido de comprovante. **Qualquer outro assunto: silêncio.**
+Sem IA, sem busca de produto, sem banco local, sem log de conversa — só o
+WhatsApp e uma leitura no Supabase de vez em quando.
+
+- Se o dono responder na mão na mesma conversa, o bot sai dela por **1 hora**.
+- Sem chave cadastrada na conta da loja, ele **cala** (melhor que mandar errado).
+- Teste da única lógica dele: `node --test bot-whatsapp/pix.test.mjs`.
+- Continuar deste ponto é o caminho para crescer de novo: uma pergunta por vez.
+
+## `run.mjs` — bot antigo (desligado)
+
+O bot completo de preço/estoque com IA (`run.mjs` + `sessao.mjs` + `lib/`):
+preço e disponibilidade, pedido com alerta no grupo, entrega, endereço, horário,
+encomenda, pausa quando o dono responde. Continua no repositório e testado
+(`node --test bot-whatsapp/lib/*.test.mjs`) — para voltar, troque o `script` no
+`ecosystem.config.cjs`.
+
+Atenção: `lib/info.mjs` tem endereço, horário e política de **Petrópolis**
+escritos no código — ligar Teresópolis por aí responderia o endereço errado.
+
+## Conectar o bot (o QR)
+
+```
+pm2 restart tecnocell-bot      # já está no ar pelo PM2; o QR aparece no log
+```
+
+O pareamento do WhatsApp dura ~2,5 min e o QR **troca a cada ~20 segundos**. Por
+isso o bot grava sempre o QR novo como imagem em
+`bot-whatsapp/data/qr_<loja>.png` e o log só avisa uma vez por minuto:
+
+```
+[petropolis] QR pronto pra escanear: ...\bot-whatsapp\data\qr_petropolis.png
+```
+
+Abra o PNG (ou a página `QR-bot-petropolis.html` no Desktop, que se atualiza
+sozinha a cada 3 s) e escaneie: **WhatsApp da loja > Aparelhos conectados >
+Conectar um aparelho**. Feito isso a sessão fica salva em
+`bot-whatsapp/data/auth_<loja>/` e o QR não aparece mais.
+
+Para testar depois de conectar: mande do seu celular, para o número da loja,
+`qual o pix?` — tem que vir a chave. Depois mande `quanto custa a tela do g20?`
+— tem que ficar em **silêncio** (é o bot mínimo: só PIX).
+
+## Roteiro do bot antigo (preço/estoque)
 
 **Primeiro teste com um celular separado, não usado por cliente nenhum.**
 Comandos abaixo são PowerShell (terminal principal do projeto — os
@@ -21,20 +61,8 @@ node bot-whatsapp/run.mjs
 ```
 
 Escaneia o QR code que aparece no terminal com esse celular de teste
-(WhatsApp → Aparelhos conectados → Conectar um aparelho).
-
-**Se o QR do terminal não escanear** (letras/caracteres de terminal
-distorcem a leitura pela câmera com frequência), use o script abaixo em
-vez do `run.mjs` — ele salva o QR como imagem PNG, bem mais confiável de
-escanear:
-
-```powershell
-node bot-whatsapp/testa-qr.mjs
-```
-
-Abre o arquivo `bot-whatsapp/data/qr_<loja>.png` gerado e escaneia normal.
-O terminal avisa "conectado" e encerra sozinho — depois disso já pode
-rodar o `run.mjs` de verdade, a sessão salva já fica valendo.
+(WhatsApp → Aparelhos conectados → Conectar um aparelho) — o PNG e a página do
+Desktop descritos acima valem igual.
 
 Manda, desse mesmo celular, pra ele mesmo (ou de outro número pra esse), o roteiro:
 
@@ -72,25 +100,51 @@ Remove-Item Env:BOT_WHATSAPP_TESTE
 
 Ou simplesmente abre um terminal novo.
 
-## Rodar de verdade (as duas lojas)
+## Rodar o bot antigo à mão
 
 ```
 node bot-whatsapp/run.mjs
 ```
 
-Primeira vez: aparecem dois QR codes, um por loja — escaneia cada um no
-WhatsApp daquela loja. Depois disso a sessão fica salva em
-`bot-whatsapp/data/auth_<loja>/` e não pede QR de novo (a não ser que
-desconecte o aparelho no próprio celular).
+O bot antigo e o mínimo usam a mesma pasta de sessão (`auth_<loja>`) e o mesmo
+`BOT_WHATSAPP_LOJA` do `ecosystem.config.cjs` — não rode os dois ao mesmo tempo
+(dois vínculos na mesma credencial = WhatsApp troca o vínculo e pede QR).
+
+**Teresópolis:** o bot mínimo já funciona nas duas lojas (a chave sai da conta
+bancária da loja). O bot antigo **não**: `lib/info.mjs` tem endereço, horário e
+política de Petrópolis no código.
 
 ## Scripts de teste manual (não tocam WhatsApp)
 
 ```
 node bot-whatsapp/testa-produtos.mjs "termo de busca"   # busca real no Supabase
 node bot-whatsapp/testa-ia.mjs                          # classificação real na DeepSeek
+node bot-whatsapp/status.mjs                            # situação do bot (só lê)
 ```
 
+## Rodando pelo PM2 (é assim que fica no PC da loja)
+
+```
+pm2 start ecosystem.config.cjs      # sobe o bot (Petrópolis)
+pm2 restart tecnocell-bot           # depois de mexer no código
+pm2 flush                            # limpa o log (o arquivo não encolhe sozinho)
+pm2 logs tecnocell-bot --lines 50    # acompanhar
+```
+
+`ecosystem.config.cjs` está com `autorestart: false` e o vigia (`monitor.mjs`)
+fora do PM2 de propósito: restart em série corrompia a sessão do WhatsApp. Se
+cair, religue na mão e escaneie o QR uma vez.
+
+Sem sessão salva (`data/auth_<loja>/` vazio), o bot fica tentando parear de 2 em
+2 segundos, espaçando até 20s, e grava um aviso no log a cada 5 min. Ele **não
+conecta sozinho** — alguém precisa abrir `data/qr_<loja>.png` e escanear.
+
 ## Onde fica o log e dados sensíveis
+
+O log fica no PM2 (`C:\Users\usuario\.pm2\logs\tecnocell-bot-out.log` e
+`-error.log`), com rotação do módulo `pm2-logrotate` (10 MB por arquivo, 5
+arquivos, compactado) — antes o arquivo chegou a 725 MB porque cada QR virava
+dezenas de linhas de desenho em caracteres.
 
 `bot-whatsapp/data/bot-whatsapp.db` (SQLite, fora do git). Telefone gravado
 truncado (só os 4 últimos dígitos) — nunca o número completo. Essa garantia

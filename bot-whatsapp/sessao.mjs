@@ -3,7 +3,6 @@ import fs from 'node:fs'
 import path from 'node:path'
 import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion, Browsers } from '@whiskeysockets/baileys'
 import { pino } from 'pino'
-import qrcode from 'qrcode-terminal'
 import QRCode from 'qrcode'
 import { classificaPergunta, geraResposta } from './lib/ia.mjs'
 import { buscaProdutos, buscaProdutosAmplo, buscaPorPrioridade, buscaEstoque, buscaChavePix, buscaEntregas, marcarEntregaBot, resumoLoja, ehConsultaGenerica, ehMarcaSolta, buscaTabelaDoCliente, buscaTabelaVarejoId, precosDaTabela, buscaTabelaPorNome, categoriasDe, modelosDistintos, resolveSelecao, buscaComAlternativa } from './lib/produtos.mjs'
@@ -99,6 +98,25 @@ function esperaReconexao(slug) {
   return Math.min(5000 * Math.pow(2, n), 30 * 60 * 1000)
 }
 
+// Sem credencial salva, o pareamento do WhatsApp fecha com 408 em ~60s. Antes esse
+// caso voltava em 2s FIXO: o bot martelava o servidor (27 mil erros 408 num dia),
+// gerava QR sem parar e enchia o log até 725 MB. Aqui o espaçamento cresce também
+// nesse caso — com teto de 20s, pra o QR continuar fresco o bastante pra escanear.
+const tentativasSemSessao = new Map() // slug -> tentativas seguidas sem sessão
+
+// Log repetido é o que inchou o log: cada mensagem só sai uma vez por janela.
+const ultimoLog = new Map()
+function deveLogar(chave, janelaMs) {
+  const agora = Date.now()
+  if (agora - (ultimoLog.get(chave) || 0) < janelaMs) return false
+  ultimoLog.set(chave, agora)
+  return true
+}
+
+// BOT_WHATSAPP_DEBUG=1 mostra cada tentativa de pareamento com a duração. Serve pra
+// diagnosticar "o QR não pega": sessão que morre em 1s deixa o QR velho na tela.
+const DEBUG = process.env.BOT_WHATSAPP_DEBUG === '1'
+
 // Só conversa individual: remoteJid de grupo termina em @g.us, o de pessoa em
 // @s.whatsapp.net (ou @lid em contas mais novas — ver Baileys docs). Mensagem
 // própria (fromMe) nunca deve virar pergunta pro classificador.
@@ -117,6 +135,7 @@ function textoDaMensagem(msg) {
 
 export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
   const minhaGeracao = ++geracao // socket mais novo vence; os antigos fecham sozinhos
+  const criadoEm = Date.now() // pra medir quanto tempo cada tentativa de pareamento dura
   bateCoracao() // marca "vivo" já no início (aguardando QR/connect) — o vigia não reinicia à toa
 
   // Backup de creds: se creds.json corromper (crash no meio da gravação), restaura
@@ -198,13 +217,15 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
   sock.ev.on('connection.update', (update) => {
     const { connection, lastDisconnect, qr } = update
     if (qr) {
-      console.log(`\n[${slug}] escaneie o QR code no WhatsApp (Aparelhos conectados):\n`)
-      qrcode.generate(qr, { small: true })
-      // salva o QR como PNG pra escanear com a câmera (o QR do terminal distorce)
+      // Só o PNG. O QR em caracteres de terminal saía ilegível no log (mojibake) e
+      // era o grosso dos centenas de MB de log. O arquivo é reescrito a cada QR
+      // novo, então quem abrir depois pega o fresco; o aviso no log sai no máx. 1/min.
       const caminhoQr = path.join(RAIZ_REPO, 'bot-whatsapp', 'data', `qr_${slug}.png`)
       QRCode.toFile(caminhoQr, qr, { width: 512, margin: 2 })
-        .then(() => console.log(`[${slug}] QR salvo em: ${caminhoQr}`))
-        .catch(() => {})
+        .then(() => {
+          if (deveLogar(`qr:${slug}`, 60 * 1000)) console.log(`[${slug}] QR pronto pra escanear: ${caminhoQr}`)
+        })
+        .catch((e) => console.error(`[${slug}] falha ao salvar QR:`, e?.message || e))
     }
     if (connection === 'close') {
       if (fechando) return
@@ -214,39 +235,56 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
       sock.ev.removeAllListeners()
 
       const code = lastDisconnect?.error?.output?.statusCode
+      const reconectar = () => iniciaSessao({ slug, depositoId, pastaAuth })
+        .catch((e) => console.error(`[${slug}] falha ao reconectar:`, e))
+
+      // Banido (403) não tem volta. Reconectar aqui é só martelar o WhatsApp que
+      // acabou de recusar a conta — fica parado e grita no log até alguém olhar.
+      if (code === 403) {
+        console.error(`[${slug}] conta BANIDA pelo WhatsApp (403) — parando este número. Precisa de número novo.`)
+        return
+      }
+
       const definitivo = CODIGOS_DESCONEXAO_DEFINITIVA.has(code)
       // Queda definitiva (401 logout / 440 trocado / 500 bad session): a credencial
       // NÃO se recupera tentando de novo. Sem apagar, o useMultiFileAuthState
       // reaproveita a credencial morta e o bot fica em loop de backoff SEM gerar QR
       // novo — é o "bot mudo pra sempre". Apaga a pasta de auth e reconecta na hora
-      // (QR fresco). 403 (banido) fica fora: não tem volta, apagar só esconde o log.
+      // (QR fresco).
       if (definitivo) {
-        console.error(`[${slug}] conexão caiu (${code}). Sessão inválida — reconectando pra gerar QR novo.`)
-        if (code !== 403) {
-          try {
-            for (const f of fs.readdirSync(pastaAuth)) fs.unlinkSync(path.join(pastaAuth, f))
-          } catch (e) {
-            console.error(`[${slug}] falha ao limpar sessão morta:`, e?.message || e)
-          }
-          reconexoesSeguidas.set(slug, 0)
-          setTimeout(() => {
-            iniciaSessao({ slug, depositoId, pastaAuth }).catch((e) => console.error(`[${slug}] falha ao reconectar:`, e))
-          }, 2000)
-          return
+        console.error(`[${slug}] conexão caiu (${code}). Sessão inválida — apagando a credencial morta e gerando QR novo.`)
+        try {
+          for (const f of fs.readdirSync(pastaAuth)) fs.unlinkSync(path.join(pastaAuth, f))
+        } catch (e) {
+          console.error(`[${slug}] falha ao limpar sessão morta:`, e?.message || e)
         }
+        reconexoesSeguidas.set(slug, 0)
+        tentativasSemSessao.set(slug, 0)
+        setTimeout(reconectar, 2000)
+        return
       }
+
       // Ainda sem sessão (aguardando QR): o WS de pareamento do WhatsApp expira em
-      // ~60s e fecha com 408. NÃO aplicar backoff aqui — senão o bot fica 10s→30min
-      // dormindo e o QR some por longos períodos. Reconecta na hora pra manter o QR
-      // sempre fresco.
-      const semSessao = !sock.user
-      const n = semSessao ? 0 : (reconexoesSeguidas.get(slug) || 0) + 1
+      // ~60s e fecha com 408. Espaça até 20s (QR continua fresco e escaneável) —
+      // 2s fixo era o que martelava o servidor e inchava o log.
+      if (!sock.user) {
+        const n = (tentativasSemSessao.get(slug) || 0) + 1
+        tentativasSemSessao.set(slug, n)
+        const espera = Math.min(2000 * Math.pow(2, n - 1), 20000)
+        const durou = ((Date.now() - criadoEm) / 1000).toFixed(1)
+        const janela = DEBUG ? 0 : 5 * 60 * 1000
+        if (deveLogar(`semSessao:${slug}`, janela)) {
+          console.error(`[${slug}] sem sessão (${code || 'sem código'}) — tentativa ${n}, durou ${durou}s, próxima em ${Math.round(espera / 1000)}s. Escaneie bot-whatsapp/data/qr_${slug}.png.`)
+        }
+        setTimeout(reconectar, espera)
+        return
+      }
+
+      const n = (reconexoesSeguidas.get(slug) || 0) + 1
       reconexoesSeguidas.set(slug, n)
-      const espera = semSessao ? 2000 : esperaReconexao(slug)
+      const espera = esperaReconexao(slug)
       console.error(`[${slug}] conexão caiu (${code || 'sem código'}). Reconectando em ${Math.round(espera / 1000)}s (queda ${n})...`)
-      setTimeout(() => {
-        iniciaSessao({ slug, depositoId, pastaAuth }).catch((e) => console.error(`[${slug}] falha ao reconectar:`, e))
-      }, espera)
+      setTimeout(reconectar, espera)
     } else if (connection === 'open') {
       // Socket velho conectou depois que um mais novo assumiu: fecha na hora. Dois
       // vínculos abertos juntos = WhatsApp troca o vínculo e invalida a sessão.
@@ -259,10 +297,26 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
       ultimoRecv = Date.now()
       bateCoracao()
       reconexoesSeguidas.set(slug, 0) // conectou: zera o backoff
+      tentativasSemSessao.set(slug, 0)
       // constrói/atualiza o mapa lid->telefone em segundo plano (não bloqueia o bot)
       constroiMapa(sock).catch((e) => console.error(`[${slug}] falha ao construir mapa lid->telefone:`, e?.message || e))
     }
   })
+
+  // Uma conversa por vez: duas mensagens do mesmo cliente em seguida (comum: "oi"
+  // e "tem a tela do g20?") processavam em paralelo e saíam DUAS respostas
+  // concorrentes. Aqui cada JID tem sua fila — a próxima só começa quando a
+  // anterior termina, então o contexto (pendência/lista) vale pra segunda também.
+  const filas = new Map()
+  function enfileira(jid, tarefa) {
+    const anterior = filas.get(jid) || Promise.resolve()
+    const atual = anterior
+      .then(tarefa)
+      .catch((e) => console.error(`[${slug}] falha ao processar mensagem:`, e?.message || e)) // não deixa uma mensagem derrubar a sessão inteira
+    filas.set(jid, atual)
+    atual.then(() => { if (filas.get(jid) === atual) filas.delete(jid) })
+    return atual
+  }
 
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     if (type !== 'notify') return
@@ -287,11 +341,8 @@ export async function iniciaSessao({ slug, depositoId, pastaAuth }) {
       if (!texto) continue
       guardaHistorico(slug, msg.key.remoteJid, { de: 'cliente', texto })
       aprendeNome(msg.key.remoteJid, msg.pushName) // guarda o nome de exibição pra identificar no alerta
-      try {
-        await processaMensagem(sock, { slug, depositoId }, msg.key.remoteJid, texto)
-      } catch (e) {
-        console.error(`[${slug}] falha ao processar mensagem:`, e?.message || e) // não deixa uma mensagem derrubar a sessão inteira
-      }
+      const jid = msg.key.remoteJid
+      enfileira(jid, () => processaMensagem(sock, { slug, depositoId }, jid, texto))
     }
   })
 

@@ -87,6 +87,16 @@ outras contas R$ 97.635 · vale-crédito a honrar R$ 5.297).
    `2026-11-25-painel-financeiro-metas-poupanca.sql` no SQL Editor (sem ela a aba Metas fica
    vazia) e testar Pagar/Receber + Nova movimentação com uma conta de valor baixo antes de usar
    de verdade.
+5. **Bot do WhatsApp (25/11)**: foi **recomeçado do zero no modo mínimo** —
+   `bot-whatsapp/pix.mjs` responde **só** "qual o PIX" (chave lida de
+   `contas.chave_pix` da conta bancária da loja; hoje PagBank Petrópolis,
+   `67.262.680/0001-92 · STOR ONE LTDA`) e fica em silêncio em qualquer outro
+   assunto. Sem IA, sem produto, sem banco local. O bot completo (`run.mjs`) fica
+   no repositório, desligado. **Sessão de Petrópolis conectada em 25/11** (credencial
+   salva em `bot-whatsapp/data/auth_petropolis/`, reinicia sem pedir QR). Se precisar
+   parear de novo, o QR sai em `bot-whatsapp/data/qr_petropolis.png` (renova a cada
+   ~20 s) ou na página `Desktop/QR-bot-petropolis.html`, que se atualiza sozinha.
+   Situação a qualquer momento: `node bot-whatsapp/status.mjs`.
 
 ### Não é para reabrir (decidido com o dono em 23/11)
 

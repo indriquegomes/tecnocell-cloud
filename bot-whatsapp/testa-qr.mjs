@@ -5,6 +5,9 @@
 //
 // Uso: node bot-whatsapp/testa-qr.mjs
 // Escaneia o PNG gerado (WhatsApp → Aparelhos conectados → Conectar um aparelho).
+//
+// ATENÇÃO: para o PM2 antes (`pm2 stop tecnocell-bot`). Dois pareamentos ao mesmo
+// tempo na MESMA pasta de auth disputam a credencial e um derruba o outro.
 import path from 'node:path'
 import makeWASocket, { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } from '@whiskeysockets/baileys'
 import { pino } from 'pino'
