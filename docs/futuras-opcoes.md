@@ -158,6 +158,18 @@ e *pago sem origem nas últimas 48h*) e a migration `2026-11-25-categorias-finan
 (tabela + trigger) **esperando colar no SQL Editor** — até colar, quem segura é o servidor.
 Falta a camada **3** (permissão `financeiro_lancar` separada), que muda o dia a dia da equipe.
 
+**Camada 3 FEITA em 25/11/2026 (commit `b7310c9`):** criar/editar/apagar lançamento manual
+exige `financeiro_lancar` (Limites → "Criar lançamento no Financeiro"). A permissão foi dada
+aos 11 perfis/cargos que já tinham Financeiro (`scripts/liberar-permissao-lancar.mjs`, backup +
+DESFAZER em `docs/registros-banco/2026-11/`), então ninguém ficou bloqueado — o dono revoga por
+pessoa/cargo quando quiser. A tela esconde os botões de quem não tem, e o lançamento manual
+passou a gravar `criado_por` (quem criou).
+
+**Ainda em aberto (medido em 25/11):** **699 de 1.000** pagamentos pagos em 31 dias **não têm
+conta** e a forma é texto livre ("PIX", "dinheiro") — esse dinheiro não baixa em conta nenhuma e
+o saldo do banco fica inflado (R$ 372 mil no recorte). É a mesma família do problema, mas exige
+backfill por forma/loja (`forma_conta_loja`), não trava.
+
 ## Ordem sugerida
 
 | # | Item | Quem decide | Quando |
