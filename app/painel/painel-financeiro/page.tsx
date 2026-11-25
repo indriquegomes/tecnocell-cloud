@@ -100,7 +100,7 @@ export default async function PainelFinanceiroPage({
   const [{ data: contas }, { data: metas }, pendentes, entradasP, recebimentos, compras, despesas, recentes] =
     await Promise.all([
       supabase.from('contas').select('id, saldo_inicial, tipo, loja_id').eq('ativa', true),
-      supabase.from('metas_poupanca').select('id, nome, cor, atual, objetivo').eq('ativo', true).order('nome'),
+      supabase.from('metas_poupanca').select('id, nome, cor, atual, objetivo').eq('ativo', true).eq('escopo', 'empresa').order('nome'),
       fetchAll<{ id: string; tipo: string; descricao: string | null; pessoa_nome: string | null; valor: number | null; valor_pago: number | null; data_vencimento: string | null }>((from, to) =>
         supabase.from('lancamentos').select('id, tipo, descricao, pessoa_nome, valor, valor_pago, data_vencimento')
           .in('tipo', ['pagar', 'receber']).eq('status', 'pendente')

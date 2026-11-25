@@ -72,7 +72,7 @@ export default async function PainelLayout({ children }: { children: React.React
   // Dentro da casca do sistema apareciam duas barras e a tela deixava de ser a
   // aprovada. Aqui ele roda sozinho, com autenticação e permissão já checadas
   // acima (a rota segue protegida por 'financeiro').
-  if (pathname.startsWith('/painel/painel-financeiro')) {
+  if (pathname.startsWith('/painel/painel-financeiro') || pathname.startsWith('/painel/particular')) {
     return <div className="min-h-screen" style={{ background: '#F7F3EA' }}>{children}</div>
   }
 

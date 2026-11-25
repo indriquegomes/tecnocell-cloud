@@ -24,7 +24,7 @@ const PAINEL = '/painel/painel-financeiro'
 async function saldoDisponivel(supabase: Awaited<ReturnType<typeof createServiceClient>>) {
   const [{ data: contas }, { data: metas }] = await Promise.all([
     supabase.from('contas').select('id, saldo_inicial, tipo, loja_id').eq('ativa', true),
-    supabase.from('metas_poupanca').select('atual').eq('ativo', true),
+    supabase.from('metas_poupanca').select('atual').eq('ativo', true).eq('escopo', 'empresa'),
   ])
   const saldos = await calcularSaldosContas(supabase, (contas ?? []) as { id: string; saldo_inicial?: number | null; tipo?: string | null; loja_id?: string | null }[])
   const totalContas = Object.values(saldos).reduce((s, v) => s + v, 0)
@@ -87,7 +87,7 @@ export async function guardarNaMeta(formData: FormData) {
   const metaId = String(formData.get('meta_id') ?? '')
   const pedido = Math.max(0, parseFloat(String(formData.get('valor') ?? '500').replace(',', '.')) || 0)
   const { data: meta } = await supabase.from('metas_poupanca')
-    .select('id, nome, atual, objetivo').eq('id', metaId).maybeSingle()
+    .select('id, nome, atual, objetivo').eq('id', metaId).eq('escopo', 'empresa').maybeSingle()
   if (!meta) {
     redirect(`${PAINEL}?aba=metas&msg=${encodeURIComponent('Meta não encontrada.')}`)
   }
