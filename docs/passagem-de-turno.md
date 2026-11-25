@@ -52,12 +52,13 @@ outras contas R$ 97.635 · vale-crédito a honrar R$ 5.297).
 6. **Botão “Avaria · não vende”** na devolução.
 7. **Peça quebrada**: baixa como perda lança despesa “Perda: produto” automaticamente.
 8. **Conferência por mês**: nenhum conferente traz mais conta de mês fechado.
-9. **Quadro na tela de Fechamento do Mês** (24/11) — cartões **Resultado do mês**, **Sobra de
-   caixa**, **Tenho** e **Devo** + a tabela "Como o resultado se formou", na mesma régua do DRE
-   de Relatórios (`lib/dre.ts` — a fórmula mora em um lugar só; testes em `test/logica.test.ts`).
-   Conferido ao centavo contra a tela de Relatórios (Petrópolis em 24/11: resultado
-   −R$ 42.927,89 nos dois lugares). O cartão antigo "Lucro/Prejuízo" (que era entrou − saiu de
-   caixa) virou **Sobra de caixa** no quadro. Falta commit/deploy (palavra-chave).
+9. **Quadro na tela de Fechamento do Mês** (24/11) — hero azul **Resultado do mês** (com a conta
+   aberta dentro do cartão) + seção **Tenho × Devo** com atrasados e patrimônio líquido; o resto
+   (sobra de caixa, livre para retirar, crédito, consignado, perdas, trocas, estoque consumido)
+   virou "Indicadores do mês" dentro de Ver detalhes. Mesma régua do DRE de Relatórios
+   (`lib/dre.ts` — a fórmula mora em um lugar só; testes em `test/logica.test.ts`). Conferido ao
+   centavo contra a tela de Relatórios (Petrópolis em 24/11: resultado −R$ 42.927,89 nos dois
+   lugares). No ar: commits `02150fe` e `cd4e982`.
 
 ### O que falta — SÓ ISTO
 
