@@ -159,9 +159,11 @@ export default async function FinanceiroPage({
   const restanteLinha = (l: { valor: number | null; valor_pago?: number | null }) =>
     (l.valor ?? 0) - (l.valor_pago ?? 0)
   const ehPendente = (l: { status: string | null }) => l.status === 'pendente'
-  // pago = quanto saiu de fato. `?? valor` cobre os caminhos antigos que marcam pago
-  // sem gravar valor_pago (OS e encomenda), onde o valor cheio é a melhor leitura.
-  const pagoLinha = (l: { valor: number | null; valor_pago?: number | null }) => l.valor_pago ?? l.valor ?? 0
+  // pago = quanto saiu de fato. `|| valor` cobre os caminhos antigos que marcam pago
+  // SEM gravar valor_pago (OS, encomenda e o reembolso de devolução, que o RPC grava
+  // com valor_pago zerado): ali 0 não é "pagou nada", é "não informou" — usar `??`
+  // deixava essas linhas somando R$ 0,00 no "já pago".
+  const pagoLinha = (l: { valor: number | null; valor_pago?: number | null }) => l.valor_pago || l.valor || 0
   const fReceberPend = filtrados.filter((l) => l.tipo === 'receber' && ehPendente(l)).reduce((s, l) => s + restanteLinha(l), 0)
   const fReceberPago = filtrados.filter((l) => l.tipo === 'receber' && l.status === 'pago').reduce((s, l) => s + pagoLinha(l), 0)
   const fPagarPend = filtrados.filter((l) => l.tipo === 'pagar' && ehPendente(l)).reduce((s, l) => s + restanteLinha(l), 0)
