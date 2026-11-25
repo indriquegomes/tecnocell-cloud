@@ -1,8 +1,8 @@
 -- Desfaz 2026-11-25T23:50:13.139Z (backup: contas-1795650613141.json)
 
-update public.contas set nome = 'Cofre Petrópolis', ativa = 'undefined' where id = 'b7720f9d-8a58-4226-9ff0-1bb2e8ddca6c';
-update public.contas set nome = 'Cofre Teresópolis', ativa = 'undefined' where id = 'f56081a9-c5b9-4e29-80b8-d56359ed9a7b';
-update public.contas set nome = 'Cofre PagBank', ativa = 'undefined' where id = 'b389ba50-98ad-40e1-8348-a8f45aabc604';
+update public.contas set nome = 'Cofre Petrópolis' where id = 'b7720f9d-8a58-4226-9ff0-1bb2e8ddca6c';
+update public.contas set nome = 'Cofre Teresópolis' where id = 'f56081a9-c5b9-4e29-80b8-d56359ed9a7b';
+update public.contas set nome = 'Cofre PagBank' where id = 'b389ba50-98ad-40e1-8348-a8f45aabc604';
 update public.contas set nome = 'PagBank Teresópolis', ativa = 'false' where id = '46f729d4-7456-431f-823b-60283533d67b';
 update public.contas set nome = 'PIX', ativa = 'false' where id = '9b812cd0-e0fe-41dd-ad31-06ee5323d11d';
 update public.contas set nome = 'PIX Teresópolis', ativa = 'false' where id = 'cbff217b-a5ee-421b-9af3-3d8147268e43';

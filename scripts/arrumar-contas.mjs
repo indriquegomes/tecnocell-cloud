@@ -92,7 +92,7 @@ const desfazer = path.join(dir, `DESFAZER-contas-${carimbo}.sql`)
 const sql = []
 for (const m of mudancas) {
   if (m.tabela === 'contas') {
-    const set = Object.entries({ nome: m.antes.nome, ativa: m.antes.ativa }).map(([k, v]) => `${k} = ${v === null ? 'null' : `'${String(v).replace(/'/g, "''")}'`}`).join(', ')
+    const set = Object.entries({ nome: m.antes.nome, ativa: m.antes.ativa }).filter(([, v]) => v !== undefined).map(([k, v]) => `${k} = ${v === null ? 'null' : `'${String(v).replace(/'/g, "''")}'`}`).join(', ')
     sql.push(`update public.contas set ${set} where id = '${m.id}';`)
   } else if (m.tabela === 'formas_pagamento') {
     const v = m.antes.conta_destino_id === null ? 'null' : `'${m.antes.conta_destino_id}'`
