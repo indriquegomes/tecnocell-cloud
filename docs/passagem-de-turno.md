@@ -118,6 +118,9 @@ outras contas R$ 97.635 · vale-crédito a honrar R$ 5.297).
    registra gaveta/conta) e "só cancelar (não devo nada)" — este último cancela o crédito sem
    criar conta nenhuma (crédito errado, cliente desistiu do vale, ou reembolso já pago fora do app).
    Antes esse caso era impossível: a trava de 22/11 recusava e o vale ficava preso no saldo.
+   Testado no site (Playwright `e2e/vale-cancelar-sem-dinheiro.spec.ts` + `scripts/qa-vale-cancelar.mjs`):
+   crédito de R$ 25 cancelado, saldo zerado, **zero lançamentos** criados. As duas migrations
+   (estorno sem conta e trigger do valor_pago) foram aplicadas em 25/11 e conferidas no banco.
 5. **Bot do WhatsApp (25/11)**: foi **recomeçado do zero no modo mínimo** —
    `bot-whatsapp/pix.mjs` responde **só** "qual o PIX" (chave lida de
    `contas.chave_pix` da conta bancária da loja; hoje PagBank Petrópolis,
