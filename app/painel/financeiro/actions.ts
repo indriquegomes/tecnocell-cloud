@@ -229,6 +229,9 @@ export async function editarLancamento(id: string, formData: FormData) {
 export async function marcarPago(id: string, formData?: FormData) {
   const usuario = await requirePermissao('financeiro')
   const supabase = await createServiceClient()
+  // De onde a baixa foi acionada: o Financeiro manda para a própria tela; o
+  // painel financeiro passa `_voltar` e recebe o usuário de volta com a mensagem.
+  const destino = ((formData?.get('_voltar') as string) ?? '').trim() || '/painel/financeiro'
   const { data: antes, error: erroAntes } = await supabase
     .from('lancamentos')
     .select('valor, valor_pago, forma_pagamento, pessoa_nome, tipo, data_vencimento, conta_id, loja_id, descricao, categoria')
@@ -239,12 +242,12 @@ export async function marcarPago(id: string, formData?: FormData) {
   // como se tivesse sido pago, mas nada entrava na gaveta.
   // redirect (não throw): marcarPago é chamado por um <form action={...}> sem
   // error boundary (financeiro/page.tsx) — throw derruba a tela inteira.
-  if (erroAntes) redirect(`/painel/financeiro?erro=${encodeURIComponent(erroAntes.message)}`)
+  if (erroAntes) redirect(`${destino}?erro=${encodeURIComponent(erroAntes.message)}`)
 
   // Trava de mês fechado: não marca pago (nem desfaz) lançamento de mês já fechado —
   // baixar uma despesa antiga mudaria o resultado do passado auditado.
   const erroTrava = await travarSeMesFechado(supabase, (antes as { data_vencimento?: string | null } | null)?.data_vencimento?.slice(0, 10) ?? null, 'marcar este lançamento como pago')
-  if (erroTrava) redirect(`/painel/financeiro?erro=${encodeURIComponent(erroTrava)}`)
+  if (erroTrava) redirect(`${destino}?erro=${encodeURIComponent(erroTrava)}`)
 
   // COMO foi pago — vem do select ao lado do botão "Pago".
   // Antes isto assumia 'Dinheiro' quando o lançamento não tinha forma, e fiado
@@ -257,7 +260,7 @@ export async function marcarPago(id: string, formData?: FormData) {
   const formaInformada = ((formData?.get('forma_pagamento') as string) ?? '').trim()
   const forma = formaInformada || (antes?.forma_pagamento ?? '')
   if (!forma) {
-    redirect(`/painel/financeiro?erro=${encodeURIComponent('Escolha a forma de pagamento (dinheiro ou banco/pix) antes de marcar como pago.')}`)
+    redirect(`${destino}?erro=${encodeURIComponent('Escolha a forma de pagamento (dinheiro ou banco/pix) antes de marcar como pago.')}`)
   }
 
   // Comprovante do Pix (opcional) — vai pro bucket privado `pagamentos`, caminho
@@ -266,17 +269,17 @@ export async function marcarPago(id: string, formData?: FormData) {
   const comprovante = (formData?.get('comprovante') as File | null) ?? null
   if (comprovante && comprovante.size > 0) {
     if (comprovante.size > 10 * 1024 * 1024) {
-      redirect(`/painel/financeiro?erro=${encodeURIComponent('Comprovante muito grande (máximo 10 MB).')}`)
+      redirect(`${destino}?erro=${encodeURIComponent('Comprovante muito grande (máximo 10 MB).')}`)
     }
     const ext = EXT_COMPROVANTE[comprovante.type]
-    if (!ext) redirect(`/painel/financeiro?erro=${encodeURIComponent('Comprovante deve ser imagem (JPG, PNG, WEBP ou GIF).')}`)
+    if (!ext) redirect(`${destino}?erro=${encodeURIComponent('Comprovante deve ser imagem (JPG, PNG, WEBP ou GIF).')}`)
     const path = `lancamentos/${id}/${hojeSP()}.${ext}`
     const buffer = Buffer.from(await comprovante.arrayBuffer())
     const { error: upErr } = await supabase.storage.from('pagamentos').upload(path, buffer, {
       contentType: comprovante.type,
       upsert: true,
     })
-    if (upErr) redirect(`/painel/financeiro?erro=${encodeURIComponent(upErr.message)}`)
+    if (upErr) redirect(`${destino}?erro=${encodeURIComponent(upErr.message)}`)
     comprovanteUrl = path
   }
 
@@ -326,11 +329,11 @@ export async function marcarPago(id: string, formData?: FormData) {
     ...(contaDaBaixa ? { conta_id: contaDaBaixa } : {}),
     updated_at: new Date().toISOString(),
   }).eq('id', id).eq('status', 'pendente').select('id')
-  if (error) redirect(`/painel/financeiro?erro=${encodeURIComponent(error.message)}`)
+  if (error) redirect(`${destino}?erro=${encodeURIComponent(error.message)}`)
   // Duplo clique: se já estava pago, o filtro 'pendente' não achou linha pra
   // atualizar — para aqui (senão registraria o recebimento 2x na gaveta).
   if (!(linhaAtualizada?.length)) {
-    redirect('/painel/financeiro?erro=' + encodeURIComponent('Este lançamento já estava pago (talvez outro clique). Recarregue a tela.'))
+    redirect(`${destino}?erro=` + encodeURIComponent('Este lançamento já estava pago (talvez outro clique). Recarregue a tela.'))
   }
 
   // O dinheiro precisa aparecer na gaveta — mas só quando é RECEBER (fiado sendo
@@ -374,7 +377,7 @@ export async function marcarPago(id: string, formData?: FormData) {
     // Gaveta sem saldo para a saída: avisa e manda desmarcar em vez de deixar a
     // gaveta negativa no fechamento (dinheiro de envelope não passa por ela).
     if (!ret.ok && ret.erro && ret.erro.startsWith('A gaveta tem')) {
-      redirect(`/painel/financeiro?erro=${encodeURIComponent(ret.erro)}`)
+      redirect(`${destino}?erro=${encodeURIComponent(ret.erro)}`)
     }
   }
 
@@ -398,7 +401,7 @@ export async function marcarPago(id: string, formData?: FormData) {
     // Sem fornecedor não há nota para abater. Antes isso passava em silêncio e a
     // dívida ficava maior do que a planilha; agora o operador é avisado na hora.
     if (!pessoaDoPagamento) {
-      redirect(`/painel/financeiro?erro=${encodeURIComponent('Pagamento de mercadoria sem fornecedor: a dívida não foi abatida. Abra o lançamento, escolha o fornecedor e dê a baixa de novo.')}`)
+      redirect(`${destino}?erro=${encodeURIComponent('Pagamento de mercadoria sem fornecedor: a dívida não foi abatida. Abra o lançamento, escolha o fornecedor e dê a baixa de novo.')}`)
     }
     const lojaId = await lojaDoLancamento(supabase, id)
     const r = await abaterNaDivida(
@@ -415,11 +418,19 @@ export async function marcarPago(id: string, formData?: FormData) {
     )
     // Falha aqui não desfaz o pagamento (o dinheiro saiu de verdade). Avisa o operador
     // para conferir a nota na mão, em vez de a dívida ficar errada em silêncio.
-    if (!r.ok) redirect(`/painel/financeiro?erro=${encodeURIComponent('Pagamento registrado, mas a baixa na nota não foi aplicada: ' + (r.erro ?? 'erro desconhecido'))}`)
+    if (!r.ok) redirect(`${destino}?erro=${encodeURIComponent('Pagamento registrado, mas a baixa na nota não foi aplicada: ' + (r.erro ?? 'erro desconhecido'))}`)
   }
 
   revalidatePath('/painel/financeiro')
   revalidatePath('/painel/fiados')
+
+  // Confirmação de quem chamou: o painel financeiro usa `_voltar` e recebe
+  // o usuário de volta com o resultado na linha de status.
+  if (formData?.get('_voltar')) {
+    const quem = antes?.pessoa_nome ?? antes?.descricao ?? 'conta'
+    redirect(`${destino}?msg=${encodeURIComponent(
+      (antes?.tipo === 'receber' ? 'Recebimento de ' : 'Pagamento de ') + quem + ' registrado.')}`)
+  }
 }
 
 // DESFAZER PAGAMENTO — reverte uma quitação do botão "Pago" (marcarPago).

@@ -63,6 +63,17 @@ outras contas R$ 97.635 · vale-crédito a honrar R$ 5.297).
    Relatórios (Petrópolis: resultado idêntico nos dois lugares). Referência do dono: Cruip
    **Mosaic**, com a estrutura de atalhos do Omie; o dono pediu grade uniforme (sem caixa
    comprida ao lado de caixa pequena e sem texto solto).
+10. **Painel financeiro (módulo novo, 25/11)** — protótipo aprovado pelo dono implementado em
+   `/painel/painel-financeiro`, com as 3 telas (Início · Metas · Nova movimentação) nos tokens
+   dele (fundo creme #F7F3EA, tinta #1F1B3A, verde-menta/coral/azul/amarelo, cartão com contorno
+   e sombra sólida). Início lê saldo das contas (fonte única `lib/saldos-contas`), Entrou/Saiu
+   do período escolhido (mesma régua do Fechamento), contas a vencer (lançamentos pendentes) e
+   últimas movimentações. **Pagar/Receber reutiliza o `marcarPago` do Financeiro** (travas de
+   caixa/nota/mês fechado) e volta para o painel via `_voltar`. **Nova movimentação** grava
+   lançamento pago com travas (valor, mês fechado, conta pela forma). **Metas de poupança** são
+   tabelas novas (`metas_poupanca`, `aportes_poupanca`) — migração
+   `supabase/migrations/2026-11-25-painel-financeiro-metas-poupanca.sql`, **ainda não aplicada**;
+   sem ela, a aba Metas abre vazia. Guardar desconta do "Tenho agora" (reserva) e registra aporte.
 
 ### O que falta — SÓ ISTO
 
@@ -72,6 +83,10 @@ outras contas R$ 97.635 · vale-crédito a honrar R$ 5.297).
    (H2O/ADL/INOVA de novembro) — é a única ponta que a conta do app não prova sozinha.
 3. **Contas particulares**: lançar as do mês na aba `/painel/particular` (as 3 antigas já
    foram migradas, R$ 2.096,47).
+4. **Painel financeiro**: colar a migração
+   `2026-11-25-painel-financeiro-metas-poupanca.sql` no SQL Editor (sem ela a aba Metas fica
+   vazia) e testar Pagar/Receber + Nova movimentação com uma conta de valor baixo antes de usar
+   de verdade.
 
 ### Não é para reabrir (decidido com o dono em 23/11)
 
