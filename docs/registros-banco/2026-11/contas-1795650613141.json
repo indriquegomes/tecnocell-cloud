@@ -1,0 +1,305 @@
+{
+  "quando": "2026-11-25T23:50:13.139Z",
+  "contas": [
+    {
+      "id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+      "nome": "PagBank Petrópolis",
+      "tipo": "banco",
+      "ativa": true,
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946"
+    },
+    {
+      "id": "91c4c7c0-5e59-4fcd-985b-05da0293fd40",
+      "nome": "Caixa Teresópolis",
+      "tipo": "caixa",
+      "ativa": true,
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "21075757-cb87-4dc4-b64a-eb05d340e23d",
+      "nome": "Caixa Petrópolis",
+      "tipo": "caixa",
+      "ativa": true,
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946"
+    },
+    {
+      "id": "b3d8cb4c-9d8b-4a3d-8073-19d578331819",
+      "nome": "VALE CREDITO",
+      "tipo": "banco",
+      "ativa": false,
+      "loja_id": null
+    },
+    {
+      "id": "f56081a9-c5b9-4e29-80b8-d56359ed9a7b",
+      "nome": "Cofre Teresópolis",
+      "tipo": "cofre",
+      "ativa": true,
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "b7720f9d-8a58-4226-9ff0-1bb2e8ddca6c",
+      "nome": "Cofre Petrópolis",
+      "tipo": "cofre",
+      "ativa": true,
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946"
+    },
+    {
+      "id": "09b542f4-e84a-4a20-9b87-235346d56d01",
+      "nome": "TON Teresópolis",
+      "tipo": "banco",
+      "ativa": true,
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "9b812cd0-e0fe-41dd-ad31-06ee5323d11d",
+      "nome": "PIX",
+      "tipo": "banco",
+      "ativa": false,
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946"
+    },
+    {
+      "id": "cbff217b-a5ee-421b-9af3-3d8147268e43",
+      "nome": "PIX Teresópolis",
+      "tipo": "banco",
+      "ativa": false,
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "46f729d4-7456-431f-823b-60283533d67b",
+      "nome": "PagBank Teresópolis",
+      "tipo": "banco",
+      "ativa": false,
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c"
+    },
+    {
+      "id": "bf56901a-9585-430f-a273-3a4918040128",
+      "nome": "TON",
+      "tipo": "banco",
+      "ativa": false,
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946"
+    },
+    {
+      "id": "b389ba50-98ad-40e1-8348-a8f45aabc604",
+      "nome": "Cofre PagBank",
+      "tipo": "cofre",
+      "ativa": true,
+      "loja_id": null
+    }
+  ],
+  "formas": [
+    {
+      "id": "63de417be94e938cc171c865",
+      "nome": "Crédito Loja (Fiado)",
+      "conta_destino_id": null
+    },
+    {
+      "id": "149a52e9-ff13-4516-a475-b0dcd2e1e733",
+      "nome": "Crédito TON",
+      "conta_destino_id": "bf56901a-9585-430f-a273-3a4918040128"
+    },
+    {
+      "id": "96c201e5-81bf-4984-8013-8bd242dce6ae",
+      "nome": "Débito TON",
+      "conta_destino_id": "bf56901a-9585-430f-a273-3a4918040128"
+    },
+    {
+      "id": "2e7d04c3-9254-4efc-9c1d-324912a80a4b",
+      "nome": "Crédito PagBank",
+      "conta_destino_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d"
+    },
+    {
+      "id": "a23b2281-b9b9-4795-b0f1-ea032bea395e",
+      "nome": "Débito PagBank",
+      "conta_destino_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d"
+    },
+    {
+      "id": "FP001",
+      "nome": "Dinheiro",
+      "conta_destino_id": null
+    },
+    {
+      "id": "FP_MERCADOLIVRE",
+      "nome": "Mercado Livre",
+      "conta_destino_id": null
+    },
+    {
+      "id": "FP_VALE",
+      "nome": "Vale Crédito",
+      "conta_destino_id": "b3d8cb4c-9d8b-4a3d-8073-19d578331819"
+    },
+    {
+      "id": "FP003",
+      "nome": "PIX",
+      "conta_destino_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d"
+    },
+    {
+      "id": "FP_OUTROS",
+      "nome": "Outros",
+      "conta_destino_id": null
+    }
+  ],
+  "rota": [
+    {
+      "forma_id": "149a52e9-ff13-4516-a475-b0dcd2e1e733",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c",
+      "conta_id": "09b542f4-e84a-4a20-9b87-235346d56d01"
+    },
+    {
+      "forma_id": "96c201e5-81bf-4984-8013-8bd242dce6ae",
+      "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c",
+      "conta_id": "09b542f4-e84a-4a20-9b87-235346d56d01"
+    }
+  ],
+  "mudancas": [
+    {
+      "tabela": "contas",
+      "id": "b7720f9d-8a58-4226-9ff0-1bb2e8ddca6c",
+      "antes": {
+        "nome": "Cofre Petrópolis"
+      },
+      "depois": {
+        "nome": "Dinheiro vivo Petrópolis"
+      }
+    },
+    {
+      "tabela": "contas",
+      "id": "f56081a9-c5b9-4e29-80b8-d56359ed9a7b",
+      "antes": {
+        "nome": "Cofre Teresópolis"
+      },
+      "depois": {
+        "nome": "Dinheiro vivo Teresópolis"
+      }
+    },
+    {
+      "tabela": "contas",
+      "id": "b389ba50-98ad-40e1-8348-a8f45aabc604",
+      "antes": {
+        "nome": "Cofre PagBank"
+      },
+      "depois": {
+        "nome": "Caixinha PagBank"
+      }
+    },
+    {
+      "tabela": "contas",
+      "id": "46f729d4-7456-431f-823b-60283533d67b",
+      "antes": {
+        "nome": "PagBank Teresópolis",
+        "ativa": false
+      },
+      "depois": {
+        "nome": "ARQUIVADA — PagBank Teresópolis",
+        "ativa": false
+      }
+    },
+    {
+      "tabela": "contas",
+      "id": "9b812cd0-e0fe-41dd-ad31-06ee5323d11d",
+      "antes": {
+        "nome": "PIX",
+        "ativa": false
+      },
+      "depois": {
+        "nome": "ARQUIVADA — PIX",
+        "ativa": false
+      }
+    },
+    {
+      "tabela": "contas",
+      "id": "cbff217b-a5ee-421b-9af3-3d8147268e43",
+      "antes": {
+        "nome": "PIX Teresópolis",
+        "ativa": false
+      },
+      "depois": {
+        "nome": "ARQUIVADA — PIX Teresópolis",
+        "ativa": false
+      }
+    },
+    {
+      "tabela": "contas",
+      "id": "bf56901a-9585-430f-a273-3a4918040128",
+      "antes": {
+        "nome": "TON",
+        "ativa": false
+      },
+      "depois": {
+        "nome": "ARQUIVADA — TON",
+        "ativa": false
+      }
+    },
+    {
+      "tabela": "contas",
+      "id": "09b542f4-e84a-4a20-9b87-235346d56d01",
+      "antes": {
+        "nome": "TON Teresópolis",
+        "ativa": true
+      },
+      "depois": {
+        "nome": "ARQUIVADA — TON Teresópolis",
+        "ativa": false
+      }
+    },
+    {
+      "tabela": "contas",
+      "id": "b3d8cb4c-9d8b-4a3d-8073-19d578331819",
+      "antes": {
+        "nome": "VALE CREDITO",
+        "ativa": false
+      },
+      "depois": {
+        "nome": "ARQUIVADA — VALE CREDITO",
+        "ativa": false
+      }
+    },
+    {
+      "tabela": "formas_pagamento",
+      "id": "149a52e9-ff13-4516-a475-b0dcd2e1e733",
+      "antes": {
+        "conta_destino_id": "bf56901a-9585-430f-a273-3a4918040128"
+      },
+      "depois": {
+        "conta_destino_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d"
+      }
+    },
+    {
+      "tabela": "formas_pagamento",
+      "id": "96c201e5-81bf-4984-8013-8bd242dce6ae",
+      "antes": {
+        "conta_destino_id": "bf56901a-9585-430f-a273-3a4918040128"
+      },
+      "depois": {
+        "conta_destino_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d"
+      }
+    },
+    {
+      "tabela": "formas_pagamento",
+      "id": "FP_VALE",
+      "antes": {
+        "conta_destino_id": "b3d8cb4c-9d8b-4a3d-8073-19d578331819"
+      },
+      "depois": {
+        "conta_destino_id": null
+      }
+    },
+    {
+      "tabela": "forma_conta_loja",
+      "antes": {
+        "forma_id": "149a52e9-ff13-4516-a475-b0dcd2e1e733",
+        "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c",
+        "conta_id": "09b542f4-e84a-4a20-9b87-235346d56d01"
+      },
+      "depois": null
+    },
+    {
+      "tabela": "forma_conta_loja",
+      "antes": {
+        "forma_id": "96c201e5-81bf-4984-8013-8bd242dce6ae",
+        "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c",
+        "conta_id": "09b542f4-e84a-4a20-9b87-235346d56d01"
+      },
+      "depois": null
+    }
+  ]
+}
