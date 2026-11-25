@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import type { ReactNode } from 'react'
 import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { calcularSaldosContas } from '@/lib/saldos-contas'
 import { ehCompraDeMercadoria } from '@/lib/financeiro-setores'
@@ -7,16 +8,16 @@ import { marcarPago } from '../financeiro/actions'
 import { guardarNaMeta } from './actions'
 import { NovaMovimentacao } from './NovaMovimentacao'
 
-// PAINEL FINANCEIRO — protótipo aprovado pelo dono (25/11/2026).
-// Tokens visuais da especificação: tinta #1F1B3A, fundo #F7F3EA, branco dos
-// cards, verde-menta #34C79D (entrou), coral #FF7A6B (saiu), azul #5BC0EB
-// (sobrou), amarelo #FFD25A (destaque), violeta #7B6CF6 (foco).
+// PAINEL FINANCEIRO — implementação fiel do protótipo aprovado pelo dono
+// (25/11/2026). Tokens e medidas copiados do HTML aprovado:
+//   tinta #1F1B3A · fundo #F7F3EA · verde-menta #34C79D · coral #FF7A6B ·
+//   azul #5BC0EB · amarelo #FFD25A · lilás do aviso #EDE7FF · divisória #E8E0CC
+//   cartão .k: branco, borda 2px, raio 18, sombra 0 3px 0 (sem desfoque)
+//   botão .bt: borda 2px, raio 14, alt 46, 700 14px, fundo amarelo
 //
-// Este módulo NÃO recalcula regra de dinheiro: lê o saldo das contas da fonte
-// única (lib/saldos-contas), a baixa usa o `marcarPago` do Financeiro e a nova
-// movimentação grava em `lancamentos` com as mesmas travas (valor > 0, mês
-// fechado, conta resolvida pela forma). Metas de poupança são tabelas novas e
-// separadas das metas de venda.
+// O que este módulo NÃO recalcula (fonte única): saldo das contas
+// (lib/saldos-contas), baixa de conta via `marcarPago` do Financeiro (travas de
+// caixa/nota/mês fechado) e nova movimentação gravando em `lancamentos`.
 
 const INK = '#1F1B3A'
 const CREAM = '#F7F3EA'
@@ -25,11 +26,19 @@ const CORAL = '#FF7A6B'
 const BLUE = '#5BC0EB'
 const YELLOW = '#FFD25A'
 const SEC = '#5E5780'
+const LINE = '#E8E0CC'
 
 const CARD = 'rounded-[18px] border-2 border-[#1F1B3A] bg-white shadow-[0_3px_0_#1F1B3A]'
+const BTN = 'inline-flex min-h-[46px] items-center justify-center rounded-[14px] border-2 border-[#1F1B3A] px-[18px] text-[14px] font-bold text-[#1F1B3A] shadow-[0_3px_0_#1F1B3A] transition-[transform,box-shadow] duration-100 hover:-translate-y-px active:translate-y-[2px] active:shadow-[0_1px_0_#1F1B3A] focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#7B6CF6]'
+const NAVBASE = 'flex min-h-[48px] items-center gap-3 rounded-[14px] border-2 px-3.5 text-left text-[15px] font-bold text-[#1F1B3A] transition-colors duration-100 focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#7B6CF6]'
+
+const COR_CATEGORIA: Record<string, string> = {
+  Venda: '#34C79D', Serviço: '#5BC0EB', Outros: '#C9C2E3',
+  Peças: '#FF7A6B', Salários: '#34C79D', Aluguel: '#5BC0EB',
+  Contas: '#FFD25A', Impostos: '#7B6CF6',
+}
 
 function brl(v: number) {
-  // "Negativos com sinal − antes do R$" (seção 5); positivos sem sinal.
   return v < 0 ? `−${formatBRL(Math.abs(v))}` : formatBRL(v)
 }
 
@@ -39,25 +48,34 @@ function nomeMes(mes: string) {
   return `${nomes[(m || 1) - 1]}/${ano}`
 }
 
-function diaCurto(iso: string | null | undefined) {
-  const d = (iso ?? '').slice(0, 10)
-  return d ? `${d.slice(8, 10)}/${d.slice(5, 7)}` : '—'
+function dataLonga(iso: string) {
+  const d = new Date(iso + 'T12:00:00-03:00')
+  return d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', day: 'numeric', month: 'long' })
 }
 
+function diaCurto(iso: string | null | undefined | Date) {
+  if (!iso) return '—'
+  const s = typeof iso === 'string' ? iso.slice(0, 10) : iso.toISOString().slice(0, 10)
+  return `${s.slice(8, 10)}/${s.slice(5, 7)}`
+}
+
+// Pote do protótipo (mesmos caminhos): tampa amarela, corpo lilás, líquido
+// preenchido de baixo para cima em 78 * pct / 100.
 function Pote({ cor, pct, nome }: { cor: string; pct: number; nome: string }) {
   const p = Math.max(0, Math.min(100, pct))
-  const altura = (78 * p) / 100
+  const h = (78 * p) / 100
+  const id = 'pote-' + nome.replace(/\W+/g, '')
   return (
-    <svg viewBox="0 0 80 100" className="h-[136px] w-[110px]" role="img" aria-label={`Meta ${nome}, ${Math.round(p)}% concluída`}>
+    <svg width="110" height="136" viewBox="0 0 80 100" role="img" aria-label={`Meta ${nome}, ${Math.round(p)}% concluída`}>
       <defs>
-        <clipPath id={`pote-${nome.replace(/\s+/g, '-')}`}>
-          <rect x="10" y="18" width="60" height="72" rx="16" />
+        <clipPath id={id}>
+          <path d="M16 18h48q8 0 8 10v54q0 14-14 14H22q-14 0-14-14V28q0-10 8-10z" />
         </clipPath>
       </defs>
-      <rect x="10" y="18" width="60" height="72" rx="16" fill="#FFFFFF" stroke={INK} strokeWidth="2.5" />
-      <rect x="14" y={90 - altura} width="52" height={altura} fill={cor} clipPath={`url(#pote-${nome.replace(/\s+/g, '-')})`} opacity="0.95" />
-      <rect x="10" y="18" width="60" height="72" rx="16" fill="none" stroke={INK} strokeWidth="2.5" />
-      <rect x="6" y="8" width="68" height="14" rx="7" fill={YELLOW} stroke={INK} strokeWidth="2.5" />
+      <rect x="20" y="3" width="40" height="12" rx="5" fill={YELLOW} stroke={INK} strokeWidth="3" />
+      <path d="M16 18h48q8 0 8 10v54q0 14-14 14H22q-14 0-14-14V28q0-10 8-10z" fill="#F3EEFF" />
+      {h > 0 && <rect x="0" y={96 - h} width="80" height={h} fill={cor} clipPath={`url(#${id})`} />}
+      <path d="M16 18h48q8 0 8 10v54q0 14-14 14H22q-14 0-14-14V28q0-10 8-10z" fill="none" stroke={INK} strokeWidth="3" />
     </svg>
   )
 }
@@ -124,208 +142,206 @@ export default async function PainelFinanceiroPage({
 
   const aVencer = pendentes.slice(0, 6)
   const ultimas = recentes.slice(0, 5)
-  const voltar = `${'/painel/painel-financeiro'}?aba=inicio&mes=${mes}`
-
-  const TAB = (ativo: boolean) =>
-    `inline-flex min-h-[46px] items-center rounded-[14px] border-2 border-[#1F1B3A] px-4 text-[15px] font-bold text-[#1F1B3A] transition-[transform,box-shadow] duration-100 hover:-translate-y-px active:translate-y-[2px] ${ativo ? 'bg-[#FFD25A] shadow-[0_3px_0_#1F1B3A]' : 'bg-white shadow-[0_3px_0_#1F1B3A]'}`
+  const voltar = `/painel/painel-financeiro?aba=inicio&mes=${mes}`
 
   return (
-    <div className="-m-6 min-h-full bg-[#F7F3EA] p-6" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", color: INK }}>
-      <link rel="stylesheet" precedence="default" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" />
+    <div className="-m-6 min-h-full bg-[#F7F3EA] text-[#1F1B3A]" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+      <link rel="stylesheet" precedence="default" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" />
 
-      {/* Cabeçalho do conteúdo */}
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-[28px] font-extrabold tracking-[-0.02em]">{aba === 'metas' ? 'Metas' : aba === 'nova' ? 'Nova movimentação' : 'Painel financeiro'}</h1>
-          <p role="status" className="mt-1 text-[14px] font-semibold" style={{ color: SEC }}>{params.msg ?? 'Tudo o que entrou, saiu e sobrou, num lugar só.'}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <form className="flex items-center gap-2" action="/painel/painel-financeiro" method="get">
-            <input type="hidden" name="aba" value={aba} />
-            <label htmlFor="mes" className="sr-only">Mês</label>
-            <input id="mes" name="mes" type="month" defaultValue={mes}
-              className="min-h-[46px] rounded-[14px] border-2 border-[#1F1B3A] bg-white px-3 text-[14px] font-bold focus:outline focus:outline-[3px] focus:outline-offset-2 focus:outline-[#7B6CF6]" />
-            <button type="submit" className="min-h-[46px] rounded-[14px] border-2 border-[#1F1B3A] bg-white px-4 text-[14px] font-bold shadow-[0_3px_0_#1F1B3A] hover:-translate-y-px active:translate-y-[2px] focus:outline focus:outline-[3px] focus:outline-offset-2 focus:outline-[#7B6CF6]">Ver</button>
-          </form>
-          <Link href={`/painel/painel-financeiro?aba=nova&mes=${mes}`}
-            className="inline-flex min-h-[46px] items-center rounded-[14px] border-2 border-[#1F1B3A] bg-[#FFD25A] px-4 text-[15px] font-bold shadow-[0_3px_0_#1F1B3A] hover:-translate-y-px active:translate-y-[2px] focus:outline focus:outline-[3px] focus:outline-offset-2 focus:outline-[#7B6CF6]">
-            + Nova movimentação
-          </Link>
-        </div>
-      </div>
-
-      {/* Menu do painel (as três telas do protótipo) */}
-      <nav aria-label="Seções do painel" className="mb-6 flex flex-wrap gap-2">
-        <Link href={`/painel/painel-financeiro?aba=inicio&mes=${mes}`} aria-current={aba === 'inicio' ? 'page' : undefined} className={TAB(aba === 'inicio')}>Início</Link>
-        <Link href={`/painel/painel-financeiro?aba=metas&mes=${mes}`} aria-current={aba === 'metas' ? 'page' : undefined} className={TAB(aba === 'metas')}>Metas</Link>
-        <Link href={`/painel/painel-financeiro?aba=nova&mes=${mes}`} aria-current={aba === 'nova' ? 'page' : undefined} className={TAB(aba === 'nova')}>Nova movimentação</Link>
-      </nav>
-
-      {aba === 'inicio' && (
-        <>
-          {/* Bloco A — quatro cards de resumo */}
-          <section className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
-            <div className={`${CARD} p-5`}>
-              <p className="text-[13px] font-bold uppercase tracking-wide" style={{ color: SEC }}>Tenho agora</p>
-              <p className="mt-1 text-[30px] font-extrabold leading-none tracking-[-0.03em] tabular-nums">{brl(saldo)}</p>
-              <p className="mt-2 text-[13px] font-semibold" style={{ color: SEC }}>saldo das contas − {brl(guardado)} guardado</p>
-            </div>
-            <div className={`${CARD} p-5`} style={{ background: MINT }}>
-              <div className="flex items-start justify-between">
-                <p className="text-[13px] font-bold uppercase tracking-wide">Entrou</p>
-                <span aria-hidden className="flex h-[38px] w-[38px] items-center justify-center rounded-[10px] border-2" style={{ borderColor: INK }}>↓</span>
-              </div>
-              <p className="mt-1 text-[30px] font-extrabold leading-none tracking-[-0.03em] tabular-nums">{brl(entrou)}</p>
-              <p className="mt-2 text-[13px] font-semibold">{nomeMes(mes)} · as duas lojas</p>
-            </div>
-            <div className={`${CARD} p-5`} style={{ background: CORAL }}>
-              <div className="flex items-start justify-between">
-                <p className="text-[13px] font-bold uppercase tracking-wide">Saiu</p>
-                <span aria-hidden className="flex h-[38px] w-[38px] items-center justify-center rounded-[10px] border-2" style={{ borderColor: INK }}>↑</span>
-              </div>
-              <p className="mt-1 text-[30px] font-extrabold leading-none tracking-[-0.03em] tabular-nums">{brl(saiu)}</p>
-              <p className="mt-2 text-[13px] font-semibold">{nomeMes(mes)} · as duas lojas</p>
-            </div>
-            <div className={`${CARD} p-5`} style={{ background: BLUE }}>
-              <div className="flex items-start justify-between">
-                <p className="text-[13px] font-bold uppercase tracking-wide">Sobrou</p>
-                <span aria-hidden className="flex h-[38px] w-[38px] items-center justify-center rounded-[10px] border-2" style={{ borderColor: INK }}>+</span>
-              </div>
-              <p className="mt-1 text-[30px] font-extrabold leading-none tracking-[-0.03em] tabular-nums">{brl(sobrou)}</p>
-              <p className="mt-2 text-[13px] font-semibold">Entrou − Saiu</p>
-            </div>
-          </section>
-
-          {/* Bloco B — A vencer + Entrou x Saiu */}
-          <section className="mt-5 grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))' }}>
-            <div className={`${CARD} p-5`}>
-              <h2 className="text-[19px] font-extrabold">A vencer</h2>
-              <p className="mt-0.5 text-[13px] font-semibold" style={{ color: SEC }}>contas que ainda não foram pagas ou recebidas</p>
-              {aVencer.length === 0 ? (
-                <p className="mt-4 text-[14px] font-semibold" style={{ color: SEC }}>Nenhuma conta em aberto.</p>
-              ) : (
-                <ul className="mt-3 divide-y-2" style={{ borderColor: '#E8E0CC' }}>
-                  {aVencer.map((c) => {
-                    const pagar = c.tipo === 'pagar'
-                    const nome = (c.pessoa_nome ?? c.descricao ?? 'Conta').trim()
-                    return (
-                      <li key={c.id} className="flex flex-wrap items-center gap-3 py-3 first:pt-0">
-                        <span aria-hidden className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] border-2 text-[17px] font-extrabold" style={{ borderColor: INK, background: pagar ? '#FFE3E0' : '#D9F6EE' }}>{pagar ? '↑' : '↓'}</span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-[13px] font-semibold" style={{ color: SEC }}>{pagar ? 'Pagar' : 'Receber'} · {diaCurto(c.data_vencimento)}</span>
-                          <span className="block truncate text-[17px] font-bold">{nome}</span>
-                        </span>
-                        <span className="text-[17px] font-extrabold tabular-nums">{brl(Math.max(0, Number(c.valor ?? 0) - Number(c.valor_pago ?? 0)))}</span>
-                        <form action={marcarPago.bind(null, c.id)} className="flex items-center gap-2">
-                          <input type="hidden" name="_voltar" value={voltar} />
-                          {pagar && <input type="hidden" name="saiu_gaveta" value="1" />}
-                          <label className="sr-only" htmlFor={`forma-${c.id}`}>Forma de pagamento</label>
-                          <select id={`forma-${c.id}`} name="forma_pagamento" defaultValue="Dinheiro"
-                            className="min-h-[46px] rounded-[14px] border-2 bg-white px-2 text-[14px] font-bold focus:outline focus:outline-[3px] focus:outline-offset-2 focus:outline-[#7B6CF6]" style={{ borderColor: INK }}>
-                            <option value="Dinheiro">Dinheiro</option>
-                            <option value="PIX">PIX</option>
-                          </select>
-                          <button type="submit"
-                            className="min-h-[46px] rounded-[14px] border-2 bg-[#FFD25A] px-4 text-[15px] font-bold shadow-[0_3px_0_#1F1B3A] hover:-translate-y-px active:translate-y-[2px] active:shadow-[0_1px_0_#1F1B3A] focus:outline focus:outline-[3px] focus:outline-offset-2 focus:outline-[#7B6CF6]"
-                            style={{ borderColor: INK }}>
-                            {pagar ? 'Pagar' : 'Receber'}
-                          </button>
-                        </form>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-            </div>
-
-            <div className={`${CARD} p-5`}>
-              <h2 className="text-[19px] font-extrabold">Entrou x Saiu</h2>
-              <p className="mt-0.5 text-[13px] font-semibold" style={{ color: SEC }}>{nomeMes(mes)}</p>
-              <div className="mt-4 space-y-3">
-                {[{ rotulo: 'Entrou', valor: entrou, cor: MINT }, { rotulo: 'Saiu', valor: saiu, cor: CORAL }].map((b) => (
-                  <div key={b.rotulo}>
-                    <div className="flex items-center justify-between text-[13px] font-bold">
-                      <span>{b.rotulo}</span>
-                      <span className="tabular-nums">{brl(b.valor)}</span>
-                    </div>
-                    <div className="mt-1 h-4 rounded-full border-2 bg-[#F7F3EA]" style={{ borderColor: INK }}>
-                      <div className="h-full rounded-full transition-[width] duration-300" style={{ width: `${Math.min(100, (b.valor / maxBarra) * 100)}%`, background: b.cor }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <p className="mt-5 border-t-2 pt-3 text-[13px] font-bold uppercase tracking-wide" style={{ borderColor: '#E8E0CC', color: SEC }}>Últimas movimentações</p>
-              {ultimas.length === 0 ? (
-                <p className="mt-2 text-[14px] font-semibold" style={{ color: SEC }}>Nenhuma movimentação no período.</p>
-              ) : (
-                <ul className="mt-2 divide-y-2" style={{ borderColor: '#E8E0CC' }}>
-                  {ultimas.map((mv) => {
-                    const entrada = mv.tipo === 'receber'
-                    return (
-                      <li key={mv.id} className="flex items-center justify-between gap-3 py-2.5 text-[14px]">
-                        <span className="min-w-0">
-                          <span className="block truncate font-bold">{(mv.pessoa_nome ?? mv.descricao ?? 'Movimentação').trim()}</span>
-                          <span className="block text-[13px] font-semibold" style={{ color: SEC }}>{diaCurto(mv.data_pagamento)}</span>
-                        </span>
-                        <span className="shrink-0 font-extrabold tabular-nums" style={{ color: entrada ? '#0B5E4D' : '#B42318' }}>
-                          {entrada ? '+' : '−'}{formatBRL(Math.abs(Number(mv.valor ?? 0)))}
-                        </span>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-            </div>
-          </section>
-        </>
-      )}
-
-      {aba === 'metas' && (
-        <>
-          <div className={`${CARD} mb-5 p-5`}>
-            <p className="text-[13px] font-bold uppercase tracking-wide" style={{ color: SEC }}>Dinheiro livre para guardar</p>
-            <p className="mt-1 text-[30px] font-extrabold leading-none tracking-[-0.03em] tabular-nums">{brl(saldo)}</p>
-            <p className="mt-2 text-[13px] font-semibold" style={{ color: SEC }}>saldo das contas − {brl(guardado)} já guardado nas metas</p>
+      <div className="flex min-h-full flex-wrap" style={{ background: CREAM }}>
+        {/* ── Barra lateral (250px, branca, linha grossa à direita) ── */}
+        <aside className="flex basis-[250px] flex-col gap-2.5 border-r-[3px] border-[#1F1B3A] bg-white px-4 py-5">
+          <div className="flex items-center gap-2.5 px-2 pb-3.5 text-xl font-black">
+            <span aria-hidden className="inline-block h-[30px] w-[30px] rounded-[9px] border-2 border-[#1F1B3A] bg-[#FFD25A]" />
+            TecnoCell
           </div>
+          <Nava href={`/painel/painel-financeiro?aba=inicio&mes=${mes}`} ativo={aba === 'inicio'}>Início</Nava>
+          <Nava href={`/painel/painel-financeiro?aba=metas&mes=${mes}`} ativo={aba === 'metas'}>Metas</Nava>
+          <Nava href={`/painel/painel-financeiro?aba=nova&mes=${mes}`} ativo={aba === 'nova'}>Nova movimentação</Nava>
 
-          {(metas ?? []).length === 0 ? (
-            <p className="text-[14px] font-semibold" style={{ color: SEC }}>Nenhuma meta cadastrada.</p>
-          ) : (
-            <section className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
-              {(metas ?? []).map((meta) => {
-                const mais = meta as { id: string; nome: string; cor: string | null; atual: number | null; objetivo: number | null }
-                const atual = Number(mais.atual ?? 0)
-                const objetivo = Number(mais.objetivo ?? 0)
-                const pct = objetivo > 0 ? Math.round((atual / objetivo) * 100) : 0
-                const atingida = atual >= objetivo
-                return (
-                  <div key={mais.id} className={`${CARD} flex flex-col items-center p-5 text-center`}>
-                    <Pote cor={mais.cor ?? MINT} pct={pct} nome={mais.nome} />
-                    <p className="mt-3 text-[17px] font-bold">{mais.nome}</p>
-                    <p className="text-[13px] font-semibold" style={{ color: SEC }}>{pct}% da meta</p>
-                    <p className="mt-1 text-[14px] font-bold tabular-nums">{brl(atual)} de {brl(objetivo)}</p>
-                    {atingida ? (
-                      <p className="mt-3 text-[14px] font-extrabold" style={{ color: '#0B5E4D' }}>Meta atingida</p>
-                    ) : (
-                      <form action={guardarNaMeta} className="mt-3 w-full">
-                        <input type="hidden" name="meta_id" value={mais.id} />
-                        <input type="hidden" name="valor" value="500" />
-                        <button type="submit"
-                          className="min-h-[46px] w-full rounded-[14px] border-2 border-[#1F1B3A] bg-[#FFD25A] px-4 text-[15px] font-bold shadow-[0_3px_0_#1F1B3A] hover:-translate-y-px active:translate-y-[2px] active:shadow-[0_1px_0_#1F1B3A] focus:outline focus:outline-[3px] focus:outline-offset-2 focus:outline-[#7B6CF6]">
-                          Guardar R$ 500
-                        </button>
-                      </form>
-                    )}
+          <div className={`${CARD} mt-auto p-3.5`} style={{ background: '#EDE7FF' }}>
+            <b>Dica</b>
+            <div className="mt-1 text-[13px] font-semibold" style={{ color: INK }}>
+              Use Pagar ou Receber em “A vencer” e veja o saldo mudar na hora.
+            </div>
+          </div>
+        </aside>
+
+        {/* ── Conteúdo ── */}
+        <main className="min-w-0 flex-[999_1_560px] px-0 py-0 lg:p-7">
+          <div className="flex flex-col gap-5 p-5 lg:p-0">
+            {/* Cabeçalho */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h1 className="text-[28px] font-extrabold leading-tight tracking-[-0.02em]">
+                  {aba === 'metas' ? 'Metas' : aba === 'nova' ? 'Nova movimentação' : 'Painel financeiro'}
+                </h1>
+                <div className="mt-0.5 text-[14px] font-semibold" style={{ color: SEC }} role="status">
+                  {params.msg ?? `${dataLonga(hoje)} · as duas lojas`}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <form action="/painel/painel-financeiro" method="get" className="flex items-center gap-2">
+                  <input type="hidden" name="aba" value={aba} />
+                  <label htmlFor="mes" className="sr-only">Mês</label>
+                  <input id="mes" name="mes" type="month" defaultValue={mes}
+                    className="min-h-[46px] rounded-[14px] border-2 border-[#1F1B3A] bg-white px-3 text-[14px] font-bold focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#7B6CF6]" />
+                  <button type="submit" className={`${BTN} bg-white`}>Ver</button>
+                </form>
+                <Link href={`/painel/painel-financeiro?aba=nova&mes=${mes}`} className={`${BTN} bg-[#FFD25A]`}>+ Nova movimentação</Link>
+              </div>
+            </div>
+
+            {aba === 'inicio' && (
+              <>
+                {/* Quatro cards */}
+                <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
+                  <div className={`${CARD} flex flex-col gap-2 p-[18px]`}>
+                    <span className="text-[13px] font-semibold" style={{ color: SEC }}>Tenho agora</span>
+                    <span className="text-[30px] font-extrabold leading-[1.1] tracking-[-0.03em] tabular-nums">{brl(saldo)}</span>
+                    <svg width="90" height="32" viewBox="0 0 90 32" aria-hidden="true">
+                      <polyline points="0,26 15,22 30,24 45,14 60,16 75,8 90,4" fill="none" stroke={INK} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
                   </div>
-                )
-              })}
-            </section>
-          )}
-        </>
-      )}
+                  <div className={`${CARD} flex flex-col gap-2 p-[18px]`} style={{ background: MINT }}>
+                    <span aria-hidden className="flex h-[38px] w-[38px] items-center justify-center rounded-[12px] border-2 border-[#1F1B3A] bg-white">↓</span>
+                    <span className="text-[13px] font-extrabold">Entrou</span>
+                    <span className="text-[30px] font-extrabold leading-[1.1] tracking-[-0.03em] tabular-nums">{brl(entrou)}</span>
+                  </div>
+                  <div className={`${CARD} flex flex-col gap-2 p-[18px]`} style={{ background: CORAL }}>
+                    <span aria-hidden className="flex h-[38px] w-[38px] items-center justify-center rounded-[12px] border-2 border-[#1F1B3A] bg-white">↑</span>
+                    <span className="text-[13px] font-extrabold">Saiu</span>
+                    <span className="text-[30px] font-extrabold leading-[1.1] tracking-[-0.03em] tabular-nums">{brl(saiu)}</span>
+                  </div>
+                  <div className={`${CARD} flex flex-col gap-2 p-[18px]`} style={{ background: BLUE }}>
+                    <span aria-hidden className="flex h-[38px] w-[38px] items-center justify-center rounded-[12px] border-2 border-[#1F1B3A] bg-white font-extrabold">+</span>
+                    <span className="text-[13px] font-extrabold">Sobrou</span>
+                    <span className="text-[30px] font-extrabold leading-[1.1] tracking-[-0.03em] tabular-nums">{brl(sobrou)}</span>
+                  </div>
+                </div>
 
-      {aba === 'nova' && <NovaMovimentacao />}
+                {/* A vencer + Entrou x Saiu */}
+                <div className="grid items-start gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))' }}>
+                  <div className={`${CARD} p-5`}>
+                    <h2 className="mb-2 text-[19px] font-extrabold leading-tight tracking-[-0.01em]">A vencer</h2>
+                    {aVencer.length === 0 ? (
+                      <p className="text-[14px] font-semibold" style={{ color: SEC }}>Nenhuma conta em aberto.</p>
+                    ) : aVencer.map((c, i) => {
+                      const pagar = c.tipo === 'pagar'
+                      const nome = (c.pessoa_nome ?? c.descricao ?? 'Conta').trim()
+                      const venc = (c.data_vencimento ?? '').slice(0, 10)
+                      const label = `${pagar ? 'Pagar' : 'Receber'} · ${venc === hoje ? 'hoje' : diaCurto(c.data_vencimento)}`
+                      return (
+                        <div key={c.id} className="flex items-center gap-3 py-3" style={i === 0 ? undefined : { borderTop: `1px solid ${LINE}` }}>
+                          <span aria-hidden className="flex h-[38px] w-[38px] flex-none items-center justify-center rounded-[12px] border-2 border-[#1F1B3A] text-[16px] font-extrabold" style={{ background: pagar ? '#FFE3E0' : '#D9F6EE' }}>{pagar ? '↑' : '↓'}</span>
+                          <div className="flex-1">
+                            <div className="text-[13px] font-semibold" style={{ color: SEC }}>{label}</div>
+                            <div className="text-[17px] font-black">{nome}</div>
+                          </div>
+                          <div className="text-[17px] font-black tabular-nums">{brl(Math.max(0, Number(c.valor ?? 0) - Number(c.valor_pago ?? 0)))}</div>
+                          <form action={marcarPago.bind(null, c.id)} className="flex items-center gap-2">
+                            <input type="hidden" name="_voltar" value={voltar} />
+                            {pagar && <input type="hidden" name="saiu_gaveta" value="1" />}
+                            <label className="sr-only" htmlFor={`forma-${c.id}`}>Forma de pagamento</label>
+                            <select id={`forma-${c.id}`} name="forma_pagamento" defaultValue="Dinheiro"
+                              className="min-h-[46px] rounded-[14px] border-2 border-[#1F1B3A] bg-white px-2 text-[13px] font-bold focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#7B6CF6]">
+                              <option value="Dinheiro">Dinheiro</option>
+                              <option value="PIX">PIX</option>
+                            </select>
+                            <button type="submit" className={`${BTN} bg-[#FFD25A]`}>{pagar ? 'Pagar' : 'Receber'}</button>
+                          </form>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  <div className={`${CARD} flex flex-col gap-3 p-5`}>
+                    <h2 className="text-[19px] font-extrabold leading-tight tracking-[-0.01em]">Entrou x Saiu</h2>
+                    {[{ rotulo: 'Entrou', valor: entrou, cor: MINT }, { rotulo: 'Saiu', valor: saiu, cor: CORAL }].map((b) => (
+                      <div key={b.rotulo}>
+                        <div className="text-[13px] font-semibold" style={{ color: SEC }}>{b.rotulo} · <b className="tabular-nums">{brl(b.valor)}</b></div>
+                        <div className="mt-1 h-[14px] overflow-hidden rounded-[7px] border-2 border-[#1F1B3A]" style={{ background: CREAM }}>
+                          <div className="h-full transition-[width] duration-300" style={{ width: `${Math.min(100, (b.valor / maxBarra) * 100)}%`, background: b.cor }} />
+                        </div>
+                      </div>
+                    ))}
+
+                    <h2 className="mt-1.5 text-[19px] font-extrabold leading-tight tracking-[-0.01em]">Últimas movimentações</h2>
+                    {ultimas.length === 0 ? (
+                      <p className="text-[14px] font-semibold" style={{ color: SEC }}>Nenhuma movimentação no período.</p>
+                    ) : ultimas.map((mv, i) => {
+                      const entrada = mv.tipo === 'receber'
+                      return (
+                        <div key={mv.id} className="flex items-center gap-3 py-3" style={i === 0 ? undefined : { borderTop: `1px solid ${LINE}` }}>
+                          <div className="flex-1">
+                            <div className="text-[17px] font-black">{(mv.pessoa_nome ?? mv.descricao ?? 'Movimentação').trim()}</div>
+                            <div className="text-[13px] font-semibold" style={{ color: SEC }}>{diaCurto(mv.data_pagamento)}</div>
+                          </div>
+                          <div className="text-[17px] font-black tabular-nums" style={{ color: entrada ? '#0B5E4D' : '#B42318' }}>
+                            {entrada ? '+ ' : '− '}{formatBRL(Math.abs(Number(mv.valor ?? 0))).replace('− ', '')}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {aba === 'metas' && (
+              <>
+                <div className="text-[15px] font-semibold" style={{ color: SEC }}>
+                  Dinheiro livre para guardar: <b className="tabular-nums" style={{ color: INK }}>{brl(saldo)}</b>
+                </div>
+                {(metas ?? []).length === 0 ? (
+                  <p className="text-[14px] font-semibold" style={{ color: SEC }}>Nenhuma meta cadastrada.</p>
+                ) : (
+                  <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
+                    {(metas ?? []).map((meta) => {
+                      const mm = meta as { id: string; nome: string; cor: string | null; atual: number | null; objetivo: number | null }
+                      const atual = Number(mm.atual ?? 0)
+                      const objetivo = Number(mm.objetivo ?? 0)
+                      const pct = objetivo > 0 ? Math.round((atual / objetivo) * 100) : 0
+                      const atingida = atual >= objetivo
+                      return (
+                        <div key={mm.id} className={`${CARD} flex flex-col items-center gap-2 p-4 text-center`}>
+                          <Pote cor={mm.cor ?? MINT} pct={pct} nome={mm.nome} />
+                          <span className="text-[18px] font-black">{mm.nome}</span>
+                          <span className="rounded-full border-2 border-[#1F1B3A] px-3 py-[1px] text-[13px] font-black" style={{ background: CREAM }}>{pct}% da meta</span>
+                          <span className="text-[13px] font-semibold" style={{ color: SEC }}>
+                            <b className="tabular-nums" style={{ color: INK }}>{brl(atual)}</b> de <b className="tabular-nums" style={{ color: INK }}>{brl(objetivo)}</b>
+                          </span>
+                          {atingida ? (
+                            <span className="mt-1 text-[14px] font-extrabold" style={{ color: '#0B5E4D' }}>Meta atingida</span>
+                          ) : (
+                            <form action={guardarNaMeta} className="mt-1 w-full">
+                              <input type="hidden" name="meta_id" value={mm.id} />
+                              <input type="hidden" name="valor" value="500" />
+                              <button type="submit" className={`${BTN} w-full bg-[#FFD25A]`}>Guardar R$ 500</button>
+                            </form>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+
+            {aba === 'nova' && <NovaMovimentacao />}
+          </div>
+        </main>
+      </div>
     </div>
+  )
+}
+
+// Item do menu lateral: mesma régua do protótipo (.nb / .nb.on).
+function Nava({ href, ativo, children }: { href: string; ativo: boolean; children: ReactNode }) {
+  return (
+    <Link href={href} aria-current={ativo ? 'page' : undefined}
+      className={`${NAVBASE} ${ativo ? 'border-[#1F1B3A] bg-[#FFD25A]' : 'border-transparent hover:bg-[#F2ECDC]'}`}>
+      {children}
+    </Link>
   )
 }
