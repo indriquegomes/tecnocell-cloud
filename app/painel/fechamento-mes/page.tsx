@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server'
 import { formatBRL } from '@/lib/utils'
 import { FecharMesButton } from './FecharMesButton'
@@ -5,6 +6,7 @@ import { BotaoImprimirResumo } from './BotaoImprimirResumo'
 import { estoqueCustoPorLoja } from '@/lib/estoque-custo'
 import { ehCompraDeMercadoria } from '@/lib/financeiro-setores'
 import { montarDre, type ItemDevolvidoDre } from '@/lib/dre'
+import { IconFile, IconPackage, IconStore, IconUsers, IconWallet } from '@/components/icons'
 
 function nomeMes(mes: string) {
   const [ano, m] = mes.split('-').map(Number)
@@ -487,6 +489,7 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
   const creditoDaLoja = linha?.creditoAberto ?? 0
   const tenho = Math.round((estoqueDaLoja + fiadoSaldo + creditoDaLoja) * 100) / 100
   const devo = Math.round((fornecedorSaldo + outrasSaldo) * 100) / 100
+  const caixaAbertoDaLoja = (caixasAbertos ?? []).some((c) => c.loja_id === lojaSel)
 
   // Linha "Hoje" (só quando o mês aberto na tela é o mês corrente).
   let hojeVendas = 0, hojeFiado = 0, hojeDevolN = 0, hojeDevolValor = 0, hojeCaixaContado = 0
@@ -554,23 +557,16 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
             <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-5">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-white/75">Resultado do mês · {nomeMes(mes)} · {lojasList.find((x) => x.id === lojaSel)?.nome}</p>
-                <p className="mt-1.5 text-[38px] font-extrabold leading-none tabular-nums">{fmt(dre.resultado)}</p>
+                <p className="mt-1.5 text-[44px] font-extrabold leading-none tabular-nums">{fmt(dre.resultado)}</p>
                 <p className="mt-2 text-xs text-white/70">receita líquida − custo das peças vendidas − despesas</p>
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/70">
+                  <span>Entrou <b className="font-semibold tabular-nums text-white">{fmt(linha.entradas)}</b></span>
+                  <span aria-hidden className="h-3 w-px bg-white/25" />
+                  <span>Saiu <b className="font-semibold tabular-nums text-white">{fmt(linha.saidas)}</b></span>
+                  <span aria-hidden className="h-3 w-px bg-white/25" />
+                  <span>Em mãos <b className="font-semibold tabular-nums text-white">{fmt(linha.caixaCalculado)}</b></span>
+                </div>
               </div>
-              <dl className="grid min-w-[280px] grid-cols-1 gap-2 sm:grid-cols-3">
-                <div className="rounded-xl bg-white/10 px-3 py-2.5">
-                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-white/70">Entrou no caixa</dt>
-                  <dd className="mt-0.5 text-base font-bold tabular-nums">{fmt(linha.entradas)}</dd>
-                </div>
-                <div className="rounded-xl bg-white/10 px-3 py-2.5">
-                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-white/70">Saiu do caixa</dt>
-                  <dd className="mt-0.5 text-base font-bold tabular-nums">{fmt(linha.saidas)}</dd>
-                </div>
-                <div className="rounded-xl bg-white/10 px-3 py-2.5">
-                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-white/70">Em mãos (ref.)</dt>
-                  <dd className="mt-0.5 text-base font-bold tabular-nums">{fmt(linha.caixaCalculado)}</dd>
-                </div>
-              </dl>
             </div>
 
             <div className="mt-5 rounded-xl bg-white p-4 text-gray-900">
@@ -594,34 +590,63 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
             </div>
           </section>
 
+          {/* ── AGIR AGORA — só aparece quando há o que fazer ── */}
+          {(fornecedorVencido > 0 || fiadoVencido > 0 || caixaAbertoDaLoja) && (
+            <section aria-label="Agir agora" className="flex flex-wrap items-center gap-2">
+              {fornecedorVencido > 0 && (
+                <Link href={`/painel/financeiro?tipo=pagar&status=vencido&tudo=1&loja=${lojaSel}`}
+                  className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100">
+                  <IconStore className="h-4 w-4" /> Fornecedor atrasado {fmt(fornecedorVencido)} — conferir
+                </Link>
+              )}
+              {fiadoVencido > 0 && (
+                <Link href="/painel/fiados"
+                  className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-100">
+                  <IconUsers className="h-4 w-4" /> Fiado atrasado {fmt(fiadoVencido)} — cobrar
+                </Link>
+              )}
+              {caixaAbertoDaLoja && (
+                <Link href="/painel/pdv/operacao"
+                  className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-800 hover:bg-sky-100">
+                  <IconWallet className="h-4 w-4" /> Caixa aberto — fechar o dia
+                </Link>
+              )}
+            </section>
+          )}
+
           {/* ── TENHO × DEVO — a foto do patrimônio da loja ── */}
           <section className="grid gap-4 lg:grid-cols-2">
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="flex items-baseline justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Tenho</p>
-                  <p className="text-[11px] text-gray-400">o que é da loja hoje</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Tenho <span className="font-normal normal-case tracking-normal text-gray-400">· o que é da loja hoje</span></p>
+              <p className="mt-1 text-3xl font-extrabold tabular-nums text-emerald-700">{fmt(tenho)}</p>
+              <dl className="mt-4 space-y-2.5 text-sm">
+                <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-2.5">
+                  <dt className="flex items-center gap-2 text-gray-600"><IconPackage className="h-4 w-4 text-gray-400" /> Estoque (a custo)</dt>
+                  <dd className="font-semibold tabular-nums text-gray-900">{fmt(estoqueDaLoja)}</dd>
                 </div>
-                <p className="text-2xl font-extrabold tabular-nums text-emerald-700">{fmt(tenho)}</p>
-              </div>
-              <dl className="mt-4 space-y-2 text-sm">
-                <div className="flex justify-between gap-3 border-b border-gray-100 pb-2"><dt className="text-gray-600">Estoque (a custo)</dt><dd className="font-semibold tabular-nums text-gray-900">{fmt(estoqueDaLoja)}</dd></div>
-                <div className="flex justify-between gap-3 border-b border-gray-100 pb-2"><dt className="text-gray-600">Fiado a receber</dt><dd className="font-semibold tabular-nums text-gray-900">{fmt(fiadoSaldo)}</dd></div>
-                <div className="flex justify-between gap-3 border-b border-gray-100 pb-2"><dt className="text-gray-600">Vale-crédito a honrar</dt><dd className="font-semibold tabular-nums text-gray-900">{fmt(creditoDaLoja)}</dd></div>
+                <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-2.5">
+                  <dt className="flex items-center gap-2 text-gray-600"><IconUsers className="h-4 w-4 text-gray-400" /> Fiado a receber</dt>
+                  <dd className="font-semibold tabular-nums text-gray-900">{fmt(fiadoSaldo)}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-2.5">
+                  <dt className="flex items-center gap-2 text-gray-600"><IconWallet className="h-4 w-4 text-gray-400" /> Vale-crédito a honrar</dt>
+                  <dd className="font-semibold tabular-nums text-gray-900">{fmt(creditoDaLoja)}</dd>
+                </div>
                 <div className="flex justify-between gap-3 pt-0.5 text-xs"><dt className="text-amber-700">Fiado atrasado</dt><dd className="font-semibold tabular-nums text-amber-700">{fmt(fiadoVencido)}</dd></div>
               </dl>
             </div>
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="flex items-baseline justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Devo</p>
-                  <p className="text-[11px] text-gray-400">o que é de outros</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Devo <span className="font-normal normal-case tracking-normal text-gray-400">· o que é de outros</span></p>
+              <p className="mt-1 text-3xl font-extrabold tabular-nums text-rose-700">{fmt(devo)}</p>
+              <dl className="mt-4 space-y-2.5 text-sm">
+                <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-2.5">
+                  <dt className="flex items-center gap-2 text-gray-600"><IconStore className="h-4 w-4 text-gray-400" /> Fornecedor</dt>
+                  <dd className="font-semibold tabular-nums text-gray-900">{fmt(fornecedorSaldo)}</dd>
                 </div>
-                <p className="text-2xl font-extrabold tabular-nums text-rose-700">{fmt(devo)}</p>
-              </div>
-              <dl className="mt-4 space-y-2 text-sm">
-                <div className="flex justify-between gap-3 border-b border-gray-100 pb-2"><dt className="text-gray-600">Fornecedor</dt><dd className="font-semibold tabular-nums text-gray-900">{fmt(fornecedorSaldo)}</dd></div>
-                <div className="flex justify-between gap-3 border-b border-gray-100 pb-2"><dt className="text-gray-600">Outras contas</dt><dd className="font-semibold tabular-nums text-gray-900">{fmt(outrasSaldo)}</dd></div>
+                <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-2.5">
+                  <dt className="flex items-center gap-2 text-gray-600"><IconFile className="h-4 w-4 text-gray-400" /> Outras contas</dt>
+                  <dd className="font-semibold tabular-nums text-gray-900">{fmt(outrasSaldo)}</dd>
+                </div>
                 <div className="flex justify-between gap-3 pt-0.5 text-xs"><dt className="text-rose-700">Fornecedor atrasado</dt><dd className="font-semibold tabular-nums text-rose-700">{fmt(fornecedorVencido)}</dd></div>
               </dl>
               <p className="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-500">Patrimônio líquido (tenho − devo): <span className={`font-semibold tabular-nums ${tenho - devo >= 0 ? 'text-gray-900' : 'text-rose-700'}`}>{fmt(tenho - devo)}</span></p>
