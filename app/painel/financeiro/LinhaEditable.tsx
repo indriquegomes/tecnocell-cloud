@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { editarLancamentoInline } from './actions'
-import { formatBRL } from '@/lib/utils'
+import { formatBRL, rotuloForma } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { marcarPago, desfazerPagamento, deletarLancamento } from './actions'
@@ -93,7 +93,7 @@ export function LinhaEditable({
         <input type="date" value={venc} onChange={(e) => setVenc(e.target.value)} className={inputCls} />
       </td>
       <td className="px-4 py-3">
-        <input value={forma} onChange={(e) => setForma(e.target.value)} list="formas-lista" placeholder="Pix, conta…" className={inputCls} />
+        <input value={rotuloForma(forma)} onChange={(e) => setForma(e.target.value)} list="formas-lista" placeholder="Pix, conta…" className={inputCls} title={forma} />
       </td>
       <td className="px-4 py-3">
         <input value={valor} onChange={(e) => setValor(e.target.value)} inputMode="decimal" className={inputCls + ' text-right font-bold'} />

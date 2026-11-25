@@ -47,6 +47,15 @@ export function diaSP(iso: string): string {
   return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
 }
 
+// Formas que telas internas gravam como CHAVE (não existem no cadastro de formas).
+// Na tela o dono lê o nome; o valor do banco continua a chave.
+const ROTULOS_FORMA: Record<string, string> = { fora_do_app: 'Fora do app (WhatsApp)' }
+
+export function rotuloForma(forma: string | null | undefined): string {
+  const f = (forma ?? '').trim()
+  return ROTULOS_FORMA[f] ?? f
+}
+
 export function slugify(text: string): string {
   return (text || '')
     .toLowerCase()

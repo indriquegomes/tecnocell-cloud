@@ -2,7 +2,7 @@ import { createServiceClient, fetchAll, dinheiroDoDonoVisivel } from '@/lib/supa
 import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { FinanceiroTabs } from './FinanceiroTabs'
 import { IconWallet } from '@/components/icons'
-import { formatBRL, hojeSP } from '@/lib/utils'
+import { formatBRL, hojeSP, rotuloForma } from '@/lib/utils'
 import { BuscaFinanceiro } from './BuscaFinanceiro'
 import { Paginacao } from '@/components/Paginacao'
 import { SETORES, categoriasDoSetor, SUBCATEGORIAS } from '@/lib/financeiro-setores'
@@ -312,7 +312,7 @@ export default async function FinanceiroPage({
               <span className="font-semibold text-gray-900">Último pagamento para {params.pessoa}:</span>{' '}
               <span className="font-bold tabular-nums">{ultimoPago.tipo === 'receber' ? '+' : '−'}{formatBRL(Number(ultimoPago.valor ?? 0))}</span>
               {' '}— {ultimoPago.descricao || 'sem descrição'}
-              {ultimoPago.forma_pagamento ? ' · ' + ultimoPago.forma_pagamento : ''}
+              {ultimoPago.forma_pagamento ? ' · ' + rotuloForma(ultimoPago.forma_pagamento) : ''}
               {ultimoPago.categoria ? ' · ' + ultimoPago.categoria : ''}
               {' · pago em '}{((ultimoPago.data_pagamento ?? ultimoPago.data_vencimento) ?? '').slice(0, 10).split('-').reverse().join('/')}
             </p>
