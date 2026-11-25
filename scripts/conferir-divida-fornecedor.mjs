@@ -103,12 +103,23 @@ for (const f of alvo) {
 }
 
 // ---------- 2) pagamento gravado como dívida ----------
-for (const l of linhas.filter((l) => l.status === 'pendente' && /pagamento/i.test(String(l.descricao ?? '')) && noMes(l))) {
+// Duas condições, as duas aprendidas na prática:
+//  - valor POSITIVO: o app grava "Crédito de pagamento — PAGAMENTO DE MERCADORIA"
+//    com valor NEGATIVO de propósito, e essa linha DIMINUI o total;
+//  - descrição que COMEÇA com "Pagamento" (título de pagamento), não que apenas
+//    cite a palavra: "COMPRA MERCADORIA - NOTA 137 (abateu 2542,00 de pagamento)"
+//    é compra normal e era acusada por causa do parêntese.
+// Regra de auditoria não pode acusar a convenção do app.
+const ehTituloDePagamento = (d) => /^\s*pagamento\b/i.test(String(d ?? ''))
+for (const l of linhas.filter((l) => l.status === 'pendente' && Number(l.valor) > 0 && ehTituloDePagamento(l.descricao) && noMes(l))) {
   problemas.push({ tipo: 'PAGAMENTO VIRou DÍVIDA', fornecedor: l.pessoa_nome ?? '(sem fornecedor)', linha: l })
 }
 
 // ---------- 3) nota que não fecha com a nota de entrada ----------
-for (const l of linhas.filter((l) => /COMPRA MERCADORIA/i.test(String(l.descricao ?? '')) && noMes(l))) {
+// Linha com valor ZERO foi zerada pelo abatimento — convenção do app, não erro.
+// Comparar a nota com uma conta zerada acusa 100% das notas abatidas (eram 7
+// alarmes falsos em 25/11/2026, todos com "conta R$ 0,00").
+for (const l of linhas.filter((l) => /COMPRA MERCADORIA/i.test(String(l.descricao ?? '')) && Number(l.valor ?? 0) !== 0 && noMes(l))) {
   const m = String(l.descricao ?? '').match(/NOTA\s+(\S+)/i)
   if (!m) continue
   const nota = notaPorNumero.get(m[1])
