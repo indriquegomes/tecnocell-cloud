@@ -6,6 +6,7 @@ import { lojasDoUsuario } from '@/lib/lojas-usuario'
 import { logAtividade } from '@/lib/log-atividade'
 import { registrarNoCaixa, retirarDoCaixa, lojaDoLancamento } from '@/lib/caixa'
 import { contaDaForma } from '@/lib/conta-da-forma'
+import { validarEntradaLancamento, ehCategoriaAceita } from '@/lib/validacao-lancamento'
 import { abaterNaDivida } from '@/lib/abater-divida'
 import { planejarEstornoNota } from '@/lib/estorno-abatimento'
 import { pessoaIdPorNome } from '@/lib/pessoa-por-nome'
@@ -73,6 +74,26 @@ export async function criarLancamento(formData: FormData) {
   const contaDoPrimeiro = quitado && tipo === 'pagar' && !contaId
     ? await contaDaForma(supabase, (formData.get('forma_pagamento') as string) || null, lojaId)
     : contaId
+
+  // PORTEIRO (25/11/2026): o formulário aceitava qualquer palavra como categoria e
+  // como forma de pagamento, e "quitado" gravava pago com qualquer conta. Foi assim
+  // que `FONE QUE VITÃO PEGOU NA LOJA` virou despesa de R$ 49,00 debitada da conta
+  // Teresópolis por uma peça que saiu da loja. A régua está em
+  // lib/validacao-lancamento.ts (e o banco repete no trigger de categoria).
+  {
+    const { data: formasAtivas } = await supabase.from('formas_pagamento').select('nome').eq('ativo', true)
+    const checagem = validarEntradaLancamento({
+      categoria: (formData.get('categoria') as string) || null,
+      forma: (formData.get('forma_pagamento') as string) || null,
+      tipo,
+      quitado,
+      contaId: contaId ?? contaDoPrimeiro ?? null,
+      formasValidas: (formasAtivas ?? []).map((f) => f.nome as string),
+    })
+    if (!checagem.ok) {
+      redirect(`/painel/financeiro/novo?tipo=${tipo === 'receber' ? 'receber' : 'pagar'}&erro=${encodeURIComponent(checagem.erro)}`)
+    }
+  }
 
   // Pagamento de mercadoria nascendo QUITADO: a nota do fornecedor tem que encolher
   // (senão a dívida fica maior que a planilha, que foi o caso dos R$ 11.642,29 da H2O).
@@ -187,7 +208,7 @@ export async function editarLancamento(id: string, formData: FormData) {
   // Trava de mês fechado: não deixa editar um lançamento que mora (ou que vai
   // morar) num mês já fechado — mudaria o resultado do passado auditado.
   const vencimentoNovo = (formData.get('data_vencimento') as string) || null
-  const { data: atual } = await supabase.from('lancamentos').select('data_vencimento, valor, tipo, status').eq('id', id).maybeSingle()
+  const { data: atual } = await supabase.from('lancamentos').select('data_vencimento, valor, tipo, status, categoria').eq('id', id).maybeSingle()
   const vencimentoAtual = (atual as { data_vencimento?: string | null } | null)?.data_vencimento?.slice(0, 10) ?? null
   const erroTrava = (await travarSeMesFechado(supabase, vencimentoNovo, 'editar este lançamento'))
     ?? (await travarSeMesFechado(supabase, vencimentoAtual, 'editar este lançamento'))
@@ -204,6 +225,18 @@ export async function editarLancamento(id: string, formData: FormData) {
   if (st?.status === 'pago' && (Math.abs(valorEditado - Number(st.valor ?? 0)) > 0.001 || (formData.get('tipo') as string) !== st.tipo)) {
     redirect(`/painel/financeiro/${id}/editar?erro=${encodeURIComponent('Este lançamento já está pago. Para mudar valor ou tipo, desfaça o pagamento primeiro.')}`)
   }
+  // Categoria alterada na edição também passa pelo porteiro: mantém a linha como
+  // está (grafia antiga inclusive) e só recusa categoria inventada nova.
+  const categoriaNova = ((formData.get('categoria') as string) || '').trim()
+  const categoriaAntes = ((atual as { categoria?: string | null } | null)?.categoria ?? '').trim()
+  if (categoriaNova.toLowerCase() !== categoriaAntes.toLowerCase() && !ehCategoriaAceita(categoriaNova)) {
+    redirect(`/painel/financeiro/${id}/editar?erro=${encodeURIComponent(
+      categoriaNova
+        ? `A categoria "${categoriaNova}" não existe na lista do financeiro. Escolha uma das opções.`
+        : 'Escolha a categoria do lançamento.',
+    )}`)
+  }
+
   const { error } = await supabase.from('lancamentos').update({
     descricao: formData.get('descricao') as string,
     valor: valorEditado,

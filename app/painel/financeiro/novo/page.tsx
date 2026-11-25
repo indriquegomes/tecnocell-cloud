@@ -6,7 +6,7 @@ import { SubmitButton } from '@/components/SubmitButton'
 import Link from 'next/link'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
 import { ClienteFornecedorField } from '../ClienteFornecedorField'
-import { TODAS_CATEGORIAS, TODAS_SUBCATEGORIAS } from '@/lib/financeiro-setores'
+import { SETORES, TODAS_SUBCATEGORIAS } from '@/lib/financeiro-setores'
 
 export default async function NovoLancamentoPage({
   searchParams,
@@ -90,14 +90,18 @@ export default async function NovoLancamentoPage({
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Categoria</label>
-            {/* As sugestões vêm da lista oficial (lib/financeiro-setores.ts). Antes
-                eram nomes escritos na mão que nem existiam na classificação —
-                "Energia / Água / Internet", "Marketing", "Serviços (OS)" — e cada
-                um deles virava uma categoria solta que o filtro não reconhecia. */}
-            <input name="categoria" list="categorias-list" defaultValue={params.categoria ?? ''} className="field" placeholder="Ex: Aluguel, Salários, Mercadoria…" />
-            <datalist id="categorias-list">
-              {TODAS_CATEGORIAS.map((c) => <option key={c} value={c} />)}
-            </datalist>
+            {/* Lista FECHADA (25/11/2026). Era campo livre com sugestão: dava para
+                digitar qualquer coisa e a linha nascia sem classificação — foi assim
+                que `FONE QUE VITÃO PEGOU NA LOJA` virou despesa de R$ 49,00. O
+                servidor recusa categoria fora desta lista (lib/validacao-lancamento.ts). */}
+            <select name="categoria" defaultValue={params.categoria ?? ''} className="field" required>
+              <option value="">Escolha a categoria…</option>
+              {SETORES.filter((s) => !s.semCategoria && s.categorias.length > 0).map((s) => (
+                <optgroup key={s.chave} label={`${s.emoji} ${s.label}`}>
+                  {s.categorias.map((c) => <option key={c} value={c}>{c}</option>)}
+                </optgroup>
+              ))}
+            </select>
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Subcategoria <span className="text-gray-400">(opcional)</span></label>

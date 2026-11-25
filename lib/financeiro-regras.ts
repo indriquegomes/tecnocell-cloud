@@ -16,6 +16,11 @@ export type Lancamento = {
   valor_pago: number | null
   data_pagamento?: string | null
   data_vencimento?: string | null
+  // Opcionais: quem lê a linha inteira (conferente do Saúde) usa; a conta do
+  // dinheiro não depende deles.
+  forma_pagamento?: string | null
+  conta_id?: string | null
+  created_at?: string | null
 }
 
 // Quanto desta linha já foi realmente pago.

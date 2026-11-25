@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { editarLancamentoInline } from './actions'
 import { formatBRL, rotuloForma } from '@/lib/utils'
+import { TODAS_CATEGORIAS } from '@/lib/financeiro-setores'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { marcarPago, desfazerPagamento, deletarLancamento } from './actions'
@@ -105,7 +106,13 @@ export function LinhaEditable({
         <Badge variant={pago ? 'success' : 'warning'}>{lanc.status || 'Pendente'}</Badge>
       </td>
       <td className="px-4 py-3">
-        <input value={cat} onChange={(e) => setCat(e.target.value)} list="categorias-lista" placeholder="Categoria…" className={inputCls} />
+        {/* Lista fechada (25/11/2026): categoria livre virava classificação inventada.
+            O valor antigo da linha continua visível e salvável sem trocar nada. */}
+        <select value={cat} onChange={(e) => setCat(e.target.value)} className={inputCls} title="Categoria do lançamento">
+          <option value="">—</option>
+          {cat && !TODAS_CATEGORIAS.includes(cat) && <option value={cat}>{cat} (atual)</option>}
+          {TODAS_CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
         {lanc.subcategoria && <p className="mt-0.5 pl-1 text-[11px] text-gray-400">› {lanc.subcategoria}</p>}
       </td>
       <td className="px-4 py-3 text-center">

@@ -62,9 +62,9 @@ export async function auditarFinanceiro(supabase: SB): Promise<Achado[]> {
   // Pagamentos e movimentos vêm pela janela de created_at, não por lista de ids:
   // .in() com milhares de ids virava dezenas de requisições e a tela demorava.
   const [lancamentos, perdoados, perfis, vendas, caixas, devolucoes, estoque, pagamentos, movimentos, formas] = await Promise.all([
-    fetchAll<Lancamento & { id: string; loja_id: string | null; pessoa_nome: string | null; pessoa_id: string | null; venda_id: string | null; descricao: string | null; categoria: string | null }>(
+    fetchAll<Lancamento & { id: string; loja_id: string | null; pessoa_nome: string | null; pessoa_id: string | null; venda_id: string | null; descricao: string | null; categoria: string | null; forma_pagamento: string | null; conta_id: string | null; devolucao_id: string | null; created_at: string | null }>(
       (from, to) => supabase.from('lancamentos')
-        .select('id, tipo, status, valor, valor_pago, data_pagamento, data_vencimento, loja_id, pessoa_nome, pessoa_id, venda_id, descricao, categoria')
+        .select('id, tipo, status, valor, valor_pago, data_pagamento, data_vencimento, loja_id, pessoa_nome, pessoa_id, venda_id, descricao, categoria, forma_pagamento, conta_id, devolucao_id, created_at')
         .order('id').range(from, to)),
     // Dívida PERDOADA por desconto: o app zera o `valor` e guarda o quanto foi
     // perdoado no histórico (RPC aplicar_desconto_fiado). Vem como lista de ids,
@@ -318,6 +318,38 @@ export async function auditarFinanceiro(supabase: SB): Promise<Achado[]> {
     'Se for parcelamento, é legítimo (ex.: 3 notas de R$ 64,40 da mesma venda). Se for duplicata, cancele uma.',
     'atencao',
     sobras.map(([chave, g]) => ({ valor: g.valor * (g.qtd - 1), rotulo: chave.split('|')[1] + ' (' + g.qtd + 'x)' }))))
+
+  // ── Invenção no financeiro: forma de pagamento fora do cadastro ───────────
+  // `lancamentos.forma_pagamento` é texto livre. Em set-nov/2026 apareceram 21
+  // grafias ('cartao_debito', 'crédito ton', 'recarga de cartão pré-pago', 'outros').
+  // Desde 25/11 o formulário só aceita o cadastro (lib/validacao-lancamento.ts);
+  // esta regra mostra o que escapou por outro caminho.
+  const FORMAS_ESPECIAIS = new Set([
+    'dinheiro', 'vale crédito', 'vale credito', 'desconto', 'troca', 'crédito loja (fiado)',
+    'pix do cliente ao fornecedor', 'fora_do_app', 'fora do app (whatsapp)', 'estorno fora do app',
+  ])
+  const formasCadastradas = new Set((formas ?? []).map((f) => String((f as { nome?: string }).nome ?? '').trim().toLowerCase()))
+  const formaInvalida = (l: Lancamento) =>
+    !!l.forma_pagamento && !formasCadastradas.has(l.forma_pagamento.trim().toLowerCase()) && !FORMAS_ESPECIAIS.has(l.forma_pagamento.trim().toLowerCase())
+  out.push(achado('forma_fora_do_cadastro', 'Forma de pagamento que não existe no cadastro',
+    'A forma de pagamento tem que ser uma do cadastro (Dinheiro, PIX, Débito/Crédito, Vale Crédito…).',
+    'Forma inventada não diz de onde o dinheiro saiu. Corrija na linha do Financeiro escolhendo a forma real.',
+    'atencao',
+    lancamentos.filter(formaInvalida).map((l) => ({ valor: Number(l.valor ?? 0), rotulo: nome(l) + ' · ' + (l.forma_pagamento ?? '') }))))
+
+  // ── Invenção no financeiro: linha paga sem dizer de onde saiu o dinheiro ──
+  // Olha só as linhas NASCIDAS nas últimas 48h: é o que a trava nova deveria ter
+  // barrado. As antigas são dívida histórica e já aparecem em outras regras.
+  const corte48h = new Date(Date.now() - 48 * 3600_000).toISOString()
+  out.push(achado('pago_sem_origem', 'Pagamento registrado sem dizer de onde saiu o dinheiro (novas linhas)',
+    'Linha paga que sai de conta precisa ter a conta; se saiu da gaveta, a forma tem que ser Dinheiro.',
+    'Sem isso o valor não baixa em conta nenhuma e o saldo do banco fica inflado. Corrija em Financeiro -> editar (escolher a conta).',
+    'erro',
+    lancamentos
+      .filter((l) => l.status === 'pago' && l.tipo === 'pagar' && !l.conta_id
+        && !FORMAS_ESPECIAIS.has((l.forma_pagamento ?? '').trim().toLowerCase())
+        && (l.created_at ?? '') >= corte48h)
+      .map((l) => ({ valor: Number(l.valor ?? 0), rotulo: nome(l) }))))
 
   return out
 }
