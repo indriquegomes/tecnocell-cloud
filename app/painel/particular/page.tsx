@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { createServiceClient, requirePermissao, fetchAll } from '@/lib/supabase/server'
 import { formatBRL, hojeSP } from '@/lib/utils'
 import { resumoParticular } from '@/lib/particular'
-import { guardarNoPote, pagarParticular, criarPote } from './actions'
+import { guardarNoPote, pagarParticular } from './actions'
 import { AnotarParticular } from './AnotarParticular'
 
 // ABA PARTICULAR — painel do dono, em tela cheia, com a ESTRUTURA do protótipo
@@ -29,7 +29,7 @@ const BTN_PRIMARIO = 'inline-flex min-h-[44px] items-center justify-center round
 const BTN_SECUNDARIO = 'inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B6CA8]'
 const BTN_OK = 'inline-flex min-h-[44px] items-center justify-center rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600'
 const NAV_BASE = 'flex min-h-[44px] items-center rounded-lg px-3 text-sm font-semibold transition'
-const PALETA = [AZUL, EMERALD, AMBER, LARANJA]
+const PALETA = [AZUL, '#10b981', '#f59e0b', LARANJA]
 
 function brl(v: number) {
   return v < 0 ? `−${formatBRL(Math.abs(v))}` : formatBRL(v)
@@ -48,7 +48,7 @@ function Pote({ cor, pct, nome }: { cor: string; pct: number; nome: string }) {
     <svg width="110" height="136" viewBox="0 0 80 100" role="img" aria-label={`Pote ${nome}, ${Math.round(p)}% cheio`}>
       <defs><clipPath id={id}><path d="M16 18h48q8 0 8 10v54q0 14-14 14H22q-14 0-14-14V28q0-10 8-10z" /></clipPath></defs>
       <rect x="20" y="3" width="40" height="12" rx="5" fill={LARANJA} stroke="#94a3b8" strokeWidth="2" />
-      <path d="M16 18h48q8 0 8 10v54q0 14-14 14H22q-14 0-14-14V28q0-10 8-10z" fill="#F8FAFC" />
+      <path d="M16 18h48q8 0 8 10v54q0 14-14 14H22q-14 0-14-14V28q0-10 8-10z" fill="#EFF6FF" />
       {h > 0 && <rect x="0" y={96 - h} width="80" height={h} fill={cor} clipPath={`url(#${id})`} />}
       <path d="M16 18h48q8 0 8 10v54q0 14-14 14H22q-14 0-14-14V28q0-10 8-10z" fill="none" stroke="#94a3b8" strokeWidth="2" />
     </svg>
@@ -106,7 +106,6 @@ export default async function ParticularPage({
   const entrou = r.proLaborePrevisto + entradasExtras
   const saiu = r.particularPago
   const sobrou = entrou - saiu
-  const disponivelPotes = Math.max(0, sobrou)
   const maxBarra = Math.max(entrou, saiu, 1)
 
   const potes = (potesRes.data ?? []) as { id: string; nome: string; atual: number | null; objetivo: number | null }[]
@@ -140,9 +139,9 @@ export default async function ParticularPage({
             ← Voltar ao sistema
           </Link>
 
-          <div className="mt-auto rounded-2xl border border-blue-200 bg-blue-50 p-3.5">
-            <p className="text-sm font-bold text-blue-900">Dica da Moedinha</p>
-            <p className="mt-1 text-xs leading-snug text-blue-800">Aperte em “Paguei!” ou “Recebi!” e veja o saldo mudar na hora.</p>
+          <div className="mt-auto rounded-2xl border border-orange-200 bg-orange-50 p-3.5">
+            <p className="text-sm font-bold text-[#F47920]">Dica da Moedinha</p>
+            <p className="mt-1 text-xs leading-snug text-orange-900">Aperte em “Paguei!” ou “Recebi!” e veja o saldo mudar na hora.</p>
           </div>
         </aside>
 
@@ -170,34 +169,34 @@ export default async function ParticularPage({
             {aba === 'inicio' && (
               <>
                 <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
-                  <div className={`${CARD} p-4`}>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Tenho agora</p>
-                    <p className="mt-1 text-3xl font-semibold tabular-nums text-gray-800">{brl(sobrou)}</p>
-                    <p className="mt-1 text-xs text-gray-400">pró-labore − contas pagas</p>
+                  <div className="rounded-2xl bg-[#1B6CA8] p-4 text-white shadow-sm">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-white/70">Tenho agora</p>
+                    <p className="mt-1 text-3xl font-semibold tabular-nums">{brl(sobrou)}</p>
+                    <p className="mt-1 text-xs text-white/70">pró-labore − contas pagas</p>
                   </div>
-                  <div className={`${CARD} p-4`}>
+                  <div className="rounded-2xl bg-emerald-500 p-4 text-white shadow-sm">
                     <div className="flex items-start justify-between">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Entrou</p>
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">↓</span>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-white/70">Entrou</p>
+                      <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-white">↓</span>
                     </div>
-                    <p className="mt-1 text-3xl font-semibold tabular-nums text-gray-800">{brl(entrou)}</p>
-                    <p className="mt-1 text-xs text-gray-400">pró-labore do mês</p>
+                    <p className="mt-1 text-3xl font-semibold tabular-nums">{brl(entrou)}</p>
+                    <p className="mt-1 text-xs text-white/70">pró-labore do mês</p>
                   </div>
-                  <div className={`${CARD} p-4`}>
+                  <div className="rounded-2xl bg-rose-500 p-4 text-white shadow-sm">
                     <div className="flex items-start justify-between">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Saiu</p>
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-rose-50 text-rose-500">↑</span>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-white/70">Saiu</p>
+                      <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-white">↑</span>
                     </div>
-                    <p className="mt-1 text-3xl font-semibold tabular-nums text-gray-800">{brl(saiu)}</p>
-                    <p className="mt-1 text-xs text-gray-400">contas particulares pagas</p>
+                    <p className="mt-1 text-3xl font-semibold tabular-nums">{brl(saiu)}</p>
+                    <p className="mt-1 text-xs text-white/70">contas particulares pagas</p>
                   </div>
-                  <div className={`${CARD} p-4`}>
+                  <div className="rounded-2xl bg-sky-500 p-4 text-white shadow-sm">
                     <div className="flex items-start justify-between">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Sobrou</p>
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-sky-50 text-sky-600">+</span>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-white/70">Sobrou</p>
+                      <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-white">+</span>
                     </div>
-                    <p className="mt-1 text-3xl font-semibold tabular-nums text-gray-800">{brl(sobrou)}</p>
-                    <p className="mt-1 text-xs text-gray-400">Entrou − Saiu</p>
+                    <p className="mt-1 text-3xl font-semibold tabular-nums">{brl(sobrou)}</p>
+                    <p className="mt-1 text-xs text-white/70">Entrou − Saiu</p>
                   </div>
                 </div>
 
@@ -252,17 +251,7 @@ export default async function ParticularPage({
 
             {aba === 'potinhos' && (
               <>
-                <div className={`${CARD} p-4 text-sm text-gray-500`}>
-                  Dá para guardar: <b className="text-base tabular-nums text-gray-900">{brl(disponivelPotes)}</b> (o que sobrou do mês)
-                </div>
-
-                {potes.length === 0 ? (
-                  <div className={`${CARD} p-5`}>
-                    <p className="text-sm text-gray-400">
-                      {migracaoPendente ? 'Crie o primeiro pote abaixo depois de aplicar a migração.' : 'Nenhum potinho ainda. Crie o primeiro abaixo.'}
-                    </p>
-                  </div>
-                ) : (
+                {potes.length > 0 && (
                   <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
                     {potes.map((p, idx) => {
                       const atual = Number(p.atual ?? 0)
@@ -291,20 +280,6 @@ export default async function ParticularPage({
                     })}
                   </div>
                 )}
-
-                <form action={criarPote} className={`${CARD} flex flex-wrap items-end gap-3 p-4`}>
-                  <div className="min-w-[160px] flex-1">
-                    <label htmlFor="nome" className="text-xs font-medium text-gray-500">Novo pote</label>
-                    <input id="nome" name="nome" placeholder="Viagem, Casa, Emergência…"
-                      className="mt-1 h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm focus:border-[#1B6CA8] focus:outline-none focus:ring-2 focus:ring-[#1B6CA8]/30" />
-                  </div>
-                  <div className="w-[150px]">
-                    <label htmlFor="objetivo" className="text-xs font-medium text-gray-500">Quero juntar (R$)</label>
-                    <input id="objetivo" name="objetivo" inputMode="decimal" placeholder="0,00"
-                      className="mt-1 h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm focus:border-[#1B6CA8] focus:outline-none focus:ring-2 focus:ring-[#1B6CA8]/30" />
-                  </div>
-                  <button type="submit" className={BTN_PRIMARIO}>Criar pote</button>
-                </form>
               </>
             )}
 

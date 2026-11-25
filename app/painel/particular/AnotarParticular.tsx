@@ -36,11 +36,11 @@ export function AnotarParticular() {
 
       <div className="grid grid-cols-2 gap-3">
         <button type="button" aria-pressed={tipo === 'entrada'} onClick={() => trocarTipo('entrada')}
-          className={`${BTN_BASE} border ${tipo === 'entrada' ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}>
+          className={`${BTN_BASE} border ${tipo === 'entrada' ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}>
           Entrou dinheiro
         </button>
         <button type="button" aria-pressed={tipo === 'saida'} onClick={() => trocarTipo('saida')}
-          className={`${BTN_BASE} border ${tipo === 'saida' ? 'border-rose-300 bg-rose-50 text-rose-800' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}>
+          className={`${BTN_BASE} border ${tipo === 'saida' ? 'border-rose-500 bg-rose-500 text-white' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}>
           Saiu dinheiro
         </button>
       </div>
@@ -56,7 +56,7 @@ export function AnotarParticular() {
         <div className="flex flex-wrap gap-2">
           {CATEGORIAS[tipo].map((c) => (
             <button key={c} type="button" aria-pressed={categoria === c} onClick={() => setCategoria(c)}
-              className={`flex min-h-[40px] items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition ${categoria === c ? 'border-[#1B6CA8] bg-blue-50 text-[#1B6CA8]' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}>
+              className={`flex min-h-[40px] items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition ${categoria === c ? 'border-[#F47920] bg-orange-50 text-[#9a3412]' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}>
               <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: COR[c] ?? '#94a3b8' }} />
               {c}
             </button>
