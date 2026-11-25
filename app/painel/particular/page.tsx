@@ -73,7 +73,7 @@ export default async function ParticularPage({
 
   const supabase = await createServiceClient()
 
-  const [linhas, entradasP, aVencer, recentes, potesRes] = await Promise.all([
+  const [linhas, entradasP, aVencer, recentes, potesRes, aportes] = await Promise.all([
     fetchAll<{ id: string; descricao: string | null; valor: number | null; valor_pago: number | null; status: string | null; categoria: string | null; data_vencimento: string | null; data_pagamento: string | null }>((from, to) =>
       supabase.from('lancamentos')
         .select('id, descricao, valor, valor_pago, status, categoria, data_vencimento, data_pagamento')
@@ -99,6 +99,8 @@ export default async function ParticularPage({
         .order('data_pagamento', { ascending: false }).order('id').range(from, to)),
     supabase.from('metas_poupanca').select('id, nome, atual, objetivo')
       .eq('ativo', true).eq('escopo', 'pessoal').order('nome'),
+    supabase.from('aportes_poupanca').select('valor, metas_poupanca!inner(escopo)')
+      .eq('metas_poupanca.escopo', 'pessoal').gte('criado_em', iniTs).lt('criado_em', fimTs),
   ])
 
   const r = resumoParticular(linhas as { categoria: string | null; valor?: number | null; valor_pago?: number | null; status?: string | null }[])
@@ -106,7 +108,8 @@ export default async function ParticularPage({
   const entrou = r.proLaborePrevisto + entradasExtras
   const saiu = r.particularPago
   const sobrou = entrou - saiu
-  const disponivelPotes = Math.max(0, sobrou)
+  const guardadoNoMes = (aportes.data ?? []).reduce((t, a) => t + Number((a as { valor?: number }).valor ?? 0), 0)
+  const disponivelPotes = Math.max(0, Math.round((sobrou - guardadoNoMes) * 100) / 100)
   const maxBarra = Math.max(entrou, saiu, 1)
 
   const potes = (potesRes.data ?? []) as { id: string; nome: string; atual: number | null; objetivo: number | null }[]
