@@ -566,17 +566,17 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight text-gray-800">Fechamento do Mês</h2>
-          <p className="mt-0.5 text-sm text-gray-400">Entradas e saídas, estoque e resultado de cada loja.</p>
+          <h2 className="text-2xl font-bold text-gray-900">Fechamento do Mês</h2>
+          <p className="mt-0.5 text-sm text-gray-500">Entradas e saídas, estoque e resultado de cada loja.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <a href={`/painel/fechamento-mes?mes=${mesAnterior}&loja=${lojaSel}`} className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm font-medium text-gray-600 transition hover:border-gray-300">← Anterior</a>
-          <span className="rounded-lg bg-gray-900 px-3 py-1.5 text-sm font-medium text-white">{nomeMes(mes)}</span>
+          <span className="rounded-lg bg-blue-50 px-3 py-1.5 text-sm font-bold text-blue-700">{nomeMes(mes)}</span>
           <a href={`/painel/fechamento-mes?mes=${mesSeguinte}&loja=${lojaSel}`} className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm font-medium text-gray-600 transition hover:border-gray-300">Próximo →</a>
           <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-0.5">
             {lojasList.map((l) => (
               <a key={l.id} href={`/painel/fechamento-mes?mes=${mes}&loja=${l.id}`}
-                className={`rounded-md px-3 py-1 text-sm font-medium transition ${l.id === lojaSel ? 'bg-[#8470ff] text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                className={`rounded-md px-3 py-1 text-sm font-semibold transition ${l.id === lojaSel ? 'bg-[#1B6CA8] text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
                 {l.nome}
               </a>
             ))}
@@ -591,88 +591,76 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
       )}
 
       {linha && (
-        <div className="space-y-6">
-          {/* ── KPIs — quatro números, estilo Mosaic (rótulo curto + pílula de variação) ── */}
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="space-y-4">
+          {/* ── FILEIRA 1 — 4 caixas iguais ── */}
+          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
               <div className="flex items-start justify-between gap-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Resultado do mês</p>
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-500"><IconChart className="h-3.5 w-3.5" /></span>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[#1B6CA8]"><IconChart className="h-3.5 w-3.5" /></span>
               </div>
               <p className="mt-2 text-3xl font-semibold tabular-nums text-gray-800">{fmt(dre.resultado)}</p>
               <div className="mt-2 flex items-center gap-2">
-                <span className={`rounded-full px-1.5 text-sm font-medium ${dre.resultado >= 0 ? 'bg-green-500/20 text-green-700' : 'bg-red-500/20 text-red-700'}`}>{dre.resultado >= 0 ? 'lucro' : 'prejuízo'}</span>
+                <span className={`rounded-full px-1.5 text-sm font-medium ${dre.resultado >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{dre.resultado >= 0 ? 'lucro' : 'prejuízo'}</span>
                 <span className="text-xs text-gray-400">receita líquida − custo − despesas</span>
               </div>
             </div>
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
               <div className="flex items-start justify-between gap-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Entrou no caixa</p>
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-500/10 text-green-600"><IconPlus className="h-3.5 w-3.5" /></span>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600"><IconPlus className="h-3.5 w-3.5" /></span>
               </div>
               <p className="mt-2 text-3xl font-semibold tabular-nums text-gray-800">{fmt(linha.entradas)}</p>
               <div className="mt-2 flex items-center gap-2">
                 {entrouPct === null ? (
-                  <span className="rounded-full bg-gray-500/10 px-1.5 text-sm font-medium text-gray-500">sem base</span>
+                  <span className="rounded-full bg-gray-100 px-1.5 text-sm font-medium text-gray-500">sem base</span>
                 ) : (
-                  <span className={`rounded-full px-1.5 text-sm font-medium ${entrouPct >= 0 ? 'bg-green-500/20 text-green-700' : 'bg-red-500/20 text-red-700'}`}>{entrouPct >= 0 ? '+' : ''}{entrouPct}%</span>
+                  <span className={`rounded-full px-1.5 text-sm font-medium ${entrouPct >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{entrouPct >= 0 ? '+' : ''}{entrouPct}%</span>
                 )}
                 <span className="text-xs text-gray-400">vs {nomeMes(mesAnterior)}</span>
               </div>
             </div>
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
               <div className="flex items-start justify-between gap-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Saiu do caixa</p>
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-500"><IconReturn className="h-3.5 w-3.5" /></span>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-500"><IconReturn className="h-3.5 w-3.5" /></span>
               </div>
               <p className="mt-2 text-3xl font-semibold tabular-nums text-gray-800">{fmt(linha.saidas)}</p>
               <div className="mt-2 flex items-center gap-2">
                 {saiuPct === null ? (
-                  <span className="rounded-full bg-gray-500/10 px-1.5 text-sm font-medium text-gray-500">sem base</span>
+                  <span className="rounded-full bg-gray-100 px-1.5 text-sm font-medium text-gray-500">sem base</span>
                 ) : (
-                  <span className={`rounded-full px-1.5 text-sm font-medium ${saiuPct <= 0 ? 'bg-green-500/20 text-green-700' : 'bg-red-500/20 text-red-700'}`}>{saiuPct >= 0 ? '+' : ''}{saiuPct}%</span>
+                  <span className={`rounded-full px-1.5 text-sm font-medium ${saiuPct <= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{saiuPct >= 0 ? '+' : ''}{saiuPct}%</span>
                 )}
                 <span className="text-xs text-gray-400">vs {nomeMes(mesAnterior)}</span>
               </div>
             </div>
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
               <div className="flex items-start justify-between gap-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Em mãos</p>
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-500/10 text-gray-500"><IconWallet className="h-3.5 w-3.5" /></span>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-600"><IconWallet className="h-3.5 w-3.5" /></span>
               </div>
               <p className="mt-2 text-3xl font-semibold tabular-nums text-gray-800">{fmt(linha.caixaCalculado)}</p>
               <div className="mt-2 flex items-center gap-2">
-                <span className="rounded-full bg-gray-500/10 px-1.5 text-sm font-medium text-gray-500">referência</span>
+                <span className="rounded-full bg-gray-100 px-1.5 text-sm font-medium text-gray-500">referência</span>
                 <span className="text-xs text-gray-400">abertura + cédula − cédula</span>
               </div>
             </div>
           </section>
 
-          {mesCorrente && (
-            <p className="text-xs text-gray-500">
-              Hoje ({hoje.slice(8, 10)}/{hoje.slice(5, 7)}) · {lojasList.find((x) => x.id === lojaSel)?.nome}: vendas {fmt(hojeVendas)} · fiado recebido {fmt(hojeFiado)} · caixa contado {fmt(hojeCaixaContado)} · devoluções {hojeDevolN} ({fmt(hojeDevolValor)})
-            </p>
-          )}
-
-          {/* ── GRÁFICO + RESULTADO (Mosaic: gráfico grande + tabela curta) ── */}
-          <section className="grid gap-4 lg:grid-cols-3">
-            <div className="rounded-xl border border-gray-200 bg-white shadow-sm lg:col-span-2">
-              <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-800">Entradas × saídas</h3>
-                  <p className="text-xs text-gray-400">por semana · {nomeMes(mes)}</p>
-                </div>
-                <div className="flex items-center gap-4 text-xs text-gray-500">
-                  <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-[#8470ff]" />Entradas</span>
-                  <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-gray-300" />Saídas</span>
-                </div>
+          {/* ── FILEIRA 2 — 4 caixas iguais ── */}
+          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <header className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                <h3 className="text-sm font-semibold text-gray-800">Entradas × saídas</h3>
+                <span className="text-xs text-gray-400">semana</span>
               </header>
-              <div className="px-4 pb-3 pt-4">
-                <svg viewBox="0 0 560 150" className="h-36 w-full" preserveAspectRatio="none" role="img" aria-label="Entradas e saídas por semana">
+              <div className="px-4 pb-3 pt-3">
+                <svg viewBox="0 0 560 150" className="h-28 w-full" preserveAspectRatio="none" role="img" aria-label="Entradas e saídas por semana">
                   <defs>
                     <linearGradient id="gradEntradas" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#8470ff" stopOpacity="0.22" />
-                      <stop offset="100%" stopColor="#8470ff" stopOpacity="0" />
+                      <stop offset="0%" stopColor="#1B6CA8" stopOpacity="0.22" />
+                      <stop offset="100%" stopColor="#1B6CA8" stopOpacity="0" />
                     </linearGradient>
                   </defs>
                   {[0, 1, 2, 3, 4].map((i) => (
@@ -680,15 +668,19 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
                   ))}
                   <path d={areaSerie(serie.entradas)} fill="url(#gradEntradas)" />
                   <path d={linhaSerie(serie.saidas)} fill="none" stroke="#d1d5db" strokeWidth="2" />
-                  <path d={linhaSerie(serie.entradas)} fill="none" stroke="#8470ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d={linhaSerie(serie.entradas)} fill="none" stroke="#1B6CA8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                <div className="mt-2 flex justify-between text-xs text-gray-400">
+                <div className="mt-2 flex justify-between text-[10px] text-gray-400">
                   {[1, 2, 3, 4, 5].map((s) => <span key={s}>sem {s}</span>)}
                 </div>
+                <p className="mt-2 flex items-center gap-3 border-t border-gray-100 pt-2 text-xs text-gray-500">
+                  <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[#1B6CA8]" />Entradas</span>
+                  <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-gray-300" />Saídas</span>
+                </p>
               </div>
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
               <header className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
                 <h3 className="text-sm font-semibold text-gray-800">Resultado</h3>
                 <span className="text-xs text-gray-400">{nomeMes(mes)}</span>
@@ -696,64 +688,62 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
               <div className="px-4 py-3">
                 <table className="w-full text-sm">
                   <tbody>
-                    <tr><td className="py-1 text-gray-600">Receita de vendas (bruta)</td><td className="py-1 text-right font-medium tabular-nums text-gray-900">{fmt(dre.receitaBruta)}</td></tr>
+                    <tr><td className="py-1 text-gray-600">Receita bruta</td><td className="py-1 text-right font-medium tabular-nums text-gray-900">{fmt(dre.receitaBruta)}</td></tr>
                     <tr><td className="py-1 text-gray-600">− Devoluções</td><td className="py-1 text-right tabular-nums text-gray-600">−{fmt(dre.receitaDevolvida)}</td></tr>
                     <tr className="border-t border-gray-100"><td className="py-1 font-semibold text-gray-800">= Receita líquida</td><td className="py-1 text-right font-bold tabular-nums text-gray-900">{fmt(dre.receitaLiquida)}</td></tr>
-                    <tr><td className="py-1 text-gray-600">− Custo das peças</td><td className="py-1 text-right tabular-nums text-gray-600">−{fmt(dre.cmv)}</td></tr>
+                    <tr><td className="py-1 text-gray-600">− Custo peças</td><td className="py-1 text-right tabular-nums text-gray-600">−{fmt(dre.cmv)}</td></tr>
                     <tr className="border-t border-gray-100"><td className="py-1 font-semibold text-gray-800">= Lucro bruto</td><td className="py-1 text-right font-bold tabular-nums text-gray-900">{fmt(dre.lucroBruto)}</td></tr>
-                    <tr><td className="py-1 text-gray-600">− Despesas <span className="text-[10px] text-gray-400">(pago {fmt(dre.despesasPago)} + a pagar {fmt(dre.despesasAberto)})</span></td><td className="py-1 text-right tabular-nums text-gray-600">−{fmt(dre.despesas)}</td></tr>
-                    <tr className="border-t-2 border-gray-200"><td className="py-2 font-bold text-gray-900">= Resultado</td><td className={`py-2 text-right font-bold tabular-nums ${dre.resultado >= 0 ? 'text-green-700' : 'text-red-700'}`}>{fmt(dre.resultado)}</td></tr>
+                    <tr><td className="py-1 text-gray-600">− Despesas</td><td className="py-1 text-right tabular-nums text-gray-600">−{fmt(dre.despesas)}</td></tr>
+                    <tr className="border-t-2 border-gray-200"><td className="py-1.5 font-bold text-gray-900">= Resultado</td><td className={`py-1.5 text-right font-bold tabular-nums ${dre.resultado >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{fmt(dre.resultado)}</td></tr>
                   </tbody>
                 </table>
+                <p className="mt-2 text-[10px] leading-snug text-gray-400">despesas: pago {fmt(dre.despesasPago)} + a pagar {fmt(dre.despesasAberto)}</p>
                 <Link href={`/painel/relatorios?aba=dre&de=${inicio}&ate=${ultimoDiaDoMes}&loja=${lojaSel}`}
-                  className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3 text-sm font-medium text-[#8470ff] hover:text-[#6b58e6]">
+                  className="mt-2 flex items-center justify-between border-t border-gray-100 pt-2 text-sm font-medium text-[#1B6CA8] hover:text-[#155a8e]">
                   Ver DRE completo <span aria-hidden>→</span>
                 </Link>
               </div>
             </div>
-          </section>
 
-          {/* ── PENDÊNCIAS + TENHO × DEVO — três cartões, estilo Mosaic ── */}
-          <section className="grid gap-4 lg:grid-cols-3">
-            <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
               <header className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
                 <h3 className="text-sm font-semibold text-gray-800">Agir agora</h3>
-                <span className="rounded-xs bg-gray-50 px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">pendências</span>
+                <span className="rounded bg-gray-50 px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">pendências</span>
               </header>
               <ul className="divide-y divide-gray-100">
                 {fornecedorVencido > 0 && (
                   <li>
-                    <Link href={`/painel/financeiro?tipo=pagar&status=vencido&tudo=1&loja=${lojaSel}`} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50">
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-500"><IconStore className="h-4 w-4" /></span>
+                    <Link href={`/painel/financeiro?tipo=pagar&status=vencido&tudo=1&loja=${lojaSel}`} className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-gray-50">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-500"><IconStore className="h-3.5 w-3.5" /></span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm text-gray-700">Fornecedor atrasado</span>
                         <span className="block text-xs tabular-nums text-gray-400">{fmt(fornecedorVencido)}</span>
                       </span>
-                      <span className="shrink-0 text-xs font-medium text-[#8470ff]">abrir →</span>
+                      <span className="shrink-0 text-xs font-medium text-[#1B6CA8]">abrir →</span>
                     </Link>
                   </li>
                 )}
                 {fiadoVencido > 0 && (
                   <li>
-                    <Link href="/painel/fiados" className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50">
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-amber-600"><IconUsers className="h-4 w-4" /></span>
+                    <Link href="/painel/fiados" className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-gray-50">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-600"><IconUsers className="h-3.5 w-3.5" /></span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm text-gray-700">Fiado atrasado</span>
                         <span className="block text-xs tabular-nums text-gray-400">{fmt(fiadoVencido)}</span>
                       </span>
-                      <span className="shrink-0 text-xs font-medium text-[#8470ff]">abrir →</span>
+                      <span className="shrink-0 text-xs font-medium text-[#1B6CA8]">abrir →</span>
                     </Link>
                   </li>
                 )}
                 {caixaAbertoDaLoja && (
                   <li>
-                    <Link href="/painel/pdv/operacao" className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50">
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-500/10 text-sky-600"><IconWallet className="h-4 w-4" /></span>
+                    <Link href="/painel/pdv/operacao" className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-gray-50">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-50 text-sky-600"><IconWallet className="h-3.5 w-3.5" /></span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm text-gray-700">Caixa aberto</span>
                         <span className="block text-xs text-gray-400">fechar o dia</span>
                       </span>
-                      <span className="shrink-0 text-xs font-medium text-[#8470ff]">abrir →</span>
+                      <span className="shrink-0 text-xs font-medium text-[#1B6CA8]">abrir →</span>
                     </Link>
                   </li>
                 )}
@@ -763,7 +753,29 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
               </ul>
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <header className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                <h3 className="text-sm font-semibold text-gray-800">Hoje</h3>
+                <span className="text-xs text-gray-400">{hoje.slice(8, 10)}/{hoje.slice(5, 7)}</span>
+              </header>
+              <div className="px-4 py-3">
+                {mesCorrente ? (
+                  <dl className="divide-y divide-gray-100 text-sm">
+                    <div className="flex items-center justify-between gap-2 py-2"><dt className="text-gray-600">Vendas</dt><dd className="font-medium tabular-nums text-gray-800">{fmt(hojeVendas)}</dd></div>
+                    <div className="flex items-center justify-between gap-2 py-2"><dt className="text-gray-600">Fiado recebido</dt><dd className="font-medium tabular-nums text-gray-800">{fmt(hojeFiado)}</dd></div>
+                    <div className="flex items-center justify-between gap-2 py-2"><dt className="text-gray-600">Caixa contado</dt><dd className="font-medium tabular-nums text-gray-800">{fmt(hojeCaixaContado)}</dd></div>
+                    <div className="flex items-center justify-between gap-2 py-2"><dt className="text-gray-600">Devoluções ({hojeDevolN})</dt><dd className="font-medium tabular-nums text-gray-800">{fmt(hojeDevolValor)}</dd></div>
+                  </dl>
+                ) : (
+                  <p className="py-4 text-center text-sm text-gray-400">Mês não é o atual.</p>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* ── FILEIRA 3 — 4 caixas iguais ── */}
+          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
               <header className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
                 <h3 className="text-sm font-semibold text-gray-800">Tenho</h3>
                 <span className="text-xs text-gray-400">o que é da loja</span>
@@ -771,27 +783,27 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
               <div className="px-4 py-3">
                 <p className="text-2xl font-semibold tabular-nums text-gray-800">{fmt(tenho)}</p>
                 <dl className="mt-3 divide-y divide-gray-100 text-sm">
-                  <div className="flex items-center justify-between gap-3 py-2">
-                    <dt className="flex items-center gap-2 text-gray-600"><IconPackage className="h-4 w-4 text-gray-400" /> Estoque (a custo)</dt>
+                  <div className="flex items-center justify-between gap-2 py-2">
+                    <dt className="flex items-center gap-1.5 text-gray-600"><IconPackage className="h-3.5 w-3.5 text-gray-400" /> Estoque (a custo)</dt>
                     <dd className="font-medium tabular-nums text-gray-800">{fmt(estoqueDaLoja)}</dd>
                   </div>
-                  <div className="flex items-center justify-between gap-3 py-2">
-                    <dt className="flex items-center gap-2 text-gray-600"><IconUsers className="h-4 w-4 text-gray-400" /> Fiado a receber</dt>
+                  <div className="flex items-center justify-between gap-2 py-2">
+                    <dt className="flex items-center gap-1.5 text-gray-600"><IconUsers className="h-3.5 w-3.5 text-gray-400" /> Fiado a receber</dt>
                     <dd className="font-medium tabular-nums text-gray-800">{fmt(fiadoSaldo)}</dd>
                   </div>
-                  <div className="flex items-center justify-between gap-3 py-2">
-                    <dt className="flex items-center gap-2 text-gray-600"><IconWallet className="h-4 w-4 text-gray-400" /> Vale-crédito a honrar</dt>
+                  <div className="flex items-center justify-between gap-2 py-2">
+                    <dt className="flex items-center gap-1.5 text-gray-600"><IconWallet className="h-3.5 w-3.5 text-gray-400" /> Vale-crédito</dt>
                     <dd className="font-medium tabular-nums text-gray-800">{fmt(creditoDaLoja)}</dd>
                   </div>
                 </dl>
-                <p className="mt-3 flex items-center gap-2 border-t border-gray-100 pt-3">
-                  <span className="rounded-full bg-amber-500/20 px-1.5 text-xs font-medium text-amber-700">atrasado</span>
+                <p className="mt-2 flex items-center gap-2 border-t border-gray-100 pt-2">
+                  <span className="rounded-full bg-amber-100 px-1.5 text-xs font-medium text-amber-700">atrasado</span>
                   <span className="text-xs tabular-nums text-gray-400">{fmt(fiadoVencido)}</span>
                 </p>
               </div>
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
               <header className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
                 <h3 className="text-sm font-semibold text-gray-800">Devo</h3>
                 <span className="text-xs text-gray-400">o que é de outros</span>
@@ -799,103 +811,98 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
               <div className="px-4 py-3">
                 <p className="text-2xl font-semibold tabular-nums text-gray-800">{fmt(devo)}</p>
                 <dl className="mt-3 divide-y divide-gray-100 text-sm">
-                  <div className="flex items-center justify-between gap-3 py-2">
-                    <dt className="flex items-center gap-2 text-gray-600"><IconStore className="h-4 w-4 text-gray-400" /> Fornecedor</dt>
+                  <div className="flex items-center justify-between gap-2 py-2">
+                    <dt className="flex items-center gap-1.5 text-gray-600"><IconStore className="h-3.5 w-3.5 text-gray-400" /> Fornecedor</dt>
                     <dd className="font-medium tabular-nums text-gray-800">{fmt(fornecedorSaldo)}</dd>
                   </div>
-                  <div className="flex items-center justify-between gap-3 py-2">
-                    <dt className="flex items-center gap-2 text-gray-600"><IconFile className="h-4 w-4 text-gray-400" /> Outras contas</dt>
+                  <div className="flex items-center justify-between gap-2 py-2">
+                    <dt className="flex items-center gap-1.5 text-gray-600"><IconFile className="h-3.5 w-3.5 text-gray-400" /> Outras contas</dt>
                     <dd className="font-medium tabular-nums text-gray-800">{fmt(outrasSaldo)}</dd>
                   </div>
                 </dl>
-                <p className="mt-3 flex items-center gap-2 border-t border-gray-100 pt-3">
-                  <span className="rounded-full bg-red-500/20 px-1.5 text-xs font-medium text-red-700">atrasado</span>
+                <p className="mt-2 flex items-center gap-2 border-t border-gray-100 pt-2">
+                  <span className="rounded-full bg-rose-100 px-1.5 text-xs font-medium text-rose-700">atrasado</span>
                   <span className="text-xs tabular-nums text-gray-400">{fmt(fornecedorVencido)}</span>
                 </p>
-                <p className="mt-2 text-xs text-gray-400">Patrimônio líquido (tenho − devo): <span className={`font-semibold tabular-nums ${tenho - devo >= 0 ? 'text-gray-800' : 'text-red-600'}`}>{fmt(tenho - devo)}</span></p>
+                <p className="mt-2 text-xs text-gray-400">Patrimônio líquido: <span className={`font-semibold tabular-nums ${tenho - devo >= 0 ? 'text-gray-800' : 'text-rose-600'}`}>{fmt(tenho - devo)}</span></p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <header className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                <h3 className="text-sm font-semibold text-gray-800">Descontos e perdas</h3>
+                <span className="text-xs text-gray-400">{nomeMes(mes)}</span>
+              </header>
+              <div className="px-4 py-3">
+                <dl className="divide-y divide-gray-100 text-sm">
+                  <div className="flex items-center justify-between gap-2 py-2">
+                    <dt className="text-gray-600">Desconto concedido</dt>
+                    <dd className="font-medium tabular-nums text-gray-800">{fmt(descontoConcedidoMes)}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 py-2">
+                    <dt className="text-gray-600">Perda com fiado</dt>
+                    <dd className="font-medium tabular-nums text-rose-600">{fmt(perdaFiadoMes)}</dd>
+                  </div>
+                </dl>
+                <p className="mt-2 flex items-center justify-between border-t border-gray-100 pt-2 text-sm">
+                  <span className="text-gray-500">Total</span>
+                  <span className="font-semibold tabular-nums text-gray-800">{fmt(descontoConcedidoMes + perdaFiadoMes)}</span>
+                </p>
+                <p className="mt-1 text-[10px] text-gray-400">{descontosMes.length} desconto(s) · já descontado do resultado</p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <header className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                <h3 className="text-sm font-semibold text-gray-800">Comparação</h3>
+                <span className="text-xs text-gray-400">vs {nomeMes(mesAnterior)}</span>
+              </header>
+              <div className="space-y-2.5 px-4 py-3 text-sm">
+                {(() => {
+                  const d = fmtDelta(linha.resultado, prevResultado)
+                  return (
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-xs text-gray-500">{linha.resultado >= 0 ? 'Lucro' : 'Prejuízo'}</p>
+                        <p className="font-medium tabular-nums text-gray-800">{fmt(linha.resultado)}</p>
+                      </div>
+                      {d ? (
+                        <span className={`rounded-full px-1.5 text-xs font-medium ${d.diff >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{d.diff >= 0 ? '▲' : '▼'} {fmt(Math.abs(d.diff))}</span>
+                      ) : <span className="text-xs text-gray-400">sem base</span>}
+                    </div>
+                  )
+                })()}
+                {(() => {
+                  const d = fmtDelta(linha.despesas, prevDespesa)
+                  return (
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-xs text-gray-500">Despesa</p>
+                        <p className="font-medium tabular-nums text-gray-800">{fmt(linha.despesas)}</p>
+                      </div>
+                      {d ? (
+                        <span className={`rounded-full px-1.5 text-xs font-medium ${d.diff >= 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>{d.diff >= 0 ? '▲' : '▼'} {fmt(Math.abs(d.diff))}</span>
+                      ) : <span className="text-xs text-gray-400">sem base</span>}
+                    </div>
+                  )
+                })()}
+                {(() => {
+                  const d = fmtDelta(linha.temEstoqueBase ? linha.consumido : null, prevConsumido)
+                  return (
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-xs text-gray-500">Estoque consumido</p>
+                        <p className="font-medium tabular-nums text-gray-800">{linha.temEstoqueBase ? fmt(linha.consumido) : '—'}</p>
+                      </div>
+                      {d ? (
+                        <span className={`rounded-full px-1.5 text-xs font-medium ${d.diff >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{d.diff >= 0 ? '▲' : '▼'} {fmt(Math.abs(d.diff))}</span>
+                      ) : <span className="text-xs text-gray-400">sem base</span>}
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           </section>
-
-          {/* DESCONTOS E PERDAS DO MÊS — o que a loja deixou de receber */}
-          {(descontoConcedidoMes > 0 || perdaFiadoMes > 0) && (
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="flex items-baseline justify-between gap-3">
-                <p className="text-sm font-semibold text-gray-800">Descontos e perdas do mês</p>
-                <p className="text-xs text-gray-400">já descontado do resultado</p>
-              </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-xl border border-gray-200 p-3">
-                  <p className="text-xs font-medium text-gray-500">Desconto concedido</p>
-                  <p className="mt-1 text-lg font-bold tabular-nums text-gray-900">{fmt(descontoConcedidoMes)}</p>
-                  <p className="mt-0.5 text-[11px] text-gray-400">a venda rendeu menos</p>
-                </div>
-                <div className="rounded-xl border border-gray-200 p-3">
-                  <p className="text-xs font-medium text-gray-500">Perda com fiado</p>
-                  <p className="mt-1 text-lg font-bold tabular-nums text-rose-600">{fmt(perdaFiadoMes)}</p>
-                  <p className="mt-0.5 text-[11px] text-gray-400">não vai receber mais</p>
-                </div>
-                <div className="rounded-xl border border-gray-200 p-3">
-                  <p className="text-xs font-medium text-gray-500">Total do mês</p>
-                  <p className="mt-1 text-lg font-bold tabular-nums text-gray-900">{fmt(descontoConcedidoMes + perdaFiadoMes)}</p>
-                  <p className="mt-0.5 text-[11px] text-gray-400">{descontosMes.length} desconto(s)</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* comparação com o mês anterior */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-sm font-bold text-gray-800">Comparação com {nomeMes(mesAnterior)}</p>
-            <p className="mt-0.5 text-[11px] text-gray-400">mesma loja · verde = subiu, vermelho = caiu</p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
-              {(() => {
-                const d = fmtDelta(linha.resultado, prevResultado)
-                const cor = d ? (d.diff >= 0 ? 'text-emerald-600' : 'text-red-600') : 'text-gray-400'
-                return (
-                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-                    <p className="text-xs font-semibold text-gray-500">{linha.resultado >= 0 ? 'Lucro' : 'Prejuízo'}</p>
-                    <p className="mt-1 text-lg font-bold text-gray-800">{fmt(linha.resultado)}</p>
-                    {d ? (
-                      <p className={'text-[11px] font-semibold ' + cor}>
-                        {d.diff >= 0 ? '▲' : '▼'} {fmt(Math.abs(d.diff))} {d.pct !== null ? '(' + (d.diff >= 0 ? '+' : '') + d.pct.toFixed(0) + '%)' : ''}
-                      </p>
-                    ) : <p className="text-[11px] text-gray-400">sem base</p>}
-                  </div>
-                )
-              })()}
-              {(() => {
-                const d = fmtDelta(linha.despesas, prevDespesa)
-                const cor = d ? (d.diff >= 0 ? 'text-red-600' : 'text-emerald-600') : 'text-gray-400'
-                return (
-                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-                    <p className="text-xs font-semibold text-gray-500">Despesa</p>
-                    <p className="mt-1 text-lg font-bold text-gray-800">{fmt(linha.despesas)}</p>
-                    {d ? (
-                      <p className={'text-[11px] font-semibold ' + cor}>
-                        {d.diff >= 0 ? '▲' : '▼'} {fmt(Math.abs(d.diff))} {d.pct !== null ? '(' + (d.diff >= 0 ? '+' : '') + d.pct.toFixed(0) + '%)' : ''}
-                      </p>
-                    ) : <p className="text-[11px] text-gray-400">sem base</p>}
-                  </div>
-                )
-              })()}
-              {(() => {
-                const d = fmtDelta(linha.temEstoqueBase ? linha.consumido : null, prevConsumido)
-                const cor = d ? (d.diff >= 0 ? 'text-emerald-600' : 'text-red-600') : 'text-gray-400'
-                return (
-                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-                    <p className="text-xs font-semibold text-gray-500">Estoque consumido</p>
-                    <p className="mt-1 text-lg font-bold text-gray-800">{linha.temEstoqueBase ? fmt(linha.consumido) : '—'}</p>
-                    {d ? (
-                      <p className={'text-[11px] font-semibold ' + cor}>
-                        {d.diff >= 0 ? '▲' : '▼'} {fmt(Math.abs(d.diff))} {d.pct !== null ? '(' + (d.diff >= 0 ? '+' : '') + d.pct.toFixed(0) + '%)' : ''}
-                      </p>
-                    ) : <p className="text-[11px] text-gray-400">sem base</p>}
-                  </div>
-                )
-              })()}
-            </div>
-          </div>
 
           {/* detalhes (colapsado pra não poluir) */}
           <details className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -989,8 +996,10 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
         </div>
       )}
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-        {avisosFechamento.length > 0 && (          <div className="mb-4 space-y-2">
+      {/* ── FILEIRA 4 — duas caixas iguais ── */}
+      <section className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          {avisosFechamento.length > 0 && (          <div className="mb-4 space-y-2">
             {avisosFechamento.map((a, i) => (
               <div key={i} className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                 <p className="font-semibold">⚠ Antes de fechar</p>
@@ -1005,87 +1014,81 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
           lojas={lojasList.map((l) => ({ id: l.id, nome: l.nome, caixaFinal: 0, caixaCalculado: linhas.find((x) => x.loja === l.id)?.caixaCalculado ?? 0 }))}
         />
         <p className="mt-3 text-xs text-gray-400">Fechar o mês grava o caixa final que você conferiu e congela o estoque. Esse caixa final vira a abertura do mês seguinte. Reabrir desfaz.</p>
-      </div>
-
-      {/* ─── RESUMO DO FECHAMENTO — uma folha para imprimir e arquivar ─── */}
-      <section id="resumo-fechamento" className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-lg font-bold text-gray-900">Resumo do fechamento — {nomeMes(mes)}</h3>
-            <p className="text-xs text-gray-500">
-              {fechamento
-                ? `Fechado em ${new Date(gravado?.fechado_em as string).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })} por ${gravado?.fechado_por ?? '—'}`
-                : 'Mês ainda não fechado — os valores de caixa e estoque finais aparecem depois de fechar.'}
-            </p>
-          </div>
-          <BotaoImprimirResumo />
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500">
-                <th className="py-2 pr-3">Loja</th>
-                <th className="py-2 pr-3 text-right">Venda bruta</th>
-                <th className="py-2 pr-3 text-right">Entrou no caixa</th>
-                <th className="py-2 pr-3 text-right">Saiu do caixa</th>
-                <th className="py-2 pr-3 text-right">Dinheiro em mãos</th>
-                <th className="py-2 pr-3 text-right">Estoque final</th>
-                <th className="py-2 text-right">Custo das peças vendidas</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {resumo.map((r) => (
-                <tr key={r.nome}>
-                  <td className="py-2 pr-3 font-medium text-gray-800">{r.nome}</td>
-                  <td className="py-2 pr-3 text-right font-semibold tabular-nums text-gray-900">{fmt(r.vendaBruta)}</td>
-                  <td className="py-2 pr-3 text-right tabular-nums text-emerald-700">{fmt(r.entradas)}</td>
-                  <td className="py-2 pr-3 text-right tabular-nums text-red-600">{fmt(r.saidas)}</td>
-                  <td className="py-2 pr-3 text-right tabular-nums text-gray-700">{r.caixaFinal == null ? '—' : fmt(r.caixaFinal)}</td>
-                  <td className="py-2 pr-3 text-right tabular-nums text-gray-700">{r.estoqueFinal == null ? '—' : fmt(r.estoqueFinal.vitrine + r.estoqueFinal.fundo)}</td>
-                  <td className="py-2 text-right tabular-nums text-gray-700">{r.consumido == null ? '—' : fmt(r.consumido)}</td>
+        {/* ─── RESUMO DO FECHAMENTO — uma folha para imprimir e arquivar ─── */}
+        <section id="resumo-fechamento" className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-800">Resumo do fechamento</h3>
+              <p className="text-xs text-gray-500">
+                {fechamento
+                  ? `Fechado em ${new Date(gravado?.fechado_em as string).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })} por ${gravado?.fechado_por ?? '—'}`
+                  : 'Mês ainda não fechado — os finais aparecem depois de fechar.'}
+              </p>
+            </div>
+            <BotaoImprimirResumo />
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-xs">
+              <thead>
+                <tr className="border-b border-gray-200 text-left uppercase tracking-wide text-gray-500">
+                  <th className="py-1.5 pr-2">Loja</th>
+                  <th className="py-1.5 pr-2 text-right">Venda bruta</th>
+                  <th className="py-1.5 pr-2 text-right">Entrou</th>
+                  <th className="py-1.5 pr-2 text-right">Saiu</th>
+                  <th className="py-1.5 pr-2 text-right">Em mãos</th>
+                  <th className="py-1.5 pr-2 text-right">Estoque</th>
+                  <th className="py-1.5 text-right">Custo peças</th>
                 </tr>
-              ))}
-              <tr className="border-t-2 border-gray-300 font-bold text-gray-900">
-                <td className="py-2 pr-3">Total</td>
-                <td className="py-2 pr-3 text-right tabular-nums">{fmt(somaResumo('vendaBruta'))}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">{fmt(somaResumo('entradas'))}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">{fmt(somaResumo('saidas'))}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">{fmt(resumo.reduce((s, r) => s + ((r.caixaFinal ?? 0)), 0))}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">{fmt(resumo.reduce((s, r) => s + (r.estoqueFinal ? r.estoqueFinal.vitrine + r.estoqueFinal.fundo : 0), 0))}</td>
-                <td className="py-2 text-right tabular-nums">{fmt(resumo.reduce((s, r) => s + (r.consumido ?? 0), 0))}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {resumo.map((r) => (
+                  <tr key={r.nome}>
+                    <td className="py-1.5 pr-2 font-medium text-gray-800">{r.nome}</td>
+                    <td className="py-1.5 pr-2 text-right font-semibold tabular-nums text-gray-900">{fmt(r.vendaBruta)}</td>
+                    <td className="py-1.5 pr-2 text-right tabular-nums text-emerald-700">{fmt(r.entradas)}</td>
+                    <td className="py-1.5 pr-2 text-right tabular-nums text-rose-600">{fmt(r.saidas)}</td>
+                    <td className="py-1.5 pr-2 text-right tabular-nums text-gray-700">{r.caixaFinal == null ? '—' : fmt(r.caixaFinal)}</td>
+                    <td className="py-1.5 pr-2 text-right tabular-nums text-gray-700">{r.estoqueFinal == null ? '—' : fmt(r.estoqueFinal.vitrine + r.estoqueFinal.fundo)}</td>
+                    <td className="py-1.5 text-right tabular-nums text-gray-700">{r.consumido == null ? '—' : fmt(r.consumido)}</td>
+                  </tr>
+                ))}
+                <tr className="border-t-2 border-gray-300 font-bold text-gray-900">
+                  <td className="py-1.5 pr-2">Total</td>
+                  <td className="py-1.5 pr-2 text-right tabular-nums">{fmt(somaResumo('vendaBruta'))}</td>
+                  <td className="py-1.5 pr-2 text-right tabular-nums">{fmt(somaResumo('entradas'))}</td>
+                  <td className="py-1.5 pr-2 text-right tabular-nums">{fmt(somaResumo('saidas'))}</td>
+                  <td className="py-1.5 pr-2 text-right tabular-nums">{fmt(resumo.reduce((s, r) => s + ((r.caixaFinal ?? 0)), 0))}</td>
+                  <td className="py-1.5 pr-2 text-right tabular-nums">{fmt(resumo.reduce((s, r) => s + (r.estoqueFinal ? r.estoqueFinal.vitrine + r.estoqueFinal.fundo : 0), 0))}</td>
+                  <td className="py-1.5 text-right tabular-nums">{fmt(resumo.reduce((s, r) => s + (r.consumido ?? 0), 0))}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-            <p className="text-[11px] font-semibold uppercase text-gray-500">Devoluções do mês</p>
-            <p className="mt-1 text-lg font-bold tabular-nums text-gray-900">{fmt(totalDevolucoes)}</p>
-            <p className="text-[11px] text-gray-500">{totalDevolucoes > 0 && somaResumo('entradas') > 0 ? `${((totalDevolucoes / somaResumo('entradas')) * 100).toFixed(1)}% do que entrou` : '—'}</p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-2.5">
+              <p className="text-[10px] font-semibold uppercase text-gray-500">Devoluções do mês</p>
+              <p className="mt-0.5 text-sm font-bold tabular-nums text-gray-900">{fmt(totalDevolucoes)}</p>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-2.5">
+              <p className="text-[10px] font-semibold uppercase text-gray-500">Comissão ({nomeMes(mesSeguinte)})</p>
+              <p className="mt-0.5 text-sm font-bold tabular-nums text-gray-900">{fmt(totalComissaoProximo)}</p>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-2.5">
+              <p className="text-[10px] font-semibold uppercase text-gray-500">Contas a pagar</p>
+              <p className="mt-0.5 text-sm font-bold tabular-nums text-amber-700">{fmt(totalEmAberto)}</p>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-2.5">
+              <p className="text-[10px] font-semibold uppercase text-gray-500">Em mãos</p>
+              <p className="mt-0.5 text-sm font-bold tabular-nums text-gray-900">{fmt(resumo.reduce((s, r) => s + ((r.caixaFinal ?? 0)), 0))}</p>
+            </div>
           </div>
-          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-            <p className="text-[11px] font-semibold uppercase text-gray-500">Comissão e meta ({nomeMes(mesSeguinte)})</p>
-            <p className="mt-1 text-lg font-bold tabular-nums text-gray-900">{fmt(totalComissaoProximo)}</p>
-            <p className="text-[11px] text-gray-500">a pagar no mês seguinte</p>
-          </div>
-          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-            <p className="text-[11px] font-semibold uppercase text-gray-500">Contas a pagar em aberto</p>
-            <p className="mt-1 text-lg font-bold tabular-nums text-amber-700">{fmt(totalEmAberto)}</p>
-            <p className="text-[11px] text-gray-500">fornecedor, INOVA, parcelas e o que rolou do mês</p>
-          </div>
-          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-            <p className="text-[11px] font-semibold uppercase text-gray-500">Dinheiro em mãos</p>
-            <p className="mt-1 text-lg font-bold tabular-nums text-gray-900">{fmt(resumo.reduce((s, r) => s + ((r.caixaFinal ?? 0)), 0))}</p>
-            <p className="text-[11px] text-gray-500">vira a abertura de {nomeMes(mesSeguinte)}</p>
-          </div>
-        </div>
 
-        <p className="mt-4 text-[11px] leading-snug text-gray-400">
-          Entrou = venda recebida no mês + fiado cobrado. Saiu = compras + despesas pagas. Dinheiro em mãos e estoque final são os valores
-          gravados no fechamento. Devoluções contam pelo dia em que foram registradas.
-        </p>
+          <p className="mt-3 text-[10px] leading-snug text-gray-400">Entrou = venda recebida + fiado cobrado. Saiu = compras + despesas pagas. Devoluções contam pelo dia em que foram registradas.</p>
+        </section>
       </section>
     </div>
   )

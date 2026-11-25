@@ -52,16 +52,17 @@ outras contas R$ 97.635 · vale-crédito a honrar R$ 5.297).
 6. **Botão “Avaria · não vende”** na devolução.
 7. **Peça quebrada**: baixa como perda lança despesa “Perda: produto” automaticamente.
 8. **Conferência por mês**: nenhum conferente traz mais conta de mês fechado.
-9. **Quadro na tela de Fechamento do Mês** (24/11, pele Mosaic em 25/11) — faixa de 4 KPIs
-   (Resultado do mês, Entrou no caixa, Saiu do caixa, Em mãos), **Como o resultado se formou**
-   com o aside **Agir agora** (atalhos para fornecedor atrasado, fiado atrasado e caixa aberto)
-   e **Tenho × Devo** com atrasados e patrimônio líquido. O resto (sobra de caixa, livre para
-   retirar, crédito, consignado, perdas, trocas, estoque consumido) virou "Indicadores do mês"
-   dentro de Ver detalhes. Mesa neutra (cinza + branco), um único azul de acento, sem emoji de
-   título. Mesma régua do DRE de Relatórios (`lib/dre.ts` — a fórmula mora em um lugar só;
-   testes em `test/logica.test.ts`). Conferido ao centavo contra a tela de Relatórios (Petrópolis:
-   resultado idêntico nos dois lugares). Referência visual escolhida pelo dono: Cruip **Mosaic**,
-   com a estrutura de atalhos do Omie.
+9. **Quadro na tela de Fechamento do Mês** (24/11; pele Mosaic + grade uniforme em 25/11) —
+   grade de caixas do MESMO tamanho, em fileiras iguais: fileira 1 com os 4 KPIs (Resultado,
+   Entrou, Saiu, Em mãos); fileira 2 com gráfico Entradas × saídas por semana, Resultado (DRE
+   aberto + link), **Agir agora** e **Hoje**; fileira 3 com Tenho, Devo, Descontos e Comparação;
+   fileira 4 com Fechar o mês e Resumo (2 caixas iguais). Nenhum texto solto fora de caixa.
+   Indicadores (sobra de caixa, livre para retirar, consignado, perdas, trocas, estoque
+   consumido) ficam em "Ver detalhes". Mesma régua do DRE de Relatórios (`lib/dre.ts` — a fórmula
+   mora em um lugar só; testes em `test/logica.test.ts`). Conferido ao centavo contra a tela de
+   Relatórios (Petrópolis: resultado idêntico nos dois lugares). Referência do dono: Cruip
+   **Mosaic**, com a estrutura de atalhos do Omie; o dono pediu grade uniforme (sem caixa
+   comprida ao lado de caixa pequena e sem texto solto).
 
 ### O que falta — SÓ ISTO
 
