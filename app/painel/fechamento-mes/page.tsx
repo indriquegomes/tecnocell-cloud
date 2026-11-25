@@ -1,9 +1,10 @@
-import { createServiceClient, fetchAll } from '@/lib/supabase/server'
+import { createServiceClient, fetchAll, fetchAllIn } from '@/lib/supabase/server'
 import { formatBRL } from '@/lib/utils'
 import { FecharMesButton } from './FecharMesButton'
 import { BotaoImprimirResumo } from './BotaoImprimirResumo'
 import { estoqueCustoPorLoja } from '@/lib/estoque-custo'
 import { ehCompraDeMercadoria } from '@/lib/financeiro-setores'
+import { montarDre, type ItemDevolvidoDre } from '@/lib/dre'
 
 function nomeMes(mes: string) {
   const [ano, m] = mes.split('-').map(Number)
@@ -376,6 +377,140 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
   }))
   const somaResumo = (campo: 'vendaBruta' | 'entradas' | 'saidas') => resumo.reduce((s, r) => s + r[campo], 0)
 
+  // ─── Quadro de análise (resultado · tenho · devo) ──────────────────────────
+  // Cada número sai na MESMA régua da tela de origem, para a conferência fechar:
+  //   • Resultado — conta do DRE de Relatórios (lib/dre.ts, uma fórmula só);
+  //   • Tenho    — estoque a custo + fiado a receber + vale-crédito a honrar;
+  //   • Devo     — fornecedor em aberto + outras contas a pagar.
+  // Toda leitura paginada leva .order('id'): sem ordem estável o PostgREST
+  // repete linha entre páginas e a soma dobra (armadilha da seção 9 do AGENTS).
+  const hojeTs = hoje + 'T00:00:00-03:00'
+  const amanhaData = (() => {
+    const [a, b, c] = hoje.split('-').map(Number)
+    return new Date(Date.UTC(a, b - 1, c + 1)).toISOString().slice(0, 10)
+  })()
+  const amanhaTs = amanhaData + 'T00:00:00-03:00'
+  const mesCorrente = mes === hoje.slice(0, 7)
+  const inicioTs = inicio + 'T00:00:00-03:00'
+  const proxMesTs = proxMes + 'T00:00:00-03:00'
+  const idsCaixaLoja = (cxs ?? []).filter((c) => c.loja_id === lojaSel).map((c) => c.id as string)
+  const idsDepositoLoja = (deps ?? []).filter((d) => d.loja_id === lojaSel).map((d) => d.id as string)
+  // Loja sem caixa/depósito não pode virar "soma de todas as lojas": id impossível.
+  const filtroCaixa = idsCaixaLoja.length ? idsCaixaLoja : ['00000000-0000-0000-0000-000000000000']
+  const filtroDeposito = idsDepositoLoja.length ? idsDepositoLoja : ['00000000-0000-0000-0000-000000000000']
+
+  const [vendasDre, itensDre, devsDre, despesasMes] = await Promise.all([
+    fetchAll<{ total: number | null }>((from, to) => supabase.from('vendas')
+      .select('total').eq('status', 'concluida').eq('uso_interno', false)
+      .gte('created_at', inicioTs).lt('created_at', proxMesTs).in('caixa_id', filtroCaixa).order('id').range(from, to)),
+    fetchAll<any>((from, to) => supabase.from('itens_venda')
+      .select('quantidade, custo_unitario, produtos(preco_custo), vendas!inner(created_at, status, uso_interno, caixa_id)')
+      .eq('vendas.status', 'concluida').eq('vendas.uso_interno', false)
+      .gte('vendas.created_at', inicioTs).lt('vendas.created_at', proxMesTs).in('vendas.caixa_id', filtroCaixa).order('id').range(from, to)),
+    fetchAll<{ id: string; venda_id: string | null; tipo_credito: string | null }>((from, to) => supabase.from('devolucoes')
+      .select('id, venda_id, tipo_credito').gte('created_at', inicioTs).lt('created_at', proxMesTs).in('deposito_id', filtroDeposito).order('id').range(from, to)),
+    fetchAll<{ valor: number | null; categoria: string | null; status: string | null }>((from, to) => supabase.from('lancamentos')
+      .select('valor, categoria, status').eq('tipo', 'pagar').neq('status', 'cancelado')
+      .gte('data_vencimento', inicio).lt('data_vencimento', proxMes).eq('loja_id', lojaSel).order('id').range(from, to)),
+  ])
+
+  // Devolução de peça: régua = dinheiro volta → cai a receita; peça volta ao
+  // estoque → volta o custo (mesma decisão do DRE, ver docs/mapa/regra-perda-e-devolucao.md).
+  const devIds = devsDre.map((d) => d.id)
+  const devItens = devIds.length
+    ? await fetchAllIn<{ devolucao_id: string; produto_id: string; quantidade: number; total_item: number; status_produto: string | null }>(devIds, (chunk, from, to) => supabase.from('itens_devolucao')
+        .select('devolucao_id, produto_id, quantidade, total_item, status_produto').in('devolucao_id', chunk).order('id').range(from, to))
+    : []
+  const vendaIdsDev = [...new Set(devsDre.map((d) => d.venda_id).filter(Boolean))] as string[]
+  const produtoIdsDev = [...new Set(devItens.map((i) => i.produto_id).filter(Boolean))] as string[]
+  const itensVendaDev = vendaIdsDev.length
+    ? await fetchAllIn<{ venda_id: string; produto_id: string; custo_unitario: number | null }>(vendaIdsDev, (chunk, from, to) => supabase.from('itens_venda')
+        .select('venda_id, produto_id, custo_unitario').in('venda_id', chunk).order('id').range(from, to))
+    : []
+  const produtosDev = produtoIdsDev.length
+    ? await fetchAllIn<{ id: string; preco_custo: number | null }>(produtoIdsDev, (chunk, from, to) => supabase.from('produtos')
+        .select('id, preco_custo').in('id', chunk).order('id').range(from, to))
+    : []
+  const custoTravado = new Map<string, number>()
+  for (const iv of itensVendaDev) if (iv.custo_unitario != null) custoTravado.set(`${iv.venda_id}|${iv.produto_id}`, Number(iv.custo_unitario))
+  const precoCustoProduto = new Map(produtosDev.map((p) => [p.id, p.preco_custo]))
+  const infoDevolucao = new Map(devsDre.map((d) => [d.id, d]))
+  const devolvido: ItemDevolvidoDre[] = devItens.map((it) => {
+    const info = infoDevolucao.get(it.devolucao_id)
+    return {
+      quantidade: Number(it.quantidade) || 0,
+      totalItem: Number(it.total_item) || 0,
+      pecaVoltou: (it.status_produto ?? 'ok') === 'ok',
+      dinheiroVoltou: (info?.tipo_credito ?? '') !== 'sem_reembolso',
+      custoUnitario: (info ? custoTravado.get(`${info.venda_id}|${it.produto_id}`) : undefined) ?? null,
+      precoCusto: precoCustoProduto.get(it.produto_id) ?? null,
+    }
+  })
+  const dre = montarDre({
+    vendasTotais: vendasDre.map((v) => Number(v.total ?? 0)),
+    itens: itensDre.map((i) => {
+      // O PostgREST devolve o relacionamento como objeto; a tipagem do supabase-js
+      // descreve array. Aceita os dois para não depender da forma do retorno.
+      const prod = Array.isArray(i.produtos) ? i.produtos[0] : i.produtos
+      return {
+        quantidade: Number(i.quantidade) || 0,
+        custoUnitario: i.custo_unitario == null ? null : Number(i.custo_unitario),
+        precoCusto: prod?.preco_custo == null ? null : Number(prod.preco_custo),
+      }
+    }),
+    devolvido,
+    despesas: despesasMes
+      .filter((d) => !ehCompraDeMercadoria(d.categoria))
+      .map((d) => ({ valor: Number(d.valor ?? 0), paga: d.status === 'pago' })),
+  })
+
+  // TENHO e DEVO da loja selecionada — saldo = valor − valor_pago (restante).
+  const [fiadoPend, pagarPend] = await Promise.all([
+    fetchAll<{ loja_id: string | null; valor: number | null; valor_pago: number | null; data_vencimento: string | null }>((from, to) => supabase.from('lancamentos')
+      .select('loja_id, valor, valor_pago, data_vencimento').eq('tipo', 'receber').eq('status', 'pendente').order('id').range(from, to)),
+    fetchAll<{ loja_id: string | null; categoria: string | null; valor: number | null; valor_pago: number | null; data_vencimento: string | null }>((from, to) => supabase.from('lancamentos')
+      .select('loja_id, categoria, valor, valor_pago, data_vencimento').eq('tipo', 'pagar').eq('status', 'pendente').order('id').range(from, to)),
+  ])
+  const saldoLinha = (l: { valor: number | null; valor_pago: number | null }) =>
+    Math.max(0, Number(l.valor ?? 0) - Number(l.valor_pago ?? 0))
+  const vencidaLinha = (l: { data_vencimento: string | null }) => {
+    const dia = (l.data_vencimento ?? '').slice(0, 10)
+    return !!dia && dia < hoje
+  }
+  const daLoja = <T extends { loja_id: string | null }>(rows: T[]) => rows.filter((r) => r.loja_id === lojaSel)
+  const fiadoSaldo = daLoja(fiadoPend).reduce((s, r) => s + saldoLinha(r), 0)
+  const fiadoVencido = daLoja(fiadoPend).filter(vencidaLinha).reduce((s, r) => s + saldoLinha(r), 0)
+  const fornecedorSaldo = daLoja(pagarPend).filter((r) => ehCompraDeMercadoria(r.categoria)).reduce((s, r) => s + saldoLinha(r), 0)
+  const fornecedorVencido = daLoja(pagarPend).filter((r) => ehCompraDeMercadoria(r.categoria) && vencidaLinha(r)).reduce((s, r) => s + saldoLinha(r), 0)
+  const outrasSaldo = daLoja(pagarPend).filter((r) => !ehCompraDeMercadoria(r.categoria)).reduce((s, r) => s + saldoLinha(r), 0)
+  const estoqueDaLoja = linha?.estoqueFinalTotal ?? 0
+  const creditoDaLoja = linha?.creditoAberto ?? 0
+  const tenho = Math.round((estoqueDaLoja + fiadoSaldo + creditoDaLoja) * 100) / 100
+  const devo = Math.round((fornecedorSaldo + outrasSaldo) * 100) / 100
+
+  // Linha "Hoje" (só quando o mês aberto na tela é o mês corrente).
+  let hojeVendas = 0, hojeFiado = 0, hojeDevolN = 0, hojeDevolValor = 0, hojeCaixaContado = 0
+  if (mesCorrente) {
+    const [vh, fh, dh, ch] = await Promise.all([
+      fetchAll<{ total: number | null }>((from, to) => supabase.from('vendas')
+        .select('total').eq('status', 'concluida').eq('uso_interno', false)
+        .gte('data', hojeTs).lt('data', amanhaTs).order('id').range(from, to)),
+      fetchAll<{ valor_pago: number | null }>((from, to) => supabase.from('lancamentos')
+        .select('valor_pago').eq('tipo', 'receber').eq('status', 'pago')
+        .gte('data_pagamento', hojeTs).lt('data_pagamento', amanhaTs).order('id').range(from, to)),
+      fetchAll<{ valor_total: number | null }>((from, to) => supabase.from('devolucoes')
+        .select('valor_total').gte('created_at', hojeTs).lt('created_at', amanhaTs).order('id').range(from, to)),
+      fetchAll<{ valor_fechamento: number | null }>((from, to) => supabase.from('caixas')
+        .select('valor_fechamento').eq('status', 'fechado')
+        .gte('fechado_em', hojeTs).lt('fechado_em', amanhaTs).order('id').range(from, to)),
+    ])
+    hojeVendas = vh.reduce((s, v) => s + Number(v.total ?? 0), 0)
+    hojeFiado = fh.reduce((s, l) => s + Number(l.valor_pago ?? 0), 0)
+    hojeDevolN = dh.length
+    hojeDevolValor = dh.reduce((s, d) => s + Number(d.valor_total ?? 0), 0)
+    hojeCaixaContado = ch.reduce((s, c) => s + Number(c.valor_fechamento ?? 0), 0)
+  }
+
   const fmt = (v: number) => formatBRL(v)
   const fmtDelta = (atual: number | null, anterior: number | null) => {
     if (atual === null || anterior === null) return null
@@ -414,8 +549,56 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
 
       {linha && (
         <div className="space-y-4">
+          {/* QUADRO DE ANÁLISE — resultado de verdade, o que tenho e o que devo */}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className={`rounded-2xl p-4 shadow-sm ${dre.resultado >= 0 ? 'bg-emerald-50' : 'bg-amber-50'}`}>
+              <p className="text-xs font-semibold uppercase text-gray-500">Resultado do mês</p>
+              <p className={`mt-1 text-2xl font-bold ${dre.resultado >= 0 ? 'text-emerald-700' : 'text-amber-700'}`}>{fmt(dre.resultado)}</p>
+              <p className="text-[11px] leading-snug text-gray-500">receita líquida − custo das peças − despesas</p>
+            </div>
+            <div className={`rounded-2xl p-4 shadow-sm ${linha.resultado >= 0 ? 'bg-sky-50' : 'bg-rose-50'}`}>
+              <p className="text-xs font-semibold uppercase text-gray-500">Sobra de caixa</p>
+              <p className={`mt-1 text-2xl font-bold ${linha.resultado >= 0 ? 'text-sky-800' : 'text-rose-700'}`}>{fmt(linha.resultado)}</p>
+              <p className="text-[11px] leading-snug text-gray-500">entrou − saiu no caixa — não é lucro</p>
+            </div>
+            <div className="rounded-2xl bg-violet-50 p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase text-violet-700">Tenho</p>
+              <p className="mt-1 text-2xl font-bold text-violet-800">{fmt(tenho)}</p>
+              <p className="text-[11px] leading-snug text-violet-700">estoque {fmt(estoqueDaLoja)} + fiado {fmt(fiadoSaldo)} + vale {fmt(creditoDaLoja)}</p>
+              <p className="mt-0.5 text-[11px] font-semibold text-amber-700">vencido: fiado {fmt(fiadoVencido)}</p>
+            </div>
+            <div className="rounded-2xl bg-rose-50 p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase text-rose-700">Devo</p>
+              <p className="mt-1 text-2xl font-bold text-rose-800">{fmt(devo)}</p>
+              <p className="text-[11px] leading-snug text-rose-700">fornecedor {fmt(fornecedorSaldo)} + outras contas {fmt(outrasSaldo)}</p>
+              <p className="mt-0.5 text-[11px] font-semibold text-rose-700">vencido: fornecedor {fmt(fornecedorVencido)}</p>
+            </div>
+          </div>
+
+          {/* Como o resultado se formou — a conta aberta do DRE, mesma régua de Relatórios */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <p className="text-sm font-bold text-gray-800">🧮 Como o resultado se formou</p>
+            <p className="mt-0.5 text-[11px] text-gray-400">mesma conta do DRE em Relatórios · {nomeMes(mes)} · {lojasList.find((x) => x.id === lojaSel)?.nome}</p>
+            <table className="mt-3 w-full text-sm">
+              <tbody>
+                <tr><td className="py-1 text-gray-600">Receita de vendas (bruta)</td><td className="py-1 text-right font-semibold tabular-nums text-gray-900">{fmt(dre.receitaBruta)}</td></tr>
+                <tr><td className="py-1 text-gray-600">− Devoluções (dinheiro que voltou)</td><td className="py-1 text-right tabular-nums text-rose-600">−{fmt(dre.receitaDevolvida)}</td></tr>
+                <tr className="border-t border-gray-100"><td className="py-1 font-semibold text-gray-800">= Receita líquida</td><td className="py-1 text-right font-bold tabular-nums text-gray-900">{fmt(dre.receitaLiquida)}</td></tr>
+                <tr><td className="py-1 text-gray-600">− Custo das peças vendidas</td><td className="py-1 text-right tabular-nums text-rose-600">−{fmt(dre.cmv)}</td></tr>
+                <tr className="border-t border-gray-100"><td className="py-1 font-semibold text-gray-800">= Lucro bruto</td><td className="py-1 text-right font-bold tabular-nums text-gray-900">{fmt(dre.lucroBruto)}</td></tr>
+                <tr><td className="py-1 text-gray-600">− Despesas do mês <span className="text-[10px] text-gray-400">(pago {fmt(dre.despesasPago)} + a pagar {fmt(dre.despesasAberto)})</span></td><td className="py-1 text-right tabular-nums text-rose-600">−{fmt(dre.despesas)}</td></tr>
+                <tr className="border-t-2 border-gray-200"><td className="py-1.5 font-bold text-gray-900">= Resultado</td><td className={`py-1.5 text-right font-bold tabular-nums ${dre.resultado >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{fmt(dre.resultado)}</td></tr>
+              </tbody>
+            </table>
+            {mesCorrente && (
+              <p className="mt-3 text-[11px] text-gray-500">
+                Hoje ({hoje.slice(8, 10)}/{hoje.slice(5, 7)}): vendas {fmt(hojeVendas)} · fiado recebido {fmt(hojeFiado)} · caixa contado {fmt(hojeCaixaContado)} · devoluções {hojeDevolN} ({fmt(hojeDevolValor)})
+              </p>
+            )}
+          </div>
+
           {/* resultado do mês — 5 cards iguais, cores diferentes */}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div className="rounded-2xl bg-gray-100 p-4 shadow-sm">
               <p className="text-xs font-semibold uppercase text-gray-500">Caixa inicial</p>
               <p className="mt-1 text-2xl font-bold text-gray-800">{fmt(linha.caixaInicial)}</p>
@@ -435,11 +618,6 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
               <p className="text-xs font-semibold uppercase text-blue-700">Dinheiro em mãos (referência)</p>
               <p className="mt-1 text-2xl font-bold text-blue-700">{fmt(linha.caixaCalculado)}</p>
               <p className="text-[11px] text-blue-600">abertura + cédula que entrou − cédula que saiu</p>
-            </div>
-            <div className={`rounded-2xl p-4 shadow-sm ${linha.resultado >= 0 ? 'bg-emerald-100' : 'bg-amber-100'}`}>
-              <p className="text-xs font-semibold uppercase text-gray-600">{linha.resultado >= 0 ? 'Lucro' : 'Prejuízo'}</p>
-              <p className={`mt-1 text-2xl font-bold ${linha.resultado >= 0 ? 'text-emerald-700' : 'text-amber-700'}`}>{fmt(Math.abs(linha.resultado))}</p>
-              <p className="text-[11px] text-gray-500">entrou − saiu</p>
             </div>
             <div className="rounded-2xl bg-sky-100 p-4 shadow-sm">
               <p className="text-xs font-semibold uppercase text-sky-700">Livre para retirar</p>

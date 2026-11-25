@@ -6,7 +6,7 @@
 >
 > Regras do projeto: `AGENTS.md`. Como o sistema funciona: `docs/mapa/`.
 
-**Última atualização:** 23/11/2026 — fim do dia (régua da perda/devolução corrigida no DRE, número certo de novembro, conferência do dono fechada).
+**Última atualização:** 24/11/2026 — fim do dia (quadro Resultado/Tenho/Devo na tela de Fechamento do Mês, régua única do DRE em `lib/dre.ts`).
 
 ## ESTADO ATUAL — leia isto antes de qualquer outra coisa
 
@@ -52,6 +52,12 @@ outras contas R$ 97.635 · vale-crédito a honrar R$ 5.297).
 6. **Botão “Avaria · não vende”** na devolução.
 7. **Peça quebrada**: baixa como perda lança despesa “Perda: produto” automaticamente.
 8. **Conferência por mês**: nenhum conferente traz mais conta de mês fechado.
+9. **Quadro na tela de Fechamento do Mês** (24/11) — cartões **Resultado do mês**, **Sobra de
+   caixa**, **Tenho** e **Devo** + a tabela "Como o resultado se formou", na mesma régua do DRE
+   de Relatórios (`lib/dre.ts` — a fórmula mora em um lugar só; testes em `test/logica.test.ts`).
+   Conferido ao centavo contra a tela de Relatórios (Petrópolis em 24/11: resultado
+   −R$ 42.927,89 nos dois lugares). O cartão antigo "Lucro/Prejuízo" (que era entrou − saiu de
+   caixa) virou **Sobra de caixa** no quadro. Falta commit/deploy (palavra-chave).
 
 ### O que falta — SÓ ISTO
 

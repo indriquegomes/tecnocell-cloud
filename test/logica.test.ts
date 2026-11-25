@@ -12,6 +12,7 @@ import { formatBRL, formatDate, slugify, normalizarUsuario, diaSP, hojeSP } from
 import { pendentesDeHoje } from '@/lib/lembretes'
 import { ehCompraDeMercadoria, setorDaCategoria, categoriasDoSetor } from '@/lib/financeiro-setores'
 import { categoriaDoDesconto, ehPerdaoDeDivida, rotuloMotivoDesconto } from '@/lib/desconto-fiado'
+import { montarDre } from '@/lib/dre'
 
 // mock do supabase: só o que as helpers de fechamento usam (.from().select().eq().maybeSingle())
 function sbMock(chaveExiste: boolean, erro: unknown = null) {
@@ -375,4 +376,64 @@ test('desconto: rótulo do motivo é padronizado', () => {
   assert.equal(rotuloMotivoDesconto('perda'), 'Não vou receber mais')
   assert.equal(rotuloMotivoDesconto('desconto para pagar agora'), 'Desconto para pagar agora')
   assert.equal(rotuloMotivoDesconto(''), 'Sem motivo')
+})
+
+// ── DRE: régua do resultado (Fechamento do Mês = Relatórios) ───────────────
+// A conta mora em lib/dre.ts. O que os testes travam:
+//   • devolução sem reembolso NÃO reduz receita (loja ficou com o dinheiro);
+//   • peça que não voltou ao estoque NÃO devolve o custo;
+//   • custo travado na venda vence o preço de custo do cadastro;
+//   • resultado = receita líquida − CMV − despesas.
+
+test('dre: devolução com dinheiro de volta cai da receita e devolve o custo', () => {
+  const d = montarDre({
+    vendasTotais: [100, 200],
+    itens: [
+      { quantidade: 2, custoUnitario: 10, precoCusto: 99 },   // travado vence cadastro
+      { quantidade: 1, custoUnitario: null, precoCusto: 5 },   // venda antiga cai no cadastro
+    ],
+    devolvido: [
+      { quantidade: 1, totalItem: 50, pecaVoltou: true, dinheiroVoltou: true, custoUnitario: 10, precoCusto: null },
+    ],
+    despesas: [{ valor: 40, paga: true }, { valor: 10, paga: false }],
+  })
+  assert.equal(d.receitaBruta, 300)
+  assert.equal(d.receitaDevolvida, 50)
+  assert.equal(d.receitaLiquida, 250)
+  assert.equal(d.cmvBruto, 25)
+  assert.equal(d.custoDevolvido, 10)
+  assert.equal(d.cmv, 15)
+  assert.equal(d.lucroBruto, 235)
+  assert.equal(d.despesas, 50)
+  assert.equal(d.despesasPago, 40)
+  assert.equal(d.despesasAberto, 10)
+  assert.equal(d.resultado, 185)
+})
+
+test('dre: devolução sem reembolso e peça que não voltou não mexem em receita nem custo', () => {
+  const d = montarDre({
+    vendasTotais: [100],
+    itens: [{ quantidade: 1, custoUnitario: 20, precoCusto: null }],
+    devolvido: [
+      // loja ficou com o preço (sem_reembolso) e a peça não voltou (avaria)
+      { quantidade: 1, totalItem: 60, pecaVoltou: false, dinheiroVoltou: false, custoUnitario: 20, precoCusto: null },
+    ],
+    despesas: [],
+  })
+  assert.equal(d.receitaDevolvida, 0)
+  assert.equal(d.custoDevolvido, 0)
+  assert.equal(d.cmv, 20)
+  assert.equal(d.resultado, 80)
+})
+
+test('dre: prejuízo volta negativo e despesa sem pagamento entra igual', () => {
+  const d = montarDre({
+    vendasTotais: [100],
+    itens: [{ quantidade: 1, custoUnitario: 70, precoCusto: null }],
+    devolvido: [],
+    despesas: [{ valor: 50, paga: false }],
+  })
+  assert.equal(d.resultado, -20)
+  assert.equal(d.despesasPago, 0)
+  assert.equal(d.despesasAberto, 50)
 })
