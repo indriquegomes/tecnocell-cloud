@@ -27,6 +27,7 @@ const AMBER = '#f59e0b'
 const CARD = 'rounded-2xl border border-gray-200 bg-white shadow-sm'
 const BTN_PRIMARIO = 'inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#1B6CA8] px-4 text-sm font-semibold text-white transition hover:bg-[#155a8e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B6CA8]'
 const BTN_SECUNDARIO = 'inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B6CA8]'
+const BTN_LARANJA = 'inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#F47920] px-4 text-sm font-semibold text-white transition hover:bg-[#d9650f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F47920]'
 const BTN_OK = 'inline-flex min-h-[44px] items-center justify-center rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600'
 const NAV_BASE = 'flex min-h-[44px] items-center rounded-lg px-3 text-sm font-semibold transition'
 const PALETA = [AZUL, '#10b981', '#f59e0b', LARANJA]
@@ -48,7 +49,7 @@ function Pote({ cor, pct, nome }: { cor: string; pct: number; nome: string }) {
     <svg width="110" height="136" viewBox="0 0 80 100" role="img" aria-label={`Pote ${nome}, ${Math.round(p)}% cheio`}>
       <defs><clipPath id={id}><path d="M16 18h48q8 0 8 10v54q0 14-14 14H22q-14 0-14-14V28q0-10 8-10z" /></clipPath></defs>
       <rect x="20" y="3" width="40" height="12" rx="5" fill={LARANJA} stroke="#94a3b8" strokeWidth="2" />
-      <path d="M16 18h48q8 0 8 10v54q0 14-14 14H22q-14 0-14-14V28q0-10 8-10z" fill="#EFF6FF" />
+      <path d="M16 18h48q8 0 8 10v54q0 14-14 14H22q-14 0-14-14V28q0-10 8-10z" fill="#FFF7ED" />
       {h > 0 && <rect x="0" y={96 - h} width="80" height={h} fill={cor} clipPath={`url(#${id})`} />}
       <path d="M16 18h48q8 0 8 10v54q0 14-14 14H22q-14 0-14-14V28q0-10 8-10z" fill="none" stroke="#94a3b8" strokeWidth="2" />
     </svg>
@@ -153,11 +154,13 @@ export default async function ParticularPage({
                 <h1 className="text-2xl font-bold text-gray-900">
                   {aba === 'potinhos' ? 'Meus potinhos' : aba === 'anotar' ? 'Anotar dinheiro' : 'Particular do Dono'}
                 </h1>
-                <p role="status" className="mt-0.5 text-sm text-gray-500">
-                  {params.msg ?? 'As contas da sua vida, pagas com o pró-labore — o que sobra é o que dá para retirar.'}
-                </p>
+                {(params.msg || aba === 'inicio') && (
+                  <p role="status" className="mt-0.5 text-sm text-gray-500">
+                    {params.msg ?? 'As contas da sua vida, pagas com o pró-labore — o que sobra é o que dá para retirar.'}
+                  </p>
+                )}
               </div>
-              <Link href="/painel/particular?aba=anotar" className={BTN_PRIMARIO}>+ Anotar dinheiro</Link>
+              <Link href="/painel/particular?aba=anotar" className={BTN_LARANJA}>+ Anotar dinheiro</Link>
             </div>
 
             {migracaoPendente && (
@@ -262,7 +265,7 @@ export default async function ParticularPage({
                         <div key={p.id} className={`${CARD} flex flex-col items-center gap-2 p-4 text-center`}>
                           <Pote cor={PALETA[idx % PALETA.length]} pct={pct} nome={p.nome} />
                           <span className="text-base font-bold text-gray-800">{p.nome}</span>
-                          <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-[1px] text-xs font-semibold text-gray-500">{pct}% cheio</span>
+                          <span className="rounded-full border border-orange-200 bg-orange-50 px-3 py-[1px] text-xs font-semibold text-[#9a3412]">{pct}% cheio</span>
                           <span className="text-sm text-gray-500">
                             <b className="tabular-nums text-gray-800">{brl(atual)}</b> de <b className="tabular-nums text-gray-800">{brl(objetivo)}</b>
                           </span>
@@ -272,7 +275,7 @@ export default async function ParticularPage({
                             <form action={guardarNoPote} className="mt-1 w-full">
                               <input type="hidden" name="pote_id" value={p.id} />
                               <input type="hidden" name="valor" value="500" />
-                              <button type="submit" className={`${BTN_PRIMARIO} w-full`}>Guardar R$ 500</button>
+                              <button type="submit" className={`${BTN_LARANJA} w-full`}>Guardar R$ 500</button>
                             </form>
                           )}
                         </div>
