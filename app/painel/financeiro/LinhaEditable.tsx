@@ -14,7 +14,7 @@ import { BotaoExcluir } from '@/components/ui/botao-excluir'
 export function LinhaEditable({
   lanc,
   comprovanteUrl,
-  idsDesfazer,
+  desfazerInfo,
   formasOpc,
   filtroBase,
 }: {
@@ -31,7 +31,9 @@ export function LinhaEditable({
     subcategoria?: string | null
   }
   comprovanteUrl: string | null
-  idsDesfazer: boolean
+  // Quantas baixas o "Desfazer" vai apagar e quanto de dinheiro sai do caixa. null =
+  // baixa sem movimento ligado (feita antes do vínculo) — aí o botão fica desabilitado.
+  desfazerInfo?: { qtd: number; valor: number } | null
   formasOpc: string[]
   // Filtros atuais em formato de query string. Com isso o nome da pessoa vira um
   // link: um clique isola aquele cliente/fornecedor sem digitar nada, sem perder
@@ -139,13 +141,22 @@ export function LinhaEditable({
               a do PDV (F9): as duas gravam movimento no caixa ligado ao lançamento, e é
               esse movimento que o desfazer apaga junto (senão a gaveta ficaria errada).
               Linha baixada antes do vínculo existir não tem movimento ligado — aí o
-              botão fica desabilitado e explica. */}
-          {pago && (lanc.tipo === 'pagar' || idsDesfazer) && (
-            <form action={desfazerPagamento.bind(null, lanc.id)}>
+              botão fica desabilitado e explica. O Desfazer apaga TODAS as baixas do
+              lançamento, então a confirmação mostra a quantidade e o valor antes. */}
+          {pago && (lanc.tipo === 'pagar' || desfazerInfo) && (
+            <form action={desfazerPagamento.bind(null, lanc.id)}
+              onSubmit={(e) => {
+                const q = desfazerInfo?.qtd ?? 0
+                const v = desfazerInfo?.valor ?? 0
+                const msg = q > 0
+                  ? `Desfazer esta baixa? Vai desfazer ${q} baixa${q > 1 ? 's' : ''} deste lançamento — ${formatBRL(v)}. O dinheiro sai do caixa e o lançamento volta para pendente. Só no mesmo dia.`
+                  : `Desfazer a baixa de ${formatBRL(lanc.valor ?? 0)}? O lançamento volta para pendente. Só no mesmo dia.`
+                if (!window.confirm(msg)) e.preventDefault()
+              }}>
               <button type="submit" title="Desfazer a baixa: o lançamento volta para pendente e o dinheiro sai do caixa. Só no mesmo dia." className="rounded-lg px-2.5 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 transition">Desfazer</button>
             </form>
           )}
-          {pago && lanc.tipo !== 'pagar' && !idsDesfazer && (
+          {pago && lanc.tipo !== 'pagar' && !desfazerInfo && (
             <button type="button" disabled
               title="Esta baixa não tem movimento de caixa ligado a ela (foi feita antes de o sistema passar a ligar). Desfazer por aqui deixaria a gaveta errada — fale com o dono."
               className="rounded-lg px-2.5 py-1 text-xs font-medium text-gray-300 cursor-not-allowed">Desfazer</button>

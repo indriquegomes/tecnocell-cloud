@@ -121,14 +121,27 @@ export default async function FinanceiroPage({
 
   // Lancamentos com movimento de caixa ligado (quitados pelo Financeiro OU pelo F9 do
   // PDV). Só esses têm "Desfazer" seguro — o movimento é a prova de que o dinheiro
-  // entrou/saiu, e é ele que o desfazer apaga junto.
-  const { data: movsLigados } = await supabase
-    .from('movimentos_caixa')
-    .select('lancamento_id')
-    .not('lancamento_id', 'is', null)
-    .eq('tipo', 'recebimento')
-    .in('origem', ['financeiro', 'pdv', 'correcao'])
-  const idsDesfazer = new Set(((movsLigados ?? []) as { lancamento_id: string }[]).map((m) => m.lancamento_id))
+  // entrou/saiu, e é ele que o desfazer apaga junto. A consulta olha só as linhas da
+  // página (antes lia a tabela inteira e o cap de 1000 do PostgREST podia esconder
+  // movimento, deixando o botão desabilitado numa linha que tinha baixa).
+  // `qtd` e `valor` vão pra tela: o Desfazer apaga TODAS as baixas do lançamento, e o
+  // operador tem que ver quantas e quanto antes de confirmar.
+  const idsDaPagina = todos.map((l) => l.id)
+  const { data: movsLigados } = idsDaPagina.length > 0
+    ? await supabase.from('movimentos_caixa')
+        .select('lancamento_id, valor')
+        .in('lancamento_id', idsDaPagina)
+        .in('tipo', ['recebimento', 'retirada'])
+        .in('origem', ['financeiro', 'pdv', 'correcao'])
+    : { data: null }
+  const desfazerInfo = new Map<string, { qtd: number; valor: number }>()
+  for (const m of (movsLigados ?? []) as { lancamento_id: string | null; valor: number | null }[]) {
+    if (!m.lancamento_id) continue
+    const atual = desfazerInfo.get(m.lancamento_id) ?? { qtd: 0, valor: 0 }
+    atual.qtd += 1
+    atual.valor = Math.round((atual.valor + Number(m.valor ?? 0)) * 100) / 100
+    desfazerInfo.set(m.lancamento_id, atual)
+  }
 
   // ✨ Totais DO FILTRO (não só os globais): soma exatamente o que está filtrado,
   // sem o cap de 200 da lista. equipe: "quanto tenho a receber em PIX vencendo em agosto".
@@ -428,7 +441,7 @@ export default async function FinanceiroPage({
                   key={l.id}
                   lanc={l}
                   comprovanteUrl={comprovanteUrl.get(l.id) ?? null}
-                  idsDesfazer={idsDesfazer.has(l.id)}
+                  desfazerInfo={desfazerInfo.get(l.id) ?? null}
                   formasOpc={formasOpc}
                   filtroBase={new URLSearchParams(baseParams).toString()}
                 />
