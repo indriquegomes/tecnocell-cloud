@@ -150,7 +150,7 @@ export default async function PainelFinanceiroPage({
 
       <div className="flex min-h-full flex-wrap" style={{ background: CREAM }}>
         {/* ── Barra lateral (250px, branca, linha grossa à direita) ── */}
-        <aside className="flex basis-[250px] flex-col gap-2.5 border-r-[3px] border-[#1F1B3A] bg-white px-4 py-5">
+        <aside className="flex flex-col gap-2.5 border-r-[3px] border-[#1F1B3A] bg-white px-4 py-5 lg:w-[250px] lg:shrink-0">
           <div className="flex items-center gap-2.5 px-2 pb-3.5 text-xl font-black">
             <span aria-hidden className="inline-block h-[30px] w-[30px] rounded-[9px] border-2 border-[#1F1B3A] bg-[#FFD25A]" />
             TecnoCell
