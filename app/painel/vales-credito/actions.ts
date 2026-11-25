@@ -71,16 +71,20 @@ export async function estornarCredito(id: string, formData?: FormData) {
   // Sem essa resposta a conta a pagar que a RPC cria ficava pendente para sempre —
   // em outubro/2026 foram 6 lançamentos (786,00) acumulados sem ninguém dar baixa.
   // Escolher a origem = já entregou. Deixar em branco = ainda deve ao cliente.
-  const origem = ((formData?.get('origem') as string | null) ?? '').trim()   // 'Dinheiro' | 'PIX' | ''
-  const entregue = origem !== ''
+  // CANCELAR = não há dinheiro a devolver (crédito errado, cliente desistiu do vale
+  // ou o reembolso já foi pago fora do app): cancela o crédito sem abrir conta.
+  const origem = ((formData?.get('origem') as string | null) ?? '').trim()   // 'Dinheiro' | 'PIX' | 'CANCELAR' | ''
+  const soCancelar = origem.toUpperCase() === 'CANCELAR'
+  const entregue = origem !== '' && !soCancelar
 
   // TRAVA (22/11): se a devolução desse crédito JÁ teve o reembolso pago, estornar
   // cria uma conta a pagar que não existe — o cliente recebeu o dinheiro e o crédito
   // só precisa sair do saldo. Foi o que deixou R$ 530,00 de dívida fantasma no
   // RODRIGO PEREIRA (reembolso de 1.530,90 pago em 19/11 e duas linhas "a pagar"
   // abertas em 21/11) e a duplicata do LK CELL. A conferência é feita ANTES da RPC:
-  // ou dá tudo certo, ou nada é escrito.
-  {
+  // ou dá tudo certo, ou nada é escrito. Não vale para "só cancelar", que não abre
+  // conta nenhuma.
+  if (!soCancelar) {
     const { data: cred } = await supabase
       .from('creditos_clientes')
       .select('id, valor, pessoa_nome, devolucao_id')
@@ -111,7 +115,7 @@ export async function estornarCredito(id: string, formData?: FormData) {
         redirect(`/painel/vales-credito?erro=${encodeURIComponent(
           `O reembolso desta devolução já foi pago em ${quando} (${pago.descricao ?? 'Devolução'}). `
           + 'Estornar o crédito agora abriria uma conta a pagar que não existe. '
-          + 'Se o crédito precisa sair do saldo mesmo assim, fale com o dono.',
+          + 'Se o dinheiro já voltou para o cliente, escolha "só cancelar (não devo nada)" e confirme.',
         )}`)
       }
     }
@@ -123,7 +127,14 @@ export async function estornarCredito(id: string, formData?: FormData) {
   // único em estorna_credito_id) + — se o crédito veio de uma DEVOLUÇÃO —
   // cria um lançamento 'pagar' pendente, porque estornar não pode fazer
   // dinheiro que saiu de uma devolução simplesmente sumir do sistema.
-  const { data, error } = await supabase.rpc('estornar_credito_cliente', { p_credito_id: id })
+  //
+  // `p_criar_conta: false` é o "só cancelar": o crédito sai do saldo e nenhuma
+  // conta é aberta (nem despesa). Só manda o parâmetro quando é esse caso — sem a
+  // migration aplicada a chamada de 1 argumento continua igual, então a tela não
+  // quebra se o SQL ainda não foi colado.
+  const { data, error } = soCancelar
+    ? await supabase.rpc('estornar_credito_cliente', { p_credito_id: id, p_criar_conta: false })
+    : await supabase.rpc('estornar_credito_cliente', { p_credito_id: id })
   if (error) {
     const m = error.message
     let msg = m
@@ -132,6 +143,9 @@ export async function estornarCredito(id: string, formData?: FormData) {
       msg = `Não dá pra estornar: o cliente só tem ${formatBRL(Math.max(0, +s))} de saldo, e esse crédito valia ${formatBRL(+v)} — parte dele já foi usada. Estornar deixaria o saldo negativo.`
     } else if (error.code === '23505' || m.includes('creditos_clientes_estorno_unico')) {
       msg = 'Este crédito já foi estornado.'
+    } else if (/could not find the function|p_criar_conta/i.test(m)) {
+      // "só cancelar" depende da migration 2026-11-25-estorno-credito-sem-conta.sql.
+      msg = 'O cancelamento sem devolver dinheiro ainda não está liberado no banco (falta colar o SQL da migration). Nada foi alterado — avise o dono.'
     }
     redirect(`/painel/vales-credito?erro=${encodeURIComponent(msg)}`)
   }
@@ -180,5 +194,8 @@ export async function estornarCredito(id: string, formData?: FormData) {
 
   revalidatePath('/painel/vales-credito')
   revalidatePath('/painel/financeiro')   // a dívida nova (se houver) precisa aparecer lá
+  if (soCancelar) {
+    redirect('/painel/vales-credito?ok=' + encodeURIComponent('Crédito cancelado. Nenhuma conta a pagar foi criada (o dinheiro não saiu do app).'))
+  }
   redirect(`/painel/vales-credito${avisoGaveta ? `?erro=${encodeURIComponent(avisoGaveta.trim())}` : ''}`)
 }

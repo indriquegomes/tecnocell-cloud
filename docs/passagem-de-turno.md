@@ -108,9 +108,16 @@ outras contas R$ 97.635 · vale-crédito a honrar R$ 5.297).
    Os 4 estornos que estavam pendentes no Financeiro (R$ 315,00: MICHEL GARCIA 45, Marcos Vinicius
    Ferreira da Conceição 51, FG ASSISTENCIA 142 e 77) foram marcados como pagos com
    `scripts/consertar-estornos-fora-do-app.mjs` (backup + DESFAZER em `docs/registros-banco/2026-11/`).
-   **Falta colar no SQL Editor** duas migrações: `2026-11-25-estorno-credito-pago.sql` (o botão
-   "Estornar crédito" passar a nascer pago) e `2026-11-25-pago-tem-valor-pago.sql` (trigger: linha
-   paga sempre tem `valor_pago` — hoje o reembolso de devolução grava 0 e a tela soma R$ 0,00).
+   **Falta colar no SQL Editor** duas migrações: `2026-11-25-estorno-credito-sem-conta.sql` (o
+   "Cancelar crédito" ganha a resposta "só cancelar (não devo nada)": cancela o vale sem abrir conta
+   a pagar) e `2026-11-25-pago-tem-valor-pago.sql` (trigger: linha paga sempre tem `valor_pago` —
+   hoje o reembolso de devolução grava 0 e a tela soma R$ 0,00).
+
+6. **Cancelar vale sem devolver dinheiro** — em Créditos de Clientes o "Cancelar" agora pergunta as
+   três coisas: "ainda vou devolver" (abre conta a pagar), "já devolvi em dinheiro/PIX" (quita e
+   registra gaveta/conta) e "só cancelar (não devo nada)" — este último cancela o crédito sem
+   criar conta nenhuma (crédito errado, cliente desistiu do vale, ou reembolso já pago fora do app).
+   Antes esse caso era impossível: a trava de 22/11 recusava e o vale ficava preso no saldo.
 5. **Bot do WhatsApp (25/11)**: foi **recomeçado do zero no modo mínimo** —
    `bot-whatsapp/pix.mjs` responde **só** "qual o PIX" (chave lida de
    `contas.chave_pix` da conta bancária da loja; hoje PagBank Petrópolis,

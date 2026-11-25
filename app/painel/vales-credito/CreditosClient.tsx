@@ -144,7 +144,7 @@ export function CreditosClient({
       </div>
 
       {erro && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
-      {ok && <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">Crédito emitido com sucesso!</div>}
+      {ok && <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{ok === '1' ? 'Crédito emitido com sucesso!' : ok}</div>}
 
       {/* Cards resumo */}
       <div className="grid gap-4 sm:grid-cols-3">
@@ -304,14 +304,15 @@ export function CreditosClient({
                                 <select
                                   name="origem"
                                   defaultValue=""
-                                  title="De onde saiu o dinheiro devolvido ao cliente?"
+                                  title="O dinheiro do vale já voltou para o cliente?"
                                   className="rounded-lg border border-gray-200 px-1.5 py-1 text-xs text-gray-600"
                                 >
-                                  <option value="">não entreguei</option>
-                                  <option value="Dinheiro">dinheiro da gaveta</option>
-                                  <option value="PIX">PIX / conta</option>
+                                  <option value="">ainda vou devolver (fica a pagar)</option>
+                                  <option value="Dinheiro">já devolvi em dinheiro</option>
+                                  <option value="PIX">já devolvi em PIX/conta</option>
+                                  <option value="CANCELAR">só cancelar (não devo nada)</option>
                                 </select>
-                                <ConfirmButton message="Cancelar este vale (crédito)? O saldo dele sai do cliente e, se você escolheu a origem, já fica registrado como devolvido." className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-100 transition">
+                                <ConfirmButton message="Cancelar este vale (crédito)? Ele sai do saldo do cliente. Se escolheu dinheiro/PIX, o pagamento já fica registrado; em 'só cancelar' nenhuma conta é criada." className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-100 transition">
                                   Cancelar
                                 </ConfirmButton>
                               </form>
