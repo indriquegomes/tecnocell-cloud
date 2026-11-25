@@ -481,12 +481,12 @@ export async function desfazerPagamento(id: string) {
   // Quem chama pela tela já passou pelas travas (só o MESMO dia, caixa aberto).
   const { data: movs, error: erroMov } = await supabase
     .from('movimentos_caixa')
-    .select('id, valor, caixa_id, tipo, origem')
+    .select('id, valor, caixa_id, tipo, origem, forma_pagamento')
     .eq('lancamento_id', id)
     .in('tipo', ['recebimento', 'retirada'])
     .in('origem', ['financeiro', 'pdv', 'correcao'])
   if (erroMov) redirect(`/painel/financeiro?erro=${encodeURIComponent(erroMov.message)}`)
-  const lista = (movs ?? []) as { id: string; valor: number | null; caixa_id: string | null; tipo?: string }[]
+  const lista = (movs ?? []) as { id: string; valor: number | null; caixa_id: string | null; tipo?: string; forma_pagamento?: string | null }[]
   // Recebimento devolve dinheiro à gaveta; retirada tirou dinheiro dela. Só o que o
   // "Pago" criou, e com o sinal certo.
   const valorMovido = Math.round(lista.reduce((s, m) => {
@@ -546,6 +546,41 @@ export async function desfazerPagamento(id: string) {
     if ((sobrou ?? []).length > 0) {
       console.warn('desfazerPagamento: RPC não apagou todos os movimentos; limpando o resto', sobrou)
       await supabase.from('movimentos_caixa').delete().eq('lancamento_id', id).in('tipo', ['recebimento', 'retirada'])
+    }
+  }
+
+  // HISTÓRICO DE PAGAMENTO: o desfazer apaga o movimento do caixa, mas o recebimento
+  // do fiado também grava uma linha em `historico_pagamentos` (F9 do PDV). Sem limpar
+  // aqui, a dívida fica com histórico maior que o valor pago — e qualquer conta que
+  // some o histórico mente (24/11/2026: Desfazer + re-quitar deixou 68+23+68 numa
+  // dívida de 68). Remove do histórico só as linhas dos recebimentos que voltaram;
+  // desconto e pagamento parcial antigo continuam lá.
+  if (lanc.tipo === 'receber') {
+    const recebidos = lista.filter((m) => m.tipo === 'recebimento')
+    if (recebidos.length > 0) {
+      const { data: histRow } = await supabase.from('lancamentos')
+        .select('historico_pagamentos').eq('id', id).maybeSingle()
+      const atual = (histRow as { historico_pagamentos?: unknown[] } | null)?.historico_pagamentos
+      const hist = Array.isArray(atual) ? [...atual] : []
+      const normForma = (s: unknown) => String(s ?? '').trim().toLowerCase()
+      let mexeu = false
+      for (const m of recebidos) {
+        const valorMov = Math.round(Number(m.valor ?? 0) * 100) / 100
+        const formaMov = normForma(m.forma_pagamento)
+        // uma linha por movimento: casa valor + forma; desconto nunca casa
+        const idx = hist.findIndex((h) => {
+          const o = h as { valor?: number | null; forma?: string | null; tipo?: string | null }
+          if (o?.tipo === 'desconto') return false
+          const v = Math.round(Number(o?.valor ?? 0) * 100) / 100
+          return v === valorMov && (!formaMov || !o?.forma || normForma(o.forma) === formaMov)
+        })
+        if (idx >= 0) { hist.splice(idx, 1); mexeu = true }
+      }
+      if (mexeu) {
+        await supabase.from('lancamentos')
+          .update({ historico_pagamentos: hist, updated_at: new Date().toISOString() })
+          .eq('id', id)
+      }
     }
   }
 

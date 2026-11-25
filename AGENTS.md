@@ -331,6 +331,14 @@ bater com o total, senão a venda inteira é recusada.
   R$ 415,40, entre 13 e 17/11/2026). Regra: toda coluna que o código lê/escreve
   precisa da migration aplicada; quando um fluxo "funcionou mas não gravou a segunda
   parte", conferir `information_schema.columns` antes de acusar a regra.
+- **"Desfazer" apagava o movimento mas deixava o histórico de pagamento.** O F9 do PDV
+  grava uma linha por recebimento em `lancamentos.historico_pagamentos`; o
+  `desfazerPagamento` só apagava o movimento do caixa e zerava status/valor_pago, e a
+  linha do histórico continuava lá. Desfazer e re-quitar a mesma dívida deixava o
+  histórico maior que o valor pago (25/11/2026: 68 + 23 + 68 numa dívida de 68) e
+  qualquer conta que some o histórico mentia. Desde 25/11 a action limpa do histórico as
+  linhas dos recebimentos que voltaram (casa valor + forma; desconto e parcial antigo
+  ficam).
 - **Estorno de crédito não conferia se o reembolso já tinha sido pago.** A RPC
   `estornar_credito_cliente` cancela o crédito do cliente e, quando o crédito veio de
   uma devolução, **abre uma conta a pagar pendente** — sem olhar se aquela devolução
