@@ -51,7 +51,12 @@ async function descobrirChatDoErro(
       return { chat: null, titulo: null, erro: corpo.description ?? 'Telegram recusou getUpdates' }
     }
 
-    const achado = escolherChatDeErro(mapearChats(corpo.result ?? []))
+    // Conversa direta só vale com o bot DEDICADO (TELEGRAM_TOKEN_ERROS). No bot da
+    // loja (fallback do token) qualquer pessoa que já falou com ele apareceria no
+    // getUpdates, e o aviso técnico iria parar na conversa dela.
+    const dedicado = !!process.env.TELEGRAM_TOKEN_ERROS
+    const candidatos = mapearChats(corpo.result ?? []).filter((c) => dedicado || c.tipo !== 'private')
+    const achado = escolherChatDeErro(candidatos)
     const nome = nomeDoChat(achado)
     if (!achado) {
       return { chat: null, titulo: null, erro: 'o bot ainda não está em grupo nem conversa: mande "oi" para ele no Telegram' }
