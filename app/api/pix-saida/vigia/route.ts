@@ -71,8 +71,8 @@ export async function GET(req: Request) {
   // Devolução = tem devolucao_id ou descrição "Devolução — …". Forma PIX ou
   // "fora do app": nas duas o dinheiro saiu e a prova (print) tem que existir.
   const candidatas = linhas.filter((l) =>
-    (!!l.devolucao_id || String(l.descricao ?? '').toLowerCase().startsWith('devolu')) &&
-    /pix|fora_do_app/i.test(String(l.forma_pagamento ?? '')),
+    (!!l.devolucao_id || /^(devolu|estorno)/i.test(String(l.descricao ?? ''))) &&
+    /pix|fora/i.test(String(l.forma_pagamento ?? '')),
   )
 
   let ligados = new Set<string>()

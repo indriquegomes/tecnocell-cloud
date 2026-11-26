@@ -219,7 +219,7 @@ export function mensagemDoPix(
       // Pagamento marcado como "fora do app" não desconta do banco. Se o PIX saiu do
       // PagBank, o saldo fica inflado — e é o tipo de diferença que só aparece no
       // fechamento do mês. O robô não troca a forma sozinho: avisa quem pode trocar.
-      const avisoForma = /fora_do_app/i.test(forma)
+      const avisoForma = /fora/i.test(forma)
         ? '\n⚠️ Esta conta está como "fora do app", que NÃO baixa do PagBank. Se o PIX saiu do banco, troque a forma para PIX no Financeiro.'
         : ''
       return `${cabeca}\n\n✅ Casa com: ${quemLinha} · ${formatBRL(Number(c.valor ?? 0))} · ${diaBR(diaDoCampo(c.diaPagamento) ?? diaDoCampo(c.diaVencimento))} (${situacao}).\nMotivo: ${r.motivo}.\n🔗 Comprovante ligado a esta conta como prova.${avisoForma}${c.status === 'pago' ? '' : '\nA conta continua EM ABERTO no app — marque Pago na tela quando o dinheiro sair.'}`

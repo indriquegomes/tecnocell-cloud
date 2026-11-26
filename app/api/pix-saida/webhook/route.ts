@@ -245,8 +245,9 @@ async function candidatosDoFinanceiro(supabase: ReturnType<typeof sb>, pix: PixS
     .gte('created_at', desloca(-JANELA_DIAS - 400) + 'T00:00:00')
     .limit(100)
 
-  const formaDevolucao = (f: string | null) => /pix|fora_do_app/i.test(String(f ?? ''))
-  const ehDevolucao = (l: LinhaDb) => !!l.devolucao_id || /^devolu/i.test(String(l.descricao ?? ''))
+  // A forma tem DUAS grafias no banco: a chave `fora_do_app` e o rótulo que a`n  // // tela mostra (`Fora do app (WhatsApp)`). Testar só a chave perdia metade.
+  const formaDevolucao = (f: string | null) => /pix|fora/i.test(String(f ?? ''))
+  const ehDevolucao = (l: LinhaDb) => !!l.devolucao_id || /^(devolu|estorno)/i.test(String(l.descricao ?? ''))
 
   // A janela é conferida em memória: `data_pagamento`/`data_vencimento` são
   // timestamptz gravados como data pura e filtrar por eles no PostgREST erra o dia.

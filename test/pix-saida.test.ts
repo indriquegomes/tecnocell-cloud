@@ -326,3 +326,17 @@ test('aviso: mostra dia, nome, valor e o total', () => {
   assert.match(texto, /Total: 2 contas/)
   assert.match(texto, /Manda o print/i)
 })
+test('forma "Fora do app (WhatsApp)" (rótulo) também conta como saída de PIX', () => {
+  // O banco guarda as duas grafias: a chave `fora_do_app` e o rótulo que a tela
+  // mostra. Testar só a chave deixava metade das devoluções fora do aviso.
+  assert.equal(semComprovante([pago({ forma: 'Fora do app (WhatsApp)' })]).length, 1)
+  assert.equal(semComprovante([pago({ forma: 'PIX do cliente ao fornecedor' })]).length, 1)
+  assert.equal(semComprovante([pago({ forma: 'Dinheiro' })]).length, 0)
+  const msg = mensagemDoPix(pix(), conciliarPixSaida(pix(), [dev({ forma: 'Fora do app (WhatsApp)' })]))
+  assert.match(msg, /NÃO baixa do PagBank/)
+})
+test('linha "Estorno de crédito — devolução da venda #…" também entra no aviso', () => {
+  const estorno = pago({ descricao: 'Estorno de crédito — devolução da venda #15201 — MICHEL GARCIA', pessoaNome: 'MICHEL GARCIA', devolucaoId: null })
+  assert.equal(semComprovante([estorno]).length, 1)
+  assert.match(montarAviso([estorno])!, /MICHEL GARCIA/)
+})

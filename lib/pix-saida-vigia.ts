@@ -39,13 +39,14 @@ const diaBR = (d: string | null) => {
  */
 export function semComprovante(linhas: LancamentoPixPago[]): LancamentoPixPago[] {
   const ehDevolucao = (l: LancamentoPixPago) =>
-    !!l.devolucaoId || /^devolu/i.test(String(l.descricao ?? ''))
+    // Duas famílias de descrição no Financeiro: Devolução — … e Estorno de crédito — devolução da venda #…. Filtrar só a primeira deixava metade das devoluções fora do aviso.
+    !!l.devolucaoId || /^(devolu|estorno)/i.test(String(l.descricao ?? ''))
   return (linhas ?? [])
     .filter((l) => l && l.id)
     .filter((l) => !/cancelad/i.test(String(l.status ?? '')))
     .filter((l) => String(l.status ?? '') === 'pago')
     .filter(ehDevolucao)
-    .filter((l) => /pix/i.test(String(l.forma ?? '')) || /fora_do_app/i.test(String(l.forma ?? '')))
+    .filter((l) => /pix|fora/i.test(String(l.forma ?? '')))
     .filter((l) => !l.temComprovante)
 }
 
@@ -58,7 +59,7 @@ export function montarAviso(linhas: LancamentoPixPago[], opcoes: { dias?: number
 
   const total = lista.reduce((s, l) => s + Number(l.valor ?? 0), 0)
   const mostradas = lista.slice(0, maximo).map((l) => {
-    const foraDoApp = /fora_do_app/i.test(String(l.forma ?? ''))
+    const foraDoApp = /fora/i.test(String(l.forma ?? ''))
     const quem = String(l.pessoaNome ?? '').trim() || String(l.descricao ?? '').replace(/^Devolu[çc][ãa]o\s*[—–-]\s*/i, '').trim() || 'sem nome'
     return `• ${diaBR(l.diaPagamento)} · ${quem} · ${formatBRL(Number(l.valor ?? 0))}${foraDoApp ? ' · (marcada "fora do app")' : ''}`
   })
