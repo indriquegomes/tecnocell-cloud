@@ -1,0 +1,16 @@
+{
+  "conta_id": "39c20166-a02d-4b67-ae91-7613de75425a",
+  "conta_antes": {
+    "devolucao_id": "96cec82a-c68f-4cec-9328-e5efa2a939f5"
+  },
+  "devolucao_id": "96cec82a-c68f-4cec-9328-e5efa2a939f5",
+  "devolucao_antes": {
+    "tipo_credito": "sem_reembolso",
+    "reembolsos": [
+      {
+        "tipo": "sem_reembolso",
+        "valor": 229
+      }
+    ]
+  }
+}
