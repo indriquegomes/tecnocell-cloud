@@ -6,7 +6,7 @@ import {
   mesmoCliente,
   type LancamentoPagar,
 } from '../lib/pix-saida.ts'
-import { mensagemDoPix, normalizarLeitura, parseValor } from '../lib/pix-saida-bot.ts'
+import { lerCartaoDevolucao, mensagemDoPix, normalizarLeitura, parseValor } from '../lib/pix-saida-bot.ts'
 
 // O PIX de saída é dinheiro REAL saindo da conta: baixa errada aqui apaga dívida
 // de cliente errado. Por isso quase todo caso abaixo espera "escolher" — quem
@@ -25,7 +25,7 @@ const dev = (extra: Partial<LancamentoPagar> = {}): LancamentoPagar => ({
   ...extra,
 })
 
-const pix = (extra: Partial<{ valor: number | null; dia: string | null; destinatario: string | null }> = {}) => ({
+const pix = (extra: Partial<{ valor: number | null; dia: string | null; destinatario: string | null; clienteSistema: string | null }> = {}) => ({
   valor: 100,
   dia: '2026-12-01',
   destinatario: 'MARLENE DA SILVA',
@@ -195,5 +195,73 @@ test('mensagem sem par avisa que saiu dinheiro sem conta no app', () => {
 test('mensagem com dúvida lista os candidatos numerados', () => {
   const msg = mensagemDoPix(pix({ destinatario: null }), conciliarPixSaida(pix({ destinatario: null }), [dev({ id: 'a' })]))
   assert.match(msg, /1\. Marlene/i)
+})
+
+// ---------- cartão da devolução: o nome do SISTEMA manda ----------
+//
+// O caso real: o PIX de R$ 15,00 saiu para a conta de "Luciana Lúcio Trece", mas a
+// devolução no app está no nome de SÉRGIO CELULARES. Procurar pelo nome do
+// comprovante nunca acha nada — o cartão é que diz o nome do cadastro.
+
+const CARTAO = `↩️ NOME DO CLIENTE EM SISTEMA:Sérgio celulares
+⚠️ VALOR DO REEMBOLSO: *15,00*
+💠 CHAVE PIX PARA REEMBOLSO:09992475730
+🏦 BANCO:
+❓ MOTIVO DO REEMBOLSO:Não tinha a peça
+🪪 NOME DA CONTA BANCARIA:Luciana Lúcio Trece`
+
+test('cartão da devolução: lê cliente do sistema, valor, chave e motivo', () => {
+  const c = lerCartaoDevolucao(CARTAO)
+  assert.ok(c)
+  assert.equal(c!.clienteSistema, 'Sérgio celulares')
+  assert.equal(c!.valor, 15)
+  assert.equal(c!.chavePix, '09992475730')
+  assert.equal(c!.motivo, 'Não tinha a peça')
+  assert.equal(c!.nomeConta, 'Luciana Lúcio Trece')
+  assert.equal(c!.temRotulo, true)
+})
+
+test('cartão: o nome da CONTA não vira nome do cliente', () => {
+  const c = lerCartaoDevolucao(CARTAO)!
+  assert.notEqual(c.clienteSistema, c.nomeConta)
+  // e o nome do sistema casa com a devolução que existe no app
+  assert.equal(mesmoCliente(c.clienteSistema, 'SÉRGIO CELULARES'), true)
+  assert.equal(mesmoCliente(c.nomeConta, 'SÉRGIO CELULARES'), false)
+})
+
+test('cartão: sem os rótulos não é cartão (conversa no grupo não vira palpite)', () => {
+  assert.equal(lerCartaoDevolucao('bom dia'), null)
+  assert.equal(lerCartaoDevolucao('já paguei aquele cliente'), null)
+  assert.equal(lerCartaoDevolucao(''), null)
+})
+
+test('cartão sem cliente ou sem valor é reconhecido como incompleto', () => {
+  const soValor = lerCartaoDevolucao('⚠️ VALOR DO REEMBOLSO: 15,00')!
+  assert.equal(soValor.valor, 15)
+  assert.equal(soValor.clienteSistema, null)
+})
+
+test('o nome do cartão manda no casamento: PIX em nome alheio acha a devolução certa', () => {
+  const daLoja = dev({ pessoaNome: 'SÉRGIO CELULARES', descricao: 'Devolução — SÉRGIO CELULARES', valor: 15 })
+  // só com o nome do comprovante (conta da Luciana) não acha
+  const semCartao = conciliarPixSaida(pix({ valor: 15, destinatario: 'Luciana Lúcio Trece' }), [daLoja])
+  assert.equal(semCartao.tipo, 'sem_par')
+  // com o cartão, acha e baixa (nome + valor + um candidato só)
+  const comCartao = conciliarPixSaida(
+    pix({ valor: 15, destinatario: 'Luciana Lúcio Trece', clienteSistema: 'Sérgio celulares' }),
+    [daLoja],
+  )
+  assert.equal(comCartao.tipo, 'baixar')
+})
+
+test('mensagem mostra os dois nomes quando o PIX foi para conta de outra pessoa', () => {
+  const msg = mensagemDoPix(
+    pix({ valor: 15, destinatario: 'Luciana Lúcio Trece', clienteSistema: 'Sérgio celulares' }),
+    conciliarPixSaida(pix({ valor: 15, destinatario: 'Luciana Lúcio Trece', clienteSistema: 'Sérgio celulares' }), [
+      dev({ valor: 15, pessoaNome: 'SÉRGIO CELULARES', descricao: 'Devolução — SÉRGIO CELULARES' }),
+    ]),
+  )
+  assert.match(msg, /Luciana Lúcio Trece/)
+  assert.match(msg, /Cliente no sistema: Sérgio celulares/)
 })
 

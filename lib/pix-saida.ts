@@ -23,8 +23,15 @@ export type PixSaida = {
   valor: number | null
   /** dia do PIX (AAAA-MM-DD, ou timestamp que o helper converte) */
   dia: string | null
-  /** quem RECEBEU o dinheiro — é o cliente que devolveu a peça */
+  /** quem RECEBEU o dinheiro — costuma ser a conta do cliente, não o nome do cadastro */
   destinatario: string | null
+  /**
+   * Nome do cliente NO SISTEMA, quando alguém mandou o cartão da devolução junto.
+   * É o nome certo para procurar: o PIX vai para a conta do parente/do amigo com
+   * outro nome, e procurar pelo nome do comprovante nunca acha a devolução.
+   * Quando existe, este nome manda.
+   */
+  clienteSistema?: string | null
   /** ID da transação (E2E) — o mesmo PIX reenviado não pode ser conciliado duas vezes */
   transacaoId?: string | null
 }
@@ -139,6 +146,9 @@ export function conciliarPixSaida(
   if (!(valor > 0)) return { tipo: 'ignorar', motivo: 'o valor do PIX não foi lido' }
   const diaPix = diaDoCampo(pix?.dia)
   if (!diaPix) return { tipo: 'ignorar', motivo: 'o PIX está sem data legível' }
+  // O nome do CADASTRO manda quando existe (cartão da devolução junto do print):
+  // o PIX cai na conta de outra pessoa e o nome do comprovante não está no sistema.
+  const cliente = String(pix?.clienteSistema ?? '').trim() || String(pix?.destinatario ?? '').trim() || null
 
   const candidatos = (lancamentos ?? [])
     .filter((l) => l && l.id)
@@ -169,7 +179,7 @@ export function conciliarPixSaida(
     }
   }
 
-  const fortes = candidatos.filter((c) => mesmoCliente(pix.destinatario, c.l.pessoaNome ?? c.l.descricao))
+  const fortes = candidatos.filter((c) => mesmoCliente(cliente, c.l.pessoaNome ?? c.l.descricao))
   if (fortes.length === 1) {
     return {
       tipo: 'baixar',
@@ -181,14 +191,14 @@ export function conciliarPixSaida(
     return {
       tipo: 'escolher',
       candidatos: fortes.map((c) => c.l),
-      motivo: `${fortes.length} linhas do mesmo valor para ${pix.destinatario ?? 'este nome'}`,
+      motivo: `${fortes.length} linhas do mesmo valor para ${cliente ?? 'este nome'}`,
     }
   }
 
   // O comprovante TEM nome e nenhuma linha é dessa pessoa: as linhas de mesmo
   // valor são de OUTROS clientes. Oferecê-las como opção ("escolher") é como se
   // erra a baixa — o certo é dizer que não achou e nomear o que existe no período.
-  const temNome = !!String(pix.destinatario ?? '').trim()
+  const temNome = !!String(cliente ?? '').trim()
   if (fortes.length === 0 && temNome) {
     const outras = candidatos.length
     const reais = valor.toFixed(2).replace('.', ',')
@@ -197,7 +207,7 @@ export function conciliarPixSaida(
       : outras === 1
         ? ` — existe uma conta de R$ ${reais} no período, mas de outro nome`
         : ` — existem ${outras} contas de R$ ${reais} no período, mas de outros nomes`
-    return { tipo: 'sem_par', motivo: `nenhuma conta no nome de ${pix.destinatario}${nota}` }
+    return { tipo: 'sem_par', motivo: `nenhuma conta no nome de ${cliente}${nota}` }
   }
 
   // Sem nome legível no comprovante: só o valor sobrou como pista, então quem

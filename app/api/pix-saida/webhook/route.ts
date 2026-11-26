@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { ehContaPropria, type DestinoPix } from '@/lib/pix-destinos'
-import { conciliarPixSaida, diaDoCampo, type LancamentoPagar } from '@/lib/pix-saida'
-import { normalizarLeitura, mensagemDoPix, PROMPT_COMPROVANTE } from '@/lib/pix-saida-bot'
+import { conciliarPixSaida, diaDoCampo, type LancamentoPagar, type PixSaida } from '@/lib/pix-saida'
+import { lerCartaoDevolucao, normalizarLeitura, mensagemDoPix, PROMPT_COMPROVANTE, type CartaoDevolucao } from '@/lib/pix-saida-bot'
 import { lerSegredo } from '@/lib/segredos'
 import { diaSP, hojeSP } from '@/lib/utils'
 
@@ -114,6 +114,175 @@ function lojaDoGrupo(lojas: Loja[], slug: string | null): Loja | null {
   return lojas.find((l) => l.nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().includes(alvo)) ?? null
 }
 
+const JANELA_DIAS = 7
+const TOLERANCIA = 0.011
+/** Quanto tempo o cartão da devolução vale como "nome do cliente" para um print. */
+const MINUTOS_DO_CARTAO = 30
+
+type LinhaDb = {
+  id: string; valor: number; tipo: string | null; status: string | null
+  descricao: string | null; pessoa_nome: string | null
+  data_pagamento: string | null; data_vencimento: string | null
+  devolucao_id: string | null; forma_pagamento: string | null; loja_id: string | null
+}
+
+/**
+ * Candidatos do Financeiro para um PIX de saída.
+ *
+ * Escopo desta versão: devolução/estorno de cliente (PIX a fornecedor tem outra
+ * régua — a nota do fornecedor). Filtro por valor e janela no BANCO (barato e
+ * preciso); o casamento de nome é feito em memória por `conciliarPixSaida`.
+ */
+async function candidatosDoFinanceiro(supabase: ReturnType<typeof sb>, pix: PixSaida) {
+  const centro = diaDoCampo(pix.dia) ?? diaSP(new Date().toISOString())
+  const desloca = (dias: number) => {
+    const d = new Date(centro + 'T12:00:00')
+    d.setDate(d.getDate() + dias)
+    return diaISOLocal(d)
+  }
+
+  const { data: linhas } = await supabase.from('lancamentos')
+    .select('id, valor, tipo, status, descricao, pessoa_nome, data_pagamento, data_vencimento, devolucao_id, forma_pagamento, loja_id, created_at')
+    .eq('tipo', 'pagar')
+    .gte('valor', Number(pix.valor ?? 0) - TOLERANCIA)
+    .lte('valor', Number(pix.valor ?? 0) + TOLERANCIA)
+    .gte('created_at', desloca(-JANELA_DIAS - 400) + 'T00:00:00')
+    .limit(100)
+
+  const formaDevolucao = (f: string | null) => /pix|fora_do_app/i.test(String(f ?? ''))
+  const ehDevolucao = (l: LinhaDb) => !!l.devolucao_id || /^devolu/i.test(String(l.descricao ?? ''))
+
+  // A janela é conferida em memória: `data_pagamento`/`data_vencimento` são
+  // timestamptz gravados como data pura e filtrar por eles no PostgREST erra o dia.
+  const base = ((linhas ?? []) as unknown as LinhaDb[]).filter(
+    (l) => formaDevolucao(l.forma_pagamento) && ehDevolucao(l),
+  )
+
+  let conciliados: string[] = []
+  if (base.length) {
+    const { data: vinculos } = await supabase.from('pix_saidas')
+      .select('lancamento_id').in('lancamento_id', base.map((l) => l.id))
+    conciliados = ((vinculos ?? []) as { lancamento_id: string | null }[]).map((v) => v.lancamento_id!).filter(Boolean)
+  }
+  const candidatos: LancamentoPagar[] = base.map((l) => ({
+    id: l.id,
+    valor: Number(l.valor),
+    tipo: l.tipo,
+    status: l.status,
+    descricao: l.descricao,
+    pessoaNome: l.pessoa_nome,
+    diaPagamento: l.data_pagamento,
+    diaVencimento: l.data_vencimento,
+    devolucaoId: l.devolucao_id,
+    conciliado: conciliados.includes(l.id),
+  }))
+
+  return {
+    resultado: conciliarPixSaida(pix, candidatos, { janelaDias: JANELA_DIAS, tolerancia: TOLERANCIA }),
+    base,
+  }
+}
+
+/** AAAA-MM-DD sem passar por UTC (`.toISOString()` depois da 21h vira o dia seguinte). */
+function diaISOLocal(d: Date): string {
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+}
+
+const nomeDoRemetente = (msg: Record<string, any>) =>
+  [msg.from?.first_name, msg.from?.last_name].filter(Boolean).join(' ') || null
+
+/**
+ * Nome do cliente no SISTEMA que chegou num cartão recente do mesmo grupo.
+ *
+ * A pessoa manda o print do PIX e, antes ou depois, o cartão da devolução. O cartão
+ * é quem sabe o nome do cadastro — então um print que chega perto dele empresta
+ * esse nome. Janela curta (30 min) e valor igual: cartão de outra devolução não
+ * pode renomear este PIX.
+ */
+async function clienteDoCartaoRecente(
+  supabase: ReturnType<typeof sb>,
+  chatId: number,
+  valor: number | null,
+): Promise<string | null> {
+  if (!valor) return null
+  const desde = new Date(Date.now() - MINUTOS_DO_CARTAO * 60000).toISOString()
+  const { data } = await supabase.from('pix_saidas')
+    .select('valor, extraido_raw')
+    .eq('telegram_chat_id', chatId).eq('formato', 'texto')
+    .gte('recebido_em', desde)
+    .order('recebido_em', { ascending: false })
+    .limit(10)
+  for (const c of (data ?? []) as { valor: number | null; extraido_raw: { cartao?: { clienteSistema?: string | null } } | null }[]) {
+    if (c.valor != null && Math.abs(Number(c.valor) - valor) <= TOLERANCIA) {
+      const nome = c.extraido_raw?.cartao?.clienteSistema ?? null
+      if (nome) return nome
+    }
+  }
+  return null
+}
+
+/**
+ * Cartão da devolução: nome do cliente no sistema + valor. Sem foto de print ele
+ * já basta para achar a conta no Financeiro — e é o único jeito quando o PIX foi
+ * para a conta de outra pessoa.
+ */
+async function tratarCartao(
+  tk: string,
+  supabase: ReturnType<typeof sb>,
+  chatId: number,
+  messageId: number,
+  msg: Record<string, any>,
+  cartao: CartaoDevolucao,
+) {
+  const { data: jaExiste } = await supabase.from('pix_saidas')
+    .select('id, status')
+    .eq('telegram_chat_id', chatId).eq('telegram_message_id', messageId).maybeSingle()
+  let id = (jaExiste as { id?: string } | null)?.id ?? null
+
+  if (!id) {
+    const { data, error } = await supabase.from('pix_saidas').insert({
+      telegram_chat_id: chatId,
+      telegram_message_id: messageId,
+      telegram_user_id: msg.from?.id ?? null,
+      telegram_user_nome: nomeDoRemetente(msg),
+      formato: 'texto',
+      valor: cartao.valor,
+      dia: hojeSP(),
+      destinatario: cartao.nomeConta,
+      status: 'recebido',
+      extraido_raw: { cartao },
+    }).select('id').maybeSingle()
+    if (error) {
+      await tgSend(tk, chatId, `⚠️ Não consegui registrar este cartão no app (${error.message.slice(0, 120)}). Avise o dono.`, messageId)
+      return NextResponse.json({ ok: true, erro: error.message })
+    }
+    id = (data as { id: string } | null)?.id ?? null
+  }
+  if (!id) return NextResponse.json({ ok: true, ignorado: 'sem id' })
+
+  const pix: PixSaida = {
+    valor: cartao.valor,
+    dia: hojeSP(),
+    destinatario: cartao.nomeConta,
+    clienteSistema: cartao.clienteSistema,
+  }
+
+  if (!(Number(pix.valor) > 0) || !cartao.clienteSistema) {
+    await supabase.from('pix_saidas').update({ status: 'cartao_incompleto' }).eq('id', id)
+    await tgSend(tk, chatId, '🧾 Cartão recebido, mas falta o **VALOR DO REEMBOLSO** e/ou o **NOME DO CLIENTE EM SISTEMA**. Mande de novo com os dois que eu procuro a devolução.', messageId)
+    return NextResponse.json({ ok: true, ignorado: 'cartão incompleto' })
+  }
+
+  const { resultado } = await candidatosDoFinanceiro(supabase, pix)
+  const status = resultado.tipo === 'baixar' ? 'casado' : resultado.tipo === 'escolher' ? 'ambiguo' : 'sem_par'
+  await supabase.from('pix_saidas').update({
+    status, valor: pix.valor, destinatario: cartao.nomeConta, extraido_raw: { cartao },
+  }).eq('id', id)
+
+  await tgSend(tk, chatId, `🧾 Cartão da devolução:\n${mensagemDoPix(pix, resultado)}`, messageId)
+  return NextResponse.json({ ok: true, status, tipo: resultado.tipo })
+}
+
 export async function POST(req: Request) {
   const segredo = await segredoWebhook()
   if (segredo && req.headers.get('x-telegram-bot-api-secret-token') !== segredo) {
@@ -129,9 +298,17 @@ export async function POST(req: Request) {
   const chatId = Number(msg.chat.id)
   const messageId = Number(msg.message_id)
   const arquivo = arquivoDaMensagem(msg)
-  if (!arquivo) return NextResponse.json({ ok: true, ignorado: 'não é foto/pdf' })
-
   const supabase = sb()
+
+  // ---------- cartão da devolução (texto) ----------
+  // O PIX vai para a conta de outra pessoa (parente, amigo) e o nome do
+  // comprovante não existe no cadastro. O cartão traz o nome do SISTEMA, valor e
+  // motivo — é ele que faz o casamento dar certo.
+  if (!arquivo) {
+    const cartao = typeof msg.text === 'string' ? lerCartaoDevolucao(msg.text) : null
+    if (!cartao) return NextResponse.json({ ok: true, ignorado: 'sem foto e sem cartão' })
+    return await tratarCartao(tk, supabase, chatId, messageId, msg, cartao)
+  }
 
   // Dedup do MESMO print (Telegram reentrega update quando a rota demora).
   const { data: jaTem } = await supabase.from('pix_saidas')
@@ -144,7 +321,7 @@ export async function POST(req: Request) {
       telegram_chat_id: chatId,
       telegram_message_id: messageId,
       telegram_user_id: msg.from?.id ?? null,
-      telegram_user_nome: [msg.from?.first_name, msg.from?.last_name].filter(Boolean).join(' ') || null,
+      telegram_user_nome: nomeDoRemetente(msg),
       formato: arquivo.formato,
       arquivo_file_id: arquivo.fileId,
       status: 'recebido',
@@ -215,7 +392,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, ignorado: 'pix de entrada' })
   }
 
-  const pix = {
+  const pix: PixSaida = {
     valor: leitura.valor,
     dia: leitura.dia ?? hojeSP(),
     destinatario: leitura.destinatario,
@@ -235,58 +412,11 @@ export async function POST(req: Request) {
 
   const loja = lojaDoGrupo(lojas, grupoDaMensagem(chatId))
 
-  // ---------- candidatos no Financeiro ----------
-  // Escopo desta etapa: devolução/estorno de cliente. PIX a fornecedor fica para
-  // a próxima etapa (a nota do fornecedor tem outra régua de abatimento).
-  const janela = 7
-  const tol = 0.011
-  const centro = diaDoCampo(pix.dia) ?? diaSP(new Date().toISOString())
-  const de = new Date(centro + 'T12:00:00'); de.setDate(de.getDate() - janela)
-  const ate = new Date(centro + 'T12:00:00'); ate.setDate(ate.getDate() + janela)
-  const diaISO = (d: Date) => d.toISOString().slice(0, 10)
+  // O nome que casa com o Financeiro é o do CADASTRO. Se o print traz o nome da
+  // conta que recebeu (parente, amigo), o cartão da devolução manda um nome melhor.
+  pix.clienteSistema = await clienteDoCartaoRecente(supabase, chatId, pix.valor)
 
-  const { data: linhas } = await supabase.from('lancamentos')
-    .select('id, valor, tipo, status, descricao, pessoa_nome, data_pagamento, data_vencimento, devolucao_id, forma_pagamento, loja_id')
-    .eq('tipo', 'pagar')
-    .gte('valor', Number(pix.valor ?? 0) - tol)
-    .lte('valor', Number(pix.valor ?? 0) + tol)
-    .gte('data_vencimento', diaISO(de))
-    .lte('data_vencimento', diaISO(ate))
-    .limit(50)
-
-  type LinhaDb = {
-    id: string; valor: number; tipo: string | null; status: string | null
-    descricao: string | null; pessoa_nome: string | null
-    data_pagamento: string | null; data_vencimento: string | null
-    devolucao_id: string | null; forma_pagamento: string | null; loja_id: string | null
-  }
-  const formaDevolucao = (f: string | null) => /pix|fora_do_app/i.test(String(f ?? ''))
-  const ehDevolucao = (l: LinhaDb) => !!l.devolucao_id || /^devolu/i.test(String(l.descricao ?? ''))
-
-  const base = ((linhas ?? []) as unknown as LinhaDb[]).filter(
-    (l) => formaDevolucao(l.forma_pagamento) && ehDevolucao(l),
-  )
-
-  let conciliados: string[] = []
-  if (base.length) {
-    const { data: vinculos } = await supabase.from('pix_saidas')
-      .select('lancamento_id').in('lancamento_id', base.map((l) => l.id))
-    conciliados = ((vinculos ?? []) as { lancamento_id: string | null }[]).map((v) => v.lancamento_id!).filter(Boolean)
-  }
-  const candidatos: LancamentoPagar[] = base.map((l) => ({
-    id: l.id,
-    valor: Number(l.valor),
-    tipo: l.tipo,
-    status: l.status,
-    descricao: l.descricao,
-    pessoaNome: l.pessoa_nome,
-    diaPagamento: l.data_pagamento,
-    diaVencimento: l.data_vencimento,
-    devolucaoId: l.devolucao_id,
-    conciliado: conciliados.includes(l.id),
-  }))
-
-  const resultado = conciliarPixSaida(pix, candidatos, { janelaDias: janela, tolerancia: tol })
+  const { resultado, base } = await candidatosDoFinanceiro(supabase, pix)
   const resposta = mensagemDoPix(pix, resultado)
 
   const status = resultado.tipo === 'baixar' ? 'casado' : resultado.tipo === 'escolher' ? 'ambiguo' : resultado.tipo === 'sem_par' ? 'sem_par' : 'ignorado'

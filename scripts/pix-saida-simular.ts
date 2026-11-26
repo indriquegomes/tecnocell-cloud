@@ -13,10 +13,12 @@ const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY
 if (!url || !key) { console.error('faltou NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY no .env.local'); process.exit(1) }
 
-const [valorTxt, dia, ...resto] = process.argv.slice(2)
+const [valorTxt, dia, destinatarioArg, clienteArg] = process.argv.slice(2)
 const valor = Number(String(valorTxt ?? '').replace(/\./g, '').replace(',', '.'))
-const destinatario = resto.join(' ').replace(/^"|"$/g, '').trim() || null
-if (!valor || !dia) { console.error('uso: 66,00 2026-11-25 "NOME DO CLIENTE"'); process.exit(1) }
+const destinatario = (destinatarioArg ?? '').replace(/^"|"$/g, '').trim() || null
+/** Nome do cliente NO SISTEMA (o que vem no cartão da devolução), quando houver. */
+const clienteSistema = (clienteArg ?? '').replace(/^"|"$/g, '').trim() || null
+if (!valor || !dia) { console.error('uso: 15,00 2026-11-25 "Luciana Lucio Trece" "Sergio celulares"'); process.exit(1) }
 
 const h = { apikey: key, Authorization: `Bearer ${key}` }
 const JANELA = 7, TOL = 0.011
@@ -45,7 +47,7 @@ const candidatos: LancamentoPagar[] = (linhas as unknown as {
     devolucaoId: l.devolucao_id, conciliado: false,
   }))
 
-const pix = { valor, dia, destinatario, transacaoId: null }
+const pix = { valor, dia, destinatario, clienteSistema, transacaoId: null }
 const r = conciliarPixSaida(pix, candidatos, { janelaDias: JANELA, tolerancia: TOL })
 
 console.log(`\nPIX: R$ ${valor.toFixed(2)} em ${dia} para ${destinatario ?? '(sem nome)'}`)

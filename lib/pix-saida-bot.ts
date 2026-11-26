@@ -6,6 +6,7 @@
 // grupo tem teste e não precisa de celular na mão para conferir.
 
 import { formatBRL } from '@/lib/utils'
+import { normNome } from '@/lib/pix-destinos'
 import { diaDoCampo, type ConciliacaoPixSaida, type PixSaida } from '@/lib/pix-saida'
 
 export type LeituraComprovante = {
@@ -15,10 +16,83 @@ export type LeituraComprovante = {
   /** quem PAGOU — numa saída é a nossa conta (PagBank) */
   pagador: string | null
   pagadorDoc: string | null
-  /** quem RECEBEU — o cliente que devolveu a peça */
+  /** quem RECEBEU — a conta do cliente, que muitas vezes tem OUTRO nome */
   destinatario: string | null
   destinatarioDoc: string | null
   transacaoId: string | null
+  /** nome do cliente NO SISTEMA, quando a imagem é o cartão da devolução */
+  clienteSistema: string | null
+}
+
+/** O cartão que a equipe manda junto do print: quem é o cliente no app. */
+export type CartaoDevolucao = {
+  clienteSistema: string | null
+  valor: number | null
+  chavePix: string | null
+  motivo: string | null
+  nomeConta: string | null
+  /** true = veio com os rótulos do cartão (não é só um nome solto digitado) */
+  temRotulo: boolean
+}
+
+// Rótulos do cartão de devolução, já normalizados por normNome ("📍 NOME DO
+// CLIENTE EM SISTEMA" → "NOME DO CLIENTE EM SISTEMA").
+const ROTULOS_CARTAO: Record<string, 'cliente' | 'valor' | 'chave' | 'motivo' | 'nomeConta'> = {
+  'NOME DO CLIENTE EM SISTEMA': 'cliente',
+  'CLIENTE EM SISTEMA': 'cliente',
+  'NOME DO CLIENTE': 'cliente',
+  'CLIENTE': 'cliente',
+  'VALOR DO REEMBOLSO': 'valor',
+  'VALOR': 'valor',
+  'CHAVE PIX PARA REEMBOLSO': 'chave',
+  'CHAVE PIX': 'chave',
+  'NOME DA CONTA BANCARIA': 'nomeConta',
+  'NOME DA CONTA': 'nomeConta',
+  'MOTIVO DO REEMBOLSO': 'motivo',
+  'MOTIVO': 'motivo',
+}
+
+/**
+ * Lê o cartão da devolução (texto digitado ou lido de imagem).
+ *
+ * Existe porque o PIX quase nunca cai na conta do cliente do cadastro: o
+ * comprovante traz "Luciana Lúcio Trece" e a devolução no app está no nome de
+ * SÉRGIO CELULARES. Procurar pelo nome do comprovante nunca acha nada. O cartão
+ * traz o nome do SISTEMA, que é o que casa com o Financeiro.
+ *
+ * Também aceita o caso pobre: uma mensagem só com o nome do cliente (sem rótulo).
+ */
+export function lerCartaoDevolucao(entrada: string): CartaoDevolucao | null {
+  const texto = String(entrada ?? '')
+  if (!texto.trim()) return null
+
+  const campos: Record<string, string> = {}
+  let temRotulo = false
+  for (const linha of texto.split(/\r?\n/)) {
+    const m = linha.match(/^\s*[^\p{L}]*([\p{L}\s]+?)\s*:\s*(.*)$/u)
+    if (!m) continue
+    const campo = ROTULOS_CARTAO[normNome(m[1])]
+    if (!campo) continue
+    const valor = m[2].trim()
+    temRotulo = true
+    if (valor) campos[campo] = valor
+  }
+
+  if (temRotulo) {
+    return {
+      clienteSistema: campos.cliente ?? null,
+      valor: parseValor(campos.valor),
+      chavePix: campos.chave ?? null,
+      motivo: campos.motivo ?? null,
+      nomeConta: campos.nomeConta ?? null,
+      temRotulo: true,
+    }
+  }
+
+  // Sem rótulo não é cartão. Conversa no grupo ("bom dia", "já paguei") não pode
+  // virar nome de cliente: nome solto transformaria qualquer mensagem em palpite
+  // sobre dinheiro. Quem sabe o formato é o cartão; o resto é silêncio.
+  return null
 }
 
 /**
@@ -27,14 +101,17 @@ export type LeituraComprovante = {
  * nossa conta = saída. Sem o lado do pagador, todo print de devolução pareceria
  * uma venda.
  */
-export const PROMPT_COMPROVANTE = `Você lê comprovante de PIX brasileiro (foto ou PDF).
-Extraia só o que está ESCRITO no comprovante:
+export const PROMPT_COMPROVANTE = `Você lê comprovante de PIX brasileiro (foto ou PDF) e também o CARTÃO DE DEVOLUÇÃO que a loja manda junto.
+Extraia só o que está ESCRITO:
 - "valor": número em reais, ex 259.00 (ponto decimal). Se houver tarifa, use o valor do PIX, não da tarifa.
 - "data": AAAA-MM-DD, a data da transação.
 - "pagador" e "pagador_doc": quem PAGOU (rótulos: De / Origem / Pagador / Remetente). "pagador_doc" = CPF/CNPJ só dígitos.
 - "destinatario" e "destinatario_doc": quem RECEBEU (rótulos: Para / Destino / Recebedor / Favorecido / Creditado para).
-- "transacao_id": ID da transação / E2E, copie EXATO do comprovante (começa com E e tem 8 dígitos do banco).
-Responda APENAS JSON: {"eh_comprovante": <false se NÃO for comprovante de PIX>, "valor": <número|null>, "data": "<AAAA-MM-DD>|null", "pagador": "<quem enviou>|null", "pagador_doc": "<só dígitos>|null", "destinatario": "<quem recebeu>|null", "destinatario_doc": "<só dígitos>|null", "transacao_id": "<id>|null"}`
+- "transacao_id": ID da transação / E2E, copie EXATO (começa com E e tem 8 dígitos do banco).
+- Se a imagem for o CARTÃO DE DEVOLUÇÃO (rótulos "NOME DO CLIENTE EM SISTEMA", "VALOR DO REEMBOLSO", "NOME DA CONTA BANCARIA", "MOTIVO DO REEMBOLSO"):
+  traga "cliente_sistema" = o nome do cliente no sistema (NUNCA o nome da conta bancária), "valor" = valor do reembolso,
+  "destinatario" = nome da conta bancária que recebeu, "motivo" = motivo escrito.
+Responda APENAS JSON: {"eh_comprovante": <false se a imagem não for nem comprovante de PIX nem cartão de devolução>, "valor": <número|null>, "data": "<AAAA-MM-DD>|null", "pagador": "<quem enviou>|null", "pagador_doc": "<só dígitos>|null", "destinatario": "<quem recebeu>|null", "destinatario_doc": "<só dígitos>|null", "transacao_id": "<id>|null", "cliente_sistema": "<nome no sistema>|null", "motivo": "<motivo>|null"}`
 
 function texto(v: unknown): string | null {
   const s = String(v ?? '').trim()
@@ -75,6 +152,7 @@ export function normalizarLeitura(raw: unknown): LeituraComprovante {
     destinatario: texto(j.destinatario),
     destinatarioDoc: doc(j.destinatario_doc),
     transacaoId: texto(j.transacao_id),
+    clienteSistema: texto(j.cliente_sistema),
   }
 }
 
@@ -103,7 +181,14 @@ export function mensagemDoPix(
 ): string {
   const valor = formatBRL(Number(pix.valor ?? 0))
   const quem = pix.destinatario?.trim() || 'sem nome no comprovante'
-  const cabeca = `💸 PIX enviado: ${valor} em ${diaBR(diaDoCampo(pix.dia))} para ${quem}`
+  const doSistema = String(pix.clienteSistema ?? '').trim()
+  // Quando o PIX foi para a conta de outra pessoa (parente, amigo), a mensagem
+  // mostra os DOIS nomes: sem isso ninguém entende por que o robô falou de um
+  // cliente que não aparece no comprovante.
+  const linhaCliente = doSistema && normNome(doSistema) !== normNome(quem)
+    ? `\n👤 Cliente no sistema: ${doSistema}`
+    : ''
+  const cabeca = `💸 PIX enviado: ${valor} em ${diaBR(diaDoCampo(pix.dia))} para ${quem}${linhaCliente}`
 
   if (opcoes.jaConciliado) {
     return `${cabeca}\n\n⚠️ Este PIX já foi conciliado com uma conta do Financeiro. Se é outro pagamento, mande o print de novo mesmo assim — o ID do PIX é diferente.`
