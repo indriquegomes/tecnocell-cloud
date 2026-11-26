@@ -1,0 +1,19 @@
+{
+  "conta_id": "465276ed-f640-4cb9-9bbf-14e732467295",
+  "conta_antes": {
+    "devolucao_id": null,
+    "forma_pagamento": "PIX",
+    "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d"
+  },
+  "devolucao_id": "cd922200-1e3b-406e-922b-f16cbe36ec8f",
+  "devolucao_antes": {
+    "tipo_credito": "sem_reembolso",
+    "reembolsos": [
+      {
+        "tipo": "sem_reembolso",
+        "valor": 47
+      }
+    ]
+  },
+  "obs": "venda #14666 (mesmo dia, mesmo valor) segue como cancelamento_fiado"
+}
