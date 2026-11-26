@@ -1,0 +1,34 @@
+{
+  "devolucoes": [
+    {
+      "id": "f36ddd34-33fa-4c23-949e-d481ee83dc81",
+      "antes": {
+        "tipo_credito": "cancelamento_fiado",
+        "reembolsos": []
+      }
+    },
+    {
+      "id": "2209d14d-684b-45e1-b70e-30bd1ce8ff22",
+      "antes": {
+        "tipo_credito": "sem_reembolso",
+        "reembolsos": [
+          {
+            "tipo": "sem_reembolso",
+            "valor": 67
+          }
+        ]
+      }
+    }
+  ],
+  "conta": {
+    "id": "31fec127-89bb-408d-a29f-fd10b26b7f01",
+    "antes": {
+      "devolucao_id": null
+    }
+  },
+  "prova": {
+    "id": "ba58d247-ffe9-4536-b04b-31b237707072",
+    "transacao_id": "E08561701202611101545S3MH5DKCDVM"
+  },
+  "obs": "venda das duas notas = 134,00 (67+67); estorno pago = 128,00; diferenca de 6,00 ignorada por decisao do dono"
+}
