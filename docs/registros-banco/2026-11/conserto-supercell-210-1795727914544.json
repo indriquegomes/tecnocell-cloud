@@ -1,0 +1,17 @@
+{
+  "conta_id": "ec0b25b4-a854-49c8-890e-11e50e7b8f78",
+  "conta_antes": {
+    "devolucao_id": null
+  },
+  "devolucao_id": "4c1db22a-1fe7-4a72-a4e0-b4a6b47cecc6",
+  "devolucao_antes": {
+    "tipo_credito": "sem_reembolso",
+    "reembolsos": [
+      {
+        "tipo": "sem_reembolso",
+        "valor": 210
+      }
+    ]
+  },
+  "obs": "venda #14058 voltou em 210 + 50 + 45; só o pedaço de 210 foi pago em PIX"
+}
