@@ -1,0 +1,26 @@
+{
+  "venda": {
+    "id": "51c352bd-2b6b-4cba-a740-0809fb889b8c",
+    "numero": 15624,
+    "total": 299,
+    "status": "concluida",
+    "pessoa_id": null,
+    "created_at": "2026-11-26T16:53:58.222513+00:00",
+    "vendedor_nome": "Mariana Vila Real Castelli"
+  },
+  "lancamentos": [
+    {
+      "id": "8d200eb9-5330-4e01-bb7a-d67ea8e96b7b",
+      "descricao": "Venda #15624",
+      "tipo": "receber",
+      "status": "pago",
+      "valor": 299,
+      "pessoa_id": null,
+      "pessoa_nome": null
+    }
+  ],
+  "cliente_novo": {
+    "id": "63d91db059a9c82974728b69",
+    "nome": "DAVID DOS SANTOS MORTES"
+  }
+}
