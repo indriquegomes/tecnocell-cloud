@@ -1,0 +1,16 @@
+{
+  "conta_id": "1ed59574-4660-4f9a-b7ac-dd18b4d97230",
+  "conta_antes": {
+    "devolucao_id": null
+  },
+  "devolucao_id": "9ca0bf9e-80a1-4f1b-8c9e-4df7c027f190",
+  "devolucao_antes": {
+    "tipo_credito": "credito_conta",
+    "reembolsos": [
+      {
+        "tipo": "credito_conta",
+        "valor": 349
+      }
+    ]
+  }
+}
