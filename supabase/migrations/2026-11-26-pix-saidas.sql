@@ -33,7 +33,9 @@ create table if not exists pix_saidas (
   status text default 'recebido',       -- recebido | extraido | ilegivel | nao_saida | conciliado | sem_par
   extraido_raw jsonb,
   -- conciliação
-  lancamento_id uuid references lancamentos(id),
+  -- TEXT, não uuid: `lancamentos.id` é TEXT (os IDs vieram do SIGE e continuam
+  -- texto mesmo quando têm cara de uuid). FK uuid→text é recusada pelo Postgres.
+  lancamento_id text references lancamentos(id),
   conciliado_em timestamptz,
   conciliado_por text,
   unique (telegram_chat_id, telegram_message_id)
