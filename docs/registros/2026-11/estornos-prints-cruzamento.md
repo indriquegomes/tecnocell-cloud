@@ -69,3 +69,61 @@ node --env-file=.env.local scripts/consertar-sergio-15.mjs [--aplicar|--desfazer
 
 Backups de tudo em `docs/registros-banco/2026-11/` (ligar-prints, ligar-devolucao,
 reembolso-devolucao, conserto-sergio-15).
+
+---
+
+## Fechamento da rodada (26/11/2026, fim do dia)
+
+### Casos FECHADOS (conta ↔ devolução ↔ comprovante)
+
+| Cliente | Valor | O que foi feito |
+|---|---|---|
+| SERGIO CELULARES (venda #15473) | 15,00 | forma `pix` + conta PagBank + data 26/11 00:33 · devolução `pix` |
+| IGOR KREISCHER (venda #11282) | 349,00 | conta ligada à devolução 9ca0bf9e · devolução `pix` |
+| SAMIRA AMORIM DOS REIS (venda #11072) | 4,00 | conta ligada à devolução f26258dc · devolução `pix` |
+| LUCAR GABRIEL DIAS (venda #11435) | 229,00 | devolução 96cec82a `pix` (conta já era PIX/PagBank) |
+| SUPERCELL / VITOR PORTO FIGUEIRA (venda #14058) | 210,00 | conta ligada a 4c1db22a · devolução `pix` |
+| LARISSA PLAY TEC (venda #14217) | 141,00 | conta era do "Diego Santos" → virou LARISSA PLAY TEC, data 19/11, ligada a d5c25934 |
+| LOJA CAMPISTA (venda #12869) | 120,00 | conta ligada a 18387c4c · devolução `pix` |
+| STAR MANUTENÇÃO (venda #11726) | 101,00 | conta ligada a 157b1bb3 · devolução `pix` |
+| AMILTON TEREMAQCELL (vendas #12481 e #13822) | 87,00 e 15,00 | contas ligadas às devoluções · `pix` |
+| KLEBER CLAYTON DA COSTA MESQUITA (venda #11788) | 82,00 | conta ligada a 1cbcd646 · devolução `pix` |
+| CARIOCA CELL VÁRZEA (venda #11629) | 76,00 | conta ligada a eb66643b · devolução `pix` |
+| DIGITAL TEC/DIGITAL MACHINES (venda #13097) | 70,00 | conta ligada a 9be19254 · devolução `pix` |
+| ARTHUR DIAS · Vitor da Silva Costa · ANDERSON XAVIER · Diego Santos · Bruno Delgado · UELINGTON · MARCOS VINICIUS | 57 · 224 · 21 · 77 · 295 · 47 · 51 | conta ↔ devolução ↔ venda ligadas; reembolso verdadeiro |
+
+### Nomes de comprovante registrados (`pessoa_chaves_pix`, tipo "Nome no comprovante")
+
+LARISSA PLAY TEC ← Larissa da Rocha Carvalho · DIEGO SANTOS ← Luiz Diego Dos Santos
+Silva · LOJA CAMPISTA ← Vanderleia Mateus Cardoso · AMILTON TEREMAQCELL ← AMILTON
+CORDEIRO COSTA · CARIOCA CELL VÁRZEA ← Maria Eduarda da Silva Kern · DIGITAL TEC ←
+Luiz Otávio da Silva · SUPERCELL ← VITOR PORTO FIGUEIRA · SERGIO CELULARES ←
+Luciana Lucio Trece · João Vitor Miranda de Oliveira ← Leonardo Miranda de Oliveira ·
+ALVARO GARCIA ← ALVARO DAMASCENO GARCIA.
+
+### O que ficou PARA AMANHÃ
+
+1. **EMILY DE MENEZES PITTZER FIUZA** — cadastrada como cliente hoje. As contas de
+   R$ 112,00 e R$ 128,00 (10/11, pagas em PIX) estão no cadastro dela **sem
+   devolução**: precisa saber de qual compra foi cada reembolso. A ligação anterior
+   com as devoluções do CARLOS foi **desfeita** (o dono disse que o Carlos não está
+   na lista de estornos dele).
+2. **vitor Miranda R$ 37,00** — conta PIX de 09/11 sem devolução; as devoluções dele
+   em novembro são de R$ 100 e R$ 55. PIX foi para Leonardo Miranda de Oliveira.
+3. **7 prints sem conta no app** — Fernando 90+1 (soma 91), ROMULO 101, ANA ALICE
+   87, Piccoli 12 e um de 219 sem nome (R$ 651,00).
+4. **ALVARO GARCIA R$ 10,00** — é crédito residual reembolsado em PIX: o saldo de
+   crédito dele continua R$ 10,00 (falta o estorno). O dono disse "já foi resolvido",
+   mas no banco o saldo segue aberto.
+5. **RODRIGO PEREIRA R$ 1.530,90** — fora do escopo por decisão do dono (diferença de
+   R$ 0,90); 4 devoluções pagas num PIX só.
+
+### Ferramentas criadas nesta rodada
+
+```
+scripts/fechar-caso.mjs            (fecha um caso em um comando: conta ↔ devolução ↔ cliente ↔ nome no comprovante)
+scripts/desfazer-carlos-emily.mjs  (restaura pelo backup; o --desfazer anterior lia o valor atual e não desfazia)
+scripts/ligar-pessoa.mjs           (liga lançamento ao cadastro com nomeContido, regra estrita)
+scripts/ligar-prints.mjs / amarrar-venda.mjs / ligar-devolucao.mjs / consertar-*.mjs
+```
+
