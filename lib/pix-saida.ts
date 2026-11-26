@@ -184,11 +184,26 @@ export function conciliarPixSaida(
       motivo: `${fortes.length} linhas do mesmo valor para ${pix.destinatario ?? 'este nome'}`,
     }
   }
+
+  // O comprovante TEM nome e nenhuma linha é dessa pessoa: as linhas de mesmo
+  // valor são de OUTROS clientes. Oferecê-las como opção ("escolher") é como se
+  // erra a baixa — o certo é dizer que não achou e nomear o que existe no período.
+  const temNome = !!String(pix.destinatario ?? '').trim()
+  if (fortes.length === 0 && temNome) {
+    const outras = candidatos.length
+    return {
+      tipo: 'sem_par',
+      motivo: `nenhuma conta no nome de ${pix.destinatario}${outras > 0 ? ` (existem ${outras} de R$ ${valor.toFixed(2).replace('.', ',')} no período, mas de outros nomes)` : ''}`,
+    }
+  }
+
+  // Sem nome legível no comprovante: só o valor sobrou como pista, então quem
+  // decide é a pessoa — nunca baixa sozinho nesse caso.
   return {
     tipo: 'escolher',
     candidatos: candidatos.map((c) => c.l),
     motivo: candidatos.length === 1
-      ? 'o valor casa, mas o nome do comprovante não confere com a linha'
-      : `${candidatos.length} linhas com esse valor — o nome não ajuda a decidir`,
+      ? 'o comprovante não tem nome do cliente e só uma linha tem esse valor'
+      : `${candidatos.length} linhas com esse valor — o comprovante não traz o nome`,
   }
 }

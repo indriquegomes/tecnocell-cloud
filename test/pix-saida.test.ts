@@ -53,11 +53,23 @@ test('comprovante SEM nome não baixa sozinho — mesmo com um candidato só', (
   if (r.tipo === 'escolher') assert.equal(r.candidatos.length, 1)
 })
 
-test('nome parecido mas de outra pessoa não baixa (ADRIANO × ADRIANA)', () => {
+test('nome parecido mas de outra pessoa não baixa e não oferece a linha errada', () => {
   const r = conciliarPixSaida(pix({ destinatario: 'ADRIANA SOUZA' }), [
     dev({ pessoaNome: 'ADRIANO SOUZA', descricao: 'Devolução — ADRIANO SOUZA' }),
   ])
-  assert.equal(r.tipo, 'escolher')
+  assert.equal(r.tipo, 'sem_par')
+})
+
+test('comprovante com nome sem par: diz quantas linhas do mesmo valor existem de outros nomes', () => {
+  const r = conciliarPixSaida(pix({ valor: 15, destinatario: 'LUCIANA LUCIO TRECE' }), [
+    dev({ id: 'a', valor: 15, pessoaNome: 'SERGIO CELULARES', descricao: 'Devolução — SERGIO CELULARES' }),
+    dev({ id: 'b', valor: 15, pessoaNome: 'TIAGO CELULARES', descricao: 'Devolução — TIAGO CELULARES' }),
+  ])
+  assert.equal(r.tipo, 'sem_par')
+  if (r.tipo === 'sem_par') {
+    assert.match(r.motivo, /LUCIANA LUCIO TRECE/)
+    assert.match(r.motivo, /2 de R\$ 15,00/)
+  }
 })
 
 test('duas devoluções do mesmo cliente com o mesmo valor → quem escolhe é o humano', () => {
