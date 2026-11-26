@@ -69,6 +69,29 @@ export const JANELA_DIAS = 7
 export const TOLERANCIA = 0.011
 
 /**
+ * A forma do pagamento conta como saída de PIX?
+ *
+ * O banco guarda DUAS grafias para a mesma coisa: a chave `fora_do_app` e o rótulo
+ * que a tela mostra (`Fora do app (WhatsApp)`). Testar só a chave deixava metade
+ * das devoluções de fora (peguei isso no aviso diário: 9 de 14 linhas apareciam e
+ * 5 sumiam). Uma função só, usada por rota, aviso diário e simulador.
+ */
+export function ehSaidaPix(forma: string | null | undefined): boolean {
+  return /pix|fora/i.test(String(forma ?? ''))
+}
+
+/**
+ * A linha é devolução/estorno de cliente?
+ *
+ * Duas famílias de descrição convivem no Financeiro: `Devolução — <cliente>` e
+ * `Estorno de crédito — devolução da venda #<n> — <cliente>`. Filtrar só a
+ * primeira escondia 4 das 14 linhas do aviso diário.
+ */
+export function ehLinhaDeDevolucao(l: { devolucaoId?: string | null; descricao: string | null | undefined }): boolean {
+  return !!l.devolucaoId || /^(devolu|estorno)/i.test(String(l.descricao ?? ''))
+}
+
+/**
  * Dia (AAAA-MM-DD) de um campo que pode ser três coisas diferentes:
  *  - dia puro ("2026-12-01");
  *  - data pura gravada em coluna timestamptz ("2026-12-01T00:00:00+00:00") — o dia

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { ehContaPropria, type DestinoPix } from '@/lib/pix-destinos'
-import { conciliarPixSaida, diaDoCampo, type LancamentoPagar, type PixSaida } from '@/lib/pix-saida'
+import { conciliarPixSaida, diaDoCampo, ehLinhaDeDevolucao, ehSaidaPix, type LancamentoPagar, type PixSaida } from '@/lib/pix-saida'
 import { clienteDoLancamento, lerCartaoDevolucao, normalizarLeitura, mensagemDoPix, PROMPT_COMPROVANTE, PROMPT_FOCO, type CartaoDevolucao } from '@/lib/pix-saida-bot'
 import { lerSegredo } from '@/lib/segredos'
 import { diaSP, hojeSP } from '@/lib/utils'
@@ -269,15 +269,12 @@ async function candidatosDoFinanceiro(supabase: ReturnType<typeof sb>, pix: PixS
     .gte('created_at', desloca(-JANELA_DIAS - 400) + 'T00:00:00')
     .limit(100)
 
-  // A forma tem DUAS grafias no banco: a chave `fora_do_app` e o rótulo que a
-  // tela mostra (`Fora do app (WhatsApp)`). Testar só a chave perdia metade.
-  const formaDevolucao = (f: string | null) => /pix|fora/i.test(String(f ?? ''))
-  const ehDevolucao = (l: LinhaDb) => !!l.devolucao_id || /^(devolu|estorno)/i.test(String(l.descricao ?? ''))
+  const ehDevolucao = (l: LinhaDb) => ehLinhaDeDevolucao({ devolucaoId: l.devolucao_id, descricao: l.descricao })
 
   // A janela é conferida em memória: `data_pagamento`/`data_vencimento` são
   // timestamptz gravados como data pura e filtrar por eles no PostgREST erra o dia.
   const base = ((linhas ?? []) as unknown as LinhaDb[]).filter(
-    (l) => formaDevolucao(l.forma_pagamento) && ehDevolucao(l),
+    (l) => ehSaidaPix(l.forma_pagamento) && ehDevolucao(l),
   )
 
   let conciliados: string[] = []

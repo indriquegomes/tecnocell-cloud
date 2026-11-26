@@ -3,6 +3,7 @@ import { createServiceClient, fetchAll } from '@/lib/supabase/server'
 import { lerSegredo } from '@/lib/segredos'
 import { hojeSP } from '@/lib/utils'
 import { montarAviso, type LancamentoPixPago } from '@/lib/pix-saida-vigia'
+import { ehLinhaDeDevolucao, ehSaidaPix } from '@/lib/pix-saida'
 
 // ============================================================================
 // O aviso que o robô não consegue ver sozinho: devolução em PIX paga no app que
@@ -65,14 +66,17 @@ export async function GET(req: Request) {
     .eq('tipo', 'pagar')
     .eq('status', 'pago')
     .gte('data_pagamento', desdeISO)
+    // Filtro grosso no banco só para não varrer o mês inteiro; a régua de verdade
+    // (forma e família de descrição) é aplicada em memória pelas funções do lib.
+    .or('descricao.ilike.*devolu*,descricao.ilike.*estorno*,devolucao_id.not.is.null')
     .order('id')
     .range(from, to))
 
   // Devolução = tem devolucao_id ou descrição "Devolução — …". Forma PIX ou
   // "fora do app": nas duas o dinheiro saiu e a prova (print) tem que existir.
   const candidatas = linhas.filter((l) =>
-    (!!l.devolucao_id || /^(devolu|estorno)/i.test(String(l.descricao ?? ''))) &&
-    /pix|fora/i.test(String(l.forma_pagamento ?? '')),
+    ehLinhaDeDevolucao({ devolucaoId: l.devolucao_id, descricao: l.descricao }) &&
+    ehSaidaPix(l.forma_pagamento),
   )
 
   let ligados = new Set<string>()

@@ -6,7 +6,7 @@
 // Faz exatamente o que a rota faz depois de ler o print (mesma janela, mesmo
 // filtro, mesmo casamento) e imprime a mensagem que iria para o grupo. Serve
 // para conferir a régua com dado real antes de deixar o robô escrever.
-import { conciliarPixSaida, diaDoCampo, type LancamentoPagar } from '@/lib/pix-saida'
+import { conciliarPixSaida, diaDoCampo, ehLinhaDeDevolucao, ehSaidaPix, type LancamentoPagar } from '@/lib/pix-saida'
 import { mensagemDoPix } from '@/lib/pix-saida-bot'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -39,12 +39,12 @@ const candidatos: LancamentoPagar[] = (linhas as unknown as {
   pessoa_nome: string | null; data_pagamento: string | null; data_vencimento: string | null
   devolucao_id: string | null; forma_pagamento: string | null
 }[])
-  .filter((l) => /pix|fora_do_app/i.test(String(l.forma_pagamento ?? '')))
-  .filter((l) => !!l.devolucao_id || /^devolu/i.test(String(l.descricao ?? '')))
+  .filter((l) => ehSaidaPix(l.forma_pagamento))
+  .filter((l) => ehLinhaDeDevolucao({ devolucaoId: l.devolucao_id, descricao: l.descricao }))
   .map((l) => ({
     id: l.id, valor: Number(l.valor), tipo: l.tipo, status: l.status, descricao: l.descricao,
     pessoaNome: l.pessoa_nome, diaPagamento: l.data_pagamento, diaVencimento: l.data_vencimento,
-    devolucaoId: l.devolucao_id, conciliado: false,
+    devolucaoId: l.devolucao_id, forma: l.forma_pagamento, conciliado: false,
   }))
 
 const pix = { valor, dia, destinatario, clienteSistema, transacaoId: null }

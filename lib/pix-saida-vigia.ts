@@ -8,7 +8,7 @@
 // Puro (sem Supabase, sem Telegram) para ter teste: quem chama é a rota de cron.
 
 import { formatBRL } from '@/lib/utils'
-import { diaDoCampo } from '@/lib/pix-saida'
+import { diaDoCampo, ehLinhaDeDevolucao, ehSaidaPix } from '@/lib/pix-saida'
 
 export type LancamentoPixPago = {
   id: string
@@ -38,15 +38,12 @@ const diaBR = (d: string | null) => {
  * casos precisam de gente olhando, e a mensagem diz qual é qual.
  */
 export function semComprovante(linhas: LancamentoPixPago[]): LancamentoPixPago[] {
-  const ehDevolucao = (l: LancamentoPixPago) =>
-    // Duas famílias de descrição no Financeiro: Devolução — … e Estorno de crédito — devolução da venda #…. Filtrar só a primeira deixava metade das devoluções fora do aviso.
-    !!l.devolucaoId || /^(devolu|estorno)/i.test(String(l.descricao ?? ''))
   return (linhas ?? [])
     .filter((l) => l && l.id)
     .filter((l) => !/cancelad/i.test(String(l.status ?? '')))
     .filter((l) => String(l.status ?? '') === 'pago')
-    .filter(ehDevolucao)
-    .filter((l) => /pix|fora/i.test(String(l.forma ?? '')))
+    .filter((l) => ehLinhaDeDevolucao({ devolucaoId: l.devolucaoId, descricao: l.descricao }))
+    .filter((l) => ehSaidaPix(l.forma))
     .filter((l) => !l.temComprovante)
 }
 
