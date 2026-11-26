@@ -1,0 +1,24 @@
+{
+  "conta_id": "7d27bca9-152f-4491-9315-9d214cc11768",
+  "venda": 12869,
+  "valor": 120,
+  "antes": {
+    "conta": {
+      "descricao": "Devolução — Loja Campista (estorno de compra)",
+      "pessoa_nome": null,
+      "pessoa_id": null,
+      "data_pagamento": "2026-11-13T15:00:00+00:00",
+      "devolucao_id": null
+    },
+    "devolucao": {
+      "tipo_credito": "sem_reembolso",
+      "reembolsos": [
+        {
+          "tipo": "sem_reembolso",
+          "valor": 120
+        }
+      ]
+    }
+  },
+  "favorecido": "Vanderleia Mateus Cardoso"
+}
