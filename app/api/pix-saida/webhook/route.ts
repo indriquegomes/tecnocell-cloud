@@ -329,19 +329,22 @@ async function clienteDoCartaoRecente(
   supabase: ReturnType<typeof sb>,
   chatId: number,
   valor: number | null,
-): Promise<string | null> {
+): Promise<{ nome: string; cartaoId: string } | null> {
   if (!valor) return null
   const desde = new Date(Date.now() - MINUTOS_DO_CARTAO * 60000).toISOString()
   const { data } = await supabase.from('pix_saidas')
-    .select('valor, extraido_raw')
+    .select('id, valor, extraido_raw')
     .eq('telegram_chat_id', chatId).eq('formato', 'texto')
     .gte('recebido_em', desde)
     .order('recebido_em', { ascending: false })
     .limit(10)
-  for (const c of (data ?? []) as { valor: number | null; extraido_raw: { cartao?: { clienteSistema?: string | null } } | null }[]) {
+  for (const c of (data ?? []) as { id: string; valor: number | null; extraido_raw: Record<string, unknown> | null }[]) {
+    // Cartão já emprestado a outro print não serve de novo: num lote, dois PIX do
+    // MESMO valor usariam o mesmo cartão e o segundo seria ligado à pessoa errada.
+    if (c.extraido_raw?.cartao_usado_por) continue
     if (c.valor != null && Math.abs(Number(c.valor) - valor) <= TOLERANCIA) {
-      const nome = c.extraido_raw?.cartao?.clienteSistema ?? null
-      if (nome) return nome
+      const nome = (c.extraido_raw?.cartao as { clienteSistema?: string | null } | undefined)?.clienteSistema ?? null
+      if (nome) return { nome, cartaoId: c.id }
     }
   }
   return null
@@ -577,7 +580,8 @@ export async function POST(req: Request) {
 
   // O nome que casa com o Financeiro é o do CADASTRO. Se o print traz o nome da
   // conta que recebeu (parente, amigo), o cartão da devolução manda um nome melhor.
-  pix.clienteSistema = await clienteDoCartaoRecente(supabase, chatId, pix.valor)
+  const cartaoUsado = await clienteDoCartaoRecente(supabase, chatId, pix.valor)
+  pix.clienteSistema = cartaoUsado?.nome ?? null
 
   const { resultado, base } = await candidatosDoFinanceiro(supabase, pix)
   const resposta = mensagemDoPix(pix, resultado)
@@ -617,6 +621,14 @@ export async function POST(req: Request) {
     conciliado_em: resultado.tipo === 'baixar' ? new Date().toISOString() : null,
     conciliado_por: resultado.tipo === 'baixar' ? nomeDoRemetente(msg) : null,
   }).eq('id', pixSaidaId)
+
+  // Cartão emprestado a este print sai do páreo (senão dois PIX do mesmo valor
+  // usariam o mesmo cartão).
+  if (cartaoUsado) {
+    const { data: doCartao } = await supabase.from('pix_saidas').select('extraido_raw').eq('id', cartaoUsado.cartaoId).maybeSingle()
+    const extra = ((doCartao as { extraido_raw?: Record<string, unknown> } | null)?.extraido_raw ?? {}) as Record<string, unknown>
+    await supabase.from('pix_saidas').update({ extraido_raw: { ...extra, cartao_usado_por: messageId } }).eq('id', cartaoUsado.cartaoId)
+  }
 
   await tgSend(
     tk, chatId, resposta, messageId,
