@@ -1,0 +1,79 @@
+[
+  {
+    "lancamento_id": "39c20166-a02d-4b67-ae91-7613de75425a",
+    "descricao": "Devolução — Lucar Gabriel Dias (estorno de compra)",
+    "valor": 229,
+    "devolucao_id": "96cec82a-c68f-4cec-9328-e5efa2a939f5",
+    "devolucao_valor": 229,
+    "devolucao_tipo": "sem_reembolso",
+    "antes": {
+      "devolucao_id": null
+    }
+  },
+  {
+    "lancamento_id": "3b6d9e6d-de69-43c5-b170-6fdfcdd610ae",
+    "descricao": "Devolução — ARTHUR DIAS (estorno de compra)",
+    "valor": 57,
+    "devolucao_id": "35fc6733-aafe-42fd-ba90-e62723bfed51",
+    "devolucao_valor": 57,
+    "devolucao_tipo": "sem_reembolso",
+    "antes": {
+      "devolucao_id": null
+    }
+  },
+  {
+    "lancamento_id": "4d9a0a79-a104-4ed1-a6d1-d60704de2769",
+    "descricao": "Devolução — Vitor da Silva Costa (estorno de compra)",
+    "valor": 224,
+    "devolucao_id": "8968b79d-34c8-48bd-b998-29c974490f69",
+    "devolucao_valor": 224,
+    "devolucao_tipo": "sem_reembolso",
+    "antes": {
+      "devolucao_id": null
+    }
+  },
+  {
+    "lancamento_id": "5bb8e6d0-1ad3-499b-ba3a-092cbaf0d6ec",
+    "descricao": "Estorno de crédito — devolução da venda #15287 — Marcos Vinicius Ferreira da Conceição",
+    "valor": 51,
+    "devolucao_id": "bcb3ab88-e56f-4771-9380-da2722b98a6a",
+    "devolucao_valor": 51,
+    "devolucao_tipo": "credito_conta",
+    "antes": {
+      "devolucao_id": null
+    }
+  },
+  {
+    "lancamento_id": "49b82c0c-5239-425e-8bb7-129e1104607e",
+    "descricao": "Devolução — ANDERSON XAVIER (estorno de compra)",
+    "valor": 21,
+    "devolucao_id": "07d6630d-36d7-4755-8f54-7a66fd9f9125",
+    "devolucao_valor": 21,
+    "devolucao_tipo": "sem_reembolso",
+    "antes": {
+      "devolucao_id": null
+    }
+  },
+  {
+    "lancamento_id": "1da53a90-4269-45a3-a752-324e964c62e9",
+    "descricao": "Devolução — Bruno Delgado de Mattos (compra devolvida)",
+    "valor": 295,
+    "devolucao_id": "a47f5abd-1e41-4548-9b63-e3ca73028076",
+    "devolucao_valor": 295,
+    "devolucao_tipo": "sem_reembolso",
+    "antes": {
+      "devolucao_id": null
+    }
+  },
+  {
+    "lancamento_id": "696269b1-0b7e-4028-a1ba-8b08a75bb3a9",
+    "descricao": "Devolução — Diego Santos (estorno de compra)",
+    "valor": 77,
+    "devolucao_id": "d86c7aa3-dcfc-4fb2-a752-1e04ceddee9a",
+    "devolucao_valor": 77,
+    "devolucao_tipo": "sem_reembolso",
+    "antes": {
+      "devolucao_id": null
+    }
+  }
+]
