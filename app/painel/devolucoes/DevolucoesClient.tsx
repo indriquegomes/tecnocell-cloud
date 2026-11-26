@@ -61,10 +61,10 @@ const statusLabel = (s?: string) =>
   STATUS_PRODUTO.find(x => x.key === (s ?? 'ok'))?.label ?? LABEL_ANTIGO[s ?? 'ok'] ?? (s ?? 'OK')
 
 const CREDITO_LABEL: Record<string, string> = {
-  credito_conta: 'Crédito conta', dinheiro: 'Dinheiro', pix: 'PIX',
+  credito_conta: 'Crédito conta', dinheiro: 'Dinheiro', pix: 'PIX da loja',
   debito: 'Débito', credito: 'Crédito',
   cancelamento_fiado: 'Cancelou fiado', sem_reembolso: 'Sem reembolso',
-  fora_do_app: 'Fora do app (WhatsApp)',
+  fora_do_app: 'PIX de conta pessoal',
   misto: 'Misto',   // reembolso dividido em várias formas
 }
 const CREDITO_COR: Record<string, string> = {
@@ -84,12 +84,15 @@ const CREDITO_OPTS = [
   // confundia quem procurava "Vale" na lista (achado pelo dono 28/08).
   { key: 'credito_conta', label: 'Vale Crédito (conta do cliente)', icon: '🎟️', destaque: true },
   { key: 'dinheiro',      label: 'Dinheiro',          icon: '💵' },
-  { key: 'pix',           label: 'PIX',               icon: '💠' },
+  // PIX da loja = sai da conta PagBank (a conta única). É o caminho normal.
+  { key: 'pix',           label: 'PIX da loja',        icon: '💠' },
   { key: 'debito',        label: 'Débito',            icon: '💳' },
   { key: 'credito',       label: 'Crédito',           icon: '💳' },
   { key: 'sem_reembolso', label: 'Sem reembolso',     icon: '—'  },
-  // Estorno pago no grupo do WhatsApp: saída registrada como PAGA, sem mexer em gaveta/conta.
-  { key: 'fora_do_app',   label: 'Fora do app (WhatsApp)', icon: '📲' },
+  // Só para dinheiro que NÃO passou pelo PagBank (conta pessoal, WhatsApp).
+  // Escolher esta quando o PIX saiu da loja deixa o saldo do banco inflado — foi
+  // o que aconteceu com o estorno de R$ 51,00 da venda #15287 (24/11/2026).
+  { key: 'fora_do_app',   label: 'PIX de conta pessoal', icon: '📲' },
 ]
 
 type Step = 'buscar' | 'itens' | 'confirmar'
@@ -1221,9 +1224,9 @@ export function DevolucoesClient({
                             : tipoCredito === 'debito' || tipoCredito === 'credito'
                             ? '💳 Estorno pela maquininha — você faz na máquina. Não sai da gaveta.'
                             : tipoCredito === 'pix'
-                            ? '💠 Estorno pela conta (PIX). Não sai da gaveta.'
+                            ? '💠 Sai da conta PagBank (a conta única da loja) — é o caminho normal. Mande o print no grupo de estornos que o robô liga a prova.'
                             : tipoCredito === 'fora_do_app'
-                            ? '📲 Pago fora do app (WhatsApp) — a saída fica registrada como PAGA, sem mexer na gaveta nem na conta.'
+                            ? '📲 NÃO baixa de conta nenhuma. Só use quando o dinheiro saiu de conta pessoal — se o PIX saiu do PagBank, escolha "PIX da loja".'
                             : tipoCredito === 'sem_reembolso'
                             ? '— Sem devolução de valor (troca ou cortesia).'
                             : tipoCredito === 'credito_conta'
