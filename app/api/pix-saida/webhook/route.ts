@@ -406,14 +406,6 @@ async function tratarCartao(
   const { resultado } = await candidatosDoFinanceiro(supabase, pix)
   const status = resultado.tipo === 'baixar' ? 'casado' : resultado.tipo === 'escolher' ? 'ambiguo' : 'sem_par'
 
-  // Mesma baixa da rota do print: o cartão também pode ser o que prova a conta em
-  // aberto. Só a linha 'pendente' é tocada.
-  let pagou = false
-  if (resultado.tipo === 'baixar' && resultado.candidato.status !== 'pago') {
-    const baixa = await baixarContaPendente(supabase, resultado.candidato.id, pix.dia, nomeDoRemetente(msg))
-    pagou = baixa.ok
-    if (!baixa.ok && !baixa.jaEstavaPago) console.error('pix-saida (cartão): baixa recusada —', baixa.erro)
-  }
   // A lista de candidatos fica gravada na linha: o botão carrega só o índice, então
   // clique não pode apontar para conta que não estava na mensagem mostrada.
   const candidatosParaBotao = resultado.tipo === 'escolher'
@@ -437,7 +429,7 @@ async function tratarCartao(
   }).eq('id', id)
 
   await tgSend(
-    tk, chatId, `🧾 Cartão da devolução:\n${mensagemDoPix(pix, resultado, { pagou })}`, messageId,
+    tk, chatId, `🧾 Cartão da devolução:\n${mensagemDoPix(pix, resultado)}`, messageId,
     candidatosParaBotao ? botoesDaEscolha(resultado.tipo === 'escolher' ? resultado.candidatos : []) : undefined,
   )
   return NextResponse.json({ ok: true, status, tipo: resultado.tipo })
