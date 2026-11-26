@@ -1,0 +1,22 @@
+{
+  "conta_id": "5367b62e-46d6-492d-bfe6-d8a2bd92de38",
+  "antes": {
+    "conta": {
+      "descricao": "Devolução — Diego Santos (estorno de compra)",
+      "pessoa_nome": null,
+      "pessoa_id": null,
+      "data_pagamento": "2026-11-18T15:00:00+00:00",
+      "devolucao_id": null
+    },
+    "devolucao": {
+      "tipo_credito": "sem_reembolso",
+      "reembolsos": [
+        {
+          "tipo": "sem_reembolso",
+          "valor": 141
+        }
+      ]
+    }
+  },
+  "obs": "dono confirmou: LARISSA PLAY TEC recebe pela conta de Larissa da Rocha Carvalho; DIEGO SANTOS pela de Luiz Diego dos Santos Silva"
+}
