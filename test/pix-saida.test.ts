@@ -340,3 +340,12 @@ test('linha "Estorno de crédito — devolução da venda #…" também entra no
   assert.equal(semComprovante([estorno]).length, 1)
   assert.match(montarAviso([estorno])!, /MICHEL GARCIA/)
 })
+test('leitura: resposta da IA TRUNCADA não vira valor inventado', () => {
+  // Aconteceu no primeiro teste real: o JSON voltou cortado no meio e o robô
+  // disse "valor não foi lido" com a foto nítida. O certo é vir null (e a rota
+  // faz a segunda leitura focada).
+  const truncado = '{"eh_comprovante":true,"valor":51.00,"data":"2026-11-24","pagador":"38.216.41'
+  const l = normalizarLeitura(truncado)
+  assert.equal(l.valor, null)
+  assert.equal(l.dia, null)
+})

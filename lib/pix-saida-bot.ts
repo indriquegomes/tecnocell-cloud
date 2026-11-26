@@ -132,6 +132,19 @@ export function parseValor(v: unknown): number | null {
 
 const soDigitos = (v: unknown) => String(texto(v) ?? '').replace(/\D/g, '')
 
+/**
+ * Segunda leitura, focada e curta.
+ *
+ * A leitura completa devolve um JSON grande; com o modelo "pensando" antes de
+ * responder, a saída estourava o teto de tokens e voltava TRUNCADA — o JSON não
+ * fechava, `normalizarLeitura` caía no objeto vazio e o robô dizia "valor não foi
+ * lido" com a foto perfeitamente nítida (aconteceu no primeiro teste real).
+ * Esta passada curta resolve sem depender do tamanho da resposta.
+ */
+export const PROMPT_FOCO = `Olhe o comprovante de PIX nesta imagem e responda SÓ JSON, sem nada fora do JSON:
+{"valor": <número em reais, ex 51.00>, "data": "<AAAA-MM-DD>", "transacao_id": "<código da transação Pix / E2E, copie exato>", "pagador": "<quem enviou>", "destinatario": "<quem recebeu>"}
+Campo que não existir: null.`
+
 /** JSON da IA (texto ou objeto) → leitura normalizada. */
 export function normalizarLeitura(raw: unknown): LeituraComprovante {
   let j: Record<string, unknown> = {}

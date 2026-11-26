@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { ehContaPropria, type DestinoPix } from '@/lib/pix-destinos'
 import { conciliarPixSaida, diaDoCampo, type LancamentoPagar, type PixSaida } from '@/lib/pix-saida'
-import { clienteDoLancamento, lerCartaoDevolucao, normalizarLeitura, mensagemDoPix, PROMPT_COMPROVANTE, type CartaoDevolucao } from '@/lib/pix-saida-bot'
+import { clienteDoLancamento, lerCartaoDevolucao, normalizarLeitura, mensagemDoPix, PROMPT_COMPROVANTE, PROMPT_FOCO, type CartaoDevolucao } from '@/lib/pix-saida-bot'
 import { lerSegredo } from '@/lib/segredos'
 import { diaSP, hojeSP } from '@/lib/utils'
 
@@ -175,7 +175,7 @@ async function baixarArquivo(tk: string, fileId: string): Promise<{ b64: string;
   return { b64: buf.toString('base64'), mime }
 }
 
-async function geminiLe(b64: string, mime: string): Promise<string> {
+async function geminiLe(b64: string, mime: string, prompt = PROMPT_COMPROVANTE, maxTokens = 2048): Promise<string> {
   const key = process.env.GEMINI_API_KEY
   if (!key) throw new Error('GEMINI_API_KEY não configurada')
   const r = await fetchT(
@@ -184,8 +184,8 @@ async function geminiLe(b64: string, mime: string): Promise<string> {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
       body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ inline_data: { mime_type: mime, data: b64 } }, { text: PROMPT_COMPROVANTE }] }],
-        generationConfig: { maxOutputTokens: 500, thinkingConfig: { thinkingLevel: 'low' } },
+        contents: [{ role: 'user', parts: [{ inline_data: { mime_type: mime, data: b64 } }, { text: prompt }] }],
+        generationConfig: { maxOutputTokens: maxTokens, thinkingConfig: { thinkingLevel: 'low' } },
       }),
     },
     45000,
@@ -193,6 +193,30 @@ async function geminiLe(b64: string, mime: string): Promise<string> {
   if (!r.ok) throw new Error(`gemini ${r.status}: ${(await r.text().catch(() => '')).slice(0, 200)}`)
   const j = await r.json()
   return ((j.candidates?.[0]?.content?.parts ?? []) as { text?: string }[]).map((p) => p.text ?? '').join('')
+}
+
+/**
+ * Lê o comprovante em DUAS passadas quando a primeira não traz valor/data.
+ *
+ * A primeira leitura pede tudo (inclusive o cartão de devolução) e por isso é
+ * longa: com o modelo pensando antes de responder, a saída estourava o teto de
+ * tokens e voltava TRUNCADA — o JSON não fechava, a leitura virava "nada lido" e
+ * o print ia embora com a foto nítida (aconteceu no primeiro teste real, R$ 51,00).
+ * A segunda passada é curta e resolve.
+ */
+async function lerComprovante(b64: string, mime: string): Promise<{ leitura: ReturnType<typeof normalizarLeitura>; bruto: string }> {
+  const bruto = await geminiLe(b64, mime)
+  const primeira = normalizarLeitura(bruto)
+  if (primeira.valor && primeira.dia) return { leitura: primeira, bruto }
+
+  const bruto2 = await geminiLe(b64, mime, PROMPT_FOCO, 600)
+  const segunda = normalizarLeitura(bruto2)
+  // Junta o que cada passada conseguiu: uma pode acertar o valor e a outra o nome.
+  const leitura = {
+    ...primeira,
+    ...Object.fromEntries(Object.entries(segunda).filter(([, v]) => v !== null && v !== undefined)),
+  } as ReturnType<typeof normalizarLeitura>
+  return { leitura, bruto: `${bruto} | FOCO: ${bruto2}` }
 }
 
 function grupoDaMensagem(chatId: number): string | null {
@@ -245,7 +269,8 @@ async function candidatosDoFinanceiro(supabase: ReturnType<typeof sb>, pix: PixS
     .gte('created_at', desloca(-JANELA_DIAS - 400) + 'T00:00:00')
     .limit(100)
 
-  // A forma tem DUAS grafias no banco: a chave `fora_do_app` e o rótulo que a`n  // // tela mostra (`Fora do app (WhatsApp)`). Testar só a chave perdia metade.
+  // A forma tem DUAS grafias no banco: a chave `fora_do_app` e o rótulo que a
+  // tela mostra (`Fora do app (WhatsApp)`). Testar só a chave perdia metade.
   const formaDevolucao = (f: string | null) => /pix|fora/i.test(String(f ?? ''))
   const ehDevolucao = (l: LinhaDb) => !!l.devolucao_id || /^(devolu|estorno)/i.test(String(l.descricao ?? ''))
 
@@ -435,8 +460,16 @@ export async function POST(req: Request) {
   // comprovante não existe no cadastro. O cartão traz o nome do SISTEMA, valor e
   // motivo — é ele que faz o casamento dar certo.
   if (!arquivo) {
-    const cartao = typeof msg.text === 'string' ? lerCartaoDevolucao(msg.text) : null
-    if (!cartao) return NextResponse.json({ ok: true, ignorado: 'sem foto e sem cartão' })
+    const texto = typeof msg.text === 'string' ? msg.text : ''
+    const cartao = texto ? lerCartaoDevolucao(texto) : null
+    if (!cartao) {
+      // Texto que PARECE cartão e não foi entendido avisa: silêncio aqui faz a
+      // pessoa achar que o nome do cliente foi registrado.
+      if (/reembolso|cliente em sistema|chave pix/i.test(texto)) {
+        await tgSend(tk, chatId, '🧾 Não entendi o cartão. Manda assim, um dado por linha:\nNOME DO CLIENTE EM SISTEMA: <nome>\nVALOR DO REEMBOLSO: <valor>', messageId)
+      }
+      return NextResponse.json({ ok: true, ignorado: 'sem foto e sem cartão' })
+    }
     return await tratarCartao(tk, supabase, chatId, messageId, msg, cartao)
   }
 
@@ -479,8 +512,11 @@ export async function POST(req: Request) {
   }
 
   let leitura
+  let brutoIA = ''
   try {
-    leitura = normalizarLeitura(await geminiLe(bin.b64, bin.mime))
+    const lido = await lerComprovante(bin.b64, bin.mime)
+    leitura = lido.leitura
+    brutoIA = lido.bruto
   } catch (e) {
     // Falhou a IA: deixa 'recebido' para tentar de novo se o print for reenviado,
     // e avisa uma vez — silêncio faria a pessoa achar que a devolução foi registrada.
@@ -577,7 +613,7 @@ export async function POST(req: Request) {
     destinatario_doc: leitura.destinatarioDoc,
     transacao_id: leitura.transacaoId,
     loja_id: lojaId,
-    extraido_raw: candidatosParaBotao ? { ...leitura, candidatos: candidatosParaBotao } : leitura,
+    extraido_raw: candidatosParaBotao ? { ...leitura, bruto: brutoIA.slice(0, 600), candidatos: candidatosParaBotao } : { ...leitura, bruto: brutoIA.slice(0, 600) },
     // Etapa 2: LIGA A PROVA. Só grava o vínculo comprovante ↔ conta; não muda
     // status, valor nem forma do lançamento — nada de dinheiro sai daqui.
     lancamento_id: resultado.tipo === 'baixar' ? resultado.candidato.id : null,
