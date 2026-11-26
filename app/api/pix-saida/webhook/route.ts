@@ -208,6 +208,9 @@ async function lerComprovante(b64: string, mime: string): Promise<{ leitura: Ret
   const bruto = await geminiLe(b64, mime)
   const primeira = normalizarLeitura(bruto)
   if (primeira.valor && primeira.dia) return { leitura: primeira, bruto }
+  // A IA disse que não é comprovante: a passada focal não tem esse campo e devolveria
+  // `ehComprovante: true` por padrão, anulando o veredito. Não relê.
+  if (!primeira.ehComprovante) return { leitura: primeira, bruto }
 
   const bruto2 = await geminiLe(b64, mime, PROMPT_FOCO, 600)
   const segunda = normalizarLeitura(bruto2)
