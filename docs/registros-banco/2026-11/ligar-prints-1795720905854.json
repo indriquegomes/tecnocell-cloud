@@ -1,0 +1,410 @@
+[
+  {
+    "lancamento_id": "ea0f34ef-af9b-495f-934a-577beda6221f",
+    "valor": 4,
+    "cliente": "SAMIRA AMORIM DOS REIS",
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.09 (2).jpeg",
+      "tipo": "pix_enviado",
+      "valor": 4,
+      "data": "2026-11-03",
+      "pagador": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+      "destinatario": "Samira Amorim Dos Reis",
+      "transacao_id": "E08561701202611032109KI8CDCU6FAI",
+      "legivel": true
+    },
+    "modo": "nome"
+  },
+  {
+    "lancamento_id": "39c20166-a02d-4b67-ae91-7613de75425a",
+    "valor": 229,
+    "cliente": null,
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.09 (1).jpeg",
+      "tipo": "pix_enviado",
+      "valor": 229,
+      "data": "2026-11-04",
+      "pagador": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+      "destinatario": "Lucas Gabriel Dias Santana Carneiro",
+      "transacao_id": "E08561701202611041952X3B7T4DIP4P",
+      "legivel": true
+    },
+    "modo": "nome"
+  },
+  {
+    "lancamento_id": "3b6d9e6d-de69-43c5-b170-6fdfcdd610ae",
+    "valor": 57,
+    "cliente": null,
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.08 (2).jpeg",
+      "tipo": "pix_enviado",
+      "valor": 57,
+      "data": "2026-11-06",
+      "pagador": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+      "destinatario": "ARTHUR DIAS MOURA",
+      "transacao_id": "E085617012026110622258G3HXK9AXYW",
+      "legivel": true
+    },
+    "modo": "nome"
+  },
+  {
+    "lancamento_id": "aab1f2ad-f8af-43fb-aafe-18cbc1f70a7d",
+    "valor": 82,
+    "cliente": null,
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.08 (3).jpeg",
+      "tipo": "pix_enviado",
+      "valor": 82,
+      "data": "2026-11-06",
+      "pagador": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+      "destinatario": "KLEBER CLAYTON DA COSTA MESQUITA",
+      "transacao_id": "E08561701202611062226P991FN5QWN6",
+      "legivel": true
+    },
+    "modo": "valor único"
+  },
+  {
+    "lancamento_id": "4d9a0a79-a104-4ed1-a6d1-d60704de2769",
+    "valor": 224,
+    "cliente": null,
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.09.jpeg",
+      "tipo": "pix_enviado",
+      "valor": 224,
+      "data": "2026-11-06",
+      "pagador": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+      "destinatario": "Vitor Da Silva Costa",
+      "transacao_id": "E0856170120261106172065ETUF89BQ8",
+      "legivel": true
+    },
+    "modo": "nome"
+  },
+  {
+    "lancamento_id": "1ed59574-4660-4f9a-b7ac-dd18b4d97230",
+    "valor": 349,
+    "cliente": "IGOR KREISCHER",
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.10 (1).jpeg",
+      "tipo": "pix_enviado",
+      "valor": 349,
+      "data": "2026-11-06",
+      "pagador": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+      "destinatario": "IGOR KREISCHER",
+      "transacao_id": "E08561701202611061828DKSUCYYJE2Q",
+      "legivel": true
+    },
+    "modo": "nome"
+  },
+  {
+    "lancamento_id": "64b9b311-6493-4692-8023-23c71633de3c",
+    "valor": 76,
+    "cliente": null,
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.10 (2).jpeg",
+      "tipo": "pix_enviado",
+      "valor": 76,
+      "data": "2026-11-06",
+      "pagador": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+      "destinatario": "MARIA EDUARDA DA SILVA KERN",
+      "transacao_id": "E08561701202611061825NSFSCXAM6RU",
+      "legivel": true
+    },
+    "modo": "valor único"
+  },
+  {
+    "lancamento_id": "b2e75e3c-08f2-4fda-8494-27b3e6638e3a",
+    "valor": 100,
+    "cliente": null,
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.06 (6).jpeg",
+      "tipo": "pix_enviado",
+      "valor": 100,
+      "data": "2026-11-07",
+      "pagador": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+      "destinatario": "VICTOR AFONSO PACHECO VICENTE",
+      "transacao_id": "E08561701202611072148RR5OSVV377G",
+      "legivel": true
+    },
+    "modo": "nome"
+  },
+  {
+    "lancamento_id": "278cb24e-30c7-4142-b82a-2b260c35cee1",
+    "valor": 101,
+    "cliente": null,
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.07 (1).jpeg",
+      "tipo": "pix_enviado",
+      "valor": 101,
+      "data": "2026-11-07",
+      "pagador": null,
+      "destinatario": null,
+      "transacao_id": null,
+      "legivel": false
+    },
+    "modo": "valor único"
+  },
+  {
+    "lancamento_id": "32382f65-39c6-407c-bec7-3d5ef0db5372",
+    "valor": 37,
+    "cliente": null,
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.11 (3).jpeg",
+      "tipo": "pix_enviado",
+      "valor": 37,
+      "data": "2026-11-09",
+      "pagador": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+      "destinatario": "68.598.643 LEONARDO MIRANDA DE OLIVEIRA",
+      "transacao_id": "E08561701202611092020SFC1GPOXJIR",
+      "legivel": true
+    },
+    "modo": "valor único"
+  },
+  {
+    "lancamento_id": "b59ad8a8-7697-4927-8135-efca54b553b9",
+    "valor": 87,
+    "cliente": null,
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.06 (2).jpeg",
+      "tipo": "pix_enviado",
+      "valor": 87,
+      "data": "2026-11-10",
+      "pagador": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+      "destinatario": "AMILTON CORDEIRO COSTA",
+      "transacao_id": "E08561701202611102022KA4XB1JPGQS",
+      "legivel": true
+    },
+    "modo": "valor único"
+  },
+  {
+    "lancamento_id": "78ee1bcb-d8d1-40cb-8293-6d1f002ee063",
+    "valor": 112,
+    "cliente": null,
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.06 (4).jpeg",
+      "tipo": "pix_enviado",
+      "valor": 112,
+      "data": "2026-11-10",
+      "pagador": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+      "destinatario": "Emily de Menezes Pittzer Fiuza",
+      "transacao_id": "E08561701202611101830ABRYWFDFFEA",
+      "legivel": true
+    },
+    "modo": "nome"
+  },
+  {
+    "lancamento_id": "31fec127-89bb-408d-a29f-fd10b26b7f01",
+    "valor": 128,
+    "cliente": null,
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.11 (1).jpeg",
+      "tipo": "pix_enviado",
+      "valor": 128,
+      "data": "2026-11-10",
+      "pagador": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+      "destinatario": "Emily de Menezes Pittzer Fiuza",
+      "transacao_id": "E08561701202611101545S3MH5DKCDVM",
+      "legivel": true
+    },
+    "modo": "nome"
+  },
+  {
+    "lancamento_id": "35ce1032-60a8-439d-be24-bd09ecd58666",
+    "valor": 10,
+    "cliente": null,
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.11.jpeg",
+      "tipo": "pix_enviado",
+      "valor": 10,
+      "data": "2026-11-10",
+      "pagador": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+      "destinatario": "ALVARO DAMASCENO GARCIA",
+      "transacao_id": "E085617012026111015437H3QBR5P52K",
+      "legivel": true
+    },
+    "modo": "nome"
+  },
+  {
+    "lancamento_id": "7d27bca9-152f-4491-9315-9d214cc11768",
+    "valor": 120,
+    "cliente": null,
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.12 (1).jpeg",
+      "tipo": "pix_enviado",
+      "valor": 120,
+      "data": "2026-11-13",
+      "pagador": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+      "destinatario": "VANDERLEIA MATEUS CARDOSO",
+      "transacao_id": "E08561701202611132139UTBTDWT55ZG",
+      "legivel": true
+    },
+    "modo": "valor único"
+  },
+  {
+    "lancamento_id": "43ffad16-a150-4711-919a-4f828808083b",
+    "valor": 70,
+    "cliente": null,
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.12.jpeg",
+      "tipo": "pix_enviado",
+      "valor": 70,
+      "data": "2026-11-16",
+      "pagador": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+      "destinatario": "Luiz Otávio da silva",
+      "transacao_id": "E0856170120261116133742LRLVX96EX",
+      "legivel": true
+    },
+    "modo": "valor único"
+  },
+  {
+    "lancamento_id": "97f4b1d5-a209-4f12-8c04-6427f009df5c",
+    "valor": 15,
+    "cliente": null,
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.05 (4).jpeg",
+      "tipo": "pix_enviado",
+      "valor": 15,
+      "data": "2026-11-17",
+      "pagador": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+      "destinatario": "AMILTON CORDEIRO COSTA",
+      "transacao_id": "E085617012026111715087ABPF17YFQU",
+      "legivel": true
+    },
+    "modo": "valor único"
+  },
+  {
+    "lancamento_id": "49b82c0c-5239-425e-8bb7-129e1104607e",
+    "valor": 21,
+    "cliente": null,
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.05 (3).jpeg",
+      "tipo": "pix_enviado",
+      "valor": 21,
+      "data": "2026-11-18",
+      "pagador": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+      "destinatario": "Anderson Xavier da Rocha Henrique",
+      "transacao_id": "E08561701202611181431XGQK345JY87",
+      "legivel": true
+    },
+    "modo": "nome"
+  },
+  {
+    "lancamento_id": "5367b62e-46d6-492d-bfe6-d8a2bd92de38",
+    "valor": 141,
+    "cliente": null,
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.05 (1).jpeg",
+      "tipo": "pix_enviado",
+      "valor": 141,
+      "data": "2026-11-19",
+      "pagador": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+      "destinatario": "Larissa da Rocha Carvalho",
+      "transacao_id": "E0856170120261119170820L6ED667O3",
+      "legivel": true
+    },
+    "modo": "valor único"
+  },
+  {
+    "lancamento_id": "a71cf9b7-21a0-43cb-8a0e-d2b44666bf6a",
+    "valor": 1530.9,
+    "cliente": null,
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.05.jpeg",
+      "tipo": "pix_enviado",
+      "valor": 1530.9,
+      "data": "2026-11-19",
+      "pagador": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+      "destinatario": "59.738.560 RODRIGO DE SOUZA PEREIRA",
+      "transacao_id": "E08561701202611191718KZXEV6ABP8U",
+      "legivel": true
+    },
+    "modo": "nome"
+  },
+  {
+    "lancamento_id": "ec0b25b4-a854-49c8-890e-11e50e7b8f78",
+    "valor": 210,
+    "cliente": null,
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.13 (1).jpeg",
+      "tipo": "pix_enviado",
+      "valor": 210,
+      "data": "2026-11-19",
+      "pagador": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+      "destinatario": "VITOR PORTO FIGUEIRA",
+      "transacao_id": "E08561701202611191703ETWBQ23SY7L",
+      "legivel": true
+    },
+    "modo": "valor único"
+  },
+  {
+    "lancamento_id": "1da53a90-4269-45a3-a752-324e964c62e9",
+    "valor": 295,
+    "cliente": "Bruno Delgado De Mattos",
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.01 (1).jpeg",
+      "tipo": "pix_enviado",
+      "valor": 295,
+      "data": "2026-11-21",
+      "pagador": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+      "destinatario": "Bruno Delgado De Mattos",
+      "transacao_id": "E08561701202611211303U9J4D2PAOLJ",
+      "legivel": true
+    },
+    "modo": "nome"
+  },
+  {
+    "lancamento_id": "465276ed-f640-4cb9-9bbf-14e732467295",
+    "valor": 47,
+    "cliente": null,
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.14 (2).jpeg",
+      "tipo": "pix_enviado",
+      "valor": 47,
+      "data": "2026-11-21",
+      "pagador": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+      "destinatario": "UELINGTON BARRETO MARTINS",
+      "transacao_id": "E08561701202611211706X7LZHHIW612",
+      "legivel": true
+    },
+    "modo": "nome"
+  },
+  {
+    "lancamento_id": "696269b1-0b7e-4028-a1ba-8b08a75bb3a9",
+    "valor": 77,
+    "cliente": null,
+    "devolucao_id": null,
+    "print": {
+      "arquivo": "WhatsApp Image 2026-11-26 at 10.12.14.jpeg",
+      "tipo": "pix_enviado",
+      "valor": 77,
+      "data": "2026-11-21",
+      "pagador": "38.216.415 JOAO VITOR MAXIMIANO FRANCA",
+      "destinatario": "Luiz Diego Dos Santos Silva",
+      "transacao_id": "E08561701202611211846KW812NIUOQQ",
+      "legivel": true
+    },
+    "modo": "nome"
+  }
+]
