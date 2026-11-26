@@ -7,6 +7,7 @@ import {
   type LancamentoPagar,
 } from '../lib/pix-saida.ts'
 import { lerCartaoDevolucao, mensagemDoPix, normalizarLeitura, parseValor } from '../lib/pix-saida-bot.ts'
+import { montarAviso, semComprovante, type LancamentoPixPago } from '../lib/pix-saida-vigia.ts'
 
 // O PIX de saída é dinheiro REAL saindo da conta: baixa errada aqui apaga dívida
 // de cliente errado. Por isso quase todo caso abaixo espera "escolher" — quem
@@ -278,3 +279,50 @@ test('mensagem mostra os dois nomes quando o PIX foi para conta de outra pessoa'
   assert.match(msg, /Cliente no sistema: Sérgio celulares/)
 })
 
+
+// ---------- o aviso do contrário: devolução PIX paga SEM comprovante ----------
+//
+// O robô só vê o que alguém manda; quem esquece de mandar o print some. É esta
+// conta que pega o esquecimento — e é a maior causa de devolução em PIX sem
+// origem do dinheiro.
+
+const pago = (extra: Partial<LancamentoPixPago> = {}): LancamentoPixPago => ({
+  id: 'l1',
+  valor: 15,
+  status: 'pago',
+  descricao: 'Devolução — SERGIO CELULARES',
+  pessoaNome: 'SERGIO CELULARES',
+  forma: 'pix',
+  diaPagamento: '2026-11-25T00:00:00+00:00',
+  temComprovante: false,
+  ...extra,
+})
+
+test('sem comprovante: só conta devolução paga em PIX que não tem prova', () => {
+  const lista = semComprovante([
+    pago(),
+    pago({ id: 'l2', temComprovante: true }),
+    pago({ id: 'l3', status: 'pendente' }),
+    pago({ id: 'l4', status: 'cancelado' }),
+    pago({ id: 'l5', forma: 'dinheiro' }),
+    pago({ id: 'l6', descricao: 'Pagamento de mercadoria' }),
+  ])
+  assert.deepEqual(lista.map((l) => l.id), ['l1'])
+})
+
+test('sem comprovante: "fora do app" entra na lista (também precisa de prova)', () => {
+  assert.equal(semComprovante([pago({ forma: 'fora_do_app' })]).length, 1)
+})
+
+test('aviso: silêncio quando está tudo com comprovante', () => {
+  assert.equal(montarAviso([pago({ temComprovante: true })]), null)
+})
+
+test('aviso: mostra dia, nome, valor e o total', () => {
+  const texto = montarAviso([pago(), pago({ id: 'l2', valor: 100, pessoaNome: 'MARLENE DA SILVA' })])!
+  assert.match(texto, /25\/11\/2026/)
+  assert.match(texto, /SERGIO CELULARES/)
+  assert.match(texto, /15,00/)
+  assert.match(texto, /Total: 2 contas/)
+  assert.match(texto, /Manda o print/i)
+})

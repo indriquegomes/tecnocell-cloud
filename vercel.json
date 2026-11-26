@@ -30,6 +30,10 @@
     {
       "path": "/api/vigia/erros?job=guarda",
       "schedule": "7,37 * * * *"
+    },
+    {
+      "path": "/api/pix-saida/vigia",
+      "schedule": "20 11 * * *"
     }
   ]
 }

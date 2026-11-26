@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { ehContaPropria, type DestinoPix } from '@/lib/pix-destinos'
 import { conciliarPixSaida, diaDoCampo, type LancamentoPagar, type PixSaida } from '@/lib/pix-saida'
-import { lerCartaoDevolucao, normalizarLeitura, mensagemDoPix, PROMPT_COMPROVANTE, type CartaoDevolucao } from '@/lib/pix-saida-bot'
+import { clienteDoLancamento, lerCartaoDevolucao, normalizarLeitura, mensagemDoPix, PROMPT_COMPROVANTE, type CartaoDevolucao } from '@/lib/pix-saida-bot'
 import { lerSegredo } from '@/lib/segredos'
 import { diaSP, hojeSP } from '@/lib/utils'
 
@@ -39,11 +39,107 @@ const segredoWebhook = async () => (await lerSegredo('TELEGRAM_PIXSAIDA_SECRET',
 const fetchT = (url: string, opts: RequestInit = {}, ms = 15000) =>
   fetch(url, { ...opts, signal: AbortSignal.timeout(ms) })
 
-async function tgSend(tk: string, chatId: number, text: string, replyTo?: number) {
+async function tgSend(tk: string, chatId: number, text: string, replyTo?: number, botoes?: { text: string; callback_data: string }[][]) {
   if (!tk) return
-  await fetchT(
-    `https://api.telegram.org/bot${tk}/sendMessage?chat_id=${chatId}${replyTo ? '&reply_to_message_id=' + replyTo : ''}&text=${encodeURIComponent(text)}`,
-  ).catch(() => {})
+  const corpo: Record<string, unknown> = { chat_id: chatId, text }
+  if (replyTo) corpo.reply_to_message_id = replyTo
+  if (botoes && botoes.length) corpo.reply_markup = { inline_keyboard: botoes }
+  await fetchT(`https://api.telegram.org/bot${tk}/sendMessage`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(corpo),
+  }).catch(() => {})
+}
+
+async function tgEditar(tk: string, chatId: number, messageId: number, text: string) {
+  if (!tk) return
+  await fetchT(`https://api.telegram.org/bot${tk}/editMessageText`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, message_id: messageId, text }),
+  }).catch(() => {})
+}
+
+async function tgResponderClique(tk: string, id: string, texto: string) {
+  if (!tk) return
+  await fetchT(`https://api.telegram.org/bot${tk}/answerCallbackQuery`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ callback_query_id: id, text: texto }),
+  }).catch(() => {})
+}
+
+/** Botões do caso ambíguo: um por conta candidata + "nenhuma dessas". */
+function botoesDaEscolha(candidatos: LancamentoPagar[]): { text: string; callback_data: string }[][] {
+  const linhas = candidatos.slice(0, 5).map((c, i) => {
+    const quem = clienteDoLancamento(c.descricao, c.pessoaNome).slice(0, 22)
+    const valor = Number(c.valor ?? 0).toFixed(2).replace('.', ',')
+    return [{ text: `${i + 1}. ${quem} · ${valor}`, callback_data: `e:${i}` }]
+  })
+  linhas.push([{ text: '❌ Nenhuma dessas', callback_data: 'n:' }])
+  return linhas
+}
+
+/**
+ * Clique num botão de escolha.
+ *
+ * A lista de candidatos vem do `extraido_raw` da MESMA linha que recebeu o print —
+ * o botão carrega só o índice, então não existe caminho para um clique antigo
+ * apontar para uma conta que não era da lista mostrada.
+ */
+async function tratarEscolha(
+  tk: string,
+  supabase: ReturnType<typeof sb>,
+  cq: Record<string, any>,
+) {
+  const chatId = Number(cq.message?.chat?.id ?? 0)
+  const textoBot = Number(cq.message?.message_id ?? 0)
+  const idDoClique = String(cq.id ?? '')
+  const quemClicou = [cq.from?.first_name, cq.from?.last_name].filter(Boolean).join(' ') || null
+
+  if (chatId && textoBot) await tgResponderClique(tk, idDoClique, 'processando…')
+
+  const midDoPrint = Number(cq.message?.reply_to_message?.message_id ?? 0)
+  if (!chatId || !midDoPrint) {
+    if (chatId && textoBot) await tgEditar(tk, chatId, textoBot, '⚠️ Não consegui identificar o print desta escolha. Mande o print de novo.')
+    return NextResponse.json({ ok: true, ignorado: 'sem print original' })
+  }
+
+  const { data: linha } = await supabase.from('pix_saidas')
+    .select('id, extraido_raw, lancamento_id')
+    .eq('telegram_chat_id', chatId).eq('telegram_message_id', midDoPrint).maybeSingle()
+  const row = linha as { id?: string; extraido_raw?: { candidatos?: { id: string; nome: string | null; valor: number; dia: string | null }[] } } | null
+  if (!row?.id) {
+    await tgEditar(tk, chatId, textoBot, '⚠️ Não achei mais este print no app. Mande de novo.')
+    return NextResponse.json({ ok: true, ignorado: 'print não encontrado' })
+  }
+
+  const escolha = String(cq.data ?? '')
+  if (escolha.startsWith('n:')) {
+    await supabase.from('pix_saidas').update({ status: 'sem_par' }).eq('id', row.id)
+    await tgEditar(tk, chatId, textoBot, '❌ Marcado como "nenhuma dessas" — não liguei nada. Se o PIX saiu e não tem devolução no app, lance em Devoluções.')
+    return NextResponse.json({ ok: true, status: 'sem_par' })
+  }
+
+  const indice = Number(escolha.split(':')[1] ?? -1)
+  const candidato = row.extraido_raw?.candidatos?.[indice]
+  if (!candidato?.id) {
+    await tgEditar(tk, chatId, textoBot, '⚠️ Não achei a conta desta opção (lista mudou). Mande o print de novo.')
+    return NextResponse.json({ ok: true, ignorado: 'candidato inválido' })
+  }
+
+  await supabase.from('pix_saidas').update({
+    status: 'casado',
+    lancamento_id: candidato.id,
+    conciliado_em: new Date().toISOString(),
+    conciliado_por: quemClicou,
+  }).eq('id', row.id)
+
+  await tgEditar(
+    tk, chatId, textoBot,
+    `✅ Ligado por ${quemClicou ?? 'alguém'} a: ${candidato.nome ?? 'conta sem nome'} · R$ ${Number(candidato.valor ?? 0).toFixed(2).replace('.', ',')}${candidato.dia ? ' · ' + candidato.dia.split('-').reverse().join('/') : ''}\nO comprovante ficou como prova desta conta.`,
+  )
+  return NextResponse.json({ ok: true, status: 'casado', lancamento: candidato.id })
 }
 
 // ---------- arquivo do Telegram ----------
@@ -282,18 +378,32 @@ async function tratarCartao(
 
   const { resultado } = await candidatosDoFinanceiro(supabase, pix)
   const status = resultado.tipo === 'baixar' ? 'casado' : resultado.tipo === 'escolher' ? 'ambiguo' : 'sem_par'
+  // A lista de candidatos fica gravada na linha: o botão carrega só o índice, então
+  // clique não pode apontar para conta que não estava na mensagem mostrada.
+  const candidatosParaBotao = resultado.tipo === 'escolher'
+    ? resultado.candidatos.map((c) => ({
+        id: c.id,
+        nome: clienteDoLancamento(c.descricao, c.pessoaNome),
+        valor: Number(c.valor ?? 0),
+        dia: diaDoCampo(c.diaPagamento) ?? diaDoCampo(c.diaVencimento),
+      }))
+    : null
+
   await supabase.from('pix_saidas').update({
     status,
     valor: pix.valor,
     destinatario: cartao.nomeConta,
-    extraido_raw: { cartao },
+    extraido_raw: candidatosParaBotao ? { cartao, candidatos: candidatosParaBotao } : { cartao },
     // Cartão também liga a prova (o print do mesmo PIX liga a mesma conta depois).
     lancamento_id: resultado.tipo === 'baixar' ? resultado.candidato.id : null,
     conciliado_em: resultado.tipo === 'baixar' ? new Date().toISOString() : null,
     conciliado_por: resultado.tipo === 'baixar' ? nomeDoRemetente(msg) : null,
   }).eq('id', id)
 
-  await tgSend(tk, chatId, `🧾 Cartão da devolução:\n${mensagemDoPix(pix, resultado)}`, messageId)
+  await tgSend(
+    tk, chatId, `🧾 Cartão da devolução:\n${mensagemDoPix(pix, resultado)}`, messageId,
+    candidatosParaBotao ? botoesDaEscolha(resultado.tipo === 'escolher' ? resultado.candidatos : []) : undefined,
+  )
   return NextResponse.json({ ok: true, status, tipo: resultado.tipo })
 }
 
@@ -306,6 +416,11 @@ export async function POST(req: Request) {
   if (!tk) return NextResponse.json({ ok: false, erro: 'token do bot não configurado' }, { status: 500 })
 
   const update = await req.json().catch(() => null) as Record<string, any> | null
+  if (!update) return NextResponse.json({ ok: true, ignorado: 'corpo vazio' })
+
+  // Clique nos botões do caso ambíguo.
+  if (update.callback_query) return await tratarEscolha(tk, sb(), update.callback_query)
+
   const msg = update?.message
   if (!msg?.chat?.id) return NextResponse.json({ ok: true, ignorado: 'sem mensagem' })
 
@@ -434,6 +549,17 @@ export async function POST(req: Request) {
   const resposta = mensagemDoPix(pix, resultado)
 
   const status = resultado.tipo === 'baixar' ? 'casado' : resultado.tipo === 'escolher' ? 'ambiguo' : resultado.tipo === 'sem_par' ? 'sem_par' : 'ignorado'
+
+  // Lista de candidatos gravada na linha para os botões do caso ambíguo: o clique
+  // carrega só o índice, nunca o id de uma conta que não estava na mensagem.
+  const candidatosParaBotao = resultado.tipo === 'escolher'
+    ? resultado.candidatos.map((c) => ({
+        id: c.id,
+        nome: clienteDoLancamento(c.descricao, c.pessoaNome),
+        valor: Number(c.valor ?? 0),
+        dia: diaDoCampo(c.diaPagamento) ?? diaDoCampo(c.diaVencimento),
+      }))
+    : null
   // A loja sai do grupo (quando o grupo é de uma loja) ou da própria devolução
   // casada — o grupo de estornos atende as duas lojas, então na maioria das vezes
   // quem sabe a loja é o lançamento.
@@ -450,7 +576,7 @@ export async function POST(req: Request) {
     destinatario_doc: leitura.destinatarioDoc,
     transacao_id: leitura.transacaoId,
     loja_id: lojaId,
-    extraido_raw: leitura,
+    extraido_raw: candidatosParaBotao ? { ...leitura, candidatos: candidatosParaBotao } : leitura,
     // Etapa 2: LIGA A PROVA. Só grava o vínculo comprovante ↔ conta; não muda
     // status, valor nem forma do lançamento — nada de dinheiro sai daqui.
     lancamento_id: resultado.tipo === 'baixar' ? resultado.candidato.id : null,
@@ -458,6 +584,9 @@ export async function POST(req: Request) {
     conciliado_por: resultado.tipo === 'baixar' ? nomeDoRemetente(msg) : null,
   }).eq('id', pixSaidaId)
 
-  await tgSend(tk, chatId, resposta, messageId)
+  await tgSend(
+    tk, chatId, resposta, messageId,
+    candidatosParaBotao ? botoesDaEscolha(resultado.tipo === 'escolher' ? resultado.candidatos : []) : undefined,
+  )
   return NextResponse.json({ ok: true, status, tipo: resultado.tipo })
 }
