@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { ehContaPropria, type DestinoPix } from '@/lib/pix-destinos'
 import { conciliarPixSaida, diaDoCampo, ehLinhaDeDevolucao, ehSaidaPix, type LancamentoPagar, type PixSaida } from '@/lib/pix-saida'
 import { clienteDoLancamento, lerCartaoDevolucao, normalizarLeitura, mensagemDoPix, PROMPT_COMPROVANTE, PROMPT_FOCO, type CartaoDevolucao } from '@/lib/pix-saida-bot'
+import { baixarContaPendente } from '@/lib/baixar-conta-pendente'
 import { lerSegredo } from '@/lib/segredos'
 import { diaSP, hojeSP } from '@/lib/utils'
 
@@ -404,6 +405,15 @@ async function tratarCartao(
 
   const { resultado } = await candidatosDoFinanceiro(supabase, pix)
   const status = resultado.tipo === 'baixar' ? 'casado' : resultado.tipo === 'escolher' ? 'ambiguo' : 'sem_par'
+
+  // Mesma baixa da rota do print: o cartão também pode ser o que prova a conta em
+  // aberto. Só a linha 'pendente' é tocada.
+  let pagou = false
+  if (resultado.tipo === 'baixar' && resultado.candidato.status !== 'pago') {
+    const baixa = await baixarContaPendente(supabase, resultado.candidato.id, pix.dia, nomeDoRemetente(msg))
+    pagou = baixa.ok
+    if (!baixa.ok && !baixa.jaEstavaPago) console.error('pix-saida (cartão): baixa recusada —', baixa.erro)
+  }
   // A lista de candidatos fica gravada na linha: o botão carrega só o índice, então
   // clique não pode apontar para conta que não estava na mensagem mostrada.
   const candidatosParaBotao = resultado.tipo === 'escolher'
@@ -427,7 +437,7 @@ async function tratarCartao(
   }).eq('id', id)
 
   await tgSend(
-    tk, chatId, `🧾 Cartão da devolução:\n${mensagemDoPix(pix, resultado)}`, messageId,
+    tk, chatId, `🧾 Cartão da devolução:\n${mensagemDoPix(pix, resultado, { pagou })}`, messageId,
     candidatosParaBotao ? botoesDaEscolha(resultado.tipo === 'escolher' ? resultado.candidatos : []) : undefined,
   )
   return NextResponse.json({ ok: true, status, tipo: resultado.tipo })
@@ -584,7 +594,17 @@ export async function POST(req: Request) {
   pix.clienteSistema = cartaoUsado?.nome ?? null
 
   const { resultado, base } = await candidatosDoFinanceiro(supabase, pix)
-  const resposta = mensagemDoPix(pix, resultado)
+
+  // Conta em aberto + PIX provado = o robô dá baixa (a única escrita fora de
+  // pix_saidas). Mês fechado, linha já paga ou status estranho: ele não toca e a
+  // mensagem continua mandando a pessoa para a tela.
+  let pagou = false
+  if (resultado.tipo === 'baixar' && resultado.candidato.status !== 'pago') {
+    const baixa = await baixarContaPendente(supabase, resultado.candidato.id, pix.dia, nomeDoRemetente(msg))
+    pagou = baixa.ok
+    if (!baixa.ok && !baixa.jaEstavaPago) console.error('pix-saida: baixa recusada —', baixa.erro)
+  }
+  const resposta = mensagemDoPix(pix, resultado, { pagou })
 
   const status = resultado.tipo === 'baixar' ? 'casado' : resultado.tipo === 'escolher' ? 'ambiguo' : resultado.tipo === 'sem_par' ? 'sem_par' : 'ignorado'
 

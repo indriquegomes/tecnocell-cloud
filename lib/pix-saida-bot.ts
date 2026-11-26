@@ -190,7 +190,7 @@ export function clienteDoLancamento(descricao: string | null, pessoaNome: string
 export function mensagemDoPix(
   pix: PixSaida,
   r: ConciliacaoPixSaida,
-  opcoes: { jaConciliado?: boolean } = {},
+  opcoes: { jaConciliado?: boolean; pagou?: boolean } = {},
 ): string {
   const valor = formatBRL(Number(pix.valor ?? 0))
   const quem = pix.destinatario?.trim() || 'sem nome no comprovante'
@@ -235,7 +235,14 @@ export function mensagemDoPix(
       const avisoForma = /fora/i.test(forma)
         ? '\n⚠️ Esta conta está como "fora do app", que NÃO baixa do PagBank. Se o PIX saiu do banco, troque a forma para PIX no Financeiro.'
         : ''
-      return `${cabeca}\n\n✅ Casa com: ${quemLinha} · ${formatBRL(Number(c.valor ?? 0))} · ${diaBR(diaDoCampo(c.diaPagamento) ?? diaDoCampo(c.diaVencimento))} (${situacao}).\nMotivo: ${r.motivo}.\n🔗 Comprovante ligado a esta conta como prova.${avisoForma}${c.status === 'pago' ? '' : '\nA conta continua EM ABERTO no app — marque Pago na tela quando o dinheiro sair.'}`
+      // O desfecho da conta em aberto depende do que o robô conseguiu fazer: dizer
+      // "marque Pago na tela" quando ele já marcou seria confundir quem lê.
+      const desfecho = c.status === 'pago'
+        ? ''
+        : opcoes.pagou
+          ? '\n💸 Marquei esta conta como PAGA no app: forma PIX, no banco do PagBank, com a data do PIX.'
+          : '\nA conta continua EM ABERTO no app — marque Pago na tela quando o dinheiro sair.'
+      return `${cabeca}\n\n✅ Casa com: ${quemLinha} · ${formatBRL(Number(c.valor ?? 0))} · ${diaBR(diaDoCampo(c.diaPagamento) ?? diaDoCampo(c.diaVencimento))} (${situacao}).\nMotivo: ${r.motivo}.\n🔗 Comprovante ligado a esta conta como prova.${avisoForma}${desfecho}`
     }
 
     default:

@@ -349,3 +349,13 @@ test('leitura: resposta da IA TRUNCADA não vira valor inventado', () => {
   assert.equal(l.valor, null)
   assert.equal(l.dia, null)
 })
+test('mensagem diz que o robô MARCOU pago (e não manda a pessoa repetir na tela)', () => {
+  const msg = mensagemDoPix(pix(), conciliarPixSaida(pix(), [dev({ status: 'pendente' })]), { pagou: true })
+  assert.match(msg, /Marquei esta conta como PAGA/)
+  assert.doesNotMatch(msg, /marque Pago na tela/i)
+})
+
+test('baixa recusada: mensagem continua mandando para a tela', () => {
+  const msg = mensagemDoPix(pix(), conciliarPixSaida(pix(), [dev({ status: 'pendente' })]), { pagou: false })
+  assert.match(msg, /EM ABERTO/)
+})
