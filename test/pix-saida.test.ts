@@ -68,7 +68,7 @@ test('comprovante com nome sem par: diz quantas linhas do mesmo valor existem de
   assert.equal(r.tipo, 'sem_par')
   if (r.tipo === 'sem_par') {
     assert.match(r.motivo, /LUCIANA LUCIO TRECE/)
-    assert.match(r.motivo, /2 de R\$ 15,00/)
+    assert.match(r.motivo, /2 contas de R\$ 15,00/)
   }
 })
 

@@ -114,7 +114,7 @@ export function mensagemDoPix(
       return `${cabeca}\n\n❓ Não deu para conciliar: ${r.motivo}. Confira o valor/data na tela do pagamento e lance na mão se precisar.`
 
     case 'sem_par':
-      return `${cabeca}\n\n⚠️ Saiu dinheiro e não achei a conta correspondente no Financeiro (${r.motivo}).\nProvável devolução que ninguém registrou no app. Abra em **Devoluções** e lance o reembolso em PIX — ou avise o dono.`
+      return `${cabeca}\n\n⚠️ Saiu dinheiro e não achei a conta correspondente no Financeiro: ${r.motivo}.\nProvável devolução que ninguém registrou no app. Abra em **Devoluções** e lance o reembolso em PIX — ou avise o dono.`
 
     case 'escolher': {
       const linhas = r.candidatos.slice(0, 5).map((c, i) => {

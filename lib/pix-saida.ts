@@ -191,10 +191,13 @@ export function conciliarPixSaida(
   const temNome = !!String(pix.destinatario ?? '').trim()
   if (fortes.length === 0 && temNome) {
     const outras = candidatos.length
-    return {
-      tipo: 'sem_par',
-      motivo: `nenhuma conta no nome de ${pix.destinatario}${outras > 0 ? ` (existem ${outras} de R$ ${valor.toFixed(2).replace('.', ',')} no período, mas de outros nomes)` : ''}`,
-    }
+    const reais = valor.toFixed(2).replace('.', ',')
+    const nota = outras === 0
+      ? ''
+      : outras === 1
+        ? ` — existe uma conta de R$ ${reais} no período, mas de outro nome`
+        : ` — existem ${outras} contas de R$ ${reais} no período, mas de outros nomes`
+    return { tipo: 'sem_par', motivo: `nenhuma conta no nome de ${pix.destinatario}${nota}` }
   }
 
   // Sem nome legível no comprovante: só o valor sobrou como pista, então quem
