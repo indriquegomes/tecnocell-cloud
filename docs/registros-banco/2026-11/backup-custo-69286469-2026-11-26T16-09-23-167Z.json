@@ -1,0 +1,13 @@
+{
+  "produto": {
+    "id": "6928646952742fe910ec0602",
+    "nome": "FRONTAL IPHONE 16 PRO MAX PREMIUM INCELL JK",
+    "preco": 1125,
+    "preco_custo": 526.67
+  },
+  "item_tabela_custo": {
+    "id": "f3d95b5d-981e-4434-a0ed-e28d61650d7e",
+    "preco": 526.67
+  },
+  "custo_novo": 125
+}
