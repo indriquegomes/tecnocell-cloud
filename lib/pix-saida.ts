@@ -51,7 +51,9 @@ export type LancamentoPagar = {
   diaVencimento: string | null
   /** devolucao_id — presente na linha que nasceu de devolução */
   devolucaoId?: string | null
-  /** a linha JÁ tem comprovante de PIX ligado (coluna comprovante na v1) */
+  /** forma do pagamento gravada na linha (`pix`, `PIX`, `fora_do_app`…) */
+  forma?: string | null
+  /** a linha JÁ tem comprovante de PIX (prova com ID de transação) ligado */
   conciliado?: boolean
 }
 

@@ -178,12 +178,25 @@ test('leitura da IA: lixo não vira valor inventado', () => {
   assert.equal(parseValor(0), null)
 })
 
-test('mensagem de baixa inequívoca: valor, data e nome aparecem e diz o que NÃO fez', () => {
+test('mensagem de baixa inequívoca: valor, data, nome e o que o robô LIGOU (sem mexer em dinheiro)', () => {
   const msg = mensagemDoPix(pix(), conciliarPixSaida(pix(), [dev()]))
   assert.match(msg, /100,00/)
   assert.match(msg, /01\/12\/2026/)
   assert.match(msg, /Marlene da Silva/i)
-  assert.match(msg, /Nada foi baixado/i)
+  assert.match(msg, /Comprovante ligado a esta conta como prova/)
+  assert.doesNotMatch(msg, /marque Pago/i)   // já estava paga: nada a fazer
+})
+
+test('mensagem avisa que "fora do app" NÃO baixa do PagBank', () => {
+  const msg = mensagemDoPix(pix(), conciliarPixSaida(pix(), [dev({ forma: 'fora_do_app' })]))
+  assert.match(msg, /fora do app/i)
+  assert.match(msg, /NÃO baixa do PagBank/)
+})
+
+test('mensagem avisa quando a conta ainda está em aberto (o robô não marca pago sozinho)', () => {
+  const msg = mensagemDoPix(pix(), conciliarPixSaida(pix(), [dev({ status: 'pendente' })]))
+  assert.match(msg, /EM ABERTO/)
+  assert.match(msg, /marque Pago/i)
 })
 
 test('mensagem sem par avisa que saiu dinheiro sem conta no app', () => {

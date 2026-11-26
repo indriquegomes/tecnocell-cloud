@@ -160,9 +160,15 @@ async function candidatosDoFinanceiro(supabase: ReturnType<typeof sb>, pix: PixS
 
   let conciliados: string[] = []
   if (base.length) {
+    // "Já tem comprovante" = já tem PROVA (linha com ID de transação do PIX). O
+    // cartão da devolução NÃO conta: ele diz o nome do cliente, não prova dinheiro
+    // — se contasse, o print do mesmo PIX seria recusado logo em seguida.
     const { data: vinculos } = await supabase.from('pix_saidas')
-      .select('lancamento_id').in('lancamento_id', base.map((l) => l.id))
-    conciliados = ((vinculos ?? []) as { lancamento_id: string | null }[]).map((v) => v.lancamento_id!).filter(Boolean)
+      .select('lancamento_id, transacao_id').in('lancamento_id', base.map((l) => l.id))
+    conciliados = ((vinculos ?? []) as { lancamento_id: string | null; transacao_id: string | null }[])
+      .filter((v) => !!v.transacao_id)
+      .map((v) => v.lancamento_id!)
+      .filter(Boolean)
   }
   const candidatos: LancamentoPagar[] = base.map((l) => ({
     id: l.id,
@@ -174,6 +180,7 @@ async function candidatosDoFinanceiro(supabase: ReturnType<typeof sb>, pix: PixS
     diaPagamento: l.data_pagamento,
     diaVencimento: l.data_vencimento,
     devolucaoId: l.devolucao_id,
+    forma: l.forma_pagamento,
     conciliado: conciliados.includes(l.id),
   }))
 
@@ -276,7 +283,14 @@ async function tratarCartao(
   const { resultado } = await candidatosDoFinanceiro(supabase, pix)
   const status = resultado.tipo === 'baixar' ? 'casado' : resultado.tipo === 'escolher' ? 'ambiguo' : 'sem_par'
   await supabase.from('pix_saidas').update({
-    status, valor: pix.valor, destinatario: cartao.nomeConta, extraido_raw: { cartao },
+    status,
+    valor: pix.valor,
+    destinatario: cartao.nomeConta,
+    extraido_raw: { cartao },
+    // Cartão também liga a prova (o print do mesmo PIX liga a mesma conta depois).
+    lancamento_id: resultado.tipo === 'baixar' ? resultado.candidato.id : null,
+    conciliado_em: resultado.tipo === 'baixar' ? new Date().toISOString() : null,
+    conciliado_por: resultado.tipo === 'baixar' ? nomeDoRemetente(msg) : null,
   }).eq('id', id)
 
   await tgSend(tk, chatId, `🧾 Cartão da devolução:\n${mensagemDoPix(pix, resultado)}`, messageId)
@@ -437,6 +451,11 @@ export async function POST(req: Request) {
     transacao_id: leitura.transacaoId,
     loja_id: lojaId,
     extraido_raw: leitura,
+    // Etapa 2: LIGA A PROVA. Só grava o vínculo comprovante ↔ conta; não muda
+    // status, valor nem forma do lançamento — nada de dinheiro sai daqui.
+    lancamento_id: resultado.tipo === 'baixar' ? resultado.candidato.id : null,
+    conciliado_em: resultado.tipo === 'baixar' ? new Date().toISOString() : null,
+    conciliado_por: resultado.tipo === 'baixar' ? nomeDoRemetente(msg) : null,
   }).eq('id', pixSaidaId)
 
   await tgSend(tk, chatId, resposta, messageId)
