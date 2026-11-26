@@ -1,0 +1,20 @@
+{
+  "conta_id": "09545566-0187-408e-b19b-4d8df3a71c66",
+  "devolucao_id": "a0775db0-f8c2-4c1a-a761-722424def3fc",
+  "antes": {
+    "conta": {
+      "forma_pagamento": "fora_do_app",
+      "conta_id": null,
+      "data_pagamento": "2026-11-25T00:00:00+00:00"
+    },
+    "devolucao": {
+      "tipo_credito": "fora_do_app",
+      "reembolsos": [
+        {
+          "tipo": "fora_do_app",
+          "valor": 15
+        }
+      ]
+    }
+  }
+}
