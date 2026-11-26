@@ -497,6 +497,14 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
   ])
   const saldoLinha = (l: { valor: number | null; valor_pago: number | null }) =>
     Math.max(0, Number(l.valor ?? 0) - Number(l.valor_pago ?? 0))
+  // FORNECEDOR usa a soma CRUA, sem o piso em zero: quando o PIX enviado passa do
+  // que se devia, o app grava "Crédito de pagamento / Crédito de PIX do cliente"
+  // com valor NEGATIVO — é crédito com o fornecedor e PRECISA reduzir o "Devo".
+  // Com `Math.max(0, …)` o crédito era descartado e o fechamento mostrava dívida
+  // maior do que a real (PLANETA CELL: crédito de R$ 14.874,14 sumia em 25/11/2026).
+  // Mesma armadilha da H2O (R$ 37,82) registrada no conferente de dívida.
+  const saldoLinhaCru = (l: { valor: number | null; valor_pago: number | null }) =>
+    Number(l.valor ?? 0) - Number(l.valor_pago ?? 0)
   const vencidaLinha = (l: { data_vencimento: string | null }) => {
     const dia = (l.data_vencimento ?? '').slice(0, 10)
     return !!dia && dia < hoje
@@ -504,8 +512,8 @@ export default async function FechamentoMesPage({ searchParams }: { searchParams
   const daLoja = <T extends { loja_id: string | null }>(rows: T[]) => rows.filter((r) => r.loja_id === lojaSel)
   const fiadoSaldo = daLoja(fiadoPend).reduce((s, r) => s + saldoLinha(r), 0)
   const fiadoVencido = daLoja(fiadoPend).filter(vencidaLinha).reduce((s, r) => s + saldoLinha(r), 0)
-  const fornecedorSaldo = daLoja(pagarPend).filter((r) => ehCompraDeMercadoria(r.categoria)).reduce((s, r) => s + saldoLinha(r), 0)
-  const fornecedorVencido = daLoja(pagarPend).filter((r) => ehCompraDeMercadoria(r.categoria) && vencidaLinha(r)).reduce((s, r) => s + saldoLinha(r), 0)
+  const fornecedorSaldo = daLoja(pagarPend).filter((r) => ehCompraDeMercadoria(r.categoria)).reduce((s, r) => s + saldoLinhaCru(r), 0)
+  const fornecedorVencido = daLoja(pagarPend).filter((r) => ehCompraDeMercadoria(r.categoria) && vencidaLinha(r)).reduce((s, r) => s + saldoLinhaCru(r), 0)
   const outrasSaldo = daLoja(pagarPend).filter((r) => !ehCompraDeMercadoria(r.categoria)).reduce((s, r) => s + saldoLinha(r), 0)
   const estoqueDaLoja = linha?.estoqueFinalTotal ?? 0
   const creditoDaLoja = linha?.creditoAberto ?? 0
