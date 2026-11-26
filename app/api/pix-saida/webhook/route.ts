@@ -116,7 +116,9 @@ function lojaDoGrupo(lojas: Loja[], slug: string | null): Loja | null {
 
 export async function POST(req: Request) {
   const segredo = await segredoWebhook()
-  if (segredo && req.headers.get('x-telegram-bot-api-secret-token') !== segredo) {
+  // Falha FECHADA: sem segredo configurado ninguém é autenticado (o bot de entrada
+  // também recusa). Aberto, qualquer um poderia gastar IA e mandar mensagem no grupo.
+  if (!segredo || req.headers.get('x-telegram-bot-api-secret-token') !== segredo) {
     return new NextResponse('forbidden', { status: 401 })
   }
   const tk = await token()
