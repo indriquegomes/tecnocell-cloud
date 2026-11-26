@@ -1,0 +1,31 @@
+{
+  "id": "5bb8e6d0-1ad3-499b-ba3a-092cbaf0d6ec",
+  "antes": {
+    "id": "5bb8e6d0-1ad3-499b-ba3a-092cbaf0d6ec",
+    "codigo": null,
+    "descricao": "Estorno de crédito — devolução da venda #15287 — Marcos Vinicius Ferreira da Conceição",
+    "valor": 51,
+    "data_competencia": "2026-11-25T00:00:00+00:00",
+    "data_vencimento": "2026-11-25T00:00:00+00:00",
+    "data_pagamento": "2026-11-25T19:43:14.985+00:00",
+    "tipo": "pagar",
+    "status": "pago",
+    "forma_pagamento": "Fora do app (WhatsApp)",
+    "pessoa_nome": "Marcos Vinicius Ferreira da Conceição",
+    "created_at": "2026-11-25T10:54:50.276098+00:00",
+    "updated_at": "2026-11-25T19:43:14.985+00:00",
+    "venda_id": null,
+    "valor_pago": 51,
+    "historico_pagamentos": [],
+    "conta_id": null,
+    "categoria": "Estorno de crédito",
+    "pessoa_id": null,
+    "loja_id": "81791d01-dc4a-485c-bbb8-f2b4cda6731c",
+    "comprovante_url": null,
+    "devolucao_id": null,
+    "subcategoria": null,
+    "criado_por": null
+  },
+  "desfazer": true,
+  "em": "2026-11-26T03:17:48.215Z"
+}
