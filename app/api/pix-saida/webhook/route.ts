@@ -149,7 +149,12 @@ export async function POST(req: Request) {
       arquivo_file_id: arquivo.fileId,
       status: 'recebido',
     }).select('id').maybeSingle()
-    if (error) return NextResponse.json({ ok: true, erro: error.message })
+    if (error) {
+      // Print engolido em silêncio é pior que erro visível: sem esta mensagem a
+      // pessoa acha que a devolução ficou registrada no app.
+      await tgSend(tk, chatId, `⚠️ Não consegui registrar este print no app (${error.message.slice(0, 120)}). Avise o dono.`, messageId)
+      return NextResponse.json({ ok: true, erro: error.message })
+    }
     pixSaidaId = (novo as { id: string } | null)?.id ?? null
   }
   if (!pixSaidaId) return NextResponse.json({ ok: true, ignorado: 'sem id' })
