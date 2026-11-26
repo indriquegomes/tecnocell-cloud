@@ -38,7 +38,9 @@ const h = { apikey: key, Authorization: `Bearer ${key}`, 'content-type': 'applic
 const get = async (p) => { const r = await fetch(`${url}/rest/v1/${p}`, { headers: h }); const j = await r.json(); return Array.isArray(j) ? j : [] }
 const brl = (v) => 'R$ ' + Number(v ?? 0).toFixed(2).replace('.', ',')
 
-const todas = await get(`lancamentos?select=id,valor,descricao,pessoa_nome,pessoa_id,forma_pagamento,conta_id,data_pagamento,devolucao_id,status&tipo=eq.pagar&valor=eq.${valor}&limit=50`)
+// `limit` alto + filtro de descrição: valores redondos (15, 20, 37) têm dezenas de
+// linhas no mês e sem isso a conta procurada ficava fora da página.
+const todas = await get(`lancamentos?select=id,valor,descricao,pessoa_nome,pessoa_id,forma_pagamento,conta_id,data_pagamento,devolucao_id,status&tipo=eq.pagar&valor=eq.${valor}&descricao=ilike.*devolu*&order=id&limit=1000`)
 const conta = todas.find((c) => c.id.startsWith(contaPrefixo))
 const pessoa = (await get(`pessoas?select=id,nome&nome=ilike.*${encodeURIComponent(clienteNome)}*&limit=3`))[0]
 const venda = (await get(`vendas?select=id,numero,total&numero=eq.${vendaNumero}`))[0]

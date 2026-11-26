@@ -1,0 +1,24 @@
+{
+  "conta_id": "278cb24e-30c7-4142-b82a-2b260c35cee1",
+  "venda": 11726,
+  "valor": 101,
+  "antes": {
+    "conta": {
+      "descricao": "Devolução — STAR MANUNTENÇÃO (estorno de compra)",
+      "pessoa_nome": null,
+      "pessoa_id": null,
+      "data_pagamento": "2026-11-07T15:00:00+00:00",
+      "devolucao_id": null
+    },
+    "devolucao": {
+      "tipo_credito": "sem_reembolso",
+      "reembolsos": [
+        {
+          "tipo": "sem_reembolso",
+          "valor": 101
+        }
+      ]
+    }
+  },
+  "favorecido": null
+}

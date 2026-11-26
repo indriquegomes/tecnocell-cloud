@@ -1,0 +1,24 @@
+{
+  "conta_id": "97f4b1d5-a209-4f12-8c04-6427f009df5c",
+  "venda": 13822,
+  "valor": 15,
+  "antes": {
+    "conta": {
+      "descricao": "Devolução — teremaqcell (estorno de compra)",
+      "pessoa_nome": null,
+      "pessoa_id": null,
+      "data_pagamento": "2026-11-17T15:00:00+00:00",
+      "devolucao_id": null
+    },
+    "devolucao": {
+      "tipo_credito": "sem_reembolso",
+      "reembolsos": [
+        {
+          "tipo": "sem_reembolso",
+          "valor": 15
+        }
+      ]
+    }
+  },
+  "favorecido": "AMILTON CORDEIRO COSTA"
+}

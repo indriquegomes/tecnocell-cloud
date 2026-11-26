@@ -1,0 +1,24 @@
+{
+  "conta_id": "43ffad16-a150-4711-919a-4f828808083b",
+  "venda": 13097,
+  "valor": 70,
+  "antes": {
+    "conta": {
+      "descricao": "Devolução — DIGITAL TEC (estorno de compra)",
+      "pessoa_nome": null,
+      "pessoa_id": null,
+      "data_pagamento": "2026-11-16T15:00:00+00:00",
+      "devolucao_id": null
+    },
+    "devolucao": {
+      "tipo_credito": "sem_reembolso",
+      "reembolsos": [
+        {
+          "tipo": "sem_reembolso",
+          "valor": 70
+        }
+      ]
+    }
+  },
+  "favorecido": "Luiz Otávio da Silva"
+}
