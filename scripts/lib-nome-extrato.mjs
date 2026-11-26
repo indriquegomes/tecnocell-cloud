@@ -33,3 +33,25 @@ export function mesmoNome(a, b) {
 /** Nome do cliente da linha do app: pessoa_nome, senão a descrição sem o rótulo. */
 export const nomeDoLancamento = (l) =>
   String(l.pessoa_nome ?? '').trim() || String(l.descricao ?? '').replace(/^(Devolu[çc][ãa]o|Estorno de cr[ée]dito)[^—–-]*[—–-]\s*/i, '').trim()
+
+/**
+ * Regra ESTRITA para ligar lançamento → cadastro.
+ *
+ * `mesmoNome` serve para comparar comprovante com descrição e é tolerante de
+ * propósito. Para gravar `pessoa_id` não pode ser: "Vitor da Silva Costa" casou com
+ * "VITOR JOSE SILVA DE SOUSA" (dois nomes em comum, pessoa errada).
+ *
+ * Aqui só vale quando o nome MENOR está inteiro dentro do maior, token por token:
+ *   "ARTHUR DIAS" ⊂ "Arthur Dias Moura"            ✔
+ *   "ANDERSON XAVIER" ⊂ "ANDERSON XAVIER DA ROCHA HENRIQUE" ✔
+ *   "Vitor da Silva Costa" ⊄ "VITOR JOSE SILVA DE SOUSA"    ✗ (COSTA não está)
+ *   "Lucar Gabriel Dias" ⊄ "LUCAS GABRIEL DIAS ..."         ✗ (LUCAR ≠ LUCAS)
+ */
+export function nomeContido(a, b) {
+  const tokens = (s) => normNome(s).split(' ').filter((t) => t.length >= 3 && !PARTICULAS.has(t))
+  const ta = tokens(a), tb = tokens(b)
+  if (!ta.length || !tb.length) return false
+  const [menor, maior] = ta.length <= tb.length ? [ta, tb] : [tb, ta]
+  if (menor.length === 1 && menor[0].length < 4) return false
+  return menor.every((t) => maior.includes(t))
+}

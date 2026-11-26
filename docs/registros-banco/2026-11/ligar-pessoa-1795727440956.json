@@ -1,0 +1,90 @@
+[
+  {
+    "lancamento_id": "1da53a90-4269-45a3-a752-324e964c62e9",
+    "valor": 295,
+    "nome_no_lancamento": "Bruno Delgado De Mattos",
+    "pessoa_id": "69cd2543d000048ca8399851",
+    "pessoa_nome": "BRUNO DELGADO DE MATTOS",
+    "cpf": "15384744766"
+  },
+  {
+    "lancamento_id": "1ed59574-4660-4f9a-b7ac-dd18b4d97230",
+    "valor": 349,
+    "nome_no_lancamento": "IGOR KREISCHER",
+    "pessoa_id": "67640768f1754614ba01bf25",
+    "pessoa_nome": "IGOR KREISCHER",
+    "cpf": "15414220743"
+  },
+  {
+    "lancamento_id": "35ce1032-60a8-439d-be24-bd09ecd58666",
+    "valor": 10,
+    "nome_no_lancamento": "ALVARO GARCIA",
+    "pessoa_id": "63d91db059a9c82974728b37",
+    "pessoa_nome": "ALVARO GARCIA",
+    "cpf": "13816480705"
+  },
+  {
+    "lancamento_id": "3b6d9e6d-de69-43c5-b170-6fdfcdd610ae",
+    "valor": 57,
+    "nome_no_lancamento": "ARTHUR DIAS",
+    "pessoa_id": "4952c84e-d2d8-436c-8611-e0043934070b",
+    "pessoa_nome": "Arthur Dias Moura",
+    "cpf": null
+  },
+  {
+    "lancamento_id": "465276ed-f640-4cb9-9bbf-14e732467295",
+    "valor": 47,
+    "nome_no_lancamento": "Uelington Barreto Martins",
+    "pessoa_id": "642af7da400d65f924e3310d",
+    "pessoa_nome": "UELINGTON BARRETO MARTINS",
+    "cpf": null
+  },
+  {
+    "lancamento_id": "49b82c0c-5239-425e-8bb7-129e1104607e",
+    "valor": 21,
+    "nome_no_lancamento": "ANDERSON XAVIER",
+    "pessoa_id": "63d91dae59a9c82974728b09",
+    "pessoa_nome": "ANDERSON XAVIER DA ROCHA HENRIQUE",
+    "cpf": "15128501795"
+  },
+  {
+    "lancamento_id": "4d9a0a79-a104-4ed1-a6d1-d60704de2769",
+    "valor": 224,
+    "nome_no_lancamento": "Vitor da Silva Costa",
+    "pessoa_id": "6a3bcf9d6a0c1b8f3175a45d",
+    "pessoa_nome": "VITOR DA SILVA COSTA",
+    "cpf": "20973221747"
+  },
+  {
+    "lancamento_id": "5bb8e6d0-1ad3-499b-ba3a-092cbaf0d6ec",
+    "valor": 51,
+    "nome_no_lancamento": "Marcos Vinicius Ferreira da Conceição",
+    "pessoa_id": "c240241f-45af-46a2-8e13-60cdb3940a9d",
+    "pessoa_nome": "Marcos Vinicius Ferreira da Conceição",
+    "cpf": "066.329.777-07"
+  },
+  {
+    "lancamento_id": "696269b1-0b7e-4028-a1ba-8b08a75bb3a9",
+    "valor": 77,
+    "nome_no_lancamento": "Diego Santos",
+    "pessoa_id": "642db7a95c7de94b64205719",
+    "pessoa_nome": "DIEGO SANTOS",
+    "cpf": "13650117711"
+  },
+  {
+    "lancamento_id": "a71cf9b7-21a0-43cb-8a0e-d2b44666bf6a",
+    "valor": 1530.9,
+    "nome_no_lancamento": "RODRIGO PEREIRA",
+    "pessoa_id": "63d91dae59a9c82974728b08",
+    "pessoa_nome": "RODRIGO PEREIRA",
+    "cpf": "10786941766"
+  },
+  {
+    "lancamento_id": "ea0f34ef-af9b-495f-934a-577beda6221f",
+    "valor": 4,
+    "nome_no_lancamento": "SAMIRA AMORIM DOS REIS",
+    "pessoa_id": "63d91db159a9c82974728b6e",
+    "pessoa_nome": "SAMIRA AMORIM DOS REIS",
+    "cpf": "20690011725"
+  }
+]
