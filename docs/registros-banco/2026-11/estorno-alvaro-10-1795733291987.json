@@ -1,0 +1,17 @@
+{
+  "antes": {
+    "saldo": 10,
+    "creditos": "sem estorno de 10"
+  },
+  "criado": {
+    "id": "dc9285aa-1140-4193-845d-85d20cb4a368",
+    "pessoa_id": "63d91db059a9c82974728b37",
+    "pessoa_nome": "ALVARO GARCIA",
+    "valor": 10,
+    "tipo": "estorno",
+    "descricao": "Estorno do crédito — R$ 10,00 restantes pagos em PIX em 10/11 (devolução da venda #10807)",
+    "estorna_credito_id": "99716be6-d46a-4335-bb67-45862656d469",
+    "lancamento_id": "35ce1032-60a8-439d-be24-bd09ecd58666",
+    "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946"
+  }
+}

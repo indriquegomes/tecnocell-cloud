@@ -1,0 +1,24 @@
+{
+  "conta_id": "bf093f30-4ad6-492a-951c-4ffb3a871321",
+  "venda": 11406,
+  "valor": 91,
+  "antes": {
+    "conta": {
+      "descricao": "Devolução — FERNANDO DOS SANTOS SILVA (estorno de compra)",
+      "pessoa_nome": null,
+      "pessoa_id": null,
+      "data_pagamento": "2026-11-07T15:00:00+00:00",
+      "devolucao_id": null
+    },
+    "devolucao": {
+      "tipo_credito": "sem_reembolso",
+      "reembolsos": [
+        {
+          "tipo": "sem_reembolso",
+          "valor": 91
+        }
+      ]
+    }
+  },
+  "favorecido": null
+}
