@@ -340,6 +340,9 @@ export async function auditarFinanceiro(supabase: SB): Promise<Achado[]> {
   // ── Invenção no financeiro: linha paga sem dizer de onde saiu o dinheiro ──
   // Olha só as linhas NASCIDAS nas últimas 48h: é o que a trava nova deveria ter
   // barrado. As antigas são dívida histórica e já aparecem em outras regras.
+  const CATEGORIAS_SEM_DINHEIRO = new Set([
+    'uso interno', 'perda', 'perda de troca', 'vale crédito usado', 'desconto concedido', 'perda com fiado',
+  ])
   const corte48h = new Date(Date.now() - 48 * 3600_000).toISOString()
   out.push(achado('pago_sem_origem', 'Pagamento registrado sem dizer de onde saiu o dinheiro (novas linhas)',
     'Linha paga que sai de conta precisa ter a conta; se saiu da gaveta, a forma tem que ser Dinheiro.',
@@ -348,6 +351,10 @@ export async function auditarFinanceiro(supabase: SB): Promise<Achado[]> {
     lancamentos
       .filter((l) => l.status === 'pago' && l.tipo === 'pagar' && !l.conta_id
         && !FORMAS_ESPECIAIS.has((l.forma_pagamento ?? '').trim().toLowerCase())
+        // Uso interno, perda e desconto NÃO são saída de dinheiro: são peça saindo do
+        // estoque (baixa por movimentar_estoque) ou dívida perdoada. Nascem sem conta e
+        // sem forma de propósito — acusar isso enchia a regra de falso positivo.
+        && !CATEGORIAS_SEM_DINHEIRO.has(((l as { categoria?: string | null }).categoria ?? '').trim().toLowerCase())
         && (l.created_at ?? '') >= corte48h)
       .map((l) => ({ valor: Number(l.valor ?? 0), rotulo: nome(l) }))))
 
