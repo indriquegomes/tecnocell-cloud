@@ -110,13 +110,19 @@ ALVARO GARCIA ← ALVARO DAMASCENO GARCIA.
    na lista de estornos dele).
 2. **vitor Miranda R$ 37,00** — conta PIX de 09/11 sem devolução; as devoluções dele
    em novembro são de R$ 100 e R$ 55. PIX foi para Leonardo Miranda de Oliveira.
-3. **7 prints sem conta no app** — Fernando 90+1 (soma 91), ROMULO 101, ANA ALICE
-   87, Piccoli 12 e um de 219 sem nome (R$ 651,00).
+3. **Prints enviados que não têm conta nem devolução no app** — Fernando dos Santos
+   Silva 90+1 (soma 91), ROMULO OLIVEIRA DE CASTRO 101, ANA ALICE DE ARAUJO MARQUES
+   87, José Antonio Rodrigues Piccoli 12 e um de 219 sem nome (R$ 651,00). Os
+   comprovantes estão na pasta dos 48 prints; o que falta é o registro no app.
 4. **ALVARO GARCIA R$ 10,00** — é crédito residual reembolsado em PIX: o saldo de
    crédito dele continua R$ 10,00 (falta o estorno). O dono disse "já foi resolvido",
    mas no banco o saldo segue aberto.
-5. **RODRIGO PEREIRA R$ 1.530,90** — fora do escopo por decisão do dono (diferença de
-   R$ 0,90); 4 devoluções pagas num PIX só.
+
+### RESOLVIDO por decisão do dono (não é pendência)
+
+- **RODRIGO PEREIRA R$ 1.530,90** — achado: 4 devoluções (280 + 250 + 250 + 750 =
+  1.530,00) pagas num único PIX de 1.530,90, com os 4 créditos estornados. A
+  diferença de R$ 0,90 foi considerada irrelevante pelo dono. **Fechado.**
 
 ### Ferramentas criadas nesta rodada
 
