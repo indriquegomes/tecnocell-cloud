@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { ehContaPropria, type DestinoPix } from '@/lib/pix-destinos'
+import { ehContaPropria, normNome, type DestinoPix } from '@/lib/pix-destinos'
 import { conciliarPixSaida, diaDoCampo, ehLinhaDeDevolucao, ehSaidaPix, type LancamentoPagar, type PixSaida } from '@/lib/pix-saida'
 import { clienteDoLancamento, lerCartaoDevolucao, normalizarLeitura, mensagemDoPix, PROMPT_COMPROVANTE, PROMPT_FOCO, type CartaoDevolucao } from '@/lib/pix-saida-bot'
 import { baixarContaPendente } from '@/lib/baixar-conta-pendente'
@@ -577,8 +577,13 @@ export async function POST(req: Request) {
 
   // Mesmo PIX reenviado: o ID E2E é a prova de que é o mesmo dinheiro.
   if (leitura.transacaoId) {
+    // Qualquer linha já LIGADA com este mesmo ID de transação é repetição —
+    // não importa se veio de import ("conciliado") ou deste robô ("casado").
+    // Antes eu filtrava só por status='conciliado' e o robô, que grava 'casado',
+    // deixava passar o mesmo print duas vezes.
     const { data: repetido } = await supabase.from('pix_saidas')
-      .select('id').eq('transacao_id', leitura.transacaoId).eq('status', 'conciliado').neq('id', pixSaidaId).maybeSingle()
+      .select('id').eq('transacao_id', leitura.transacaoId).neq('id', pixSaidaId)
+      .or('status.eq.conciliado,status.eq.casado,lancamento_id.not.is.null').maybeSingle()
     if (repetido) {
       await supabase.from('pix_saidas').update({ status: 'duplicado', extraido_raw: leitura, valor: leitura.valor, dia: leitura.dia, transacao_id: leitura.transacaoId, pagador: leitura.pagador, destinatario: leitura.destinatario }).eq('id', pixSaidaId)
       await tgSend(tk, chatId, `ℹ️ Este PIX (ID ${leitura.transacaoId}) já foi conciliado antes. Nada feito.`, messageId)
@@ -592,6 +597,25 @@ export async function POST(req: Request) {
   // conta que recebeu (parente, amigo), o cartão da devolução manda um nome melhor.
   const cartaoUsado = await clienteDoCartaoRecente(supabase, chatId, pix.valor)
   pix.clienteSistema = cartaoUsado?.nome ?? null
+
+  // Sem cartão, tenta o nome do recebedor registrado no cadastro do cliente
+  // (pessoa_chaves_pix.favorecido). É o que o bot irmão já grava em
+  // `comprovante_nome` quando o dinheiro foi para a conta de um parente: o
+  // comprovante traz o nome do dono da conta, não o do cliente do Financeiro.
+  if (!pix.clienteSistema && pix.destinatario) {
+    const alvo = normNome(pix.destinatario)
+    // ponytail: tabela pequena (dezenas de linhas) — leitura inteira e casamento
+    // em memória é mais simples que montar ilike por acento. Passa de 1000 linhas,
+    // troca por busca por chave/documento.
+    const { data: chaves } = await supabase.from('pessoa_chaves_pix')
+      .select('favorecido, pessoas ( nome )').eq('ativo', true).not('favorecido', 'is', null).limit(1000)
+    const achado = (chaves ?? []).find((c) => {
+      const f = normNome(c.favorecido)
+      return f && (f === alvo || alvo.startsWith(f + ' ') || f.startsWith(alvo + ' '))
+    })
+    const nomePessoa = (achado?.pessoas as unknown as { nome: string } | null)?.nome ?? null
+    if (nomePessoa) pix.clienteSistema = nomePessoa
+  }
 
   const { resultado, base } = await candidatosDoFinanceiro(supabase, pix)
 

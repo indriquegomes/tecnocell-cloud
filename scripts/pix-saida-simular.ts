@@ -8,6 +8,7 @@
 // para conferir a régua com dado real antes de deixar o robô escrever.
 import { conciliarPixSaida, diaDoCampo, ehLinhaDeDevolucao, ehSaidaPix, type LancamentoPagar } from '@/lib/pix-saida'
 import { mensagemDoPix } from '@/lib/pix-saida-bot'
+import { normNome } from '@/lib/pix-destinos'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -48,6 +49,18 @@ const candidatos: LancamentoPagar[] = (linhas as unknown as {
   }))
 
 const pix = { valor, dia, destinatario, clienteSistema, transacaoId: null }
+
+// Igual à rota: sem cartão, o nome do recebedor registrado no cadastro do
+// cliente (pessoa_chaves_pix.favorecido) resolve o nome do Financeiro.
+if (!pix.clienteSistema && destinatario) {
+  const alvo = normNome(destinatario)
+  const chaves = await (await fetch(`${url}/rest/v1/pessoa_chaves_pix?select=favorecido,pessoas(nome)&ativo=eq.true&favorecido=not.is.null&limit=1000`, { headers: h })).json() as { favorecido: string; pessoas: { nome: string } | null }[]
+  const achado = chaves.find((c) => {
+    const f = normNome(c.favorecido)
+    return f && (f === alvo || alvo.startsWith(f + ' ') || f.startsWith(alvo + ' '))
+  })
+  if (achado?.pessoas?.nome) pix.clienteSistema = achado.pessoas.nome
+}
 const r = conciliarPixSaida(pix, candidatos, { janelaDias: JANELA, tolerancia: TOL })
 
 console.log(`\nPIX: R$ ${valor.toFixed(2)} em ${dia} para ${destinatario ?? '(sem nome)'}`)

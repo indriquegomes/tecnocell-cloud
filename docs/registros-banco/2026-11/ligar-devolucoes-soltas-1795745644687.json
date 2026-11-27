@@ -1,0 +1,145 @@
+[
+  {
+    "lancamento_id": "2cc3a286-150e-4e72-b474-abf1d0fdc997",
+    "valor": 350,
+    "nome_no_lancamento": "FABIANO DAS CHAGAS CHAVES",
+    "devolucao_id": "3016ecea-4b96-4640-a478-f9e489590a86",
+    "devolucao_nome": "FABIANO DAS CHAGAS CHAVES",
+    "devolucao_data": "2026-11-03",
+    "antes": {
+      "devolucao_id": null
+    }
+  },
+  {
+    "lancamento_id": "abfcb428-a25c-4c66-a304-2ba65490b42e",
+    "valor": 52,
+    "nome_no_lancamento": "CARIOCA CELL",
+    "devolucao_id": "cf8cb179-08e1-468d-962f-d6136638bc1d",
+    "devolucao_nome": "CARIOCA CELL VÁRZEA",
+    "devolucao_data": "2026-11-06",
+    "antes": {
+      "devolucao_id": null
+    }
+  },
+  {
+    "lancamento_id": "c5acf811-b790-4696-97e6-21d6a1c0155c",
+    "valor": 55,
+    "nome_no_lancamento": "JACKSON VIANA",
+    "devolucao_id": "abafd851-1d70-48d9-a57d-14f7ca3fa48e",
+    "devolucao_nome": "JACKSON VIANA SILVA",
+    "devolucao_data": "2026-11-07",
+    "antes": {
+      "devolucao_id": null
+    }
+  },
+  {
+    "lancamento_id": "d09d8b35-2c20-49b0-827c-ae320788cda7",
+    "valor": 195,
+    "nome_no_lancamento": "IMPERA SMART",
+    "devolucao_id": "4d69092d-1c1d-4470-8594-4213d3901418",
+    "devolucao_nome": "IMPERA SMART",
+    "devolucao_data": "2026-11-07",
+    "antes": {
+      "devolucao_id": null
+    }
+  },
+  {
+    "lancamento_id": "b6f8e161-a335-4af7-9784-0bb20d4d852f",
+    "valor": 217,
+    "nome_no_lancamento": "PEDRO HENRIQUE ANGELICA FERREIRA",
+    "devolucao_id": "e3c356fe-4c7c-45b9-84af-7566b234c488",
+    "devolucao_nome": "PEDRO HENRIQUE ANGELICA FERREIRA",
+    "devolucao_data": "2026-11-09",
+    "antes": {
+      "devolucao_id": null
+    }
+  },
+  {
+    "lancamento_id": "cd6abe8e-f397-45a5-8426-592d7257bef3",
+    "valor": 61,
+    "nome_no_lancamento": "CARLOS HENRIQUE MARQUES FIUZA PITTZER",
+    "devolucao_id": "84ecfac7-f596-400a-b113-99bc7184e0b5",
+    "devolucao_nome": "CARLOS HENRIQUE MARQUES FIUZA PITTZER",
+    "devolucao_data": "2026-11-09",
+    "antes": {
+      "devolucao_id": null
+    }
+  },
+  {
+    "lancamento_id": "ee5a2d15-cf27-4b13-9944-94a99942c2a9",
+    "valor": 56,
+    "nome_no_lancamento": "ASTEIN INFORMÁTICA",
+    "devolucao_id": "55fc3e26-c8e1-456e-be47-9d6049c61a99",
+    "devolucao_nome": "ASTEIN INFORMATICA",
+    "devolucao_data": "2026-11-10",
+    "antes": {
+      "devolucao_id": null
+    }
+  },
+  {
+    "lancamento_id": "fd377494-bce2-4fcf-915f-88b764fde4e6",
+    "valor": 90,
+    "nome_no_lancamento": "MISTER CELL",
+    "devolucao_id": "fd556879-fb87-4e86-a7c8-4ea45a2c6123",
+    "devolucao_nome": "MISTER CELL",
+    "devolucao_data": "2026-11-13",
+    "antes": {
+      "devolucao_id": null
+    }
+  },
+  {
+    "lancamento_id": "75cc2858-6370-4dfe-bf81-7c750a4d821c",
+    "valor": 6,
+    "nome_no_lancamento": "Cristian Eduardo Souza da Silva",
+    "devolucao_id": "f903ffd4-9bfd-44a5-9356-8edee0a2d651",
+    "devolucao_nome": "CRISTIAN EDUARDO SOUZA",
+    "devolucao_data": "2026-11-17",
+    "antes": {
+      "devolucao_id": null
+    }
+  },
+  {
+    "lancamento_id": "caa4665c-19b6-4460-8cd2-fca3355b798a",
+    "valor": 77,
+    "nome_no_lancamento": "CONTROL Z",
+    "devolucao_id": "6dca1e9b-95bc-4742-b200-4f69be554e8e",
+    "devolucao_nome": "CONTROL Z",
+    "devolucao_data": "2026-11-18",
+    "antes": {
+      "devolucao_id": null
+    }
+  },
+  {
+    "lancamento_id": "8a13595c-f989-4c32-92f9-fdf8e6e12197",
+    "valor": 52.5,
+    "nome_no_lancamento": "PEDRO HENRIQUE DOS SANTOS",
+    "devolucao_id": "57bf4692-dba5-41f4-905b-ace82217aedf",
+    "devolucao_nome": "PEDRO HENRIQUE DOS SANTOS",
+    "devolucao_data": "2026-11-19",
+    "antes": {
+      "devolucao_id": null
+    }
+  },
+  {
+    "lancamento_id": "369d2518-5edf-4087-bb5e-8e016d44cd03",
+    "valor": 45,
+    "nome_no_lancamento": "DENILSON PEÇAS",
+    "devolucao_id": "2d0064f1-158e-49dd-a1df-39b4a95ba5bc",
+    "devolucao_nome": "DENILSON PEÇAS",
+    "devolucao_data": "2026-11-21",
+    "antes": {
+      "devolucao_id": null
+    }
+  },
+  {
+    "lancamento_id": "30565f16-3645-42f8-9b23-3c81ade90314",
+    "valor": 9.9,
+    "nome_no_lancamento": "JD TERESÓPOLIS",
+    "devolucao_id": "0d1cfbe8-c81d-4f47-8d35-f98a7c3972e1",
+    "devolucao_nome": "JD TERESÓPOLIS",
+    "devolucao_data": "2026-11-21",
+    "antes": {
+      "devolucao_id": null
+    }
+  }
+]
