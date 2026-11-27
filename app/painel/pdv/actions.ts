@@ -8,6 +8,8 @@ import { logAtividade } from '@/lib/log-atividade'
 import { hojeSP } from '@/lib/utils'
 import { sincronizarEstoqueML } from '@/lib/mercado-livre'
 import { aplicaBusca } from '@/lib/busca-produtos'
+import { ehCategoriaPelicula, ehCategoriaTela, palavrasModelo, peliculaServeParaTela, pontuacaoModelo } from '@/lib/brinde'
+import type { BrindeOpcao, BrindesDoCarrinho } from '@/lib/brinde'
 import { formaFoiEscolhida } from '@/lib/formas-pagamento'
 import { carregarPedidoAppPDV, finalizarPedidoAppPDV } from '../pedidos-app/actions'
 
@@ -346,7 +348,9 @@ export async function salvarOrcamentoPDV(
   const supabase = await createServiceClient()
   if (input.itens.length === 0) throw new Error('Carrinho vazio.')
   const { isMaster } = await permissoesEfetivas(usuario.id)
-  const itensReais = input.itens.filter((i) => i.produto_id)
+  // Linha a R$ 0,00 no orçamento não passa pela trava de custo: é rascunho (não move
+  // estoque nem dinheiro) e quem valida brinde de verdade é o finalizarVenda.
+  const itensReais = input.itens.filter((i) => i.produto_id && Number(i.preco_unitario) > 0.005)
   if (!isMaster && itensReais.length > 0) {
     const noCusto = await produtoNoCusto(itensReais.map((i) => ({ produto_id: i.produto_id!, preco_unitario: i.preco_unitario })))
     if (noCusto) throw new Error(`"${noCusto}" não pode ser vendido pelo preço de custo ou abaixo dele.`)
@@ -401,6 +405,189 @@ export async function caixaAbertoDaLoja(accessToken: string, lojaId: string): Pr
     return !!g
   }
   return !!data
+}
+
+// ===== BRINDES DE CAMPANHA =====
+//
+// Duas promoções não são desconto, são brinde: "comprou tela, ganhou película do
+// mesmo modelo" e "passou do valor X, ganhou o brinde único". Nos dois casos a
+// linha entra a R$ 0,00, o que cairia na trava de custo/piso — e o vendedor comum
+// não conseguiria fechar a venda.
+//
+// A regra vive AQUI (servidor). O navegador só pede a lista e marca a linha; a
+// autorização é sempre recalculada no F8, então ninguém "inventa" um brinde:
+//   • película só é brinde se houver uma TELA no carrinho e o modelo bater;
+//   • o brinde único só vale acima do valor mínimo e UMA vez (ver brindes_concedidos).
+// Fora da janela de data das promoções nada disso existe — o R$ 0,00 volta a ser
+// abaixo do custo, como sempre foi.
+//
+// `itens_venda.brinde` (migration 2026-11-27) guarda a linha pra conferência.
+
+type PromoBrinde = { id: string; nome: string; tipo: string; valor: number }
+
+async function promosBrinde(
+  supabase: Awaited<ReturnType<typeof createServiceClient>>,
+): Promise<{ pelicula: PromoBrinde | null; unico: PromoBrinde | null; unicoProdutoId: string | null }> {
+  const hoje = hojeSP()
+  const { data } = await supabase
+    .from('promocoes')
+    .select('id, nome, tipo, valor')
+    .eq('ativa', true)
+    .in('tipo', ['brinde_pelicula', 'brinde_total'])
+    .or(`data_inicio.is.null,data_inicio.lte.${hoje}`)
+    .or(`data_fim.is.null,data_fim.gte.${hoje}`)
+  const lista = (data ?? []) as PromoBrinde[]
+  const pelicula = lista.find((p) => p.tipo === 'brinde_pelicula') ?? null
+  const unico = lista.find((p) => p.tipo === 'brinde_total') ?? null
+  let unicoProdutoId: string | null = null
+  if (unico) {
+    // O produto do brinde único é o item cadastrado na promoção (nada fixo no código).
+    const { data: item } = await supabase
+      .from('itens_promocao').select('produto_id').eq('promocao_id', unico.id).limit(1).maybeSingle()
+    unicoProdutoId = (item as { produto_id: string } | null)?.produto_id ?? null
+  }
+  return { pelicula, unico, unicoProdutoId }
+}
+
+/** Marca qual linha a R$ 0,00 é brinde legítimo. O resto segue a regra normal. */
+async function classificarBrindes(itens: ItemCarrinho[], descontoVenda = 0): Promise<{
+  pagos: ItemCarrinho[]
+  brindes: { produto_id: string; nome: string }[]
+  unicoPromoId: string | null
+  unicoProdutoBrindeId: string | null
+  erro: string | null
+}> {
+  const vazio = { pagos: itens, brindes: [], unicoPromoId: null, unicoProdutoBrindeId: null, erro: null }
+  const TOLERANCIA = 0.005
+  // ZERO é zero: preço negativo não é brinde, é caminho para "vender" com total zero.
+  if (itens.some((i) => Number(i.preco_unitario) < -TOLERANCIA)) {
+    return { ...vazio, erro: 'Preço negativo não é permitido na venda.' }
+  }
+  // Desconto por peça acima do preço deixaria o líquido negativo (o RPC também recusa;
+  // aqui a mensagem sai clara e antes de qualquer conta de brinde).
+  if (itens.some((i) => Number(i.desconto_item ?? 0) < 0 || Number(i.desconto_item ?? 0) > Number(i.preco_unitario) + TOLERANCIA)) {
+    return { ...vazio, erro: 'Desconto do item maior que o preço da peça. Ajuste o desconto.' }
+  }
+  const ehZerado = (i: ItemCarrinho) => !!i.produto_id && Math.abs(Number(i.preco_unitario)) <= TOLERANCIA
+  // Só linha de UMA unidade pode ser brinde. Quantidade maior segue a regra normal
+  // (master libera, vendedor comum não) em vez de derrubar a venda inteira.
+  const zerados = itens.filter((i) => ehZerado(i) && i.quantidade === 1)
+  if (zerados.length === 0) return vazio
+
+  const supabase = await createServiceClient()
+  const promos = await promosBrinde(supabase)
+  const ids = [...new Set(itens.map((i) => i.produto_id).filter((x): x is string => !!x))]
+  const { data: prods } = await supabase.from('produtos').select('id, nome, categoria').in('id', ids)
+  const porId = new Map((prods ?? []).map((p) => [p.id as string, p as { nome: string; categoria: string | null }]))
+
+  // Valor que conta para o brinde único: só linha paga (brinde não soma, desconto abate).
+  // desconto_item é POR UNIDADE — multiplica pela quantidade, senão a compra parece maior.
+  const subtotalPago = itens
+    .filter((i) => !ehZerado(i))
+    .reduce((s, i) => s + i.quantidade * (i.preco_unitario - Number(i.desconto_item ?? 0)), 0) - Math.max(0, Number(descontoVenda) || 0)
+  // Tela de verdade: tem preço. Linha de R$ 0,00 não dá direito a brinde (senão a
+  // cortesia do master viraria uma fonte de película de graça). Conta UNIDADE, não
+  // linha: dois aparelhos iguais na mesma linha dão direito a duas películas.
+  const telas = itens.filter((i) => i.quantidade >= 1 && Number(i.preco_unitario) > TOLERANCIA
+    && ehCategoriaTela(porId.get(i.produto_id ?? '')?.categoria))
+  const unidadesTela = telas.reduce((s, t) => s + Math.max(1, t.quantidade), 0)
+
+  const brindes: { produto_id: string; nome: string }[] = []
+  // Guarda a LINHA concedida, não o produto: o mesmo produto pode ter outra linha que
+  // NÃO é brinde (ex.: qtd 2 a R$ 0,00), e essa linha tem que continuar passando pela
+  // trava de custo como qualquer outra.
+  const linhasBrinde = new Set<ItemCarrinho>()
+  let unicoPromoId: string | null = null
+  let unicoProdutoBrindeId: string | null = null
+  let peliculasDeBrinde = 0
+  for (const item of zerados) {
+    const p = porId.get(item.produto_id as string)
+    if (!p) continue
+    if (promos.pelicula && ehCategoriaPelicula(p.categoria)) {
+      const casa = telas.some((t) => peliculaServeParaTela(porId.get(t.produto_id ?? '')?.nome ?? '', p.nome))
+      if (!casa) continue
+      // UMA película por tela. Sem este teto, uma tela liberava o catálogo todo de graça.
+      if (peliculasDeBrinde >= unidadesTela) {
+        return { ...vazio, erro: 'A venda tem mais películas de brinde do que telas. Cada tela dá direito a UMA película.' }
+      }
+      peliculasDeBrinde++
+      brindes.push({ produto_id: item.produto_id as string, nome: item.nome })
+      linhasBrinde.add(item)
+      continue
+    }
+    // Brinde único: um só, do produto cadastrado na promoção e acima do mínimo.
+    if (promos.unico && promos.unicoProdutoId && !unicoPromoId
+      && item.produto_id === promos.unicoProdutoId
+      && subtotalPago >= Number(promos.unico.valor ?? 0)) {
+      brindes.push({ produto_id: item.produto_id as string, nome: item.nome })
+      linhasBrinde.add(item)
+      unicoPromoId = promos.unico.id
+      unicoProdutoBrindeId = item.produto_id as string
+    }
+  }
+
+  const pagos = itens.filter((i) => !linhasBrinde.has(i))
+  return { pagos, brindes, unicoPromoId, unicoProdutoBrindeId, erro: null }
+}
+
+// Opções de brinde para o carrinho atual (o vendedor escolhe; a venda revalida).
+export async function brindesDoCarrinho(
+  accessToken: string,
+  telas: { id: string; nome: string }[],
+  depositoId: string,
+): Promise<BrindesDoCarrinho> {
+  await requirePermissao('pdv', accessToken)
+  const supabase = await createServiceClient()
+  const promos = await promosBrinde(supabase)
+  const resultado: BrindesDoCarrinho = { peliculas: [], unico: null }
+  if (!promos.pelicula && !promos.unico) return resultado
+
+  // Estoque no depósito da venda (brinde baixa estoque como venda normal).
+  const estoqueDe = (linhas: { deposito_id: string; quantidade: number }[] | null | undefined) =>
+    (linhas ?? []).find((e) => e.deposito_id === depositoId)?.quantidade ?? 0
+
+  if (promos.pelicula) {
+    // Só os números do modelo servem de filtro no banco (marca sozinha traz o catálogo
+    // todo). Tela que lista vários modelos ("A15/M15") precisa de OU, não E: a película
+    // do A15 não tem o M15 no nome.
+    for (const tela of telas.slice(0, 4)) {
+      const numeros = palavrasModelo(tela.nome).filter((w) => /\d/.test(w)).slice(0, 3)
+      let q = supabase.from('produtos')
+        .select('id, nome, codigo, estoque(deposito_id, quantidade)')
+        .eq('ativo', true).ilike('categoria', '%PELICULA%')
+        // Película TRASEIRA cobre a traseira do aparelho, não a tela: não é brinde de tela.
+        .not('nome', 'ilike', '%TRASEIRA%')
+      if (numeros.length > 0) q = q.or(numeros.map((n) => `nome.ilike.%${n}%`).join(','))
+      const { data } = await q.limit(120)
+      const opcoes = ((data ?? []) as { id: string; nome: string; codigo: string | null; estoque: { deposito_id: string; quantidade: number }[] | null }[])
+        .filter((p) => peliculaServeParaTela(tela.nome, p.nome))
+        .sort((a, b) => pontuacaoModelo(tela.nome, b.nome) - pontuacaoModelo(tela.nome, a.nome))
+        .map((p) => ({ id: p.id, nome: p.nome, codigo: p.codigo, estoque: estoqueDe(p.estoque) }))
+        // sem estoque no depósito da venda não dá para conceder — não oferece
+        .filter((p) => p.estoque > 0)
+        .slice(0, 6)
+      if (opcoes.length > 0) resultado.peliculas.push({ tela_id: tela.id, tela_nome: tela.nome, opcoes })
+    }
+  }
+
+  if (promos.unico && promos.unicoProdutoId) {
+    const { data: prod } = await supabase
+      .from('produtos').select('id, nome, codigo, estoque(deposito_id, quantidade)')
+      .eq('id', promos.unicoProdutoId).maybeSingle()
+    if (prod) {
+      const p = prod as { id: string; nome: string; codigo: string | null; estoque: { deposito_id: string; quantidade: number }[] | null }
+      // Já concedido nesta campanha? (tabela pode não existir antes da migration)
+      const { data: claim, error: eClaim } = await supabase
+        .from('brindes_concedidos').select('promocao_id').eq('promocao_id', promos.unico.id)
+      const disponivel = !!eClaim || (claim ?? []).length === 0
+      resultado.unico = {
+        produto: { id: p.id, nome: p.nome, codigo: p.codigo, estoque: estoqueDe(p.estoque) },
+        minimo: Number(promos.unico.valor ?? 0),
+        disponivel,
+      }
+    }
+  }
+  return resultado
 }
 
 export async function finalizarVenda(
@@ -470,11 +657,23 @@ export async function finalizarVenda(
 
   if (await tabelaSomenteConsulta(tabela_preco_id)) return { erro: 'Tabela CUSTO é somente consulta. Selecione uma tabela de venda.' }
 
+  // Brindes da campanha: separa a linha de R$ 0,00 que a regra autorizou. Ela não
+  // passa pela trava de custo nem pelo piso de preço — mas as DUAS continuam valendo
+  // para todo o resto, e um R$ 0,00 sem regra que bata é recusado como sempre foi.
+  let brinde: Awaited<ReturnType<typeof classificarBrindes>>
+  try {
+    brinde = await classificarBrindes(itens, desconto)
+  } catch (e) {
+    return { erro: 'Não foi possível validar os brindes da campanha: ' + (e instanceof Error ? e.message : String(e)) }
+  }
+  if (brinde.erro) return { erro: brinde.erro }
+  const itensPagos = brinde.pagos
+
   // Abaixo do custo: bloqueia pra todo mundo, MENOS o Master (dono).
   try {
     const { isMaster } = await permissoesEfetivas(usuario.id)
     if (!isMaster) {
-      const noCusto = await produtoNoCusto(itens)
+      const noCusto = await produtoNoCusto(itensPagos)
       if (noCusto) return { erro: `"${noCusto}" não pode ser vendido pelo preço de custo ou abaixo dele.` }
     }
   } catch (e) {
@@ -491,14 +690,15 @@ export async function finalizarVenda(
   }
 
   // Piso de venda: item abaixo do preco_minimo exige 'venda_abaixo_minimo'.
+  // (brinde autorizado pela campanha não entra nesta conta)
   try {
     const svc = await createServiceClient()
-    const idsReais = itens.filter((i) => i.produto_id).map((i) => i.produto_id as string)
+    const idsReais = itensPagos.filter((i) => i.produto_id).map((i) => i.produto_id as string)
     const { data: pisos } = idsReais.length > 0
       ? await svc.from('produtos').select('id, nome, preco_minimo').in('id', idsReais).gt('preco_minimo', 0)
       : { data: null }
     const abaixo = ((pisos ?? []) as { id: string; nome: string; preco_minimo: number }[])
-      .map((p) => ({ ...p, item: itens.find((i) => i.produto_id === p.id) }))
+      .map((p) => ({ ...p, item: itensPagos.find((i) => i.produto_id === p.id) }))
       .filter((p): p is { id: string; nome: string; preco_minimo: number; item: ItemCarrinho } => !!p.item && p.item.preco_unitario - Number(p.item.desconto_item ?? 0) < Number(p.preco_minimo))
     if (abaixo.length > 0) {
       const { permissoes, isMaster } = await permissoesEfetivas(usuario.id)
@@ -543,6 +743,48 @@ export async function finalizarVenda(
     .maybeSingle()
   const vendedorNome = perfil?.nome ?? usuario.email ?? ''
 
+  // Brinde único: reserva ANTES de gravar a venda. A chave primária de
+  // brindes_concedidos é a promoção, então o INSERT é atômico — dois caixas ao mesmo
+  // tempo, um concede e o outro é recusado. Se a venda falhar, a reserva é devolvida.
+  let reservaBrinde = false
+  if (brinde.unicoPromoId) {
+    // Reserva sem venda (processo morreu entre a reserva e o commit, timeout da função)
+    // não pode travar a campanha para sempre: passadas 6 horas, ela é descartada.
+    // A janela é folgada de propósito — varrer uma venda EM ANDAMENTO reabriria o
+    // cadeado para outro caixa enquanto a primeira ainda está fechando.
+    const corte = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()
+    await supabase.from('brindes_concedidos')
+      .delete().eq('promocao_id', brinde.unicoPromoId).is('venda_id', null).lt('criado_em', corte)
+
+    const { data: claim, error: eClaim } = await supabase
+      .from('brindes_concedidos')
+      .upsert(
+        { promocao_id: brinde.unicoPromoId, brinde_produto_id: brinde.unicoProdutoBrindeId },
+        { onConflict: 'promocao_id', ignoreDuplicates: true },
+      )
+      .select('promocao_id')
+    if (eClaim) {
+      // Sem a tabela (migration não aplicada) não há cadeado: melhor recusar do que
+      // entregar o brinde único sem trava nenhuma.
+      return { erro: 'Não foi possível reservar o brinde único da campanha. Aplique a migration 2026-11-27-black-brinde.sql. Remova o brinde para finalizar a venda.' }
+    }
+    if ((claim ?? []).length === 0) {
+      return { erro: 'O brinde desta campanha já foi concedido. Remova o brinde para finalizar a venda.' }
+    }
+    reservaBrinde = true
+  }
+
+  /** Devolve a reserva do brinde quando a venda não sai. */
+  const liberarBrinde = async () => {
+    if (!reservaBrinde || !brinde.unicoPromoId) return
+    // `venda_id is null`: se o RPC já gravou a venda e o retorno se perdeu, a reserva
+    // está amarrada a uma venda real e NÃO pode ser devolvida.
+    const { error: eDel } = await supabase.from('brindes_concedidos')
+      .delete().eq('promocao_id', brinde.unicoPromoId).is('venda_id', null)
+    if (eDel) console.error('finalizarVenda: falha ao devolver reserva do brinde:', eDel.message)
+    reservaBrinde = false
+  }
+
   let { data, error } = await supabase.rpc('finalizar_venda_com_desconto_item', {
     p_itens: itens,
     p_pagamentos: pagamentos,
@@ -564,6 +806,7 @@ export async function finalizarVenda(
   // Cai pra assinatura antiga (sem entrega) só nesse caso específico.
   if (error?.code === 'PGRST202') {
     if (itens.some((i) => Number(i.desconto_item ?? 0) > 0)) {
+      await liberarBrinde()
       return { erro: 'Atualização de desconto por peça ainda não foi aplicada no banco.' }
     }
     ({ data, error } = await supabase.rpc('finalizar_venda', {
@@ -580,8 +823,38 @@ export async function finalizarVenda(
     }))
   }
 
-  if (error) return { erro: error.message }
-  if (!data) return { erro: 'RPC retornou vazio. Verifique o banco.' }
+  if (error) {
+    await liberarBrinde()
+    return { erro: error.message }
+  }
+  if (!data) {
+    await liberarBrinde()
+    return { erro: 'RPC retornou vazio. Verifique o banco.' }
+  }
+
+  // Brinde gravado na venda: marca a linha (relatório/conferência) e amarra a reserva.
+  // `preco_unitario = 0` separa a linha de brinde de uma linha PAGA do mesmo produto.
+  if (brinde.brindes.length > 0) {
+    const { error: eBrinde } = await supabase.from('itens_venda')
+      .update({ brinde: true })
+      .eq('venda_id', data.venda_id as string)
+      .eq('preco_unitario', 0)
+      .in('produto_id', brinde.brindes.map((b) => b.produto_id))
+    if (eBrinde) console.error('finalizarVenda: falha ao marcar brinde na venda:', eBrinde.message)
+  }
+  if (reservaBrinde && brinde.unicoPromoId) {
+    // Amarrar a venda à reserva é o que impede a limpeza de 6h de apagar o cadeado
+    // de uma venda que já saiu. Duas tentativas: falhar aqui só custa rastro.
+    let eVenda = (await supabase.from('brindes_concedidos')
+      .update({ venda_id: data.venda_id as string })
+      .eq('promocao_id', brinde.unicoPromoId)).error
+    if (eVenda) {
+      eVenda = (await supabase.from('brindes_concedidos')
+        .update({ venda_id: data.venda_id as string })
+        .eq('promocao_id', brinde.unicoPromoId)).error
+    }
+    if (eVenda) console.error('finalizarVenda: falha ao amarrar brinde à venda:', eVenda.message)
+  }
 
   // "Combinou pagar na entrega": marca o fiado da venda (categoria) pra aparecer
   // destacado na lista de cobrança. Fazemos aqui (pós-RPC) pra não mexer no

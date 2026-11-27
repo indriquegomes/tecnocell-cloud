@@ -6,10 +6,14 @@ import { NovaPromocaoForm } from './NovaPromocaoForm'
 
 const TIPO_LABEL: Record<string, string> = {
   valor_direto: 'Valor Direto',
+  progressivo: 'Preço por Quantidade',
   leve_x_pague_y: 'Leve X Pague Y',
   acima_x_pague_y: 'Acima de X un. Pague Y',
   percentual: 'Desconto %',
   fixo: 'Desconto R$',
+  // brindes: não baixam preço, dão um item de graça (ver docs/mapa/brindes-de-campanha.md)
+  brinde_pelicula: 'Brinde — comprou tela, ganhou película',
+  brinde_total: 'Brinde — acima do valor mínimo',
 }
 
 export default async function PromocoesPage({

@@ -6,7 +6,7 @@ import { formaFoiEscolhida, labelPrazo, labelTipoPagamento } from '@/lib/formas-
 import { createClient } from '@/lib/supabase/client'
 import { carregarPedidoAppPDV } from '../pedidos-app/actions'
 import { Spinner } from '@/components/Spinner'
-import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, carregarClientesPDV, buscarFiadoCliente, buscarVendas, buscarCrediario, pagarLancamentos, pagarLancamentosVale, registrarPagamentoParcial, registrarPagamentoMisto, registrarPagamentoValeCredito, aplicarDescontoCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, conferirBeneficioSegundaPeca, registrarBeneficioSegundaPeca, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda, type ResultadoReceb } from './actions'
+import { finalizarVenda, salvarOrcamentoPDV, buscarItensTabela, buscarProdutosPDV, carregarCatalogoPDV, buscarClientesPDV, carregarClientesPDV, buscarFiadoCliente, buscarVendas, buscarCrediario, pagarLancamentos, pagarLancamentosVale, registrarPagamentoParcial, registrarPagamentoMisto, registrarPagamentoValeCredito, aplicarDescontoCrediario, buscarPedidosAbertos, buscarDetalheVenda, buscarCupomVenda, validarSenhaDesconto, conferirBeneficioSegundaPeca, registrarBeneficioSegundaPeca, brindesDoCarrinho, type VendaResumo, type PagamentoInput, type CrediarioItem, type PedidoResumo, type DetalheVenda, type ResultadoReceb } from './actions'
 import { criarClientePDV } from '../clientes/actions'
 import { buscarOSPorNumero, receberOS } from '../os/actions'
 import { PoliticaCadastro } from '../clientes/politica'
@@ -28,6 +28,7 @@ import type { PromoInfo } from './page'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
 import { aplicarDescontoItem, criarControleUltimaTroca, distribuirRecebimento, tabelaDoCliente, type TipoDescontoItem } from '@/lib/pdv-calculos'
 import { MOTIVOS_DESCONTO, ehPerdaoDeDivida } from '@/lib/desconto-fiado'
+import { ehCategoriaTela, type BrindeOpcao, type BrindesDoCarrinho } from '@/lib/brinde'
 
 // Preço unitário de uma faixa progressiva conforme a quantidade TOTAL do grupo.
 // Pega a maior faixa cujo mínimo já foi atingido. Nenhuma atingida = sem desconto.
@@ -200,6 +201,8 @@ interface ItemCarrinho {
   preco_custo?: number | null // pra avisar quando o item sai abaixo do custo
   avulso?: boolean            // item digitado na hora (encomenda sem cadastro); produto_id é uid falso
   promocao_top20?: boolean    // peça TOP 20: não entra em desconto (aviso no carrinho)
+  categoria?: string | null   // categoria do cadastro (tela/película — usado pelo brinde)
+  brinde?: boolean            // linha de brinde da campanha: R$ 0,00 autorizado pelo servidor
 }
 
 interface PagamentoItem {
@@ -231,9 +234,11 @@ interface Props {
   depositoInicial?: string   // depósito padrão do usuário (config PDV do perfil)
   bairrosPorLoja?: Record<string, string[]>   // loja_id → bairros que a loja entrega
   horariosEntregas?: Record<string, { semana?: string; sabado?: string }>   // rota → horários (Configurações)
+  /** Existe promoção de brinde (película e/ou brinde único) viva hoje? Liga o painel de brinde. */
+  brindeCampanha?: boolean
 }
 
-export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoasIniciais, depositos, lojas, maquinas, tabelas, precosPorTabela, tabelasUsadas = [], promosPorProduto, seriesPorProduto: seriesIniciais, depositoInicial, bairrosPorLoja = {}, horariosEntregas = {}, pedidoEntrada = null, erroPedidoEntrada = null }: Props) {
+export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoasIniciais, depositos, lojas, maquinas, tabelas, precosPorTabela, tabelasUsadas = [], promosPorProduto, seriesPorProduto: seriesIniciais, depositoInicial, bairrosPorLoja = {}, horariosEntregas = {}, pedidoEntrada = null, erroPedidoEntrada = null, brindeCampanha = false }: Props) {
   // produtos/pessoas/IMEIs viram CACHE acumulável: começam vazios (não vêm mais no HTML)
   // e vão sendo preenchidos pela busca sob demanda. Os `.find()` do carrinho leem daqui,
   // e como só entra no carrinho o que veio da busca, o item sempre está no cache.
@@ -261,6 +266,10 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
   const [copiado, setCopiado] = useState(false)
   const [selCopia, setSelCopia] = useState<Set<string>>(new Set())  // peças marcadas pra copiar preço
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([])
+  // Brindes da campanha (tela→película e brinde único). A lista vem do servidor e é
+  // só uma sugestão: quem autoriza a linha de R$ 0,00 é o finalizarVenda.
+  const [brindes, setBrindes] = useState<BrindesDoCarrinho | null>(null)
+  const [brindeEscolha, setBrindeEscolha] = useState<Record<string, string>>({})
   const [pagamentos, setPagamentos] = useState<PagamentoItem[]>([
     { uid: '1', forma_id: '', valor: '', maquina: '', parcelas: 1 },
   ])
@@ -1019,10 +1028,33 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
         prateleira: p.prateleira,
         preco_custo: p.preco_custo ?? null,
         promocao_top20: p.promocao_top20 === true,
+        categoria: p.categoria,
       }, ...prev]
     })
     setBusca('')
   }, [depositoId, nomeDeposito, tabelaId, precos])
+
+  // Brinde da campanha: entra a R$ 0,00 e baixa estoque como venda normal. O servidor
+  // revalida no F8 (tela do carrinho + modelo da película, ou o valor mínimo do brinde
+  // único), então marcar aqui não é o que autoriza — só facilita a vida do vendedor.
+  const adicionarBrinde = (op: BrindeOpcao) => {
+    if (pedidoAtualRef.current) return
+    if (carrinho.some((i) => i.produto_id === op.id)) return
+    if (op.estoque <= 0) { setErro(`"${op.nome}" sem estoque em ${nomeDeposito || 'depósito selecionado'}.`); return }
+    setErro(null)
+    setCarrinho((prev) => [{
+      produto_id: op.id,
+      nome: op.nome,
+      codigo: op.codigo,
+      quantidade: 1,
+      preco_unitario: 0,
+      desconto_tipo: 'final',
+      desconto_valor: null,
+      estoque_disponivel: op.estoque,
+      promoSel: '',
+      brinde: true,
+    }, ...prev])
+  }
 
   // Item avulso: encomenda que ainda não virou produto no cadastro. Não baixa estoque,
   // não tem IMEI nem promoção — só nome + preço digitados na hora.
@@ -1368,6 +1400,24 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
     : parseFloat(desconto) || 0
   const descontoNum = Math.min(Math.max(0, descontoBruto), baseDescontoGeral)
   const total = subtotal - descontoManualItens - descontoNum - descontoPromo
+
+  // Opções de brinde do carrinho (tela → película do mesmo modelo) e o brinde único.
+  // Só consulta quando há campanha viva e alguma tela (ou compra que alcança o mínimo).
+  const telasNoCarrinho = carrinho.filter((i) => !i.brinde && ehCategoriaTela(i.categoria))
+  useEffect(() => {
+    if (!brindeCampanha) { setBrindes(null); return }
+    if (carrinho.length === 0) { setBrindes(null); return }
+    const telas = telasNoCarrinho.map((i) => ({ id: i.produto_id, nome: i.nome }))
+    const t = setTimeout(() => {
+      authToken()
+        .then((token) => brindesDoCarrinho(token, telas, depositoId))
+        .then(setBrindes)
+        .catch(() => setBrindes(null))
+    }, 350)
+    return () => clearTimeout(t)
+    // telasNoCarrinho é derivado do carrinho; a dependência real é o carrinho + depósito
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brindeCampanha, carrinho, depositoId])
 
   // Helpers por forma de pagamento — o comportamento vem do TIPO, não do nome
   const nomeDaForma = (id: string) => {
@@ -2991,6 +3041,62 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
           )}
         </div>
 
+        {/* 🎁 Brinde da campanha — aparece só quando a promoção está viva hoje e o
+            carrinho tem tela (película do mesmo modelo) ou alcança o valor mínimo. */}
+        {brindes && (brindes.peliculas.length > 0 || (brindes.unico?.disponivel && total >= brindes.unico.minimo && !carrinho.some((i) => i.produto_id === brindes.unico!.produto.id))) && (
+          <div className="rounded-xl border-2 border-dashed border-amber-300 bg-amber-50/70 px-4 py-3 shadow-sm">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-amber-700">🎁 Brinde da campanha — sai de graça na venda</p>
+
+            {brindes.peliculas.map((t) => {
+              const escolhido = brindeEscolha[t.tela_id] ?? t.opcoes[0]?.id ?? ''
+              const op = t.opcoes.find((o) => o.id === escolhido) ?? t.opcoes[0]
+              const jaTem = !!op && carrinho.some((i) => i.produto_id === op.id)
+              return (
+                <div key={t.tela_id} className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-700">🖥 {t.tela_nome}</span>
+                  <select
+                    aria-label={`Película de brinde para ${t.tela_nome}`}
+                    value={escolhido}
+                    onChange={(e) => setBrindeEscolha((p) => ({ ...p, [t.tela_id]: e.target.value }))}
+                    className="max-w-[300px] rounded-lg border border-amber-200 bg-white px-2 py-1 text-xs text-gray-700"
+                  >
+                    {t.opcoes.map((o) => (
+                      <option key={o.id} value={o.id} disabled={carrinho.some((i) => i.produto_id === o.id)}>
+                        {o.nome} · estoque {o.estoque}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={!op || jaTem || comercialTravado}
+                    onClick={() => op && adicionarBrinde(op)}
+                    className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-600 disabled:opacity-50 transition"
+                  >
+                    {jaTem ? '✓ já no carrinho' : '+ Adicionar grátis'}
+                  </button>
+                </div>
+              )
+            })}
+
+            {brindes.unico && brindes.unico.disponivel && total >= brindes.unico.minimo && (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold text-gray-700">
+                  ⭐ Compra acima de {formatBRL(brindes.unico.minimo)}: {brindes.unico.produto.nome}
+                </span>
+                <button
+                  type="button"
+                  disabled={comercialTravado || brindes.unico.produto.estoque <= 0 || carrinho.some((i) => i.produto_id === brindes.unico!.produto.id)}
+                  onClick={() => brindes.unico && adicionarBrinde(brindes.unico.produto)}
+                  className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-600 disabled:opacity-50 transition"
+                >
+                  {carrinho.some((i) => i.produto_id === brindes.unico!.produto.id) ? '✓ já no carrinho'
+                    : brindes.unico!.produto.estoque <= 0 ? 'sem estoque' : '+ Adicionar grátis'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
           {carrinho.length === 0 ? (
             <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
@@ -3022,9 +3128,12 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
                       <p className="text-sm font-medium text-gray-800">
                         {item.codigo && <span className="text-gray-400 font-normal">{item.codigo} · </span>}{item.nome}
                         {item.promocao_top20 && <span className="ml-1.5 inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 align-middle">TOP 20</span>}
+                        {item.brinde && <span className="ml-1.5 inline-flex rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 align-middle">🎁 BRINDE</span>}
                       </p>
                       <p className="text-xs text-gray-400">
-                        {item.avulso ? (
+                        {item.brinde ? (
+                          <span className="font-medium text-emerald-600">Brinde da campanha — não cobra o cliente</span>
+                        ) : item.avulso ? (
                           <span className="font-medium text-blue-600">Item avulso (sem cadastro)</span>
                         ) : (
                           <>Disponível: {item.estoque_disponivel}

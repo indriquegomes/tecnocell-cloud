@@ -147,6 +147,17 @@ export default async function PDVPage({ searchParams }: { searchParams?: Promise
     }
   }
 
+  // Há promoção de BRINDE viva hoje? (tela→película e/ou brinde único). Só liga o
+  // painel de brinde do PDV. Quem autoriza a linha de R$ 0,00 é o finalizarVenda.
+  const { data: promosBrinde } = await supabase
+    .from('promocoes')
+    .select('id')
+    .eq('ativa', true)
+    .in('tipo', ['brinde_pelicula', 'brinde_total'])
+    .or(`data_inicio.is.null,data_inicio.lte.${hoje}`)
+    .or(`data_fim.is.null,data_fim.gte.${hoje}`)
+  const brindeCampanha = (promosBrinde ?? []).length > 0
+
   // Restrição/padrão de lojas por usuário (Config PDV do perfil)
   const cfg = await configPdvUsuario(supabase)
   let lojasVisiveis = lojas ?? []
@@ -201,6 +212,7 @@ export default async function PDVPage({ searchParams }: { searchParams?: Promise
         seriesPorProduto={seriesPorProduto}
         bairrosPorLoja={bairrosPorLoja}
         horariosEntregas={horariosEntregas}
+        brindeCampanha={brindeCampanha}
       />
     </div>
   )

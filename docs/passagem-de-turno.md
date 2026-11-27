@@ -6,7 +6,24 @@
 >
 > Regras do projeto: `AGENTS.md`. Como o sistema funciona: `docs/mapa/`.
 
-**Última atualização:** 24/11/2026 — fim do dia (quadro Resultado/Tenho/Devo na tela de Fechamento do Mês, régua única do DRE em `lib/dre.ts`).
+**Última atualização:** 27/11/2026 — manhã (campanha Black Friday: preços na aba Promoções + brinde de tela→película e brinde único no PDV).
+
+## Rodada de 27/11/2026 (manhã) — campanha Black Friday
+
+- **Preços da campanha** lançados na aba Promoções, sem tocar em `produtos.preco`: 7 itens em
+  `valor_direto` (18, 35, 42, 30, 60, 93, 250) e 2 `progressivo` para os cabos 12439 (10 un =
+  R$ 23,00) e 12552 (10 un = R$ 55,00). Janela 27/11/2026 a 27/11/2026. Script:
+  `scripts/criar-promocao-black-tecblack.mjs` (idempotente).
+- **Brinde novo no PDV** (era o que não existia): tela → película do mesmo modelo a R$ 0,00 e
+  brinde único acima de R$ 500 (Smart Ring 12233, **1 unidade em estoque, uma vez na
+  campanha**). Regra, telas e limites em `docs/mapa/brindes-de-campanha.md`.
+- **Migration aplicada no SQL Editor pelo dono**: `supabase/migrations/2026-11-27-black-brinde.sql`
+  (`itens_venda.brinde` + `brindes_concedidos`). Conferido por leitura no banco.
+- Revisão independente em três rodadas fechou dois furos antes do deploy (preço negativo
+  virando brinde; várias películas por tela) e mais dois (linha duplicada a R$ 0,00 fora da
+  trava de custo; reserva de brinde órfã).
+- **Deploy autorizado por instrução direta do dono nesta sessão** ("pode commitar e subir"),
+  sem palavra-chave de deploy. Fica registrado aqui por ser mudança de banco/PDV.
 
 ## ESTADO ATUAL — leia isto antes de qualquer outra coisa
 

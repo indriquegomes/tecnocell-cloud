@@ -25,6 +25,9 @@ const TIPO_LABEL: Record<string, string> = {
   progressivo: 'Preço por Quantidade',
   leve_x_pague_y: 'Leve X Pague Y',
   acima_x_pague_y: 'Acima de X un. Pague Y',
+  // brindes: não baixam preço, dão um item de graça (ver docs/mapa/brindes-de-campanha.md)
+  brinde_pelicula: 'Brinde — comprou tela, ganhou película',
+  brinde_total: 'Brinde — acima do valor mínimo',
 }
 
 type Faixa = { id: string; quantidade_minima: number; preco: number }
