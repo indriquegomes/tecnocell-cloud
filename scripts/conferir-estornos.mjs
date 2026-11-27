@@ -53,6 +53,16 @@ async function devDe(id) {
 
 const nomeConta = (c) => String(c.pessoa_nome ?? '').replace(/^(Devolu[çc][ãa]o|Estorno de cr[ée]dito)[^—–-]*[—–-]\s*/i, '').trim()
 
+// ---------- encomenda cancelada: a prova do fluxo "sem devolução" ----------
+// Quando o sinal da encomenda foi pago em VALE-CRÉDITO, a loja cancela a
+// encomenda e cancela o vale antes de pedir o estorno. Aí NÃO existe devolução
+// nem registro de sinal para ligar — a única prova no sistema é a encomenda
+// cancelada. Sem ela, o estorno é dinheiro que saiu sem lastro nenhum.
+const inicio = pixes.reduce((m, p) => (m && m < p.dia ? m : p.dia), '')
+const encCanceladas = inicio
+  ? await get(`encomendas?select=id,status,pessoa_nome,created_at,sinal,valor_venda&status=eq.cancelada&created_at=gte.${inicio}&limit=1000`)
+  : []
+
 const resultados = []
 const usados = new Set()
 for (const p of pixes) {
@@ -61,32 +71,20 @@ for (const p of pixes) {
   // exigia candidato único e, quando havia várias de mesmo valor, devolvia "não casou"
   // mesmo com a conta certa ligada. Agora avalia cada candidata e escolhe a melhor:
   // nome que casa > tem devolução > data mais próxima.
-  const avaliar = async (c) => {
-    // (dev é resolvida antes de avaliar, por causa do await)
-    const reembPix = (dev?.reembolsos ?? []).some((r) => r.tipo === 'pix')
-    const formaOk = /pix/i.test(String(c.forma_pagamento ?? '')) && !!c.conta_id
-    const nomeOk = mesmoNome(p.nome, nomeConta(c))
-    const faltas = []
-    if (!dev) faltas.push('conta sem devolução ligada')
-    else if (!reembPix) faltas.push(`devolução está "${dev.tipo_credito}" (reembolso não é pix)`)
-    if (!formaOk) faltas.push('forma/conta do lançamento não é PIX no banco')
-    if (!c.pessoa_id) faltas.push('lançamento sem cadastro (pessoa_id)')
-    const pontos = (nomeOk ? 100 : 0) + (dev ? 50 : 0) + (reembPix ? 25 : 0) + (formaOk ? 10 : 0) + (c.pessoa_id ? 5 : 0) - dif(dia(c.data_pagamento), p.dia)
-    return { c, dev, faltas, pontos, nomeOk }
-  }
   const avaliadas = []
   for (const c of cand) {
     const dev = await devDe(c.devolucao_id)
     const reembPix = (dev?.reembolsos ?? []).some((r) => r.tipo === 'pix')
     const formaOk = /pix/i.test(String(c.forma_pagamento ?? '')) && !!c.conta_id
     const nomeOk = mesmoNome(p.nome, nomeConta(c))
+    const enc = encCanceladas.find((e) => mesmoNome(nomeConta(c), e.pessoa_nome)) ?? null
     const faltas = []
-    if (!dev) faltas.push('conta sem devolução ligada')
-    else if (!reembPix) faltas.push(`devolução está "${dev.tipo_credito}" (reembolso não é pix)`)
+    if (!dev && !enc) faltas.push('conta sem devolução ligada e sem encomenda cancelada')
+    else if (dev && !reembPix) faltas.push(`devolução está "${dev.tipo_credito}" (reembolso não é pix)`)
     if (!formaOk) faltas.push('forma/conta do lançamento não é PIX no banco')
     if (!c.pessoa_id) faltas.push('lançamento sem cadastro (pessoa_id)')
-    const pontos = (nomeOk ? 100 : 0) + (dev ? 50 : 0) + (reembPix ? 25 : 0) + (formaOk ? 10 : 0) + (c.pessoa_id ? 5 : 0) - dif(dia(c.data_pagamento), p.dia)
-    avaliadas.push({ c, dev, faltas, pontos, nomeOk })
+    const pontos = (nomeOk ? 100 : 0) + (dev || enc ? 50 : 0) + (reembPix ? 25 : 0) + (formaOk ? 10 : 0) + (c.pessoa_id ? 5 : 0) - dif(dia(c.data_pagamento), p.dia)
+    avaliadas.push({ c, dev, enc, faltas, pontos, nomeOk })
   }
   avaliadas.sort((a, b) => b.pontos - a.pontos)
   const melhor = avaliadas[0] ?? null
@@ -94,27 +92,38 @@ for (const p of pixes) {
   const alvo = completa?.c ?? melhor?.c ?? null
   const faltasAlvo = (completa ?? melhor)?.faltas ?? []
   const devAlvo = (completa ?? melhor)?.dev ?? null
+  const encAlvo = (completa ?? melhor)?.enc ?? null
   if (alvo) usados.add(alvo.id)
 
   if (!alvo) {
     resultados.push({ p, status: 'NÃO CASOU', motivo: cand.length > 1 ? `${cand.length} contas com esse valor` : 'nenhuma conta de devolução com esse valor e data' })
     continue
   }
-  resultados.push(faltasAlvo.length === 0
-    ? { p, status: 'CASOU', alvo, dev: devAlvo }
-    : { p, status: 'CASOU (incompleto)', alvo, dev: devAlvo, motivo: faltasAlvo.join(' · ') })
+  if (faltasAlvo.length) {
+    resultados.push({ p, status: 'CASOU (incompleto)', alvo, dev: devAlvo, motivo: faltasAlvo.join(' · ') })
+  } else if (!devAlvo && encAlvo) {
+    resultados.push({ p, status: 'CASOU (encomenda cancelada)', alvo, enc: encAlvo })
+  } else {
+    resultados.push({ p, status: 'CASOU', alvo, dev: devAlvo })
+  }
 }
 
 // ---------- relatório ----------
 const cheios = resultados.filter((r) => r.status === 'CASOU')
+const porEncomenda = resultados.filter((r) => r.status === 'CASOU (encomenda cancelada)')
 const incompletos = resultados.filter((r) => r.status === 'CASOU (incompleto)')
 const nao = resultados.filter((r) => r.status === 'NÃO CASOU')
 
 console.log(`\n=== CONFERENTE DE ESTORNOS — ${pixes.length} PIX enviados no extrato ===\n`)
 console.log(`✔ CASOU (dinheiro + devolução + conta certos): ${cheios.length} · ${brl(cheios.reduce((s, r) => s + r.p.valor, 0))}`)
+console.log(`✔ CASOU (encomenda cancelada, sem devolução):  ${porEncomenda.length} · ${brl(porEncomenda.reduce((s, r) => s + r.p.valor, 0))}`)
 console.log(`~ CASOU (incompleto):                          ${incompletos.length} · ${brl(incompletos.reduce((s, r) => s + r.p.valor, 0))}`)
 console.log(`✖ NÃO CASOU:                                  ${nao.length} · ${brl(nao.reduce((s, r) => s + r.p.valor, 0))}`)
 
+if (porEncomenda.length) {
+  console.log(`\n--- CASOU POR ENCOMENDA CANCELADA (sinal em vale, sem devolução) ---`)
+  for (const r of porEncomenda) console.log(`  ✔ ${r.p.dia} · ${brl(r.p.valor).padEnd(11)} · ${r.p.nome.slice(0, 32).padEnd(32)} → encomenda de ${nomeConta(r.alvo).slice(0, 26)} (sinal ${brl(r.enc.sinal)})`)
+}
 if (incompletos.length) {
   console.log(`\n--- CASOU MAS FALTA ALGO ---`)
   for (const r of incompletos) console.log(`  ${r.p.dia} · ${brl(r.p.valor).padEnd(11)} · ${r.p.nome.slice(0, 32).padEnd(32)} → ${nomeConta(r.alvo).slice(0, 26)} · ${r.motivo}`)
@@ -124,4 +133,4 @@ if (nao.length) {
   for (const r of nao) console.log(`  ${r.p.dia} · ${brl(r.p.valor).padEnd(11)} · ${r.p.nome.slice(0, 40).padEnd(40)} · ${r.motivo}`)
 }
 console.log(`\n--- CASADOS ---`)
-for (const r of cheios) console.log(`  ✔ ${r.p.dia} · ${brl(r.p.valor).padEnd(11)} · ${r.p.nome.slice(0, 34).padEnd(34)} → ${nomeConta(r.alvo).slice(0, 28)} (${r.dev.tipo_credito})`)
+for (const r of cheios) console.log(`  ✔ ${r.p.dia} · ${brl(r.p.valor).padEnd(11)} · ${r.p.nome.slice(0, 34).padEnd(34)} → ${nomeConta(r.alvo).slice(0, 28)} (${r.dev?.tipo_credito ?? 'sem devolução'})`)

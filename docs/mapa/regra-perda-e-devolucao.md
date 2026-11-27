@@ -105,3 +105,40 @@ A queda da receita (R$ 46.982,62) é **exatamente** o valor de devolução apura
 conferente independente (`scripts/conferir-cmv-devolucao.mjs`) — as duas contas batem.
 Ou seja: o resultado de novembro estava sendo inflado em ~R$ 56,7 mil só em Petrópolis.
 
+
+## 7. Estorno de encomenda quando o sinal foi em vale-crédito
+
+Regra do dono (27/11/2026). Vale para encomenda de peça encomendada para o
+cliente: o sinal pode ser pago **em dinheiro/PIX** ou **usando o vale-crédito
+que o cliente já tinha**. No segundo caso o fluxo é outro:
+
+1. Antes de pedir o estorno, a loja **cancela a encomenda** no sistema
+   (`encomendas.status = 'cancelada'`).
+2. O vale que serviu de sinal também é **cancelado** (`creditos_clientes`,
+   movimento `estorno`).
+3. Só então o dinheiro volta por PIX para o cliente.
+
+**Consequência no banco:** nesse caminho **não existe devolução** (não houve
+devolução de peça — a encomenda nunca foi entregue) e **não existe registro de
+sinal**. A única prova no sistema é a encomenda cancelada; o comprovante do PIX
+é a prova do dinheiro. Por isso estorno sem `devolucao_id` **não é erro** — é
+esse fluxo.
+
+**A armadilha:** quando o sinal é pago em vale, `encomendas.sinal` fica **0** e
+`sinal_forma` fica nulo, porque a tela de encomenda só sabe registrar sinal em
+dinheiro/cartão/PIX (ela cria um vale novo com o valor do sinal; não sabe
+*consumir* um vale que já existe). Então a encomenda cancelada diz "venda R$
+20, sinal R$ 0" mesmo quando o cliente pagou R$ 20 de vale. Quem conferir a
+encomenda sozinha vai concluir que não houve sinal — o que explicaria um
+"estorno sem lastro" que não existe.
+
+**O que o conferente faz** (`scripts/conferir-estornos.mjs`): conta estorno paga
+sem devolução continua fechando o caso quando há **encomenda cancelada do mesmo
+cliente** — sai no balde `CASOU (encomenda cancelada)`, separado de `CASOU`.
+Sem encomenda cancelada e sem devolução, o caso é acusado como
+`conta sem devolução ligada e sem encomenda cancelada` — dinheiro que saiu sem
+nenhum lastro no app.
+
+**Pendência conhecida (decisão do dono):** a tela de encomenda não registra
+sinal pago com vale existente. Enquanto não registrar, toda encomenda com sinal
+em vale fica com `sinal = 0` e o rastro do dinheiro depende do print.
