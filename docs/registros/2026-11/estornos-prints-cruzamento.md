@@ -133,3 +133,59 @@ scripts/ligar-pessoa.mjs           (liga lançamento ao cadastro com nomeContido
 scripts/ligar-prints.mjs / amarrar-venda.mjs / ligar-devolucao.mjs / consertar-*.mjs
 ```
 
+
+## Checklist e consertos — fechamento do dia (27/11/2026)
+
+Conferência pedida pelo dono ("roda um checklist do que fizemos hoje e repara
+erros e pontas soltas"). O que foi achado e corrigido:
+
+### Erros de código (corrigidos e no ar)
+
+1. **O robô não lia o nome registrado no cadastro.** O print traz o dono da conta
+   que recebeu ("Larissa da Rocha Carvalho") e o Financeiro conhece o cliente
+   ("LARISSA PLAY TEC"). As 13 chaves gravadas em `pessoa_chaves_pix` não eram
+   consultadas: o robô só casava pelo cartão da devolução. Agora a rota e o
+   simulador consultam `favorecido` e resolvem o nome do cadastro.
+   *Provado:* simulador com "Larissa da Rocha Carvalho" R$ 141,00 → `baixar` em
+   LARISSA PLAY TEC.
+2. **Trava de duplicado não pegava o próprio robô.** Ela procurava
+   `status = 'conciliado'` (status da importação), mas o robô grava `'casado'` —
+   o mesmo print enviado duas vezes entrava duas vezes. Agora qualquer linha já
+   ligada (`lancamento_id` preenchido) com o mesmo ID de transação é repetição.
+3. **Estorno de crédito nascia órfão.** A conta aberta pelo "Cancelar crédito"
+   era inserida sem `devolucao_id` e sem `pessoa_id` — o conferente acusava
+   "conta sem devolução ligada" e o robô não achava a linha pela pessoa.
+   Migration `2026-11-27-estorno-credito-liga-devolucao.sql` (colar no SQL
+   Editor) + `scripts/ligar-estorno-credito.mjs` para as 11 contas antigas.
+4. **`ligar-pessoa.mjs` ligava cadastro errado.** A régua "um nome dentro do
+   outro" grudava `FINAL` em `CONSUMIDOR FINAL NÃO IDENTIFICADO` e `JACKSON
+   VIANA` em `JACKSON VIANA SILVA`. Passou a exigir nome idêntico (normalizado);
+   parcial só com 2+ palavras e único; e recusa quando a devolução ligada é de
+   outro nome. 45 contas ligadas ao cadastro.
+
+### Sujeira removida
+
+- `tmp-checkup/prints` (48 JPEGs, 6,4 MB) e `tmp-checkup/mid10.jpg` — fora do
+  repositório (a pasta já está no `.gitignore`).
+
+### Estado do conferente (`conferir-estornos.mjs`, extrato 01–26/11)
+
+| | antes | depois |
+|---|---|---|
+| CASOU cheio | 17 · R$ 1.995,00 | **19 · R$ 2.055,00** |
+| CASOU incompleto | 20 · R$ 3.549,90 | **18 · R$ 3.489,90** |
+| NÃO CASOU | 93 · R$ 43.294,62 | 93 (é PIX que não é estorno: fornecedor, folha, dono) |
+
+### O que continua aberto (decisão do dono)
+
+- **Contas de estorno sem devolução nenhuma no app:** EMILY 112 e 128, HELP TESH
+  229, RODRIGO PEREIRA 1.530,90. Pela regra do dono (estorno exige venda
+  cancelada), sem devolução registrada essas saídas são outra coisa — despesa ou
+  acerto — e não "Devolução".
+- **ANGELICA: conta de R$ 221,00 × devolução de R$ 217,00** (diferença de R$ 4).
+- **Sem cadastro que case:** "Victor Afonso" R$ 100, "SUPERCELL" R$ 210,
+  "Raphael Vaz de freitas" R$ 195, "FINAL" R$ 65.
+- **Ambíguas da rodada de lote (não ligadas de propósito):** WM CELULARES R$ 62,
+  CARLOS HENRIQUE R$ 67.
+- **Vigia diário (`/api/pix-saida/vigia`) nunca foi visto rodando em produção** —
+  o `CRON_SECRET` não está aqui. Falta conferir no log da Vercel num dia útil.
