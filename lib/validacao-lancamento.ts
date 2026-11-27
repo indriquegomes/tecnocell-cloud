@@ -69,6 +69,10 @@ export type EntradaLancamento = {
   categoriaAtual?: string | null
   /** `pagar` quitado só pode sair da gaveta quando a forma é dinheiro */
   ehDinheiro?: (forma: string) => boolean
+  /** texto do lançamento — usado para barrar devolução digitada à mão */
+  descricao?: string | null
+  /** devolução ligada à linha (só o fluxo de Devoluções grava isso) */
+  devolucaoId?: string | null
 }
 
 export type ResultadoValidacao = { ok: true } | { ok: false; erro: string }
@@ -105,6 +109,22 @@ export function validarEntradaLancamento(e: EntradaLancamento): ResultadoValidac
       if (!dinheiro) {
         return { ok: false, erro: `Pagamento em ${forma} sem conta: escolha de qual conta o dinheiro saiu (ou use "Dinheiro" se saiu da gaveta).` }
       }
+    }
+  }
+
+  // DEVOLUÇÃO À MÃO É O FURO-MÃE (26/11/2026).
+  //
+  // Dava para digitar "Devolução — FULANO" no formulário do Financeiro e gravar como
+  // paga em PIX sem existir devolução nenhuma — no lote de 22/11 isso criou 44 linhas.
+  // Resultado: PIX do PagBank sem compra cancelada atrás, estoque que nunca voltou e
+  // crédito de cliente que nunca existiu. Estorno só nasce pela tela de Devoluções,
+  // que é quem grava `devolucao_id`, mexe no estoque e no crédito de uma vez.
+  const descricao = String(e.descricao ?? '').trim()
+  const pareceDevolucao = /^(devolu[çc][ãa]o|estorno\s+de\s+cr[ée]dito)\b/i.test(descricao)
+  if (pareceDevolucao && !e.devolucaoId) {
+    return {
+      ok: false,
+      erro: 'Devolução/estorno não se lança à mão: registre em Devoluções (é lá que a peça volta ao estoque e o reembolso fica ligado à venda). Para dinheiro que saiu sem compra cancelada, use uma categoria de despesa.',
     }
   }
 

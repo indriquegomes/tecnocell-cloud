@@ -91,6 +91,11 @@ export async function criarLancamento(formData: FormData) {
       quitado,
       contaId: contaId ?? contaDoPrimeiro ?? null,
       formasValidas: (formasAtivas ?? []).map((f) => f.nome as string),
+      // Trava da devolução digitada à mão: o formulário não tem campo de devolução,
+      // então só passa quem JÁ nasceu ligado a uma (as linhas do fluxo de Devoluções
+      // não passam por aqui; as criadas na mão nunca têm vínculo).
+      descricao: descricao ?? ((formData.get('descricao') as string) || null),
+      devolucaoId: (formData.get('devolucao_id') as string) || null,
     })
     if (!checagem.ok) {
       redirect(`/painel/financeiro/novo?tipo=${tipo === 'receber' ? 'receber' : 'pagar'}&erro=${encodeURIComponent(checagem.erro)}`)

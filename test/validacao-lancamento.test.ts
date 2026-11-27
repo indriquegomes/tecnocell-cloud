@@ -75,3 +75,30 @@ test('lista oficial tem as categorias do dia a dia', () => {
     assert.ok(lista.includes(c), c)
   }
 })
+
+// Trava contra a devolução digitada à mão (26/11/2026): no lote de 22/11 nasceram 44
+// linhas "Devolução — fulano" sem devolução nenhuma, pagas em PIX — dinheiro saído sem
+// compra cancelada, estoque que nunca voltou e cliente que nunca existiu.
+test('devolução digitada à mão, sem devolução ligada, é recusada', () => {
+  const r = validarEntradaLancamento({ ...base, descricao: 'Devolução — FULANO (estorno de compra)' })
+  assert.equal(r.ok, false)
+  if (!r.ok) assert.match(r.erro, /Devoluç/)
+})
+
+test('devolução com devolução ligada passa (linha do fluxo de Devoluções)', () => {
+  assert.deepEqual(
+    validarEntradaLancamento({ ...base, descricao: 'Devolução — FULANO', devolucaoId: 'abc-123' }),
+    { ok: true },
+  )
+})
+
+test('estorno de crédito à mão também é recusado', () => {
+  const r = validarEntradaLancamento({ ...base, descricao: 'Estorno de crédito — devolução da venda #12' })
+  assert.equal(r.ok, false)
+})
+
+test('despesa comum com a palavra devolução no meio do texto passa', () => {
+  // Só o COMEÇO da descrição identifica devolução; "Frete da devolução" é despesa.
+  assert.deepEqual(validarEntradaLancamento({ ...base, descricao: 'Frete da devolução — transportadora' }), { ok: true })
+  assert.deepEqual(validarEntradaLancamento({ ...base, descricao: 'Desconto concedido — fiado #12' }), { ok: true })
+})
