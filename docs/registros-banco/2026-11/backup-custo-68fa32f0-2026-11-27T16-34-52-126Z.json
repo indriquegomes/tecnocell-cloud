@@ -1,0 +1,13 @@
+{
+  "produto": {
+    "id": "68fa32f0fe51e5e8951b84b4",
+    "nome": "FLEX DO AURICULAR/SENSOR PROXIMIDADE/ALS  14 PRO MAX",
+    "preco": 39.9,
+    "preco_custo": 55
+  },
+  "item_tabela_custo": {
+    "id": "1d117a77-de90-4ae2-9ebd-b4946ee25986",
+    "preco": 55
+  },
+  "custo_novo": 20
+}
