@@ -1,0 +1,330 @@
+[
+  {
+    "lancamento_id": "09545566-0187-408e-b19b-4d8df3a71c66",
+    "valor": 15,
+    "nome_no_lancamento": "SERGIO CELULARES",
+    "pessoa_id": "63d91da559a9c8297472898d",
+    "pessoa_nome": "SERGIO CELULARES",
+    "cpf": "09992475730"
+  },
+  {
+    "lancamento_id": "021a9261-ce30-42ee-a60e-cdf77202e930",
+    "valor": 49,
+    "nome_no_lancamento": "Mariana Vila Real Castelli",
+    "pessoa_id": "669168d5ee22155dce8d9dcd",
+    "pessoa_nome": "Mariana Vila Real Castelli",
+    "cpf": "63886068000130"
+  },
+  {
+    "lancamento_id": "1ab63734-322f-46f0-afb7-40e5ecd542cd",
+    "valor": 4,
+    "nome_no_lancamento": "CRISTIAN EDUARDO SOUZA",
+    "pessoa_id": "65fb2a535558a152f60353fd",
+    "pessoa_nome": "CRISTIAN EDUARDO SOUZA",
+    "cpf": "06336664759"
+  },
+  {
+    "lancamento_id": "1d7ddb98-51cf-4a67-83c9-3b954ed1bcba",
+    "valor": 61,
+    "nome_no_lancamento": "LK CELL",
+    "pessoa_id": "63d91da559a9c8297472897f",
+    "pessoa_nome": "LK CELL",
+    "cpf": null
+  },
+  {
+    "lancamento_id": "2694bb32-cd7f-4750-8b88-64ea6526bc9d",
+    "valor": 221,
+    "nome_no_lancamento": "Pedro Henrique Angelica Ferreira",
+    "pessoa_id": "63d91db159a9c82974728b7e",
+    "pessoa_nome": "PEDRO HENRIQUE ANGELICA FERREIRA",
+    "cpf": "18330429725"
+  },
+  {
+    "lancamento_id": "2cc3a286-150e-4e72-b474-abf1d0fdc997",
+    "valor": 350,
+    "nome_no_lancamento": "FABIANO DAS CHAGAS CHAVES",
+    "pessoa_id": "656dde21ad3c0a2edb0bcc72",
+    "pessoa_nome": "FABIANO DAS CHAGAS CHAVES",
+    "cpf": "07619653783"
+  },
+  {
+    "lancamento_id": "30565f16-3645-42f8-9b23-3c81ade90314",
+    "valor": 9.9,
+    "nome_no_lancamento": "JD TERESÓPOLIS",
+    "pessoa_id": "6421f3b1bd24b4e8e7f6c3a0",
+    "pessoa_nome": "JD TERESÓPOLIS",
+    "cpf": null
+  },
+  {
+    "lancamento_id": "369d2518-5edf-4087-bb5e-8e016d44cd03",
+    "valor": 45,
+    "nome_no_lancamento": "DENILSON PEÇAS",
+    "pessoa_id": "643477dc775a50294778e2b1",
+    "pessoa_nome": "DENILSON PEÇAS",
+    "cpf": null
+  },
+  {
+    "lancamento_id": "49b06a83-0eaf-44c4-a53d-da85947b105e",
+    "valor": 105,
+    "nome_no_lancamento": "HIPOLITO DE AMARAL DA FRANÇA COUTO",
+    "pessoa_id": "679389287c211e3bc4967060",
+    "pessoa_nome": "HIPOLITO DE AMARAL DA FRANÇA COUTO",
+    "cpf": "18756697791"
+  },
+  {
+    "lancamento_id": "5224c46a-3a67-4cbc-8fce-9c2f087e4201",
+    "valor": 189,
+    "nome_no_lancamento": "TECH STORY",
+    "pessoa_id": "650da2f09a2346421e1cc6a7",
+    "pessoa_nome": "TECH STORY",
+    "cpf": "46515001000170"
+  },
+  {
+    "lancamento_id": "53528543-bcc2-4563-ac8e-9e851454945a",
+    "valor": 56,
+    "nome_no_lancamento": "Gabriel deJesus Cordeiro",
+    "pessoa_id": "10631a3a-c5e3-40a3-8bb8-b8acc7cdb0e8",
+    "pessoa_nome": "Gabriel deJesus Cordeiro",
+    "cpf": "08437247144"
+  },
+  {
+    "lancamento_id": "608918f6-bc32-4a75-9b00-06916fd60ed2",
+    "valor": 205,
+    "nome_no_lancamento": "2DU 16 DE MARÇO",
+    "pessoa_id": "69f8b37919716cb8a0652a49",
+    "pessoa_nome": "2DU 16 DE MARÇO",
+    "cpf": null
+  },
+  {
+    "lancamento_id": "6235f105-8e6c-4210-85cc-27a7365a164e",
+    "valor": 14,
+    "nome_no_lancamento": "ALPHA CELL",
+    "pessoa_id": "63d91da959a9c82974728a3e",
+    "pessoa_nome": "ALPHA CELL",
+    "cpf": null
+  },
+  {
+    "lancamento_id": "70134c8f-0596-4f79-9e16-ad6d4ab124fd",
+    "valor": 53.5,
+    "nome_no_lancamento": "GUILHERME ARAUJO PEIXOTO",
+    "pessoa_id": "6676f3692c65c086901f244e",
+    "pessoa_nome": "GUILHERME ARAUJO PEIXOTO",
+    "cpf": "20224156713"
+  },
+  {
+    "lancamento_id": "7c68c510-6dc4-457f-9d67-373a668734a2",
+    "valor": 77,
+    "nome_no_lancamento": "CENTRAL TECH / UP CELL / PAC TEC",
+    "pessoa_id": "6682e5c7a45374d539bc0256",
+    "pessoa_nome": "CENTRAL TECH / UP CELL / PAC TEC",
+    "cpf": "55636603000176"
+  },
+  {
+    "lancamento_id": "7d09365c-1c94-4b53-bc18-e1269acffbaa",
+    "valor": 56,
+    "nome_no_lancamento": "WM CELULARES",
+    "pessoa_id": "63d91dae59a9c82974728adf",
+    "pessoa_nome": "WM CELULARES",
+    "cpf": "07798485783"
+  },
+  {
+    "lancamento_id": "81c11ade-212a-4ac8-b2d9-10784452ac22",
+    "valor": 67,
+    "nome_no_lancamento": "CARLOS HENRIQUE MARQUES FIUZA PITTZER",
+    "pessoa_id": "6570cdb98573c648a190c306",
+    "pessoa_nome": "CARLOS HENRIQUE MARQUES FIUZA PITTZER",
+    "cpf": "06497664742"
+  },
+  {
+    "lancamento_id": "86cfcd18-3b1d-49fa-b979-70074d8250ea",
+    "valor": 34,
+    "nome_no_lancamento": "LOJA CAMPISTA",
+    "pessoa_id": "63fdeca9547cd7b7871132f6",
+    "pessoa_nome": "LOJA CAMPISTA",
+    "cpf": null
+  },
+  {
+    "lancamento_id": "8a13595c-f989-4c32-92f9-fdf8e6e12197",
+    "valor": 52.5,
+    "nome_no_lancamento": "PEDRO HENRIQUE DOS SANTOS",
+    "pessoa_id": "6a4827b30c56fe898feaab4a",
+    "pessoa_nome": "PEDRO HENRIQUE DOS SANTOS",
+    "cpf": null
+  },
+  {
+    "lancamento_id": "8caa7bcd-3dca-4b2e-b3a6-ebc9d51fc81a",
+    "valor": 62,
+    "nome_no_lancamento": "WM CELULARES",
+    "pessoa_id": "63d91dae59a9c82974728adf",
+    "pessoa_nome": "WM CELULARES",
+    "cpf": "07798485783"
+  },
+  {
+    "lancamento_id": "94204c31-e4b5-4716-8742-b0c675c5c776",
+    "valor": 66,
+    "nome_no_lancamento": "EDSON ANTONIO DA CRUZ",
+    "pessoa_id": "63d91da959a9c829747289ff",
+    "pessoa_nome": "EDSON ANTONIO DA CRUZ",
+    "cpf": "10048431788"
+  },
+  {
+    "lancamento_id": "986ee5ee-59ec-46d4-898e-9bf5271c8988",
+    "valor": 229,
+    "nome_no_lancamento": "HELP TESH",
+    "pessoa_id": "63d91da959a9c82974728a21",
+    "pessoa_nome": "HELP TESH",
+    "cpf": null
+  },
+  {
+    "lancamento_id": "9b6dfdae-5d32-46df-bd84-46b8a53f6971",
+    "valor": 45,
+    "nome_no_lancamento": "DAVID DOS SANTOS MORTES",
+    "pessoa_id": "63d91db059a9c82974728b69",
+    "pessoa_nome": "DAVID DOS SANTOS MORTES",
+    "cpf": "12465085751"
+  },
+  {
+    "lancamento_id": "9fe50d54-f671-460c-9a24-59771ba8b592",
+    "valor": 37,
+    "nome_no_lancamento": "KAYRO MAIA RABELLO",
+    "pessoa_id": "63d91da759a9c829747289da",
+    "pessoa_nome": "KAYRO MAIA RABELLO",
+    "cpf": "13130210750"
+  },
+  {
+    "lancamento_id": "b6f8e161-a335-4af7-9784-0bb20d4d852f",
+    "valor": 217,
+    "nome_no_lancamento": "PEDRO HENRIQUE ANGELICA FERREIRA",
+    "pessoa_id": "63d91db159a9c82974728b7e",
+    "pessoa_nome": "PEDRO HENRIQUE ANGELICA FERREIRA",
+    "cpf": "18330429725"
+  },
+  {
+    "lancamento_id": "b9507507-5304-4bac-b0cd-28460b08d851",
+    "valor": 15,
+    "nome_no_lancamento": "FRANCIS DEFAVERI DA SILVA",
+    "pessoa_id": "67054618ac5443ece0eb33c0",
+    "pessoa_nome": "FRANCIS DEFAVERI DA SILVA",
+    "cpf": "11658130766"
+  },
+  {
+    "lancamento_id": "b9fff8b2-0f63-4cd4-895e-95d03f894e43",
+    "valor": 125,
+    "nome_no_lancamento": "ISEC",
+    "pessoa_id": "642b34253770a1626c935d7d",
+    "pessoa_nome": "ISEC",
+    "cpf": "14495136704"
+  },
+  {
+    "lancamento_id": "c3a74ae9-f7c8-4f67-813d-90f66a1b5b9e",
+    "valor": 11,
+    "nome_no_lancamento": "LR CELL / LETICIA MALHEIROS REISSINGER",
+    "pessoa_id": "63d91db059a9c82974728b47",
+    "pessoa_nome": "LR CELL / LETICIA MALHEIROS REISSINGER",
+    "cpf": "13526794774"
+  },
+  {
+    "lancamento_id": "c824181d-ba47-4724-974d-ec3ad097d342",
+    "valor": 65,
+    "nome_no_lancamento": "Davi de Souza Horácio",
+    "pessoa_id": "0b86dd3b-b45a-4447-b329-5ee27e1781ea",
+    "pessoa_nome": "Davi de Souza Horácio",
+    "cpf": null
+  },
+  {
+    "lancamento_id": "ca527767-53fb-476f-98cb-ff1f8281b82e",
+    "valor": 67,
+    "nome_no_lancamento": "LUIZ CARLOS SANTANA",
+    "pessoa_id": "642b3df41a5e5a9f0090b11b",
+    "pessoa_nome": "LUIZ CARLOS SANTANA",
+    "cpf": "90009150749"
+  },
+  {
+    "lancamento_id": "caa4665c-19b6-4460-8cd2-fca3355b798a",
+    "valor": 77,
+    "nome_no_lancamento": "CONTROL Z",
+    "pessoa_id": "642dd55cda5861d7352751c0",
+    "pessoa_nome": "CONTROL Z",
+    "cpf": "42298528000139"
+  },
+  {
+    "lancamento_id": "cd6abe8e-f397-45a5-8426-592d7257bef3",
+    "valor": 61,
+    "nome_no_lancamento": "CARLOS HENRIQUE MARQUES FIUZA PITTZER",
+    "pessoa_id": "6570cdb98573c648a190c306",
+    "pessoa_nome": "CARLOS HENRIQUE MARQUES FIUZA PITTZER",
+    "cpf": "06497664742"
+  },
+  {
+    "lancamento_id": "d09d8b35-2c20-49b0-827c-ae320788cda7",
+    "valor": 195,
+    "nome_no_lancamento": "IMPERA SMART",
+    "pessoa_id": "643453f3200cf6a321e4fda3",
+    "pessoa_nome": "IMPERA SMART",
+    "cpf": "42951030000123"
+  },
+  {
+    "lancamento_id": "d7a5f378-8a3e-4bd9-85e5-02a694d92519",
+    "valor": 25,
+    "nome_no_lancamento": "CRISTIAN EDUARDO SOUZA",
+    "pessoa_id": "65fb2a535558a152f60353fd",
+    "pessoa_nome": "CRISTIAN EDUARDO SOUZA",
+    "cpf": "06336664759"
+  },
+  {
+    "lancamento_id": "e9121fe7-5c5e-400f-a7fb-57542d3b78b3",
+    "valor": 92,
+    "nome_no_lancamento": "ESTORNO",
+    "pessoa_id": "d5c36ac0-6248-4abd-872f-003906063299",
+    "pessoa_nome": "ESTORNO",
+    "cpf": null
+  },
+  {
+    "lancamento_id": "ee5a2d15-cf27-4b13-9944-94a99942c2a9",
+    "valor": 56,
+    "nome_no_lancamento": "ASTEIN INFORMÁTICA",
+    "pessoa_id": "644abf495d49b1d48bc92de9",
+    "pessoa_nome": "ASTEIN INFORMATICA",
+    "cpf": "11324941766"
+  },
+  {
+    "lancamento_id": "f9e74c8e-14fa-4515-95cb-e9d5103bfa4f",
+    "valor": 549,
+    "nome_no_lancamento": "Maria Julia de Souza Ferreira Carvalho",
+    "pessoa_id": "cacf47b0-cd57-47a3-a492-2bda0cf54661",
+    "pessoa_nome": "Maria Julia de Souza Ferreira Carvalho",
+    "cpf": null
+  },
+  {
+    "lancamento_id": "fcde7f14-c254-4b7d-a652-e9be962b7ec3",
+    "valor": 56,
+    "nome_no_lancamento": "FRANCIS DEFAVERI DA SILVA",
+    "pessoa_id": "67054618ac5443ece0eb33c0",
+    "pessoa_nome": "FRANCIS DEFAVERI DA SILVA",
+    "cpf": "11658130766"
+  },
+  {
+    "lancamento_id": "fd377494-bce2-4fcf-915f-88b764fde4e6",
+    "valor": 90,
+    "nome_no_lancamento": "MISTER CELL",
+    "pessoa_id": "646f922ab92f1b7f5f4776a5",
+    "pessoa_nome": "MISTER CELL",
+    "cpf": null
+  },
+  {
+    "lancamento_id": "fe8419ed-b798-41b1-9798-3ce5e338f6fe",
+    "valor": 20,
+    "nome_no_lancamento": "TIAGO CELULARES",
+    "pessoa_id": "63d91da559a9c829747289aa",
+    "pessoa_nome": "TIAGO CELULARES",
+    "cpf": "13801508765"
+  },
+  {
+    "lancamento_id": "fedbe9ce-2394-429d-8df9-06e86c2f9f2c",
+    "valor": 50,
+    "nome_no_lancamento": "DAVID DOS SANTOS MORTES",
+    "pessoa_id": "63d91db059a9c82974728b69",
+    "pessoa_nome": "DAVID DOS SANTOS MORTES",
+    "cpf": "12465085751"
+  }
+]

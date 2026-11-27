@@ -25,7 +25,13 @@ const brl = (v) => 'R$ ' + Number(v ?? 0).toFixed(2).replace('.', ',')
 
 const provas = await get(`pix_saidas?select=lancamento_id,valor&lancamento_id=not.is.null&limit=100`)
 const ids = [...new Set(provas.map((p) => p.lancamento_id))]
-const contas = await get(`lancamentos?select=id,valor,descricao,pessoa_nome,pessoa_id,tipo&id=in.(${ids.join(',')})&limit=200`)
+// Além das contas que têm print, entram TODAS as contas de devolução/estorno
+// pagas ainda sem cadastro — inclusive as lançadas à mão, que são a maioria.
+const contas = ids.length
+  ? [...await get(`lancamentos?select=id,valor,descricao,pessoa_nome,pessoa_id,tipo&id=in.(${ids.join(',')})&limit=200`),
+     ...await get(`lancamentos?select=id,valor,descricao,pessoa_nome,pessoa_id,tipo&tipo=eq.pagar&pessoa_id=is.null&or=(descricao.ilike.Devolu*,descricao.ilike.Estorno*)&order=id&limit=1000`)]
+      .filter((c, i, a) => a.findIndex((x) => x.id === c.id) === i)
+  : await get(`lancamentos?select=id,valor,descricao,pessoa_nome,pessoa_id,tipo&tipo=eq.pagar&pessoa_id=is.null&or=(descricao.ilike.Devolu*,descricao.ilike.Estorno*)&order=id&limit=1000`)
 
 const todasPessoas = []
 for (let off = 0; off < 40000; off += 1000) {
@@ -44,6 +50,7 @@ const nomeDoLancamento = (c) =>
 const ligar = []
 const ambiguos = []
 const naoAchados = []
+const contradicoes = []
 
 for (const c of contas) {
   if (c.pessoa_id) continue
@@ -53,10 +60,33 @@ for (const c of contas) {
   if (!tokens.length) { naoAchados.push({ c, nome, motivo: 'nome sem token útil' }); continue }
   // compara contra o cadastro INTEIRO, em memória: buscar por token no banco falha
   // com acento ("CONCEICAO" não acha "CONCEIÇÃO") e devolve falso negativo.
-  const fortes = todasPessoas.filter((p) => nomeContido(nome, p.nome))
+  // Só nome IDÊNTICO (normalizado). "um nome dentro do outro" ligava "FINAL" a
+  // "CONSUMIDOR FINAL NÃO IDENTIFICADO" e "JACKSON VIANA" a "JACKSON VIANA SILVA"
+  // — vínculo de cadastro errado é pior que cadastro faltando.
+  const fortes = todasPessoas.filter((p) => normNome(p.nome) === normNome(nome) && !/^CONSUMIDOR/i.test(p.nome))
   if (fortes.length === 1) ligar.push({ c, nome, pessoa: fortes[0] })
   else if (fortes.length > 1) ambiguos.push({ c, nome, candidatos: fortes })
-  else naoAchados.push({ c, nome, motivo: 'nenhum cadastro com esse nome dentro do outro' })
+  else {
+    // 2º degrau: nome PARCIAL, só com 2+ palavras e só se UMA pessoa casar.
+    // "JACKSON VIANA" → "JACKSON VIANA SILVA" sim; "SUPERCELL" (1 palavra) não.
+    const parciais = tokens.length >= 2 ? todasPessoas.filter((p) => nomeContido(nome, p.nome) && !/^CONSUMIDOR/i.test(p.nome)) : []
+    if (parciais.length === 1) ligar.push({ c, nome, pessoa: parciais[0], parcial: true })
+    else if (parciais.length > 1) ambiguos.push({ c, nome, candidatos: parciais })
+    else naoAchados.push({ c, nome, motivo: 'nenhum cadastro com esse nome' })
+  }
+}
+
+// Conta JÁ ligada a uma devolução: quem manda é a devolução. Se o nome digitado
+// no lançamento é outro, o vínculo de cadastro entraria em contradição com o
+// `devolucao_id` — fica listado em vez de gravar.
+for (const x of [...ligar]) {
+  if (!x.c.devolucao_id) continue
+  const [dev] = await get(`devolucoes?id=eq.${x.c.devolucao_id}&select=id,pessoa_id,pessoa_nome`)
+  if (!dev?.pessoa_id) continue
+  if (normNome(dev.pessoa_nome) !== normNome(x.nome)) {
+    ligar.splice(ligar.indexOf(x), 1)
+    contradicoes.push({ ...x, devolucao_nome: dev.pessoa_nome })
+  } else x.pessoa = { id: dev.pessoa_id, nome: dev.pessoa_nome, cpf_cnpj: x.pessoa.cpf_cnpj }
 }
 
 console.log(`\n=== PARA LIGAR (lançamento → pessoa): ${ligar.length} ===`)
@@ -67,6 +97,8 @@ console.log(`\n=== AMBÍGUO (fica fora): ${ambiguos.length} ===`)
 for (const x of ambiguos) console.log(`  ${brl(x.c.valor).padEnd(11)} · '${x.nome}' → ${x.candidatos.map((p) => p.nome).join(' | ')}`)
 console.log(`\n=== SEM CADASTRO: ${naoAchados.length} ===`)
 for (const x of naoAchados) console.log(`  ${brl(x.c.valor).padEnd(11)} · '${x.nome}' — ${x.motivo}`)
+console.log(`\n=== CONTRADIÇÃO (devolução é de outro nome — não toca): ${contradicoes.length} ===`)
+for (const x of contradicoes) console.log(`  ${brl(x.c.valor).padEnd(11)} · lançamento '${x.nome}' × devolução '${x.devolucao_nome}'`)
 
 if (!aplicar) {
   console.log(`\n(ensaio: nada gravado. --aplicar liga os ${ligar.length}.)`)

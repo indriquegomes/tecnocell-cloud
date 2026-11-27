@@ -1,0 +1,123 @@
+[
+  {
+    "lancamento_id": "69e00b10-9b11-4948-918f-3598a03c90cb",
+    "valor": 77,
+    "descricao": "Estorno de crédito — devolução da venda #15251 — FG ASSISTENCIA",
+    "devolucao_id": "22df2c81-c39d-4f20-aacc-88d51fa9c1e3",
+    "pessoa_id": "6581f2eed909abc6807205e2",
+    "antes": {
+      "devolucao_id": null,
+      "pessoa_id": null
+    }
+  },
+  {
+    "lancamento_id": "a137ac67-d3c5-4b46-a5b2-8536312c7fa6",
+    "valor": 105,
+    "descricao": "Estorno de crédito — devolução da venda #6826 — 2DU 16 DE MARÇO",
+    "devolucao_id": "9efd2a9d-ea4d-4273-b1d0-840341ab62e0",
+    "pessoa_id": "69f8b37919716cb8a0652a49",
+    "antes": {
+      "devolucao_id": null,
+      "pessoa_id": null
+    }
+  },
+  {
+    "lancamento_id": "5eebb7a4-3cb0-49e4-880e-3c57c0db50f7",
+    "valor": 45,
+    "descricao": "Estorno de crédito — devolução da venda #10377 — SERGIO CELULARES",
+    "devolucao_id": "08b6e380-950c-4803-a6fc-74e79dff3456",
+    "pessoa_id": "63d91da559a9c8297472898d",
+    "antes": {
+      "devolucao_id": null,
+      "pessoa_id": null
+    }
+  },
+  {
+    "lancamento_id": "7f4a1344-bcb6-4a48-a34d-d50881185cb2",
+    "valor": 70,
+    "descricao": "Estorno de crédito — devolução da venda #9327 — ALVARO GARCIA",
+    "devolucao_id": "7566ee78-cfd2-44a5-9b02-4714b9fe2b12",
+    "pessoa_id": "63d91db059a9c82974728b37",
+    "antes": {
+      "devolucao_id": null,
+      "pessoa_id": null
+    }
+  },
+  {
+    "lancamento_id": "65412807-fcd3-4b8a-b2f0-0d4b07af19c9",
+    "valor": 50,
+    "descricao": "Estorno de crédito — devolução da venda #4773 — RICARDO DA SILVA FERREIRA",
+    "devolucao_id": "1e025f44-477a-4c25-ab0b-1c2e113f2ba8",
+    "pessoa_id": "69a6ed133060daf2d9227c59",
+    "antes": {
+      "devolucao_id": null,
+      "pessoa_id": "69a6ed133060daf2d9227c59"
+    }
+  },
+  {
+    "lancamento_id": "a754b91d-82ab-46b4-8841-5ecd8ca33fc2",
+    "valor": 61,
+    "descricao": "Devolução — LK CELL (estorno de compra)",
+    "devolucao_id": "e84e4c18-94ef-4983-8039-f157b7e3c3cb",
+    "pessoa_id": "63d91da559a9c8297472897f",
+    "antes": {
+      "devolucao_id": null,
+      "pessoa_id": null
+    }
+  },
+  {
+    "lancamento_id": "0c005c52-8020-4251-a77c-8a803b883632",
+    "valor": 142,
+    "descricao": "Estorno de crédito — devolução da venda #15220 — FG ASSISTENCIA",
+    "devolucao_id": "11ae2439-8453-4d76-b11f-dc1eb8e0a1de",
+    "pessoa_id": "6581f2eed909abc6807205e2",
+    "antes": {
+      "devolucao_id": null,
+      "pessoa_id": null
+    }
+  },
+  {
+    "lancamento_id": "35ba3017-87a6-40dc-906a-e8a7d3f916da",
+    "valor": 66,
+    "descricao": "Estorno de crédito — devolução da venda #9599 — ALVARO GARCIA",
+    "devolucao_id": "53238168-2db0-47c2-ae91-c98d730cb65d",
+    "pessoa_id": "63d91db059a9c82974728b37",
+    "antes": {
+      "devolucao_id": null,
+      "pessoa_id": null
+    }
+  },
+  {
+    "lancamento_id": "4b891c2a-0c8d-4a5e-b8d3-d7b094c056c0",
+    "valor": 45,
+    "descricao": "Estorno de crédito — devolução da venda #15201 — MICHEL GARCIA",
+    "devolucao_id": "bff2bfd4-9683-450b-bc11-4449f76c7d60",
+    "pessoa_id": "642c5aa1482bcd57047dfe53",
+    "antes": {
+      "devolucao_id": null,
+      "pessoa_id": null
+    }
+  },
+  {
+    "lancamento_id": "817f43f0-e7a2-4d45-ba90-1df0e475dc8b",
+    "valor": 450,
+    "descricao": "Estorno de crédito — devolução da venda #4752 — MARCOS VINICIUS DIAS PAVAO",
+    "devolucao_id": "2cea9c6e-6814-41d8-9059-7a616388e340",
+    "pessoa_id": "69175202344d0e3b81ee22d9",
+    "antes": {
+      "devolucao_id": null,
+      "pessoa_id": "69175202344d0e3b81ee22d9"
+    }
+  },
+  {
+    "lancamento_id": "35ce1032-60a8-439d-be24-bd09ecd58666",
+    "valor": 10,
+    "descricao": "Devolução — ALVARO GARCIA (estorno de compra)",
+    "devolucao_id": "7e230952-5bee-4ce3-97cd-c3c587e65a15",
+    "pessoa_id": "63d91db059a9c82974728b37",
+    "antes": {
+      "devolucao_id": null,
+      "pessoa_id": "63d91db059a9c82974728b37"
+    }
+  }
+]
