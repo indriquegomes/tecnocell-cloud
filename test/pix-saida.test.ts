@@ -6,7 +6,7 @@ import {
   mesmoCliente,
   type LancamentoPagar,
 } from '../lib/pix-saida.ts'
-import { lerCartaoDevolucao, mensagemDoPix, normalizarLeitura, parseValor } from '../lib/pix-saida-bot.ts'
+import { lerCartaoDevolucao, mensagemDoPix, normalizarLeitura, normalizarLeituras, parseValor } from '../lib/pix-saida-bot.ts'
 import { montarAviso, semComprovante, type LancamentoPixPago } from '../lib/pix-saida-vigia.ts'
 
 // O PIX de saída é dinheiro REAL saindo da conta: baixa errada aqui apaga dívida
@@ -358,4 +358,51 @@ test('mensagem diz que o robô MARCOU pago (e não manda a pessoa repetir na tel
 test('baixa recusada: mensagem continua mandando para a tela', () => {
   const msg = mensagemDoPix(pix(), conciliarPixSaida(pix(), [dev({ status: 'pendente' })]), { pagou: false })
   assert.match(msg, /EM ABERTO/)
+})
+// ---------- print com VÁRIOS comprovantes (e print de cartão) ----------
+// Print de conversa traz dois comprovantes empilhados: os dois são PIX e cada um
+// precisa de resposta própria. Antes o robô lia um só e o outro sumia calado.
+
+test('dois comprovantes na mesma imagem viram dois PIX', () => {
+  const bruto = JSON.stringify({
+    eh_comprovante: true,
+    comprovantes: [
+      { valor: 15.0, data: '2026-11-27', destinatario: 'CAUE GUILHERME DA SILVA FELICIO', transacao_id: 'E085617012026112723235WAO4ZU3BYG' },
+      { valor: 77.0, data: '2026-11-27', destinatario: 'Larissa da Rocha Carvalho', transacao_id: 'E08561701202611272324ZZ5M5YHGRRN' },
+    ],
+  })
+  const l = normalizarLeituras(bruto)
+  assert.equal(l.comprovantes.length, 2)
+  assert.deepEqual(l.comprovantes.map((c) => c.valor), [15, 77])
+  assert.notEqual(l.comprovantes[0].transacaoId, l.comprovantes[1].transacaoId)
+})
+
+test('resposta no formato antigo (um objeto só) continua valendo', () => {
+  const l = normalizarLeituras(JSON.stringify({ eh_comprovante: true, valor: 51.0, data: '2026-11-05', destinatario: 'FULANO' }))
+  assert.equal(l.comprovantes.length, 1)
+  assert.equal(l.comprovantes[0].valor, 51)
+})
+
+test('imagem do CARTÃO não vira PIX: valor do reembolso não é dinheiro que saiu', () => {
+  const l = normalizarLeituras(JSON.stringify({
+    eh_comprovante: false,
+    comprovantes: [],
+    cartao: { cliente_sistema: 'LARISSA PLAY TEC', valor: 77.0, destinatario: 'LARISSA DA ROCHA CARVALHO', motivo: 'CLIENTE DESISTIU' },
+  }))
+  assert.equal(l.comprovantes.length, 0)
+  assert.equal(l.cartao?.clienteSistema, 'LARISSA PLAY TEC')
+  assert.equal(l.cartao?.nomeConta, 'LARISSA DA ROCHA CARVALHO')
+  assert.equal(l.cartao?.valor, 77)
+})
+
+test('segunda passada só com a data ainda serve (sem data não há janela)', () => {
+  const l = normalizarLeituras(JSON.stringify({ comprovantes: [{ valor: null, data: '2026-11-27', destinatario: null }] }))
+  assert.equal(l.comprovantes.length, 1)
+  assert.equal(l.comprovantes[0].dia, '2026-11-27')
+})
+
+test('imagem sem comprovante nenhum não inventa PIX', () => {
+  const l = normalizarLeituras(JSON.stringify({ comprovantes: [] }))
+  assert.equal(l.comprovantes.length, 0)
+  assert.equal(l.ehComprovante, false)
 })

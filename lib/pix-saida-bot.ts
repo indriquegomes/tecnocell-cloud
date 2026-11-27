@@ -102,16 +102,25 @@ export function lerCartaoDevolucao(entrada: string): CartaoDevolucao | null {
  * uma venda.
  */
 export const PROMPT_COMPROVANTE = `Você lê comprovante de PIX brasileiro (foto ou PDF) e também o CARTÃO DE DEVOLUÇÃO que a loja manda junto.
-Extraia só o que está ESCRITO:
+
+ATENÇÃO: uma imagem pode conter VÁRIOS comprovantes empilhados (print de conversa), e pode conter o CARTÃO DE DEVOLUÇÃO em vez de comprovante. Leia TODOS os comprovantes que aparecerem, de cima para baixo, cada um como um item de "comprovantes".
+
+Para CADA comprovante, extraia só o que está ESCRITO:
 - "valor": número em reais, ex 259.00 (ponto decimal). Se houver tarifa, use o valor do PIX, não da tarifa.
 - "data": AAAA-MM-DD, a data da transação.
 - "pagador" e "pagador_doc": quem PAGOU (rótulos: De / Origem / Pagador / Remetente). "pagador_doc" = CPF/CNPJ só dígitos.
 - "destinatario" e "destinatario_doc": quem RECEBEU (rótulos: Para / Destino / Recebedor / Favorecido / Creditado para).
 - "transacao_id": ID da transação / E2E, copie EXATO (começa com E e tem 8 dígitos do banco).
-- Se a imagem for o CARTÃO DE DEVOLUÇÃO (rótulos "NOME DO CLIENTE EM SISTEMA", "VALOR DO REEMBOLSO", "NOME DA CONTA BANCARIA", "MOTIVO DO REEMBOLSO"):
-  traga "cliente_sistema" = o nome do cliente no sistema (NUNCA o nome da conta bancária), "valor" = valor do reembolso,
-  "destinatario" = nome da conta bancária que recebeu, "motivo" = motivo escrito.
-Responda APENAS JSON: {"eh_comprovante": <false se a imagem não for nem comprovante de PIX nem cartão de devolução>, "valor": <número|null>, "data": "<AAAA-MM-DD>|null", "pagador": "<quem enviou>|null", "pagador_doc": "<só dígitos>|null", "destinatario": "<quem recebeu>|null", "destinatario_doc": "<só dígitos>|null", "transacao_id": "<id>|null", "cliente_sistema": "<nome no sistema>|null", "motivo": "<motivo>|null"}`
+Comprovante cortado (topo ou rodapé faltando) continua valendo: traga o que aparecer e deixe null no resto.
+
+Se a imagem for o CARTÃO DE DEVOLUÇÃO (rótulos "NOME DO CLIENTE EM SISTEMA", "VALOR DO REEMBOLSO", "NOME DA CONTA BANCARIA", "MOTIVO DO REEMBOLSO"), devolva "cartao" com:
+- "cliente_sistema" = o nome do cliente no sistema (NUNCA o nome da conta bancária)
+- "valor" = valor do reembolso (NÃO é um PIX — não crie item em "comprovantes")
+- "destinatario" = nome da conta bancária que recebeu
+- "motivo" = motivo escrito
+
+Responda APENAS JSON:
+{"eh_comprovante": <true se houver comprovante de PIX na imagem>, "comprovantes": [{"valor": <número|null>, "data": "<AAAA-MM-DD>|null", "pagador": "<quem enviou>|null", "pagador_doc": "<só dígitos>|null", "destinatario": "<quem recebeu>|null", "destinatario_doc": "<só dígitos>|null", "transacao_id": "<id>|null"}], "cartao": <null ou {"cliente_sistema": "<nome no sistema>|null", "valor": <número|null>, "destinatario": "<conta que recebeu>|null", "motivo": "<motivo>|null"}>}`
 
 function texto(v: unknown): string | null {
   const s = String(v ?? '').trim()
@@ -141,20 +150,23 @@ const soDigitos = (v: unknown) => String(texto(v) ?? '').replace(/\D/g, '')
  * lido" com a foto perfeitamente nítida (aconteceu no primeiro teste real).
  * Esta passada curta resolve sem depender do tamanho da resposta.
  */
-export const PROMPT_FOCO = `Olhe o comprovante de PIX nesta imagem e responda SÓ JSON, sem nada fora do JSON:
-{"valor": <número em reais, ex 51.00>, "data": "<AAAA-MM-DD>", "transacao_id": "<código da transação Pix / E2E, copie exato>", "pagador": "<quem enviou>", "destinatario": "<quem recebeu>"}
-Campo que não existir: null.`
+export const PROMPT_FOCO = `Liste TODOS os comprovantes de PIX desta imagem, em JSON, sem nada fora do JSON:
+{"comprovantes": [{"valor": <número em reais, ex 51.00>, "data": "<AAAA-MM-DD>", "transacao_id": "<código da transação Pix / E2E, copie exato>", "pagador": "<quem enviou>", "destinatario": "<quem recebeu>"}]}
+Campo que não existir: null. Imagem com dois comprovantes = dois itens. Se não houver comprovante nenhum na imagem: {"comprovantes": []}.`
 
 /** JSON da IA (texto ou objeto) → leitura normalizada. */
 export function normalizarLeitura(raw: unknown): LeituraComprovante {
   let j: Record<string, unknown> = {}
   if (typeof raw === 'string') {
     // A IA às vezes embala o JSON em ```json ... ``` ou escreve uma linha antes.
-    const m = raw.match(/\{[\s\S]*\}/)
+    // `\[` no início: quando a resposta é a lista de comprovantes, o JSON começa
+    // por colchete e o recorte de `{...}` pegava o primeiro item isolado.
+    const m = raw.match(/[[{][\s\S]*[\]}]/)
     try { j = m ? JSON.parse(m[0]) : {} } catch { j = {} }
   } else if (raw && typeof raw === 'object') {
     j = raw as Record<string, unknown>
   }
+  if (Array.isArray(j)) j = { comprovantes: j }
   const doc = (v: unknown) => { const d = soDigitos(v); return d.length >= 11 ? d : null }
   return {
     ehComprovante: j.eh_comprovante !== false,
@@ -166,6 +178,58 @@ export function normalizarLeitura(raw: unknown): LeituraComprovante {
     destinatarioDoc: doc(j.destinatario_doc),
     transacaoId: texto(j.transacao_id),
     clienteSistema: texto(j.cliente_sistema),
+  }
+}
+
+/**
+ * Leitura completa: TODOS os comprovantes da imagem + o cartão, quando a imagem
+ * é o cartão.
+ *
+ * Uma imagem pode ser um print de conversa com dois ou três comprovantes
+ * empilhados — tratá-la como "um PIX" faz o resto desaparecer sem aviso (foi o
+ * que aconteceu em 27/11/2026: dois comprovantes na mesma foto, R$ 15,00 e R$
+ * 77,00, e o robô respondeu uma vez só). Aqui a lista é preservada.
+ */
+export function normalizarLeituras(raw: unknown): {
+  ehComprovante: boolean
+  comprovantes: LeituraComprovante[]
+  cartao: CartaoDevolucao | null
+} {
+  let j: Record<string, unknown> = {}
+  if (typeof raw === 'string') {
+    const m = raw.match(/[[{][\s\S]*[\]}]/)
+    try { j = m ? JSON.parse(m[0]) : {} } catch { j = {} }
+  } else if (raw && typeof raw === 'object') {
+    j = raw as Record<string, unknown>
+  }
+  if (Array.isArray(j)) j = { comprovantes: j }
+
+  const lista = Array.isArray(j.comprovantes) ? (j.comprovantes as Record<string, unknown>[]) : []
+  // Resposta no formato antigo (objeto único, sem "comprovantes"): ainda vale —
+  // a IA às vezes ignora a lista quando a imagem tem um comprovante só.
+  const itens = lista.length ? lista : [j]
+  const comprovantes = itens
+    .map((item) => normalizarLeitura(item))
+    // Item que só trouxe a data ainda serve: é a segunda passada completando o
+    // que a primeira não leu (e sem data não há janela para casar).
+    .filter((l) => l.valor != null || l.destinatario != null || l.transacaoId != null || l.dia != null)
+
+  const c = (j.cartao ?? null) as Record<string, unknown> | null
+  const cartao: CartaoDevolucao | null = c && (c.valor != null || c.cliente_sistema != null)
+    ? {
+        clienteSistema: texto(c.cliente_sistema),
+        valor: parseValor(c.valor),
+        chavePix: texto(c.chave_pix),
+        motivo: texto(c.motivo),
+        nomeConta: texto(c.destinatario),
+        temRotulo: true,
+      }
+    : null
+
+  return {
+    ehComprovante: j.eh_comprovante !== false && comprovantes.length > 0,
+    comprovantes,
+    cartao,
   }
 }
 

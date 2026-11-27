@@ -2,10 +2,10 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { ehContaPropria, normNome, type DestinoPix } from '@/lib/pix-destinos'
 import { conciliarPixSaida, diaDoCampo, ehLinhaDeDevolucao, ehSaidaPix, type LancamentoPagar, type PixSaida } from '@/lib/pix-saida'
-import { clienteDoLancamento, lerCartaoDevolucao, normalizarLeitura, mensagemDoPix, PROMPT_COMPROVANTE, PROMPT_FOCO, type CartaoDevolucao } from '@/lib/pix-saida-bot'
+import { clienteDoLancamento, lerCartaoDevolucao, normalizarLeituras, mensagemDoPix, PROMPT_COMPROVANTE, PROMPT_FOCO, type CartaoDevolucao } from '@/lib/pix-saida-bot'
 import { baixarContaPendente } from '@/lib/baixar-conta-pendente'
 import { lerSegredo } from '@/lib/segredos'
-import { diaSP, hojeSP } from '@/lib/utils'
+import { diaSP, formatBRL, hojeSP } from '@/lib/utils'
 
 // ============================================================================
 // Webhook do bot NOVO — só PIX de SAÍDA (devolução/estorno pago ao cliente).
@@ -205,19 +205,40 @@ async function geminiLe(b64: string, mime: string, prompt = PROMPT_COMPROVANTE, 
  * o print ia embora com a foto nítida (aconteceu no primeiro teste real, R$ 51,00).
  * A segunda passada é curta e resolve.
  */
-async function lerComprovante(b64: string, mime: string): Promise<{ leitura: ReturnType<typeof normalizarLeitura>; bruto: string }> {
+async function lerComprovante(
+  b64: string,
+  mime: string,
+): Promise<{ lidas: ReturnType<typeof normalizarLeituras>; bruto: string }> {
   const bruto = await geminiLe(b64, mime)
-  const primeira = normalizarLeitura(bruto)
-  if (primeira.valor && primeira.dia) return { leitura: primeira, bruto }
+  const primeira = normalizarLeituras(bruto)
+  const tudoCompleto = primeira.comprovantes.length > 0 && primeira.comprovantes.every((l) => l.valor && l.dia)
+  if (tudoCompleto) return { lidas: primeira, bruto }
 
-  const bruto2 = await geminiLe(b64, mime, PROMPT_FOCO, 600)
-  const segunda = normalizarLeitura(bruto2)
-  // Junta o que cada passada conseguiu: uma pode acertar o valor e a outra o nome.
-  const leitura = {
-    ...primeira,
-    ...Object.fromEntries(Object.entries(segunda).filter(([, v]) => v !== null && v !== undefined)),
-  } as ReturnType<typeof normalizarLeitura>
-  return { leitura, bruto: `${bruto} | FOCO: ${bruto2}` }
+  const bruto2 = await geminiLe(b64, mime, PROMPT_FOCO, 1200)
+  const segunda = normalizarLeituras(bruto2)
+  // Junta por posição: uma passada pode acertar o valor e a outra a data/nome.
+  // A segunda passada só lista comprovantes; se ela achar MAIS itens que a
+  // primeira, os extras entram como estão (o print tem vários e a primeira
+  // passada parou no primeiro).
+  const comprovantes = primeira.comprovantes.map((l, i) => {
+    const s = segunda.comprovantes[i]
+    if (!s) return l
+    return {
+      ...l,
+      ...Object.fromEntries(Object.entries(s).filter(([, v]) => v !== null && v !== undefined)),
+    } as typeof l
+  })
+  if (segunda.comprovantes.length > comprovantes.length) {
+    comprovantes.push(...segunda.comprovantes.slice(comprovantes.length))
+  }
+  return {
+    lidas: {
+      ehComprovante: primeira.ehComprovante || segunda.ehComprovante,
+      comprovantes,
+      cartao: primeira.cartao ?? segunda.cartao,
+    },
+    bruto: `${bruto} | FOCO: ${bruto2}`,
+  }
 }
 
 function grupoDaMensagem(chatId: number): string | null {
@@ -335,7 +356,9 @@ async function clienteDoCartaoRecente(
   const desde = new Date(Date.now() - MINUTOS_DO_CARTAO * 60000).toISOString()
   const { data } = await supabase.from('pix_saidas')
     .select('id, valor, extraido_raw')
-    .eq('telegram_chat_id', chatId).eq('formato', 'texto')
+    // O cartão pode chegar digitado ('texto') ou como imagem ('cartao').
+    .in('formato', ['texto', 'cartao'])
+    .eq('telegram_chat_id', chatId)
     .gte('recebido_em', desde)
     .order('recebido_em', { ascending: false })
     .limit(10)
@@ -484,48 +507,39 @@ export async function POST(req: Request) {
   }
 
   // Dedup do MESMO print (Telegram reentrega update quando a rota demora).
-  const { data: jaTem } = await supabase.from('pix_saidas')
-    .select('id, status, lancamento_id')
-    .eq('telegram_chat_id', chatId).eq('telegram_message_id', messageId).maybeSingle()
-
-  let pixSaidaId = (jaTem as { id?: string } | null)?.id ?? null
-  if (!pixSaidaId) {
-    const { data: novo, error } = await supabase.from('pix_saidas').insert({
-      telegram_chat_id: chatId,
-      telegram_message_id: messageId,
-      telegram_user_id: msg.from?.id ?? null,
-      telegram_user_nome: nomeDoRemetente(msg),
-      formato: arquivo.formato,
-      arquivo_file_id: arquivo.fileId,
-      status: 'recebido',
-    }).select('id').maybeSingle()
-    if (error) {
-      // Print engolido em silêncio é pior que erro visível: sem esta mensagem a
-      // pessoa acha que a devolução ficou registrada no app.
-      await tgSend(tk, chatId, `⚠️ Não consegui registrar este print no app (${error.message.slice(0, 120)}). Avise o dono.`, messageId)
-      return NextResponse.json({ ok: true, erro: error.message })
-    }
-    pixSaidaId = (novo as { id: string } | null)?.id ?? null
+  // A coluna `ordem` existe porque uma foto pode trazer VÁRIOS comprovantes
+  // empilhados: cada um vira uma linha. Sem a migration colada, cai no
+  // comportamento antigo (uma linha por mensagem) e avisa no grupo.
+  const temOrdem = !(await supabase.from('pix_saidas').select('ordem').limit(1)).error
+  const linhaDe = async (ordem: number) => {
+    let q = supabase.from('pix_saidas').select('id, status')
+      .eq('telegram_chat_id', chatId).eq('telegram_message_id', messageId)
+    if (temOrdem) q = q.eq('ordem', ordem)
+    const { data } = await q.maybeSingle()
+    return (data as { id?: string; status?: string } | null) ?? null
   }
-  if (!pixSaidaId) return NextResponse.json({ ok: true, ignorado: 'sem id' })
-
+  const jaTem = await linhaDe(1)
   // Já processado? Não lê de novo (economiza token de IA).
-  if ((jaTem as { status?: string } | null)?.status && (jaTem as { status?: string }).status !== 'recebido') {
+  // Exceção: print que NÃO casou (ou que nem foi lido) é lido de novo quando a
+  // pessoa reenvia — foi justamente reenviar que descobriu-se o print com dois
+  // comprovantes. Conta casada nunca é relida.
+  const reprocessar = ['sem_par', 'ilegivel']
+  if (jaTem?.status && jaTem.status !== 'recebido' && !reprocessar.includes(jaTem.status)) {
     return NextResponse.json({ ok: true, ignorado: 'já processado' })
   }
 
   const bin = await baixarArquivo(tk, arquivo.fileId)
   if (!bin) {
-    await supabase.from('pix_saidas').update({ status: 'ilegivel' }).eq('id', pixSaidaId)
+    await supabase.from('pix_saidas').update({ status: 'ilegivel' }).eq('id', jaTem?.id ?? '')
     await tgSend(tk, chatId, '⚠️ Não consegui baixar o arquivo do Telegram. Mande o print de novo.', messageId)
     return NextResponse.json({ ok: true, erro: 'download' })
   }
 
-  let leitura
+  let lidas
   let brutoIA = ''
   try {
     const lido = await lerComprovante(bin.b64, bin.mime)
-    leitura = lido.leitura
+    lidas = lido.lidas
     brutoIA = lido.bruto
   } catch (e) {
     // Falhou a IA: deixa 'recebido' para tentar de novo se o print for reenviado,
@@ -534,8 +548,58 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, erro: 'ia' })
   }
 
-  if (!leitura.ehComprovante) {
-    await supabase.from('pix_saidas').update({ status: 'nao_comprovante', extraido_raw: leitura }).eq('id', pixSaidaId)
+  // ---------- imagem do CARTÃO (não é PIX) ----------
+  // O cartão de devolução às vezes chega como imagem, junto dos prints. Ele diz o
+  // nome do cliente NO SISTEMA — e sem isso o print, que traz o nome da conta que
+  // recebeu, não casa. Antes a imagem do cartão era lida como comprovante e virava
+  // um PIX inventado (valor do reembolso, data de hoje).
+  let cartaoDaMensagem: CartaoDevolucao | null = null
+  if (lidas.cartao?.valor) {
+    if (temOrdem) {
+      const { data: jaCartao } = await supabase.from('pix_saidas')
+        .select('id').eq('telegram_chat_id', chatId).eq('telegram_message_id', messageId)
+        .eq('formato', 'cartao').maybeSingle()
+      if (!jaCartao) {
+        await supabase.from('pix_saidas').insert({
+          telegram_chat_id: chatId,
+          telegram_message_id: messageId,
+          // ordem 0 = o cartão da mensagem; 1..n são os comprovantes dela.
+          ordem: 0,
+          telegram_user_id: msg.from?.id ?? null,
+          telegram_user_nome: nomeDoRemetente(msg),
+          formato: 'cartao',
+          arquivo_file_id: arquivo.fileId,
+          valor: lidas.cartao.valor,
+          dia: hojeSP(),
+          destinatario: lidas.cartao.nomeConta,
+          status: 'recebido',
+          extraido_raw: { cartao: lidas.cartao },
+        })
+      }
+    } else {
+      // Sem a coluna `ordem`, a linha do cartão e a do print dividem a mesma
+      // chave (chat, mensagem) e uma derrubaria a outra: o cartão vale só para
+      // esta mensagem, em memória.
+      cartaoDaMensagem = lidas.cartao
+    }
+  }
+
+  const comprovantes = lidas.comprovantes
+  if (!comprovantes.length) {
+    if (lidas.cartao?.valor) {
+      const { data: jaAvisou } = await supabase.from('pix_saidas')
+        .select('id').eq('telegram_chat_id', chatId).eq('telegram_message_id', messageId)
+        .eq('formato', 'cartao').eq('status', 'anotado').maybeSingle()
+      if (!jaAvisou) {
+        await tgSend(tk, chatId, `🧾 Cartão anotado: ${formatBRL(Number(lidas.cartao.valor))} para ${lidas.cartao.nomeConta ?? 'a conta do cliente'} (cliente no sistema: ${lidas.cartao.clienteSistema ?? 'não informado'}). Mande o print do PIX que eu caso com a conta do Financeiro.`, messageId)
+        await supabase.from('pix_saidas').update({ status: 'anotado' })
+          .eq('telegram_chat_id', chatId).eq('telegram_message_id', messageId).eq('formato', 'cartao')
+      }
+      return NextResponse.json({ ok: true, ignorado: 'cartão em imagem' })
+    }
+    const { data: jaTem } = await supabase.from('pix_saidas')
+      .select('id').eq('telegram_chat_id', chatId).eq('telegram_message_id', messageId).limit(1).maybeSingle()
+    if (jaTem) await supabase.from('pix_saidas').update({ status: 'nao_comprovante', extraido_raw: { ...lidas, bruto: brutoIA.slice(0, 600) } }).eq('id', (jaTem as { id: string }).id)
     return NextResponse.json({ ok: true, ignorado: 'não é comprovante' })
   }
 
@@ -557,126 +621,174 @@ export async function POST(req: Request) {
     const d: DestinoPix = { nome: nome ?? '', doc, comprovantes: 1, total: 0, semValor: 0 }
     return ehContaPropria(d, docsProprios, nomesProprios)
   }
-
-  const recebedorEhNos = contaPropria(leitura.destinatario, leitura.destinatarioDoc)
-  const pagadorEhNos = contaPropria(leitura.pagador, leitura.pagadorDoc)
-
-  // PIX que ENTROU não é assunto deste bot (o bot de comprovantes cuida). Silêncio:
-  // dois bots respondendo o mesmo print no mesmo grupo vira ruído.
-  if (recebedorEhNos && !pagadorEhNos) {
-    await supabase.from('pix_saidas').update({ status: 'entrada_ignorada', extraido_raw: leitura }).eq('id', pixSaidaId)
-    return NextResponse.json({ ok: true, ignorado: 'pix de entrada' })
-  }
-
-  const pix: PixSaida = {
-    valor: leitura.valor,
-    dia: leitura.dia ?? hojeSP(),
-    destinatario: leitura.destinatario,
-    transacaoId: leitura.transacaoId,
-  }
-
-  // Mesmo PIX reenviado: o ID E2E é a prova de que é o mesmo dinheiro.
-  if (leitura.transacaoId) {
-    // Qualquer linha já LIGADA com este mesmo ID de transação é repetição —
-    // não importa se veio de import ("conciliado") ou deste robô ("casado").
-    // Antes eu filtrava só por status='conciliado' e o robô, que grava 'casado',
-    // deixava passar o mesmo print duas vezes.
-    const { data: repetido } = await supabase.from('pix_saidas')
-      .select('id').eq('transacao_id', leitura.transacaoId).neq('id', pixSaidaId)
-      .or('status.eq.conciliado,status.eq.casado,lancamento_id.not.is.null').maybeSingle()
-    if (repetido) {
-      await supabase.from('pix_saidas').update({ status: 'duplicado', extraido_raw: leitura, valor: leitura.valor, dia: leitura.dia, transacao_id: leitura.transacaoId, pagador: leitura.pagador, destinatario: leitura.destinatario }).eq('id', pixSaidaId)
-      await tgSend(tk, chatId, `ℹ️ Este PIX (ID ${leitura.transacaoId}) já foi conciliado antes. Nada feito.`, messageId)
-      return NextResponse.json({ ok: true, ignorado: 'duplicado' })
-    }
-  }
-
   const loja = lojaDoGrupo(lojas, grupoDaMensagem(chatId))
 
-  // O nome que casa com o Financeiro é o do CADASTRO. Se o print traz o nome da
-  // conta que recebeu (parente, amigo), o cartão da devolução manda um nome melhor.
-  const cartaoUsado = await clienteDoCartaoRecente(supabase, chatId, pix.valor)
-  pix.clienteSistema = cartaoUsado?.nome ?? null
+  // Quando a migration do `ordem` não está colada, só o primeiro comprovante da
+  // imagem pode ser registrado — o resto apareceria como se nunca tivesse chegado.
+  const fila = temOrdem ? comprovantes : comprovantes.slice(0, 1)
+  let respondidos = 0
 
-  // Sem cartão, tenta o nome do recebedor registrado no cadastro do cliente
-  // (pessoa_chaves_pix.favorecido). É o que o bot irmão já grava em
-  // `comprovante_nome` quando o dinheiro foi para a conta de um parente: o
-  // comprovante traz o nome do dono da conta, não o do cliente do Financeiro.
-  if (!pix.clienteSistema && pix.destinatario) {
-    const alvo = normNome(pix.destinatario)
-    // ponytail: tabela pequena (dezenas de linhas) — leitura inteira e casamento
-    // em memória é mais simples que montar ilike por acento. Passa de 1000 linhas,
-    // troca por busca por chave/documento.
-    const { data: chaves } = await supabase.from('pessoa_chaves_pix')
-      .select('favorecido, pessoas ( nome )').eq('ativo', true).not('favorecido', 'is', null).limit(1000)
-    const achado = (chaves ?? []).find((c) => {
-      const f = normNome(c.favorecido)
-      return f && (f === alvo || alvo.startsWith(f + ' ') || f.startsWith(alvo + ' '))
-    })
-    const nomePessoa = (achado?.pessoas as unknown as { nome: string } | null)?.nome ?? null
-    if (nomePessoa) pix.clienteSistema = nomePessoa
+  // Um comprovante por vez: cada um é um PIX, com valor, data e conta próprios.
+  for (let i = 0; i < fila.length; i++) {
+    const leitura = fila[i]
+    const ordem = i + 1
+    const existente = ordem === 1 ? jaTem : await linhaDe(ordem)
+    let pixSaidaId = existente?.id ?? null
+    if (!pixSaidaId) {
+      const { data: novo, error } = await supabase.from('pix_saidas').insert({
+        telegram_chat_id: chatId,
+        telegram_message_id: messageId,
+        ...(temOrdem ? { ordem } : {}),
+        telegram_user_id: msg.from?.id ?? null,
+        telegram_user_nome: nomeDoRemetente(msg),
+        formato: arquivo.formato,
+        arquivo_file_id: arquivo.fileId,
+        status: 'recebido',
+      }).select('id').maybeSingle()
+      if (error) {
+        // Print engolido em silêncio é pior que erro visível: sem esta mensagem a
+        // pessoa acha que a devolução ficou registrada no app.
+        await tgSend(tk, chatId, `⚠️ Não consegui registrar este print no app (${error.message.slice(0, 120)}). Avise o dono.`, messageId)
+        return NextResponse.json({ ok: true, erro: error.message })
+      }
+      pixSaidaId = (novo as { id: string } | null)?.id ?? null
+    }
+    if (!pixSaidaId) continue
+
+    // Dia do PIX: o do comprovante. Quando a imagem está cortada e a data não
+    // aparece, vale o dia do envio — sem dia não há janela, e o PIX ia para
+    // "sem_par" mesmo tendo a conta certa no Financeiro.
+    const diaPix = leitura.dia ?? hojeSP()
+
+    // PIX que ENTROU não é assunto deste bot (o bot de comprovantes cuida). Silêncio:
+    // dois bots respondendo o mesmo print no mesmo grupo vira ruído.
+    if (contaPropria(leitura.destinatario, leitura.destinatarioDoc) && !contaPropria(leitura.pagador, leitura.pagadorDoc)) {
+      await supabase.from('pix_saidas').update({ status: 'entrada_ignorada', extraido_raw: { ...leitura, bruto: brutoIA.slice(0, 600) } }).eq('id', pixSaidaId)
+      continue
+    }
+
+    const pix: PixSaida = {
+      valor: leitura.valor,
+      dia: diaPix,
+      destinatario: leitura.destinatario,
+      transacaoId: leitura.transacaoId,
+    }
+
+    // Mesmo PIX reenviado: o ID E2E é a prova de que é o mesmo dinheiro.
+    if (leitura.transacaoId) {
+      // Qualquer linha já LIGADA com este mesmo ID de transação é repetição —
+      // não importa se veio de import ("conciliado") ou deste robô ("casado").
+      // Antes eu filtrava só por status='conciliado' e o robô, que grava 'casado',
+      // deixava passar o mesmo print duas vezes.
+      const { data: repetido } = await supabase.from('pix_saidas')
+        .select('id').eq('transacao_id', leitura.transacaoId).neq('id', pixSaidaId)
+        .or('status.eq.conciliado,status.eq.casado,lancamento_id.not.is.null').maybeSingle()
+      if (repetido) {
+        await supabase.from('pix_saidas').update({ status: 'duplicado', extraido_raw: leitura, valor: leitura.valor, dia: leitura.dia, transacao_id: leitura.transacaoId, pagador: leitura.pagador, destinatario: leitura.destinatario }).eq('id', pixSaidaId)
+        await tgSend(tk, chatId, `ℹ️ Este PIX (ID ${leitura.transacaoId}) já foi conciliado antes. Nada feito.`, messageId)
+        continue
+      }
+    }
+
+    // O nome que casa com o Financeiro é o do CADASTRO. Se o print traz o nome da
+    // conta que recebeu (parente, amigo), o cartão da devolução manda um nome melhor.
+    const cartaoUsado = await clienteDoCartaoRecente(supabase, chatId, pix.valor)
+    pix.clienteSistema = cartaoUsado?.nome ?? cartaoDaMensagem?.clienteSistema ?? null
+
+    // Sem cartão, tenta o nome do recebedor registrado no cadastro do cliente
+    // (pessoa_chaves_pix.favorecido). É o que o bot irmão já grava em
+    // `comprovante_nome` quando o dinheiro foi para a conta de um parente: o
+    // comprovante traz o nome do dono da conta, não o do cliente do Financeiro.
+    if (!pix.clienteSistema && pix.destinatario) {
+      const alvo = normNome(pix.destinatario)
+      // ponytail: tabela pequena (dezenas de linhas) — leitura inteira e casamento
+      // em memória é mais simples que montar ilike por acento. Passa de 1000 linhas,
+      // troca por busca por chave/documento.
+      const { data: chaves } = await supabase.from('pessoa_chaves_pix')
+        .select('favorecido, pessoas ( nome )').eq('ativo', true).not('favorecido', 'is', null).limit(1000)
+      const achado = (chaves ?? []).find((c) => {
+        const f = normNome(c.favorecido)
+        return f && (f === alvo || alvo.startsWith(f + ' ') || f.startsWith(alvo + ' '))
+      })
+      const nomePessoa = (achado?.pessoas as unknown as { nome: string } | null)?.nome ?? null
+      if (nomePessoa) pix.clienteSistema = nomePessoa
+    }
+
+    const { resultado, base } = await candidatosDoFinanceiro(supabase, pix)
+
+    // Conta em aberto + PIX provado = o robô dá baixa (a única escrita fora de
+    // pix_saidas). Mês fechado, linha já paga ou status estranho: ele não toca e a
+    // mensagem continua mandando a pessoa para a tela.
+    let pagou = false
+    if (resultado.tipo === 'baixar' && resultado.candidato.status !== 'pago') {
+      const baixa = await baixarContaPendente(supabase, resultado.candidato.id, pix.dia, nomeDoRemetente(msg))
+      pagou = baixa.ok
+      if (!baixa.ok && !baixa.jaEstavaPago) console.error('pix-saida: baixa recusada —', baixa.erro)
+    }
+    const resposta = mensagemDoPix(pix, resultado, { pagou })
+
+    const status = resultado.tipo === 'baixar' ? 'casado' : resultado.tipo === 'escolher' ? 'ambiguo' : resultado.tipo === 'sem_par' ? 'sem_par' : 'ignorado'
+
+    // Lista de candidatos gravada na linha para os botões do caso ambíguo: o clique
+    // carrega só o índice, nunca o id de uma conta que não estava na mensagem.
+    const candidatosParaBotao = resultado.tipo === 'escolher'
+      ? resultado.candidatos.map((c) => ({
+          id: c.id,
+          nome: clienteDoLancamento(c.descricao, c.pessoaNome),
+          valor: Number(c.valor ?? 0),
+          dia: diaDoCampo(c.diaPagamento) ?? diaDoCampo(c.diaVencimento),
+        }))
+      : null
+    // A loja sai do grupo (quando o grupo é de uma loja) ou da própria devolução
+    // casada — o grupo de estornos atende as duas lojas, então na maioria das vezes
+    // quem sabe a loja é o lançamento.
+    const lojaId = resultado.tipo === 'baixar'
+      ? (base.find((l) => l.id === resultado.candidato.id)?.loja_id ?? loja?.id ?? null)
+      : (loja?.id ?? null)
+    const extra: Record<string, unknown> = {
+      ...leitura,
+      bruto: brutoIA.slice(0, 600),
+      ...(candidatosParaBotao ? { candidatos: candidatosParaBotao } : {}),
+      ...(leitura.dia ? {} : { dia_estimado: diaPix }),
+      ...(fila.length > 1 ? { comprovante_no_print: `${ordem} de ${fila.length}` } : {}),
+    }
+    await supabase.from('pix_saidas').update({
+      status,
+      valor: leitura.valor,
+      dia: diaPix,
+      pagador: leitura.pagador,
+      pagador_doc: leitura.pagadorDoc,
+      destinatario: leitura.destinatario,
+      destinatario_doc: leitura.destinatarioDoc,
+      transacao_id: leitura.transacaoId,
+      loja_id: lojaId,
+      extraido_raw: extra,
+      // Etapa 2: LIGA A PROVA. Só grava o vínculo comprovante ↔ conta; não muda
+      // status, valor nem forma do lançamento — nada de dinheiro sai daqui.
+      lancamento_id: resultado.tipo === 'baixar' ? resultado.candidato.id : null,
+      conciliado_em: resultado.tipo === 'baixar' ? new Date().toISOString() : null,
+      conciliado_por: resultado.tipo === 'baixar' ? nomeDoRemetente(msg) : null,
+    }).eq('id', pixSaidaId)
+
+    // Cartão emprestado a este print sai do páreo (senão dois PIX do mesmo valor
+    // usariam o mesmo cartão).
+    if (cartaoUsado) {
+      const { data: doCartao } = await supabase.from('pix_saidas').select('extraido_raw').eq('id', cartaoUsado.cartaoId).maybeSingle()
+      const extraCartao = ((doCartao as { extraido_raw?: Record<string, unknown> } | null)?.extraido_raw ?? {}) as Record<string, unknown>
+      await supabase.from('pix_saidas').update({ extraido_raw: { ...extraCartao, cartao_usado_por: messageId } }).eq('id', cartaoUsado.cartaoId)
+    }
+
+    const cabecalho = fila.length > 1 ? `(${ordem} de ${fila.length} comprovantes neste print)\n` : ''
+    await tgSend(
+      tk, chatId, cabecalho + resposta, messageId,
+      candidatosParaBotao ? botoesDaEscolha(resultado.tipo === 'escolher' ? resultado.candidatos : []) : undefined,
+    )
+    respondidos++
   }
 
-  const { resultado, base } = await candidatosDoFinanceiro(supabase, pix)
-
-  // Conta em aberto + PIX provado = o robô dá baixa (a única escrita fora de
-  // pix_saidas). Mês fechado, linha já paga ou status estranho: ele não toca e a
-  // mensagem continua mandando a pessoa para a tela.
-  let pagou = false
-  if (resultado.tipo === 'baixar' && resultado.candidato.status !== 'pago') {
-    const baixa = await baixarContaPendente(supabase, resultado.candidato.id, pix.dia, nomeDoRemetente(msg))
-    pagou = baixa.ok
-    if (!baixa.ok && !baixa.jaEstavaPago) console.error('pix-saida: baixa recusada —', baixa.erro)
-  }
-  const resposta = mensagemDoPix(pix, resultado, { pagou })
-
-  const status = resultado.tipo === 'baixar' ? 'casado' : resultado.tipo === 'escolher' ? 'ambiguo' : resultado.tipo === 'sem_par' ? 'sem_par' : 'ignorado'
-
-  // Lista de candidatos gravada na linha para os botões do caso ambíguo: o clique
-  // carrega só o índice, nunca o id de uma conta que não estava na mensagem.
-  const candidatosParaBotao = resultado.tipo === 'escolher'
-    ? resultado.candidatos.map((c) => ({
-        id: c.id,
-        nome: clienteDoLancamento(c.descricao, c.pessoaNome),
-        valor: Number(c.valor ?? 0),
-        dia: diaDoCampo(c.diaPagamento) ?? diaDoCampo(c.diaVencimento),
-      }))
-    : null
-  // A loja sai do grupo (quando o grupo é de uma loja) ou da própria devolução
-  // casada — o grupo de estornos atende as duas lojas, então na maioria das vezes
-  // quem sabe a loja é o lançamento.
-  const lojaId = resultado.tipo === 'baixar'
-    ? (base.find((l) => l.id === resultado.candidato.id)?.loja_id ?? loja?.id ?? null)
-    : (loja?.id ?? null)
-  await supabase.from('pix_saidas').update({
-    status,
-    valor: leitura.valor,
-    dia: leitura.dia,
-    pagador: leitura.pagador,
-    pagador_doc: leitura.pagadorDoc,
-    destinatario: leitura.destinatario,
-    destinatario_doc: leitura.destinatarioDoc,
-    transacao_id: leitura.transacaoId,
-    loja_id: lojaId,
-    extraido_raw: candidatosParaBotao ? { ...leitura, bruto: brutoIA.slice(0, 600), candidatos: candidatosParaBotao } : { ...leitura, bruto: brutoIA.slice(0, 600) },
-    // Etapa 2: LIGA A PROVA. Só grava o vínculo comprovante ↔ conta; não muda
-    // status, valor nem forma do lançamento — nada de dinheiro sai daqui.
-    lancamento_id: resultado.tipo === 'baixar' ? resultado.candidato.id : null,
-    conciliado_em: resultado.tipo === 'baixar' ? new Date().toISOString() : null,
-    conciliado_por: resultado.tipo === 'baixar' ? nomeDoRemetente(msg) : null,
-  }).eq('id', pixSaidaId)
-
-  // Cartão emprestado a este print sai do páreo (senão dois PIX do mesmo valor
-  // usariam o mesmo cartão).
-  if (cartaoUsado) {
-    const { data: doCartao } = await supabase.from('pix_saidas').select('extraido_raw').eq('id', cartaoUsado.cartaoId).maybeSingle()
-    const extra = ((doCartao as { extraido_raw?: Record<string, unknown> } | null)?.extraido_raw ?? {}) as Record<string, unknown>
-    await supabase.from('pix_saidas').update({ extraido_raw: { ...extra, cartao_usado_por: messageId } }).eq('id', cartaoUsado.cartaoId)
+  if (!temOrdem && comprovantes.length > 1) {
+    await tgSend(tk, chatId, `⚠️ Este print tem ${comprovantes.length} comprovantes e só o primeiro pôde ser registrado: falta colar no SQL Editor a migration 2026-11-27-pix-saidas-varios-comprovantes.sql.`, messageId)
   }
 
-  await tgSend(
-    tk, chatId, resposta, messageId,
-    candidatosParaBotao ? botoesDaEscolha(resultado.tipo === 'escolher' ? resultado.candidatos : []) : undefined,
-  )
-  return NextResponse.json({ ok: true, status, tipo: resultado.tipo })
+  return NextResponse.json({ ok: true, comprovantes: respondidos })
 }
