@@ -418,6 +418,19 @@ bater com o total, senão a venda inteira é recusada.
   cruzada completa.
 - Resposta: recomendação · consenso · divergências · riscos · próximo passo.
 
+## 11.1 Antes de reportar pendência: ler o PLACAR
+
+- **O PLACAR é a única fonte de "o que já foi resolvido"**: `docs/registros/<ano-mês>/PLACAR.md`.
+  Ler ANTES de qualquer análise, status ou lista de pendências.
+- **Item `fechado` não volta como pendência.** Se os dados mostrarem o problema de novo, é
+  **RECAÍDA** — reportar com a data do fato, nunca como "furo novo".
+- **Medir estado por JANELA (48h ou desde o último fechamento), não por mês.** "No mês houve X"
+  costuma ser histórico já consertado e vira falso-positivo.
+- **Achado que não está no PLACAR como aberto: não anunciar como furo.** Perguntar ao dono (ou
+  procurar o registro) antes — foi assim que "954 devoluções por teste" voltou à mesa já decidido.
+- Rodar `node scripts/conferir-placar.mjs <AAAA-MM>` (e `--autoteste` quando mexer no script):
+  ele imprime só ABERTO e RECAÍDA.
+
 ## 12. Onde mora cada informação
 
 | Preciso de… | Onde está |
