@@ -1,0 +1,32 @@
+{
+  "produto": {
+    "id": "307b8b36-8298-4486-804c-22af2e103fee",
+    "nome": "FLEX VOLUME/POWER SAMSUNG A06 4G",
+    "preco": 30,
+    "preco_custo": 15,
+    "preco_minimo": 15
+  },
+  "itens_tabela": [
+    {
+      "id": "0aa2e5b0-ef30-4fbe-91fc-08a4e8303c9e",
+      "tabela_id": "2e58e047-8cfe-47a6-b172-b26a29bf7f2b",
+      "preco": 15
+    },
+    {
+      "id": "ffd52c57-c3fd-5453-860d-4155367cbcfd",
+      "tabela_id": "74f5fea6-cbc9-4f12-8702-27c54eb9ff88",
+      "preco": 0
+    },
+    {
+      "id": "8ad6399b-1dc6-5a46-81bd-f1374eb78001",
+      "tabela_id": "8e5f84a6-a0df-4a95-89a5-afe5225240b2",
+      "preco": 0
+    },
+    {
+      "id": "401b77f9-0e0b-555a-8f84-596ea84f1c05",
+      "tabela_id": "0bcab965-3d78-5097-8be9-80babb1ef557",
+      "preco": 30
+    }
+  ],
+  "novo_preco": 25
+}
