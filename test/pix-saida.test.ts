@@ -387,12 +387,22 @@ test('imagem do CARTÃO não vira PIX: valor do reembolso não é dinheiro que s
   const l = normalizarLeituras(JSON.stringify({
     eh_comprovante: false,
     comprovantes: [],
-    cartao: { cliente_sistema: 'LARISSA PLAY TEC', valor: 77.0, destinatario: 'LARISSA DA ROCHA CARVALHO', motivo: 'CLIENTE DESISTIU' },
+    cartoes: [
+      { cliente_sistema: 'LARISSA PLAY TEC', valor: 77.0, destinatario: 'LARISSA DA ROCHA CARVALHO', motivo: 'CLIENTE DESISTIU' },
+      { cliente_sistema: 'CAUE GUILHERME', valor: 15.0, destinatario: 'CAUE GUILHERME DA SILVA FELICIO', motivo: 'SEM PECA' },
+    ],
   }))
   assert.equal(l.comprovantes.length, 0)
-  assert.equal(l.cartao?.clienteSistema, 'LARISSA PLAY TEC')
-  assert.equal(l.cartao?.nomeConta, 'LARISSA DA ROCHA CARVALHO')
-  assert.equal(l.cartao?.valor, 77)
+  assert.equal(l.cartoes.length, 2)
+  assert.equal(l.cartoes[0].clienteSistema, 'LARISSA PLAY TEC')
+  assert.equal(l.cartoes[0].nomeConta, 'LARISSA DA ROCHA CARVALHO')
+  assert.equal(l.cartoes[1].valor, 15)
+})
+
+test('cartão no formato antigo (objeto único) continua valendo', () => {
+  const l = normalizarLeituras(JSON.stringify({ cartao: { cliente_sistema: 'X', valor: 10 } }))
+  assert.equal(l.cartoes.length, 1)
+  assert.equal(l.cartoes[0].valor, 10)
 })
 
 test('segunda passada só com a data ainda serve (sem data não há janela)', () => {

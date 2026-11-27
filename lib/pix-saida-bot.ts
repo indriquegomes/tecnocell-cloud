@@ -113,14 +113,14 @@ Para CADA comprovante, extraia só o que está ESCRITO:
 - "transacao_id": ID da transação / E2E, copie EXATO (começa com E e tem 8 dígitos do banco).
 Comprovante cortado (topo ou rodapé faltando) continua valendo: traga o que aparecer e deixe null no resto.
 
-Se a imagem for o CARTÃO DE DEVOLUÇÃO (rótulos "NOME DO CLIENTE EM SISTEMA", "VALOR DO REEMBOLSO", "NOME DA CONTA BANCARIA", "MOTIVO DO REEMBOLSO"), devolva "cartao" com:
+Se a imagem for o CARTÃO DE DEVOLUÇÃO (rótulos "NOME DO CLIENTE EM SISTEMA", "VALOR DO REEMBOLSO", "NOME DA CONTA BANCARIA", "MOTIVO DO REEMBOLSO"), devolva em "cartoes" (um item por cartão; imagem com dois cartões = dois itens), cada um com:
 - "cliente_sistema" = o nome do cliente no sistema (NUNCA o nome da conta bancária)
 - "valor" = valor do reembolso (NÃO é um PIX — não crie item em "comprovantes")
 - "destinatario" = nome da conta bancária que recebeu
 - "motivo" = motivo escrito
 
 Responda APENAS JSON:
-{"eh_comprovante": <true se houver comprovante de PIX na imagem>, "comprovantes": [{"valor": <número|null>, "data": "<AAAA-MM-DD>|null", "pagador": "<quem enviou>|null", "pagador_doc": "<só dígitos>|null", "destinatario": "<quem recebeu>|null", "destinatario_doc": "<só dígitos>|null", "transacao_id": "<id>|null"}], "cartao": <null ou {"cliente_sistema": "<nome no sistema>|null", "valor": <número|null>, "destinatario": "<conta que recebeu>|null", "motivo": "<motivo>|null"}>}`
+{"eh_comprovante": <true se houver comprovante de PIX na imagem>, "comprovantes": [{"valor": <número|null>, "data": "<AAAA-MM-DD>|null", "pagador": "<quem enviou>|null", "pagador_doc": "<só dígitos>|null", "destinatario": "<quem recebeu>|null", "destinatario_doc": "<só dígitos>|null", "transacao_id": "<id>|null"}], "cartoes": [{"cliente_sistema": "<nome no sistema>|null", "valor": <número|null>, "destinatario": "<conta que recebeu>|null", "motivo": "<motivo>|null"}]}`
 
 function texto(v: unknown): string | null {
   const s = String(v ?? '').trim()
@@ -193,7 +193,7 @@ export function normalizarLeitura(raw: unknown): LeituraComprovante {
 export function normalizarLeituras(raw: unknown): {
   ehComprovante: boolean
   comprovantes: LeituraComprovante[]
-  cartao: CartaoDevolucao | null
+  cartoes: CartaoDevolucao[]
 } {
   let j: Record<string, unknown> = {}
   if (typeof raw === 'string') {
@@ -214,22 +214,25 @@ export function normalizarLeituras(raw: unknown): {
     // que a primeira não leu (e sem data não há janela para casar).
     .filter((l) => l.valor != null || l.destinatario != null || l.transacaoId != null || l.dia != null)
 
-  const c = (j.cartao ?? null) as Record<string, unknown> | null
-  const cartao: CartaoDevolucao | null = c && (c.valor != null || c.cliente_sistema != null)
-    ? {
-        clienteSistema: texto(c.cliente_sistema),
-        valor: parseValor(c.valor),
-        chavePix: texto(c.chave_pix),
-        motivo: texto(c.motivo),
-        nomeConta: texto(c.destinatario),
-        temRotulo: true,
-      }
-    : null
+  // Cartões: o formato novo manda uma lista ("cartoes"); o antigo, um objeto só.
+  const listaCartoes = Array.isArray(j.cartoes)
+    ? (j.cartoes as Record<string, unknown>[])
+    : (j.cartao ? [j.cartao as Record<string, unknown>] : [])
+  const cartoes: CartaoDevolucao[] = listaCartoes
+    .filter((c) => c && (c.valor != null || c.cliente_sistema != null))
+    .map((c) => ({
+      clienteSistema: texto(c.cliente_sistema),
+      valor: parseValor(c.valor),
+      chavePix: texto(c.chave_pix),
+      motivo: texto(c.motivo),
+      nomeConta: texto(c.destinatario),
+      temRotulo: true,
+    }))
 
   return {
     ehComprovante: j.eh_comprovante !== false && comprovantes.length > 0,
     comprovantes,
-    cartao,
+    cartoes,
   }
 }
 

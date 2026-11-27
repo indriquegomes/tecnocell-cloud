@@ -235,7 +235,7 @@ async function lerComprovante(
     lidas: {
       ehComprovante: primeira.ehComprovante || segunda.ehComprovante,
       comprovantes,
-      cartao: primeira.cartao ?? segunda.cartao,
+      cartoes: primeira.cartoes.length ? primeira.cartoes : segunda.cartoes,
     },
     bruto: `${bruto} | FOCO: ${bruto2}`,
   }
@@ -554,44 +554,47 @@ export async function POST(req: Request) {
   // recebeu, não casa. Antes a imagem do cartão era lida como comprovante e virava
   // um PIX inventado (valor do reembolso, data de hoje).
   let cartaoDaMensagem: CartaoDevolucao | null = null
-  if (lidas.cartao?.valor) {
+  if (lidas.cartoes.length) {
     if (temOrdem) {
       const { data: jaCartao } = await supabase.from('pix_saidas')
         .select('id').eq('telegram_chat_id', chatId).eq('telegram_message_id', messageId)
         .eq('formato', 'cartao').maybeSingle()
       if (!jaCartao) {
-        await supabase.from('pix_saidas').insert({
+        // ordem 0 = primeiro cartão da mensagem; -1, -2… os seguintes (a foto pode
+        // trazer dois cartões empilhados). 1..n são os comprovantes.
+        await supabase.from('pix_saidas').insert(lidas.cartoes.map((cartao, i) => ({
           telegram_chat_id: chatId,
           telegram_message_id: messageId,
-          // ordem 0 = o cartão da mensagem; 1..n são os comprovantes dela.
-          ordem: 0,
+          ordem: -i,
           telegram_user_id: msg.from?.id ?? null,
           telegram_user_nome: nomeDoRemetente(msg),
           formato: 'cartao',
           arquivo_file_id: arquivo.fileId,
-          valor: lidas.cartao.valor,
+          valor: cartao.valor,
           dia: hojeSP(),
-          destinatario: lidas.cartao.nomeConta,
+          destinatario: cartao.nomeConta,
           status: 'recebido',
-          extraido_raw: { cartao: lidas.cartao },
-        })
+          extraido_raw: { cartao },
+        })))
       }
     } else {
       // Sem a coluna `ordem`, a linha do cartão e a do print dividem a mesma
       // chave (chat, mensagem) e uma derrubaria a outra: o cartão vale só para
       // esta mensagem, em memória.
-      cartaoDaMensagem = lidas.cartao
+      cartaoDaMensagem = lidas.cartoes[0]
     }
   }
 
   const comprovantes = lidas.comprovantes
   if (!comprovantes.length) {
-    if (lidas.cartao?.valor) {
+    const cartao = lidas.cartoes[0]
+    if (cartao?.valor) {
       const { data: jaAvisou } = await supabase.from('pix_saidas')
         .select('id').eq('telegram_chat_id', chatId).eq('telegram_message_id', messageId)
         .eq('formato', 'cartao').eq('status', 'anotado').maybeSingle()
       if (!jaAvisou) {
-        await tgSend(tk, chatId, `🧾 Cartão anotado: ${formatBRL(Number(lidas.cartao.valor))} para ${lidas.cartao.nomeConta ?? 'a conta do cliente'} (cliente no sistema: ${lidas.cartao.clienteSistema ?? 'não informado'}). Mande o print do PIX que eu caso com a conta do Financeiro.`, messageId)
+        const outros = lidas.cartoes.length > 1 ? ` (e mais ${lidas.cartoes.length - 1} cartão(ões) nesta imagem)` : ''
+        await tgSend(tk, chatId, `🧾 Cartão anotado: ${formatBRL(Number(cartao.valor))} para ${cartao.nomeConta ?? 'a conta do cliente'} (cliente no sistema: ${cartao.clienteSistema ?? 'não informado'})${outros}. Mande o print do PIX que eu caso com a conta do Financeiro.`, messageId)
         await supabase.from('pix_saidas').update({ status: 'anotado' })
           .eq('telegram_chat_id', chatId).eq('telegram_message_id', messageId).eq('formato', 'cartao')
       }
