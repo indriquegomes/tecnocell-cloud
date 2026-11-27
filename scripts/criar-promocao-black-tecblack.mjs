@@ -12,8 +12,9 @@ const get = (k) => { const m = txt.match(new RegExp('^' + k + '=(.*)$', 'm')); r
 const sb = createClient(get('NEXT_PUBLIC_SUPABASE_URL'), get('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } })
 
 const INICIO = '2026-11-27'
-const FIM = '2026-11-27'
+const FIM = '2026-11-30'
 const brl = (v) => 'R$ ' + Number(v).toFixed(2).replace('.', ',')
+const DESCRICAO = 'Campanha Black Friday TEC BLACK — preços de queima de estoque. De 27/11 a 30/11/2026.'
 
 const FIXOS = [
   ['12460', 18.00],
@@ -28,7 +29,9 @@ const LOTES = [
   { codigo: '12439', unidade: 2.30, lote: 23.00, nome: 'BLACK TECBLACK - CABO 12439 10 UNIDADES' },
   { codigo: '12552', unidade: 5.50, lote: 55.00, nome: 'BLACK TECBLACK - CABO 12552 10 UNIDADES' },
 ]
-const NOME_FIXOS = 'BLACK TECBLACK - PRECOS 27/11'
+const NOME_FIXOS = 'BLACK TECBLACK - PRECOS'
+// nomes usados antes da prorrogação para o dia 30 — ficam órfãos se não forem limpos
+const NOMES_ANTIGOS = ['BLACK TECBLACK - PRECOS 27/11']
 
 const codigos = [...FIXOS.map(([c]) => c), ...LOTES.map((l) => l.codigo)]
 const { data: prods, error: eProd } = await sb.from('produtos').select('id, codigo, nome, preco').in('codigo', codigos)
@@ -44,6 +47,7 @@ async function limpar(nome) {
     await sb.from('promocoes').delete().eq('id', p.id)
   }
 }
+for (const antigo of NOMES_ANTIGOS) await limpar(antigo)
 
 // ---------- 1) preço fixo (valor direto) ----------
 await limpar(NOME_FIXOS)
@@ -54,7 +58,7 @@ const { data: promoFixa, error: eFixa } = await sb.from('promocoes').insert({
   data_inicio: INICIO,
   data_fim: FIM,
   ativa: true,
-  descricao: 'Campanha Black Friday TEC BLACK — preços de queima de estoque. Só no dia 27/11/2026.',
+  descricao: DESCRICAO,
 }).select('id').single()
 if (eFixa) { console.error('ERRO promo fixa:', eFixa.message); process.exit(1) }
 

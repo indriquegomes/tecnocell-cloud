@@ -17,7 +17,7 @@ const get = (k) => { const m = txt.match(new RegExp('^' + k + '=(.*)$', 'm')); r
 const sb = createClient(get('NEXT_PUBLIC_SUPABASE_URL'), get('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } })
 
 const INICIO = '2026-11-27'
-const FIM = '2026-11-27'
+const FIM = '2026-11-30'
 const MINIMO_ANEL = 500
 const CODIGO_ANEL = '12233'
 
