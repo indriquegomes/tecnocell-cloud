@@ -8,7 +8,7 @@ import { logAtividade } from '@/lib/log-atividade'
 import { hojeSP } from '@/lib/utils'
 import { sincronizarEstoqueML } from '@/lib/mercado-livre'
 import { aplicaBusca } from '@/lib/busca-produtos'
-import { ehCategoriaPelicula, ehCategoriaTela, palavrasModelo, peliculaServeParaTela, pontuacaoModelo } from '@/lib/brinde'
+import { ehCategoriaPelicula, ehTela, palavrasModelo, peliculaServeParaTela, pontuacaoModelo } from '@/lib/brinde'
 import type { BrindeOpcao, BrindesDoCarrinho } from '@/lib/brinde'
 import { formaFoiEscolhida } from '@/lib/formas-pagamento'
 import { carregarPedidoAppPDV, finalizarPedidoAppPDV } from '../pedidos-app/actions'
@@ -489,7 +489,7 @@ async function classificarBrindes(itens: ItemCarrinho[], descontoVenda = 0): Pro
   // cortesia do master viraria uma fonte de película de graça). Conta UNIDADE, não
   // linha: dois aparelhos iguais na mesma linha dão direito a duas películas.
   const telas = itens.filter((i) => i.quantidade >= 1 && Number(i.preco_unitario) > TOLERANCIA
-    && ehCategoriaTela(porId.get(i.produto_id ?? '')?.categoria))
+    && ehTela(porId.get(i.produto_id ?? '')?.categoria, porId.get(i.produto_id ?? '')?.nome))
   const unidadesTela = telas.reduce((s, t) => s + Math.max(1, t.quantidade), 0)
 
   const brindes: { produto_id: string; nome: string }[] = []
@@ -559,14 +559,19 @@ export async function brindesDoCarrinho(
         .not('nome', 'ilike', '%TRASEIRA%')
       if (numeros.length > 0) q = q.or(numeros.map((n) => `nome.ilike.%${n}%`).join(','))
       const { data } = await q.limit(120)
-      const opcoes = ((data ?? []) as { id: string; nome: string; codigo: string | null; estoque: { deposito_id: string; quantidade: number }[] | null }[])
+      const todas = ((data ?? []) as { id: string; nome: string; codigo: string | null; estoque: { deposito_id: string; quantidade: number }[] | null }[])
         .filter((p) => peliculaServeParaTela(tela.nome, p.nome))
         .sort((a, b) => pontuacaoModelo(tela.nome, b.nome) - pontuacaoModelo(tela.nome, a.nome))
         .map((p) => ({ id: p.id, nome: p.nome, codigo: p.codigo, estoque: estoqueDe(p.estoque) }))
-        // sem estoque no depósito da venda não dá para conceder — não oferece
-        .filter((p) => p.estoque > 0)
-        .slice(0, 6)
-      if (opcoes.length > 0) resultado.peliculas.push({ tela_id: tela.id, tela_nome: tela.nome, opcoes })
+      // Sem estoque no depósito da venda não dá para conceder. Mas avisar é diferente
+      // de esconder: película existe e acabou → o vendedor precisa saber que NÃO tem
+      // brinde, senão ele tenta dar desconto na mão e cai na trava de custo.
+      const comEstoque = todas.filter((p) => p.estoque > 0).slice(0, 6)
+      if (comEstoque.length > 0) {
+        resultado.peliculas.push({ tela_id: tela.id, tela_nome: tela.nome, opcoes: comEstoque })
+      } else if (todas.length > 0) {
+        resultado.peliculas.push({ tela_id: tela.id, tela_nome: tela.nome, opcoes: [], semEstoque: true })
+      }
     }
   }
 

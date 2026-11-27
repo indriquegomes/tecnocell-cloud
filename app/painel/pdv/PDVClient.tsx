@@ -28,7 +28,7 @@ import type { PromoInfo } from './page'
 import { CampoDinheiro } from '@/components/CampoDinheiro'
 import { aplicarDescontoItem, criarControleUltimaTroca, distribuirRecebimento, tabelaDoCliente, type TipoDescontoItem } from '@/lib/pdv-calculos'
 import { MOTIVOS_DESCONTO, ehPerdaoDeDivida } from '@/lib/desconto-fiado'
-import { ehCategoriaTela, type BrindeOpcao, type BrindesDoCarrinho } from '@/lib/brinde'
+import { ehTela, type BrindeOpcao, type BrindesDoCarrinho } from '@/lib/brinde'
 
 // Preço unitário de uma faixa progressiva conforme a quantidade TOTAL do grupo.
 // Pega a maior faixa cujo mínimo já foi atingido. Nenhuma atingida = sem desconto.
@@ -1403,7 +1403,7 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
 
   // Opções de brinde do carrinho (tela → película do mesmo modelo) e o brinde único.
   // Só consulta quando há campanha viva e alguma tela (ou compra que alcança o mínimo).
-  const telasNoCarrinho = carrinho.filter((i) => !i.brinde && ehCategoriaTela(i.categoria))
+  const telasNoCarrinho = carrinho.filter((i) => !i.brinde && ehTela(i.categoria, i.nome))
   useEffect(() => {
     if (!brindeCampanha) { setBrindes(null); return }
     if (carrinho.length === 0) { setBrindes(null); return }
@@ -3048,6 +3048,16 @@ export function PDVClient({ produtos: produtosIniciais, formas, pessoas: pessoas
             <p className="text-[11px] font-bold uppercase tracking-wide text-amber-700">🎁 Brinde da campanha — sai de graça na venda</p>
 
             {brindes.peliculas.map((t) => {
+              if (t.semEstoque) {
+                return (
+                  <div key={t.tela_id} className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-semibold text-gray-700">🖥 {t.tela_nome}</span>
+                    <span className="text-xs font-medium text-red-600">
+                      sem película deste modelo no estoque desta loja — venda sem brinde
+                    </span>
+                  </div>
+                )
+              }
               const escolhido = brindeEscolha[t.tela_id] ?? t.opcoes[0]?.id ?? ''
               const op = t.opcoes.find((o) => o.id === escolhido) ?? t.opcoes[0]
               const jaTem = !!op && carrinho.some((i) => i.produto_id === op.id)

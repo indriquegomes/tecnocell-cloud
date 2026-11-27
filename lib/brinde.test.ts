@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   ehCategoriaPelicula,
   ehCategoriaTela,
+  ehTela,
   palavrasModelo,
   peliculaServeParaTela,
   pontuacaoModelo,
@@ -86,4 +87,14 @@ test('categoria decide quem é tela e quem é película', () => {
   assert.equal(ehCategoriaPelicula('PELICULA'), true)
   assert.equal(ehCategoriaPelicula('PELICULA|VIDEOGAME'), true)
   assert.equal(ehCategoriaPelicula('FRONTAL'), false)
+})
+
+test('tela também é reconhecida pelo nome quando a categoria falta', () => {
+  // peças do catálogo real (a de TOP 20 inclusive) — categoria vazia não pode esconder a tela
+  assert.equal(ehTela(null, 'FRONTAL IPHONE 7  BRANCA LCD AAA *PROMOÇÃO TOP20*'), true)
+  assert.equal(ehTela('', 'FRONTAL SAMSUNG A10S A107 LCD PREMIUM SEM ARO'), true)
+  assert.equal(ehTela('ACESSÓRIOS', 'FRONTAL MOTOROLA E13 XT2345'), true)
+  // película nunca vira tela
+  assert.equal(ehTela(null, 'PELICULA 3D SAMSUNG A15'), false)
+  assert.equal(ehTela(null, 'CABO USB INOVA TIPO C'), false)
 })

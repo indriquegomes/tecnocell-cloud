@@ -107,6 +107,18 @@ export function ehCategoriaTela(categoria?: string | null): boolean {
   return c.includes('FRONTAL') || c.includes('TELA') || c.includes('DISPLAY')
 }
 
+/**
+ * Esta linha do carrinho é uma TELA? Olha a categoria e, se ela não disser nada,
+ * o começo do nome — todo frontal do catálogo é cadastrado como "FRONTAL ..." e
+ * existem peças com categoria vazia/estranha. Sem a segunda checagem a tela some da
+ * conta e a película de brinde cai na trava de custo ("não pode ser vendido pelo
+ * preço de custo ou abaixo dele"), que é o que trava o balcão.
+ */
+export function ehTela(categoria?: string | null, nome?: string | null): boolean {
+  if (ehCategoriaTela(categoria)) return true
+  return /^(FRONTAL|TELA|DISPLAY|VIDRO)\b/.test(semAcento(nome ?? '').toUpperCase().trim())
+}
+
 export function ehCategoriaPelicula(categoria?: string | null): boolean {
   return semAcento(categoria ?? '').toUpperCase().includes('PELICULA')
 }
@@ -121,6 +133,12 @@ export interface BrindeOpcao {
 
 /** O que o carrinho pode ganhar hoje: película por tela e/ou o brinde único. */
 export interface BrindesDoCarrinho {
-  peliculas: { tela_id: string; tela_nome: string; opcoes: BrindeOpcao[] }[]
+  peliculas: {
+    tela_id: string
+    tela_nome: string
+    opcoes: BrindeOpcao[]
+    /** Existe película do modelo, mas nenhuma com estoque nesta loja. */
+    semEstoque?: boolean
+  }[]
   unico: { produto: BrindeOpcao; minimo: number; disponivel: boolean } | null
 }
