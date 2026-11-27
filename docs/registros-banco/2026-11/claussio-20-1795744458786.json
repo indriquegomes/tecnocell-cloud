@@ -1,0 +1,29 @@
+{
+  "renomeado": {
+    "id": "64d54793e4292ee2ddcfc4ad",
+    "antes": "GLAUSSIO DOMINGOS DE SOUZA",
+    "depois": "CLAUSSIO DOMINGOS DE SOUZA"
+  },
+  "conta": {
+    "id": "fbf602bb-e9ca-471b-b0b8-1ada73a33d22",
+    "descricao": "Acerto em PIX — CLAUSSIO DOMINGOS DE SOUZA (estorno do crédito de encomenda)",
+    "valor": 20,
+    "tipo": "pagar",
+    "status": "pago",
+    "data_competencia": "2026-11-26T22:03:00-03:00",
+    "data_vencimento": "2026-11-26T22:03:00-03:00",
+    "data_pagamento": "2026-11-26T22:03:00-03:00",
+    "valor_pago": 20,
+    "forma_pagamento": "PIX",
+    "conta_id": "24bff81f-9728-4e10-9b1b-9aad26a2952d",
+    "categoria": "Devolução ao cliente",
+    "pessoa_nome": "CLAUSSIO DOMINGOS DE SOUZA",
+    "pessoa_id": "64d54793e4292ee2ddcfc4ad",
+    "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+    "updated_at": "2026-11-27T01:54:18.282Z"
+  },
+  "prova": {
+    "id": "305b5e23-7ea6-4ce7-a5cf-6a2d6bce7c83",
+    "lancamento_id": "fbf602bb-e9ca-471b-b0b8-1ada73a33d22"
+  }
+}
