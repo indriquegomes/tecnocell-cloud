@@ -257,7 +257,7 @@ export function clienteDoLancamento(descricao: string | null, pessoaNome: string
 export function mensagemDoPix(
   pix: PixSaida,
   r: ConciliacaoPixSaida,
-  opcoes: { jaConciliado?: boolean; pagou?: boolean; pista?: string | null } = {},
+  opcoes: { jaConciliado?: boolean; pagou?: boolean } = {},
 ): string {
   const valor = formatBRL(Number(pix.valor ?? 0))
   const quem = pix.destinatario?.trim() || 'sem nome no comprovante'
@@ -278,10 +278,8 @@ export function mensagemDoPix(
     case 'ignorar':
       return `${cabeca}\n\n❓ Não deu para conciliar: ${r.motivo}. Confira o valor/data na tela do pagamento e lance na mão se precisar.`
 
-    case 'sem_par': {
-      const pista = opcoes.pista ? `\n\n${opcoes.pista}` : ''
-      return `${cabeca}\n\n⚠️ Saiu dinheiro e não achei a conta correspondente no Financeiro: ${r.motivo}.\nProvável devolução que ninguém registrou no app. Abra em **Devoluções** e lance o reembolso em PIX — ou avise o dono.${pista}`
-    }
+    case 'sem_par':
+      return `${cabeca}\n\n⚠️ Saiu dinheiro e não achei a conta correspondente no Financeiro: ${r.motivo}.\nProvável devolução que ninguém registrou no app. Abra em **Devoluções** e lance o reembolso em PIX — ou avise o dono.`
 
     case 'escolher': {
       const linhas = r.candidatos.slice(0, 5).map((c, i) => {

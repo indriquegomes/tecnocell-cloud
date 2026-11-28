@@ -269,63 +269,6 @@ type LinhaDb = {
 }
 
 /**
- * PISTA para o caso campeão de "não achei a conta": a devolução existe, mas foi
- * lançada como `cancelamento_fiado` — e nesse tipo o app NÃO abre conta a pagar,
- * porque entende que ninguém devolveu dinheiro (só parou de cobrar). Quando o
- * dinheiro sai por PIX, a conta nunca nasce e o PIX fica sem lastro.
- *
- * Acontece quando a peça que voltou é de uma venda e a devolução foi lançada em
- * OUTRA venda do mesmo cliente (duas compras iguais no mesmo dia é o convite).
- * Devolver só a lista, com venda e nome, deixa a correção a um passo.
- */
-async function pistaDeEstorno(supabase: ReturnType<typeof sb>, pix: PixSaida): Promise<string | null> {
-  const centro = diaDoCampo(pix.dia) ?? diaSP(new Date().toISOString())
-  const desloca = (dias: number) => {
-    const d = new Date(centro + 'T12:00:00')
-    d.setDate(d.getDate() + dias)
-    return diaISOLocal(d)
-  }
-  const { data: devs } = await supabase.from('devolucoes')
-    .select('id, valor_total, tipo_credito, pessoa_nome, venda_id, created_at')
-    .eq('tipo_credito', 'cancelamento_fiado')
-    .gte('valor_total', Number(pix.valor ?? 0) - TOLERANCIA)
-    .lte('valor_total', Number(pix.valor ?? 0) + TOLERANCIA)
-    .gte('created_at', desloca(-JANELA_DIAS) + 'T00:00:00')
-    .order('created_at', { ascending: false })
-    .limit(20)
-  const lista = (devs ?? []) as { valor_total: number; pessoa_nome: string | null; venda_id: string | null; created_at: string }[]
-  if (!lista.length) return null
-
-  // Nome do PIX quase nunca é igual ao nome da devolução ("Larissa da Rocha
-  // Carvalho" × "LARISSA PLAY TEC"), mas os dois dividem "LARISSA". Quem divide
-  // palavra vai na frente — e só três linhas aparecem, senão vira lista de tudo
-  // que custou o mesmo valor na semana.
-  const tokens = new Set(
-    normNome(`${pix.clienteSistema ?? ''} ${pix.destinatario ?? ''}`).split(' ').filter((t) => t.length >= 4),
-  )
-  const pontos = (nome: string | null) =>
-    normNome(nome).split(' ').filter((t) => t.length >= 4 && tokens.has(t)).length
-  const ordenada = [...lista].sort((a, b) => pontos(b.pessoa_nome) - pontos(a.pessoa_nome))
-  const escolhidas = ordenada.slice(0, 3)
-
-  // O número da venda é o que a pessoa precisa para abrir a tela certa.
-  const numeros = new Map<string, string>()
-  for (const d of escolhidas) {
-    if (!d.venda_id || numeros.has(d.venda_id)) continue
-    const { data: v } = await supabase.from('vendas').select('numero').eq('id', d.venda_id).maybeSingle()
-    const numero = (v as { numero?: number } | null)?.numero
-    if (numero != null) numeros.set(d.venda_id, `#${numero}`)
-  }
-
-  const linhas = escolhidas.map((d) => {
-    const quando = (diaDoCampo(d.created_at) ?? '').split('-').reverse().join('/')
-    return `   • ${quando} · ${d.pessoa_nome ?? 'sem nome'} · ${formatBRL(Number(d.valor_total))} · venda ${numeros.get(d.venda_id ?? '') ?? '?'}`
-  })
-  const resto = lista.length > escolhidas.length ? `\n   (+${lista.length - escolhidas.length} devolução(ões) desse valor na semana)` : ''
-  return `💡 Achei devolução deste valor lançada como "cancelou fiado" — nesse tipo o app NÃO abre conta a pagar (entende que ninguém devolveu dinheiro):\n${linhas.join('\n')}${resto}\nSe a peça voltou e o dinheiro saiu, a devolução foi feita na venda errada ou faltou marcar o reembolso em PIX. Abra a venda certa em Devoluções e lance com reembolso "PIX da loja".`
-}
-
-/**
  * Candidatos do Financeiro para um PIX de saída.
  *
  * Escopo desta versão: devolução/estorno de cliente (PIX a fornecedor tem outra
@@ -785,10 +728,7 @@ export async function POST(req: Request) {
       pagou = baixa.ok
       if (!baixa.ok && !baixa.jaEstavaPago) console.error('pix-saida: baixa recusada —', baixa.erro)
     }
-    const resposta = mensagemDoPix(pix, resultado, {
-      pagou,
-      pista: resultado.tipo === 'sem_par' ? await pistaDeEstorno(supabase, pix) : null,
-    })
+    const resposta = mensagemDoPix(pix, resultado, { pagou })
 
     const status = resultado.tipo === 'baixar' ? 'casado' : resultado.tipo === 'escolher' ? 'ambiguo' : resultado.tipo === 'sem_par' ? 'sem_par' : 'ignorado'
 
