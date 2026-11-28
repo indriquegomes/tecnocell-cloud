@@ -355,3 +355,16 @@ test('imagem sem comprovante nenhum não inventa PIX', () => {
   assert.equal(l.comprovantes.length, 0)
   assert.equal(l.ehComprovante, false)
 })
+test('PIX sem conta: a pista nomeia a devolução lançada como "cancelou fiado"', () => {
+  const pista = '💡 Achei devolução deste valor lançada como "cancelou fiado":\n   • 27/11/2026 · LARISSA PLAY TEC · R$ 77,00 · venda #15889'
+  const msg = mensagemDoPix(pix(), conciliarPixSaida(pix(), []), { pista })
+  assert.match(msg, /não achei a conta correspondente/)
+  assert.match(msg, /cancelou fiado/)
+  assert.match(msg, /#15889/)
+})
+
+test('PIX sem conta e sem pista não inventa explicação', () => {
+  const msg = mensagemDoPix(pix(), conciliarPixSaida(pix(), []), { pista: null })
+  assert.doesNotMatch(msg, /cancelou fiado/)
+  assert.match(msg, /não achei a conta correspondente/)
+})
