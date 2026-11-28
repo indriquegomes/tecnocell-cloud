@@ -309,7 +309,7 @@ export function mensagemDoPix(
         : opcoes.pagou
           ? '\n💸 Marquei esta conta como PAGA no app: forma PIX, no banco do PagBank, com a data do PIX.'
           : '\nA conta continua EM ABERTO no app — marque Pago na tela quando o dinheiro sair.'
-      return `${cabeca}\n\n✅ Casa com: ${quemLinha} · ${formatBRL(Number(c.valor ?? 0))} · ${diaBR(diaDoCampo(c.diaPagamento) ?? diaDoCampo(c.diaVencimento))} (${situacao}).\nMotivo: ${r.motivo}.\n🔗 Comprovante ligado a esta conta como prova.${avisoForma}${desfecho}`
+      return `${cabeca}\n\n✅ ESTORNO CONFIRMADO — ${quemLinha} · ${formatBRL(Number(c.valor ?? 0))} · ${diaBR(diaDoCampo(c.diaPagamento) ?? diaDoCampo(c.diaVencimento))} (${situacao}).\nMotivo: ${r.motivo}.\n🔗 Comprovante ligado a esta conta como prova.${avisoForma}${desfecho}`
     }
 
     default:

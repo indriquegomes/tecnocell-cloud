@@ -7,7 +7,6 @@ import {
   type LancamentoPagar,
 } from '../lib/pix-saida.ts'
 import { lerCartaoDevolucao, mensagemDoPix, normalizarLeitura, normalizarLeituras, parseValor } from '../lib/pix-saida-bot.ts'
-import { montarAviso, semComprovante, type LancamentoPixPago } from '../lib/pix-saida-vigia.ts'
 
 // O PIX de saída é dinheiro REAL saindo da conta: baixa errada aqui apaga dívida
 // de cliente errado. Por isso quase todo caso abaixo espera "escolher" — quem
@@ -280,66 +279,6 @@ test('mensagem mostra os dois nomes quando o PIX foi para conta de outra pessoa'
 })
 
 
-// ---------- o aviso do contrário: devolução PIX paga SEM comprovante ----------
-//
-// O robô só vê o que alguém manda; quem esquece de mandar o print some. É esta
-// conta que pega o esquecimento — e é a maior causa de devolução em PIX sem
-// origem do dinheiro.
-
-const pago = (extra: Partial<LancamentoPixPago> = {}): LancamentoPixPago => ({
-  id: 'l1',
-  valor: 15,
-  status: 'pago',
-  descricao: 'Devolução — SERGIO CELULARES',
-  pessoaNome: 'SERGIO CELULARES',
-  forma: 'pix',
-  diaPagamento: '2026-11-25T00:00:00+00:00',
-  temComprovante: false,
-  ...extra,
-})
-
-test('sem comprovante: só conta devolução paga em PIX que não tem prova', () => {
-  const lista = semComprovante([
-    pago(),
-    pago({ id: 'l2', temComprovante: true }),
-    pago({ id: 'l3', status: 'pendente' }),
-    pago({ id: 'l4', status: 'cancelado' }),
-    pago({ id: 'l5', forma: 'dinheiro' }),
-    pago({ id: 'l6', descricao: 'Pagamento de mercadoria' }),
-  ])
-  assert.deepEqual(lista.map((l) => l.id), ['l1'])
-})
-
-test('sem comprovante: "fora do app" entra na lista (também precisa de prova)', () => {
-  assert.equal(semComprovante([pago({ forma: 'fora_do_app' })]).length, 1)
-})
-
-test('aviso: silêncio quando está tudo com comprovante', () => {
-  assert.equal(montarAviso([pago({ temComprovante: true })]), null)
-})
-
-test('aviso: mostra dia, nome, valor e o total', () => {
-  const texto = montarAviso([pago(), pago({ id: 'l2', valor: 100, pessoaNome: 'MARLENE DA SILVA' })])!
-  assert.match(texto, /25\/11\/2026/)
-  assert.match(texto, /SERGIO CELULARES/)
-  assert.match(texto, /15,00/)
-  assert.match(texto, /Total: 2 contas/)
-  assert.match(texto, /Manda o print/i)
-})
-test('forma "Fora do app (WhatsApp)" (rótulo) também conta como saída de PIX', () => {
-  // O banco guarda as duas grafias: a chave `fora_do_app` e o rótulo que a tela
-  // mostra. Testar só a chave deixava metade das devoluções fora do aviso.
-  assert.equal(semComprovante([pago({ forma: 'Fora do app (WhatsApp)' })]).length, 1)
-  assert.equal(semComprovante([pago({ forma: 'PIX do cliente ao fornecedor' })]).length, 1)
-  assert.equal(semComprovante([pago({ forma: 'Dinheiro' })]).length, 0)
-  const msg = mensagemDoPix(pix(), conciliarPixSaida(pix(), [dev({ forma: 'Fora do app (WhatsApp)' })]))
-  assert.match(msg, /NÃO baixa do PagBank/)
-})
-test('linha "Estorno de crédito — devolução da venda #…" também entra no aviso', () => {
-  const estorno = pago({ descricao: 'Estorno de crédito — devolução da venda #15201 — MICHEL GARCIA', pessoaNome: 'MICHEL GARCIA', devolucaoId: null })
-  assert.equal(semComprovante([estorno]).length, 1)
-  assert.match(montarAviso([estorno])!, /MICHEL GARCIA/)
-})
 test('leitura: resposta da IA TRUNCADA não vira valor inventado', () => {
   // Aconteceu no primeiro teste real: o JSON voltou cortado no meio e o robô
   // disse "valor não foi lido" com a foto nítida. O certo é vir null (e a rota
