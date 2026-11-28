@@ -181,6 +181,8 @@ export function DevolucoesClient({
   const [vendas, setVendas] = useState<VendaResumo[]>([])
   const [carregandoBusca, setCarregandoBusca] = useState(false)
   const [venda, setVenda] = useState<VendaParaDevolucao | null>(null)
+  // Confirmação manual quando existe outra venda igual da mesma cliente (venda gêmea).
+  const [confirmouGemea, setConfirmouGemea] = useState(false)
   const [carregandoVenda, setCarregandoVenda] = useState(false)
   const [itens, setItens] = useState<Map<string, number>>(new Map())
   const [statusProduto, setStatusProduto] = useState<Map<string, string>>(new Map())
@@ -235,7 +237,7 @@ export function DevolucoesClient({
 
   const fechar = () => {
     setOpen(false); setStep('buscar'); setBuscaVenda(''); setVendas([])
-    setVenda(null); setItens(new Map()); setStatusProduto(new Map()); setSeriesSel(new Map())
+    setVenda(null); setItens(new Map()); setStatusProduto(new Map()); setSeriesSel(new Map()); setConfirmouGemea(false)
     setMotivo(''); setMotivoTipo(''); setTipoCredito('dinheiro'); setErro(''); setVaiFornecedor(false)
     setModoMistoReemb(false); setLinhasReemb([]); setPodeSenha(false); setSenha('')
   }
@@ -431,6 +433,7 @@ export function DevolucoesClient({
         reembolsos: usaMisto ? linhasEnvio : undefined,
         itens: itensDev, lancamento_pendente: venda.lancamento_pendente,
         vai_para_fornecedor: vaiFornecedor,
+        confirmou_gemea: confirmouGemea,
         // senha do dono: só manda se a tela está no modo "liberar com senha"
         senhaLiberacao: podeSenha ? senha : undefined,
       })
@@ -846,6 +849,35 @@ export function DevolucoesClient({
                       </p>
                     )}
                   </div>
+
+                  {/* Venda GÊMEA: mesma cliente, mesmo valor, dias próximos. Duas compras
+                      iguais no mesmo dia é como a devolução acabou lançada na venda errada
+                      (27/11/2026): a dívida da outra foi cancelada e o PIX saiu sem conta.
+                      O app não sabe qual peça voltou — quem confirma é a pessoa, aqui. */}
+                  {venda.vendas_parecidas.length > 0 && (
+                    <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+                      <p className="text-sm font-semibold text-amber-800">
+                        ⚠️ Esta cliente tem outra venda de {fmt(venda.total)} nos últimos 3 dias
+                      </p>
+                      <ul className="mt-1 space-y-0.5 text-xs text-amber-800">
+                        {venda.vendas_parecidas.map((v) => (
+                          <li key={v.id}>• venda #{v.numero ?? '?'} · {fmtDt(v.created_at)}</li>
+                        ))}
+                      </ul>
+                      <label className="mt-2 flex cursor-pointer items-start gap-2 text-xs font-medium text-amber-900">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 h-4 w-4 rounded border-amber-300"
+                          checked={confirmouGemea}
+                          onChange={(e) => setConfirmouGemea(e.target.checked)}
+                        />
+                        <span>
+                          Confirmo que a peça voltou <u>desta</u> venda
+                          {venda.numero ? ` #${String(venda.numero).padStart(4, '0')}` : ''} — não da outra.
+                        </span>
+                      </label>
+                    </div>
+                  )}
 
                   {/* Tabela de mercadorias (estilo SIGE) */}
                   <div className="rounded-xl border border-gray-100 overflow-x-auto">
@@ -1294,8 +1326,8 @@ export function DevolucoesClient({
                 </button>
               )}
               {step === 'confirmar' && (
-                <button onClick={confirmar} disabled={salvando || !motivoTipo || (motivoTipo === 'outro' && !motivo.trim()) || (reembolso > 0.01 && !confirmouReembolso) || (podeSenha && !senha.trim())}
-                  title={!motivoTipo ? 'Escolha por que a peça voltou' : (podeSenha && !senha.trim()) ? 'Digite a senha do dono' : undefined}
+                <button onClick={confirmar} disabled={salvando || !motivoTipo || (motivoTipo === 'outro' && !motivo.trim()) || (reembolso > 0.01 && !confirmouReembolso) || (podeSenha && !senha.trim()) || (!!venda && venda.vendas_parecidas.length > 0 && !confirmouGemea)}
+                  title={!motivoTipo ? 'Escolha por que a peça voltou' : (podeSenha && !senha.trim()) ? 'Digite a senha do dono' : (venda && venda.vendas_parecidas.length > 0 && !confirmouGemea) ? 'Confirme que a peça voltou desta venda' : undefined}
                   className="flex-1 rounded-xl bg-green-600 py-2.5 text-sm font-bold text-white hover:bg-green-700 transition disabled:opacity-50">
                   {salvando
                     ? <span className="inline-flex items-center gap-1.5"><Spinner className="h-3.5 w-3.5" />Registrando...</span>

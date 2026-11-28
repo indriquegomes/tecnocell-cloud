@@ -5,6 +5,7 @@ import { logAtividade } from '@/lib/log-atividade'
 import { verificarSenhaLiberacao } from '@/lib/senha-liberacao'
 import { sincronizarEstoqueML } from '@/lib/mercado-livre'
 import { palavrasBusca } from '@/lib/busca-produtos'
+import { formatBRL } from '@/lib/utils'
 
 export interface ItemVendaParaDevolucao {
   produto_id: string
@@ -39,6 +40,13 @@ export interface VendaParaDevolucao {
    */
   pagamentos: { tipo: string; nome: string; valor: number }[]
   itens: ItemVendaParaDevolucao[]
+  /**
+   * Outras vendas da MESMA pessoa, mesmo valor, em até 3 dias — a tela avisa e
+   * obriga a confirmar qual venda é. Existe porque duas compras iguais do mesmo
+   * cliente no mesmo dia são o convite para lançar a devolução na venda errada: a
+   * certa fica sem prova e a outra cancela uma dívida que ninguém devia.
+   */
+  vendas_parecidas: { id: string; numero: number | null; total: number; created_at: string }[]
 }
 
 export interface DevolucaoResumo {
@@ -157,6 +165,11 @@ export async function buscarVendaParaDevolucao(
       : Promise.resolve({ data: null }),
   ])
 
+  const vendasParecidas = await vendasParecidasDe({
+    supabase, vendaId, pessoaId: (vRaw.pessoa_id ?? null) as string | null,
+    total: Number(vRaw.total ?? 0), dia: String(vRaw.created_at ?? '').slice(0, 10),
+  })
+
   return {
     id: vRaw.id,
     numero: vRaw.numero ?? null,
@@ -191,7 +204,44 @@ export async function buscarVendaParaDevolucao(
         series: seriesPorProduto[i.produto_id] ?? [],
       }
     }).filter((i) => i.quantidade > 0),
+    vendas_parecidas: vendasParecidas,
   }
+}
+
+/**
+ * Vendas do MESMO cliente com o MESMO valor em até 3 dias — as "gêmeas".
+ *
+ * É a defesa contra o erro de escolher a venda errada na hora de devolver: com
+ * duas compras idênticas no mesmo dia, devolver na venda que tem dívida aberta
+ * cancela a dívida e deixa o dinheiro que saiu por PIX sem conta nenhuma no
+ * Financeiro. Quem confirma a venda é a pessoa — o app só não deixa passar calado.
+ */
+const DIAS_GEMEA = 3
+async function vendasParecidasDe(opcoes: {
+  supabase: Awaited<ReturnType<typeof createServiceClient>>
+  vendaId: string
+  pessoaId: string | null
+  total: number
+  dia: string
+}): Promise<{ id: string; numero: number | null; total: number; created_at: string }[]> {
+  const { supabase, vendaId, pessoaId, total, dia } = opcoes
+  if (!pessoaId || !(total > 0) || !dia) return []
+  const desloca = (dias: number) => {
+    const d = new Date(dia + 'T12:00:00')
+    d.setDate(d.getDate() + dias)
+    return d.toISOString().slice(0, 10)
+  }
+  const { data } = await supabase.from('vendas')
+    .select('id, numero, total, created_at')
+    .eq('pessoa_id', pessoaId)
+    .eq('status', 'concluida')
+    .neq('id', vendaId)
+    .gte('total', total - 0.01).lte('total', total + 0.01)
+    .gte('created_at', desloca(-DIAS_GEMEA) + 'T00:00:00')
+    .lte('created_at', desloca(DIAS_GEMEA) + 'T23:59:59')
+    .order('created_at', { ascending: false })
+    .limit(3)
+  return ((data ?? []) as { id: string; numero: number | null; total: number; created_at: string }[])
 }
 
 export async function buscarVendasRecentes(
@@ -357,6 +407,13 @@ export interface RegistrarDevolucaoInput {
    * estoque registrada — o dono só escolhe o fornecedor depois.
    */
   vai_para_fornecedor?: boolean
+  /**
+   * A pessoa confirmou que a peça voltou DESTA venda, mesmo existindo outra venda
+   * igual da mesma cliente nos últimos dias. Sem esta confirmação a devolução é
+   * recusada quando há gêmea — foi assim que uma devolução foi lançada na venda da
+   * troca e o PIX de R$ 77,00 ficou sem conta no Financeiro.
+   */
+  confirmou_gemea?: boolean
 }
 
 // Em produção o Next ESCONDE a mensagem de erro lançada por server action: o
@@ -402,9 +459,13 @@ async function registrarDevolucaoInterno(
   // 22/10) — por isso esta função não consulta mais o perfil para liberar exceção.
 
   // Dados da venda pra travar o reembolso na forma certa (não confia no cliente).
-  const [{ data: vendaOrig }, { data: pagOrig }] = await Promise.all([
-    supabase.from('vendas').select('created_at').eq('id', input.venda_id).maybeSingle(),
-    supabase.from('pagamentos_venda').select('forma_pagamento_id, formas_pagamento(tipo)').eq('venda_id', input.venda_id),
+  const [{ data: vendaOrig }, { data: pagOrig }, { data: recOrig }] = await Promise.all([
+    supabase.from('vendas').select('created_at, pessoa_id, total, numero').eq('id', input.venda_id).maybeSingle(),
+    supabase.from('pagamentos_venda').select('forma_pagamento_id, valor, status, formas_pagamento(tipo)').eq('venda_id', input.venda_id),
+    // Fiado quitado DEPOIS da venda não muda `pagamentos_venda` (o pagamento entra em
+    // caixa/lançamento). Sem olhar aqui, uma venda paga em dinheiro continuaria
+    // parecendo "não pagou" e a devolução sairia sem reembolso.
+    supabase.from('lancamentos').select('valor, valor_pago, status').eq('tipo', 'receber').eq('venda_id', input.venda_id),
   ])
   const vendaDia = ((vendaOrig as { created_at?: string } | null)?.created_at ?? '').slice(0, 10)
   const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
@@ -588,6 +649,69 @@ async function registrarDevolucaoInterno(
     if (erroCaixa) throw new Error('Não deu pra conferir o caixa: ' + erroCaixa.message)
     if (!caixa) {
       throw new Error('Não tem caixa aberto nesta loja. Devolução em dinheiro sai da gaveta, então precisa de caixa aberto pra ficar registrada. Abra o caixa e refaça, ou devolva como crédito/PIX/cartão.')
+    }
+  }
+
+  // REGRA 7: venda que entrou DINHEIRO não pode ser devolvida "sem reembolso".
+  //
+  // "Cancelou fiado" / "sem reembolso" só fazem sentido quando a cliente NÃO pagou
+  // (o app só deixa de cobrar). Se a venda tem pagamento de verdade lá dentro, essa
+  // marcação devolve R$ 0,00 — e o dinheiro que sair depois (PIX, gaveta) fica sem
+  // conta nenhuma no Financeiro. Foi o caso da Larissa em 27/11: os R$ 77,00
+  // entraram em dinheiro e saíram em PIX, e a devolução registrada dizia que nada
+  // tinha sido devolvido.
+  const pagouDeVerdade = ((pagOrig ?? []) as {
+    valor?: number | null; status?: string | null
+    formas_pagamento?: { tipo?: string } | { tipo?: string }[] | null
+  }[])
+    .filter((p) => p.status === 'pago')
+    .filter((p) => {
+      const tipo = Array.isArray(p.formas_pagamento) ? p.formas_pagamento[0]?.tipo : p.formas_pagamento?.tipo
+      return tipo !== 'fiado' && tipo !== 'vale_credito' && Number(p.valor ?? 0) > 0.005
+    })
+    .reduce((s, p) => s + Number(p.valor ?? 0), 0)
+  // Fiado que a cliente já pagou também é dinheiro que entrou: devolver "sem
+  // reembolso" deixaria o valor pago sem conta nenhuma do lado da saída.
+  const fiadoQuitado = ((recOrig ?? []) as { valor?: number | null; valor_pago?: number | null; status?: string | null }[])
+    .filter((l) => l.status === 'pago')
+    .reduce((s, l) => s + Number(l.valor_pago ?? l.valor ?? 0), 0)
+  const entrouDinheiro = pagouDeVerdade + fiadoQuitado
+  const semReembolso = input.reembolsos && input.reembolsos.length > 0
+    ? input.reembolsos.every((r) => Number(r.valor ?? 0) <= 0.005)
+    : (input.tipo_credito === 'cancelamento_fiado' || input.tipo_credito === 'sem_reembolso')
+  if (entrouDinheiro > 0.005 && semReembolso) {
+    await barrar(
+      'REGRA 7 (venda com dinheiro não devolve sem reembolso)',
+      `esta venda recebeu ${formatBRL(entrouDinheiro)} de verdade (${comoEntrou}, ou fiado já quitado). Devolver "sem reembolso" registraria R$ 0,00 devolvido e deixaria esse dinheiro sem conta no Financeiro.`,
+      `escolher a forma do reembolso (${comoEntrou}) e o valor que realmente volta para a cliente.`,
+    )
+  }
+
+  // REGRA 6: venda GÊMEA — mesma cliente, mesmo valor, até 3 dias.
+  //
+  // Com duas vendas idênticas no mesmo dia, a devolução lançada na venda errada
+  // cancela uma dívida que ninguém devia e deixa a venda que voltou sem registro —
+  // o dinheiro que sai por PIX depois não tem conta para casar. A trava não decide
+  // qual é a certa (o app não sabe qual peça voltou): obriga a pessoa a olhar.
+  {
+    const vendaInfo = vendaOrig as { pessoa_id?: string | null; total?: number; numero?: number } | null
+    const parecidas = await vendasParecidasDe({
+      supabase,
+      vendaId: input.venda_id,
+      pessoaId: (vendaInfo?.pessoa_id ?? input.pessoa_id) ?? null,
+      total: Number(vendaInfo?.total ?? 0),
+      dia: vendaDia,
+    })
+    if (parecidas.length && !input.confirmou_gemea) {
+      const { data: estaVenda } = await supabase.from('vendas').select('numero').eq('id', input.venda_id).maybeSingle()
+      const lista = parecidas
+        .map((v) => `• venda #${v.numero ?? '?'} · ${formatBRL(Number(v.total))} · ${String(v.created_at).slice(0, 10).split('-').reverse().join('/')}`)
+        .join('\n')
+      throw new Error(
+        `⚠️ Esta cliente tem outra venda igual (${formatBRL(Number(vendaInfo?.total ?? 0))}) nos últimos ${DIAS_GEMEA} dias:\n${lista}\n\n` +
+        `Estas peças voltaram MESMO da venda #${(estaVenda as { numero?: number } | null)?.numero ?? '?'}? ` +
+        'Marque a confirmação na tela e salve de novo. Lançar na venda errada cancela a dívida da outra e deixa o dinheiro que saiu sem conta no Financeiro.',
+      )
     }
   }
 
