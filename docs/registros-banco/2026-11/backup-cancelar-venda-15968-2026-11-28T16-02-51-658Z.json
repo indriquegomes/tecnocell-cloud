@@ -1,0 +1,115 @@
+{
+  "venda": {
+    "id": "5b1cdaa8-128d-425f-8ef1-edeb95db6bda",
+    "data": "2026-11-28T13:45:59.548238+00:00",
+    "total": 45,
+    "desconto": 0,
+    "forma_pagamento_id": "FP003",
+    "pessoa_id": "63d91da759a9c829747289de",
+    "status": "concluida",
+    "observacoes": null,
+    "created_at": "2026-11-28T13:45:59.548238+00:00",
+    "numero": 15968,
+    "vendedor_id": "4b6fe389-0c65-4af9-9dbd-b4f788e2b6c0",
+    "vendedor_nome": "Mariana Vila Real Castelli",
+    "deposito_id": "63d9054d59a9c829747233d4",
+    "caixa_id": "ee845883-f7f8-499e-a82d-dd82728725d7",
+    "motivo_cancelamento": null,
+    "ml_order_id": null,
+    "ml_conexao_id": null,
+    "tipo_entrega": "entrega",
+    "endereco_entrega": null,
+    "rota_entrega": "Centro",
+    "horario_entrega": null,
+    "entregue_em": null,
+    "entregue_por": null,
+    "uso_interno": false,
+    "origem": "app"
+  },
+  "pagamentos": [
+    {
+      "id": "efa0e0d7-2772-453d-9818-900534392efd",
+      "venda_id": "5b1cdaa8-128d-425f-8ef1-edeb95db6bda",
+      "forma_pagamento_id": "FP003",
+      "valor": 45,
+      "taxa": 0,
+      "maquina": null,
+      "parcelas": 1,
+      "status": "pago",
+      "created_at": "2026-11-28T13:45:59.548238+00:00"
+    }
+  ],
+  "itens": [
+    {
+      "id": "7e2e3f90-4390-4e5d-918b-64ee46863066",
+      "venda_id": "5b1cdaa8-128d-425f-8ef1-edeb95db6bda",
+      "produto_id": "65118f639a07ac10d2178178",
+      "quantidade": 1,
+      "preco_unitario": 45,
+      "desconto_item": 0,
+      "total_item": 45,
+      "nome": null,
+      "custo_unitario": 34.92,
+      "brinde": false
+    }
+  ],
+  "lancamentos": [
+    {
+      "id": "8763b6d8-a6ff-428c-a63b-7c0f972cad8f",
+      "codigo": null,
+      "descricao": "Venda #15968",
+      "valor": 45,
+      "data_competencia": "2026-11-28T00:00:00+00:00",
+      "data_vencimento": "2026-11-28T00:00:00+00:00",
+      "data_pagamento": "2026-11-28T00:00:00+00:00",
+      "tipo": "receber",
+      "status": "pago",
+      "forma_pagamento": null,
+      "pessoa_nome": null,
+      "created_at": "2026-11-28T13:45:59.548238+00:00",
+      "updated_at": "2026-11-28T13:45:59.548238+00:00",
+      "venda_id": "5b1cdaa8-128d-425f-8ef1-edeb95db6bda",
+      "valor_pago": 45,
+      "historico_pagamentos": [],
+      "conta_id": null,
+      "categoria": "Vendas",
+      "pessoa_id": null,
+      "loja_id": "e41aa9ea-820d-44d2-a04a-2e4efc8b0946",
+      "comprovante_url": null,
+      "devolucao_id": null,
+      "subcategoria": "Loja",
+      "criado_por": null
+    }
+  ],
+  "estoque_antes": [
+    {
+      "id": "97618ed3-e7bc-5c65-82b5-009872cb0c45",
+      "produto_id": "65118f639a07ac10d2178178",
+      "deposito_id": "63d9054d59a9c829747233d4",
+      "quantidade": 5,
+      "updated_at": "2026-11-28T16:00:09.187174+00:00"
+    },
+    {
+      "id": "0fd887fc-7a9a-4b6e-b34b-80dacd42d8d3",
+      "produto_id": "65118f639a07ac10d2178178",
+      "deposito_id": "63e4dc8ede713ef765366d69",
+      "quantidade": 6,
+      "updated_at": "2026-11-27T18:12:39.962926+00:00"
+    },
+    {
+      "id": "e54d8323-6738-40b1-b684-36694f071d43",
+      "produto_id": "65118f639a07ac10d2178178",
+      "deposito_id": "666083c9e63f9e10ac7f3092",
+      "quantidade": 14,
+      "updated_at": "2026-11-23T16:29:53.904932+00:00"
+    },
+    {
+      "id": "df1d6af9-8102-579b-859d-f9fc2cd95607",
+      "produto_id": "65118f639a07ac10d2178178",
+      "deposito_id": "d25c7649-0f96-4c80-a7d2-f7e9f5203506",
+      "quantidade": 3,
+      "updated_at": "2026-11-28T14:54:27.726272+00:00"
+    }
+  ],
+  "motivo": "Venda duplicada: cliente pagou uma vez só no PIX. A venda #15977 registra o pagamento real."
+}
